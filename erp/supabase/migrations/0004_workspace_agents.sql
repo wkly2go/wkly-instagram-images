@@ -5,6 +5,8 @@
 --   - 리서치 자료(research_items), 브랜드 연락처(brand_contacts), 메일 템플릿(email_templates)
 --   - 에이전트 토큰(agent_tokens) + 에이전트 전용 함수(agent_submit, agent_snapshot)
 --   - 지출 승인 → 결제 대장(payments) 자동 등록
+--   - 작성자(created_by) 보호: 채팅방·할 일·리서치를 다른 사람 명의로 만들거나 넘길 수 없음
+--     (0001 정책은 그대로 두고 이 파일의 트리거·RESTRICTIVE 정책으로 보강 → 0001 을 다시 실행해도 유지)
 -- 0001 ~ 0003 다음에 실행. 여러 번 실행해도 안전합니다.
 --
 -- Supabase 대시보드에서 할 일
@@ -672,8 +674,13 @@ create trigger chat_messages_notify_mentions
   after insert on public.chat_messages
   for each row execute function public.chat_messages_notify_mentions();
 
--- 5-9. research_items.created_by: 관리자가 아니면 바꿀 수 없음 (삭제 권한이 작성자 기준이므로)
-create or replace function public.research_items_guard()
+-- 5-9. 작성자(created_by) 보호 (research_items · chat_rooms · tasks 공용)
+--      로그인 사용자 요청에서 관리자가 아니면 created_by 를 바꿀 수 없음
+--      - research_items, chat_rooms: 삭제 권한이 작성자 기준 (남의 방·자료를 내 것으로 바꿔 지우는 것 방지)
+--      - tasks: 담당자 없는 할 일의 알람·아침 요약이 작성자에게 감 (남 명의로 바꿔 알림을 보내는 것 방지)
+--      계정 삭제로 on delete set null 이 적용될 때(원래 작성자 프로필이 이미 없음)는 허용
+--      다른 사람 명의로 새로 만드는 것은 8-7 의 RESTRICTIVE 정책이 막음
+create or replace function public.created_by_guard()
 returns trigger
 language plpgsql
 set search_path = ''
@@ -681,6 +688,8 @@ as $$
 begin
   if auth.uid() is not null
      and new.created_by is distinct from old.created_by
+     and not (new.created_by is null
+              and not exists (select 1 from public.profiles p where p.id = old.created_by))
      and not public.is_admin()
   then
     raise exception '작성자(created_by)는 관리자만 바꿀 수 있습니다.'
@@ -694,7 +703,20 @@ $$;
 drop trigger if exists research_items_guard on public.research_items;
 create trigger research_items_guard
   before update on public.research_items
-  for each row execute function public.research_items_guard();
+  for each row execute function public.created_by_guard();
+
+drop trigger if exists chat_rooms_guard on public.chat_rooms;
+create trigger chat_rooms_guard
+  before update on public.chat_rooms
+  for each row execute function public.created_by_guard();
+
+drop trigger if exists tasks_guard on public.tasks;
+create trigger tasks_guard
+  before update on public.tasks
+  for each row execute function public.created_by_guard();
+
+-- 이전 버전의 research_items 전용 함수는 created_by_guard 로 합침
+drop function if exists public.research_items_guard();
 
 -- 5-10. brand_contacts: 이메일은 소문자·공백 제거로 저장
 --       수신 거부(opt_out)하면 opt_out_at 기록, 수신 거부 해제는 관리자만 (해제 시 opt_out_at 비움)
@@ -1427,6 +1449,21 @@ create policy agent_tokens_update on public.agent_tokens
   using ((select public.is_admin()))
   with check ((select public.is_admin()));
 
+-- 8-7. 0001 테이블 보강: 채팅방·할 일을 다른 사람 명의(created_by)로 만들 수 없음 (관리자 제외)
+--      0001 의 등록 정책은 그대로 두고 RESTRICTIVE 정책을 더함 (두 정책을 모두 통과해야 함)
+--      → 0001 을 다시 실행해도 유지. 에이전트 함수(agent_submit)는 테이블 소유자로 실행되어 영향 없음
+drop policy if exists chat_rooms_insert_own on public.chat_rooms;
+create policy chat_rooms_insert_own on public.chat_rooms
+  as restrictive
+  for insert to authenticated
+  with check (created_by = (select auth.uid()) or (select public.is_admin()));
+
+drop policy if exists tasks_insert_own on public.tasks;
+create policy tasks_insert_own on public.tasks
+  as restrictive
+  for insert to authenticated
+  with check (created_by = (select auth.uid()) or (select public.is_admin()));
+
 
 -- ---------------------------------------------------------------------
 -- 9. 권한(GRANT)
@@ -1483,7 +1520,7 @@ revoke execute on function
   public.tasks_reset_reminded_at(),
   public.tasks_notify_assignee(),
   public.chat_messages_notify_mentions(),
-  public.research_items_guard(),
+  public.created_by_guard(),
   public.brand_contacts_guard(),
   public.agent_tokens_guard()
 from public, anon, authenticated;
