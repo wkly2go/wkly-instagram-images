@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { ArrowLeft, Mail, Notebook, Pencil, Phone, Plus, Search, Star, Trash2 } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
-import { shortDate, timeLabel } from '../lib/date'
+import { manwon, shortDate, timeLabel, todayKey } from '../lib/date'
+import { isOverdue, sameName, vendorSummary } from '../lib/finance'
 import { openGmail, telUrl } from '../lib/links'
 import { Link, useRouter, withQuery } from '../lib/router'
-import { CLIENT_CATEGORIES, type Client, type ClientCategory, type Contact, type Project, type WorkLog } from '../lib/types'
+import { CLIENT_CATEGORIES, type Client, type ClientCategory, type Contact, type Payment, type Project, type WorkLog } from '../lib/types'
 import { Shell } from '../components/Shell'
 import { Avatar, Badge, Button, Chip, Empty, Field, KindBadge, Modal, SectionHead, StatusBadge } from '../components/ui'
 
@@ -197,6 +198,7 @@ function ClientDetail({ client: c, onEdit, onBack }: { client: Client; onEdit: (
             ))}
             {data.projects.length === 0 && <span className="t-cap">연결된 프로젝트가 없습니다.</span>}
           </div>
+          {me.role === 'admin' && <ClientPayments client={c} />}
         </div>
         <div className="col grow" style={{ flexBasis: 240 }}>
           <SectionHead title="커뮤니케이션 이력" right="업무 일지 연동" />
@@ -218,6 +220,41 @@ function ClientDetail({ client: c, onEdit, onBack }: { client: Client; onEdit: (
       </div>
       {contactForm && <ContactForm clientId={c.id} contact={contactForm === 'new' ? null : contactForm} others={data.contacts} onClose={() => setContactForm(null)} />}
     </div>
+  )
+}
+
+/** 거래처 상세의 결제 현황 (관리자) */
+function ClientPayments({ client: c }: { client: Client }) {
+  const { api, version } = useApp()
+  const today = todayKey()
+  const { data: list } = useAsync(async () => (await api.listPayments()).filter(p => p.client_id === c.id || (!p.client_id && sameName(p.payee, c.name))), [c.id, version], [] as Payment[])
+  const v = vendorSummary(list, [c], today)[0]
+  return (
+    <>
+      <SectionHead title="결제 현황" right={<Link to={`/projects?view=payments&q=${encodeURIComponent(c.name)}`}>결제 대장 ›</Link>} />
+      {!v ? (
+        <span className="t-cap">결제 내역이 없습니다.</span>
+      ) : (
+        <>
+          <span className="t-cap">
+            받을 돈 <b className="t-blue">{manwon(v.receivable) || '0'}</b> · 받은 돈 {manwon(v.received) || '0'} · 줄 돈 <b className="t-blue">{manwon(v.payable) || '0'}</b> · 준 돈 {manwon(v.paid) || '0'} (공급가액)
+            {v.overdue > 0 && <span className="t-red"> · 연체 {v.overdue}건</span>}
+          </span>
+          {list
+            .slice()
+            .sort((a, b) => (b.due_date ?? b.paid_date ?? '').localeCompare(a.due_date ?? a.paid_date ?? ''))
+            .slice(0, 6)
+            .map(p => (
+              <Link key={p.id} to={`/projects?view=payments&pid=${p.id}`} className="row t-small dashed" style={{ padding: '4px 0', color: 'inherit' }}>
+                <Badge tone={p.direction === '수금' ? 'blue' : 'gray'}>{p.direction}</Badge>
+                <span className="truncate grow">{p.title}</span>
+                <span className="t-meta t-blue">{manwon(p.amount)}</span>
+                <Badge tone={isOverdue(p, today) ? 'red' : p.status === '완료' ? 'acid' : 'outline'}>{isOverdue(p, today) ? '연체' : p.status}</Badge>
+              </Link>
+            ))}
+        </>
+      )}
+    </>
   )
 }
 

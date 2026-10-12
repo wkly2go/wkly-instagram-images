@@ -17,7 +17,7 @@ export default function Team() {
       <SectionHead
         title="우리 팀"
         count={`${active.length}명`}
-        right={me.role === 'admin' ? (api.mode === 'demo' ? '데모: 팀원은 고정' : '팀원 추가: Supabase → Authentication → Add user') : undefined}
+        right={me.role === 'admin' ? <Link to="/admin">팀원 추가·권한은 관리 ›</Link> : undefined}
       />
       <div className="members">
         {[...active, ...inactive].map(p => (
@@ -30,14 +30,13 @@ export default function Team() {
 }
 
 function MemberCard({ p, logs }: { p: Profile; logs: WorkLog[] }) {
-  const { api, me } = useApp()
-  const { busy, run } = useAction()
+  const { me } = useApp()
   const mins = logs.reduce((s, l) => s + (l.minutes ?? 0), 0)
   const isMe = p.id === me.id
   return (
     <div className={`member ${p.active ? '' : 'off'}`}>
       <div className="row">
-        <Avatar name={p.name} />
+        <Avatar name={p.is_agent ? '🤖' : p.name} />
         <span className="col gap-2 grow">
           <span className="row" style={{ gap: 4 }}>
             <Link to={isMe ? '/work' : `/work?user=${p.id}`} className="t-smallb truncate" title="오늘 업무 보기 (파도타기)">
@@ -58,28 +57,10 @@ function MemberCard({ p, logs }: { p: Profile; logs: WorkLog[] }) {
           {mins ? ` · ${minutesLabel(mins)}` : ''}
         </span>
         <span className="grow" />
+        {p.is_agent && <Badge tone="acid">🤖 AI 팀원</Badge>}
         {p.role === 'admin' && <Badge tone="blue">관리자</Badge>}
         {!p.active && <Badge tone="paper">비활성</Badge>}
       </div>
-      {me.role === 'admin' && !isMe && (
-        <div className="row" style={{ borderTop: '1px dashed var(--line)', paddingTop: 6 }}>
-          <select className="select" style={{ padding: '3px 6px', fontSize: 12 }} value={p.role} disabled={busy} onChange={e => run(() => api.updateProfile(p.id, { role: e.target.value as Profile['role'] }), '권한을 바꿨습니다.')} aria-label={`${p.name} 권한`}>
-            <option value="member">멤버</option>
-            <option value="admin">관리자</option>
-          </select>
-          <Button
-            kind={p.active ? 'ghost' : 'outline'}
-            size="sm"
-            disabled={busy}
-            onClick={() => {
-              const msg = p.active ? `${p.name} 님을 비활성화할까요? 더 이상 로그인해도 데이터를 볼 수 없습니다.` : `${p.name} 님을 다시 활성화할까요?`
-              if (window.confirm(msg)) run(() => api.updateProfile(p.id, { active: !p.active }), p.active ? '비활성화했습니다.' : '활성화했습니다.')
-            }}
-          >
-            {p.active ? '비활성화' : '활성화'}
-          </Button>
-        </div>
-      )}
     </div>
   )
 }

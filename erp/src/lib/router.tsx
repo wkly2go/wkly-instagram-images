@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode, type MouseEvent } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type CSSProperties, type ReactNode, type MouseEvent } from 'react'
 
 // 화면 수가 적어 라우터 라이브러리 없이 History API 로 처리
 interface RouterValue {
@@ -54,16 +54,26 @@ export function withQuery(path: string, query: URLSearchParams, patch: Record<st
   return s ? `${path}?${s}` : path
 }
 
-export function Link({ to, className, children, title }: { to: string; className?: string; children: ReactNode; title?: string }) {
+export function Link({ to, className, children, title, style, onNavigate }: { to: string; className?: string; children: ReactNode; title?: string; style?: CSSProperties; onNavigate?: () => void }) {
   const { navigate } = useRouter()
   const onClick = (e: MouseEvent<HTMLAnchorElement>) => {
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return
     e.preventDefault()
+    onNavigate?.()
     navigate(to)
   }
   return (
-    <a href={to} className={className} onClick={onClick} title={title}>
+    <a href={to} className={className} onClick={onClick} title={title} style={style}>
       {children}
     </a>
   )
+}
+
+/** 예전·외부 링크 별칭 (알림 링크 등) → 실제 화면 주소 */
+export function normalizePath(to: string): string {
+  if (to.startsWith('/finance')) return '/projects?view=payments'
+  const chat = to.match(/^\/chat\/([\w-]+)/)
+  if (chat) return `/chat?room=${chat[1]}`
+  if (to.startsWith('/projects?task=')) return '/projects?view=mine'
+  return to
 }

@@ -60,7 +60,7 @@ export function useApp(): AppValue {
 }
 
 export function initial(name: string | null | undefined): string {
-  return (name ?? '?').trim().charAt(0) || '?'
+  return Array.from((name ?? '?').trim())[0] ?? '?'
 }
 
 /** 비동기 데이터 로딩. deps 또는 전역 version 이 바뀌면 다시 불러온다. */

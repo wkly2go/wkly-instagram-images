@@ -12,6 +12,10 @@
   --red: #e80003;
   --blue: #1c44f1;
   --green: #23823e;
+  /* 차트 두 번째 계열 · 미터 트랙 (같은 파랑 계열 연한 톤) */
+  --pink: #fd37be;
+  --blue-tint: #d2dafc;
+  --yellow-tint: #fffff0;
   --scrim: rgba(98, 98, 92, 0.38);
 
   --font: 'Noto Sans KR', system-ui, -apple-system, 'Apple SD Gothic Neo', sans-serif;
@@ -337,6 +341,69 @@ a:hover { text-decoration: underline; }
 .pip-body { margin: 0; background: var(--yellow); height: 100vh; }
 .pip-body > div { height: 100%; }
 
+
+/* ---------- 대시보드 · 표 · 미터 ---------- */
+.kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.kpi { background: var(--paper); border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; min-width: 0; text-align: left; color: inherit; font: inherit; }
+button.kpi, a.kpi { cursor: pointer; text-decoration: none; }
+button.kpi:hover, a.kpi:hover { border-color: var(--blue); }
+.kpi .v { font: 900 22px/1.25 var(--display); color: var(--blue); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kpi .sub { font-size: 12px; color: var(--gray); }
+.kpi .sub.red { color: var(--red); }
+.section { display: flex; flex-direction: column; gap: 6px; }
+.section-h .cap { margin-left: auto; font-size: 12px; color: var(--gray); text-align: right; }
+.table-wrap { overflow-x: auto; min-width: 0; }
+.table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.table th { text-align: left; font-size: 12px; font-weight: 400; color: var(--gray); background: var(--paper); padding: 6px 8px; white-space: nowrap; }
+.table td { padding: 7px 8px; border-bottom: 1px solid var(--line); color: var(--gray); vertical-align: middle; }
+.table th.num, .table td.num { text-align: right; white-space: nowrap; }
+.table td.num { font: 700 12px/1.45 var(--mono); color: var(--blue); }
+.table td.num.red { color: var(--red); }
+.table td.strong, .table td .strong { color: var(--blue); font-weight: 700; }
+.table td.nowrap { white-space: nowrap; }
+.table td.max { max-width: 220px; }
+.table tr.click { cursor: pointer; }
+.table tr.click:hover td { background: var(--paper); }
+.table tr.sel td { background: var(--paper); box-shadow: inset 0 -1px 0 var(--blue); }
+.table tr.muted td { opacity: 0.55; }
+.table tfoot td { border-bottom: 0; border-top: 1.5px solid var(--blue); font-weight: 700; color: var(--blue); }
+.table input[type='checkbox'] { vertical-align: middle; }
+.meter { position: relative; height: 6px; background: var(--blue-tint); border-radius: 3px; min-width: 56px; flex: 1; }
+.meter > i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--blue); border-radius: 3px; max-width: 100%; }
+.meter > i.red { background: var(--red); }
+.meter > b { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: var(--gray); border-radius: 1px; }
+.legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 12px; color: var(--gray); }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+.chart { position: relative; width: 100%; }
+.chart svg { display: block; overflow: visible; }
+.chart .tip { position: absolute; pointer-events: none; background: var(--white); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; font-size: 12px; color: var(--gray); box-shadow: 0 2px 8px rgba(98, 98, 92, 0.18); white-space: nowrap; z-index: 2; }
+.chart .tip b { color: var(--blue); }
+.note { font-size: 12px; color: var(--gray); background: var(--paper); border: 1px dashed var(--line); padding: 6px 10px; border-radius: 6px; }
+.note.warn { border-color: var(--red); color: var(--red); background: var(--white); }
+.filters { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.filters .select, .filters .input { width: auto; min-width: 110px; padding: 5px 8px; }
+.filters .search { flex: 1; min-width: 160px; }
+.filters .search .input { padding-left: 30px; width: 100%; }
+.bulk { position: sticky; bottom: 0; background: var(--yellow); border: 1px solid var(--blue); padding: 6px 10px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; z-index: 3; }
+.money-hint { font: 700 11px/1.45 var(--mono); color: var(--gray); }
+.dialog.wide { width: min(100%, 680px); }
+.drop { border: 1.5px dashed var(--blue); background: var(--white); padding: 22px 12px; text-align: center; color: var(--blue); cursor: pointer; border-radius: 8px; }
+.drop:hover { background: var(--paper); }
+.issue { display: flex; gap: 6px; align-items: flex-start; font-size: 12px; }
+.issue.warn { color: var(--red); }
+
+/* ---------- 알림 ---------- */
+.bell { position: relative; }
+.bell .count { position: absolute; top: -4px; right: -6px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px; background: var(--red); color: var(--white); font: 700 10px/16px var(--mono); text-align: center; }
+.notif-panel { position: absolute; right: 0; top: calc(100% + 6px); width: min(360px, calc(100vw - 24px)); max-height: 460px; overflow: auto; background: var(--white); border: 1px solid var(--blue); border-radius: 8px; box-shadow: 0 6px 20px rgba(98, 98, 92, 0.25); z-index: 40; display: flex; flex-direction: column; }
+.notif-panel .head { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--white); }
+.notif { display: flex; gap: 8px; padding: 9px 12px; border-bottom: 1px dashed var(--line); text-align: left; background: none; border-left: 0; border-right: 0; border-top: 0; width: 100%; cursor: pointer; color: inherit; }
+.notif:hover { background: var(--paper); }
+.notif.unread { background: var(--yellow-tint); }
+.notif.unread:hover { background: var(--paper); }
+.notif .dot { width: 6px; height: 6px; border-radius: 3px; background: var(--red); margin-top: 6px; flex-shrink: 0; }
+.notif .dot.read { background: transparent; }
+
 /* ---------- 반응형 ---------- */
 @media (max-width: 1000px) {
   .page { padding: 0; }
@@ -357,6 +424,7 @@ a:hover { text-decoration: underline; }
   .main { min-height: 70vh; overflow: visible; }
   .main.flush { overflow: hidden; height: 75vh; }
   .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 640px) {
   .topbar .site-title { display: none; }
@@ -369,4 +437,6 @@ a:hover { text-decoration: underline; }
   .composer-row { flex-wrap: wrap; }
   .composer-row > .textarea { flex-basis: 100%; }
   .composer-meta { width: auto; flex: 1; }
+  .kpi .v { font-size: 19px; }
+  .filters .select, .filters .input { flex: 1; }
 }

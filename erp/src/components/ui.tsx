@@ -54,7 +54,7 @@ export function Chip({ active, onClick, children }: { active?: boolean; onClick?
 }
 
 export function Avatar({ name, size }: { name: string | null | undefined; size?: 'sm' | 'xs' }) {
-  const ch = (name ?? '?').trim().charAt(0) || '?'
+  const ch = Array.from((name ?? '?').trim())[0] ?? '?'
   return (
     <span className={`avatar ${size ?? ''}`} aria-hidden="true">
       {ch}
@@ -85,7 +85,7 @@ export function Field({ label, children, className = '' }: { label: string; chil
   )
 }
 
-export function Modal({ title, onClose, children, actions }: { title: string; onClose: () => void; children: ReactNode; actions?: ReactNode }) {
+export function Modal({ title, onClose, children, actions, wide }: { title: string; onClose: () => void; children: ReactNode; actions?: ReactNode; wide?: boolean }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
     window.addEventListener('keydown', onKey)
@@ -93,7 +93,7 @@ export function Modal({ title, onClose, children, actions }: { title: string; on
   }, [onClose])
   return (
     <div className="scrim" onMouseDown={e => e.target === e.currentTarget && onClose()}>
-      <div className="dialog" role="dialog" aria-modal="true" aria-label={title}>
+      <div className={`dialog ${wide ? 'wide' : ''}`} role="dialog" aria-modal="true" aria-label={title}>
         <div className="inner">
           <div className="row">
             <h2 className="t-title grow">{title}</h2>

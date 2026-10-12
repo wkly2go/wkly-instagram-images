@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { api, AppProvider } from './lib/app'
 import { friendlyError } from './lib/api'
 import { openPipWindow, openQuickPopup, supportsPip } from './lib/pip'
-import { useRouter } from './lib/router'
+import { normalizePath, useRouter } from './lib/router'
 import type { Profile } from './lib/types'
 import Approvals from './pages/Approvals'
 import Chat from './pages/Chat'
@@ -12,6 +12,8 @@ import Home from './pages/Home'
 import Login from './pages/Login'
 import Projects from './pages/Projects'
 import Quick from './pages/Quick'
+import Admin from './pages/Admin'
+import Library from './pages/Library'
 import Team from './pages/Team'
 import WorkLog from './pages/WorkLog'
 
@@ -22,11 +24,14 @@ const PAGES: Record<string, () => JSX.Element> = {
   '/work': WorkLog,
   '/projects': Projects,
   '/clients': Clients,
+  '/library': Library,
   '/team': Team,
+  '/admin': Admin,
 }
 
+
 export default function App() {
-  const { path } = useRouter()
+  const { path, query, navigate } = useRouter()
   const [userId, setUserId] = useState<string | null | undefined>(undefined)
   const [profiles, setProfiles] = useState<Profile[] | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -65,12 +70,35 @@ export default function App() {
   useEffect(() => {
     if (!userId) return
     const offMsg = api.subscribeMessages(null, bump)
-    const offChanges = api.subscribeChanges(['approvals', 'profiles'], bump)
+    const offChanges = api.subscribeChanges(['approvals', 'profiles', 'notifications'], bump)
     return () => {
       offMsg()
       offChanges()
     }
   }, [userId, bump])
+
+  // 알람: 1분마다 시각이 지난 할 일을 알림으로 (서버 pg_cron 이 없어도 앱이 열려 있으면 동작)
+  useEffect(() => {
+    if (!userId) return
+    let alive = true
+    const run = async () => {
+      const sent = await api.runReminders().catch(() => 0)
+      if (alive && sent > 0) bump()
+    }
+    run()
+    const id = window.setInterval(run, 60_000)
+    return () => {
+      alive = false
+      window.clearInterval(id)
+    }
+  }, [userId, bump])
+
+  // 예전·외부 링크(알림 링크 등)를 화면 주소로
+  useEffect(() => {
+    const full = query.toString() ? `${path}?${query.toString()}` : path
+    const alias = normalizePath(full)
+    if (alias !== full) navigate(alias, { replace: true })
+  }, [path, query, navigate])
 
   const openQuick = useCallback(async () => {
     if (supportsPip()) {

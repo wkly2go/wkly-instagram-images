@@ -22,6 +22,13 @@ export function addDays(key: string, n: number): string {
   return dt.toISOString().slice(0, 10)
 }
 
+/** 차주 월요일: 월요일 요청은 7일 뒤, 일요일 요청은 다음 날 */
+export function nextMonday(key: string): string {
+  const [y, m, d] = key.split('-').map(Number)
+  const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay() // 0=일
+  return addDays(key, dow === 0 ? 1 : 8 - dow)
+}
+
 export function weekday(key: string): string {
   const [y, m, d] = key.split('-').map(Number)
   return WEEKDAYS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()]
@@ -87,6 +94,22 @@ export function minutesLabel(min: number): string {
   const h = Math.floor(min / 60)
   const m = min % 60
   return [h ? `${h}시간` : '', m ? `${m}분` : ''].filter(Boolean).join(' ')
+}
+
+/** 3억 2,400만 · 4,850만 · 9,800원 (만 원 아래 반올림) */
+export function manwon(n: number | null | undefined): string {
+  if (n == null) return ''
+  const sign = n < 0 ? '−' : ''
+  const abs = Math.abs(n)
+  if (abs < 10_000) return `${sign}${abs.toLocaleString('ko-KR')}원`
+  let eok = Math.floor(abs / 100_000_000)
+  let man = Math.round((abs % 100_000_000) / 10_000)
+  if (man === 10_000) {
+    eok += 1
+    man = 0
+  }
+  if (!eok) return `${sign}${man.toLocaleString('ko-KR')}만`
+  return `${sign}${eok}억${man ? ` ${man.toLocaleString('ko-KR')}만` : ''}`
 }
 
 export function won(n: number | null | undefined): string {

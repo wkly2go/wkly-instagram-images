@@ -1,12 +1,15 @@
 import { useMemo, useState } from 'react'
-import { ArrowLeft, ChevronLeft, ChevronRight, Folder, MessageCircle, Pencil, Plus, Trash2 } from 'lucide-react'
+import { AlarmClock, ArrowLeft, ChevronLeft, ChevronRight, Folder, MessageCircle, Pencil, Plus, Trash2 } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
-import { addMonths, dateLabel, monthGrid, shortDate, timeLabel, todayKey, weekRange, weekday } from '../lib/date'
+import { addMonths, dateLabel, monthGrid, shortDate, timeLabel, toDateKey, todayKey, weekRange, weekday } from '../lib/date'
 import { Link, useRouter, withQuery } from '../lib/router'
 import { PROJECT_CATEGORIES, PROJECT_STATUSES, type ChatRoomSummary, type Client, type Project, type ProjectStatus, type Task, type TaskStatus, type WorkLog } from '../lib/types'
 import { Shell } from '../components/Shell'
 import { Avatar, Badge, Button, Chip, Empty, Field, KindBadge, Modal, SectionHead, StatusBadge } from '../components/ui'
 import { NewApproval } from './Approvals'
+import { FinancePanel } from '../components/FinancePanel'
+import { ProjectDashboard } from './ProjectDashboard'
+import { Payments } from './Payments'
 
 interface Data {
   projects: Project[]
@@ -17,7 +20,9 @@ interface Data {
 export default function Projects() {
   const { api, version } = useApp()
   const { query, path, navigate } = useRouter()
-  const view = query.get('view') // null | 'mine' | 'tasks'
+  const { me } = useApp()
+  const admin = me.role === 'admin'
+  const view = query.get('view') // null(대시보드) | 'list' | 'mine' | 'tasks' | 'payments'
   const status = (query.get('status') as ProjectStatus | 'all' | null) ?? '진행'
   const selectedId = query.get('id')
   const [editing, setEditing] = useState<Project | 'new' | null>(null)
@@ -43,50 +48,58 @@ export default function Projects() {
 
   const counts = (s: ProjectStatus) => data.projects.filter(p => p.status === s).length
   const list = status === 'all' ? data.projects : data.projects.filter(p => p.status === status)
+  const tabs: [string | null, string][] = [
+    [null, '대시보드'],
+    ['list', '프로젝트 목록'],
+    ['mine', '내 할 일'],
+    ['tasks', '팀 할 일'],
+    ...(admin ? ([['payments', '결제 대장']] as [string, string][]) : []),
+  ]
   return (
     <Shell active="projects">
       <div className="row wrap">
         <div className="chips">
-          <Chip active={!view} onClick={() => go({ view: null })}>
-            프로젝트
-          </Chip>
-          <Chip active={view === 'mine'} onClick={() => go({ view: 'mine' })}>
-            내 할 일
-          </Chip>
-          <Chip active={view === 'tasks'} onClick={() => go({ view: 'tasks' })}>
-            팀 할 일
-          </Chip>
+          {tabs.map(([v, label]) => (
+            <Chip key={label} active={view === v || (v === null && !tabs.some(t => t[0] === view))} onClick={() => navigate(v ? `/projects?view=${v}` : '/projects', { replace: true })}>
+              {label}
+            </Chip>
+          ))}
         </div>
         <span className="grow" />
-        <Button onClick={() => setEditing('new')}>
-          <Plus size={14} /> 프로젝트
-        </Button>
+        {!view && admin && <span className="t-cap">{todayKey().slice(0, 4)}년 · 공급가액(VAT 별도)</span>}
+        {view !== 'payments' && (
+          <Button onClick={() => setEditing('new')}>
+            <Plus size={14} /> 프로젝트
+          </Button>
+        )}
       </div>
-      <div className="row top gap-12" style={{ flex: 1, minHeight: 0, flexWrap: 'wrap' }}>
-        <div className="col grow" style={{ flexBasis: 320 }}>
-          {!view ? (
-            <>
-              <div className="chips" style={{ paddingBottom: 4 }}>
-                {PROJECT_STATUSES.map(s => (
-                  <Chip key={s} active={status === s} onClick={() => go({ status: s === '진행' ? null : s })}>
-                    {s} {counts(s)}
-                  </Chip>
-                ))}
-                <Chip active={status === 'all'} onClick={() => go({ status: 'all' })}>
-                  전체 {data.projects.length}
+      {view === 'payments' && admin ? (
+        <Payments projects={data.projects} clients={data.clients} />
+      ) : view === 'mine' || view === 'tasks' ? (
+        <TaskList tasks={data.tasks} projects={data.projects} mineOnly={view === 'mine'} />
+      ) : view === 'list' ? (
+        <div className="row top gap-12" style={{ flex: 1, minHeight: 0, flexWrap: 'wrap' }}>
+          <div className="col grow" style={{ flexBasis: 320 }}>
+            <div className="chips" style={{ paddingBottom: 4 }}>
+              {PROJECT_STATUSES.map(s => (
+                <Chip key={s} active={status === s} onClick={() => go({ status: s === '진행' ? null : s })}>
+                  {s} {counts(s)}
                 </Chip>
-              </div>
-              {list.map(p => (
-                <ProjectRow key={p.id} p={p} data={data} />
               ))}
-              {list.length === 0 && <Empty>{loading ? '불러오는 중…' : '프로젝트가 없습니다.'}</Empty>}
-            </>
-          ) : (
-            <TaskList tasks={data.tasks} projects={data.projects} mineOnly={view === 'mine'} />
-          )}
+              <Chip active={status === 'all'} onClick={() => go({ status: 'all' })}>
+                전체 {data.projects.length}
+              </Chip>
+            </div>
+            {list.map(p => (
+              <ProjectRow key={p.id} p={p} data={data} />
+            ))}
+            {list.length === 0 && <Empty>{loading ? '불러오는 중…' : '프로젝트가 없습니다.'}</Empty>}
+          </div>
+          <MiniCalendar data={data} />
         </div>
-        <MiniCalendar data={data} />
-      </div>
+      ) : (
+        <ProjectDashboard projects={data.projects} tasks={data.tasks} clients={data.clients} />
+      )}
       {editing && <ProjectForm project={editing === 'new' ? null : editing} clients={data.clients} onClose={() => setEditing(null)} onSaved={id => go({ id })} />}
     </Shell>
   )
@@ -186,6 +199,57 @@ function MiniCalendar({ data }: { data: Data }) {
 
 const NEXT: Record<TaskStatus, TaskStatus> = { '할 일': '진행 중', '진행 중': '완료', 완료: '할 일' }
 
+/** datetime-local 값 ↔ ISO */
+const toLocalInput = (iso: string | null) => {
+  if (!iso) return ''
+  const d = new Date(iso)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+const fromLocalInput = (v: string) => (v ? new Date(v).toISOString() : null)
+const alarmLabel = (iso: string) => `${shortDate(toDateKey(iso))} ${timeLabel(iso)}`
+
+/** 할 일 추가 줄: 제목 · 담당 · 마감 · 알람 */
+function TaskAdder({ projectId, defaultAssignee }: { projectId: string | null; defaultAssignee: string }) {
+  const { api, profiles } = useApp()
+  const { busy, run } = useAction()
+  const [title, setTitle] = useState('')
+  const [assignee, setAssignee] = useState(defaultAssignee)
+  const [due, setDue] = useState('')
+  const [alarm, setAlarm] = useState('')
+  const add = async () => {
+    if (!title.trim()) return
+    if (await run(() => api.saveTask({ project_id: projectId, title: title.trim(), assignee_id: assignee || null, due_date: due || null, remind_at: fromLocalInput(alarm) }), alarm ? `알람을 ${alarmLabel(fromLocalInput(alarm)!)}에 맞췄어요.` : undefined)) {
+      setTitle('')
+      setDue('')
+      setAlarm('')
+    }
+  }
+  return (
+    <div className="row wrap" style={{ paddingTop: 2 }}>
+      <input className="input" style={{ flex: '2 1 180px' }} placeholder="할 일 추가 (Enter)" value={title} onChange={e => setTitle(e.target.value)} onKeyDown={e => e.key === 'Enter' && !e.nativeEvent.isComposing && add()} aria-label="새 할 일" />
+      <select className="select" style={{ width: 104 }} value={assignee} onChange={e => setAssignee(e.target.value)} aria-label="담당자">
+        <option value="">담당 없음</option>
+        {profiles
+          .filter(x => x.active)
+          .map(x => (
+            <option key={x.id} value={x.id}>
+              {x.name}
+            </option>
+          ))}
+      </select>
+      <input className="input" style={{ width: 132 }} type="date" value={due} onChange={e => setDue(e.target.value)} aria-label="마감일" title="마감일" />
+      <label className="row" style={{ gap: 4 }} title="이 시각에 알림 (PC 알림을 켜면 화면 밖에서도 알려 줘요)">
+        <AlarmClock size={15} className="t-blue" />
+        <input className="input" style={{ width: 178 }} type="datetime-local" value={alarm} onChange={e => setAlarm(e.target.value)} aria-label="알람 시각" />
+      </label>
+      <Button onClick={add} disabled={busy || !title.trim()}>
+        추가
+      </Button>
+    </div>
+  )
+}
+
 function TaskList({ tasks, projects, mineOnly }: { tasks: Task[]; projects: Project[]; mineOnly: boolean }) {
   const { api, me, profileName } = useApp()
   const { run } = useAction()
@@ -203,13 +267,17 @@ function TaskList({ tasks, projects, mineOnly }: { tasks: Task[]; projects: Proj
   ]
   return (
     <div className="col gap-10">
+      <TaskAdder projectId={null} defaultAssignee={me.id} />
       <label className="row t-cap" style={{ gap: 6 }}>
         <input type="checkbox" checked={showDone} onChange={e => setShowDone(e.target.checked)} /> 완료한 할 일도 보기
       </label>
       {groups.map(([label, list]) =>
         list.length ? (
           <div key={label} className="col gap-2">
-            <SectionHead title={label} count={list.length} />
+            <div className="section-h">
+              <span className={`t-bodyb ${label === '지연' ? 't-red' : ''}`}>{label}</span>
+              <Badge tone={label === '지연' ? 'red' : 'yellow'}>{list.length}</Badge>
+            </div>
             {list.map(t => (
               <TaskRow
                 key={t.id}
@@ -218,6 +286,7 @@ function TaskList({ tasks, projects, mineOnly }: { tasks: Task[]; projects: Proj
                 projectName={projects.find(p => p.id === t.project_id)?.name}
                 assignee={profileName(t.assignee_id)}
                 onStatus={() => run(() => api.saveTask({ id: t.id, status: NEXT[t.status] }))}
+                onAlarm={v => run(() => api.saveTask({ id: t.id, remind_at: v }), v ? `알람을 ${alarmLabel(v)}에 맞췄어요.` : '알람을 껐어요.')}
               />
             ))}
           </div>
@@ -228,7 +297,11 @@ function TaskList({ tasks, projects, mineOnly }: { tasks: Task[]; projects: Proj
   )
 }
 
-function TaskRow({ t, late, projectName, assignee, onStatus, onDelete }: { t: Task; late?: boolean; projectName?: string; assignee: string; onStatus: () => void; onDelete?: () => void }) {
+function TaskRow({ t, late, projectName, assignee, onStatus, onDelete, onAlarm }: { t: Task; late?: boolean; projectName?: string; assignee: string; onStatus: () => void; onDelete?: () => void; onAlarm?: (iso: string | null) => void }) {
+  const { profileOf } = useApp()
+  const [editAlarm, setEditAlarm] = useState(false)
+  const creator = profileOf(t.created_by)
+  const pending = t.remind_at && !t.reminded_at && t.status !== '완료'
   return (
     <div className="item-row">
       <input type="checkbox" checked={t.status === '완료'} onChange={onStatus} aria-label={`${t.title} 상태 바꾸기`} title="눌러서 상태 변경 (할 일 → 진행 중 → 완료)" />
@@ -236,12 +309,47 @@ function TaskRow({ t, late, projectName, assignee, onStatus, onDelete }: { t: Ta
         <span className="t-smallb truncate" style={t.status === '완료' ? { textDecoration: 'line-through', opacity: 0.6 } : undefined}>
           {t.title}
         </span>
-        {projectName && (
-          <Link to={`/projects?id=${t.project_id}`} className="t-cap truncate">
-            {projectName}
-          </Link>
-        )}
+        <span className="t-cap truncate">
+          {projectName && (
+            <Link to={`/projects?id=${t.project_id}`} className="t-cap">
+              {projectName}
+            </Link>
+          )}
+          {t.source_research_id && (
+            <>
+              {projectName ? ' · ' : ''}
+              <Link to={`/library?id=${t.source_research_id}`}>📚 리서치에서 만든 할 일</Link>
+            </>
+          )}
+          {creator?.is_agent && <span className="t-blue">{projectName || t.source_research_id ? ' · ' : ''}🤖 {creator.name} 배정</span>}
+        </span>
       </span>
+      {editAlarm && onAlarm ? (
+        <input
+          className="input"
+          style={{ width: 178 }}
+          type="datetime-local"
+          autoFocus
+          defaultValue={toLocalInput(t.remind_at)}
+          onBlur={e => {
+            setEditAlarm(false)
+            const v = fromLocalInput(e.target.value)
+            if (v !== t.remind_at) onAlarm(v)
+          }}
+          aria-label="알람 시각"
+        />
+      ) : t.remind_at && t.status !== '완료' ? (
+        <button type="button" className={`badge ${pending ? 'paper' : 'outline'}`} style={{ cursor: onAlarm ? 'pointer' : 'default', gap: 4 }} onClick={() => onAlarm && setEditAlarm(true)} title={pending ? '알람 예정 (눌러서 변경)' : '알람 울림'}>
+          <AlarmClock size={11} /> {alarmLabel(t.remind_at)}
+        </button>
+      ) : (
+        onAlarm &&
+        t.status !== '완료' && (
+          <button type="button" className="icon-btn sm" onClick={() => setEditAlarm(true)} aria-label="알람 맞추기" title="알람 맞추기">
+            <AlarmClock size={13} />
+          </button>
+        )
+      )}
       {t.due_date && <span className={`t-meta ${late ? 't-red' : ''}`}>{t.due_date === todayKey() ? '오늘' : `${shortDate(t.due_date)} ${weekday(t.due_date)}`}</span>}
       <button type="button" style={{ border: 0, background: 'none', padding: 0, cursor: 'pointer' }} onClick={onStatus} title="상태 변경">
         <StatusBadge status={late ? '지연' : t.status} />
@@ -257,13 +365,10 @@ function TaskRow({ t, late, projectName, assignee, onStatus, onDelete }: { t: Ta
 }
 
 function ProjectDetail({ project: p, data, onEdit, onBack }: { project: Project; data: Data; onEdit: () => void; onBack: () => void }) {
-  const { api, me, profiles, profileName, version } = useApp()
+  const { api, me, profileName, version } = useApp()
   const { navigate } = useRouter()
   const { busy, run } = useAction()
   const [approving, setApproving] = useState(false)
-  const [title, setTitle] = useState('')
-  const [assignee, setAssignee] = useState(me.id)
-  const [due, setDue] = useState('')
   const tasks = data.tasks.filter(t => t.project_id === p.id)
   const client = data.clients.find(c => c.id === p.client_id)
   const today = todayKey()
@@ -276,13 +381,6 @@ function ProjectDetail({ project: p, data, onEdit, onBack }: { project: Project;
     { logs: [] as WorkLog[], room: null as ChatRoomSummary | null },
   )
 
-  const addTask = async () => {
-    if (!title.trim()) return
-    if (await run(() => api.saveTask({ project_id: p.id, title: title.trim(), assignee_id: assignee || null, due_date: due || null }))) {
-      setTitle('')
-      setDue('')
-    }
-  }
   const openRoom = async () => {
     if (extra.room) return navigate(`/chat?room=${extra.room.id}`)
     let id = ''
@@ -356,25 +454,10 @@ function ProjectDetail({ project: p, data, onEdit, onBack }: { project: Project;
               assignee={profileName(t.assignee_id)}
               onStatus={() => run(() => api.saveTask({ id: t.id, status: NEXT[t.status] }))}
               onDelete={() => window.confirm('이 할 일을 삭제할까요?') && run(() => api.deleteTask(t.id))}
+              onAlarm={v => run(() => api.saveTask({ id: t.id, remind_at: v }), v ? `알람을 ${alarmLabel(v)}에 맞췄어요.` : '알람을 껐어요.')}
             />
           ))}
-          <div className="row" style={{ paddingTop: 6 }}>
-            <input className="input grow" placeholder="할 일 추가 (Enter)" value={title} onChange={e => setTitle(e.target.value)} onKeyDown={e => e.key === 'Enter' && !e.nativeEvent.isComposing && addTask()} aria-label="새 할 일" />
-            <select className="select" style={{ width: 96 }} value={assignee} onChange={e => setAssignee(e.target.value)} aria-label="담당자">
-              <option value="">담당 없음</option>
-              {profiles
-                .filter(x => x.active)
-                .map(x => (
-                  <option key={x.id} value={x.id}>
-                    {x.name}
-                  </option>
-                ))}
-            </select>
-            <input className="input" style={{ width: 132 }} type="date" value={due} onChange={e => setDue(e.target.value)} aria-label="마감일" />
-            <Button onClick={addTask} disabled={busy || !title.trim()}>
-              추가
-            </Button>
-          </div>
+          <TaskAdder projectId={p.id} defaultAssignee={me.id} />
         </div>
         <div className="col" style={{ flexBasis: 240, flexGrow: 1, maxWidth: 360 }}>
           <SectionHead title="관련 업무 기록" right={<Link to={`/work?team=1`}>업무 일지 ›</Link>} />
@@ -393,6 +476,7 @@ function ProjectDetail({ project: p, data, onEdit, onBack }: { project: Project;
           {extra.logs.length === 0 && <span className="t-cap">업무 일지에서 이 프로젝트를 선택해 기록하면 여기에 모입니다.</span>}
         </div>
       </div>
+      {me.role === 'admin' && <FinancePanel project={p} clients={data.clients} projects={data.projects} />}
       {approving && <NewApproval preset={{ kind: '프로젝트', target_id: p.id, title: `프로젝트: ${p.name}` }} onClose={() => setApproving(false)} onCreated={id => navigate(`/approvals?view=mine&id=${id}`)} />}
     </>
   )

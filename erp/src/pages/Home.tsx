@@ -5,7 +5,7 @@ import { Link, useRouter } from '../lib/router'
 import type { Approval, ChatMessage, ChatRoomSummary, Project, Task, WorkLog } from '../lib/types'
 import { Shell } from '../components/Shell'
 import { Badge, Button, Empty, Modal, SectionHead, StatusBadge } from '../components/ui'
-import { DecideButtons } from './Approvals'
+import { DailyReport, DecideButtons, reportSections } from './Approvals'
 
 interface HomeData {
   approvals: Approval[]
@@ -39,6 +39,7 @@ export default function Home() {
   const byKind = (k: string) => data.logs.filter(l => l.kind.startsWith(k)).length
   const count = (s: Project['status']) => data.projects.filter(p => p.status === s).length
   const unreadRooms = data.rooms.filter(r => r.unread > 0)
+  const report = data.approvals.filter(a => a.kind === '일일 보고').sort((a, b) => b.created_at.localeCompare(a.created_at))[0]
 
   return (
     <Shell active="home">
@@ -93,7 +94,7 @@ export default function Home() {
           <span className="t-num">{dueToday.length}</span>
           <span className={`t-cap ${overdue.length ? 't-red' : ''}`}>{overdue.length ? `지연 ${overdue.length}건` : '지연 없음'}</span>
         </button>
-        <button type="button" className="stat" style={{ textAlign: 'left', cursor: 'pointer' }} onClick={() => navigate('/projects')}>
+        <button type="button" className="stat" style={{ textAlign: 'left', cursor: 'pointer' }} onClick={() => navigate('/projects?view=list')}>
           <span className="t-cap">진행 프로젝트</span>
           <span className="t-num">{count('진행')}</span>
           <span className="t-cap">
@@ -107,8 +108,50 @@ export default function Home() {
         </button>
       </div>
 
+      {report && (
+        <section className="section">
+          <SectionHead title="일일 보고" right={<Link to={`/approvals?id=${report.id}`}>자세히 ›</Link>} />
+          <div className="box col gap-6" style={{ background: 'var(--white)' }}>
+            <div className="row wrap">
+              <Link to={`/approvals?id=${report.id}`} className="t-smallb">
+                {report.title}
+              </Link>
+              <StatusBadge status={report.status} />
+              <span className="grow" />
+              <span className="t-cap">
+                {profileName(report.requested_by)} · {relativeLabel(report.created_at)}
+              </span>
+              <DecideButtons approval={report} compact />
+            </div>
+            <ReportPreview a={report} />
+          </div>
+        </section>
+      )}
+
       <TeamShout shouts={data.shouts} roomId={data.rooms.find(r => r.name === '전체')?.id} />
     </Shell>
+  )
+}
+
+/** 홈에서는 숫자 칸과 '이슈 · 리스크'만 */
+function ReportPreview({ a }: { a: Approval }) {
+  const secs = reportSections(a.content)
+  const summary = secs.find(x => /요약/.test(x.title))
+  const issues = secs.find(x => /이슈|리스크/.test(x.title))
+  return (
+    <>
+      {summary && <DailyReport a={{ ...a, content: `■ ${summary.title}\n${summary.lines.join('\n')}` }} />}
+      {issues && issues.lines.length > 0 && (
+        <div className="col gap-2">
+          <span className="t-smallb">{issues.title}</span>
+          {issues.lines.slice(0, 3).map((l, i) => (
+            <span key={i} className="t-small">
+              {l}
+            </span>
+          ))}
+        </div>
+      )}
+    </>
   )
 }
 
@@ -135,7 +178,7 @@ function TeamShout({ shouts, roomId }: { shouts: ChatMessage[]; roomId?: string 
           aria-label="팀 한마디"
         />
         <Button disabled={busy || !roomId || !text.trim()} onClick={send}>
-          확인
+          남기기
         </Button>
       </div>
       <div className="col gap-6">

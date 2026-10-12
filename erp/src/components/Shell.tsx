@@ -1,21 +1,24 @@
 import { useState, type ReactNode } from 'react'
 import { PictureInPicture2 } from 'lucide-react'
+import { NotificationBell } from './Notifications'
 import { useApp, useAsync, initial } from '../lib/app'
 import { friendlyError } from '../lib/api'
 import { todayKey } from '../lib/date'
 import { Link, useRouter } from '../lib/router'
 import { TODAY_STATUSES, type TodayStatus } from '../lib/types'
 
-export type TabKey = 'home' | 'approvals' | 'chat' | 'work' | 'projects' | 'clients' | 'team'
+export type TabKey = 'home' | 'approvals' | 'chat' | 'work' | 'projects' | 'clients' | 'library' | 'team' | 'admin'
 
-const TABS: { key: TabKey; label: string; path: string }[] = [
+const TABS: { key: TabKey; label: string; path: string; admin?: boolean }[] = [
   { key: 'home', label: '홈', path: '/' },
   { key: 'approvals', label: '승인', path: '/approvals' },
   { key: 'chat', label: '채팅', path: '/chat' },
   { key: 'work', label: '업무', path: '/work' },
   { key: 'projects', label: '프로젝트', path: '/projects' },
   { key: 'clients', label: '거래처', path: '/clients' },
+  { key: 'library', label: '자료실', path: '/library' },
   { key: 'team', label: '팀', path: '/team' },
+  { key: 'admin', label: '관리', path: '/admin', admin: true },
 ]
 
 export interface Summary {
@@ -147,7 +150,7 @@ function ProfilePanel({ summary }: { summary: Summary }) {
 }
 
 export function Shell({ active, flush, children }: { active: TabKey; flush?: boolean; children: ReactNode }) {
-  const { api, openQuick } = useApp()
+  const { api, me, openQuick } = useApp()
   const summary = useSummary()
   return (
     <div className="page">
@@ -164,6 +167,7 @@ export function Shell({ active, flush, children }: { active: TabKey; flush?: boo
               <span className="site-url t-meta">{window.location.host}</span>
               <span className="grow" />
               {api.mode === 'demo' && <span className="mode-badge" title="Supabase 연결 전 체험 모드. 데이터는 이 브라우저에만 저장됩니다.">DEMO</span>}
+              <NotificationBell />
               <button type="button" className="quick-btn" onClick={openQuick} title="다른 프로그램 위에 떠 있는 작은 기록 창">
                 <PictureInPicture2 size={14} /> 빠른 기록 창 띄우기
               </button>
@@ -175,7 +179,7 @@ export function Shell({ active, flush, children }: { active: TabKey; flush?: boo
           </div>
         </div>
         <nav className="tabs" aria-label="메뉴">
-          {TABS.map(t => {
+          {TABS.filter(t => !t.admin || me.role === 'admin').map(t => {
             const dot = t.key === 'approvals' ? summary.pendingToDecide : t.key === 'chat' ? summary.unread : 0
             return (
               <Link key={t.key} to={t.path} className={`tab ${t.key === active ? 'active' : ''}`}>
