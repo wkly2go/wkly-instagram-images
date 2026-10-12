@@ -12,7 +12,7 @@
 - **팀**: TODAY IS 상태, 오늘의 한마디, 관리자의 권한·비활성화 관리, 비밀번호 변경
 - PC·휴대폰 모두 사용 가능, 앱처럼 설치(PWA) 가능
 
-화면 설계(Figma): https://www.figma.com/design/grv8oLn9nCS28WjJHudKBm
+화면 설계(Figma): WKLY BRANDING 파일 › **WKLY 사내 ERP 미니홈피** 페이지 — https://www.figma.com/design/fePgvTp53M3PmbQ2R8TsDs/WKLY-BRANDING?node-id=238-1180
 
 ---
 
