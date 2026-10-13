@@ -264,7 +264,16 @@ export function FinancePanel({ project, clients, projects }: { project: Project;
 function FinanceForm({ project, finance, hasLines, onClose }: { project: Project; finance: ProjectFinance | undefined; hasLines: boolean; onClose: () => void }) {
   const { api } = useApp()
   const { busy, run } = useAction()
-  const [contract, setContract] = useState(finance?.contract_amount?.toLocaleString('ko-KR') ?? '')
+  // 회사 계약금액은 VAT 포함으로 말하므로 기본은 VAT 포함 입력 → 공급가액(÷1.1)으로 저장
+  const [vatIncl, setVatIncl] = useState(true)
+  const shown = (incl: boolean) => (finance?.contract_amount == null ? '' : (incl ? Math.round(finance.contract_amount * 1.1) : finance.contract_amount).toLocaleString('ko-KR'))
+  const [contract, setContract] = useState(shown(true))
+  const contractSupply = () => {
+    if (!contract.trim()) return null
+    if (contract === shown(vatIncl) && finance?.contract_amount != null) return finance.contract_amount
+    const n = Math.max(0, parseMoney(contract))
+    return vatIncl ? Math.round(n / 1.1) : n
+  }
   const [budget, setBudget] = useState(finance?.budget_cost?.toLocaleString('ko-KR') ?? '')
   const [target, setTarget] = useState(finance?.target_margin?.toString() ?? '')
   const [memo, setMemo] = useState(finance?.memo ?? '')
@@ -275,7 +284,7 @@ function FinanceForm({ project, finance, hasLines, onClose }: { project: Project
       () =>
         api.saveFinance({
           project_id: project.id,
-          contract_amount: contract.trim() ? Math.max(0, parseMoney(contract)) : null,
+          contract_amount: contractSupply(),
           budget_cost: budget.trim() ? Math.max(0, parseMoney(budget)) : null,
           target_margin: t,
           memo: memo.trim() || null,
@@ -300,8 +309,22 @@ function FinanceForm({ project, finance, hasLines, onClose }: { project: Project
       }
     >
       <div className="form-grid">
-        <Field label="계약금액 (공급가액, VAT 별도)" className="full">
-          <input className="input" inputMode="numeric" autoFocus value={contract} onChange={e => setContract(e.target.value)} placeholder="예) 45,000,000" />
+        <Field label={vatIncl ? '계약금액 (VAT 포함)' : '계약금액 (공급가액, VAT 별도)'} className="full">
+          <input className="input" inputMode="numeric" autoFocus value={contract} onChange={e => setContract(e.target.value)} placeholder={vatIncl ? '예) 49,500,000' : '예) 45,000,000'} />
+          <span className="row t-cap" style={{ gap: 6, marginTop: 4 }}>
+            <label className="row" style={{ gap: 4 }}>
+              <input
+                type="checkbox"
+                checked={vatIncl}
+                onChange={e => {
+                  setVatIncl(e.target.checked)
+                  if (contract === shown(vatIncl)) setContract(shown(e.target.checked))
+                }}
+              />
+              VAT 포함 금액으로 입력
+            </label>
+            {vatIncl && contract.trim() && <span>→ 공급가액 {(contractSupply() ?? 0).toLocaleString('ko-KR')}원으로 저장 (마진은 공급가액 기준)</span>}
+          </span>
         </Field>
         <Field label="목표 마진율 (%)">
           <input className="input" inputMode="decimal" value={target} onChange={e => setTarget(e.target.value)} placeholder="30" />

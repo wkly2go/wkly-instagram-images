@@ -24,6 +24,10 @@ export function PaymentImport({ projects, existing, onDone }: { projects: Projec
   const [newName, setNewName] = useState('')
   const [excluded, setExcluded] = useState<Set<number>>(new Set())
   const [saveContract, setSaveContract] = useState(true)
+  // 회사 계약금액은 VAT 포함 → 공급가액(÷1.1)으로 저장, 수금은 VAT 10% 분리
+  const [contractVat, setContractVat] = useState(true)
+  // 세금계산서 발행으로 표시된 지급은 결제금액(VAT 포함)에서 VAT 10% 분리
+  const [splitVat, setSplitVat] = useState(true)
   const { data: finances } = useAsync(() => api.listFinances(), [version], [] as ProjectFinance[])
 
   // 시트별 요약 (프로젝트 없이 한 번 읽어 봄)
@@ -62,6 +66,10 @@ export function PaymentImport({ projects, existing, onDone }: { projects: Projec
   const sum = chosen.reduce((n, r) => n + (r.payment.amount ?? 0), 0)
   const fin = projectId ? finances.find(f => f.project_id === projectId) : undefined
   const contract = preview?.contract
+  const contractSupply = contract?.contract_amount == null ? null : contractVat ? Math.round(contract.contract_amount / 1.1) : contract.contract_amount
+  const vat11 = (n: number) => Math.round(n / 11)
+  const taxed = (p: Draft<Payment>) => p.direction === '지급' && p.tax_invoice === '발행' && !p.vat && (p.amount ?? 0) > 0
+  const taxedCount = chosen.filter(r => taxed(r.payment)).length
 
   const doImport = async () => {
     if (!preview || !chosen.length) return
@@ -76,16 +84,18 @@ export function PaymentImport({ projects, existing, onDone }: { projects: Projec
       })
       const rows: Draft<Payment>[] = chosen.map(r => ({
         ...r.payment,
+        vat: splitVat && taxed(r.payment) ? vat11(r.payment.amount ?? 0) : r.payment.vat ?? 0,
         project_id: pid,
         budget_line_id: preview.format === 'installments' ? lineIds.get(r.row) ?? null : r.payment.budget_line_id ?? null,
         memo: [r.payment.memo, `엑셀 ${preview.sheet} ${r.row}행`].filter(Boolean).join(' · '),
       }))
       if (contract && saveContract) {
-        if (contract.contract_amount != null) await api.saveFinance({ project_id: pid!, contract_amount: contract.contract_amount })
+        if (contractSupply != null) await api.saveFinance({ project_id: pid!, contract_amount: contractSupply })
         const recv = contract.received ?? 0
         const rest = contract.contract_amount != null ? contract.contract_amount - recv : 0
-        if (recv > 0) rows.push({ direction: '수금', project_id: pid, title: '수금 (엑셀 합계)', amount: recv, vat: 0, status: '완료', tax_invoice: '발행', is_estimate: false, memo: `엑셀 ${preview.sheet} 계약 요약`, requested_date: null, paid_date: null })
-        if (rest > 0) rows.push({ direction: '수금', project_id: pid, title: '잔금 (엑셀 기준)', stage: '잔금', amount: rest, vat: 0, status: '예정', tax_invoice: '미발행', is_estimate: false, memo: `엑셀 ${preview.sheet} 계약 요약`, requested_date: null })
+        const recvVat = (n: number) => (contractVat ? vat11(n) : 0)
+        if (recv > 0) rows.push({ direction: '수금', project_id: pid, title: '수금 (엑셀 합계)', amount: recv, vat: recvVat(recv), status: '완료', tax_invoice: '발행', is_estimate: false, memo: `엑셀 ${preview.sheet} 계약 요약`, requested_date: null, paid_date: null })
+        if (rest > 0) rows.push({ direction: '수금', project_id: pid, title: '잔금 (엑셀 기준)', stage: '잔금', amount: rest, vat: recvVat(rest), status: '예정', tax_invoice: '미발행', is_estimate: false, memo: `엑셀 ${preview.sheet} 계약 요약`, requested_date: null })
       }
       const res = await api.importPayments(rows, lines)
       toast(`결제 ${res.payments}건${res.budgetLines ? ` · 예산 ${res.budgetLines}줄` : ''}을 가져왔습니다.`)
@@ -240,8 +250,25 @@ export function PaymentImport({ projects, existing, onDone }: { projects: Projec
                 계약 요약도 저장: 계약금액 {contract.contract_amount != null ? `${contract.contract_amount.toLocaleString('ko-KR')}원` : '–'}
                 {contract.received != null && ` · 수금 ${contract.received.toLocaleString('ko-KR')}원 (완료)`}
                 {contract.contract_amount != null && contract.received != null && contract.contract_amount > contract.received && ` · 잔금 ${(contract.contract_amount - contract.received).toLocaleString('ko-KR')}원 (예정)`}
-                {fin?.contract_amount != null && fin.contract_amount !== contract.contract_amount && <span className="t-red"> · 지금 입력된 계약액 {fin.contract_amount.toLocaleString('ko-KR')}원을 바꿉니다</span>}
-                <span className="t-cap"> · 계약금액이 VAT 별도인지 확인하세요</span>
+                {fin?.contract_amount != null && fin.contract_amount !== contractSupply && <span className="t-red"> · 지금 입력된 계약액 {fin.contract_amount.toLocaleString('ko-KR')}원을 바꿉니다</span>}
+              </span>
+            </label>
+          )}
+          {contract && contract.contract_amount != null && saveContract && (
+            <label className="note row" style={{ gap: 6 }}>
+              <input type="checkbox" checked={contractVat} onChange={e => setContractVat(e.target.checked)} />
+              <span>
+                계약금액·수금은 VAT 포함 금액
+                {contractVat && contractSupply != null && <span className="t-cap"> → 계약 공급가액 {contractSupply.toLocaleString('ko-KR')}원으로 저장 (마진은 공급가액 기준)</span>}
+              </span>
+            </label>
+          )}
+          {taxedCount > 0 && (
+            <label className="note row" style={{ gap: 6 }}>
+              <input type="checkbox" checked={splitVat} onChange={e => setSplitVat(e.target.checked)} />
+              <span>
+                세금계산서 발행으로 표시된 지급 {taxedCount}건은 결제금액에서 VAT 10%를 나눠 저장
+                <span className="t-cap"> · 표시가 없는 건은 전액 비용으로 계산합니다. 나중에 결제 대장에서 'VAT 10%'를 체크하면 마진이 정확해집니다</span>
               </span>
             </label>
           )}
