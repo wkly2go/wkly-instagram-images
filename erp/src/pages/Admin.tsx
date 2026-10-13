@@ -513,9 +513,18 @@ function TokenReveal({ token }: { token: string }) {
     ['WKLY_ERP_URL', url, false],
     ['WKLY_ERP_ANON_KEY', anon, false],
   ]
+  // Claude 환경 설정의 '환경 변수' 칸에 그대로 붙여 넣는 세 줄 (.env 형식)
+  const envBlock = `WKLY_ERP_URL=${url}\nWKLY_ERP_ANON_KEY=${anon}\nWKLY_ERP_AGENT_TOKEN=${token}`
   return (
     <div className="col gap-10">
       <div className="note warn">이 화면을 닫으면 키를 다시 볼 수 없습니다. 지금 복사해서 에이전트 실행 환경의 비밀값에만 넣으세요. 채팅·메일·문서에 붙여 넣지 마세요.</div>
+      <div className="box col gap-6" style={{ background: 'var(--white)' }}>
+        <span className="t-smallb">가장 쉬운 방법: 세 줄을 한 번에 복사</span>
+        <Button onClick={() => copy(envBlock, '환경 변수 세 줄을')}>
+          <Copy size={13} /> 환경 변수 세 줄 한 번에 복사
+        </Button>
+        <span className="t-cap">Claude 클라우드 환경 › Edit › '환경 변수' 칸의 내용을 모두 지우고 그대로 붙여 넣은 뒤 저장하세요. 따로 고칠 것은 없습니다.</span>
+      </div>
       {rows.map(([k, v, secret]) => (
         <div key={k} className="col gap-2">
           <span className="t-meta">
