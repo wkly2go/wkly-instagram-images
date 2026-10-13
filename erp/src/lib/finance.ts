@@ -186,7 +186,7 @@ export function advanceGroups(payments: Payment[]): AdvanceGroup[] {
 /** 노무비 대장 대상: 개인 노무비(사업소득·일용·4대보험) 또는 공사 구분이 노무비 */
 export const isLabor = (p: Payment) => p.direction === '지급' && p.status !== '취소' && !p.is_estimate && (LABOR_TYPES.includes(p.contract_type as never) || (p.category ?? '').replace(/\s/g, '') === '노무비')
 /** 인력업체(세금계산서 받는 업체) 지급분: 개인 노무비와 세무 처리가 다름 */
-export const isAgency = (p: Payment) => isLabor(p) && !LABOR_TYPES.includes(p.contract_type as never)
+export const isAgency = (p: Payment) => isLabor(p) && p.contract_type != null && !LABOR_TYPES.includes(p.contract_type as never)
 
 export interface LaborMonth {
   month: string

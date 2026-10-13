@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { ChevronLeft, ChevronRight, Download, Plus, Search } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { toCsv, downloadText } from '../lib/csv'
@@ -114,6 +114,7 @@ function Register({ data, projects, clients }: { data: PayData; projects: Projec
   }, [data.payments, projectId, dir, cat, st, q, projects])
 
   const real = rows.filter(p => !p.is_estimate && p.status !== '취소')
+  const sumDir = (list: Payment[], d: Payment['direction']) => list.filter(p => p.direction === d).reduce((n, p) => n + p.amount, 0)
   const total = real.reduce((n, p) => n + p.amount, 0)
   const done = real.filter(isDone).reduce((n, p) => n + p.amount, 0)
   const open = real.filter(isOpen).reduce((n, p) => n + p.amount, 0)
@@ -123,8 +124,15 @@ function Register({ data, projects, clients }: { data: PayData; projects: Projec
   const opened = openId ? data.payments.find(p => p.id === openId) : undefined
 
   const toggleAll = (on: boolean) => setSel(on ? new Set(rows.map(p => p.id)) : new Set())
-  const bulk = async (patch: Partial<Payment>, msg: string) => {
-    if (await run(() => api.updatePayments([...sel], patch), msg)) setSel(new Set())
+  // 필터를 바꾸면 선택을 비움 (안 보이는 줄이 같이 바뀌지 않게)
+  useEffect(() => setSel(new Set()), [projectId, dir, cat, st, q])
+  const bulk = async (patch: Partial<Payment>, msg: string, only?: (p: Payment) => boolean) => {
+    const ids = only ? rows.filter(p => sel.has(p.id) && only(p)).map(p => p.id) : [...sel]
+    if (!ids.length) {
+      setSel(new Set())
+      return
+    }
+    if (await run(() => api.updatePayments(ids, patch), msg)) setSel(new Set())
   }
   const exportCsv = () => {
     const cols = [
@@ -185,7 +193,15 @@ function Register({ data, projects, clients }: { data: PayData; projects: Projec
         </Button>
       </div>
       <div className="note">
-        {rows.length}건 · 합계 <b className="t-blue">{manwon(total) || '0'}</b> · 완료 {manwon(done) || '0'} · 미결제 <b className="t-blue">{manwon(open) || '0'}</b>
+        {dir ? (
+          <>
+            {rows.length}건 · 합계 <b className="t-blue">{manwon(total) || '0'}</b> · 완료 {manwon(done) || '0'} · 미결제 <b className="t-blue">{manwon(open) || '0'}</b>
+          </>
+        ) : (
+          <>
+            {rows.length}건 · 수금 <b className="t-blue">{manwon(sumDir(real, '수금')) || '0'}</b> (미수 {manwon(sumDir(real.filter(isOpen), '수금')) || '0'}) · 지급 <b className="t-blue">{manwon(sumDir(real, '지급')) || '0'}</b> (미지급 {manwon(sumDir(real.filter(isOpen), '지급')) || '0'})
+          </>
+        )}
         {late.length > 0 && <span className="t-red"> · 연체 {late.length}건 {manwon(late.reduce((n, p) => n + p.amount, 0))}</span>}
         {estimate !== 0 && <> · 예상 비용 {manwon(estimate)} (합계 제외)</>} · 실제 금액(VAT 포함) 기준
       </div>
@@ -272,7 +288,7 @@ function Register({ data, projects, clients }: { data: PayData; projects: Projec
             {sel.size}건 선택 · {manwon(selected.reduce((n, p) => n + p.amount, 0))}
           </span>
           <span className="grow" />
-          <Button size="sm" disabled={busy} onClick={() => bulk({ status: '완료', paid_date: today }, '완료 처리했습니다.')}>
+          <Button size="sm" disabled={busy} onClick={() => bulk({ status: '완료', paid_date: today }, '미결제 건을 오늘 날짜로 완료 처리했습니다.', isOpen)} title="이미 완료된 건의 지급일은 바꾸지 않습니다">
             완료 처리 (오늘)
           </Button>
           <Button kind="outline" size="sm" disabled={busy} onClick={() => bulk({ status: '대기' }, '대기로 바꿨습니다.')}>

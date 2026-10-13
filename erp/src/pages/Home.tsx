@@ -4,6 +4,7 @@ import { dateLabel, dateTimeLabel, relativeLabel, todayKey } from '../lib/date'
 import { Link, useRouter } from '../lib/router'
 import type { Approval, ChatMessage, ChatRoomSummary, Project, Task, WorkLog } from '../lib/types'
 import { Shell } from '../components/Shell'
+import { AgentDesk } from '../components/AgentDesk'
 import { Badge, Button, Empty, Modal, SectionHead, StatusBadge } from '../components/ui'
 import { DailyReport, DecideButtons, reportSections } from './Approvals'
 
@@ -127,6 +128,8 @@ export default function Home() {
           </div>
         </section>
       )}
+
+      <AgentDesk />
 
       <TeamShout shouts={data.shouts} roomId={data.rooms.find(r => r.name === '전체')?.id} />
     </Shell>

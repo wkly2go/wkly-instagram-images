@@ -35,6 +35,40 @@ export interface HrRecord {
   updated_by?: string | null
 }
 
+export const LEAVE_KINDS = ['연차', '반차', '병가', '경조사', '기타'] as const
+export type LeaveKind = (typeof LEAVE_KINDS)[number]
+export type LeaveStatus = '신청' | '승인' | '반려'
+
+/** 휴가: 본인 신청 → 관리자 승인. 연차 · 반차만 연차에서 차감 */
+export interface LeaveRecord {
+  id: string
+  profile_id: string
+  kind: LeaveKind
+  start_date: string
+  end_date: string
+  days: number
+  reason: string | null
+  status: LeaveStatus
+  decided_by: string | null
+  decided_at: string | null
+  created_by: string | null
+  created_at: string
+}
+
+export type InstructionStatus = '대기' | '진행 중' | '완료' | '보류'
+
+/** ERP 에서 AI 팀원에게 직접 지시 → 에이전트가 처리하고 답을 남김 */
+export interface AgentInstruction {
+  id: string
+  agent_id: string
+  instruction: string
+  status: InstructionStatus
+  response: string | null
+  created_by: string | null
+  created_at: string
+  responded_at: string | null
+}
+
 /** 근태: 하루 첫 접속(출근) · 마지막 접속 */
 export interface Attendance {
   user_id: string
@@ -104,6 +138,9 @@ export interface Task {
   title: string
   assignee_id: string | null
   due_date: string | null
+  /** 일정표(간트)용 시작일 · 단계 (예: 디자인 기획) */
+  start_date?: string | null
+  phase?: string | null
   status: TaskStatus
   memo: string | null
   completed_at: string | null

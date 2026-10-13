@@ -65,8 +65,12 @@ export default function App() {
         setProfiles(p)
         setLoadError(null)
       })
-      .catch(e => setLoadError(friendlyError(e)))
+      // 처음 불러올 때만 화면을 막고, 이미 열린 뒤 잠깐 끊긴 것은 알림만 (입력 중인 내용 유지)
+      .catch(e => (profilesRef.current ? toast(friendlyError(e)) : setLoadError(friendlyError(e))))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, version])
+  const profilesRef = useRef<Profile[] | null>(null)
+  profilesRef.current = profiles
 
   // 실시간: 새 채팅·승인·상태 변경이 오면 화면 숫자를 새로 고침
   useEffect(() => {
@@ -105,7 +109,8 @@ export default function App() {
   // 근태: 오늘 첫 접속 = 출근. 열려 있는 동안 5분마다·창으로 돌아올 때 마지막 접속 갱신
   useEffect(() => {
     if (!userId) return
-    const touch = () => api.touchAttendance().catch(() => undefined)
+    // 창이 보일 때만 기록 (밤새 열어 둔 탭이 자정 출근으로 찍히지 않게)
+    const touch = () => document.visibilityState === 'visible' && api.touchAttendance().catch(() => undefined)
     touch()
     const id = window.setInterval(touch, 5 * 60_000)
     const onVisible = () => document.visibilityState === 'visible' && touch()

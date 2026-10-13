@@ -128,3 +128,159 @@ export function Meter({ value, max = 100, target, red, label }: { value: number;
     </span>
   )
 }
+
+export interface BarDatum {
+  key: string
+  label: string
+  value: number
+  /** 마우스를 올렸을 때 덧붙일 설명 */
+  note?: string
+}
+
+/** 한 계열 세로 막대 (예: 월별 수주액). 축 하나, 마지막 값만 직접 표기, 마우스를 올리면 값 */
+export function BarChart({ data, height = 180, color = 'var(--blue)', label, format = shortMan }: { data: BarDatum[]; height?: number; color?: string; label: string; format?: (n: number) => string }) {
+  const [ref, width] = useWidth<HTMLDivElement>()
+  const [hover, setHover] = useState<number | null>(null)
+  const left = 44
+  const top = 16
+  const bottom = 24
+  const plotW = width - left - 4
+  const plotH = height - top - bottom
+  const max = niceMax(Math.max(...data.map(d => d.value), 0))
+  const groupW = plotW / Math.max(1, data.length)
+  const barW = Math.max(6, Math.min(26, groupW - 10))
+  const y = (v: number) => top + plotH - (Math.max(0, v) / max) * plotH
+  const lastWithValue = data.map(d => d.value > 0).lastIndexOf(true)
+  return (
+    <div className="chart" ref={ref}>
+      <svg width={width} height={height} role="img" aria-label={`${label}: ${data.map(d => `${d.label} ${format(d.value)}`).join(' / ')}`}>
+        {[0, max / 2, max].map(t => (
+          <g key={t}>
+            <line x1={left} x2={width - 4} y1={y(t)} y2={y(t)} stroke="var(--line)" strokeWidth={1} strokeDasharray={t ? '3 3' : undefined} />
+            <text x={left - 6} y={y(t) + 4} textAnchor="end" fontSize={11} fill="var(--gray)" fontFamily="var(--mono)">
+              {format(t)}
+            </text>
+          </g>
+        ))}
+        {data.map((d, i) => {
+          const cx = left + groupW * i + groupW / 2
+          return (
+            <g key={d.key} onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(null)} onFocus={() => setHover(i)} onBlur={() => setHover(null)} tabIndex={0}>
+              <rect x={left + groupW * i} y={top} width={groupW} height={plotH + bottom} fill={hover === i ? 'var(--paper)' : 'transparent'} />
+              <path d={bar(cx - barW / 2, y(d.value), barW, top + plotH - y(d.value))} fill={color} />
+              {i === lastWithValue && (
+                <text x={cx} y={y(d.value) - 5} textAnchor="middle" fontSize={11} fontWeight={700} fill="var(--blue)" fontFamily="var(--mono)">
+                  {format(d.value)}
+                </text>
+              )}
+              {(data.length <= 12 || i % 2 === 0) && (
+                <text x={cx} y={height - 6} textAnchor="middle" fontSize={12} fill="var(--gray)">
+                  {d.label}
+                </text>
+              )}
+            </g>
+          )
+        })}
+      </svg>
+      {hover !== null && data[hover] && (
+        <div className="tip" style={{ left: Math.min(width - 170, Math.max(0, left + groupW * hover + groupW / 2 - 70)), top: 20 }}>
+          <div>
+            <b>{data[hover].label}</b> {format(data[hover].value)}
+          </div>
+          {data[hover].note && <div>{data[hover].note}</div>}
+        </div>
+      )}
+    </div>
+  )
+}
+
+export interface HBarDatum {
+  key: string
+  label: string
+  /** % */
+  value: number | null
+  target?: number | null
+  note?: string
+}
+
+/** 가로 막대 (예: 프로젝트별 마진율 %). 0 기준선, 목표 눈금, 음수는 빨강, 값은 막대 끝에 직접 표기 */
+export function HBarChart({ data, label, min = -10, max = 50 }: { data: HBarDatum[]; label: string; min?: number; max?: number }) {
+  const [ref, width] = useWidth<HTMLDivElement>()
+  const [hover, setHover] = useState<number | null>(null)
+  const labelW = Math.min(170, Math.max(90, width * 0.32))
+  const right = 52
+  const rowH = 26
+  const height = data.length * rowH + 22
+  const lo = Math.min(min, ...data.map(d => d.value ?? 0))
+  const hi = Math.max(max, ...data.map(d => Math.max(d.value ?? 0, d.target ?? 0)))
+  const plotW = width - labelW - right
+  const x = (v: number) => labelW + ((v - lo) / (hi - lo)) * plotW
+  const zero = x(0)
+  return (
+    <div className="chart" ref={ref}>
+      <svg width={width} height={height} role="img" aria-label={`${label}: ${data.map(d => `${d.label} ${d.value == null ? '없음' : `${d.value.toFixed(1)}%`}`).join(' / ')}`}>
+        {[lo, 0, hi / 2, hi].filter((t, i, a) => a.indexOf(t) === i).map(t => (
+          <g key={t}>
+            <line x1={x(t)} x2={x(t)} y1={0} y2={height - 18} stroke={t === 0 ? 'var(--gray)' : 'var(--line)'} strokeWidth={1} strokeDasharray={t === 0 ? undefined : '3 3'} />
+            <text x={x(t)} y={height - 4} textAnchor="middle" fontSize={11} fill="var(--gray)" fontFamily="var(--mono)">
+              {Math.round(t)}%
+            </text>
+          </g>
+        ))}
+        {data.map((d, i) => {
+          const yy = i * rowH + 4
+          const v = d.value ?? 0
+          const neg = v < 0
+          const below = d.target != null && d.value != null && d.value < d.target
+          const x1 = neg ? x(v) : zero
+          const w = Math.abs(x(v) - zero)
+          return (
+            <g key={d.key} onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(null)} onFocus={() => setHover(i)} onBlur={() => setHover(null)} tabIndex={0}>
+              <rect x={0} y={yy - 2} width={width} height={rowH} fill={hover === i ? 'var(--paper)' : 'transparent'} />
+              <text x={labelW - 8} y={yy + 14} textAnchor="end" fontSize={12} fill="var(--blue)" fontWeight={700}>
+                {d.label.length > 14 ? `${d.label.slice(0, 13)}…` : d.label}
+              </text>
+              {d.value != null && <rect x={x1} y={yy + 4} width={Math.max(2, w)} height={14} rx={4} fill={neg ? 'var(--red)' : below ? 'var(--pink)' : 'var(--blue)'} />}
+              {d.target != null && <line x1={x(d.target)} x2={x(d.target)} y1={yy} y2={yy + 22} stroke="var(--green)" strokeWidth={2} />}
+              <text x={Math.max(x(v), zero) + 6} y={yy + 15} fontSize={11} fontWeight={700} fill={neg ? 'var(--red)' : 'var(--blue)'} fontFamily="var(--mono)">
+                {d.value == null ? '–' : `${d.value.toFixed(1)}%`}
+              </text>
+            </g>
+          )
+        })}
+      </svg>
+      {hover !== null && data[hover] && (
+        <div className="tip" style={{ left: labelW, top: hover * rowH + 26 }}>
+          <div>
+            <b>{data[hover].label}</b>
+          </div>
+          <div>
+            마진율 {data[hover].value == null ? '–' : `${data[hover].value!.toFixed(1)}%`}
+            {data[hover].target != null && ` · 목표 ${data[hover].target}%`}
+          </div>
+          {data[hover].note && <div>{data[hover].note}</div>}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** 한 줄 누적 막대 (예: 상태별 프로젝트 수). 조각 사이 2px 간격, 범례에 숫자 */
+export function StackBar({ parts, label }: { parts: { key: string; label: string; value: number; color: string }[]; label: string }) {
+  const total = parts.reduce((s, p) => s + p.value, 0)
+  return (
+    <div className="col gap-6">
+      <div className="stackbar" role="img" aria-label={`${label}: ${parts.map(p => `${p.label} ${p.value}`).join(', ')}`}>
+        {total === 0 ? <i style={{ flex: 1, background: 'var(--line)' }} /> : parts.filter(p => p.value > 0).map(p => <i key={p.key} style={{ flex: p.value, background: p.color }} title={`${p.label} ${p.value}`} />)}
+      </div>
+      <div className="legend">
+        {parts.map(p => (
+          <span key={p.key}>
+            <i style={{ background: p.color }} />
+            {p.label} <b className="t-blue">{p.value}</b>
+          </span>
+        ))}
+      </div>
+    </div>
+  )
+}

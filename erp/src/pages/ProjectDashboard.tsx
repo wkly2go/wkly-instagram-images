@@ -1,10 +1,10 @@
 import { useMemo } from 'react'
 import { useApp, useAsync } from '../lib/app'
-import { addMonths, manwon, shortDate, todayKey, weekRange } from '../lib/date'
+import { addMonths, manwon, shortDate, toDateKey, todayKey, weekRange } from '../lib/date'
 import { budgetByCategory, isOverdue, monthlyFlow, paymentChecks, paymentRun, projectMoney, runMonday, upcomingPayments, vendorSummary } from '../lib/finance'
 import { Link, useRouter } from '../lib/router'
 import type { BudgetLine, Client, Payment, Project, ProjectFinance, Task } from '../lib/types'
-import { FlowChart, Meter } from '../components/charts'
+import { BarChart, FlowChart, HBarChart, Meter, StackBar, shortMan } from '../components/charts'
 import { Avatar, Badge, Empty, type Tone } from '../components/ui'
 
 interface FinData {
@@ -44,6 +44,8 @@ export function ProjectDashboard({ projects, tasks, clients }: { projects: Proje
     <div className="col gap-12">
       {admin ? <AdminKpis projects={projects} fin={fin} money={money} today={today} /> : <MemberKpis projects={projects} tasks={tasks} today={today} />}
       {admin && <CheckStrip fin={fin} projects={projects} today={today} />}
+      <Orders projects={projects} money={money} today={today} admin={admin} />
+      <ProgressBoard projects={projects} tasks={tasks} today={today} />
       <OwnerProgress projects={projects} tasks={tasks} money={money} today={today} />
       {admin && (
         <>
@@ -77,10 +79,11 @@ function AdminKpis({ projects, fin, money, today }: { projects: Project[]; fin: 
   const targeted = withMargin.filter(m => m.target != null)
   const tSum = targeted.reduce((n, m) => n + (m.contract ?? 0), 0)
   const target = tSum ? targeted.reduce((n, m) => n + (m.target ?? 0) * (m.contract ?? 0), 0) / tSum : null
-  const all = [...money.values()]
-  const receivable = all.reduce((n, m) => n + m.receivable, 0)
-  const overdueIn = all.flatMap(m => m.overdueIn)
-  const payable = all.reduce((n, m) => n + m.payable, 0)
+  // 프로젝트 없는 결제(지출 승인 등)까지 포함한 전체 미수·미지급
+  const whole = projectMoney(undefined, fin.payments, [], today)
+  const receivable = whole.receivable
+  const overdueIn = whole.overdueIn
+  const payable = whole.payable
   const [, we] = weekRange(today)
   const thisWeek = fin.payments.filter(p => p.direction === '지급' && !p.is_estimate && ['예정', '대기', '청구'].includes(p.status) && p.due_date && p.due_date <= we)
   const month = today.slice(0, 7)
@@ -152,6 +155,120 @@ function MemberKpis({ projects, tasks, today }: { projects: Project[]; tasks: Ta
         <span className={`sub ${late.some(t => t.assignee_id === me.id) ? 'red' : ''}`}>내 것 {late.filter(t => t.assignee_id === me.id).length}</span>
       </button>
     </div>
+  )
+}
+
+const STATUS_COLOR: Record<Project['status'], string> = { 진행: 'var(--blue)', 기획: 'var(--green)', 완료: 'var(--pink)', 보류: 'var(--gray)' }
+
+/** 수주 현황: 상태별 프로젝트 수 + (관리자) 월별 수주액 = 프로젝트 시작 월 기준 계약액(공급가) */
+function Orders({ projects, money, today, admin }: { projects: Project[]; money: Map<string, ReturnType<typeof projectMoney>>; today: string; admin: boolean }) {
+  const months = Array.from({ length: 12 }, (_, i) => addMonths(today.slice(0, 7), i - 11))
+  const monthOf = (p: Project) => (p.start_date ?? toDateKey(p.created_at)).slice(0, 7)
+  const won = projects.filter(p => p.status !== '보류')
+  const data = months.map(m => {
+    const list = won.filter(p => monthOf(p) === m)
+    const value = list.reduce((s, p) => s + (money.get(p.id)?.contract ?? 0), 0)
+    return { key: m, label: `${Number(m.slice(5))}월`, value, note: list.length ? `${list.length}건 · ${list.map(p => p.name).join(', ')}` : '수주 없음' }
+  })
+  const year = today.slice(0, 4)
+  const thisYear = won.filter(p => monthOf(p).startsWith(year))
+  const yearSum = thisYear.reduce((s, p) => s + (money.get(p.id)?.contract ?? 0), 0)
+  return (
+    <section className="section" aria-label="수주 현황">
+      <div className="section-h">
+        <span className="t-bodyb">수주 현황</span>
+        <span className="cap">{admin ? '수주액 = 프로젝트 시작 월의 계약액 (공급가)' : '상태별 프로젝트 수'}</span>
+      </div>
+      <StackBar label="상태별 프로젝트" parts={(['진행', '기획', '완료', '보류'] as const).map(s => ({ key: s, label: s, value: projects.filter(p => p.status === s).length, color: STATUS_COLOR[s] }))} />
+      {admin && (
+        <>
+          <div className="row wrap gap-12">
+            <span className="t-cap">
+              {year}년 수주 <b className="t-blue">{thisYear.length}건</b> · <b className="t-blue">{manwon(yearSum)}</b>
+            </span>
+            <span className="t-cap">
+              최근 12개월 <b className="t-blue">{manwon(data.reduce((s, d) => s + d.value, 0))}</b>
+            </span>
+          </div>
+          <BarChart data={data} label="월별 수주액" />
+        </>
+      )}
+    </section>
+  )
+}
+
+/** 프로젝트 진행 현황: 일정 경과율(기간 중 지난 날) vs 업무 완료율(할 일 완료/전체) → 뒤처짐 표시 */
+function ProgressBoard({ projects, tasks, today }: { projects: Project[]; tasks: Task[]; today: string }) {
+  const { profileName } = useApp()
+  const rows = projects
+    .filter(p => p.status === '진행' || p.status === '기획')
+    .map(p => {
+      const ts = tasks.filter(t => t.project_id === p.id)
+      const done = ts.filter(t => t.status === '완료').length
+      const late = ts.filter(t => t.status !== '완료' && t.due_date && t.due_date < today).length
+      let elapsed: number | null = null
+      if (p.start_date && p.end_date) {
+        const span = Date.parse(p.end_date) - Date.parse(p.start_date)
+        elapsed = span > 0 ? Math.max(0, Math.min(100, ((Date.parse(today) - Date.parse(p.start_date)) / span) * 100)) : today >= p.end_date ? 100 : 0
+      }
+      const progress = ts.length ? (done / ts.length) * 100 : null
+      const next = ts.filter(t => t.status !== '완료' && t.due_date).sort((a, b) => a.due_date!.localeCompare(b.due_date!))[0]
+      const behind = elapsed != null && progress != null && progress + 15 < elapsed
+      return { p, ts, done, late, elapsed, progress, next, behind }
+    })
+    .sort((a, b) => Number(b.behind) - Number(a.behind) || b.late - a.late || (a.p.end_date ?? '').localeCompare(b.p.end_date ?? ''))
+  return (
+    <section className="section" aria-label="프로젝트 진행 현황">
+      <div className="section-h">
+        <span className="t-bodyb">프로젝트 진행 현황</span>
+        <span className="cap">파랑 막대 = 업무 완료율 · 회색 눈금 = 일정 경과율 (완료율이 15%p 이상 뒤지면 뒤처짐)</span>
+      </div>
+      {rows.length === 0 ? (
+        <Empty>진행 · 기획 중인 프로젝트가 없습니다.</Empty>
+      ) : (
+        <div className="table-wrap">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>프로젝트</th>
+                <th>담당</th>
+                <th style={{ minWidth: 190 }}>업무 완료 · 일정 경과</th>
+                <th>다음 마감</th>
+                <th className="num">지연</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map(r => (
+                <tr key={r.p.id}>
+                  <td className="max">
+                    <Link to={`/projects?view=schedule&project=${r.p.id}`} className="strong truncate" style={{ display: 'block' }} title={`${r.p.name} 일정표`}>
+                      {r.p.name}
+                    </Link>
+                    <span className="t-cap">
+                      {r.p.status} · {shortDate(r.p.start_date)}~{shortDate(r.p.end_date)}
+                    </span>
+                  </td>
+                  <td className="nowrap">{profileName(r.p.owner_id)}</td>
+                  <td>
+                    <span className="row" style={{ gap: 8 }}>
+                      <Meter value={r.progress ?? 0} target={r.elapsed} red={r.behind} label={`${r.p.name} 업무 완료율`} />
+                      <span className={`t-meta ${r.behind ? 't-red' : 't-blue'}`} style={{ width: 92, textAlign: 'right' }}>
+                        {r.progress == null ? '할 일 없음' : `${Math.round(r.progress)}%`} / {r.elapsed == null ? '–' : `${Math.round(r.elapsed)}%`}
+                      </span>
+                      {r.behind && <Badge tone="red">뒤처짐</Badge>}
+                    </span>
+                  </td>
+                  <td className="max truncate t-cap" title={r.next?.title}>
+                    {r.next ? `${shortDate(r.next.due_date)} ${r.next.title}` : '–'}
+                  </td>
+                  <td className="num">{r.late ? <Badge tone="red">{r.late}건</Badge> : '0'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
   )
 }
 
@@ -252,6 +369,31 @@ function Profitability({ projects, money }: { projects: Project[]; money: Map<st
         <Empty>프로젝트 상세 › 재무에서 계약액과 목표 마진을 입력하면 여기에 나옵니다.</Empty>
       ) : (
         <>
+          <HBarChart
+            label="프로젝트별 마진율"
+            data={rows.map(p => {
+              const m = money.get(p.id)!
+              return { key: p.id, label: p.name, value: m.marginRate ?? null, target: m.target, note: `계약 ${shortMan(m.contract ?? 0)} · 비용 ${shortMan(m.cost)}${m.byBudget ? ' (예산)' : ''} · 지급·결재 반영` }
+            })}
+          />
+          <div className="legend">
+            <span>
+              <i style={{ background: 'var(--blue)' }} />
+              목표 달성
+            </span>
+            <span>
+              <i style={{ background: 'var(--pink)' }} />
+              목표 미달
+            </span>
+            <span>
+              <i style={{ background: 'var(--red)' }} />
+              적자
+            </span>
+            <span>
+              <i style={{ background: 'var(--green)', width: 3 }} />
+              목표 마진
+            </span>
+          </div>
           <div className="table-wrap">
             <table className="table">
               <thead>

@@ -31,7 +31,7 @@ function PersonCard({ p, onClose }: { p: Profile; onClose: () => void }) {
   const canSee = admin || p.id === me.id
   const today = todayKey()
   const from = addDays(today, -29)
-  const { data: hr, reload } = useAsync(() => (canSee ? api.getHrRecord(p.id) : Promise.resolve(null)), [p.id, version], null as HrRecord | null)
+  const { data: hr, reload, error: hrError, loading: hrLoading } = useAsync(() => (canSee ? api.getHrRecord(p.id) : Promise.resolve(null)), [p.id, version], null as HrRecord | null)
   const { data: days } = useAsync(() => api.listAttendanceFor(p.id, from), [p.id, from, version], [] as Attendance[])
   const [editing, setEditing] = useState(false)
   const todayRow = days.find(d => d.day === today)
@@ -64,12 +64,13 @@ function PersonCard({ p, onClose }: { p: Profile; onClose: () => void }) {
       <div className="section-h">
         <span className="t-bodyb">인사 정보</span>
         <span className="grow" />
-        {admin && !editing && (
+        {admin && !editing && !hrError && !hrLoading && (
           <Button kind="outline" size="sm" onClick={() => setEditing(true)}>
             수정
           </Button>
         )}
       </div>
+      {hrError && <span className="note warn">인사기록을 불러오지 못했습니다: {hrError}</span>}
       {!canSee ? (
         <span className="t-cap">연락처 등 인사 정보는 본인과 관리자만 볼 수 있습니다.</span>
       ) : editing ? (
