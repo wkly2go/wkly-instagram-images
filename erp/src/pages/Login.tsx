@@ -24,10 +24,10 @@ export default function Login() {
   }
 
   return (
-    <div className="center-page">
+    <div className="center-page" style={{ flexDirection: 'column' }}>
+      <img className="brand-logo" src="/wkly-logo-white.svg" alt="WKLY" width={160} height={51} />
       <form className="login" onSubmit={signIn}>
         <div className="inner">
-          <img className="logo" src="/logo-on-series.svg" alt="WKLY" width={160} height={51} />
           <h1 className="t-title" style={{ textAlign: 'center' }}>
             THE WKLY 사내 미니홈피
           </h1>

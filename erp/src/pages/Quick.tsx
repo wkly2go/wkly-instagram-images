@@ -13,6 +13,8 @@ export default function Quick({ onClose }: { onClose?: () => void }) {
   const recent = [...data].reverse().slice(0, 4)
   return (
     <div className="quick">
+      {/* PiP 창은 문서 주소가 달라 절대 주소로 로고를 불러옴 */}
+      <img className="quick-logo" src={`${window.location.origin}/wkly-logo-white.svg`} alt="WKLY" width={120} height={38} />
       <div className="card">
         <div className="inner" style={{ gap: 10 }}>
           <div className="row">
