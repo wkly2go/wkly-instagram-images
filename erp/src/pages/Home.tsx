@@ -7,6 +7,7 @@ import { Shell } from '../components/Shell'
 import { AgentDesk } from '../components/AgentDesk'
 import { Badge, Button, Empty, Modal, SectionHead, StatusBadge } from '../components/ui'
 import { DailyReport, DecideButtons, reportSections } from './Approvals'
+import { MonthCalendar } from './Schedule'
 
 interface HomeData {
   approvals: Approval[]
@@ -132,6 +133,11 @@ export default function Home() {
       <AgentDesk />
 
       <TeamShout shouts={data.shouts} roomId={data.rooms.find(r => r.name === '전체')?.id} />
+
+      <section className="section" aria-label="월별 일정표">
+        <SectionHead title="월별 일정표" right={<Link to="/projects?view=calendar">크게 보기 ›</Link>} />
+        <MonthCalendar projects={data.projects} tasks={data.tasks} />
+      </section>
     </Shell>
   )
 }
