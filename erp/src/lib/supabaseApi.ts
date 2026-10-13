@@ -13,6 +13,7 @@ import type {
   LeaveRecord,
   AgentInstruction,
   ChatMessage,
+  ChatRead,
   ChatRoom,
   ChatRoomSummary,
   Client,
@@ -188,6 +189,9 @@ export function createSupabaseApi(url: string, key: string): Api {
     deleteMessage: id => remove('chat_messages', id),
     async markRead(roomId) {
       must(await sb.from('chat_reads').upsert({ room_id: roomId, last_read_at: new Date().toISOString() }, { onConflict: 'user_id,room_id' }))
+    },
+    async listRoomReads(roomId) {
+      return must(await sb.from('chat_reads').select('user_id, room_id, last_read_at').eq('room_id', roomId)) as ChatRead[]
     },
     subscribeMessages(roomId, cb) {
       const ch = sb

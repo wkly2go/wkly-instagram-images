@@ -60,7 +60,7 @@ interface Store {
   digest_date?: string
 }
 
-const KEY = 'wkly-erp-demo-v5'
+const KEY = 'wkly-erp-demo-v6'
 const SESSION_KEY = 'wkly-erp-demo-session'
 
 const uid = () => crypto.randomUUID()
@@ -352,7 +352,12 @@ function seed(): Store {
     { id: uid(), agent_id: U.pm, instruction: '한남 플래그십 이번 주 지연 업무 정리해서 담당자에게 알려 줘', status: '완료', response: '지연 1건: 평면 프로그램 개발(이도윤, 마감 지남). 이도윤님에게 알림을 보냈고 내일 08:30 배정에 다시 포함합니다.', created_by: U.admin, created_at: at(-1, '17:10'), responded_at: at(-1, '17:54') },
     { id: uid(), agent_id: U.pm, instruction: '다음 주 수금 예정 건 거래처별로 묶어서 보고해 줘', status: '대기', response: null, created_by: U.admin, created_at: at(0, '09:20'), responded_at: null },
   ]
-  const chat_reads = [all, rObjet].map(r => ({ user_id: U.admin, room_id: r.id, last_read_at: at(0, '10:50') }))
+  const chat_reads = [
+    ...[all, rObjet].map(r => ({ user_id: U.admin, room_id: r.id, last_read_at: at(0, '10:50') })),
+    // 읽음 표시 체험용: 김하늘은 최근까지, 이도윤은 어제까지 읽음
+    ...[all, rObjet].map(r => ({ user_id: U.haneul, room_id: r.id, last_read_at: at(0, '11:30') })),
+    ...[all, rObjet].map(r => ({ user_id: U.doyun, room_id: r.id, last_read_at: at(-1, '18:00') })),
+  ]
   return {
     profiles, clients, contacts, projects, tasks, work_logs, chat_rooms: [all, rObjet, rAutumn, rContent], chat_messages, chat_reads, approvals, approval_routes,
     finances, payments, budget_lines, research_items, brand_contacts, email_templates, agent_tokens, notifications, attendance, hr_records, leave_records, agent_instructions, seq: Math.max(seq, nseq) + 100,
@@ -652,6 +657,10 @@ export function createDemoApi(): Api {
       else store.chat_reads.push({ user_id: self, room_id: roomId, last_read_at: now() })
       persist()
       emit('chat_reads')
+    },
+    async listRoomReads(roomId) {
+      requireMe()
+      return clone(store.chat_reads.filter(r => r.room_id === roomId))
     },
     subscribeMessages(roomId, cb) {
       const h = (e: Event) => {
