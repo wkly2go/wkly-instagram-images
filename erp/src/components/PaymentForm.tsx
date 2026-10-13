@@ -223,7 +223,7 @@ export function PaymentForm({
         </Field>
         {isPay && (
           <Field label="대지급자 (현장소장 등이 먼저 결제한 경우)" className="full">
-            <input className="input" value={f.advance_by ?? ''} onChange={e => set({ advance_by: e.target.value || null })} placeholder="비워 두면 회사가 직접 지급" />
+            <input className="input" value={f.advance_by ?? ''} onChange={e => set({ advance_by: e.target.value.trim() ? e.target.value : null })} placeholder="비워 두면 회사가 직접 지급" />
           </Field>
         )}
         {isPay && (

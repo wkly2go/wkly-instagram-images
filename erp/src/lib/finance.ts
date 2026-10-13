@@ -1,6 +1,6 @@
 // 재무 계산 (화면 공용). 수익성은 공급가액(VAT 별도) 기준, 지급·입금 목록은 실제 금액 기준.
-import { addDays } from './date'
-import { LABOR_TYPES, OPEN_PAYMENT_STATUSES, type BudgetLine, type Client, type Payment, type ProjectFinance } from './types'
+import { addDays, nextMonday } from './date'
+import { LABOR_TYPES, OPEN_PAYMENT_STATUSES, type BudgetLine, type Client, type Payment, type Project, type ProjectFinance } from './types'
 
 /** 공급가액 = 금액 - 부가세 */
 export const supply = (p: Pick<Payment, 'amount' | 'vat'>) => p.amount - p.vat
@@ -8,6 +8,8 @@ export const supply = (p: Pick<Payment, 'amount' | 'vat'>) => p.amount - p.vat
 export const isOpen = (p: Payment) => !p.is_estimate && OPEN_PAYMENT_STATUSES.includes(p.status)
 export const isDone = (p: Payment) => !p.is_estimate && p.status === '완료'
 export const isOverdue = (p: Payment, today: string) => isOpen(p) && !!p.due_date && p.due_date < today
+/** 대지급(현장소장 등이 먼저 낸 돈) 건: 대지급자 칸이 비어 있지 않음 */
+export const isAdvance = (p: Payment) => !!p.advance_by?.trim()
 /** 비용·마진 계산에 넣는 지급 (취소 제외, 예상 비용 포함) */
 const isCost = (p: Payment) => p.direction === '지급' && p.status !== '취소'
 const sum = (list: Payment[], f: (p: Payment) => number = supply) => list.reduce((n, p) => n + f(p), 0)
@@ -177,7 +179,7 @@ export interface AdvanceGroup {
 /** 대지급(현장소장 등이 먼저 결제) 중 아직 정산하지 않은 묶음 */
 export function advanceGroups(payments: Payment[]): AdvanceGroup[] {
   const map = new Map<string, Payment[]>()
-  for (const p of payments) if (p.advance_by && p.direction === '지급' && isOpen(p)) map.set(p.advance_by, [...(map.get(p.advance_by) ?? []), p])
+  for (const p of payments) if (isAdvance(p) && p.direction === '지급' && isOpen(p)) map.set(p.advance_by!.trim(), [...(map.get(p.advance_by!.trim()) ?? []), p])
   return [...map.entries()].map(([by, items]) => ({ by, items, total: items.reduce((n, p) => n + p.amount, 0) })).sort((a, b) => b.total - a.total)
 }
 
@@ -224,3 +226,80 @@ export function maskAccount(no: string | null | undefined): string {
 
 /** 업체명 비교용 */
 export const sameName = (a: string | null | undefined, b: string | null | undefined) => !!a && !!b && normName(a) === normName(b)
+
+/** 지급일(월요일): 오늘이 월요일이면 오늘, 아니면 다음 월요일 */
+export function runMonday(today: string): string {
+  const [y, m, d] = today.split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, d)).getUTCDay() === 1 ? today : nextMonday(today)
+}
+
+export interface RunGroup {
+  key: string
+  holder: string
+  bank: string | null
+  account: string | null
+  items: Payment[]
+  total: number
+}
+
+/** 월요일 지급 목록: 그 날짜까지 지급할 미결제(대지급·예상·보류 제외), 받는 계좌별로 묶음 */
+export function paymentRun(payments: Payment[], date: string): { groups: RunGroup[]; waiting: Payment[]; held: number; advances: number } {
+  const due = payments.filter(p => p.direction === '지급' && !p.is_estimate && !isAdvance(p) && p.due_date && p.due_date <= date)
+  const ready = due.filter(p => p.status === '예정' || p.status === '청구')
+  const map = new Map<string, RunGroup>()
+  for (const p of ready) {
+    const account = p.account_no?.replace(/\s/g, '') || null
+    const holder = p.account_holder || p.payee || '받는 분 미기재'
+    const key = account ? `${p.bank_name ?? ''}|${account.replace(/\D/g, '')}` : `none|${normName(holder)}|${p.id}`
+    const g = map.get(key) ?? { key, holder, bank: p.bank_name, account, items: [], total: 0 }
+    g.items.push(p)
+    g.total += p.amount
+    map.set(key, g)
+  }
+  return {
+    groups: [...map.values()].sort((a, b) => Number(!a.account) - Number(!b.account) || b.total - a.total),
+    waiting: due.filter(p => p.status === '대기'),
+    held: due.filter(p => p.status === '보류').length,
+    advances: payments.filter(p => p.direction === '지급' && isAdvance(p) && isOpen(p) && p.due_date && p.due_date <= date).length,
+  }
+}
+
+export interface PaymentCheck {
+  key: string
+  title: string
+  why: string
+  level: 'high' | 'mid'
+  items: Payment[]
+}
+
+/** 결제 대장 점검: 엑셀에서 놓치기 쉬웠던 것들을 자동으로 찾음 */
+export function paymentChecks(payments: Payment[], lines: BudgetLine[], projects: Project[], today: string): PaymentCheck[] {
+  const live = payments.filter(p => p.status !== '취소')
+  const out = live.filter(p => p.direction === '지급')
+  const real = out.filter(p => !p.is_estimate)
+  const nameOk = (a: string | null, b: string | null) => !a || !b || sameName(a, b) || a.includes(b) || b.includes(a)
+  const lineKeys = new Map<string, Set<string>>()
+  for (const l of lines) lineKeys.set(l.project_id, (lineKeys.get(l.project_id) ?? new Set()).add(catKey(l.category)))
+  const linked = new Set(lines.map(l => l.id))
+  const overBudget = projects.flatMap(pr => {
+    const pl = lines.filter(l => l.project_id === pr.id)
+    if (!pl.length) return []
+    const cats = budgetByCategory(pl, out.filter(p => p.project_id === pr.id)).filter(r => r.over > 0 && r.budget > 0).map(r => catKey(r.category))
+    return out.filter(p => p.project_id === pr.id && cats.includes(catKey(p.budget_line_id && linked.has(p.budget_line_id) ? pl.find(l => l.id === p.budget_line_id)?.category : p.category)))
+  })
+  const checks: PaymentCheck[] = [
+    { key: 'overdue-out', title: '지급예정일이 지난 미지급', why: '지급예정일이 오늘 이전인데 아직 완료가 아닙니다.', level: 'high', items: real.filter(p => isOverdue(p, today)) },
+    { key: 'overdue-in', title: '입금 예정일이 지난 미수금', why: '받을 날짜가 지났는데 수금이 완료되지 않았습니다.', level: 'high', items: live.filter(p => p.direction === '수금' && isOverdue(p, today)) },
+    { key: 'no-account', title: '계좌 정보 없는 미지급', why: '이체할 계좌(은행·계좌번호)가 없습니다. 카드·대지급 건은 제외했습니다.', level: 'high', items: real.filter(p => isOpen(p) && !isAdvance(p) && p.contract_type !== '카드' && !p.account_no) },
+    { key: 'invoice-in', title: '세금계산서 미수취', why: '세금계산서·계산서 거래인데 지급 완료 후에도 발행 표시가 없습니다.', level: 'mid', items: real.filter(p => p.status === '완료' && (p.contract_type === '세금계산서' || p.contract_type === '계산서') && p.tax_invoice === '미발행') },
+    { key: 'invoice-out', title: '세금계산서 미발행 (수금)', why: '청구했거나 입금된 수금 건에 세금계산서 발행 표시가 없습니다.', level: 'mid', items: live.filter(p => p.direction === '수금' && !p.is_estimate && (p.status === '완료' || p.status === '청구') && p.tax_invoice === '미발행') },
+    { key: 'over-budget', title: '예산 초과 공사 구분의 지출', why: '공사 구분별 실행 예산을 넘긴 항목입니다. 프로젝트 재무에서 예산을 확인하세요.', level: 'mid', items: overBudget },
+    { key: 'no-budget', title: '예산에 없는 공사 구분', why: '실행 예산이 있는 현장인데 어느 공사 구분에도 속하지 않는 지출입니다.', level: 'mid', items: out.filter(p => p.project_id && lineKeys.has(p.project_id) && !(p.budget_line_id && linked.has(p.budget_line_id)) && !lineKeys.get(p.project_id)!.has(catKey(p.category))) },
+    { key: 'no-request', title: '결제요청일 없음', why: '요청일이 없으면 차주 월요일 지급예정일이 잡히지 않습니다.', level: 'mid', items: real.filter(p => !p.requested_date && isOpen(p) && !p.due_date) },
+    { key: 'labor-type', title: '노무비 고용형태 없음', why: '사업소득·일용·4대보험 중 무엇인지 없으면 세무사 요약에서 나눌 수 없습니다.', level: 'mid', items: real.filter(p => isLabor(p) && !p.contract_type) },
+    { key: 'labor-holder', title: '성명과 예금주가 다른 노무비', why: '신고 대상자가 누구인지 세무사와 확인이 필요합니다.', level: 'mid', items: real.filter(p => isLabor(p) && !isAgency(p) && !nameOk(p.payee, p.account_holder)) },
+    { key: 'advance-old', title: '2주 넘은 대지급 미정산', why: '현장소장 등이 먼저 낸 돈을 14일 넘게 정산하지 않았습니다.', level: 'mid', items: out.filter(p => isAdvance(p) && isOpen(p) && (p.requested_date ?? p.created_at.slice(0, 10)) < addDays(today, -14)) },
+    { key: 'stale-estimate', title: '날짜가 지난 예상 비용', why: '예정일이 지난 예상 비용은 실제 결제로 바꾸거나 취소하세요.', level: 'mid', items: out.filter(p => p.is_estimate && p.due_date && p.due_date < today) },
+  ]
+  return checks.filter(c => c.items.length)
+}

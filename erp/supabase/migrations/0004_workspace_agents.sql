@@ -4,6 +4,7 @@
 --   - 승인 경로(approval_routes), 알림(notifications) + 알림 트리거 · 예약 작업
 --   - 리서치 자료(research_items), 브랜드 연락처(brand_contacts), 메일 템플릿(email_templates)
 --   - 에이전트 토큰(agent_tokens) + 에이전트 전용 함수(agent_submit, agent_snapshot)
+--     ('finance' 권한 토큰은 agent_snapshot 에 재무 위험 신호 포함, 개인·계좌 정보 없음)
 --   - 지출 승인 → 결제 대장(payments) 자동 등록
 --   - 작성자(created_by) 보호: 채팅방·할 일·리서치를 다른 사람 명의로 만들거나 넘길 수 없음
 --     (0001 정책은 그대로 두고 이 파일의 트리거·RESTRICTIVE 정책으로 보강 → 0001 을 다시 실행해도 유지)
@@ -150,16 +151,19 @@ create table if not exists public.agent_tokens (
   id            uuid primary key default gen_random_uuid(),
   name          text not null,
   profile_id    uuid references public.profiles (id) on delete set null,
-  scopes        text[] not null
-                constraint agent_tokens_scopes_check
-                check (cardinality(scopes) > 0
-                       and scopes <@ array['research', 'contact', 'task', 'daily_report', 'notify', 'read']::text[]),
+  scopes        text[] not null,
   token_hint    text,
   created_by    uuid default auth.uid() references public.profiles (id) on delete set null,
   created_at    timestamptz not null default now(),
   last_used_at  timestamptz,
   revoked_at    timestamptz
 );
+
+-- 권한(scope) 목록은 표 밖에서 다시 만듦 → 예전 0004 를 실행한 DB 에도 새 권한(finance)이 반영됨
+alter table public.agent_tokens drop constraint if exists agent_tokens_scopes_check;
+alter table public.agent_tokens add constraint agent_tokens_scopes_check
+  check (cardinality(scopes) > 0
+         and scopes <@ array['research', 'contact', 'task', 'daily_report', 'notify', 'read', 'finance']::text[]);
 
 -- 2-7. agent_token_secrets (토큰 sha256 해시). 권한·정책이 없어 security definer 함수만 접근
 create table if not exists public.agent_token_secrets (
@@ -940,8 +944,8 @@ begin
   from unnest(coalesce(p_scopes, '{}'::text[])) as s;
 
   if cardinality(v_scopes) = 0
-     or not (v_scopes <@ array['research', 'contact', 'task', 'daily_report', 'notify', 'read']::text[]) then
-    raise exception '권한(p_scopes)은 research, contact, task, daily_report, notify, read 중에서 하나 이상 고르세요.'
+     or not (v_scopes <@ array['research', 'contact', 'task', 'daily_report', 'notify', 'read', 'finance']::text[]) then
+    raise exception '권한(p_scopes)은 research, contact, task, daily_report, notify, read, finance 중에서 하나 이상 고르세요.'
       using errcode = '22023';
   end if;
 
@@ -1240,9 +1244,154 @@ begin
 end;
 $$;
 
--- 7-3. agent_snapshot: 에이전트용 오늘 현황 (scope 'read'). 금액 정보는 넣지 않음
+-- 7-3. agent_finance_snapshot: 재무 위험 신호 (내부용, 'finance' 권한 토큰의 agent_snapshot 에서만 호출)
+--      금액은 원 단위 정수, 공급가액 = amount - vat, '취소'는 모두 제외, p_today 는 한국 시간 오늘
+--      업체명·예금주·은행·계좌·메모·항목명·대지급자 등 사람·계좌 정보는 넣지 않음 (프로젝트 이름·공사 구분만)
+--      projects:         진행·기획 프로젝트 + 미결 결제(예정·청구·대기·보류, 예상 비용 제외)가 있는 프로젝트
+--                        계약·예산·지급(완료/미결/예상)·비용·마진·수금(완료/미결)·연체(VAT 포함 금액)
+--      over_budget:      공사 구분(공백 무시)별 실행 예산 초과, 초과액 큰 순 최대 10개
+--                        결제가 실행 예산 항목(budget_line_id)에 연결돼 있으면 그 항목의 공사 구분으로 계산
+--      next_payment_run: 다음 지급일(오늘 포함 첫 월요일)까지 이체할 건수·금액(VAT 포함, 예정·청구, 대지급 제외)
+--                        + waiting(대기)·held(보류)·advances(대지급 정산) 건수·금액
+create or replace function public.agent_finance_snapshot(p_today date)
+returns jsonb
+language sql
+stable
+set search_path = ''
+as $$
+  with pay as (
+    select p.project_id, p.direction, p.status, p.is_estimate, p.amount, p.due_date, p.budget_line_id, p.category,
+           p.amount - p.vat as supply,
+           (p.status in ('예정', '청구', '대기', '보류') and not p.is_estimate) as is_open
+    from public.payments p
+    where p.status <> '취소'
+  ),
+  by_project as (
+    select project_id,
+           sum(supply) filter (where direction = '지급' and not is_estimate and status = '완료')::bigint as paid,
+           sum(supply) filter (where direction = '지급' and is_open)::bigint as payable,
+           sum(supply) filter (where direction = '지급' and is_estimate)::bigint as estimate,
+           count(*) filter (where direction = '지급') as out_rows,
+           sum(supply) filter (where direction = '수금' and not is_estimate and status = '완료')::bigint as received,
+           sum(supply) filter (where direction = '수금' and is_open)::bigint as receivable,
+           count(*) filter (where direction = '지급' and is_open and due_date < p_today) as overdue_out_count,
+           sum(amount) filter (where direction = '지급' and is_open and due_date < p_today)::bigint as overdue_out_amount,
+           count(*) filter (where direction = '수금' and is_open and due_date < p_today) as overdue_in_count,
+           sum(amount) filter (where direction = '수금' and is_open and due_date < p_today)::bigint as overdue_in_amount,
+           bool_or(is_open) as has_open
+    from pay
+    where project_id is not null
+    group by project_id
+  ),
+  line_budget as (
+    select project_id, sum(budget_amount)::bigint as budget
+    from public.project_budget_lines
+    group by project_id
+  ),
+  proj as (
+    select pr.id, pr.name, pr.status, f.contract_amount, f.target_margin,
+           coalesce(lb.budget, f.budget_cost) as budget,
+           coalesce(b.paid, 0) as paid, coalesce(b.payable, 0) as payable, coalesce(b.estimate, 0) as estimate,
+           coalesce(b.out_rows, 0) as out_rows,
+           coalesce(b.received, 0) as received, coalesce(b.receivable, 0) as receivable,
+           coalesce(b.overdue_out_count, 0) as overdue_out_count, coalesce(b.overdue_out_amount, 0) as overdue_out_amount,
+           coalesce(b.overdue_in_count, 0) as overdue_in_count, coalesce(b.overdue_in_amount, 0) as overdue_in_amount
+    from public.projects pr
+    left join public.project_finances f on f.project_id = pr.id
+    left join line_budget lb on lb.project_id = pr.id
+    left join by_project b on b.project_id = pr.id
+    where pr.status in ('기획', '진행')
+       or coalesce(b.has_open, false)
+  ),
+  proj_cost as (
+    -- 지급 행이 하나도 없고 예산이 있으면 예산을 예상 비용으로 봄
+    select proj.*,
+           case when out_rows = 0 and budget is not null then budget else paid + payable + estimate end as cost
+    from proj
+  ),
+  budget_groups as (
+    select bl.project_id, regexp_replace(bl.category, '\s', '', 'g') as category, sum(bl.budget_amount)::bigint as budget
+    from public.project_budget_lines bl
+    group by 1, 2
+  ),
+  spend_groups as (
+    select coalesce(bl.project_id, pay.project_id) as project_id,
+           regexp_replace(coalesce(bl.category, pay.category, ''), '\s', '', 'g') as category,
+           sum(pay.supply)::bigint as spent
+    from pay
+    left join public.project_budget_lines bl on bl.id = pay.budget_line_id
+    where pay.direction = '지급'
+    group by 1, 2
+  ),
+  over_rows as (
+    select g.project_id, pr.name as project, g.category, g.budget, s.spent, s.spent - g.budget as over
+    from budget_groups g
+    join public.projects pr on pr.id = g.project_id
+    join spend_groups s on s.project_id = g.project_id and s.category = g.category
+    where g.budget > 0
+      and s.spent > g.budget
+    order by s.spent - g.budget desc, pr.name, g.category
+    limit 10
+  ),
+  run as (
+    select p_today + ((8 - extract(isodow from p_today)::int) % 7) as run_date
+  )
+  select jsonb_build_object(
+    'projects', coalesce((
+      select jsonb_agg(
+               jsonb_build_object(
+                 'id', c.id, 'name', c.name, 'status', c.status,
+                 'contract_amount', c.contract_amount, 'budget', c.budget,
+                 'paid', c.paid, 'payable', c.payable, 'estimate', c.estimate, 'cost', c.cost,
+                 'margin', c.contract_amount - c.cost,
+                 'margin_rate', case when coalesce(c.contract_amount, 0) = 0 then null
+                                     else round((c.contract_amount - c.cost) * 100.0 / c.contract_amount, 1) end,
+                 'target_margin', c.target_margin,
+                 'received', c.received, 'receivable', c.receivable,
+                 'overdue_out', jsonb_build_object('count', c.overdue_out_count, 'amount', c.overdue_out_amount),
+                 'overdue_in', jsonb_build_object('count', c.overdue_in_count, 'amount', c.overdue_in_amount))
+               order by array_position(array['진행', '기획', '보류', '완료'], c.status), c.name)
+      from proj_cost c
+    ), '[]'::jsonb),
+    'over_budget', coalesce((
+      select jsonb_agg(
+               jsonb_build_object('project_id', o.project_id, 'project', o.project, 'category', o.category,
+                                  'budget', o.budget, 'spent', o.spent, 'over', o.over)
+               order by o.over desc, o.project, o.category)
+      from over_rows o
+    ), '[]'::jsonb),
+    'next_payment_run', (
+      -- count·amount = 화면 '이번 주 지급' 이체 목록 (예정·청구, 대지급 제외). 대기·보류·대지급은 따로
+      select jsonb_build_object(
+               'date', r.run_date,
+               'count', count(p.id) filter (where not p.adv and p.status in ('예정', '청구')),
+               'amount', coalesce(sum(p.amount) filter (where not p.adv and p.status in ('예정', '청구')), 0)::bigint,
+               'waiting', jsonb_build_object(
+                 'count', count(p.id) filter (where not p.adv and p.status = '대기'),
+                 'amount', coalesce(sum(p.amount) filter (where not p.adv and p.status = '대기'), 0)::bigint),
+               'held', jsonb_build_object(
+                 'count', count(p.id) filter (where not p.adv and p.status = '보류'),
+                 'amount', coalesce(sum(p.amount) filter (where not p.adv and p.status = '보류'), 0)::bigint),
+               'advances', jsonb_build_object(
+                 'count', count(p.id) filter (where p.adv),
+                 'amount', coalesce(sum(p.amount) filter (where p.adv), 0)::bigint))
+      from run r
+      left join (
+        select x.id, x.amount, x.status, x.due_date, coalesce(btrim(x.advance_by), '') <> '' as adv
+        from public.payments x
+        where x.direction = '지급'
+          and not x.is_estimate
+          and x.status in ('예정', '청구', '대기', '보류')
+      ) p on p.due_date <= r.run_date
+      group by r.run_date
+    )
+  );
+$$;
+
+-- 7-4. agent_snapshot: 에이전트용 오늘 현황 (scope 'read')
 --      today, projects(진행 중), tasks(7일 안 마감 또는 지난 미완료), pending_approvals(종류별 수),
 --      work_logs_today(사람별 오늘 업무 일지 수), new_research(새 자료 수)
+--      금액 정보는 넣지 않음. 토큰에 'finance' 권한도 있으면 "finance"(재무 위험 신호, 7-3)를 추가
 create or replace function public.agent_snapshot(p_token text)
 returns jsonb
 language plpgsql
@@ -1250,11 +1399,13 @@ security definer
 set search_path = ''
 as $$
 declare
-  v_today date := (now() at time zone 'Asia/Seoul')::date;
+  v_today    date := (now() at time zone 'Asia/Seoul')::date;
+  v_finance  boolean;
+  v_result   jsonb;
 begin
   perform public.agent_token_check(p_token, 'read');
 
-  return jsonb_build_object(
+  v_result := jsonb_build_object(
     'today', v_today,
     'projects', coalesce((
       select jsonb_agg(
@@ -1302,6 +1453,19 @@ begin
     ), '[]'::jsonb),
     'new_research', (select count(*) from public.research_items ri where ri.status = '새 자료')
   );
+
+  -- 'finance' 권한이 함께 있는 토큰이면 재무 위험 신호 추가 (토큰은 위에서 이미 확인)
+  select 'finance' = any (t.scopes)
+    into v_finance
+  from public.agent_token_secrets s
+  join public.agent_tokens t on t.id = s.token_id
+  where s.token_hash = pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p_token, 'UTF8')), 'hex');
+
+  if v_finance then
+    v_result := v_result || jsonb_build_object('finance', public.agent_finance_snapshot(v_today));
+  end if;
+
+  return v_result;
 end;
 $$;
 
@@ -1508,7 +1672,8 @@ revoke execute on function
   public.payload_text(jsonb, text, integer),
   public.payload_uuid(jsonb, text),
   public.payload_ref(jsonb, text, regclass),
-  public.agent_token_check(text, text)
+  public.agent_token_check(text, text),
+  public.agent_finance_snapshot(date)
 from public, anon, authenticated;
 
 -- 트리거 전용 함수는 직접 호출할 필요가 없음 (트리거 실행에는 EXECUTE 권한 불필요)
@@ -1631,6 +1796,6 @@ comment on column public.brand_contacts.email           is '이메일 (소문자
 comment on column public.brand_contacts.opt_out         is '수신 거부 (해제는 관리자만)';
 comment on column public.brand_contacts.opt_out_at      is '수신 거부 시각 (자동 기록)';
 comment on column public.email_templates.is_ad          is '광고성 메일 여부 (보낼 때 제목 (광고) 표기 + 수신거부 안내)';
-comment on column public.agent_tokens.scopes            is '권한: research, contact, task, daily_report, notify, read';
+comment on column public.agent_tokens.scopes            is '권한: research, contact, task, daily_report, notify, read, finance (finance: 현황에 재무 위험 신호 포함)';
 comment on column public.agent_tokens.token_hint        is '토큰 끝 4자리 (확인용)';
 comment on column public.agent_tokens.revoked_at        is '폐기 시각 (한 번 폐기하면 되돌릴 수 없음)';

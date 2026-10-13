@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { useApp, useAsync } from '../lib/app'
 import { addMonths, manwon, shortDate, todayKey, weekRange } from '../lib/date'
-import { budgetByCategory, isOverdue, monthlyFlow, projectMoney, upcomingPayments, vendorSummary } from '../lib/finance'
+import { budgetByCategory, isOverdue, monthlyFlow, paymentChecks, paymentRun, projectMoney, runMonday, upcomingPayments, vendorSummary } from '../lib/finance'
 import { Link, useRouter } from '../lib/router'
 import type { BudgetLine, Client, Payment, Project, ProjectFinance, Task } from '../lib/types'
 import { FlowChart, Meter } from '../components/charts'
@@ -43,6 +43,7 @@ export function ProjectDashboard({ projects, tasks, clients }: { projects: Proje
   return (
     <div className="col gap-12">
       {admin ? <AdminKpis projects={projects} fin={fin} money={money} today={today} /> : <MemberKpis projects={projects} tasks={tasks} today={today} />}
+      {admin && <CheckStrip fin={fin} projects={projects} today={today} />}
       <OwnerProgress projects={projects} tasks={tasks} money={money} today={today} />
       {admin && (
         <>
@@ -447,5 +448,28 @@ function Upcoming({ payments, projects, today }: { payments: Payment[]; projects
         })
       )}
     </section>
+  )
+}
+
+/** 관리자: 결제 점검 요약 + 이번 지급일 */
+function CheckStrip({ fin, projects, today }: { fin: FinData; projects: Project[]; today: string }) {
+  const checks = paymentChecks(fin.payments, fin.lines, projects, today)
+  const monday = runMonday(today)
+  const r = paymentRun(fin.payments, monday)
+  const runTotal = r.groups.reduce((n, g) => n + g.total, 0)
+  if (!checks.length && !r.groups.length) return null
+  return (
+    <div className={`note ${checks.some(c => c.level === 'high') ? 'warn' : ''}`} style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 12px', alignItems: 'center' }}>
+      {r.groups.length > 0 && (
+        <Link to="/projects?view=payments&sub=run">
+          {shortDate(monday)} 월요일 지급 {r.groups.reduce((n, g) => n + g.items.length, 0)}건 · {manwon(runTotal)} ›
+        </Link>
+      )}
+      {checks.length > 0 && (
+        <Link to="/projects?view=payments&sub=check">
+          결제 점검 {checks.reduce((n, c) => n + c.items.length, 0)}건: {checks.slice(0, 4).map(c => `${c.title} ${c.items.length}`).join(' · ')} ›
+        </Link>
+      )}
+    </div>
   )
 }

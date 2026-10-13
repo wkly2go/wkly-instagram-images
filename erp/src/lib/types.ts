@@ -343,7 +343,7 @@ export interface EmailTemplate {
 }
 
 // ---------- 에이전트·알림 ----------
-export const AGENT_SCOPES = ['research', 'contact', 'task', 'daily_report', 'notify', 'read'] as const
+export const AGENT_SCOPES = ['read', 'task', 'daily_report', 'notify', 'research', 'contact', 'finance'] as const
 export type AgentScope = (typeof AGENT_SCOPES)[number]
 
 export interface AgentToken {

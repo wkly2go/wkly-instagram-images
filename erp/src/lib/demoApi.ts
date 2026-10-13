@@ -51,7 +51,7 @@ interface Store {
   digest_date?: string
 }
 
-const KEY = 'wkly-erp-demo-v3'
+const KEY = 'wkly-erp-demo-v4'
 const SESSION_KEY = 'wkly-erp-demo-session'
 
 const uid = () => crypto.randomUUID()
@@ -95,7 +95,7 @@ function seed(): Store {
     p(U.doyun, '이도윤', 'member', '매니저', '미팅', '루프앤코 미팅 15:00', 'doyun@thewklyn.com'),
     p(U.seoyeon, '박서연', 'member', '에디터', '출근', '3주차 원고 마감 데이 ✍️', 'seoyeon@thewklyn.com'),
     p(U.garam, '최가람', 'member', '인턴', '휴가', '내일 복귀합니다', 'garam@thewklyn.com'),
-    p(U.pm, '총괄 매니저', 'member', '프로젝트 총괄 (AI)', '출근', '매일 아침 할 일을 나누고, 저녁 6시에 일일 보고를 올려요.', 'pm-agent@thewklyn.com', true),
+    p(U.pm, 'WKLY 총괄', 'member', '프로젝트 총괄 (AI)', '출근', '매일 08:30 할 일을 나누고, 18:00에 일일 보고를 올려요.', 'agent@thewklyn.com', true),
   ]
   const c = (name: string, category: Client['category'], extra: Partial<Client> = {}): Client => ({
     id: uid(), name, category, business_no: null, phone: null, email: null, address: null, website: null, memo: null, created_by: U.admin, created_at: at(-40, '10:00'), updated_at: at(-40, '10:00'), ...extra,
@@ -256,7 +256,7 @@ function seed(): Store {
     pay('수금', autumn, loop, '착수금 30%', 11_400_000, '완료', -25, { stage: '계약금' }), pay('수금', autumn, loop, '중도금 40%', 15_200_000, '청구', -5, { stage: '중도금' }),
     pay('수금', autumn, loop, '잔금 30%', 11_400_000, '예정', 25, { stage: '잔금' }),
     pay('지급', autumn, high, '캠페인 촬영비 1차', 6_400_000, '예정', -2, { category: '촬영', stage: '선금' }),
-    pay('지급', autumn, mono, '모델·스타일링', 9_000_000, '완료', -9, { category: '모델·스타일링' }),
+    pay('지급', autumn, mono, '모델·스타일링', 9_000_000, '완료', -9, { category: '모델·스타일링', tax_invoice: '미발행', memo: '세금계산서 아직 못 받음' }),
     pay('지급', autumn, mono, '릴스 편집 외주', 14_100_000, '예정', 20, { category: '편집' }),
     // 여의도 (완료)
     pay('수금', yeouido, green, '콘텐츠 제작비', 9_000_000, '완료', -15), pay('지급', yeouido, high, '촬영·편집', 5_200_000, '완료', -12, { category: '촬영' }),
@@ -292,15 +292,15 @@ function seed(): Store {
   ]
   const agent_tokens: AgentToken[] = [
     { id: uid(), name: '팝업스케줄 리서치', profile_id: null, scopes: ['research', 'contact'], token_hint: '9f2a', created_by: U.admin, created_at: at(-14, '10:00'), last_used_at: at(0, '09:12'), revoked_at: null },
-    { id: uid(), name: '프로젝트 총괄 매니저', profile_id: U.pm, scopes: ['read', 'task', 'daily_report', 'notify', 'research'], token_hint: '41c7', created_by: U.admin, created_at: at(-14, '10:05'), last_used_at: at(0, '08:30'), revoked_at: null },
+    { id: uid(), name: 'WKLY 총괄 · ERP', profile_id: U.pm, scopes: ['read', 'task', 'daily_report', 'notify', 'research', 'finance'], token_hint: '41c7', created_by: U.admin, created_at: at(-14, '10:05'), last_used_at: at(0, '08:30'), revoked_at: null },
   ]
   let nseq = 0
   const nt = (user: string, kind: NotificationKind, title: string, body: string | null, link: string | null, time: [number, string], read = false): AppNotification => ({ id: ++nseq, user_id: user, kind, title, body, link, created_at: at(time[0], time[1]), read_at: read ? at(time[0], time[1]) : null })
   const notifications = [
-    nt(U.admin, '일일 보고', `일일 보고 도착 · ${y.slice(5).replace('-', '/')} 프로젝트 일일 보고`, '총괄 매니저 · 확인이 필요해요', '/approvals', [0, '08:30']),
-    nt(U.admin, '할 일', '새 할 일 배정 · 플랜트 하우스 협업 제안 메일', '총괄 매니저가 리서치에서 만들어 배정했어요', '/projects?view=mine', [0, '08:31']),
+    nt(U.admin, '일일 보고', `일일 보고 도착 · ${y.slice(5).replace('-', '/')} 프로젝트 일일 보고`, 'WKLY 총괄 · 확인이 필요해요', '/approvals', [0, '08:30']),
+    nt(U.admin, '할 일', '새 할 일 배정 · 플랜트 하우스 협업 제안 메일', 'WKLY 총괄이 리서치에서 만들어 배정했어요', '/projects?view=mine', [0, '08:31']),
     nt(U.admin, '승인', '승인 요청 · 촬영 소품 구매', '이도윤 · 128,000원', '/approvals', [0, '09:44']),
-    nt(U.doyun, '할 일', '새 할 일 배정 · 인플루언서 리스트 정리', '총괄 매니저가 배정했어요', '/projects?view=mine', [-3, '08:30']),
+    nt(U.doyun, '할 일', '새 할 일 배정 · 인플루언서 리스트 정리', 'WKLY 총괄이 배정했어요', '/projects?view=mine', [-3, '08:30']),
     nt(U.haneul, '승인', '반려됨 · 그린테이블 견적 조정 요청', '금액 근거 자료 첨부 후 다시 요청해 주세요.', '/approvals?view=mine', [-3, '16:00'], true),
   ]
   const chat_reads = [all, rObjet].map(r => ({ user_id: U.admin, room_id: r.id, last_read_at: at(0, '10:50') }))

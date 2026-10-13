@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react'
-import { Download, Plus, Search } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Download, Plus, Search } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { toCsv, downloadText } from '../lib/csv'
-import { manwon, shortDate, todayKey } from '../lib/date'
-import { advanceGroups, isAgency, isDone, isLabor, isOpen, isOverdue, laborMonthly, maskAccount, sameName, supply } from '../lib/finance'
+import { addDays, dateLabel, manwon, shortDate, todayKey } from '../lib/date'
+import { advanceGroups, isAdvance, isAgency, isDone, isLabor, isOpen, isOverdue, laborMonthly, maskAccount, paymentChecks, paymentRun, runMonday, sameName, supply } from '../lib/finance'
 import { useRouter, withQuery } from '../lib/router'
 import type { BudgetLine, Client, Payment, Project } from '../lib/types'
 import { PaymentForm } from '../components/PaymentForm'
@@ -32,11 +32,18 @@ export function Payments({ projects, clients }: { projects: Project[]; clients: 
     { payments: [], lines: [] },
   )
   const advances = advanceGroups(data.payments)
+  const checks = paymentChecks(data.payments, data.lines, projects, todayKey())
   return (
     <div className="col gap-10">
       <div className="chips" role="tablist" aria-label="결제 대장 메뉴">
         <Chip active={sub === 'register'} onClick={() => go({ sub: null })}>
           결제 대장
+        </Chip>
+        <Chip active={sub === 'run'} onClick={() => go({ sub: 'run' })}>
+          이번 주 지급
+        </Chip>
+        <Chip active={sub === 'check'} onClick={() => go({ sub: 'check' })}>
+          점검 {checks.length ? checks.reduce((n, c) => n + c.items.length, 0) : ''}
         </Chip>
         <Chip active={sub === 'advance'} onClick={() => go({ sub: 'advance' })}>
           대지급 정산 {advances.length ? advances.reduce((n, g) => n + g.items.length, 0) : ''}
@@ -50,6 +57,10 @@ export function Payments({ projects, clients }: { projects: Project[]; clients: 
       </div>
       {loading && !data.payments.length ? (
         <Loading />
+      ) : sub === 'run' ? (
+        <Run data={data} projects={projects} />
+      ) : sub === 'check' ? (
+        <Checks data={data} projects={projects} />
       ) : sub === 'advance' ? (
         <Advances data={data} projects={projects} />
       ) : sub === 'labor' ? (
@@ -231,7 +242,7 @@ function Register({ data, projects, clients }: { data: PayData; projects: Projec
                       <span className="strong truncate" style={{ display: 'block' }} title={p.title}>
                         {p.direction === '수금' && <Badge tone="blue">수금</Badge>} {p.title}
                       </span>
-                      <span className="t-cap">{[p.stage, p.is_estimate ? '예상 비용' : null, p.advance_by ? `대지급 ${p.advance_by}` : null, p.approval_id ? '지출 승인' : null].filter(Boolean).join(' · ')}</span>
+                      <span className="t-cap">{[p.stage, p.is_estimate ? '예상 비용' : null, isAdvance(p) ? `대지급 ${p.advance_by!.trim()}` : null, p.approval_id ? '지출 승인' : null].filter(Boolean).join(' · ')}</span>
                     </td>
                     <td className="nowrap">
                       <span style={{ display: 'block' }}>{p.payee ?? '–'}</span>
@@ -313,7 +324,7 @@ function Advances({ data, projects }: { data: PayData; projects: Project[] }) {
   const { busy, run } = useAction()
   const today = todayKey()
   const groups = advanceGroups(data.payments)
-  const settled = data.payments.filter(p => p.advance_by && p.status === '완료').length
+  const settled = data.payments.filter(p => isAdvance(p) && p.status === '완료').length
   const projectName = (id: string | null) => projects.find(p => p.id === id)?.name ?? '–'
   return (
     <>
@@ -497,6 +508,192 @@ function Labor({ data, projects }: { data: PayData; projects: Project[] }) {
           )}
         </section>
       )}
+    </>
+  )
+}
+
+/** 월요일 지급 목록: 받는 계좌별로 묶어 이체용 CSV 와 일괄 완료 처리 */
+function Run({ data, projects }: { data: PayData; projects: Project[] }) {
+  const { api } = useApp()
+  const { busy, run } = useAction()
+  const today = todayKey()
+  const [date, setDate] = useState(runMonday(today))
+  const [off, setOff] = useState<Set<string>>(new Set())
+  const [label, setLabel] = useState('더위클리')
+  const r = paymentRun(data.payments, date)
+  const projectName = (id: string | null) => projects.find(p => p.id === id)?.name ?? ''
+  const ready = r.groups.filter(g => g.account && !off.has(g.key))
+  const total = ready.reduce((n, g) => n + g.total, 0)
+  const count = ready.reduce((n, g) => n + g.items.length, 0)
+  const noAccount = r.groups.filter(g => !g.account)
+  const exportCsv = () => {
+    const cols = [
+      ['bank', '은행'], ['account', '계좌번호'], ['holder', '예금주'], ['total', '금액'], ['label', '받는 분 통장 표시'], ['mine', '내 통장 표시'], ['memo', '내용'],
+    ].map(([key, l]) => ({ key, label: l }))
+    downloadText(
+      `월요일지급_${date}.csv`,
+      toCsv(ready.map(g => ({ bank: g.bank ?? '', account: g.account, holder: g.holder, total: g.total, label, mine: g.holder.slice(0, 10), memo: [...new Set(g.items.map(p => [projectName(p.project_id), p.title].filter(Boolean).join(' ')))].join(' / ') })), cols),
+    )
+  }
+  return (
+    <>
+      <div className="row wrap">
+        <button type="button" className="icon-btn" onClick={() => setDate(addDays(date, -7))} aria-label="지난 월요일">
+          <ChevronLeft size={16} />
+        </button>
+        <span className="t-bodyb">{dateLabel(date)} 지급</span>
+        <button type="button" className="icon-btn" onClick={() => setDate(addDays(date, 7))} aria-label="다음 월요일">
+          <ChevronRight size={16} />
+        </button>
+        {date !== runMonday(today) && (
+          <Button kind="ghost" size="sm" onClick={() => setDate(runMonday(today))}>
+            이번 지급일
+          </Button>
+        )}
+        <span className="grow" />
+        <label className="row t-cap" style={{ gap: 6 }}>
+          받는 분 통장 표시
+          <input className="input" style={{ width: 120 }} value={label} onChange={e => setLabel(e.target.value)} aria-label="받는 분 통장 표시" />
+        </label>
+      </div>
+      <div className="note">
+        지급예정일이 {shortDate(date)}까지인 예정·청구 지급을 받는 계좌별로 묶었습니다 · <b className="t-blue">{ready.length}곳 · {count}건 · {total.toLocaleString('ko-KR')}원</b>
+        {r.waiting.length > 0 && ` · 대기 ${r.waiting.length}건 제외`}
+        {r.held > 0 && ` · 보류 ${r.held}건 제외`}
+        {r.advances > 0 && ` · 대지급 ${r.advances}건은 '대지급 정산'에서`}
+      </div>
+      {noAccount.length > 0 && <div className="note warn">계좌 정보가 없는 {noAccount.reduce((n, g) => n + g.items.length, 0)}건은 이체 목록에서 뺐습니다. 결제 대장에서 계좌를 넣어 주세요.</div>}
+      {r.groups.length === 0 ? (
+        <Empty>이 날까지 지급할 결제가 없습니다.</Empty>
+      ) : (
+        <div className="table-wrap">
+          <table className="table">
+            <thead>
+              <tr>
+                <th />
+                <th>받는 분 (예금주)</th>
+                <th>은행</th>
+                <th>계좌번호</th>
+                <th className="num">건수</th>
+                <th className="num">금액</th>
+                <th>내용</th>
+              </tr>
+            </thead>
+            <tbody>
+              {r.groups.map(g => (
+                <tr key={g.key} className={!g.account ? 'muted' : off.has(g.key) ? 'muted' : ''}>
+                  <td>
+                    <input
+                      type="checkbox"
+                      aria-label={`${g.holder} 지급`}
+                      disabled={!g.account}
+                      checked={!!g.account && !off.has(g.key)}
+                      onChange={e => {
+                        const next = new Set(off)
+                        if (e.target.checked) next.delete(g.key)
+                        else next.add(g.key)
+                        setOff(next)
+                      }}
+                    />
+                  </td>
+                  <td className="strong nowrap">{g.holder}</td>
+                  <td className="nowrap">{g.bank ?? '–'}</td>
+                  <td className="nowrap" style={{ fontFamily: 'var(--mono)' }}>
+                    {g.account ?? <span className="t-red">계좌 없음</span>}
+                  </td>
+                  <td className="num">{g.items.length}</td>
+                  <td className="num">{g.total.toLocaleString('ko-KR')}</td>
+                  <td className="max">
+                    {g.items.map(p => (
+                      <span key={p.id} className="t-cap" style={{ display: 'block' }}>
+                        {shortDate(p.due_date)} · {[projectName(p.project_id), p.title].filter(Boolean).join(' ')}
+                        {p.due_date && p.due_date < today ? <span className="t-red"> (연체)</span> : ''}
+                      </span>
+                    ))}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {r.waiting.length > 0 && (
+        <span className="t-cap">
+          대기 중: {r.waiting.map(p => `${p.payee ?? p.title} ${manwon(p.amount)}`).join(', ')} — 지급하려면 결제 대장에서 상태를 '예정'으로 바꾸세요.
+        </span>
+      )}
+      <div className="row wrap">
+        <span className="t-cap grow">은행 대량이체 양식과 열 순서가 다르면 CSV를 열어 맞춰 붙여 넣으세요. 계좌번호는 관리자 화면에만 보입니다.</span>
+        <Button kind="outline" onClick={exportCsv} disabled={!ready.length}>
+          <Download size={13} /> 이체용 CSV
+        </Button>
+        <Button
+          disabled={busy || !count}
+          onClick={() =>
+            window.confirm(`${ready.length}곳 ${count}건 (${total.toLocaleString('ko-KR')}원)을 오늘 지급 완료로 처리할까요?`) &&
+            run(() => api.updatePayments(ready.flatMap(g => g.items.map(p => p.id)), { status: '완료', paid_date: today }), '지급 완료로 처리했습니다.')
+          }
+        >
+          지급 완료 처리 ({count}건)
+        </Button>
+      </div>
+    </>
+  )
+}
+
+/** 결제 대장 점검: 연체·계좌 없음·세금계산서·예산·노무비 */
+function Checks({ data, projects }: { data: PayData; projects: Project[] }) {
+  const { navigate } = useRouter()
+  const today = todayKey()
+  const checks = paymentChecks(data.payments, data.lines, projects, today)
+  const [open, setOpen] = useState<string | null>(checks[0]?.key ?? null)
+  const projectName = (id: string | null) => projects.find(p => p.id === id)?.name ?? '–'
+  if (!checks.length) return <Empty>점검할 항목이 없습니다. 연체·계좌·세금계산서·예산·노무비 모두 이상 없음.</Empty>
+  return (
+    <>
+      <div className="note">엑셀 결제 대장에서 놓치기 쉬웠던 것들을 매번 자동으로 찾습니다. 항목을 누르면 결제 내용을 바로 고칠 수 있어요.</div>
+      {checks.map(c => (
+        <section key={c.key} className="section">
+          <button type="button" className="section-h" style={{ border: 0, borderBottom: '1px dashed var(--line)', background: 'none', cursor: 'pointer', textAlign: 'left', width: '100%' }} onClick={() => setOpen(open === c.key ? null : c.key)} aria-expanded={open === c.key}>
+            <Badge tone={c.level === 'high' ? 'red' : 'yellow'}>{c.level === 'high' ? '먼저' : '확인'}</Badge>
+            <span className="t-bodyb">{c.title}</span>
+            <Badge tone="outline">{c.items.length}건</Badge>
+            <span className="cap">{c.why}</span>
+          </button>
+          {open === c.key && (
+            <div className="table-wrap">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>현장</th>
+                    <th>항목</th>
+                    <th>업체·성명</th>
+                    <th className="num">금액</th>
+                    <th>상태</th>
+                    <th className="num">예정일</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {c.items.slice(0, 60).map(p => (
+                    <tr key={p.id} className="click" onClick={() => navigate(`/projects?view=payments&pid=${p.id}`)}>
+                      <td className="max truncate">{projectName(p.project_id)}</td>
+                      <td className="strong max truncate">
+                        {p.direction === '수금' ? '[수금] ' : ''}
+                        {p.title}
+                      </td>
+                      <td className="nowrap">{p.payee ?? '–'}</td>
+                      <td className="num">{p.amount.toLocaleString('ko-KR')}</td>
+                      <td className="nowrap">{p.is_estimate ? '예상' : p.status}</td>
+                      <td className={`num ${p.due_date && p.due_date < today && isOpen(p) ? 'red' : ''}`}>{shortDate(p.due_date) || '–'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {c.items.length > 60 && <span className="t-cap">외 {c.items.length - 60}건</span>}
+            </div>
+          )}
+        </section>
+      ))}
     </>
   )
 }

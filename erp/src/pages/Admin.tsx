@@ -10,7 +10,7 @@ import { Meter } from '../components/charts'
 import { Shell } from '../components/Shell'
 import { Avatar, Badge, Button, Empty, Field, Modal } from '../components/ui'
 
-export const SCOPE_LABEL: Record<AgentScope, string> = { research: '리서치', contact: '브랜드 담당자', task: '할 일', daily_report: '일일 보고', notify: '알림', read: '현황 조회' }
+export const SCOPE_LABEL: Record<AgentScope, string> = { read: '현황 조회', task: '할 일', daily_report: '일일 보고', notify: '알림', research: '리서치', contact: '브랜드 담당자', finance: '재무 요약(합계만)' }
 const FREE_DB = 500 * 1024 * 1024
 const BACKUP_KEY = 'wkly-erp-last-backup'
 
@@ -62,6 +62,7 @@ export default function Admin() {
       </div>
       {error && <div className="err">{error}</div>}
       <SystemStatus overview={data.overview} />
+      <PmAgent tokens={data.tokens} approvals={data.approvals} />
       <Members />
       <Routes routes={data.routes} />
       <AgentKeys tokens={data.tokens} />
@@ -211,7 +212,7 @@ function Members() {
           <Plus size={13} /> 팀원 추가
         </Button>
       </div>
-      <span className="t-cap">AI 팀원(예: 프로젝트 총괄 매니저)은 로그인하지 않고 아래 '에이전트 연결 키'로 일일 보고·할 일 배정을 합니다. 계정은 이름 표시와 기록용입니다.</span>
+      <span className="t-cap">AI 팀원(예: WKLY 총괄)은 로그인하지 않고 아래 '에이전트 연결 키'로 일일 보고·할 일 배정을 합니다. 계정은 이름 표시와 기록용입니다.</span>
     </section>
   )
 }
@@ -310,7 +311,7 @@ function AgentKeys({ tokens }: { tokens: AgentToken[] }) {
 }
 
 function NewKey({ onClose }: { onClose: () => void }) {
-  const { api, profiles, toast } = useApp()
+  const { api, profiles } = useApp()
   const { busy, run } = useAction()
   const agents = profiles.filter(p => p.active && p.is_agent)
   const [name, setName] = useState('')
@@ -323,15 +324,6 @@ function NewKey({ onClose }: { onClose: () => void }) {
       raw = await api.createAgentToken(name.trim(), scopes, profileId || null)
     }, '키를 만들었습니다.'))
       setToken(raw)
-  }
-  const copy = async () => {
-    if (!token) return
-    try {
-      await navigator.clipboard.writeText(token)
-      toast('복사했습니다. 에이전트 환경 변수 WKLY_ERP_AGENT_TOKEN 에 넣으세요.')
-    } catch {
-      toast('복사하지 못했습니다. 직접 선택해 복사하세요.')
-    }
   }
   return (
     <Modal
@@ -353,22 +345,11 @@ function NewKey({ onClose }: { onClose: () => void }) {
       }
     >
       {token ? (
-        <div className="col gap-10">
-          <div className="note warn">이 화면을 닫으면 키를 다시 볼 수 없습니다. 지금 복사해서 에이전트 쪽 비밀 설정(환경 변수)에 넣으세요. 채팅이나 메일로 보내지 마세요.</div>
-          <div className="row">
-            <input className="input grow" readOnly value={token} onFocus={e => e.target.select()} aria-label="새 키" style={{ fontFamily: 'var(--mono)' }} />
-            <Button kind="outline" onClick={copy}>
-              <Copy size={13} /> 복사
-            </Button>
-          </div>
-          <span className="t-cap">
-            필요한 값: WKLY_ERP_URL (Supabase 주소) · WKLY_ERP_ANON_KEY (공개 키) · WKLY_ERP_AGENT_TOKEN (이 키). 자세한 방법은 <Link to="/library?tab=agents">에이전트 연결 안내</Link>
-          </span>
-        </div>
+        <TokenReveal token={token} />
       ) : (
         <div className="form-grid">
           <Field label="이름" className="full">
-            <input className="input" autoFocus value={name} onChange={e => setName(e.target.value)} placeholder="예) 프로젝트 총괄 매니저 · 팝업스케줄 리서치" />
+            <input className="input" autoFocus value={name} onChange={e => setName(e.target.value)} placeholder="예) WKLY 총괄 · 팝업스케줄 리서치" />
           </Field>
           <Field label="연결할 AI 팀원" className="full">
             <select className="select" value={profileId} onChange={e => setProfileId(e.target.value)}>
@@ -395,6 +376,150 @@ function NewKey({ onClose }: { onClose: () => void }) {
         </div>
       )}
     </Modal>
+  )
+}
+
+/** 한 번만 보이는 키 + 에이전트 쪽 설정값 */
+function TokenReveal({ token }: { token: string }) {
+  const { api, toast } = useApp()
+  const url = api.mode === 'supabase' ? (import.meta.env.VITE_SUPABASE_URL as string) : 'https://<프로젝트>.supabase.co'
+  const anon = api.mode === 'supabase' ? (import.meta.env.VITE_SUPABASE_ANON_KEY as string) : '<Supabase 공개 키>'
+  const host = url.replace(/^https?:\/\//, '').replace(/\/.*$/, '')
+  const copy = async (text: string, what: string) => {
+    try {
+      await navigator.clipboard.writeText(text)
+      toast(`${what} 복사했습니다.`)
+    } catch {
+      toast('복사하지 못했습니다. 직접 선택해 복사하세요.')
+    }
+  }
+  const rows: [string, string, boolean][] = [
+    ['WKLY_ERP_AGENT_TOKEN', token, true],
+    ['WKLY_ERP_URL', url, false],
+    ['WKLY_ERP_ANON_KEY', anon, false],
+  ]
+  return (
+    <div className="col gap-10">
+      <div className="note warn">이 화면을 닫으면 키를 다시 볼 수 없습니다. 지금 복사해서 에이전트 실행 환경의 비밀값에만 넣으세요. 채팅·메일·문서에 붙여 넣지 마세요.</div>
+      {rows.map(([k, v, secret]) => (
+        <div key={k} className="col gap-2">
+          <span className="t-meta">
+            {k}
+            {secret ? ' · 비밀' : ' · 공개 값'}
+          </span>
+          <div className="row">
+            <input className="input grow" readOnly value={v} onFocus={e => e.target.select()} aria-label={k} style={{ fontFamily: 'var(--mono)', fontSize: 12 }} />
+            <Button kind="outline" size="sm" onClick={() => copy(v, k)}>
+              <Copy size={12} /> 복사
+            </Button>
+          </div>
+        </div>
+      ))}
+      <div className="box col gap-2" style={{ background: 'var(--white)' }}>
+        <span className="t-smallb">에이전트 쪽에서 할 일</span>
+        <span className="t-cap">1. 에이전트가 도는 Claude 클라우드 환경 설정(세션 제목줄의 환경 메뉴 › Edit)에서 위 세 값을 이름 그대로 환경 변수로 넣습니다.</span>
+        <span className="t-cap">2. 같은 화면 Network access 를 Limited 로 두고 Allowed domains 에 {host} 를 추가합니다 (Allow package managers 체크는 그대로).</span>
+        <span className="t-cap">
+          3. Claude에게 "WKLY 총괄 ERP 루틴 만들어줘"라고 요청하면 아침 배정·저녁 일일 보고 예약 작업을 만듭니다. 형식은 <Link to="/library?tab=agents">에이전트 연결 안내</Link>
+        </span>
+      </div>
+    </div>
+  )
+}
+
+const PM_SCOPES: AgentScope[] = ['read', 'task', 'daily_report', 'notify', 'research', 'finance']
+
+function randomPassword(): string {
+  const b = new Uint8Array(24)
+  crypto.getRandomValues(b)
+  return `${btoa(String.fromCharCode(...b)).replace(/[^A-Za-z0-9]/g, '').slice(0, 26)}Aa9!`
+}
+
+/** WKLY 총괄(AI 프로젝트 총괄) 등록: AI 팀원 계정 + 연결 키를 한 번에 */
+function PmAgent({ tokens, approvals }: { tokens: AgentToken[]; approvals: Approval[] }) {
+  const { api, profiles } = useApp()
+  const { busy, run } = useAction()
+  const agent = profiles.find(p => p.is_agent && p.active && /총괄/.test(`${p.name} ${p.title ?? ''}`))
+  const keys = agent ? tokens.filter(t => t.profile_id === agent.id && !t.revoked_at) : []
+  const lastUsed = keys
+    .map(k => k.last_used_at)
+    .filter((x): x is string => !!x)
+    .sort()
+    .pop()
+  const lastReport = agent ? approvals.filter(a => a.kind === '일일 보고' && a.requested_by === agent.id).sort((a, b) => b.created_at.localeCompare(a.created_at))[0] : undefined
+  const [name, setName] = useState('WKLY 총괄')
+  const [email, setEmail] = useState('agent@thewklyn.com')
+  const [token, setToken] = useState<string | null>(null)
+  const register = async () => {
+    let raw = ''
+    const mail = email.trim().toLowerCase()
+    const ok = await run(async () => {
+      let list = await api.listProfiles()
+      let p = list.find(x => x.email?.toLowerCase() === mail)
+      if (p) await api.updateProfile(p.id, { is_agent: true, name: name.trim(), title: '프로젝트 총괄 (AI)' })
+      else {
+        await api.createMember({ email: mail, password: randomPassword(), name: name.trim(), title: '프로젝트 총괄 (AI)', role: 'member', is_agent: true })
+        list = await api.listProfiles()
+        p = list.find(x => x.email?.toLowerCase() === mail)
+        if (!p) throw new Error('계정은 만들었지만 프로필을 찾지 못했습니다. 새로 고침 후 다시 눌러 주세요.')
+      }
+      raw = await api.createAgentToken(`${name.trim()} · ERP`, PM_SCOPES, p.id)
+    }, `${name.trim()}을(를) AI 팀원으로 등록하고 연결 키를 만들었습니다.`)
+    if (ok) setToken(raw)
+  }
+  const newKey = async () => {
+    if (!agent) return
+    let raw = ''
+    if (await run(async () => {
+      raw = await api.createAgentToken(`${agent.name} · ERP`, PM_SCOPES, agent.id)
+    }, '새 연결 키를 만들었습니다. 예전 키는 아래 목록에서 끊어 주세요.'))
+      setToken(raw)
+  }
+  return (
+    <section className="section">
+      <div className="section-h">
+        <span className="t-bodyb">WKLY 총괄 (AI 프로젝트 총괄)</span>
+        <span className="cap">아침에 할 일 배정 · 저녁 일일 보고 · 재무 위험 요약</span>
+      </div>
+      {agent ? (
+        <div className="box row wrap" style={{ background: 'var(--white)', gap: 10 }}>
+          <Avatar name="🤖" />
+          <span className="col gap-2 grow">
+            <span className="row" style={{ gap: 6 }}>
+              <span className="t-bodyb">{agent.name}</span>
+              <Badge tone="acid">AI 팀원</Badge>
+              {keys.length === 0 ? <Badge tone="red">키 없음</Badge> : lastUsed ? <Badge tone="acid">연결됨</Badge> : <Badge tone="yellow">연결 대기</Badge>}
+            </span>
+            <span className="t-cap">
+              {agent.title ?? ''} · {agent.email ?? ''} · 키 {keys.length}개{lastUsed ? ` · 마지막 사용 ${relativeLabel(lastUsed)}` : ''}
+              {lastReport ? ` · 마지막 일일 보고 ${relativeLabel(lastReport.created_at)}` : ' · 일일 보고 아직 없음'}
+            </span>
+          </span>
+          <Button kind={keys.length ? 'outline' : 'yellow'} disabled={busy} onClick={newKey}>
+            <KeyRound size={13} /> {keys.length ? '키 새로 만들기' : '연결 키 만들기'}
+          </Button>
+        </div>
+      ) : (
+        <div className="box col gap-6" style={{ background: 'var(--white)' }}>
+          <span className="t-small">
+            로그인하지 않는 AI 팀원 계정을 만들고 연결 키를 함께 발급합니다. 할 수 있는 일: {PM_SCOPES.map(s => SCOPE_LABEL[s]).join(' · ')} (계좌·개인 이름은 보지 못함)
+          </span>
+          <div className="row wrap">
+            <input className="input" style={{ flex: '1 1 120px' }} value={name} onChange={e => setName(e.target.value)} aria-label="AI 팀원 이름" />
+            <input className="input" style={{ flex: '2 1 200px' }} type="email" value={email} onChange={e => setEmail(e.target.value)} aria-label="AI 팀원 이메일 (로그인용 아님)" />
+            <Button kind="yellow" disabled={busy || !name.trim() || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())} onClick={register}>
+              <Plus size={13} /> 등록하기
+            </Button>
+          </div>
+          <span className="t-cap">이메일은 계정 구분용입니다(메일을 받지 않아도 됨). 팀원 추가 기능(Edge Function)이 꺼져 있으면, Supabase › Authentication › Add user 로 같은 이메일 계정을 먼저 만든 뒤 다시 누르세요.</span>
+        </div>
+      )}
+      {token && (
+        <Modal title="WKLY 총괄 연결 키" onClose={() => setToken(null)} actions={<Button onClick={() => setToken(null)}>닫기</Button>}>
+          <TokenReveal token={token} />
+        </Modal>
+      )}
+    </section>
   )
 }
 

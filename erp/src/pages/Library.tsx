@@ -878,14 +878,14 @@ function AgentGuide({ tabs }: { tabs: ReactNode }) {
     <>
       <div className="row wrap">{tabs}</div>
       <div className="note">
-        리서치 에이전트·프로젝트 총괄 매니저 같은 AI 팀원은 로그인 대신 <b>연결 키</b>로 ERP에 기록합니다. 키마다 할 수 있는 일(리서치·브랜드 담당자·할 일·일일 보고·알림·현황 조회)이 정해져 있고, 언제든 관리 화면에서 끊을 수 있어요.
+        리서치 에이전트·WKLY 총괄 같은 AI 팀원은 로그인 대신 <b>연결 키</b>로 ERP에 기록합니다. 키마다 할 수 있는 일(리서치·브랜드 담당자·할 일·일일 보고·알림·현황 조회·재무 요약)이 정해져 있고, 언제든 관리 화면에서 끊을 수 있어요.
       </div>
       <section className="section">
         <div className="section-h">
           <span className="t-bodyb">1. 키 만들기</span>
         </div>
         <span className="t-small">
-          {me.role === 'admin' ? <Link to="/admin">관리 › AI 에이전트 연결 키</Link> : '관리자에게 요청: 관리 › AI 에이전트 연결 키'} 에서 키를 만들고, 일일 보고를 할 에이전트는 AI 팀원(예: 총괄 매니저)과 연결합니다.
+          {me.role === 'admin' ? <Link to="/admin">관리 › AI 에이전트 연결 키</Link> : '관리자에게 요청: 관리 › AI 에이전트 연결 키'} 에서 키를 만들고, 일일 보고를 할 에이전트는 AI 팀원(예: WKLY 총괄)과 연결합니다. 관리 화면의 'WKLY 총괄' 칸에서 계정과 키를 한 번에 만들 수 있어요.
         </span>
       </section>
       <section className="section">
@@ -908,16 +908,20 @@ function AgentGuide({ tabs }: { tabs: ReactNode }) {
         <span className="t-cap">remind_at 에 시간대를 안 쓰면 한국 시간으로 봅니다.</span>
         <span className="t-smallb">일일 보고 (승인 › 일일 보고로 도착)</span>
         <Code>{call('daily_report', '{"date":"2026-10-12","title":"10/12 프로젝트 일일 보고","stats":{"active_projects":2,"done_today":4,"overdue":1,"new_research":3},"content":"■ 오늘 요약\\n…\\n■ 이슈 · 리스크\\n…\\n■ 내일 할 일\\n…"}')}</Code>
-        <span className="t-smallb">현황 읽기 (프로젝트·할 일·승인 대기 요약, 재무 제외)</span>
+        <span className="t-smallb">현황 읽기 (프로젝트·할 일·승인 대기 요약)</span>
         <Code>{`curl -s "$WKLY_ERP_URL/rest/v1/rpc/agent_snapshot" \\\n  -H "apikey: $WKLY_ERP_ANON_KEY" -H "Authorization: Bearer $WKLY_ERP_ANON_KEY" \\\n  -H "Content-Type: application/json" -d '{"p_token":"'"$WKLY_ERP_AGENT_TOKEN"'"}'`}</Code>
+        <span className="t-cap">
+          '재무 요약' 권한도 있는 키는 결과에 finance 가 붙습니다: 프로젝트별 계약·예산·비용·마진율·미수금·연체, 예산 넘은 공사 구분, 다음 월요일 이체 건수·금액. 합계와 비율만 있고 업체·계좌·사람 이름은 없습니다.
+        </span>
       </section>
       <section className="section">
         <div className="section-h">
-          <span className="t-bodyb">4. 프로젝트 총괄 매니저의 하루</span>
+          <span className="t-bodyb">4. WKLY 총괄의 하루</span>
         </div>
         <span className="t-small">· 08:30 현황 읽기 → 오늘 할 일을 팀원에게 배정 (알람 포함)</span>
         <span className="t-small">· 낮 동안 리서치 에이전트가 모은 자료 검토 → 활용 제안을 할 일로</span>
-        <span className="t-small">· 18:00 일일 보고 제출: 오늘 요약 · 프로젝트별 현황 · 이슈/리스크 · 내일 할 일 · 자료 활용 제안</span>
+        <span className="t-small">· 18:00 일일 보고 제출: 오늘 요약 · 프로젝트별 현황 · 이슈/리스크(연체·예산 초과·마진) · 내일 할 일 · 자료 활용 제안</span>
+        <span className="t-small">· 월요일 아침에는 이번 주 이체 건수·금액과 대기·보류 건을 관리자에게 알림</span>
         <span className="t-cap">사람 매니저가 총괄을 맡으면 승인 › 요청 › '일일 보고'로 같은 형식을 제출하면 됩니다. 자세한 설정은 저장소의 docs/AGENTS.md 를 참고하세요.</span>
       </section>
     </>
