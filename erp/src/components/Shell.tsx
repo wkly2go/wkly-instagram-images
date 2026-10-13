@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { PictureInPicture2 } from 'lucide-react'
+import { CircleHelp, PictureInPicture2 } from 'lucide-react'
 import { NotificationBell } from './Notifications'
 import { useApp, useAsync, initial } from '../lib/app'
 import { friendlyError } from '../lib/api'
@@ -168,6 +168,9 @@ export function Shell({ active, flush, children }: { active: TabKey; flush?: boo
               <span className="grow" />
               {api.mode === 'demo' && <span className="mode-badge" title="Supabase 연결 전 체험 모드. 데이터는 이 브라우저에만 저장됩니다.">DEMO</span>}
               <NotificationBell />
+              <Link to="/help" className="quick-btn" title="사용법" style={{ textDecoration: 'none' }}>
+                <CircleHelp size={14} /> 사용법
+              </Link>
               <button type="button" className="quick-btn" onClick={openQuick} title="다른 프로그램 위에 떠 있는 작은 기록 창">
                 <PictureInPicture2 size={14} /> 빠른 기록 창 띄우기
               </button>

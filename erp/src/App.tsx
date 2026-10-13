@@ -14,6 +14,7 @@ import Projects from './pages/Projects'
 import Quick from './pages/Quick'
 import Admin from './pages/Admin'
 import Library from './pages/Library'
+import Help from './pages/Help'
 import Team from './pages/Team'
 import WorkLog from './pages/WorkLog'
 
@@ -27,6 +28,7 @@ const PAGES: Record<string, () => JSX.Element> = {
   '/library': Library,
   '/team': Team,
   '/admin': Admin,
+  '/help': Help,
 }
 
 

@@ -15,6 +15,7 @@
 - **알림**: 종 모양 알림함(할 일 배정 · 알람 · 승인 · 일일 보고 · @멘션 · 결제), PC 알림, 매일 09:00 요약
 - **팀 · 관리**: TODAY IS 상태, 오늘의 한마디 / 관리자 화면에서 팀원(사람·AI) 추가, 권한, 승인 담당, AI 에이전트 연결 키, 데이터 백업, DB 사용량
 - **AI 팀원**: 'WKLY 총괄'(AI 프로젝트 총괄)이 연결 키로 할 일 배정 · 일일 보고 · 리서치 등록 · 재무 위험 알림 (`docs/AGENTS.md`). 관리 화면에서 계정과 키를 한 번에 등록
+- **사용법**: 상단 '사용법' 버튼 — 직원용 설명과 관리자용 설명(관리자에게만 보임)
 - PC·휴대폰 모두 사용 가능, 앱처럼 설치(PWA) 가능
 
 화면 설계(Figma): WKLY BRANDING 파일 › **WKLY 사내 ERP 미니홈피** 페이지 — https://www.figma.com/design/fePgvTp53M3PmbQ2R8TsDs/WKLY-BRANDING?node-id=238-1180
@@ -89,7 +90,7 @@ service_role 키는 이 함수 안에서만 쓰이고 브라우저로 나가지 
    - **Root directory: `erp`** (ERP 코드가 저장소의 erp 폴더에 있음)
    - Build command: `npm run build`
    - Build output directory: `dist`
-   - Environment variables: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `NODE_VERSION` = `22`
+   - Environment variables: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` (Node 버전은 `.node-version` 파일로 22 고정)
 4. **Save and Deploy** → `https://<프로젝트명>.pages.dev` 주소가 생깁니다.
 
 `public/_redirects` 가 있어 새로고침해도 화면이 유지됩니다.
