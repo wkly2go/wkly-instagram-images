@@ -10,6 +10,8 @@ import type {
   BudgetLine,
   Attendance,
   HrRecord,
+  LeaveRecord,
+  AgentInstruction,
   ChatMessage,
   ChatRoom,
   ChatRoomSummary,
@@ -61,6 +63,17 @@ export function createSupabaseApi(url: string, key: string): Api {
 
   async function remove(table: string, id: string | number) {
     mustAffect(await sb.from(table).delete().eq('id', id).select('id'))
+  }
+
+  /** Supabase 기본 1,000줄 제한을 넘어 전부 읽기 (정렬은 build 에서) */
+  async function pageAll<T>(build: () => { range: (a: number, b: number) => PromiseLike<{ data: unknown; error: unknown }> }): Promise<T[]> {
+    const out: T[] = []
+    const size = 1000
+    for (let from = 0; ; from += size) {
+      const rows = must((await build().range(from, from + size - 1)) as never) as T[]
+      out.push(...rows)
+      if (rows.length < size) return out
+    }
   }
 
   /** 관리자 Edge Function 호출 (팀원 추가 · 비밀번호 재설정) */
@@ -229,10 +242,12 @@ export function createSupabaseApi(url: string, key: string): Api {
       return must(await sb.from('project_finances').upsert(body, { onConflict: 'project_id' }).select().single()) as ProjectFinance
     },
     async listPayments(filter = {}) {
-      let q = sb.from('payments').select('*')
-      if (filter.projectId) q = q.eq('project_id', filter.projectId)
-      if (filter.clientId) q = q.eq('client_id', filter.clientId)
-      return must(await q.order('due_date', { nullsFirst: false }).order('created_at')) as Payment[]
+      return pageAll<Payment>(() => {
+        let q = sb.from('payments').select('*')
+        if (filter.projectId) q = q.eq('project_id', filter.projectId)
+        if (filter.clientId) q = q.eq('client_id', filter.clientId)
+        return q.order('due_date', { nullsFirst: false }).order('created_at').order('id')
+      })
     },
     savePayment: p => save('payments', p) as Promise<Payment>,
     deletePayment: id => remove('payments', id),
@@ -260,9 +275,11 @@ export function createSupabaseApi(url: string, key: string): Api {
       return { payments: count, budgetLines: lines }
     },
     async listBudgetLines(projectId) {
-      let q = sb.from('project_budget_lines').select('*')
-      if (projectId) q = q.eq('project_id', projectId)
-      return must(await q.order('sort_order').order('created_at')) as BudgetLine[]
+      return pageAll<BudgetLine>(() => {
+        let q = sb.from('project_budget_lines').select('*')
+        if (projectId) q = q.eq('project_id', projectId)
+        return q.order('sort_order').order('created_at').order('id')
+      })
     },
     saveBudgetLine: b => save('project_budget_lines', b) as Promise<BudgetLine>,
     deleteBudgetLine: id => remove('project_budget_lines', id),
@@ -281,8 +298,17 @@ export function createSupabaseApi(url: string, key: string): Api {
     },
     async getHrRecord(profileId) {
       const { data, error } = await sb.from('hr_records').select('*').eq('profile_id', profileId).maybeSingle()
-      if (error) return null // 0006 미적용 등
+      // 표가 없을 때(0006 미적용)만 빈 기록. 그 밖의 오류는 던져서 빈 양식으로 덮어쓰지 않게
+      if (error) {
+        if (error.code === '42P01' || error.code === 'PGRST205') return null
+        throw new ApiError(error.message)
+      }
       return data as HrRecord | null
+    },
+    async listHrRecords() {
+      const { data, error } = await sb.from('hr_records').select('*')
+      if (error) return []
+      return data as HrRecord[]
     },
     async saveHrRecord(r) {
       must(await sb.from('hr_records').upsert(strip(r, ['updated_at', 'updated_by'])).select('profile_id'))
@@ -323,7 +349,7 @@ export function createSupabaseApi(url: string, key: string): Api {
       const res: ImportResult = { created: 0, merged: 0, skipped: 0 }
       for (const r of rows) {
         const email = r.email?.trim().toLowerCase()
-        if (!email || !r.brand_name?.trim()) {
+        if (!email || !r.brand_name?.trim() || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
           res.skipped++
           continue
         }
@@ -368,6 +394,28 @@ export function createSupabaseApi(url: string, key: string): Api {
     async listAttendance(day) {
       return must(await sb.from('attendance').select('*').eq('day', day)) as Attendance[]
     },
+    async listLeave() {
+      const { data, error } = await sb.from('leave_records').select('*').order('start_date', { ascending: false })
+      if (error) return [] // 0007 미적용
+      return (data as LeaveRecord[]).map(r => ({ ...r, days: Number(r.days) }))
+    },
+    async createLeave(r) {
+      must(await sb.from('leave_records').insert({ ...r, status: r.status ?? '신청' }).select('id'))
+    },
+    async decideLeave(id, status) {
+      mustAffect(await sb.from('leave_records').update({ status }).eq('id', id).select('id'))
+    },
+    deleteLeave: id => remove('leave_records', id),
+    async listAgentInstructions() {
+      const { data, error } = await sb.from('agent_instructions').select('*').order('created_at', { ascending: false }).limit(50)
+      if (error) return [] // 0007 미적용
+      return data as AgentInstruction[]
+    },
+    async instructAgent(agentId, instruction) {
+      const { data } = await sb.auth.getSession()
+      must(await sb.from('agent_instructions').insert({ agent_id: agentId, instruction, created_by: data.session?.user.id }).select('id'))
+    },
+    deleteAgentInstruction: id => remove('agent_instructions', id),
     async listAttendanceFor(userId, fromDay) {
       return must(await sb.from('attendance').select('*').eq('user_id', userId).gte('day', fromDay).order('day', { ascending: false })) as Attendance[]
     },

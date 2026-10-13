@@ -523,3 +523,56 @@ button.kpi:hover, a.kpi:hover { border-color: var(--blue); }
 .hr-grid dt { color: var(--gray); }
 .hr-grid dd { margin: 0; color: var(--blue); font-weight: 700; min-width: 0; word-break: break-word; }
 .del-btn:not(:disabled):hover { color: var(--red); }
+.stackbar { display: flex; gap: 2px; height: 14px; }
+.stackbar i { display: block; border-radius: 4px; min-width: 4px; }
+
+/* ---------- 업무 일정표 (간트) ---------- */
+.gantt-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--r-panel); background: var(--white); }
+.gantt { display: grid; grid-auto-rows: minmax(34px, auto); min-width: max-content; position: relative; }
+.g-head { display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: var(--blue); background: var(--paper); border-bottom: 1px solid var(--line); border-left: 1px solid var(--line); padding: 4px 2px; }
+.g-head.g-label { justify-content: flex-start; padding-left: 10px; border-left: 0; position: sticky; left: 0; z-index: 3; }
+.g-month { border-bottom: 1px dashed var(--line); }
+.g-week { font: 700 11px/1 var(--mono); color: var(--gray); }
+.g-week.today { background: var(--yellow); color: var(--blue); }
+.g-cell { border-left: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.g-cell.today { background: var(--yellow-tint); box-shadow: inset 2px 0 0 var(--yellow); }
+.g-phase { display: flex; align-items: center; gap: 6px; padding: 6px 10px; font-size: 13px; font-weight: 700; color: var(--white); background: var(--blue); position: sticky; left: 0; }
+.g-label { position: sticky; left: 0; z-index: 2; background: var(--white); border-bottom: 1px solid var(--line); border-right: 2px solid var(--blue); }
+.g-task { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 0; padding: 4px 10px; text-align: left; border-top: 0; border-left: 0; cursor: pointer; font-size: 13px; font-weight: 700; color: var(--blue); min-width: 0; }
+.g-task:hover { background: var(--paper); }
+.g-bar { z-index: 1; align-self: center; margin: 0 2px; height: 24px; border-radius: 6px; border: 0; padding: 0 8px; font-size: 12px; font-weight: 700; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+.g-bar.s-done { background: var(--blue); color: var(--white); }
+.g-bar.s-doing { background: var(--acid); color: var(--blue); box-shadow: inset 0 0 0 1px var(--blue); }
+.g-bar.s-todo { background: var(--blue-tint); color: var(--blue); }
+.g-bar.late { box-shadow: inset 0 0 0 2px var(--red); color: var(--red); background: var(--white); }
+.g-bar:hover { filter: brightness(0.96); }
+
+/* ---------- 월간 캘린더 ---------- */
+.bigcal { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); border-top: 1px solid var(--line); border-left: 1px solid var(--line); background: var(--white); }
+.bigcal .dow { text-align: center; font-size: 12px; font-weight: 700; color: var(--blue); background: var(--paper); padding: 6px 0; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.bigcal .day { min-height: 96px; padding: 4px; display: flex; flex-direction: column; gap: 2px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); min-width: 0; }
+.bigcal .day.empty { background: var(--paper); }
+.bigcal .day.today { background: var(--yellow-tint); box-shadow: inset 0 0 0 2px var(--yellow); }
+.bigcal .n { display: flex; align-items: center; gap: 4px; font: 700 12px/1.4 var(--mono); color: var(--gray); }
+.cal-item { display: block; width: 100%; border: 0; border-radius: 4px; padding: 1px 5px; font-size: 11px; font-weight: 700; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; text-decoration: none; }
+.cal-item:hover { text-decoration: none; filter: brightness(0.95); }
+.cal-item.c-task { background: var(--blue-tint); color: var(--blue); }
+.cal-item.c-late { background: var(--red); color: var(--white); }
+.cal-item.c-done { background: var(--paper); color: var(--gray); text-decoration: line-through; }
+.cal-item.c-project { background: var(--green); color: var(--white); }
+.cal-item.c-leave { background: var(--white); color: var(--blue); box-shadow: inset 4px 0 0 var(--pink), inset 0 0 0 1px var(--line); padding-left: 8px; }
+.bigcal .more { border: 0; background: none; padding: 0 4px; font-size: 11px; color: var(--blue); cursor: pointer; text-align: left; }
+@media (max-width: 640px) {
+  .bigcal .day { min-height: 64px; padding: 2px; }
+  .cal-item { font-size: 10px; padding: 0 3px; }
+}
+
+/* ---------- 연차 ---------- */
+.leave-card { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; background: var(--white); border: 1px solid var(--line); border-left: 4px solid var(--green); border-radius: var(--r-panel); }
+.leave-nums { display: flex; flex-wrap: wrap; gap: 18px; }
+.leave-nums span { display: flex; align-items: baseline; gap: 4px; font-size: 12px; color: var(--gray); }
+.leave-nums b { font: 900 22px/1.2 var(--display); color: var(--blue); }
+.leave-nums .left b { color: var(--green); }
+.leave-nums .neg b { color: var(--red); }
+.instr { border-top: 1px dashed var(--line); padding-top: 6px; display: flex; flex-direction: column; gap: 4px; }
+.instr-res { margin: 0 0 0 4px; padding: 6px 10px; background: var(--blue-tint); color: var(--blue); border-radius: 8px; font-size: 13px; }

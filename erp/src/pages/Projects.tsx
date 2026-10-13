@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { AlarmClock, ArrowLeft, ChevronLeft, ChevronRight, Folder, MessageCircle, Pencil, Plus, Trash2 } from 'lucide-react'
+import { AlarmClock, ArrowLeft, ChevronLeft, ChevronRight, Folder, MessageCircle, Pencil, Plus, Send, Trash2 } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { addMonths, dateLabel, monthGrid, shortDate, timeLabel, toDateKey, todayKey, weekRange, weekday } from '../lib/date'
 import { Link, useRouter, withQuery } from '../lib/router'
@@ -10,6 +10,7 @@ import { NewApproval } from './Approvals'
 import { FinancePanel } from '../components/FinancePanel'
 import { ProjectDashboard } from './ProjectDashboard'
 import { Payments } from './Payments'
+import { Gantt, MonthCalendar, SentTasks, TaskAssignModal } from './Schedule'
 
 interface Data {
   projects: Project[]
@@ -22,10 +23,11 @@ export default function Projects() {
   const { query, path, navigate } = useRouter()
   const { me } = useApp()
   const admin = me.role === 'admin'
-  const view = query.get('view') // null(대시보드) | 'list' | 'mine' | 'tasks' | 'payments'
+  const view = query.get('view') // null(대시보드) | 'schedule' | 'calendar' | 'list' | 'mine' | 'tasks' | 'payments'
   const status = (query.get('status') as ProjectStatus | 'all' | null) ?? '진행'
   const selectedId = query.get('id')
   const [editing, setEditing] = useState<Project | 'new' | null>(null)
+  const [assigning, setAssigning] = useState(false)
   const { data, loading } = useAsync<Data>(
     async () => {
       const [projects, tasks, clients] = await Promise.all([api.listProjects(), api.listTasks(), api.listClients()])
@@ -50,6 +52,8 @@ export default function Projects() {
   const list = status === 'all' ? data.projects : data.projects.filter(p => p.status === status)
   const tabs: [string | null, string][] = [
     [null, '대시보드'],
+    ['schedule', '일정표'],
+    ['calendar', '캘린더'],
     ['list', '프로젝트 목록'],
     ['mine', '내 할 일'],
     ['tasks', '팀 할 일'],
@@ -67,6 +71,11 @@ export default function Projects() {
         </div>
         <span className="grow" />
         {!view && admin && <span className="t-cap">{todayKey().slice(0, 4)}년 · 공급가액(VAT 별도)</span>}
+        {view !== 'payments' && view !== 'schedule' && (
+          <Button kind="outline" onClick={() => setAssigning(true)}>
+            <Send size={13} /> 업무 지시
+          </Button>
+        )}
         {view !== 'payments' && (
           <Button onClick={() => setEditing('new')}>
             <Plus size={14} /> 프로젝트
@@ -75,8 +84,15 @@ export default function Projects() {
       </div>
       {view === 'payments' && admin ? (
         <Payments projects={data.projects} clients={data.clients} />
+      ) : view === 'schedule' ? (
+        <Gantt projects={data.projects} tasks={data.tasks} />
+      ) : view === 'calendar' ? (
+        <MonthCalendar projects={data.projects} tasks={data.tasks} />
       ) : view === 'mine' || view === 'tasks' ? (
-        <TaskList tasks={data.tasks} projects={data.projects} mineOnly={view === 'mine'} />
+        <div className="col gap-12">
+          {view === 'mine' && <SentTasks projects={data.projects} tasks={data.tasks} />}
+          <TaskList tasks={data.tasks} projects={data.projects} mineOnly={view === 'mine'} />
+        </div>
       ) : view === 'list' ? (
         <div className="row top gap-12" style={{ flex: 1, minHeight: 0, flexWrap: 'wrap' }}>
           <div className="col grow" style={{ flexBasis: 320 }}>
@@ -101,6 +117,7 @@ export default function Projects() {
         <ProjectDashboard projects={data.projects} tasks={data.tasks} clients={data.clients} />
       )}
       {editing && <ProjectForm project={editing === 'new' ? null : editing} clients={data.clients} onClose={() => setEditing(null)} onSaved={id => go({ id })} />}
+      {assigning && <TaskAssignModal projects={data.projects} tasks={data.tasks} onClose={() => setAssigning(false)} />}
     </Shell>
   )
 }
@@ -322,6 +339,9 @@ function TaskRow({ t, late, projectName, assignee, onStatus, onDelete, onAlarm }
             </>
           )}
           {creator?.is_agent && <span className="t-blue">{projectName || t.source_research_id ? ' · ' : ''}🤖 {creator.name} 배정</span>}
+          {t.phase && <span>{projectName || t.source_research_id || creator?.is_agent ? ' · ' : ''}{t.phase}</span>}
+          {creator && !creator.is_agent && creator.id !== t.assignee_id && <span className="t-blue">{projectName || t.phase ? ' · ' : ''}{creator.name} 지시</span>}
+          {t.start_date && t.due_date && t.start_date !== t.due_date && <span>{' · '}{shortDate(t.start_date)}~{shortDate(t.due_date)}</span>}
         </span>
       </span>
       {editAlarm && onAlarm ? (

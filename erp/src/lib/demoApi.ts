@@ -9,6 +9,8 @@ import type {
   BudgetLine,
   Attendance,
   HrRecord,
+  LeaveRecord,
+  AgentInstruction,
   ChatMessage,
   ChatRoom,
   ChatRoomSummary,
@@ -51,12 +53,14 @@ interface Store {
   /** 예전 체험 데이터에는 없을 수 있음 */
   attendance?: Attendance[]
   hr_records?: HrRecord[]
+  leave_records?: LeaveRecord[]
+  agent_instructions?: AgentInstruction[]
   seq: number
   /** 하루 한 번 보내는 결제 요약 알림 (서버 daily_digest 흉내) */
   digest_date?: string
 }
 
-const KEY = 'wkly-erp-demo-v4'
+const KEY = 'wkly-erp-demo-v5'
 const SESSION_KEY = 'wkly-erp-demo-session'
 
 const uid = () => crypto.randomUUID()
@@ -125,7 +129,8 @@ function seed(): Store {
   const weekly = pj('주간 핫 마케팅 3주차', null, '콘텐츠', '기획', U.seoyeon, 1, 7)
   const paper = pj("연남 팝업 '페이퍼 마켓'", high, '팝업', '기획', U.seoyeon, 21, 34, '서울 마포구 연남동')
   const yeouido = pj('여의도 팝업 리뷰 콘텐츠', green, '콘텐츠', '완료', U.haneul, -20, -7)
-  const projects = [objetWeek, autumn, weekly, paper, yeouido]
+  const hannam = pj('한남 플래그십 인테리어', objet, '팝업', '진행', U.admin, -35, 120, '서울 용산구 한남동', '브랜드 플래그십 매장 설계 · 시공 (협력사 협업)')
+  const projects = [objetWeek, autumn, weekly, paper, yeouido, hannam]
 
   const plant: ResearchItem = {
     id: uid(), kind: '팝업', title: "성수 '플랜트 하우스' 팝업 오픈", summary: '식물 공방 클래스 + 굿즈 판매 체험형 팝업. 주말 예약제, 사전 예약 30분 만에 마감.',
@@ -152,6 +157,25 @@ function seed(): Store {
     tk(yeouido, '정산 자료 요청 메일', U.admin, 0, '할 일', { remind_at: inMinutes(90) }),
     tk(null, '플랜트 하우스 협업 제안 메일', U.admin, 0, '진행 중', { source_research_id: plant.id, created_by: U.pm, remind_at: inMinutes(150) }),
     tk(autumn, '캠페인 촬영', U.doyun, 5, '할 일'), tk(objetWeek, '오브제 위크 철수', U.haneul, 14, '할 일'), tk(objetWeek, '오픈 현장 점검', U.haneul, -2, '완료'),
+    // 한남 플래그십: 주 단위 업무 일정표 (프로젝트 시작 -35일 기준)
+    ...(
+      [
+        ['디자인 기획', '시장 조사', U.seoyeon, 0, 6, '완료'],
+        ['디자인 기획', '국내 사례 조사', U.seoyeon, 7, 13, '완료'],
+        ['디자인 기획', '공간 브랜딩', U.haneul, 7, 20, '완료'],
+        ['디자인 기획', '디자인 컨셉 선정', U.haneul, 21, 34, '완료'],
+        ['디자인 기획', '평면 프로그램 개발', U.doyun, 7, 34, '진행 중'],
+        ['디자인 기획', '3D 시뮬레이션 완성', U.doyun, 49, 62, '할 일'],
+        ['디자인 개발', '마감재 선정', U.haneul, 28, 41, '진행 중'],
+        ['디자인 개발', '스팩북 작성', U.seoyeon, 56, 69, '할 일'],
+        ['디자인 개발', '기본 설계 완성', U.doyun, 42, 69, '할 일'],
+        ['디자인 개발', '공사비 예가 산정', U.admin, 70, 76, '할 일'],
+        ['디자인 개발', '특화 디자인 아이템 선정', U.haneul, 70, 90, '할 일'],
+        ['디자인 보고', '1차 보고', U.admin, 14, 20, '완료'],
+        ['디자인 보고', '2차 보고', U.admin, 35, 41, '할 일'],
+        ['디자인 보고', '3차 보고 · 기본 설계 제출', U.admin, 56, 69, '할 일'],
+      ] as const
+    ).map(([phase, title, who, s, e, st]) => tk(hannam, title, who, e - 35, st, { phase, start_date: addDays(t, s - 35), created_by: U.admin })),
   ]
   const lg = (user: string, day: number, time: string, kind: WorkLog['kind'], content: string, extra: Partial<WorkLog> = {}): WorkLog => ({
     id: uid(), user_id: user, log_date: addDays(t, day), kind, content, email_counterpart: null, email_subject: null, client_id: null, project_id: null, minutes: null, created_at: at(day, time), updated_at: at(day, time), ...extra,
@@ -314,10 +338,24 @@ function seed(): Store {
     att(U.haneul, 0, '08:42', '10:40'), att(U.doyun, 0, '08:55', '10:20'), att(U.seoyeon, 0, '09:10', '10:35'),
     ...[U.admin, U.haneul, U.doyun, U.seoyeon, U.garam].map((u, i) => att(u, -1, `0${8 + (i % 2)}:${10 + i * 7}`, '18:2' + i)),
   ]
+  const hr_records: HrRecord[] = [
+    [U.admin, '2021-03-02'], [U.haneul, '2023-07-03'], [U.doyun, '2024-02-13'], [U.seoyeon, '2025-05-12'], [U.garam, addDays(t, -95)],
+  ].map(([id, joined]) => ({ profile_id: id, joined_on: joined, phone: null, birthday: null, address: null, emergency_contact: null, note: null }))
+  const lv = (who: string, kind: LeaveRecord['kind'], s: number, e: number, days: number, status: LeaveRecord['status'], reason: string | null = null): LeaveRecord => ({
+    id: uid(), profile_id: who, kind, start_date: addDays(t, s), end_date: addDays(t, e), days, reason, status, decided_by: status === '신청' ? null : U.admin, decided_at: status === '신청' ? null : at(-3, '10:00'), created_by: who, created_at: at(-5, '09:00'),
+  })
+  const leave_records = [
+    lv(U.haneul, '연차', -40, -38, 3, '승인', '여름 휴가'), lv(U.haneul, '반차', -9, -9, 0.5, '승인'), lv(U.doyun, '연차', 9, 10, 2, '신청', '가족 행사'),
+    lv(U.seoyeon, '연차', -60, -60, 1, '승인'), lv(U.garam, '연차', -1, 1, 3, '승인', '개인 사유'),
+  ]
+  const agent_instructions: AgentInstruction[] = [
+    { id: uid(), agent_id: U.pm, instruction: '한남 플래그십 이번 주 지연 업무 정리해서 담당자에게 알려 줘', status: '완료', response: '지연 1건: 평면 프로그램 개발(이도윤, 마감 지남). 이도윤님에게 알림을 보냈고 내일 08:30 배정에 다시 포함합니다.', created_by: U.admin, created_at: at(-1, '17:10'), responded_at: at(-1, '17:54') },
+    { id: uid(), agent_id: U.pm, instruction: '다음 주 수금 예정 건 거래처별로 묶어서 보고해 줘', status: '대기', response: null, created_by: U.admin, created_at: at(0, '09:20'), responded_at: null },
+  ]
   const chat_reads = [all, rObjet].map(r => ({ user_id: U.admin, room_id: r.id, last_read_at: at(0, '10:50') }))
   return {
     profiles, clients, contacts, projects, tasks, work_logs, chat_rooms: [all, rObjet, rAutumn, rContent], chat_messages, chat_reads, approvals, approval_routes,
-    finances, payments, budget_lines, research_items, brand_contacts, email_templates, agent_tokens, notifications, attendance, seq: Math.max(seq, nseq) + 100,
+    finances, payments, budget_lines, research_items, brand_contacts, email_templates, agent_tokens, notifications, attendance, hr_records, leave_records, agent_instructions, seq: Math.max(seq, nseq) + 100,
   }
 }
 
@@ -530,8 +568,11 @@ export function createDemoApi(): Api {
       const status = t.status ?? prev?.status ?? '할 일'
       const completed_at = status === '완료' ? (prev?.status === '완료' ? prev.completed_at : now()) : null
       const patch: Partial<Task> = { ...t, completed_at }
+      const start = t.start_date !== undefined ? t.start_date : prev?.start_date
+      const due = t.due_date !== undefined ? t.due_date : prev?.due_date
+      if (start && due && start > due) throw new ApiError('시작일이 마감일보다 늦습니다.')
       if (t.remind_at !== undefined && t.remind_at !== prev?.remind_at) patch.reminded_at = null
-      const saved = upsert<'tasks', Task>('tasks', patch, () => ({ ...base(), project_id: null, title: '', assignee_id: null, due_date: null, status: '할 일', memo: null, completed_at: null, remind_at: null, reminded_at: null, source_research_id: null }) as Task)
+      const saved = upsert<'tasks', Task>('tasks', patch, () => ({ ...base(), project_id: null, title: '', assignee_id: null, due_date: null, status: '할 일', memo: null, completed_at: null, remind_at: null, reminded_at: null, source_research_id: null, start_date: null, phase: null }) as Task)
       if (saved.assignee_id && saved.assignee_id !== self && saved.assignee_id !== prev?.assignee_id) {
         notify(saved.assignee_id, '할 일', `새 할 일 배정 · ${saved.title}`, `${nameOf(self)}님이 배정했어요`, '/projects?view=mine')
         persist()
@@ -662,7 +703,8 @@ export function createDemoApi(): Api {
           paymentRules({
             ...paymentDefaults(), id: uid(), created_by: a.requested_by, direction: '지급', project_id: projectId, title: a.title, amount: a.amount, approval_id: a.id,
             category: str('category'), payee: str('payee'), contract_type: (str('contract_type') as Payment['contract_type']) ?? null, stage: str('stage'),
-            bank_name: str('bank_name'), account_no: str('account_no'), account_holder: str('account_holder'), requested_date: a.created_at.slice(0, 10), memo: '지출 승인에서 등록',
+            bank_name: str('bank_name'), account_no: str('account_no'), account_holder: str('account_holder'), requested_date: toDateKey(a.created_at), memo: '지출 승인에서 등록',
+            vat: /^-?\d{1,15}$/.test(str('vat') ?? '') && Math.abs(Number(str('vat'))) <= Math.abs(a.amount) ? Number(str('vat')) : 0,
           }),
         )
         emit('payments')
@@ -807,6 +849,10 @@ export function createDemoApi(): Api {
       requireMe()
       if (profileId !== me && !isAdmin()) return null
       return clone((store.hr_records ?? []).find(h => h.profile_id === profileId) ?? null)
+    },
+    async listHrRecords() {
+      requireMe()
+      return clone((store.hr_records ?? []).filter(h => isAdmin() || h.profile_id === me))
     },
     async saveHrRecord(r) {
       requireAdmin()
@@ -957,6 +1003,60 @@ export function createDemoApi(): Api {
     async listAttendance(day) {
       requireMe()
       return clone((store.attendance ?? []).filter(a => a.day === day))
+    },
+    async listLeave() {
+      requireMe()
+      return clone([...(store.leave_records ?? [])].sort((a, b) => b.start_date.localeCompare(a.start_date)))
+    },
+    async createLeave(r) {
+      const self = requireMe()
+      const status = r.status ?? '신청'
+      if (!isAdmin() && (r.profile_id !== self || status !== '신청')) throw new ApiError('권한이 없습니다.')
+      if (r.start_date > r.end_date) throw new ApiError('시작일이 종료일보다 늦습니다.')
+      if (r.kind === '반차' && (r.days !== 0.5 || r.start_date !== r.end_date)) throw new ApiError('반차는 하루 0.5일입니다.')
+      const row: LeaveRecord = { id: uid(), ...r, reason: r.reason ?? null, status, decided_by: status === '신청' ? null : self, decided_at: status === '신청' ? null : now(), created_by: self, created_at: now() }
+      ;(store.leave_records ??= []).push(row)
+      if (status === '신청') for (const a of store.profiles.filter(p => p.role === 'admin' && p.active && p.id !== r.profile_id)) notify(a.id, '승인', `휴가 신청 · ${nameOf(r.profile_id)} ${r.kind}`, `${r.start_date.slice(5).replace('-', '.')} · ${r.days}일`, '/team?view=leave')
+      persist()
+      emit('leave_records')
+    },
+    async decideLeave(id, status) {
+      requireAdmin()
+      const r = (store.leave_records ?? []).find(x => x.id === id)
+      if (!r) throw new ApiError('휴가 기록을 찾을 수 없습니다.')
+      r.status = status
+      r.decided_by = me
+      r.decided_at = now()
+      if (r.profile_id !== me) notify(r.profile_id, '승인', `휴가 ${status} · ${r.kind}`, `${r.start_date.slice(5).replace('-', '.')} · ${r.days}일`, '/team?view=leave')
+      persist()
+      emit('leave_records')
+    },
+    async deleteLeave(id) {
+      const self = requireMe()
+      const r = (store.leave_records ?? []).find(x => x.id === id)
+      if (!r || (!isAdmin() && (r.profile_id !== self || r.status !== '신청'))) throw new ApiError('권한이 없습니다.')
+      store.leave_records = (store.leave_records ?? []).filter(x => x.id !== id)
+      persist()
+      emit('leave_records')
+    },
+    async listAgentInstructions() {
+      requireMe()
+      return clone([...(store.agent_instructions ?? [])].sort((a, b) => b.created_at.localeCompare(a.created_at)))
+    },
+    async instructAgent(agentId, instruction) {
+      const self = requireMe()
+      if (!store.profiles.some(p => p.id === agentId && p.is_agent && p.active)) throw new ApiError('AI 팀원에게만 지시할 수 있습니다.')
+      ;(store.agent_instructions ??= []).push({ id: uid(), agent_id: agentId, instruction, status: '대기', response: null, created_by: self, created_at: now(), responded_at: null })
+      persist()
+      emit('agent_instructions')
+    },
+    async deleteAgentInstruction(id) {
+      const self = requireMe()
+      const r = (store.agent_instructions ?? []).find(x => x.id === id)
+      if (!r || (!isAdmin() && (r.created_by !== self || r.status !== '대기'))) throw new ApiError('권한이 없습니다.')
+      store.agent_instructions = (store.agent_instructions ?? []).filter(x => x.id !== id)
+      persist()
+      emit('agent_instructions')
     },
     async listAttendanceFor(userId, fromDay) {
       requireMe()

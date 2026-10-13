@@ -130,6 +130,17 @@ curl -s "$WKLY_ERP_URL/rest/v1/rpc/agent_submit" \
 
 글자 수는 항목별 최대 길이로 잘리고, payload 전체는 10만 자까지입니다.
 
+### ERP 직접 지시 (0007)
+
+팀원이 ERP 홈의 'AI 팀원에게 지시'에 남긴 지시를 토큰에 연결된 AI 팀원이 처리합니다.
+
+| RPC | scope | 하는 일 |
+|---|---|---|
+| `agent_instructions_pending(p_token)` | `read` | 이 AI 팀원 앞으로 온 '대기' · '진행 중' 지시 (오래된 순) `[{id, instruction, status, from, created_at}]` |
+| `agent_instruction_respond(p_token, p_id, p_status, p_response)` | `task` | `p_status` 는 진행 중 · 완료 · 보류. 완료 · 보류에는 `p_response` 필수 (4,000자). 완료 · 보류 때 지시한 사람에게 알림 |
+
+답변은 활성 팀원 모두가 볼 수 있으므로 금액은 쓰지 않습니다 (돈 이야기는 관리자 `notify`).
+
 ## 3. 일일 보고 형식
 
 `■ 소제목` 줄은 화면에서 소제목이 되고, `· 프로젝트명 (할 일 3/5) — 메모` 줄은 진행 막대로 그려집니다.
@@ -191,8 +202,8 @@ curl -s "$WKLY_ERP_URL/rest/v1/rpc/agent_submit" \
 
 | 이름 | 시각 | 하는 일 |
 |---|---|---|
-| WKLY 총괄 ERP 아침 배정 | 08:24 | 현황 읽기 → 할 일 배정, 월요일엔 이체 건수·금액을 관리자에게 알림 |
-| WKLY 총괄 ERP 일일 보고 | 17:54 | 일일 보고 제출 + 재무 위험을 관리자에게 알림 |
+| WKLY 총괄 ERP 아침 배정 | 08:24 | ERP 직접 지시 처리 → 현황 읽기 → 할 일 배정, 월요일엔 이체 건수·금액을 관리자에게 알림 |
+| WKLY 총괄 ERP 일일 보고 | 17:54 | ERP 직접 지시 처리 → 일일 보고 제출 + 재무 위험을 관리자에게 알림 |
 
 연결 값이 없으면 실행돼도 "변동 없음 — ERP 연결 설정 전" 한 줄로 끝납니다. 연결하려면:
 

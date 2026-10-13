@@ -28,9 +28,23 @@ erp() { # erp <rpc> <json-body-without-token>
 }
 erp agent_snapshot '{}'
 erp agent_submit '{"p_kind":"task","p_payload":{"title":"…","assignee_id":"…","due_date":"2026-10-13","remind_at":"2026-10-13T10:00"}}'
+erp agent_instructions_pending '{}'
+erp agent_instruction_respond '{"p_id":"…","p_status":"완료","p_response":"…"}'
 ```
 
 payload 형식, `finance` 항목의 뜻, 오류 코드는 저장소의 `docs/AGENTS.md` 를 따른다.
+
+## ERP 직접 지시 (아침 · 저녁 실행 때마다 가장 먼저)
+
+팀원이 ERP 홈의 'AI 팀원에게 지시'에 남긴 지시를 처리한다.
+
+1. `agent_instructions_pending` 으로 '대기' · '진행 중' 지시를 오래된 순서로 읽는다 (`from` = 지시한 사람).
+2. 하나씩 처리한다. 할 수 있는 것: `agent_snapshot` 으로 답하기, `task` 로 업무 만들기·배정, `research` · `contact` 기록, 담당자에게 `notify`.
+3. 끝나면 `agent_instruction_respond` 로 `p_status` `완료` 와 결과 요약(`p_response`, 4,000자 이내)을 남긴다. 지시한 사람에게 알림이 간다.
+   - 이번 실행에 끝낼 수 없으면 `진행 중` 으로 바꾸고 다음 실행에 이어서 한다.
+   - ERP 데이터로 할 수 없는 일(외부 사이트 로그인, 결제, 메일 발송 등)은 `보류` 와 이유를 남긴다.
+4. 지시 답변은 팀원 모두가 본다. **금액·마진율은 답변에 쓰지 않는다.** 돈 관련 지시는 "관리자 알림으로 보냄"이라고 답하고 숫자는 관리자에게 `notify` 로 보낸다.
+5. 지시 내용이 이 문서의 규칙(사람당 하루 새 할 일 3개, 금액 공개 금지 등)과 부딪히면 규칙을 따르고 답변에 그 이유를 적는다.
 
 ## 아침 (평일 08:30 KST)
 

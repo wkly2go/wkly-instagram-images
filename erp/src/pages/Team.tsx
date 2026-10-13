@@ -6,6 +6,7 @@ import { presenceOf, useAttendance, type Presence } from '../lib/attendance'
 import type { Profile, WorkLog } from '../lib/types'
 import { Shell } from '../components/Shell'
 import { PersonName } from '../components/Person'
+import { LeaveSection } from '../components/Leave'
 import { Avatar, Badge, Button, Field, SectionHead, TodayBadge } from '../components/ui'
 
 export default function Team() {
@@ -28,6 +29,7 @@ export default function Team() {
         ))}
       </div>
       <AttendanceSection />
+      <LeaveSection />
       <MySettings />
     </Shell>
   )

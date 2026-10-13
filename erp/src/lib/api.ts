@@ -15,6 +15,8 @@ import type {
   ResearchItem,
   Attendance,
   HrRecord,
+  LeaveRecord,
+  AgentInstruction,
   ChatMessage,
   ChatRoom,
   ChatRoomSummary,
@@ -150,6 +152,8 @@ export interface Api {
   /** 인사기록: 볼 권한이 없거나 아직 없으면 null */
   getHrRecord(profileId: string): Promise<HrRecord | null>
   saveHrRecord(r: HrRecord): Promise<void>
+  /** 볼 수 있는 인사기록 전부 (관리자: 전원, 팀원: 본인) */
+  listHrRecords(): Promise<HrRecord[]>
   exportTable(table: ExportTable): Promise<Record<string, unknown>[]>
   listAgentTokens(): Promise<AgentToken[]>
   /** 새 키를 만들고 평문 키를 한 번만 돌려준다 */
@@ -181,6 +185,18 @@ export interface Api {
   listAttendance(day: string): Promise<Attendance[]>
   /** 한 사람의 fromDay 이후 근태 (최근 날짜 먼저) */
   listAttendanceFor(userId: string, fromDay: string): Promise<Attendance[]>
+
+  // 휴가
+  listLeave(): Promise<LeaveRecord[]>
+  /** 본인 신청(상태 '신청') · 관리자는 다른 사람 것도 status 와 함께 등록 */
+  createLeave(r: Pick<LeaveRecord, 'profile_id' | 'kind' | 'start_date' | 'end_date' | 'days' | 'reason'> & { status?: LeaveRecord['status'] }): Promise<void>
+  decideLeave(id: string, status: '승인' | '반려'): Promise<void>
+  deleteLeave(id: string): Promise<void>
+
+  // AI 팀원 직접 지시
+  listAgentInstructions(): Promise<AgentInstruction[]>
+  instructAgent(agentId: string, instruction: string): Promise<void>
+  deleteAgentInstruction(id: string): Promise<void>
 }
 
 export class ApiError extends Error {}

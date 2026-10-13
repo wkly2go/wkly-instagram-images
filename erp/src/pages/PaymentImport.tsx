@@ -71,6 +71,17 @@ export function PaymentImport({ projects, existing, onDone }: { projects: Projec
   const taxed = (p: Draft<Payment>) => p.direction === '지급' && p.tax_invoice === '발행' && !p.vat && (p.amount ?? 0) > 0
   const taxedCount = chosen.filter(r => taxed(r.payment)).length
 
+  /** DB 글자 수 제한에 맞춰 자름 (한 줄이 넘쳐 가져오기 전체가 중간에 멈추지 않게) */
+  const cut = (v: string | null | undefined, n: number) => (v == null ? v : v.length > n ? v.slice(0, n) : v)
+  const fit = <T extends { category?: string | null; stage?: string | null; bank_name?: string | null; account_no?: string | null; account_holder?: string | null }>(p: T): T => ({
+    ...p,
+    category: cut(p.category, 40),
+    stage: cut(p.stage, 40),
+    bank_name: cut(p.bank_name, 40),
+    account_no: cut(p.account_no, 40),
+    account_holder: cut(p.account_holder, 60),
+  })
+
   const doImport = async () => {
     if (!preview || !chosen.length) return
     let pid = projectId
@@ -80,15 +91,17 @@ export function PaymentImport({ projects, existing, onDone }: { projects: Projec
       const lines = preview.budgetLines.map(b => {
         const id = crypto.randomUUID()
         if (b.sort_order != null) lineIds.set(b.sort_order, id)
-        return { ...b, id, project_id: pid! }
+        return { ...b, category: cut(b.category, 40) ?? '', id, project_id: pid! }
       })
-      const rows: Draft<Payment>[] = chosen.map(r => ({
+      const rows: Draft<Payment>[] = chosen.map(r => fit({
         ...r.payment,
         vat: splitVat && taxed(r.payment) ? vat11(r.payment.amount ?? 0) : r.payment.vat ?? 0,
         project_id: pid,
         budget_line_id: preview.format === 'installments' ? lineIds.get(r.row) ?? null : r.payment.budget_line_id ?? null,
         memo: [r.payment.memo, `엑셀 ${preview.sheet} ${r.row}행`].filter(Boolean).join(' · '),
       }))
+      // 새 프로젝트를 만든 뒤 실패해도 다시 시도할 때 같은 프로젝트로 (중복 생성 방지)
+      if (!projectId && pid) setTarget(pid)
       if (contract && saveContract) {
         if (contractSupply != null) await api.saveFinance({ project_id: pid!, contract_amount: contractSupply })
         const recv = contract.received ?? 0

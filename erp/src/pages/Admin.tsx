@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Copy, Download, KeyRound, Plus, Trash2 } from 'lucide-react'
+import { Copy, Download, KeyRound, Pencil, Plus, Trash2 } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { EXPORT_TABLES, type ExportTable } from '../lib/api'
 import { downloadText, toCsv } from '../lib/csv'
@@ -139,6 +139,7 @@ function Members() {
   }
   const update = (p: Profile, patch: Partial<Pick<Profile, 'role' | 'active' | 'is_agent'>>, msg: string) => run(() => api.updateProfile(p.id, patch), msg)
   const [resetFor, setResetFor] = useState<Profile | null>(null)
+  const [renaming, setRenaming] = useState<string | null>(null)
   return (
     <section className="section">
       {resetFor && <ResetPassword p={resetFor} onClose={() => setResetFor(null)} />}
@@ -170,7 +171,32 @@ function Members() {
                   <td className="nowrap">
                     <span className="row" style={{ gap: 6 }}>
                       <Avatar name={p.is_agent ? '🤖' : p.name} size="xs" />
-                      <PersonName id={p.id} />
+                      {renaming === p.id ? (
+                        <input
+                          className="input"
+                          style={{ width: 120, padding: '2px 6px' }}
+                          autoFocus
+                          defaultValue={p.name}
+                          maxLength={40}
+                          aria-label={`${p.name} 새 이름`}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter' && !e.nativeEvent.isComposing) (e.target as HTMLInputElement).blur()
+                            if (e.key === 'Escape') setRenaming(null)
+                          }}
+                          onBlur={e => {
+                            const v = e.target.value.trim()
+                            setRenaming(null)
+                            if (v && v !== p.name) run(() => api.updateProfile(p.id, { name: v }), `이름을 '${v}'(으)로 바꿨습니다.`)
+                          }}
+                        />
+                      ) : (
+                        <>
+                          <PersonName id={p.id} />
+                          <button type="button" className="icon-btn sm" onClick={() => setRenaming(p.id)} disabled={busy} aria-label={`${p.name} 이름 바꾸기`} title="이름 바꾸기">
+                            <Pencil size={12} />
+                          </button>
+                        </>
+                      )}
                     </span>
                   </td>
                   <td className="nowrap">{p.email ?? '–'}</td>

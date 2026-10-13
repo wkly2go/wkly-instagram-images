@@ -182,7 +182,7 @@ function ResearchDetail({ r, projects, rooms, onBack, onEdit }: { r: ResearchIte
       {(r.source_url || r.source_name) && (
         <span className="t-cap">
           출처:{' '}
-          {r.source_url ? (
+          {r.source_url && /^https?:\/\//i.test(r.source_url) ? (
             <a href={r.source_url} target="_blank" rel="noreferrer noopener">
               {r.source_url.replace(/^https?:\/\//, '')}
             </a>
@@ -502,8 +502,13 @@ function Contacts({ tabs }: { tabs: ReactNode }) {
     const table = parseCsv(text)
     if (table.length < 2) return toast('CSV에 내용이 없습니다.')
     const head = table[0].map(h => h.replace(/\s/g, ''))
-    const col = (...names: string[]) => head.findIndex(h => names.some(n => h.includes(n)))
-    const ix = { brand: col('브랜드', 'brand'), name: col('담당자', 'name'), title: col('직함', 'title'), email: col('이메일', 'email'), phone: col('전화', 'phone'), source: col('출처', 'source'), url: col('URL', 'url', '링크'), memo: col('메모', 'memo') }
+    // 정확히 같은 머리글을 먼저 찾고, 없으면 포함 여부로 (brand_name 이 'name' 에 걸리지 않게)
+    const col = (...names: string[]) => {
+      const lower = head.map(h => h.toLowerCase())
+      const exact = lower.findIndex(h => names.some(n => h === n.toLowerCase()))
+      return exact >= 0 ? exact : lower.findIndex(h => names.some(n => h.includes(n.toLowerCase())))
+    }
+    const ix = { brand: col('브랜드', 'brand_name', 'brand'), name: col('담당자', 'contact_name', '이름'), title: col('직함', 'title'), email: col('이메일', 'email'), phone: col('전화', 'phone'), source: col('출처', 'source'), url: col('URL', 'url', '링크'), memo: col('메모', 'memo') }
     if (ix.email < 0 || ix.brand < 0) return toast("'브랜드'와 '이메일' 열이 필요합니다.")
     const get = (r: string[], i: number) => (i >= 0 ? r[i]?.trim() || null : null)
     const drafts = table.slice(1).map(r => {

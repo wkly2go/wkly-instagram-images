@@ -130,7 +130,7 @@ export function PaymentForm({
           </select>
         </Field>
         <Field label="공사 구분">
-          <input className="input" list="pay-categories" value={f.category ?? ''} onChange={e => set({ category: e.target.value || null })} placeholder="목공 · 전기 · 운영비 · 노무비 …" />
+          <input className="input" list="pay-categories" value={f.category ?? ''} onChange={e => set({ category: e.target.value || null, budget_line_id: null })} placeholder="목공 · 전기 · 운영비 · 노무비 …" title="바꾸면 연결된 예산 줄 대신 새 공사 구분으로 예산을 셉니다" />
           <datalist id="pay-categories">
             {categories.map(c => (
               <option key={c} value={c} />

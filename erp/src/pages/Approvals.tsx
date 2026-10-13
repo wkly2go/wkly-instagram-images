@@ -468,6 +468,9 @@ export function NewApproval({ onClose, onCreated, preset }: { onClose: () => voi
     }
     if (kind === '지출') {
       for (const [k, v] of Object.entries(pay)) if (v.trim()) (payload as Record<string, unknown>)[k] = v.trim()
+      // 세금계산서 지출은 VAT 포함 금액 → 부가세(1/11)를 나눠 공급가로 비용 계산
+      const won = parseInt(amount, 10)
+      if (pay.contract_type === '세금계산서' && won) (payload as Record<string, unknown>).vat = String(Math.round(won / 11))
     }
     if (kind === '메일 발송') t = t || subject.trim()
     if (!t) return
