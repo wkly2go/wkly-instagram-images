@@ -90,7 +90,8 @@ service_role 키는 이 함수 안에서만 쓰이고 브라우저로 나가지 
    - **Root directory: `erp`** (ERP 코드가 저장소의 erp 폴더에 있음)
    - Build command: `npm run build`
    - Build output directory: `dist`
-   - Environment variables: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` (Node 버전은 `.node-version` 파일로 22 고정)
+   - Environment variables: 필요 없음. 운영 Supabase 주소·공개 키는 `erp/.env.production` 에 있고, Node 버전은 `.node-version` 으로 22 고정
+     (다른 Supabase 프로젝트를 쓰려면 `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` 를 환경 변수로 넣으면 그 값이 우선)
 4. **Save and Deploy** → `https://<프로젝트명>.pages.dev` 주소가 생깁니다.
 
 `public/_redirects` 가 있어 새로고침해도 화면이 유지됩니다.

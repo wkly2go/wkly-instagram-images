@@ -6,6 +6,7 @@ import { friendlyError } from '../lib/api'
 import { todayKey } from '../lib/date'
 import { Link, useRouter } from '../lib/router'
 import { TODAY_STATUSES, type TodayStatus } from '../lib/types'
+import { toneOf } from './ui'
 
 export type TabKey = 'home' | 'approvals' | 'chat' | 'work' | 'projects' | 'clients' | 'library' | 'team' | 'admin'
 
@@ -67,7 +68,7 @@ function ProfilePanel({ summary }: { summary: Summary }) {
 
   return (
     <aside className="profile" aria-label="내 프로필">
-      <div className="photo" aria-hidden="true">
+      <div className={`photo ${toneOf(me.name)}`} aria-hidden="true">
         {initial(me.name)}
       </div>
       <div className="row" style={{ alignItems: 'baseline', gap: 6 }}>
@@ -154,6 +155,12 @@ export function Shell({ active, flush, children }: { active: TabKey; flush?: boo
   const summary = useSummary()
   return (
     <div className="page">
+      <div className="brandbar">
+        <Link to="/" className="logo-link" aria-label="THE WKLY 홈">
+          <img src="/wkly-logo-white.svg" alt="WKLY" width={120} height={38} />
+        </Link>
+        <span className="brand-sub">THE WKLY · 사내 미니홈피</span>
+      </div>
       <div className="mini">
         <div className="book">
           <div className="inner">

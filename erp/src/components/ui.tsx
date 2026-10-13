@@ -53,10 +53,16 @@ export function Chip({ active, onClick, children }: { active?: boolean; onClick?
   )
 }
 
+/** 이름별 고정 색 (노랑 · 블루 · 그린 · acid · 연블루) — 같은 사람은 늘 같은 색 */
+export function toneOf(name: string | null | undefined): string {
+  const n = Array.from(name ?? '').reduce((h, c) => (h * 31 + c.codePointAt(0)!) >>> 0, 7)
+  return ['', 'c1', 'c2', 'c3', 'c4'][n % 5]
+}
+
 export function Avatar({ name, size }: { name: string | null | undefined; size?: 'sm' | 'xs' }) {
   const ch = Array.from((name ?? '?').trim())[0] ?? '?'
   return (
-    <span className={`avatar ${size ?? ''}`} aria-hidden="true">
+    <span className={`avatar ${size ?? ''} ${toneOf(name)}`} aria-hidden="true">
       {ch}
     </span>
   )
