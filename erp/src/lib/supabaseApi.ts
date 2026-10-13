@@ -8,6 +8,8 @@ import type {
   ApprovalRoute,
   BrandContact,
   BudgetLine,
+  Attendance,
+  HrRecord,
   ChatMessage,
   ChatRoom,
   ChatRoomSummary,
@@ -59,6 +61,23 @@ export function createSupabaseApi(url: string, key: string): Api {
 
   async function remove(table: string, id: string | number) {
     mustAffect(await sb.from(table).delete().eq('id', id).select('id'))
+  }
+
+  /** 관리자 Edge Function 호출 (팀원 추가 · 비밀번호 재설정) */
+  const invokeAdminFn = async (payload: object) => {
+    const { data, error } = await sb.functions.invoke('admin-create-user', { body: payload })
+    if (error) {
+      const ctx = (error as { context?: Response }).context
+      let detail = ''
+      try {
+        detail = ctx ? ((await ctx.json()) as { error?: string }).error ?? '' : ''
+      } catch {
+        /* 본문 없음 */
+      }
+      if (ctx?.status === 404) throw new ApiError("팀원 관리 기능(Edge Function 'admin-create-user')이 아직 배포되지 않았습니다. README 의 '팀원 추가 기능 켜기'를 참고하세요.")
+      throw new ApiError(detail || error.message)
+    }
+    if ((data as { error?: string })?.error) throw new ApiError((data as { error: string }).error)
   }
 
   return {
@@ -252,19 +271,21 @@ export function createSupabaseApi(url: string, key: string): Api {
       return must(await sb.rpc('admin_overview')) as AdminOverview
     },
     async createMember(m) {
-      const { data, error } = await sb.functions.invoke('admin-create-user', { body: m })
-      if (error) {
-        const ctx = (error as { context?: Response }).context
-        let detail = ''
-        try {
-          detail = ctx ? ((await ctx.json()) as { error?: string }).error ?? '' : ''
-        } catch {
-          /* 본문 없음 */
-        }
-        if (ctx?.status === 404) throw new ApiError("팀원 추가 기능(Edge Function 'admin-create-user')이 아직 배포되지 않았습니다. README 의 '팀원 추가 기능 켜기'를 참고하거나 Supabase 대시보드에서 계정을 추가하세요.")
-        throw new ApiError(detail || error.message)
-      }
-      if ((data as { error?: string })?.error) throw new ApiError((data as { error: string }).error)
+      await invokeAdminFn(m)
+    },
+    async resetMemberPassword(userId, password) {
+      await invokeAdminFn({ action: 'reset_password', user_id: userId, password })
+    },
+    async deleteMember(userId) {
+      await invokeAdminFn({ action: 'delete_user', user_id: userId })
+    },
+    async getHrRecord(profileId) {
+      const { data, error } = await sb.from('hr_records').select('*').eq('profile_id', profileId).maybeSingle()
+      if (error) return null // 0006 미적용 등
+      return data as HrRecord | null
+    },
+    async saveHrRecord(r) {
+      must(await sb.from('hr_records').upsert(strip(r, ['updated_at', 'updated_by'])).select('profile_id'))
     },
     async exportTable(table) {
       const out: Record<string, unknown>[] = []
@@ -339,6 +360,16 @@ export function createSupabaseApi(url: string, key: string): Api {
       const { data, error } = await sb.rpc('notify_due_tasks')
       if (error) return 0 // 0004 미적용 등: 알람은 서버 예약 작업에 맡김
       return Number(data) || 0
+    },
+
+    async touchAttendance() {
+      await sb.rpc('touch_attendance') // 0005 미적용이어도 앱 사용에는 지장 없음
+    },
+    async listAttendance(day) {
+      return must(await sb.from('attendance').select('*').eq('day', day)) as Attendance[]
+    },
+    async listAttendanceFor(userId, fromDay) {
+      return must(await sb.from('attendance').select('*').eq('user_id', userId).gte('day', fromDay).order('day', { ascending: false })) as Attendance[]
     },
   }
 }

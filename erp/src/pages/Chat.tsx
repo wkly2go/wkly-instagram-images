@@ -1,12 +1,13 @@
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react'
-import { ArrowLeft, Plus, Send, Trash2 } from 'lucide-react'
+import { ArrowLeft, Plus, Send } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
-import { friendlyError } from '../lib/api'
-import { dateLabel, relativeLabel, timeLabel, toDateKey } from '../lib/date'
+import { useRoomMessages } from '../lib/chat'
+import { relativeLabel } from '../lib/date'
 import { Link, useRouter, withQuery } from '../lib/router'
-import type { ChatMessage, ChatRoomSummary, Project } from '../lib/types'
+import type { ChatRoomSummary, Project } from '../lib/types'
 import { Shell } from '../components/Shell'
-import { Avatar, Badge, Button, Empty, Field, Modal } from '../components/ui'
+import { Badge, Button, Empty, Field, Modal } from '../components/ui'
+import { MessageList } from '../components/ChatMessages'
 
 export default function Chat() {
   const { api, version } = useApp()
@@ -57,34 +58,15 @@ export default function Chat() {
 }
 
 function Room({ room }: { room: ChatRoomSummary }) {
-  const { api, me, profileName, bump, toast, version } = useApp()
+  const { api, version } = useApp()
   const { navigate } = useRouter()
-  const [messages, setMessages] = useState<ChatMessage[]>([])
+  const { messages, send: sendMessage, remove } = useRoomMessages(room.id)
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
   const bodyRef = useRef<HTMLDivElement>(null)
   const stick = useRef(true)
   const { data: projects } = useAsync(() => api.listProjects(), [version], [] as Project[])
   const project = projects.find(p => p.id === room.project_id)
-
-  useEffect(() => {
-    let alive = true
-    api.listMessages(room.id).then(m => alive && setMessages(m)).catch(e => toast(friendlyError(e)))
-    api.markRead(room.id).then(bump).catch(() => undefined)
-    const off = api.subscribeMessages(room.id, ({ type, message }) => {
-      setMessages(prev => {
-        if (type === 'DELETE') return prev.filter(m => m.id !== message.id)
-        if (type === 'UPDATE') return prev.map(m => (m.id === message.id ? message : m))
-        return prev.some(m => m.id === message.id) ? prev : [...prev, message]
-      })
-      if (type === 'INSERT' && message.user_id !== me.id) api.markRead(room.id).catch(() => undefined)
-    })
-    return () => {
-      alive = false
-      off()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [room.id])
 
   useLayoutEffect(() => {
     const el = bodyRef.current
@@ -95,16 +77,11 @@ function Room({ room }: { room: ChatRoomSummary }) {
     const content = text.trim()
     if (!content || sending) return
     setSending(true)
-    try {
-      const m = await api.sendMessage(room.id, content)
-      setMessages(prev => (prev.some(x => x.id === m.id) ? prev : [...prev, m]))
+    if (await sendMessage(content)) {
       setText('')
       stick.current = true
-    } catch (e) {
-      toast(friendlyError(e))
-    } finally {
-      setSending(false)
     }
+    setSending(false)
   }
   const onKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
@@ -112,16 +89,6 @@ function Room({ room }: { room: ChatRoomSummary }) {
       send()
     }
   }
-  const remove = async (id: number) => {
-    if (!window.confirm('이 메시지를 삭제할까요?')) return
-    try {
-      await api.deleteMessage(id)
-      setMessages(prev => prev.filter(m => m.id !== id))
-    } catch (e) {
-      toast(friendlyError(e))
-    }
-  }
-
   return (
     <>
       <div className="chat-head">
@@ -145,38 +112,7 @@ function Room({ room }: { room: ChatRoomSummary }) {
           stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 60
         }}
       >
-        {messages.length === 0 && <Empty>첫 메시지를 남겨 보세요.</Empty>}
-        {messages.map((m, i) => {
-          const prev = messages[i - 1]
-          const day = toDateKey(m.created_at)
-          const newDay = !prev || toDateKey(prev.created_at) !== day
-          const mine = m.user_id === me.id
-          const cont = !newDay && prev && prev.user_id === m.user_id && new Date(m.created_at).getTime() - new Date(prev.created_at).getTime() < 3 * 60 * 1000
-          return (
-            <div key={m.id} style={{ display: 'contents' }}>
-              {newDay && <div className="chat-day">{dateLabel(day)}</div>}
-              <div className={`msg ${mine ? 'mine' : ''} ${cont ? 'cont' : ''}`}>
-                {!mine && (
-                  <span className="avatar-slot">
-                    <Avatar name={profileName(m.user_id)} size="sm" />
-                  </span>
-                )}
-                <div className="stack" style={{ alignItems: mine ? 'flex-end' : 'flex-start' }}>
-                  {!mine && !cont && <span className="t-cap">{profileName(m.user_id)}</span>}
-                  <div className="line">
-                    <div className={`bubble ${mine ? 'mine' : 'other'}`}>{m.content}</div>
-                    <span className="time">{timeLabel(m.created_at)}</span>
-                    {(mine || me.role === 'admin') && (
-                      <button type="button" className="icon-btn sm del" onClick={() => remove(m.id)} aria-label="메시지 삭제" title="삭제">
-                        <Trash2 size={13} />
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )
-        })}
+        <MessageList messages={messages} onRemove={remove} />
       </div>
       <div className="composer">
         <textarea className="textarea" placeholder="메시지 입력 (Enter 전송, Shift+Enter 줄바꿈)" value={text} onChange={e => setText(e.target.value)} onKeyDown={onKey} maxLength={4000} aria-label="메시지" />

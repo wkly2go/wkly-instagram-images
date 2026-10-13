@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, Trash2 } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { addDays, dateLabel, minutesLabel, timeLabel, todayKey } from '../lib/date'
 import { Link, useRouter, withQuery } from '../lib/router'
+import { presenceOf, useAttendance } from '../lib/attendance'
 import type { Client, Project, WorkLog as Log } from '../lib/types'
 import { Shell } from '../components/Shell'
 import { LogComposer, isMail } from '../components/LogForm'
@@ -18,6 +19,7 @@ export default function WorkLog() {
   const team = query.get('team') === '1' && !userParam
   const viewUser = userParam ?? (team ? undefined : me.id)
   const other = userParam && userParam !== me.id ? profileOf(userParam) : undefined
+  const attendance = useAttendance()
   const [reporting, setReporting] = useState(false)
   const { run } = useAction()
 
@@ -49,8 +51,8 @@ export default function WorkLog() {
         {other ? (
           <>
             <Avatar name={other.name} size="xs" />
-            <span className="t-smallb">{other.name}님의 미니홈피</span>
-            <TodayBadge status={other.today_status} />
+            <span className="t-smallb">{other.name}님의 업무 기록</span>
+            <TodayBadge status={presenceOf(other, attendance.get(other.id))} />
             <Chip onClick={() => go({ user: null })}>내 기록으로</Chip>
           </>
         ) : (

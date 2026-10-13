@@ -3,6 +3,7 @@ import { api } from '../lib/app'
 import { friendlyError } from '../lib/api'
 import { DEMO_USERS, resetDemo } from '../lib/demoApi'
 import { Button, Field } from '../components/ui'
+import { BrandBar, Stickers } from '../components/Shell'
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -24,12 +25,14 @@ export default function Login() {
   }
 
   return (
-    <div className="center-page" style={{ flexDirection: 'column' }}>
-      <img className="brand-logo" src="/wkly-logo-white.svg" alt="WKLY" width={160} height={51} />
+    <div className="page">
+      <BrandBar />
+      <div className="center-page grow">
       <form className="login" onSubmit={signIn}>
+        <Stickers />
         <div className="inner">
           <h1 className="t-title" style={{ textAlign: 'center' }}>
-            THE WKLY 사내 미니홈피
+            THE WKLY 사내 인트라넷
           </h1>
           <p className="t-small" style={{ textAlign: 'center', margin: 0 }}>
             {api.mode === 'demo' ? '체험 모드입니다. 아래 계정 중 하나로 들어가 보세요.' : '회사에서 받은 계정으로 입장하세요.'}
@@ -77,6 +80,7 @@ export default function Login() {
           </p>
         </div>
       </form>
+      </div>
     </div>
   )
 }

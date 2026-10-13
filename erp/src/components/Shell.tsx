@@ -1,16 +1,18 @@
-import { useState, type ReactNode } from 'react'
-import { CircleHelp, PictureInPicture2 } from 'lucide-react'
+import { useRef, useState, type ChangeEvent, type ReactNode } from 'react'
+import { Camera, CircleHelp, PictureInPicture2 } from 'lucide-react'
 import { NotificationBell } from './Notifications'
 import { useApp, useAsync, initial } from '../lib/app'
 import { friendlyError } from '../lib/api'
 import { todayKey } from '../lib/date'
+import { squareThumb } from '../lib/image'
+import { inQuickWindow } from '../lib/pip'
 import { Link, useRouter } from '../lib/router'
 import { TODAY_STATUSES, type TodayStatus } from '../lib/types'
 import { toneOf } from './ui'
 
 export type TabKey = 'home' | 'approvals' | 'chat' | 'work' | 'projects' | 'clients' | 'library' | 'team' | 'admin'
 
-const TABS: { key: TabKey; label: string; path: string; admin?: boolean }[] = [
+export const TABS: { key: TabKey; label: string; path: string; admin?: boolean }[] = [
   { key: 'home', label: '홈', path: '/' },
   { key: 'approvals', label: '승인', path: '/approvals' },
   { key: 'chat', label: '채팅', path: '/chat' },
@@ -18,7 +20,7 @@ const TABS: { key: TabKey; label: string; path: string; admin?: boolean }[] = [
   { key: 'projects', label: '프로젝트', path: '/projects' },
   { key: 'clients', label: '거래처', path: '/clients' },
   { key: 'library', label: '자료실', path: '/library' },
-  { key: 'team', label: '팀', path: '/team' },
+  { key: 'team', label: '팀·근태', path: '/team' },
   { key: 'admin', label: '관리', path: '/admin', admin: true },
 ]
 
@@ -51,6 +53,58 @@ export function useSummary(): Summary {
   return data
 }
 
+/** 왼쪽 프로필 사진: 눌러서 올리기 · 바꾸기 (256px 로 줄여 저장) */
+function PhotoBox() {
+  const { api, me, bump, toast } = useApp()
+  const input = useRef<HTMLInputElement>(null)
+  const [busy, setBusy] = useState(false)
+  const put = async (photo: string | null) => {
+    setBusy(true)
+    try {
+      await api.updateProfile(me.id, { photo })
+      bump()
+      toast(photo ? '사진을 올렸습니다.' : '사진을 지웠습니다.')
+    } catch (e) {
+      toast(friendlyError(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+  const onFile = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    try {
+      await put(await squareThumb(file))
+    } catch (err) {
+      toast(friendlyError(err))
+    }
+  }
+  return (
+    <div className="photo-wrap">
+      <button
+        type="button"
+        className={`photo ${me.photo ? 'has-img' : toneOf(me.name)}`}
+        onClick={() => input.current?.click()}
+        disabled={busy}
+        aria-label={me.photo ? '프로필 사진 바꾸기' : '프로필 사진 올리기'}
+        title={me.photo ? '사진 바꾸기' : '사진 올리기'}
+      >
+        {me.photo ? <img src={me.photo} alt="" /> : <span aria-hidden="true">{initial(me.name)}</span>}
+        <span className="photo-cta">
+          <Camera size={14} /> {busy ? '올리는 중…' : me.photo ? '사진 바꾸기' : '사진 올리기'}
+        </span>
+      </button>
+      <input ref={input} type="file" accept="image/*" hidden onChange={onFile} />
+      {me.photo && (
+        <button type="button" className="btn-ghost photo-del t-cap" onClick={() => put(null)} disabled={busy}>
+          사진 지우기
+        </button>
+      )}
+    </div>
+  )
+}
+
 function ProfilePanel({ summary }: { summary: Summary }) {
   const { api, me, profiles, bump, toast } = useApp()
   const { navigate } = useRouter()
@@ -68,9 +122,7 @@ function ProfilePanel({ summary }: { summary: Summary }) {
 
   return (
     <aside className="profile" aria-label="내 프로필">
-      <div className={`photo ${toneOf(me.name)}`} aria-hidden="true">
-        {initial(me.name)}
-      </div>
+      <PhotoBox />
       <div className="row" style={{ alignItems: 'baseline', gap: 6 }}>
         <span className="t-bodyb">{me.name}</span>
         {me.title && <span className="t-cap">{me.title}</span>}
@@ -150,19 +202,46 @@ function ProfilePanel({ summary }: { summary: Summary }) {
   )
 }
 
+/** 로고 띠: 흰 로고는 시리즈 블루 위에서만 (로고 규정 허용 조합, 보호 공간 2X, 너비 120px) */
+export function BrandBar() {
+  return (
+    <div className="brandbar">
+      <div className="brandbar-in">
+        <Link to="/" className="logo-link" aria-label="THE WKLY 홈">
+          <img src="/wkly-logo-white.svg" alt="WKLY" width={120} height={38} />
+        </Link>
+      </div>
+    </div>
+  )
+}
+
+/** 장식용 핑크 스티커 (글자 없음: 핑크 위 글자는 검정만 허용되므로) */
+export function Stickers() {
+  return (
+    <span className="stickers" aria-hidden="true">
+      <svg className="sticker st-star" viewBox="0 0 100 100">
+        <path d="M50 4l11.8 26.6 29 3-21.7 19.5 6.2 28.5L50 66.9 24.7 81.6l6.2-28.5L9.2 33.6l29-3z" />
+      </svg>
+      <svg className="sticker st-heart" viewBox="0 0 100 100">
+        <path d="M50 88S10 62 10 35c0-13 10-23 22-23 8 0 14 4 18 10 4-6 10-10 18-10 12 0 22 10 22 23 0 27-40 53-40 53z" />
+      </svg>
+      <svg className="sticker st-dot" viewBox="0 0 100 100">
+        <circle cx="50" cy="50" r="44" />
+      </svg>
+      <span className="sticker st-tape" />
+    </span>
+  )
+}
+
 export function Shell({ active, flush, children }: { active: TabKey; flush?: boolean; children: ReactNode }) {
   const { api, me, openQuick } = useApp()
   const summary = useSummary()
   return (
     <div className="page">
-      <div className="brandbar">
-        <Link to="/" className="logo-link" aria-label="THE WKLY 홈">
-          <img src="/wkly-logo-white.svg" alt="WKLY" width={120} height={38} />
-        </Link>
-        <span className="brand-sub">THE WKLY · 사내 미니홈피</span>
-      </div>
+      <BrandBar />
       <div className="mini">
         <div className="book">
+          <Stickers />
           <div className="inner">
             <header className="topbar">
               <div className="counter t-meta" title="오늘 / 전체 업무 기록 수">
@@ -170,7 +249,7 @@ export function Shell({ active, flush, children }: { active: TabKey; flush?: boo
                 <span className="sep">|</span>
                 TOTAL <span className="total">{summary.totalLogs.toLocaleString('ko-KR')}</span>
               </div>
-              <span className="site-title">THE WKLY 사내 미니홈피</span>
+              <span className="site-title">THE WKLY 사내 인트라넷</span>
               <span className="site-url t-meta">{window.location.host}</span>
               <span className="grow" />
               {api.mode === 'demo' && <span className="mode-badge" title="Supabase 연결 전 체험 모드. 데이터는 이 브라우저에만 저장됩니다.">DEMO</span>}
@@ -178,9 +257,15 @@ export function Shell({ active, flush, children }: { active: TabKey; flush?: boo
               <Link to="/help" className="quick-btn" title="사용법" style={{ textDecoration: 'none' }}>
                 <CircleHelp size={14} /> 사용법
               </Link>
-              <button type="button" className="quick-btn" onClick={openQuick} title="다른 프로그램 위에 떠 있는 작은 기록 창">
-                <PictureInPicture2 size={14} /> 빠른 기록 창 띄우기
-              </button>
+              {inQuickWindow() ? (
+                <Link to="/quick" className="quick-btn" style={{ textDecoration: 'none' }}>
+                  <PictureInPicture2 size={14} /> 빠른 창으로
+                </Link>
+              ) : (
+                <button type="button" className="quick-btn" onClick={() => openQuick('window')} title="작은 독립 창. 전체 창을 닫아도 계속 쓸 수 있습니다.">
+                  <PictureInPicture2 size={14} /> 빠른 창 띄우기
+                </button>
+              )}
             </header>
             <div className="body">
               <ProfilePanel summary={summary} />

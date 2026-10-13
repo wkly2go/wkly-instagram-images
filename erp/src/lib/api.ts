@@ -13,6 +13,8 @@ import type {
   Payment,
   ProjectFinance,
   ResearchItem,
+  Attendance,
+  HrRecord,
   ChatMessage,
   ChatRoom,
   ChatRoomSummary,
@@ -25,7 +27,7 @@ import type {
   WorkLog,
 } from './types'
 
-export type ProfilePatch = Partial<Pick<Profile, 'name' | 'title' | 'today_status' | 'status_message' | 'role' | 'active' | 'is_agent'>>
+export type ProfilePatch = Partial<Pick<Profile, 'name' | 'title' | 'today_status' | 'status_message' | 'photo' | 'role' | 'active' | 'is_agent'>>
 
 export interface NewMember {
   email: string
@@ -141,6 +143,13 @@ export interface Api {
   adminOverview(): Promise<AdminOverview>
   /** 팀원(사람·AI) 계정 만들기: Supabase Edge Function 'admin-create-user' */
   createMember(m: NewMember): Promise<void>
+  /** 팀원 비밀번호를 관리자가 정한 임시 비밀번호로 바꿈 (같은 Edge Function) */
+  resetMemberPassword(userId: string, password: string): Promise<void>
+  /** 팀원 계정 삭제 (기록은 남고 작성자는 '알 수 없음'). 본인·관리자 계정은 삭제 불가 */
+  deleteMember(userId: string): Promise<void>
+  /** 인사기록: 볼 권한이 없거나 아직 없으면 null */
+  getHrRecord(profileId: string): Promise<HrRecord | null>
+  saveHrRecord(r: HrRecord): Promise<void>
   exportTable(table: ExportTable): Promise<Record<string, unknown>[]>
   listAgentTokens(): Promise<AgentToken[]>
   /** 새 키를 만들고 평문 키를 한 번만 돌려준다 */
@@ -165,6 +174,13 @@ export interface Api {
   markNotificationsRead(ids: number[] | 'all'): Promise<void>
   /** 알람 시각이 지난 할 일을 알림으로 보냄 (서버 예약 작업이 없을 때 앱이 대신 실행). 보낸 개수 */
   runReminders(): Promise<number>
+
+  // 근태
+  /** 앱을 연 동안 몇 분마다 호출: 오늘 첫 호출이 출근 시각 */
+  touchAttendance(): Promise<void>
+  listAttendance(day: string): Promise<Attendance[]>
+  /** 한 사람의 fromDay 이후 근태 (최근 날짜 먼저) */
+  listAttendanceFor(userId: string, fromDay: string): Promise<Attendance[]>
 }
 
 export class ApiError extends Error {}
@@ -172,7 +188,7 @@ export class ApiError extends Error {}
 /** Supabase/Postgres 오류를 한국어 메시지로 */
 export function friendlyError(e: unknown): string {
   const msg = e instanceof Error ? e.message : typeof e === 'object' && e && 'message' in e ? String((e as { message: unknown }).message) : String(e)
-  if (/Invalid login credentials/i.test(msg)) return '이메일 또는 비밀번호가 맞지 않습니다.'
+  if (/Invalid login credentials/i.test(msg)) return '이메일 또는 비밀번호가 맞지 않습니다. 관리자에게 받은 이메일 주소를 그대로 입력했는지 확인하고, 계속 안 되면 관리자에게 비밀번호 재설정을 요청하세요.'
   if (/row-level security|permission denied/i.test(msg)) return '권한이 없습니다.'
   if (/duplicate key/i.test(msg)) return '이미 같은 이름이 있습니다.'
   if (/violates check constraint/i.test(msg)) return '입력값을 확인해 주세요.'

@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { useAction, useApp, useAsync } from '../lib/app'
-import { minutesLabel, todayKey } from '../lib/date'
+import { addDays, minutesLabel, timeLabel, todayKey } from '../lib/date'
 import { Link } from '../lib/router'
+import { presenceOf, useAttendance, type Presence } from '../lib/attendance'
 import type { Profile, WorkLog } from '../lib/types'
 import { Shell } from '../components/Shell'
+import { PersonName } from '../components/Person'
 import { Avatar, Badge, Button, Field, SectionHead, TodayBadge } from '../components/ui'
 
 export default function Team() {
@@ -12,6 +14,7 @@ export default function Team() {
   const { data: logs } = useAsync(() => api.listWorkLogs({ date: today }), [version, today], [] as WorkLog[])
   const active = profiles.filter(p => p.active)
   const inactive = profiles.filter(p => !p.active)
+  const attendance = useAttendance(today)
   return (
     <Shell active="team">
       <SectionHead
@@ -21,15 +24,76 @@ export default function Team() {
       />
       <div className="members">
         {[...active, ...inactive].map(p => (
-          <MemberCard key={p.id} p={p} logs={logs.filter(l => l.user_id === p.id)} />
+          <MemberCard key={p.id} p={p} presence={presenceOf(p, attendance.get(p.id))} logs={logs.filter(l => l.user_id === p.id)} />
         ))}
       </div>
+      <AttendanceSection />
       <MySettings />
     </Shell>
   )
 }
 
-function MemberCard({ p, logs }: { p: Profile; logs: WorkLog[] }) {
+/** 근태 관리: 하루 첫 접속 = 출근. 그날 접속 기록이 없으면 미출근 */
+function AttendanceSection() {
+  const { profiles } = useApp()
+  const today = todayKey()
+  const [day, setDay] = useState(today)
+  const rows = useAttendance(day)
+  const people = profiles.filter(p => p.active && !p.is_agent)
+  const absent = people.filter(p => !rows.has(p.id)).length
+  return (
+    <>
+      <SectionHead
+        title="근태 관리"
+        count={`출근 ${people.length - absent} · 미출근 ${absent}`}
+        right={
+          <span className="row gap-6">
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setDay(addDays(day, -1))} aria-label="전날">
+              ‹
+            </button>
+            <input type="date" className="input" style={{ width: 150 }} value={day} max={today} onChange={e => e.target.value && setDay(e.target.value)} aria-label="날짜" />
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setDay(addDays(day, 1))} disabled={day >= today} aria-label="다음 날">
+              ›
+            </button>
+          </span>
+        }
+      />
+      <div className="table-wrap" style={{ flexShrink: 0 }}>
+        <table className="table">
+          <thead>
+            <tr>
+              <th>이름</th>
+              <th>상태</th>
+              <th className="num">출근 (첫 접속)</th>
+              <th className="num">마지막 접속</th>
+            </tr>
+          </thead>
+          <tbody>
+            {people.map(p => {
+              const a = rows.get(p.id)
+              const status: Presence = day === today ? presenceOf(p, a) : a ? '출근' : '미출근'
+              return (
+                <tr key={p.id} className={a ? '' : 'absent'}>
+                  <td>
+                    <PersonName id={p.id} />
+                  </td>
+                  <td>
+                    <TodayBadge status={status} />
+                  </td>
+                  <td className="num">{a ? timeLabel(a.first_at) : '–'}</td>
+                  <td className="num">{a ? timeLabel(a.last_at) : '–'}</td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+      <span className="t-cap">ERP나 빠른 기록 창에 그날 처음 로그인·접속한 시각이 출근 시각입니다. 접속 기록이 없으면 미출근으로 표시됩니다.</span>
+    </>
+  )
+}
+
+function MemberCard({ p, presence, logs }: { p: Profile; presence: Presence; logs: WorkLog[] }) {
   const { me } = useApp()
   const mins = logs.reduce((s, l) => s + (l.minutes ?? 0), 0)
   const isMe = p.id === me.id
@@ -39,23 +103,21 @@ function MemberCard({ p, logs }: { p: Profile; logs: WorkLog[] }) {
         <Avatar name={p.is_agent ? '🤖' : p.name} />
         <span className="col gap-2 grow">
           <span className="row" style={{ gap: 4 }}>
-            <Link to={isMe ? '/work' : `/work?user=${p.id}`} className="t-smallb truncate" title="오늘 업무 보기 (파도타기)">
-              {p.name}
-            </Link>
+            <PersonName id={p.id} className="t-smallb truncate" />
             {p.title && <span className="t-cap">{p.title}</span>}
           </span>
           <span className="row" style={{ gap: 4 }}>
             <span className="t-meta">TODAY IS</span>
-            <TodayBadge status={p.today_status} />
+            <TodayBadge status={presence} />
           </span>
         </span>
       </div>
       <span className="t-cap pre">{p.status_message || ' '}</span>
       <div className="row">
-        <span className="t-meta t-blue">
+        <Link to={isMe ? '/work' : `/work?user=${p.id}`} className="t-meta t-blue" title="오늘 업무 보기 (파도타기)">
           기록 {logs.length}
           {mins ? ` · ${minutesLabel(mins)}` : ''}
-        </span>
+        </Link>
         <span className="grow" />
         {p.is_agent && <Badge tone="acid">🤖 AI 팀원</Badge>}
         {p.role === 'admin' && <Badge tone="blue">관리자</Badge>}

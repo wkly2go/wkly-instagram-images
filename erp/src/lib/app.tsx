@@ -19,8 +19,8 @@ interface AppValue {
   version: number
   bump: () => void
   toast: (msg: string) => void
-  /** 빠른 기록 창 띄우기 (PiP 또는 팝업) */
-  openQuick: () => void
+  /** 빠른 창 띄우기. 'window': 독립 창(전체 창을 닫아도 계속 사용) · 'pin': 다른 프로그램 위에 항상 떠 있는 창(PiP) */
+  openQuick: (kind?: 'window' | 'pin') => void
 }
 
 const AppContext = createContext<AppValue | null>(null)
@@ -31,7 +31,7 @@ interface ProviderProps {
   version: number
   bump: () => void
   toast: (m: string) => void
-  openQuick: () => void
+  openQuick: (kind?: 'window' | 'pin') => void
   children: ReactNode
 }
 
