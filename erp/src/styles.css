@@ -1,7 +1,8 @@
 /* =====================================================================
-   THE WKLY 사내 미니홈피 — WKLY v7 디자인 시스템 토큰 (검정 미사용)
-   바탕: 시리즈 블루 한 면 + 흰 로고 (로고 규정: 흰/시리즈 블루 조합, 보호 공간 2X, 최소 너비 120px)
-   보조색은 역할로만: 그린=완료·수금, 핑크=차트·표시점(글자 없음), acid=진행·강조, 레드=마감
+   THE WKLY ERP — WKLY v7 디자인 시스템 토큰 (검정 미사용)
+   바탕: 노랑. 로고: 위쪽 시리즈 블루 띠 + 흰 로고 (로고 규정: 흰/시리즈 블루 조합, 보호 공간 2X, 최소 너비 120px)
+   메뉴 탭: 시리즈 블루 + 흰 글자, 선택된 탭은 흰색(책과 이어짐) + 핑크 표시
+   보조색은 역할로만: 그린=완료·수금, 핑크=스티커·표시점(글자 없음), acid=진행·강조, 레드=마감
    Figma: 더위클리 ERP 화면 설계 / 컴포넌트
    ===================================================================== */
 :root {
@@ -35,7 +36,7 @@
 html, body, #root { height: 100%; }
 body {
   margin: 0;
-  background: var(--blue);
+  background: var(--yellow);
   color: var(--gray);
   font: 400 14px/1.45 var(--font);
   -webkit-font-smoothing: antialiased;
@@ -71,7 +72,7 @@ a:hover { text-decoration: underline; }
 .dashed { border-bottom: 1px dashed var(--line); }
 .scroll { overflow: auto; min-height: 0; }
 
-/* ---------- 미니홈피 프레임 ---------- */
+/* ---------- 화면 프레임 ---------- */
 .page {
   min-height: 100%;
   display: flex;
@@ -79,19 +80,20 @@ a:hover { text-decoration: underline; }
   align-items: center;
   padding: 0 16px 20px;
 }
-/* 브랜드 띠: 흰 로고 (보호 공간 = 도트 한 변 X 의 2배 이상) */
-.brandbar { width: min(100%, 1180px); display: flex; align-items: center; gap: 16px; padding: 16px 0 14px; color: var(--white); }
+/* 로고 띠: 화면 폭 전체 시리즈 블루 + 흰 로고 (보호 공간 = 도트 한 변 X 의 2배 이상) */
+.brandbar { align-self: stretch; margin: 0 -16px 18px; background: var(--blue); }
+.brandbar-in { width: min(100% - 32px, 1180px); margin: 0 auto; display: flex; align-items: center; padding: 16px 0 14px; }
 .brandbar .logo-link { display: inline-flex; padding: 14px; margin: -14px; line-height: 0; }
 .brandbar .logo-link:focus-visible { outline-color: var(--white); }
 .brandbar img { width: 120px; height: auto; display: block; }
-.brandbar .brand-sub { font: 700 11px/1 var(--mono); letter-spacing: 0.04em; opacity: 0.9; white-space: nowrap; }
-.brand-logo { width: 160px; height: auto; display: block; margin: 0 auto 28px; }
+.page > .center-page { min-height: 0; }
 .mini {
   display: flex;
   align-items: flex-start;
   width: min(100%, 1180px);
 }
 .book {
+  position: relative;
   flex: 1;
   min-width: 0;
   height: clamp(540px, calc(100vh - 92px), 800px);
@@ -145,15 +147,16 @@ a:hover { text-decoration: underline; }
 .tab {
   width: 64px; height: 32px;
   display: flex; align-items: center; justify-content: center; gap: 4px;
-  background: var(--white); color: var(--blue);
-  border: 1.5px solid var(--white); border-left: none;
+  background: var(--blue); color: var(--white);
+  border: 2px solid var(--blue); border-left: none;
+  box-shadow: inset 0 0 0 1.5px var(--white); /* 탭마다 흰 안쪽 테두리 → 붙어 있어도 구분 */
   border-radius: 0 8px 8px 0;
   font-size: 12px; font-weight: 700; white-space: nowrap;
   margin-left: -1px;
   text-decoration: none;
 }
-.tab:hover { text-decoration: none; background: var(--acid); border-color: var(--acid); }
-.tab.active { background: var(--yellow); border-color: var(--yellow); color: var(--blue); }
+.tab:hover { text-decoration: none; background: var(--acid); border-color: var(--acid); color: var(--blue); }
+.tab.active { background: var(--white); border-color: var(--blue); color: var(--blue); box-shadow: inset -5px 0 0 var(--pink); }
 .tab .dot { min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px; background: var(--green); color: var(--white); font: 700 10px/16px var(--mono); }
 
 /* ---------- 프로필 칸 ---------- */
@@ -166,7 +169,11 @@ a:hover { text-decoration: underline; }
   display: flex; flex-direction: column; gap: 10px;
   overflow: auto;
 }
+.photo-wrap { display: flex; flex-direction: column; gap: 2px; flex-shrink: 0; }
+.photo-del { align-self: flex-end; border: 0; background: none; cursor: pointer; padding: 0 2px; }
+.photo-del:hover { color: var(--red); }
 .photo {
+  position: relative; overflow: hidden; padding: 0; width: 100%; cursor: pointer;
   height: 132px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
   background: var(--yellow); border: 1px solid var(--line); border-radius: 6px;
@@ -341,13 +348,13 @@ a:hover { text-decoration: underline; }
 
 /* ---------- 로그인·빠른 기록 ---------- */
 .center-page { min-height: 100%; display: flex; align-items: center; justify-content: center; padding: 16px; }
-.login { width: min(100%, 400px); background: var(--white); border: 1px solid var(--line); border-radius: var(--r-book); padding: 8px; }
+.login { position: relative; width: min(100%, 400px); background: var(--white); border: 1px solid var(--line); border-radius: var(--r-book); padding: 8px; }
 .login .inner { align-items: stretch; gap: 14px; padding: 28px 24px 24px; }
 .login .logo { align-self: center; width: 160px; height: auto; display: block; }
 .quick { height: 100%; padding: 8px; display: flex; flex-direction: column; }
 .quick .card { flex: 1; background: var(--white); border: 1px solid var(--line); border-radius: 16px; padding: 6px; display: flex; min-height: 0; }
 .quick .inner { overflow: auto; }
-.pip-body { margin: 0; background: var(--blue); height: 100vh; }
+.pip-body { margin: 0; background: var(--yellow); height: 100vh; }
 .pip-body > div { height: 100%; }
 
 
@@ -420,17 +427,21 @@ button.kpi:hover, a.kpi:hover { border-color: var(--blue); }
   .topbar { flex-wrap: wrap; row-gap: 6px; }
   .book { height: auto; min-height: calc(100vh - 44px); border-radius: 0; border: 0; padding: 0; }
   .inner { border-radius: 0; border: 0; }
-  .tabs { flex-direction: row; padding: 8px 8px 0; overflow-x: auto; width: 100%; position: sticky; top: 60px; z-index: 10; background: var(--blue); }
-  .tab { width: auto; padding: 0 14px; border-radius: 8px 8px 0 0; border: 1.5px solid var(--white); border-bottom: none; margin-left: 0; height: 36px; }
+  .tabs { flex-direction: row; padding: 8px 8px 0; overflow-x: auto; width: 100%; position: sticky; top: 60px; z-index: 10; background: var(--yellow); }
+  .tab { width: auto; padding: 0 14px; border-radius: 8px 8px 0 0; border: 2px solid var(--blue); border-bottom: none; margin-left: 0; height: 36px; }
+  .tab.active { border-color: var(--blue); box-shadow: inset 0 4px 0 var(--pink); }
   .page { padding: 0; }
   /* 모바일: 로고 띠를 위에 고정 (높이 60px) → 탭은 그 아래에 고정 */
-  .brandbar { position: sticky; top: 0; z-index: 11; background: var(--blue); height: 60px; padding: 0 16px; }
-  .brandbar img { width: 120px; }
+  .brandbar { position: sticky; top: 0; z-index: 11; height: 60px; margin: 0; }
+  .brandbar-in { height: 100%; padding: 0; }
+  .stickers .st-heart, .stickers .st-dot, .stickers .st-tape { display: none; }
+  .book .st-star { width: 40px; bottom: 10px; right: 10px; }
   .counter { width: auto; }
   .site-url { display: none; }
   .body { flex-direction: column; }
   .profile { width: auto; flex-direction: row; flex-wrap: wrap; align-items: center; overflow: visible; }
   .photo { width: 48px; height: 48px; font-size: 22px; }
+  .photo-wrap { flex-direction: row; align-items: center; gap: 8px; }
   .profile .status-msg { flex-basis: 100%; }
   .profile .my-counts { flex-direction: row; flex-wrap: wrap; border-top: 0; padding-top: 0; gap: 12px; flex-basis: 100%; }
   .profile .surf { margin-top: 0; flex-basis: 100%; }
@@ -471,5 +482,44 @@ button.kpi:hover, a.kpi:hover { border-color: var(--blue); }
 .photo.c2 { background: var(--green); color: var(--white); }
 .photo.c3 { background: var(--acid); color: var(--blue); }
 .photo.c4 { background: var(--blue-tint); color: var(--blue); }
+.photo.has-img { background: var(--white); }
+.photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.photo-cta { position: absolute; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; gap: 4px; padding: 5px 0; background: var(--blue); color: var(--white); font-size: 12px; font-weight: 700; opacity: 0; transition: opacity 0.15s; }
+.photo:hover .photo-cta, .photo:focus-visible .photo-cta, .photo:not(.has-img) .photo-cta { opacity: 1; }
 .section-h::before { content: ''; width: 4px; height: 14px; border-radius: 2px; background: var(--pink); flex-shrink: 0; }
-.quick-logo { width: 120px; height: auto; display: block; margin: 10px 0 16px 10px; }
+/* ---------- 핑크 스티커 (장식, 글자 없음) ---------- */
+.stickers { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
+.sticker { position: absolute; display: block; fill: var(--pink); stroke: var(--white); stroke-width: 7; stroke-linejoin: round; paint-order: stroke; filter: drop-shadow(0 2px 2px rgba(98, 98, 92, 0.35)); }
+.st-star { width: 58px; right: -16px; bottom: -18px; transform: rotate(14deg); }
+.st-heart { width: 40px; left: -12px; top: 38%; transform: rotate(-12deg); }
+.st-dot { width: 24px; left: 26px; bottom: -10px; }
+.st-tape { width: 64px; height: 20px; left: -20px; top: 2px; background: var(--pink); opacity: 0.88; transform: rotate(-45deg); border: 2px solid var(--white); filter: drop-shadow(0 2px 2px rgba(98, 98, 92, 0.35)); }
+.login .st-star { right: -22px; bottom: -22px; }
+.login .st-heart { left: -18px; top: 30%; }
+
+/* ---------- 빠른 기록 창 ---------- */
+.quick-brand { background: var(--blue); margin: -8px -8px 8px; padding: 14px 16px; }
+.quick-logo { width: 120px; height: auto; display: block; }
+.quick .inner.quick-chat { overflow: hidden; }
+.quick .chat-body { flex: 1; min-height: 0; margin: 0 -12px; padding: 10px; }
+.quick-composer { display: flex; gap: 6px; align-items: flex-end; }
+.quick-composer .textarea { min-height: 36px; height: 36px; max-height: 96px; resize: none; }
+.seg { display: inline-flex; border: 1px solid var(--blue); }
+.seg button { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border: 0; background: var(--white); color: var(--blue); font-size: 12px; font-weight: 700; cursor: pointer; }
+.seg button.on { background: var(--blue); color: var(--white); }
+.quick-menu { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.quick-menu-item { position: relative; display: flex; align-items: center; justify-content: center; gap: 4px; height: 44px; border: 0; background: var(--blue); color: var(--white); font-size: 13px; font-weight: 700; cursor: pointer; }
+.quick-menu-item:hover { background: var(--acid); color: var(--blue); }
+.quick-menu-item .dot, .seg .dot { min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px; background: var(--green); color: var(--white); font: 700 10px/16px var(--mono); }
+@media (max-width: 1000px) {
+  .photo-cta { font-size: 0; gap: 0; padding: 1px 0; }
+}
+
+/* ---------- 인사기록 ---------- */
+.name-btn { border: 0; background: none; padding: 0; cursor: pointer; text-align: left; color: var(--blue); text-decoration: underline; text-decoration-color: var(--blue-tint); text-underline-offset: 3px; }
+.name-btn:hover { text-decoration-color: var(--blue); }
+.person-photo { width: 72px; height: 72px; border-radius: 10px; object-fit: cover; flex-shrink: 0; border: 1px solid var(--line); }
+.hr-grid { display: grid; grid-template-columns: 96px 1fr; gap: 6px 12px; margin: 0; font-size: 13px; }
+.hr-grid dt { color: var(--gray); }
+.hr-grid dd { margin: 0; color: var(--blue); font-weight: 700; min-width: 0; word-break: break-word; }
+.del-btn:not(:disabled):hover { color: var(--red); }

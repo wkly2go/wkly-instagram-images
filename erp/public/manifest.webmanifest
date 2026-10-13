@@ -1,5 +1,5 @@
 {
-  "name": "THE WKLY 사내 미니홈피",
+  "name": "THE WKLY 사내 인트라넷",
   "short_name": "WKLY ERP",
   "description": "승인·채팅·업무 일지·프로젝트·거래처",
   "lang": "ko",
@@ -7,7 +7,7 @@
   "scope": "/",
   "display": "standalone",
   "background_color": "#FFFF00",
-  "theme_color": "#FFFF00",
+  "theme_color": "#1C44F1",
   "icons": [
     { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
     { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" },

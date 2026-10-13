@@ -40,8 +40,8 @@ export function KindBadge({ kind }: { kind: LogKind | string }) {
   return <Badge tone={kind.startsWith('메일') ? 'yellow' : 'outline'}>{kind}</Badge>
 }
 
-const TODAY_TONE: Record<TodayStatus, Tone> = { 출근: 'acid', 외근: 'yellow', 미팅: 'yellow', 재택: 'outline', 휴가: 'paper', 퇴근: 'paper' }
-export function TodayBadge({ status }: { status: TodayStatus }) {
+const TODAY_TONE: Record<TodayStatus | '미출근', Tone> = { 출근: 'acid', 외근: 'yellow', 미팅: 'yellow', 재택: 'outline', 휴가: 'paper', 퇴근: 'paper', 미출근: 'gray' }
+export function TodayBadge({ status }: { status: TodayStatus | '미출근' }) {
   return <Badge tone={TODAY_TONE[status] ?? 'outline'}>{status}</Badge>
 }
 

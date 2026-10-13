@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Copy, Download, KeyRound, Plus } from 'lucide-react'
+import { Copy, Download, KeyRound, Plus, Trash2 } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { EXPORT_TABLES, type ExportTable } from '../lib/api'
 import { downloadText, toCsv } from '../lib/csv'
@@ -8,6 +8,7 @@ import { Link } from '../lib/router'
 import { AGENT_SCOPES, APPROVAL_KINDS, type AdminOverview, type AgentScope, type AgentToken, type Approval, type ApprovalKind, type ApprovalRoute, type Profile, type ResearchItem } from '../lib/types'
 import { Meter } from '../components/charts'
 import { Shell } from '../components/Shell'
+import { PersonName } from '../components/Person'
 import { Avatar, Badge, Button, Empty, Field, Modal } from '../components/ui'
 
 export const SCOPE_LABEL: Record<AgentScope, string> = { read: '현황 조회', task: '할 일', daily_report: '일일 보고', notify: '알림', research: '리서치', contact: '브랜드 담당자', finance: '재무 요약(합계만)' }
@@ -137,8 +138,10 @@ function Members() {
     if (ok) setF({ name: '', email: '', password: '', title: '', is_agent: false })
   }
   const update = (p: Profile, patch: Partial<Pick<Profile, 'role' | 'active' | 'is_agent'>>, msg: string) => run(() => api.updateProfile(p.id, patch), msg)
+  const [resetFor, setResetFor] = useState<Profile | null>(null)
   return (
     <section className="section">
+      {resetFor && <ResetPassword p={resetFor} onClose={() => setResetFor(null)} />}
       <div className="section-h">
         <span className="t-bodyb">팀원 관리</span>
         <span className="cap">
@@ -155,6 +158,8 @@ function Members() {
               <th>권한</th>
               <th>구분</th>
               <th>상태</th>
+              <th>비밀번호</th>
+              <th>삭제</th>
             </tr>
           </thead>
           <tbody>
@@ -165,7 +170,7 @@ function Members() {
                   <td className="nowrap">
                     <span className="row" style={{ gap: 6 }}>
                       <Avatar name={p.is_agent ? '🤖' : p.name} size="xs" />
-                      <span className="strong">{p.name}</span>
+                      <PersonName id={p.id} />
                     </span>
                   </td>
                   <td className="nowrap">{p.email ?? '–'}</td>
@@ -193,6 +198,29 @@ function Members() {
                       {p.active ? '활성' : '비활성'}
                     </button>
                   </td>
+                  <td>
+                    {!p.is_agent && (
+                      <button type="button" className="btn btn-outline btn-sm" disabled={busy} onClick={() => setResetFor(p)}>
+                        재설정
+                      </button>
+                    )}
+                  </td>
+                  <td>
+                    {!self && (
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-sm del-btn"
+                        disabled={busy || p.role === 'admin'}
+                        title={p.role === 'admin' ? '관리자는 먼저 멤버로 바꾼 뒤 삭제할 수 있습니다' : '계정 삭제'}
+                        onClick={() =>
+                          window.confirm(`${p.name} 님 계정을 삭제할까요?\n\n로그인할 수 없게 되고 되돌릴 수 없습니다. 업무 기록·결제 등은 남고 작성자는 '알 수 없음'으로 표시됩니다.\n잠시 쉬는 경우에는 '활성'을 눌러 비활성화하세요.`) &&
+                          run(() => api.deleteMember(p.id), `${p.name} 님 계정을 삭제했습니다.`)
+                        }
+                      >
+                        <Trash2 size={13} /> 삭제
+                      </button>
+                    )}
+                  </td>
                 </tr>
               )
             })}
@@ -215,6 +243,67 @@ function Members() {
       <span className="t-cap">AI 팀원(예: WKLY 총괄)은 로그인하지 않고 아래 '에이전트 연결 키'로 일일 보고·할 일 배정을 합니다. 계정은 이름 표시와 기록용입니다.</span>
     </section>
   )
+}
+
+/** 로그인 못 하는 팀원: 관리자가 임시 비밀번호를 정해 본인에게 전달 → 본인은 팀 › 내 정보에서 바꿈 */
+function ResetPassword({ p, onClose }: { p: Profile; onClose: () => void }) {
+  const { api } = useApp()
+  const { busy, run } = useAction()
+  const [pw, setPw] = useState(tempPassword)
+  const [done, setDone] = useState(false)
+  const submit = async () => {
+    if (await run(() => api.resetMemberPassword(p.id, pw), `${p.name} 님 비밀번호를 바꿨습니다.`)) setDone(true)
+  }
+  return (
+    <Modal
+      title={`${p.name} 님 비밀번호 재설정`}
+      onClose={onClose}
+      actions={
+        done ? (
+          <Button onClick={onClose}>닫기</Button>
+        ) : (
+          <>
+            <Button kind="ghost" onClick={onClose}>
+              취소
+            </Button>
+            <Button disabled={busy || pw.length < 8} onClick={submit}>
+              재설정
+            </Button>
+          </>
+        )
+      }
+    >
+      {done ? (
+        <div className="col gap-6">
+          <span className="t-body">아래 내용을 {p.name} 님에게만 전달하세요.</span>
+          <div className="note">
+            이메일 <b className="t-blue">{p.email}</b>
+            <br />
+            임시 비밀번호 <b className="t-blue">{pw}</b>
+          </div>
+          <span className="t-cap">로그인한 뒤 팀·근태 › 내 정보에서 본인 비밀번호로 바꾸도록 안내해 주세요.</span>
+        </div>
+      ) : (
+        <>
+          <Field label="로그인 이메일">
+            <input className="input" value={p.email ?? ''} readOnly />
+          </Field>
+          <Field label="임시 비밀번호 (8자 이상)">
+            <input className="input" type="text" autoComplete="off" value={pw} onChange={e => setPw(e.target.value)} />
+          </Field>
+          <span className="t-cap">지금 비밀번호는 바로 바뀝니다. 이 사람의 다른 기기 로그인은 유지됩니다.</span>
+        </>
+      )}
+    </Modal>
+  )
+}
+
+/** 읽고 전달하기 쉬운 임시 비밀번호: wkly- + 헷갈리는 글자(0/o, 1/l) 뺀 8자 */
+function tempPassword(): string {
+  const chars = 'abcdefghjkmnpqrstuvwxyz23456789'
+  const b = new Uint8Array(8)
+  crypto.getRandomValues(b)
+  return 'wkly-' + Array.from(b, x => chars[x % chars.length]).join('')
 }
 
 function Routes({ routes }: { routes: ApprovalRoute[] }) {

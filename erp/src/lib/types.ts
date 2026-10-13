@@ -15,9 +15,33 @@ export interface Profile {
   today_status: TodayStatus
   status_message: string | null
   status_updated_at: string | null
+  /** 프로필 사진 (256px 정사각 data URL) */
+  photo?: string | null
   /** AI 팀원(에이전트) 계정 */
   is_agent: boolean
   created_at: string
+}
+
+/** 인사기록: 본인·관리자만 조회, 관리자만 수정 */
+export interface HrRecord {
+  profile_id: string
+  joined_on: string | null
+  phone: string | null
+  birthday: string | null
+  address: string | null
+  emergency_contact: string | null
+  note: string | null
+  updated_at?: string
+  updated_by?: string | null
+}
+
+/** 근태: 하루 첫 접속(출근) · 마지막 접속 */
+export interface Attendance {
+  user_id: string
+  /** YYYY-MM-DD (한국 시간) */
+  day: string
+  first_at: string
+  last_at: string
 }
 
 export const CLIENT_CATEGORIES = ['클라이언트', '협력사', '기타'] as const

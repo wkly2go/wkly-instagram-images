@@ -102,8 +102,22 @@ export default function App() {
     if (alias !== full) navigate(alias, { replace: true })
   }, [path, query, navigate])
 
-  const openQuick = useCallback(async () => {
-    if (supportsPip()) {
+  // 근태: 오늘 첫 접속 = 출근. 열려 있는 동안 5분마다·창으로 돌아올 때 마지막 접속 갱신
+  useEffect(() => {
+    if (!userId) return
+    const touch = () => api.touchAttendance().catch(() => undefined)
+    touch()
+    const id = window.setInterval(touch, 5 * 60_000)
+    const onVisible = () => document.visibilityState === 'visible' && touch()
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      window.clearInterval(id)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [userId])
+
+  const openQuick = useCallback(async (kind: 'window' | 'pin' = 'window') => {
+    if (kind === 'pin' && supportsPip()) {
       try {
         const w = await openPipWindow()
         if (w) {

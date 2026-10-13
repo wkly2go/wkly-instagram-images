@@ -1,5 +1,5 @@
 import { ApiError, type Api, type ImportResult, type MessageEvent } from './api'
-import { addDays, nextMonday, todayKey } from './date'
+import { addDays, nextMonday, toDateKey, todayKey } from './date'
 import type {
   AgentToken,
   AppNotification,
@@ -7,6 +7,8 @@ import type {
   ApprovalRoute,
   BrandContact,
   BudgetLine,
+  Attendance,
+  HrRecord,
   ChatMessage,
   ChatRoom,
   ChatRoomSummary,
@@ -46,6 +48,9 @@ interface Store {
   email_templates: EmailTemplate[]
   agent_tokens: AgentToken[]
   notifications: AppNotification[]
+  /** 예전 체험 데이터에는 없을 수 있음 */
+  attendance?: Attendance[]
+  hr_records?: HrRecord[]
   seq: number
   /** 하루 한 번 보내는 결제 요약 알림 (서버 daily_digest 흉내) */
   digest_date?: string
@@ -303,10 +308,16 @@ function seed(): Store {
     nt(U.doyun, '할 일', '새 할 일 배정 · 인플루언서 리스트 정리', 'WKLY 총괄이 배정했어요', '/projects?view=mine', [-3, '08:30']),
     nt(U.haneul, '승인', '반려됨 · 그린테이블 견적 조정 요청', '금액 근거 자료 첨부 후 다시 요청해 주세요.', '/approvals?view=mine', [-3, '16:00'], true),
   ]
+  // 근태: 오늘은 최가람이 아직 접속 전 → 미출근으로 보임
+  const att = (user: string, d: number, first: string, last: string): Attendance => ({ user_id: user, day: addDays(t, d), first_at: at(d, first), last_at: at(d, last) })
+  const attendance = [
+    att(U.haneul, 0, '08:42', '10:40'), att(U.doyun, 0, '08:55', '10:20'), att(U.seoyeon, 0, '09:10', '10:35'),
+    ...[U.admin, U.haneul, U.doyun, U.seoyeon, U.garam].map((u, i) => att(u, -1, `0${8 + (i % 2)}:${10 + i * 7}`, '18:2' + i)),
+  ]
   const chat_reads = [all, rObjet].map(r => ({ user_id: U.admin, room_id: r.id, last_read_at: at(0, '10:50') }))
   return {
     profiles, clients, contacts, projects, tasks, work_logs, chat_rooms: [all, rObjet, rAutumn, rContent], chat_messages, chat_reads, approvals, approval_routes,
-    finances, payments, budget_lines, research_items, brand_contacts, email_templates, agent_tokens, notifications, seq: Math.max(seq, nseq) + 100,
+    finances, payments, budget_lines, research_items, brand_contacts, email_templates, agent_tokens, notifications, attendance, seq: Math.max(seq, nseq) + 100,
   }
 }
 
@@ -776,6 +787,40 @@ export function createDemoApi(): Api {
       persist()
       emit('profiles')
     },
+    async deleteMember(userId) {
+      requireAdmin()
+      const p = store.profiles.find(x => x.id === userId)
+      if (!p) throw new ApiError('계정을 찾을 수 없습니다.')
+      if (userId === me) throw new ApiError('본인 계정은 삭제할 수 없습니다.')
+      if (p.role === 'admin') throw new ApiError('관리자는 먼저 멤버로 바꾼 뒤 삭제하세요.')
+      store.profiles = store.profiles.filter(x => x.id !== userId)
+      store.attendance = (store.attendance ?? []).filter(a => a.user_id !== userId)
+      store.hr_records = (store.hr_records ?? []).filter(h => h.profile_id !== userId)
+      store.notifications = store.notifications.filter(n => n.user_id !== userId)
+      store.chat_reads = store.chat_reads.filter(r => r.user_id !== userId)
+      for (const l of store.work_logs) if (l.user_id === userId) l.user_id = null
+      for (const t of store.tasks) if (t.assignee_id === userId) t.assignee_id = null
+      persist()
+      emit('profiles')
+    },
+    async getHrRecord(profileId) {
+      requireMe()
+      if (profileId !== me && !isAdmin()) return null
+      return clone((store.hr_records ?? []).find(h => h.profile_id === profileId) ?? null)
+    },
+    async saveHrRecord(r) {
+      requireAdmin()
+      const list = (store.hr_records ??= [])
+      const next = { ...r, updated_at: now(), updated_by: me }
+      const i = list.findIndex(h => h.profile_id === r.profile_id)
+      if (i >= 0) list[i] = next
+      else list.push(next)
+      persist()
+    },
+    async resetMemberPassword(userId) {
+      requireAdmin() // 체험 모드는 비밀번호 없이 계정을 골라 들어감
+      if (!store.profiles.some(p => p.id === userId)) throw new ApiError('계정을 찾을 수 없습니다.')
+    },
     async exportTable(table) {
       requireAdmin()
       const map = { ...store, project_finances: store.finances, project_budget_lines: store.budget_lines } as unknown as Record<string, unknown[]>
@@ -891,6 +936,33 @@ export function createDemoApi(): Api {
       emit('notifications')
       void meProfile
     },
+    async touchAttendance() {
+      const self = requireMe()
+      const day = todayKey()
+      const list = (store.attendance ??= [])
+      const row = list.find(a => a.user_id === self && a.day === day)
+      if (!row) {
+        list.push({ user_id: self, day, first_at: now(), last_at: now() })
+        const p = store.profiles.find(x => x.id === self)
+        if (p && p.today_status !== '출근' && (!p.status_updated_at || toDateKey(p.status_updated_at) < day)) {
+          p.today_status = '출근'
+          p.status_updated_at = now()
+          emit('profiles')
+        }
+      } else if (Date.now() - new Date(row.last_at).getTime() > 60_000) row.last_at = now()
+      else return
+      persist()
+      emit('attendance')
+    },
+    async listAttendance(day) {
+      requireMe()
+      return clone((store.attendance ?? []).filter(a => a.day === day))
+    },
+    async listAttendanceFor(userId, fromDay) {
+      requireMe()
+      return clone((store.attendance ?? []).filter(a => a.user_id === userId && a.day >= fromDay).sort((a, b) => b.day.localeCompare(a.day)))
+    },
+
     async runReminders() {
       const before = store.notifications.length
       runReminders()
