@@ -18,6 +18,7 @@ import type {
   LeaveRecord,
   AgentInstruction,
   ChatMessage,
+  ChatRead,
   ChatRoom,
   ChatRoomSummary,
   Client,
@@ -115,6 +116,8 @@ export interface Api {
   sendMessage(roomId: string, content: string): Promise<ChatMessage>
   deleteMessage(id: number): Promise<void>
   markRead(roomId: string): Promise<void>
+  /** 방 참여자들의 마지막 읽은 시각 (누가 읽었는지 표시) */
+  listRoomReads(roomId: string): Promise<ChatRead[]>
   /** roomId 가 null 이면 모든 방 */
   subscribeMessages(roomId: string | null, cb: (e: MessageEvent) => void): () => void
 

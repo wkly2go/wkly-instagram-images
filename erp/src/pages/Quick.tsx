@@ -164,7 +164,7 @@ function QuickLog() {
 function QuickChat({ rooms }: { rooms: ChatRoomSummary[] }) {
   const [chosen, setChosen] = useState(load(ROOM_KEY))
   const roomId = rooms.find(r => r.id === chosen)?.id ?? rooms[0]?.id ?? null
-  const { messages, send, remove } = useRoomMessages(roomId)
+  const { messages, reads, send, remove } = useRoomMessages(roomId)
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
   const bodyRef = useRef<HTMLDivElement>(null)
@@ -220,7 +220,7 @@ function QuickChat({ rooms }: { rooms: ChatRoomSummary[] }) {
           stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 60
         }}
       >
-        <MessageList messages={messages} onRemove={remove} />
+        <MessageList messages={messages} reads={reads} onRemove={remove} />
       </div>
       <div className="quick-composer">
         <textarea className="textarea" placeholder="메시지 (Enter 전송)" value={text} onChange={e => setText(e.target.value)} onKeyDown={onKey} maxLength={4000} aria-label="메시지" />

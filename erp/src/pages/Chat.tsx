@@ -60,7 +60,7 @@ export default function Chat() {
 function Room({ room }: { room: ChatRoomSummary }) {
   const { api, version } = useApp()
   const { navigate } = useRouter()
-  const { messages, send: sendMessage, remove } = useRoomMessages(room.id)
+  const { messages, reads, send: sendMessage, remove } = useRoomMessages(room.id)
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
   const bodyRef = useRef<HTMLDivElement>(null)
@@ -112,7 +112,7 @@ function Room({ room }: { room: ChatRoomSummary }) {
           stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 60
         }}
       >
-        <MessageList messages={messages} onRemove={remove} />
+        <MessageList messages={messages} reads={reads} onRemove={remove} />
       </div>
       <div className="composer">
         <textarea className="textarea" placeholder="메시지 입력 (Enter 전송, Shift+Enter 줄바꿈)" value={text} onChange={e => setText(e.target.value)} onKeyDown={onKey} maxLength={4000} aria-label="메시지" />

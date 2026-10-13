@@ -1,19 +1,24 @@
 import { useEffect, useState } from 'react'
 import { useApp } from './app'
 import { friendlyError } from './api'
-import type { ChatMessage } from './types'
+import type { ChatMessage, ChatRead } from './types'
 
 /** 채팅방 메시지: 불러오기 · 실시간 반영 · 읽음 처리 · 보내기 · 삭제 (채팅 탭과 빠른 기록 창이 함께 씀) */
 export function useRoomMessages(roomId: string | null) {
   const { api, me, bump, toast } = useApp()
   const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [reads, setReads] = useState<ChatRead[]>([])
 
   useEffect(() => {
     setMessages([])
+    setReads([])
     if (!roomId) return
     let alive = true
+    // 읽음 표시: 누가 어디까지 읽었는지 (다른 사람이 읽으면 실시간으로 다시 불러옴)
+    const loadReads = () => api.listRoomReads(roomId).then(r => alive && setReads(r)).catch(() => undefined)
     api.listMessages(roomId).then(m => alive && setMessages(m)).catch(e => toast(friendlyError(e)))
-    api.markRead(roomId).then(bump).catch(() => undefined)
+    api.markRead(roomId).then(bump).then(loadReads).catch(() => undefined)
+    const offReads = api.subscribeChanges(['chat_reads'], loadReads)
     const off = api.subscribeMessages(roomId, ({ type, message }) => {
       setMessages(prev => {
         if (type === 'DELETE') return prev.filter(m => m.id !== message.id)
@@ -25,6 +30,7 @@ export function useRoomMessages(roomId: string | null) {
     return () => {
       alive = false
       off()
+      offReads()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roomId])
@@ -50,5 +56,5 @@ export function useRoomMessages(roomId: string | null) {
       toast(friendlyError(e))
     }
   }
-  return { messages, send, remove }
+  return { messages, reads, send, remove }
 }
