@@ -1,6 +1,7 @@
 import { ApiError, type Api, type ImportResult, type MessageEvent } from './api'
 import { addDays, nextMonday, toDateKey, todayKey } from './date'
 import type {
+  AccessLog,
   AgentToken,
   AppNotification,
   Approval,
@@ -52,6 +53,8 @@ interface Store {
   notifications: AppNotification[]
   /** 예전 체험 데이터에는 없을 수 있음 */
   attendance?: Attendance[]
+  access_log?: AccessLog[]
+  desktop_only?: boolean
   hr_records?: HrRecord[]
   leave_records?: LeaveRecord[]
   agent_instructions?: AgentInstruction[]
@@ -1047,9 +1050,18 @@ export function createDemoApi(): Api {
       emit('notifications')
       void meProfile
     },
-    async touchAttendance() {
+    async touchAttendance(source) {
       const self = requireMe()
       const day = todayKey()
+      const logs = (store.access_log ??= [])
+      const log = logs.find(a => a.user_id === self && a.day === day && a.source === source)
+      if (!log) logs.push({ user_id: self, day, source, first_at: now(), last_at: now() })
+      else log.last_at = now()
+      if (store.desktop_only && source !== 'desktop') {
+        persist()
+        emit('access_log')
+        return
+      }
       const list = (store.attendance ??= [])
       const row = list.find(a => a.user_id === self && a.day === day)
       if (!row) {
@@ -1068,6 +1080,19 @@ export function createDemoApi(): Api {
     async listAttendance(day) {
       requireMe()
       return clone((store.attendance ?? []).filter(a => a.day === day))
+    },
+    async listAccessLog(day) {
+      requireMe()
+      return clone((store.access_log ?? []).filter(a => a.day === day))
+    },
+    async getDesktopOnly() {
+      return !!store.desktop_only
+    },
+    async setDesktopOnly(on) {
+      requireAdmin()
+      store.desktop_only = on
+      persist()
+      emit('app_settings')
     },
     async listLeave() {
       requireMe()

@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState, type ChangeEvent, type ReactNode } from 'react'
-import { Camera, ChevronLeft, ChevronRight, CircleHelp, PictureInPicture2 } from 'lucide-react'
+import { Camera, ChevronLeft, ChevronRight, CircleHelp, Monitor, PictureInPicture2 } from 'lucide-react'
+import { isDesktopApp } from '../lib/desktop'
 import { NotificationBell } from './Notifications'
 import { useApp, useAsync, initial } from '../lib/app'
 import { friendlyError } from '../lib/api'
@@ -285,6 +286,11 @@ export function Shell({ active, flush, children }: { active: TabKey; flush?: boo
               <span className="grow" />
               {api.mode === 'demo' && <span className="mode-badge" title="Supabase 연결 전 체험 모드. 데이터는 이 브라우저에만 저장됩니다.">DEMO</span>}
               <NotificationBell />
+              {!isDesktopApp() && (
+                <Link to="/download" className="quick-btn pc-only" title="회사 컴퓨터용 PC 프로그램 (출근 기록)" style={{ textDecoration: 'none' }}>
+                  <Monitor size={14} /> PC 프로그램
+                </Link>
+              )}
               <Link to="/help" className="quick-btn" title="사용법" style={{ textDecoration: 'none' }}>
                 <CircleHelp size={14} /> <span className="hide-phone">사용법</span>
               </Link>

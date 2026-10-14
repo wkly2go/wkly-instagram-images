@@ -1,3 +1,4 @@
+import { isDesktopApp } from '../lib/desktop'
 import { useState } from 'react'
 import { BellRing, Download, Power } from 'lucide-react'
 import { useApp } from '../lib/app'
@@ -66,6 +67,8 @@ export function PushSetupCard() {
       setGuide(true)
     }
   }
+  // PC 프로그램은 늘 켜져 있어 따로 설정할 필요 없음
+  if (isDesktopApp()) return null
   return (
     <div className="setup-card">
       <div className="row wrap">

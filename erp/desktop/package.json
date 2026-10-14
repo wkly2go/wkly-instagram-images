@@ -1,0 +1,86 @@
+{
+  "name": "wkly-intranet",
+  "productName": "WKLY Intranet",
+  "version": "1.0.0",
+  "description": "THE WKLY 사내 인트라넷 PC 프로그램",
+  "author": "THE WKLY <info@thewklyn.com>",
+  "homepage": "https://wkly-erp.pages.dev",
+  "license": "UNLICENSED",
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --publish never"
+  },
+  "dependencies": {
+    "electron-updater": "6.3.9"
+  },
+  "devDependencies": {
+    "electron": "33.4.11",
+    "electron-builder": "25.1.8"
+  },
+  "build": {
+    "appId": "com.thewkly.intranet",
+    "productName": "WKLY Intranet",
+    "copyright": "THE WKLY",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "offline.html",
+      "build/icon.png",
+      "build/tray.png",
+      "build/tray@2x.png"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "build/icon.png",
+      "artifactName": "WKLY-Intranet-Setup.${ext}"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "runAfterFinish": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "WKLY 인트라넷"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": ["universal"]
+        },
+        {
+          "target": "zip",
+          "arch": ["universal"]
+        }
+      ],
+      "icon": "build/icon.png",
+      "category": "public.app-category.business",
+      "identity": "-",
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false,
+      "artifactName": "WKLY-Intranet.${ext}"
+    },
+    "dmg": {
+      "title": "WKLY Intranet"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "wkly2go",
+        "repo": "wkly-instagram-images",
+        "releaseType": "release"
+      }
+    ]
+  }
+}

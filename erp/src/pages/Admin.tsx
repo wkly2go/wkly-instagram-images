@@ -1,3 +1,4 @@
+import { useDesktopOnly } from '../lib/attendance'
 import { useState } from 'react'
 import { Copy, Download, KeyRound, Pencil, Plus, Trash2 } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
@@ -65,6 +66,7 @@ export default function Admin() {
       <SystemStatus overview={data.overview} />
       <PmAgent tokens={data.tokens} approvals={data.approvals} />
       <Members />
+      <DesktopAttendance />
       <Routes routes={data.routes} />
       <AgentKeys tokens={data.tokens} />
       <Backup />
@@ -657,6 +659,37 @@ const BACKUP_GROUPS: [string, ExportTable[]][] = [
   ['브랜드 담당자', ['brand_contacts']],
   ['채팅', ['chat_messages']],
 ]
+
+/** 근태: 출근을 PC 프로그램 접속으로만 인정할지 */
+function DesktopAttendance() {
+  const { api, bump } = useApp()
+  const { busy, run } = useAction()
+  const { data: on, reload } = useDesktopOnly()
+  const toggle = () =>
+    run(async () => {
+      await api.setDesktopOnly(!on)
+      reload()
+      bump()
+    }, !on ? '이제 PC 프로그램으로 접속해야 출근으로 기록됩니다.' : '브라우저 · 휴대폰 접속도 출근으로 기록됩니다.')
+  return (
+    <section className="section">
+      <div className="section-h">
+        <span className="t-bodyb">출근 기록 방식</span>
+        <span className="cap">휴대폰 · 브라우저 접속은 어느 쪽이든 근태 화면에 '외부 접속'으로 따로 보입니다</span>
+      </div>
+      <div className="row wrap" style={{ gap: 8 }}>
+        <Badge tone={on ? 'blue' : 'outline'}>{on ? 'PC 프로그램 접속만 출근' : '모든 접속을 출근으로'}</Badge>
+        <Button kind={on ? 'outline' : 'blue'} size="sm" onClick={toggle} disabled={busy}>
+          {on ? '모든 접속을 출근으로 바꾸기' : 'PC 프로그램 접속만 출근으로 바꾸기'}
+        </Button>
+        <Link to="/download" className="t-cap">
+          PC 프로그램 내려받기 ›
+        </Link>
+      </div>
+      <span className="t-cap">팀원 모두 PC 프로그램을 설치한 뒤 'PC 프로그램 접속만 출근'으로 바꾸세요. 설치 전에 바꾸면 모두 미출근으로 보입니다.</span>
+    </section>
+  )
+}
 
 function Backup() {
   const { api } = useApp()

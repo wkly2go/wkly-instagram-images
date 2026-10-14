@@ -1,4 +1,6 @@
+import type { AccessSource } from './desktop'
 import type {
+  AccessLog,
   AdminOverview,
   AgentScope,
   AgentToken,
@@ -202,8 +204,14 @@ export interface Api {
 
   // 근태
   /** 앱을 연 동안 몇 분마다 호출: 오늘 첫 호출이 출근 시각 */
-  touchAttendance(): Promise<void>
+  /** source: 접속 경로. 설정에 따라 PC 프로그램 접속만 출근으로 인정 */
+  touchAttendance(source: AccessSource): Promise<void>
   listAttendance(day: string): Promise<Attendance[]>
+  /** 그날 경로별 접속 기록 (외부 접속 표시용) */
+  listAccessLog(day: string): Promise<AccessLog[]>
+  /** 출근은 PC 프로그램에서만 인정할지 (관리 설정) */
+  getDesktopOnly(): Promise<boolean>
+  setDesktopOnly(on: boolean): Promise<void>
   /** 한 사람의 fromDay 이후 근태 (최근 날짜 먼저) */
   listAttendanceFor(userId: string, fromDay: string): Promise<Attendance[]>
 

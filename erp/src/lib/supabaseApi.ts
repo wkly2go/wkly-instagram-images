@@ -1,6 +1,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { ApiError, CHAT_FILE_MAX, type Api, type ImportResult } from './api'
 import type {
+  AccessLog,
   AdminOverview,
   AgentToken,
   AppNotification,
@@ -437,8 +438,21 @@ export function createSupabaseApi(url: string, key: string): Api {
       return Number(data) || 0
     },
 
-    async touchAttendance() {
-      await sb.rpc('touch_attendance') // 0005 미적용이어도 앱 사용에는 지장 없음
+    async touchAttendance(source) {
+      const { error } = await sb.rpc('touch_attendance_v2', { p_source: source })
+      if (error) await sb.rpc('touch_attendance') // 0014 미적용
+    },
+    async listAccessLog(day) {
+      const { data, error } = await sb.from('access_log').select('*').eq('day', day)
+      if (error) return [] // 0014 미적용
+      return data as AccessLog[]
+    },
+    async getDesktopOnly() {
+      const { data } = await sb.from('app_settings').select('value').eq('key', 'attendance_desktop_only').maybeSingle()
+      return data?.value === true
+    },
+    async setDesktopOnly(on) {
+      must(await sb.rpc('set_app_setting', { p_key: 'attendance_desktop_only', p_value: on }))
     },
     async listAttendance(day) {
       return must(await sb.from('attendance').select('*').eq('day', day)) as Attendance[]
