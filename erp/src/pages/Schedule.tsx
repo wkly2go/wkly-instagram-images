@@ -355,7 +355,7 @@ export function Gantt({ projects, tasks }: { projects: Project[]; tasks: Task[] 
 interface CalItem {
   key: string
   label: string
-  tone: 'task' | 'late' | 'done' | 'project' | 'leave'
+  tone: 'mine' | 'task' | 'late' | 'done' | 'project' | 'leave'
   task?: Task
   to?: string
 }
@@ -379,7 +379,7 @@ export function MonthCalendar({ projects, tasks }: { projects: Project[]; tasks:
       const sp = spanOf(t)
       if (!sp) continue
       const late = t.status !== '완료' && !!t.due_date && t.due_date < today
-      const tone = t.status === '완료' ? 'done' : late ? 'late' : 'task'
+      const tone = t.status === '완료' ? 'done' : late ? 'late' : t.assignee_id === me.id ? 'mine' : 'task'
       // 기간 업무는 시작일과 마감일에, 하루 업무는 그날에
       const who = profileName(t.assignee_id)
       if (sp[0] === sp[1]) push(sp[0], { key: t.id, label: `${t.title} · ${who}`, tone, task: t })
@@ -464,8 +464,12 @@ export function MonthCalendar({ projects, tasks }: { projects: Project[]; tasks:
       </div>
       <div className="legend">
         <span>
+          <i style={{ background: 'var(--blue)' }} />
+          내 업무
+        </span>
+        <span>
           <i style={{ background: 'var(--blue-tint)' }} />
-          업무 (▶ 시작 · ■ 마감)
+          팀 업무 (▶ 시작 · ■ 마감)
         </span>
         <span>
           <i style={{ background: 'var(--red)' }} />
