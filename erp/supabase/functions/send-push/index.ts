@@ -46,16 +46,18 @@ Deno.serve(async req => {
     let userIds: string[] = []
     let payload: Record<string, unknown>
     if (body.type === 'chat') {
-      const { data: people } = await sb.from('profiles').select('id').eq('active', true).eq('is_agent', false).neq('id', body.user_id as string)
-      userIds = (people ?? []).map(p => p.id as string)
-      const [{ data: sender }, { data: room }] = await Promise.all([
+      const [{ data: people }, { data: sender }, { data: room }] = await Promise.all([
+        sb.from('profiles').select('id').eq('active', true).eq('is_agent', false).neq('id', body.user_id as string),
         sb.from('profiles').select('name').eq('id', body.user_id as string).maybeSingle(),
-        sb.from('chat_rooms').select('name').eq('id', body.room_id as string).maybeSingle(),
+        sb.from('chat_rooms').select('name, members').eq('id', body.room_id as string).maybeSingle(),
       ])
+      // 1:1 방(members 있음)은 그 방 사람에게만
+      const members = (room?.members as string[] | null) ?? null
+      userIds = (people ?? []).map(p => p.id as string).filter(id => !members || members.includes(id))
       payload = {
         kind: 'chat',
         room: body.room_id,
-        title: `${sender?.name ?? '팀원'} · # ${room?.name ?? '채팅'}`,
+        title: members ? `${sender?.name ?? '팀원'} · 1:1 대화` : `${sender?.name ?? '팀원'} · # ${room?.name ?? '채팅'}`,
         body: String(body.content ?? '').slice(0, 180),
         url: `/chat?room=${body.room_id}`,
         tag: `chat-${body.room_id}`,

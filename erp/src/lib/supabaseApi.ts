@@ -174,10 +174,16 @@ export function createSupabaseApi(url: string, key: string): Api {
     },
 
     async listRooms() {
+      // v2 는 1:1 대화 멤버(members)까지 돌려줌. 아직 없는 DB 면 예전 함수로
+      const v2 = await sb.rpc('chat_room_summaries_v2')
+      if (!v2.error) return v2.data as ChatRoomSummary[]
       return must(await sb.rpc('chat_room_summaries')) as ChatRoomSummary[]
     },
     async createRoom(r) {
       return must(await sb.from('chat_rooms').insert(r).select().single()) as ChatRoom
+    },
+    async openDm(otherId) {
+      return must(await sb.rpc('chat_open_dm', { p_other: otherId })) as string
     },
     async listMessages(roomId, limit = 150) {
       const rows = must(await sb.from('chat_messages').select('*').eq('room_id', roomId).order('created_at', { ascending: false }).limit(limit)) as ChatMessage[]
@@ -187,6 +193,9 @@ export function createSupabaseApi(url: string, key: string): Api {
       return must(await sb.from('chat_messages').insert({ room_id: roomId, content }).select().single()) as ChatMessage
     },
     deleteMessage: id => remove('chat_messages', id),
+    async editMessage(id, content) {
+      return must(await sb.from('chat_messages').update({ content }).eq('id', id).select().single()) as ChatMessage
+    },
     async markRead(roomId) {
       must(await sb.from('chat_reads').upsert({ room_id: roomId, last_read_at: new Date().toISOString() }, { onConflict: 'user_id,room_id' }))
     },

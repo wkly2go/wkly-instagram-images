@@ -1,26 +1,45 @@
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react'
-import { ArrowLeft, Plus, Send } from 'lucide-react'
+import { ArrowLeft, Lock, MessageCircle, Plus, Send } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
-import { useRoomMessages } from '../lib/chat'
+import { friendlyError } from '../lib/api'
+import { roomTitle, useRoomMessages } from '../lib/chat'
 import { relativeLabel } from '../lib/date'
 import { Link, useRouter, withQuery } from '../lib/router'
 import type { ChatRoomSummary, Project } from '../lib/types'
 import { Shell } from '../components/Shell'
-import { Badge, Button, Empty, Field, Modal } from '../components/ui'
+import { Avatar, Badge, Button, Empty, Field, Modal } from '../components/ui'
 import { MessageList } from '../components/ChatMessages'
 
 export default function Chat() {
-  const { api, version } = useApp()
+  const { api, me, version, profileName, toast, bump } = useApp()
   const { query, path, navigate } = useRouter()
   const [creating, setCreating] = useState(false)
+  const [dmPicking, setDmPicking] = useState(false)
   const { data: rooms, loading } = useAsync(() => api.listRooms(), [version], [] as ChatRoomSummary[])
   const roomId = query.get('room')
   const room = rooms.find(r => r.id === roomId) ?? null
 
+  // 팀·근태에서 '1:1 대화'로 들어온 경우: /chat?dm=팀원id → 그 사람과의 방
+  const dm = query.get('dm')
+  useEffect(() => {
+    if (!dm) return
+    api
+      .openDm(dm)
+      .then(id => {
+        bump()
+        navigate(`/chat?room=${id}`, { replace: true })
+      })
+      .catch(e => {
+        toast(friendlyError(e))
+        navigate('/chat', { replace: true })
+      })
+  }, [dm, api, navigate, toast, bump])
+
   // 방을 고르지 않았으면 PC 에서는 첫 방을 자동으로 연다
   useEffect(() => {
+    if (dm) return
     if (!roomId && rooms.length && window.matchMedia('(min-width: 641px)').matches) navigate(withQuery(path, query, { room: rooms[0].id }), { replace: true })
-  }, [roomId, rooms, path, query, navigate])
+  }, [dm, roomId, rooms, path, query, navigate])
 
   return (
     <Shell active="chat" flush>
@@ -28,39 +47,79 @@ export default function Chat() {
         <div className="pane-list" style={{ width: 200 }}>
           <div className="pane-head">
             <div className="row">
-              <span className="t-bodyb grow">채팅방</span>
-              <button type="button" className="icon-btn" onClick={() => setCreating(true)} aria-label="채팅방 만들기" title="채팅방 만들기">
-                <Plus size={18} />
+              <span className="t-bodyb grow">채팅</span>
+              <button type="button" className="quick-btn" onClick={() => setDmPicking(true)} title="팀원과 둘이서만 보는 대화">
+                <MessageCircle size={13} /> 1:1 대화
               </button>
             </div>
           </div>
           <div className="pane-body">
-            {rooms.map(r => (
-              <Link key={r.id} to={withQuery(path, query, { room: r.id })} className={`item ${r.id === roomId ? 'active' : ''}`}>
-                <div className="row">
-                  <span className="t-smallb truncate grow"># {r.name}</span>
-                  {r.last_at && <span className="t-meta">{relativeLabel(r.last_at)}</span>}
+            {[
+              ['채팅방', rooms.filter(r => !r.members)],
+              ['1:1 대화', rooms.filter(r => r.members)],
+            ].map(([label, list]) => (
+              <div key={label as string}>
+                <div className="room-group">
+                  <span className="grow">{label as string}</span>
+                  {label === '1:1 대화' ? (
+                    <button type="button" className="icon-btn sm" onClick={() => setDmPicking(true)} aria-label="1:1 대화 시작" title="팀원과 1:1 대화 시작">
+                      <Plus size={14} />
+                    </button>
+                  ) : (
+                    <button type="button" className="icon-btn sm" onClick={() => setCreating(true)} aria-label="채팅방 만들기" title="채팅방 만들기">
+                      <Plus size={14} />
+                    </button>
+                  )}
                 </div>
-                <div className="row">
-                  <span className="t-cap truncate grow">{r.last_content ?? r.description ?? '대화를 시작해 보세요'}</span>
-                  {r.unread > 0 && r.id !== roomId && <Badge tone="blue">{r.unread}</Badge>}
-                </div>
-              </Link>
+                {(list as ChatRoomSummary[]).map(r => (
+                  <Link key={r.id} to={withQuery(path, query, { room: r.id })} className={`item ${r.id === roomId ? 'active' : ''} ${r.members ? 'dm' : ''}`}>
+                    <div className="row">
+                      {r.members && <Avatar name={profileName(r.members.find(id => id !== me.id))} size="xs" />}
+                      <span className="t-smallb truncate grow">{r.members ? roomTitle(r, me.id, profileName).slice(2) : `# ${r.name}`}</span>
+                      {r.last_at && <span className="t-meta">{relativeLabel(r.last_at)}</span>}
+                    </div>
+                    <div className="row">
+                      <span className="t-cap truncate grow">{r.last_content ?? r.description ?? '대화를 시작해 보세요'}</span>
+                      {r.unread > 0 && r.id !== roomId && <Badge tone="blue">{r.unread}</Badge>}
+                    </div>
+                  </Link>
+                ))}
+                {label === '1:1 대화' && !(list as ChatRoomSummary[]).length && (
+                  <button type="button" className="item t-cap" onClick={() => setDmPicking(true)}>
+                    + 팀원을 골라 1:1 대화를 시작하세요
+                  </button>
+                )}
+              </div>
             ))}
             {!loading && rooms.length === 0 && <Empty>채팅방이 없습니다.</Empty>}
           </div>
         </div>
         <div className="pane-detail">{room ? <Room key={room.id} room={room} /> : <Empty>채팅방을 고르세요.</Empty>}</div>
       </div>
+      {dmPicking && (
+        <DmPicker
+          onClose={() => setDmPicking(false)}
+          onPick={async id => {
+            setDmPicking(false)
+            try {
+              const room = await api.openDm(id)
+              bump()
+              navigate(withQuery(path, query, { room }))
+            } catch (e) {
+              toast(friendlyError(e))
+            }
+          }}
+        />
+      )}
       {creating && <NewRoom onClose={() => setCreating(false)} onCreated={id => navigate(withQuery(path, query, { room: id }))} />}
     </Shell>
   )
 }
 
 function Room({ room }: { room: ChatRoomSummary }) {
-  const { api, version } = useApp()
+  const { api, me, version, profileName } = useApp()
   const { navigate } = useRouter()
-  const { messages, reads, send: sendMessage, remove } = useRoomMessages(room.id)
+  const { messages, reads, send: sendMessage, remove, edit } = useRoomMessages(room.id)
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
   const bodyRef = useRef<HTMLDivElement>(null)
@@ -95,7 +154,12 @@ function Room({ room }: { room: ChatRoomSummary }) {
         <button type="button" className="icon-btn back-btn" onClick={() => navigate('/chat')} aria-label="채팅방 목록">
           <ArrowLeft size={18} />
         </button>
-        <span className="t-bodyb truncate"># {room.name}</span>
+        <span className="t-bodyb truncate">{roomTitle(room, me.id, profileName)}</span>
+        {room.members && (
+          <span className="t-cap row" style={{ gap: 3 }} title="두 사람만 볼 수 있는 대화입니다 (관리자도 볼 수 없음)">
+            <Lock size={11} /> 둘만 보는 대화
+          </span>
+        )}
         {project && (
           <Link to={`/projects?id=${project.id}`}>
             <Badge>📁 {project.name}</Badge>
@@ -112,7 +176,7 @@ function Room({ room }: { room: ChatRoomSummary }) {
           stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 60
         }}
       >
-        <MessageList messages={messages} reads={reads} onRemove={remove} />
+        <MessageList messages={messages} reads={reads} members={room.members} onRemove={remove} onEdit={edit} />
       </div>
       <div className="composer">
         <textarea className="textarea" placeholder="메시지 입력 (Enter 전송, Shift+Enter 줄바꿈)" value={text} onChange={e => setText(e.target.value)} onKeyDown={onKey} maxLength={4000} aria-label="메시지" />
@@ -121,6 +185,35 @@ function Room({ room }: { room: ChatRoomSummary }) {
         </button>
       </div>
     </>
+  )
+}
+
+/** 1:1 대화 상대 고르기 */
+function DmPicker({ onClose, onPick }: { onClose: () => void; onPick: (id: string) => void }) {
+  const { me, profiles } = useApp()
+  const [q, setQ] = useState('')
+  const people = profiles.filter(p => p.active && !p.is_agent && p.id !== me.id && (!q.trim() || p.name.includes(q.trim())))
+  return (
+    <Modal title="1:1 대화" onClose={onClose}>
+      <input className="input" autoFocus placeholder="이름 검색" value={q} onChange={e => setQ(e.target.value)} aria-label="이름 검색" />
+      <div className="col gap-2">
+        {people.map(p => (
+          <button
+            key={p.id}
+            type="button"
+            className="item row"
+            onClick={() => onPick(p.id)}
+          >
+            <Avatar name={p.name} size="sm" />
+            <span className="t-smallb grow">{p.name}</span>
+            {p.title && <span className="t-cap">{p.title}</span>}
+            <span className="t-meta">{p.today_status}</span>
+          </button>
+        ))}
+        {people.length === 0 && <Empty>대화할 팀원이 없습니다.</Empty>}
+      </div>
+      <span className="t-cap">두 사람만 볼 수 있는 대화방이 열립니다. 이미 대화한 적이 있으면 그 방으로 이어집니다.</span>
+    </Modal>
   )
 }
 
