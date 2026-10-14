@@ -3,6 +3,7 @@ import { useApp } from '../lib/app'
 import { Link } from '../lib/router'
 import { Shell } from '../components/Shell'
 import { SectionHead } from '../components/ui'
+import { AutoStartGuide, PushToggle } from '../components/PushSetup'
 
 /** 사용법: 직원·관리자용 짧은 설명서 (관리자 전용 부분은 관리자에게만 보임) */
 export default function Help() {
@@ -18,8 +19,17 @@ export default function Help() {
         <Step n={2}>
           <Link to="/team">팀 › 내 정보</Link>에서 새 비밀번호로 바꿉니다.
         </Step>
-        <Step n={3}>위쪽 종 모양 › PC 알림 '켜기'를 누르면 할 일 알람·승인 요청을 화면 밖에서도 받습니다.</Step>
+        <Step n={3}>위쪽 종 모양 › 'PC 알림 (창을 닫아도)' 켜기를 누릅니다. 인트라넷 창을 닫아 둬도 채팅·승인 요청·할 일 알람이 PC 알림으로 옵니다.</Step>
         <Step n={4}>PC 크롬·엣지는 주소창 오른쪽 '앱 설치', 휴대폰은 공유 › '홈 화면에 추가'로 앱처럼 씁니다.</Step>
+      </Part>
+
+      <Part title="창을 닫아도 알림 받기 · 컴퓨터 켤 때 자동 시작">
+        <div className="row wrap">
+          <span className="t-small">이 컴퓨터의 PC 알림</span>
+          <PushToggle />
+        </div>
+        <span className="t-cap">알림은 크롬·엣지가 백그라운드에서 켜져 있으면 옵니다. 앱으로 설치하고 아래처럼 자동 시작을 켜 두면 컴퓨터를 켤 때마다 인트라넷이 열립니다.</span>
+        <AutoStartGuide />
       </Part>
 
       <Part title="메뉴별 사용법">

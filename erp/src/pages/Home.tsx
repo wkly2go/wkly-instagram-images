@@ -5,6 +5,7 @@ import { Link, useRouter } from '../lib/router'
 import type { Approval, ChatMessage, ChatRoomSummary, Project, Task, WorkLog } from '../lib/types'
 import { Shell } from '../components/Shell'
 import { AgentDesk } from '../components/AgentDesk'
+import { PushSetupCard } from '../components/PushSetup'
 import { Badge, Button, Empty, Modal, SectionHead, StatusBadge } from '../components/ui'
 import { DailyReport, DecideButtons, reportSections } from './Approvals'
 import { MonthCalendar } from './Schedule'
@@ -45,6 +46,7 @@ export default function Home() {
 
   return (
     <Shell active="home">
+      <PushSetupCard />
       <SectionHead title="승인 대기" count={toDecide.length} right={<Link to="/approvals">전체 보기 ›</Link>} />
       {toDecide.length === 0 ? (
         mine.length ? (

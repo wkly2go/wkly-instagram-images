@@ -190,6 +190,17 @@ export function createSupabaseApi(url: string, key: string): Api {
     async markRead(roomId) {
       must(await sb.from('chat_reads').upsert({ room_id: roomId, last_read_at: new Date().toISOString() }, { onConflict: 'user_id,room_id' }))
     },
+    async pushPublicKey() {
+      const { data, error } = await sb.functions.invoke('send-push', { body: { action: 'public-key' } })
+      if (error) throw new ApiError('알림 서버에 연결하지 못했습니다.')
+      return (data as { publicKey?: string } | null)?.publicKey ?? null
+    },
+    async pushSubscribe(s) {
+      must(await sb.rpc('push_subscribe', { p_endpoint: s.endpoint, p_p256dh: s.p256dh, p_auth: s.auth, p_user_agent: s.userAgent ?? null }))
+    },
+    async pushUnsubscribe(endpoint) {
+      must(await sb.from('push_subscriptions').delete().eq('endpoint', endpoint))
+    },
     async listRoomReads(roomId) {
       return must(await sb.from('chat_reads').select('user_id, room_id, last_read_at').eq('room_id', roomId)) as ChatRead[]
     },

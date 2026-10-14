@@ -5,6 +5,8 @@ import { relativeLabel } from '../lib/date'
 import { normalizePath, useRouter } from '../lib/router'
 import type { AppNotification, NotificationKind } from '../lib/types'
 import { Badge } from './ui'
+import { PushToggle } from './PushSetup'
+import { pushOn } from '../lib/push'
 
 const ICON: Record<NotificationKind, string> = { '할 일': '📌', 알람: '⏰', 승인: '✅', '일일 보고': '📝', 멘션: '💬', 시스템: '🔧', 결제: '💳' }
 const SEEN_KEY = 'wkly-erp-notified-max'
@@ -32,7 +34,7 @@ export function NotificationBell() {
   const { navigate } = useRouter()
   const [open, setOpen] = useState(false)
   const [tick, setTick] = useState(0)
-  const [perm, setPerm] = useState<NotificationPermission | 'unsupported'>(canNotify() ? Notification.permission : 'unsupported')
+  const [perm] = useState<NotificationPermission | 'unsupported'>(canNotify() ? Notification.permission : 'unsupported')
   const box = useRef<HTMLDivElement>(null)
   const { data: list } = useAsync<AppNotification[]>(() => api.listNotifications(40), [version, tick, me.id], [])
   const unread = list.filter(n => !n.read_at)
@@ -48,7 +50,8 @@ export function NotificationBell() {
     if (!list.length) return
     const max = Math.max(...list.map(n => n.id))
     const seen = readSeen()
-    if (seen && perm === 'granted') {
+    // PC 푸시가 켜져 있으면 서비스 워커가 띄우므로 여기서는 생략 (중복 방지)
+    if (seen && perm === 'granted' && !pushOn()) {
       for (const n of list.filter(x => x.id > seen && !x.read_at).slice(0, 3)) {
         try {
           const pc = new Notification(`${ICON[n.kind] ?? ''} ${n.title}`, { body: n.body ?? undefined, tag: `wkly-${n.id}`, icon: '/icon-192.png' })
@@ -90,12 +93,6 @@ export function NotificationBell() {
     await api.markNotificationsRead('all').catch(() => undefined)
     bump()
   }
-  const askPermission = async () => {
-    if (!canNotify()) return
-    const p = await Notification.requestPermission()
-    setPerm(p)
-    if (p === 'granted') new Notification('PC 알림이 켜졌어요', { body: '할 일 알람·승인 요청·일일 보고를 화면 밖에서도 알려 드려요.', icon: '/icon-192.png' })
-  }
 
   return (
     <div className="bell" ref={box}>
@@ -130,20 +127,8 @@ export function NotificationBell() {
             </button>
           ))}
           <div className="head" style={{ position: 'sticky', bottom: 0, borderTop: '1px solid var(--line)', borderBottom: 0 }}>
-            <span className="t-cap">PC 알림</span>
-            {perm === 'granted' ? (
-              <Badge tone="acid">켜짐</Badge>
-            ) : perm === 'unsupported' ? (
-              <Badge tone="paper">지원 안 함</Badge>
-            ) : perm === 'denied' ? (
-              <span className="t-cap" title="브라우저 주소창 왼쪽 자물쇠 → 알림 허용">
-                <Badge tone="paper">차단됨</Badge>
-              </span>
-            ) : (
-              <button type="button" className="btn btn-yellow btn-sm" onClick={askPermission}>
-                켜기
-              </button>
-            )}
+            <span className="t-cap">PC 알림 (창을 닫아도)</span>
+            <PushToggle />
             <span className="grow" />
             <span className="t-cap">매일 09:00 오늘 할 일 요약</span>
           </div>
