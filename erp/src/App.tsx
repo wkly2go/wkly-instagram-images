@@ -17,6 +17,7 @@ import Library from './pages/Library'
 import Help from './pages/Help'
 import Team from './pages/Team'
 import WorkLog from './pages/WorkLog'
+import { playAlert } from './lib/sound'
 
 const PAGES: Record<string, () => JSX.Element> = {
   '/': Home,
@@ -75,7 +76,11 @@ export default function App() {
   // 실시간: 새 채팅·승인·상태 변경이 오면 화면 숫자를 새로 고침
   useEffect(() => {
     if (!userId) return
-    const offMsg = api.subscribeMessages(null, bump)
+    // 남이 보낸 새 메시지면 알림음 (1:1 대화는 내 방 것만 들어옴)
+    const offMsg = api.subscribeMessages(null, e => {
+      if (e.type === 'INSERT' && e.message.user_id !== userId) playAlert('chat')
+      bump()
+    })
     const offChanges = api.subscribeChanges(['approvals', 'profiles', 'notifications'], bump)
     return () => {
       offMsg()

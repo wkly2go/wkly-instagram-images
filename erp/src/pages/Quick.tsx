@@ -8,7 +8,7 @@ import { QUICK_WINDOW, supportsPip } from '../lib/pip'
 import { useRouter } from '../lib/router'
 import { TODAY_STATUSES, type ChatRoomSummary, type TodayStatus, type WorkLog } from '../lib/types'
 import { QuickLogForm } from '../components/LogForm'
-import { MessageList } from '../components/ChatMessages'
+import { AttachButton, MessageList } from '../components/ChatMessages'
 import { TABS, useSummary } from '../components/Shell'
 import { Empty, KindBadge } from '../components/ui'
 
@@ -166,7 +166,11 @@ function QuickChat({ rooms }: { rooms: ChatRoomSummary[] }) {
   const { me, profileName } = useApp()
   const room = rooms.find(r => r.id === chosen) ?? rooms[0] ?? null
   const roomId = room?.id ?? null
-  const { messages, reads, send, remove, edit } = useRoomMessages(roomId)
+  const { messages, reads, send, sendFile, remove, edit } = useRoomMessages(roomId)
+  const sendFiles = async (files: File[]) => {
+    stick.current = true
+    for (const f of files) if (!(await sendFile(f))) break
+  }
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
   const bodyRef = useRef<HTMLDivElement>(null)
@@ -225,6 +229,7 @@ function QuickChat({ rooms }: { rooms: ChatRoomSummary[] }) {
         <MessageList messages={messages} reads={reads} members={room?.members} onRemove={remove} onEdit={edit} />
       </div>
       <div className="quick-composer">
+        <AttachButton onFiles={sendFiles} />
         <textarea className="textarea" placeholder="메시지 (Enter 전송)" value={text} onChange={e => setText(e.target.value)} onKeyDown={onKey} maxLength={4000} aria-label="메시지" />
         <button type="button" className="send-btn" onClick={submit} disabled={!text.trim() || sending} aria-label="보내기">
           <Send size={16} />

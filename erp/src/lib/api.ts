@@ -21,6 +21,7 @@ import type {
   ChatRead,
   ChatRoom,
   ChatRoomSummary,
+  ChatAttachment,
   Client,
   Contact,
   Draft,
@@ -64,6 +65,8 @@ export interface TaskFilter {
   from?: string
   to?: string
 }
+
+export const CHAT_FILE_MAX = 20 * 1024 * 1024
 
 export type MessageEvent = { type: 'INSERT' | 'UPDATE' | 'DELETE'; message: ChatMessage }
 
@@ -116,6 +119,10 @@ export interface Api {
   openDm(otherId: string): Promise<string>
   listMessages(roomId: string, limit?: number): Promise<ChatMessage[]>
   sendMessage(roomId: string, content: string): Promise<ChatMessage>
+  /** 사진 · 파일 보내기 (한 파일 20MB 까지). caption 이 없으면 '📎 파일 이름' */
+  sendFile(roomId: string, file: File, caption?: string): Promise<ChatMessage>
+  /** 첨부 파일을 열 수 있는 주소 (1시간 유효). download 면 원래 이름으로 내려받기 */
+  fileUrl(att: ChatAttachment, download?: boolean): Promise<string>
   deleteMessage(id: number): Promise<void>
   /** 내 메시지 고치기 (고친 시각 edited_at 이 남음) */
   editMessage(id: number, content: string): Promise<ChatMessage>

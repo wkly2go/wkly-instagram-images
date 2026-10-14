@@ -657,6 +657,28 @@ export function createDemoApi(): Api {
       emit('chat_messages', { type: 'INSERT', message: msg } satisfies MessageEvent)
       return clone(msg)
     },
+    async sendFile(roomId, file, caption) {
+      // 체험 모드: 브라우저 저장 공간이 작아 2MB 까지만
+      if (file.size > 2 * 1024 * 1024) throw new ApiError('체험 모드에서는 2MB 까지 보낼 수 있습니다. (실제 서비스는 20MB)')
+      const url = await new Promise<string>((ok, no) => {
+        const r = new FileReader()
+        r.onload = () => ok(String(r.result))
+        r.onerror = () => no(new ApiError('파일을 읽지 못했습니다.'))
+        r.readAsDataURL(file)
+      })
+      const msg: ChatMessage = {
+        id: ++store.seq + 1000, room_id: roomId, user_id: requireMe(), content: caption?.trim() || `📎 ${file.name}`, created_at: now(), edited_at: null,
+        attachment: { path: `${roomId}/${uid()}/file`, name: file.name, size: file.size, type: file.type || 'application/octet-stream', url },
+      }
+      store.chat_messages.push(msg)
+      persist()
+      emit('chat_messages', { type: 'INSERT', message: msg } satisfies MessageEvent)
+      return clone(msg)
+    },
+    async fileUrl(att) {
+      if (!att.url) throw new ApiError('파일을 열 수 없습니다.')
+      return att.url
+    },
     async editMessage(id, content) {
       const msg = store.chat_messages.find(m => m.id === id)
       if (!msg || msg.user_id !== requireMe()) throw new ApiError('내 메시지만 고칠 수 있습니다.')

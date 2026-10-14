@@ -56,6 +56,18 @@ export function useRoomMessages(roomId: string | null) {
       toast(friendlyError(e))
     }
   }
+  /** 사진 · 파일 보내기. 성공하면 true */
+  const sendFile = async (file: File, caption?: string) => {
+    if (!roomId) return false
+    try {
+      const m = await api.sendFile(roomId, file, caption)
+      setMessages(prev => (prev.some(x => x.id === m.id) ? prev : [...prev, m]))
+      return true
+    } catch (e) {
+      toast(friendlyError(e))
+      return false
+    }
+  }
   /** 성공하면 true */
   const edit = async (id: number, content: string) => {
     try {
@@ -67,7 +79,7 @@ export function useRoomMessages(roomId: string | null) {
       return false
     }
   }
-  return { messages, reads, send, remove, edit }
+  return { messages, reads, send, sendFile, remove, edit }
 }
 
 /** 방 이름: 1:1 대화는 상대 이름, 나머지는 '# 방이름' */
