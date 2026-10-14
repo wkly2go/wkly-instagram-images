@@ -228,6 +228,10 @@ export function createSupabaseApi(url: string, key: string): Api {
     async pushSubscribe(s) {
       must(await sb.rpc('push_subscribe', { p_endpoint: s.endpoint, p_p256dh: s.p256dh, p_auth: s.auth, p_user_agent: s.userAgent ?? null }))
     },
+    async calendarFeedUrl(reset = false) {
+      const token = must(await sb.rpc('calendar_feed_token', { p_reset: reset })) as unknown as string
+      return `${url.replace(/\/$/, '')}/functions/v1/calendar-feed?t=${token}`
+    },
     async pushUnsubscribe(endpoint) {
       must(await sb.from('push_subscriptions').delete().eq('endpoint', endpoint))
     },

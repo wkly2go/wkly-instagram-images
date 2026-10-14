@@ -619,3 +619,7 @@ button.kpi:hover, a.kpi:hover { border-color: var(--blue); }
 .quick .chat-room { gap: 10px; }
 .chat-drop { outline: 3px dashed var(--blue); outline-offset: -6px; }
 .drop-hint { position: absolute; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center; gap: 8px; background: rgba(255, 255, 240, 0.88); color: var(--blue); font-weight: 700; font-size: 15px; pointer-events: none; }
+
+/* 구글 캘린더 연동 */
+.gcal-feed { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border: 1px solid var(--line); border-left: 4px solid var(--blue); border-radius: var(--r-panel); background: var(--white); }
+.gcal-url { font: 700 11px var(--mono); color: var(--gray); }

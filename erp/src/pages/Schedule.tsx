@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react'
-import { ChevronLeft, ChevronRight, Send, Trash2 } from 'lucide-react'
+import { CalendarPlus, ChevronLeft, ChevronRight, Send, Trash2 } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { addDays, addMonths, monthGrid, shortDate, todayKey, weekday } from '../lib/date'
 import { Link, useRouter, withQuery } from '../lib/router'
 import { TASK_STATUSES, type LeaveRecord, type Project, type Task, type TaskStatus } from '../lib/types'
 import { Avatar, Badge, Button, Chip, Empty, Field, Modal, StatusBadge } from '../components/ui'
+import { GoogleCalendarModal, googleEventLink } from '../components/GoogleCalendar'
 
 const DAY = 86_400_000
 const ms = (key: string) => Date.parse(`${key}T00:00:00Z`)
@@ -60,6 +61,10 @@ export function TaskAssignModal({ task, projects, tasks, presetProject, onClose 
     const who = profiles.find(p => p.id === f.assignee_id)?.name ?? ''
     if (await run(() => api.saveTask(draft), task ? '업무를 고쳤습니다.' : `${who}님에게 업무를 지시했습니다. 일정표와 할 일 목록에 들어갔어요.`)) onClose()
   }
+  const gLink = googleEventLink(
+    { title: f.title.trim() || '업무', start_date: f.start_date || null, due_date: f.due_date || null, memo: f.memo.trim() || null },
+    [projects.find(p => p.id === f.project_id)?.name, profiles.find(p => p.id === f.assignee_id)?.name && `담당: ${profiles.find(p => p.id === f.assignee_id)?.name}`].filter(Boolean).join(' · '),
+  )
   const remove = async () => {
     if (task && window.confirm(`'${task.title}' 업무를 삭제할까요?`) && (await run(() => api.deleteTask(task.id), '삭제했습니다.'))) onClose()
   }
@@ -73,6 +78,11 @@ export function TaskAssignModal({ task, projects, tasks, presetProject, onClose 
             <Button kind="ghost" onClick={remove} disabled={busy} className="del-btn" style={{ marginRight: 'auto' }}>
               <Trash2 size={13} /> 삭제
             </Button>
+          )}
+          {gLink && (
+            <a className="btn btn-outline" href={gLink} target="_blank" rel="noreferrer" title="이 업무를 내 구글 캘린더에 일정으로 넣기">
+              <CalendarPlus size={13} /> 구글 캘린더에 추가
+            </a>
           )}
           <Button kind="ghost" onClick={onClose}>
             취소
@@ -367,6 +377,7 @@ export function MonthCalendar({ projects, tasks }: { projects: Project[]; tasks:
   const [mine, setMine] = useState(false)
   const [editing, setEditing] = useState<Task | null>(null)
   const [openDay, setOpenDay] = useState<string | null>(null)
+  const [gcal, setGcal] = useState(false)
   const { data: leaves } = useAsync(() => api.listLeave(), [version], [] as LeaveRecord[])
 
   const byDay = useMemo(() => {
@@ -428,6 +439,9 @@ export function MonthCalendar({ projects, tasks }: { projects: Project[]; tasks:
           </Button>
         )}
         <span className="grow" />
+        <Button kind="outline" size="sm" onClick={() => setGcal(true)} title="인트라넷 일정을 구글 캘린더 · 휴대폰 캘린더에 자동으로 넣기">
+          <CalendarPlus size={13} /> 구글 캘린더 연동
+        </Button>
         <div className="chips">
           <Chip active={!mine} onClick={() => setMine(false)}>
             팀 전체
@@ -496,6 +510,7 @@ export function MonthCalendar({ projects, tasks }: { projects: Project[]; tasks:
         </Modal>
       )}
       {editing && <TaskAssignModal task={editing} projects={projects} tasks={tasks} onClose={() => setEditing(null)} />}
+      {gcal && <GoogleCalendarModal onClose={() => setGcal(false)} />}
     </div>
   )
 }

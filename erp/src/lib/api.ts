@@ -134,6 +134,8 @@ export interface Api {
   pushPublicKey(): Promise<string | null>
   pushSubscribe(sub: { endpoint: string; p256dh: string; auth: string; userAgent?: string }): Promise<void>
   pushUnsubscribe(endpoint: string): Promise<void>
+  /** 구글 캘린더 'URL로 추가'용 내 일정 구독 주소. reset 이면 새 주소 발급(예전 주소 막힘). 체험 모드는 null */
+  calendarFeedUrl(reset?: boolean): Promise<string | null>
   /** roomId 가 null 이면 모든 방 */
   subscribeMessages(roomId: string | null, cb: (e: MessageEvent) => void): () => void
 
