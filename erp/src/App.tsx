@@ -18,6 +18,9 @@ import Help from './pages/Help'
 import Team from './pages/Team'
 import WorkLog from './pages/WorkLog'
 import { playAlert } from './lib/sound'
+import { accessSource } from './lib/desktop'
+import { LockScreen, useSessionPolicy } from './lib/session'
+import Download from './pages/Download'
 
 const PAGES: Record<string, () => JSX.Element> = {
   '/': Home,
@@ -30,6 +33,7 @@ const PAGES: Record<string, () => JSX.Element> = {
   '/team': Team,
   '/admin': Admin,
   '/help': Help,
+  '/download': Download,
 }
 
 
@@ -42,6 +46,8 @@ export default function App() {
   const [toastMsg, setToastMsg] = useState<string | null>(null)
   const [pipWin, setPipWin] = useState<Window | null>(null)
   const toastTimer = useRef<number>()
+
+  const session = useSessionPolicy(api, userId)
 
   const bump = useCallback(() => setVersion(v => v + 1), [])
   const toast = useCallback((m: string) => {
@@ -115,7 +121,7 @@ export default function App() {
   useEffect(() => {
     if (!userId) return
     // 창이 보일 때만 기록 (밤새 열어 둔 탭이 자정 출근으로 찍히지 않게)
-    const touch = () => document.visibilityState === 'visible' && api.touchAttendance().catch(() => undefined)
+    const touch = () => document.visibilityState === 'visible' && api.touchAttendance(accessSource()).catch(() => undefined)
     touch()
     const id = window.setInterval(touch, 5 * 60_000)
     const onVisible = () => document.visibilityState === 'visible' && touch()
@@ -143,11 +149,14 @@ export default function App() {
   }, [])
 
   if (userId === undefined) return <div className="center-page t-bodyb">불러오는 중…</div>
+  if (!userId && path === '/download') return <Download />
   if (!userId) return <Login />
   if (loadError) return <Blocked message={loadError} />
   if (!profiles) return <div className="center-page t-bodyb">불러오는 중…</div>
   const me = profiles.find(p => p.id === userId)
   if (!me || !me.active) return <Blocked message="비활성화된 계정이거나 프로필이 없습니다. 관리자에게 문의하세요." />
+
+  if (session.locked) return <LockScreen api={api} me={me} onUnlock={session.unlock} />
 
   const Page = PAGES[path] ?? Home
   return (

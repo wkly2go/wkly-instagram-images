@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { addDays, minutesLabel, timeLabel, todayKey } from '../lib/date'
 import { Link } from '../lib/router'
-import { presenceOf, useAttendance, type Presence } from '../lib/attendance'
+import { presenceOf, useAccessLog, useAttendance, useDesktopOnly, type Presence } from '../lib/attendance'
+import { SOURCE_LABEL } from '../lib/desktop'
 import type { Profile, WorkLog } from '../lib/types'
 import { Shell } from '../components/Shell'
 import { PersonName } from '../components/Person'
@@ -41,6 +42,8 @@ function AttendanceSection() {
   const today = todayKey()
   const [day, setDay] = useState(today)
   const rows = useAttendance(day)
+  const access = useAccessLog(day)
+  const { data: desktopOnly } = useDesktopOnly()
   const people = profiles.filter(p => p.active && !p.is_agent)
   const absent = people.filter(p => !rows.has(p.id)).length
   return (
@@ -68,6 +71,7 @@ function AttendanceSection() {
               <th>상태</th>
               <th className="num">출근 (첫 접속)</th>
               <th className="num">마지막 접속</th>
+              <th>외부 접속 (휴대폰 · 브라우저)</th>
             </tr>
           </thead>
           <tbody>
@@ -84,13 +88,34 @@ function AttendanceSection() {
                   </td>
                   <td className="num">{a ? timeLabel(a.first_at) : '–'}</td>
                   <td className="num">{a ? timeLabel(a.last_at) : '–'}</td>
+                  <td>
+                    <span className="row wrap" style={{ gap: 4 }}>
+                      {(access.get(p.id) ?? [])
+                        .filter(x => x.source !== 'desktop')
+                        .sort((x, y) => x.first_at.localeCompare(y.first_at))
+                        .map(x => (
+                          <span key={x.source} className="away-tag" title={`처음 ${timeLabel(x.first_at)} · 마지막 ${timeLabel(x.last_at)}`}>
+                            {SOURCE_LABEL[x.source]} {timeLabel(x.first_at)}
+                          </span>
+                        ))}
+                    </span>
+                  </td>
                 </tr>
               )
             })}
           </tbody>
         </table>
       </div>
-      <span className="t-cap">ERP나 빠른 기록 창에 그날 처음 로그인·접속한 시각이 출근 시각입니다. 접속 기록이 없으면 미출근으로 표시됩니다.</span>
+      <span className="t-cap">
+        {desktopOnly ? (
+          <>
+            <b>PC 프로그램</b>으로 그날 처음 접속한 시각이 출근 시각입니다. 휴대폰 · 브라우저 접속은 출근으로 치지 않고 '외부 접속'에만 남습니다.{' '}
+          </>
+        ) : (
+          <>그날 처음 로그인 · 접속한 시각이 출근 시각입니다 (PC 프로그램 · 브라우저 · 휴대폰 모두). </>
+        )}
+        접속 기록이 없으면 미출근입니다. <Link to="/download">PC 프로그램 내려받기 ›</Link>
+      </span>
     </>
   )
 }

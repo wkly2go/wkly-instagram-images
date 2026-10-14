@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { api } from '../lib/app'
 import { friendlyError } from '../lib/api'
+import { markLogin } from '../lib/session'
 import { DEMO_USERS, resetDemo } from '../lib/demoApi'
 import { Button, Field } from '../components/ui'
 import { LogoTile } from '../components/Shell'
@@ -16,6 +17,7 @@ export default function Login() {
     setBusy(true)
     setError(null)
     try {
+      markLogin() // 로그인 직후 '날짜 바뀜' 검사에 걸리지 않게 먼저 기록
       await api.signIn((asEmail ?? email).trim(), password)
     } catch (err) {
       setError(friendlyError(err))

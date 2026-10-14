@@ -78,6 +78,15 @@ export interface Attendance {
   last_at: string
 }
 
+/** 접속 기록: 하루 · 경로별 (PC 프로그램 / 브라우저 / 휴대폰) */
+export interface AccessLog {
+  user_id: string
+  day: string
+  source: 'desktop' | 'web' | 'mobile'
+  first_at: string
+  last_at: string
+}
+
 export const CLIENT_CATEGORIES = ['클라이언트', '협력사', '기타'] as const
 export type ClientCategory = (typeof CLIENT_CATEGORIES)[number]
 
