@@ -658,6 +658,13 @@ export function createDemoApi(): Api {
       persist()
       emit('chat_reads')
     },
+    async pushPublicKey() {
+      return null
+    },
+    async pushSubscribe() {
+      throw new ApiError('체험 모드에서는 PC 푸시 알림을 쓸 수 없습니다.')
+    },
+    async pushUnsubscribe() {},
     async listRoomReads(roomId) {
       requireMe()
       return clone(store.chat_reads.filter(r => r.room_id === roomId))

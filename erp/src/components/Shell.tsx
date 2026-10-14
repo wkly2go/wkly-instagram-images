@@ -3,7 +3,6 @@ import { Camera, CircleHelp, PictureInPicture2 } from 'lucide-react'
 import { NotificationBell } from './Notifications'
 import { useApp, useAsync, initial } from '../lib/app'
 import { friendlyError } from '../lib/api'
-import { todayKey } from '../lib/date'
 import { squareThumb } from '../lib/image'
 import { inQuickWindow } from '../lib/pip'
 import { Link, useRouter } from '../lib/router'
@@ -28,8 +27,6 @@ export interface Summary {
   myOpenTasks: number
   pendingToDecide: number
   unread: number
-  todayLogs: number
-  totalLogs: number
 }
 
 /** 프로필 칸·탭·카운터에 쓰는 요약 숫자 */
@@ -37,18 +34,15 @@ export function useSummary(): Summary {
   const { api, me, version } = useApp()
   const { data } = useAsync<Summary>(
     async () => {
-      const today = todayKey()
-      const [tasks, approvals, rooms, counts] = await Promise.all([api.listTasks(), api.listApprovals(), api.listRooms(), api.countWorkLogs(today)])
+      const [tasks, approvals, rooms] = await Promise.all([api.listTasks(), api.listApprovals(), api.listRooms()])
       return {
         myOpenTasks: tasks.filter(t => t.assignee_id === me.id && t.status !== '완료').length,
         pendingToDecide: approvals.filter(a => a.status === '대기' && a.can_decide && (a.requested_by !== me.id || me.role === 'admin')).length,
         unread: rooms.reduce((s, r) => s + r.unread, 0),
-        todayLogs: counts.today,
-        totalLogs: counts.total,
       }
     },
     [version, me.id],
-    { myOpenTasks: 0, pendingToDecide: 0, unread: 0, todayLogs: 0, totalLogs: 0 },
+    { myOpenTasks: 0, pendingToDecide: 0, unread: 0 },
   )
   return data
 }
@@ -123,6 +117,9 @@ function ProfilePanel({ summary }: { summary: Summary }) {
   return (
     <aside className="profile" aria-label="내 프로필">
       <PhotoBox />
+      <Link to="/" className="profile-logo" aria-label="THE WKLY 홈">
+        <img src="/logo-on-series.svg" alt="WKLY" width={120} height={54} />
+      </Link>
       <div className="row" style={{ alignItems: 'baseline', gap: 6 }}>
         <span className="t-bodyb">{me.name}</span>
         {me.title && <span className="t-cap">{me.title}</span>}
@@ -202,16 +199,12 @@ function ProfilePanel({ summary }: { summary: Summary }) {
   )
 }
 
-/** 로고 띠: 흰 로고는 시리즈 블루 위에서만 (로고 규정 허용 조합, 보호 공간 2X, 너비 120px) */
-export function BrandBar() {
+/** 로고: 흰 로고는 시리즈 블루 위에서만 (로고 규정 허용 조합). 로그인 카드 위에 씀 */
+export function LogoTile() {
   return (
-    <div className="brandbar">
-      <div className="brandbar-in">
-        <Link to="/" className="logo-link" aria-label="THE WKLY 홈">
-          <img src="/wkly-logo-white.svg" alt="WKLY" width={120} height={38} />
-        </Link>
-      </div>
-    </div>
+    <Link to="/" className="profile-logo" aria-label="THE WKLY 홈" style={{ alignSelf: 'center' }}>
+      <img src="/logo-on-series.svg" alt="WKLY" width={120} height={54} />
+    </Link>
   )
 }
 
@@ -238,17 +231,11 @@ export function Shell({ active, flush, children }: { active: TabKey; flush?: boo
   const summary = useSummary()
   return (
     <div className="page">
-      <BrandBar />
       <div className="mini">
         <div className="book">
           <Stickers />
           <div className="inner">
             <header className="topbar">
-              <div className="counter t-meta" title="오늘 / 전체 업무 기록 수">
-                TODAY <span className="today">{summary.todayLogs}</span>
-                <span className="sep">|</span>
-                TOTAL <span className="total">{summary.totalLogs.toLocaleString('ko-KR')}</span>
-              </div>
               <span className="site-title">THE WKLY 사내 인트라넷</span>
               <span className="site-url t-meta">{window.location.host}</span>
               <span className="grow" />

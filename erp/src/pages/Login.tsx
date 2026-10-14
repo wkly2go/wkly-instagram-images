@@ -3,7 +3,7 @@ import { api } from '../lib/app'
 import { friendlyError } from '../lib/api'
 import { DEMO_USERS, resetDemo } from '../lib/demoApi'
 import { Button, Field } from '../components/ui'
-import { BrandBar, Stickers } from '../components/Shell'
+import { LogoTile, Stickers } from '../components/Shell'
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -26,11 +26,11 @@ export default function Login() {
 
   return (
     <div className="page">
-      <BrandBar />
       <div className="center-page grow">
       <form className="login" onSubmit={signIn}>
         <Stickers />
         <div className="inner">
+          <LogoTile />
           <h1 className="t-title" style={{ textAlign: 'center' }}>
             THE WKLY 사내 인트라넷
           </h1>

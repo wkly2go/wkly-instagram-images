@@ -118,6 +118,11 @@ export interface Api {
   markRead(roomId: string): Promise<void>
   /** 방 참여자들의 마지막 읽은 시각 (누가 읽었는지 표시) */
   listRoomReads(roomId: string): Promise<ChatRead[]>
+
+  // 웹 푸시 (창을 닫아도 PC 알림). 체험 모드는 지원하지 않음 → pushPublicKey 가 null
+  pushPublicKey(): Promise<string | null>
+  pushSubscribe(sub: { endpoint: string; p256dh: string; auth: string; userAgent?: string }): Promise<void>
+  pushUnsubscribe(endpoint: string): Promise<void>
   /** roomId 가 null 이면 모든 방 */
   subscribeMessages(roomId: string | null, cb: (e: MessageEvent) => void): () => void
 
