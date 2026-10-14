@@ -32,6 +32,14 @@ export default function Help() {
         <AutoStartGuide />
       </Part>
 
+      <Part title="인트라넷을 항상 화면 위에 두기">
+        <Step n={1}>위쪽 <b>📌 항상 위</b>를 켜면(기본 켜짐) 다른 프로그램 위에 항상 떠 있는 작은 인트라넷 창이 열립니다. 채팅 · 업무 기록을 바로 할 수 있습니다. (크롬 · 엣지)</Step>
+        <Step n={2}>그 창을 닫아도 인트라넷 창을 한 번 누르면 다시 뜹니다. 브라우저 규칙상 클릭 없이 저절로 띄울 수는 없습니다.</Step>
+        <Step n={3}>
+          <b>큰 인트라넷 창 전체</b>를 항상 위에 두려면 윈도우는 Microsoft <b>PowerToys</b>를 설치한 뒤 인트라넷 창에서 <code>Win + Ctrl + T</code>를 누르세요 (다시 누르면 해제). 맥은 기본 기능이 없어 별도 앱이 필요합니다.
+        </Step>
+      </Part>
+
       <Part title="메뉴별 사용법">
         <div className="table-wrap">
           <table className="table">
