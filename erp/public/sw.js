@@ -21,6 +21,10 @@ self.addEventListener('push', e => {
         body: d.body || '',
         tag: d.tag,
         renotify: !!d.tag,
+        // 소리 켜기 · 누를 때까지 화면에 남김 (놓치지 않게)
+        silent: false,
+        requireInteraction: true,
+        vibrate: [300, 120, 300, 120, 300],
         icon: '/icon-192.png',
         badge: '/icon-192.png',
         lang: 'ko',

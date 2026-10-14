@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import { ApiError, type Api, type ImportResult } from './api'
+import { ApiError, CHAT_FILE_MAX, type Api, type ImportResult } from './api'
 import type {
   AdminOverview,
   AgentToken,
@@ -191,6 +191,27 @@ export function createSupabaseApi(url: string, key: string): Api {
     },
     async sendMessage(roomId, content) {
       return must(await sb.from('chat_messages').insert({ room_id: roomId, content }).select().single()) as ChatMessage
+    },
+    async sendFile(roomId, file, caption) {
+      if (file.size > CHAT_FILE_MAX) throw new ApiError('파일은 20MB 까지 보낼 수 있습니다.')
+      // 저장소 경로는 영문만: 원래 이름은 메시지에 남김
+      const ext = (file.name.match(/\.[A-Za-z0-9]{1,8}$/)?.[0] ?? '').toLowerCase()
+      const path = `${roomId}/${crypto.randomUUID()}/file${ext}`
+      const type = file.type || 'application/octet-stream'
+      const up = await sb.storage.from('chat-files').upload(path, file, { contentType: type, upsert: false })
+      if (up.error) throw new ApiError(`파일을 올리지 못했습니다: ${up.error.message}`)
+      const attachment = { path, name: file.name, size: file.size, type }
+      const res = await sb.from('chat_messages').insert({ room_id: roomId, content: caption?.trim() || `📎 ${file.name}`, attachment }).select().single()
+      if (res.error) {
+        await sb.storage.from('chat-files').remove([path])
+        throw new ApiError(res.error.message)
+      }
+      return res.data as ChatMessage
+    },
+    async fileUrl(att, download) {
+      const r = await sb.storage.from('chat-files').createSignedUrl(att.path, 60 * 60, download ? { download: att.name } : undefined)
+      if (r.error || !r.data) throw new ApiError('파일을 열 수 없습니다.')
+      return r.data.signedUrl
     },
     deleteMessage: id => remove('chat_messages', id),
     async editMessage(id, content) {

@@ -8,7 +8,7 @@ import { Link, useRouter, withQuery } from '../lib/router'
 import type { ChatRoomSummary, Project } from '../lib/types'
 import { Shell } from '../components/Shell'
 import { Avatar, Badge, Button, Empty, Field, Modal } from '../components/ui'
-import { MessageList } from '../components/ChatMessages'
+import { AttachButton, MessageList } from '../components/ChatMessages'
 
 export default function Chat() {
   const { api, me, version, profileName, toast, bump } = useApp()
@@ -119,7 +119,13 @@ export default function Chat() {
 function Room({ room }: { room: ChatRoomSummary }) {
   const { api, me, version, profileName } = useApp()
   const { navigate } = useRouter()
-  const { messages, reads, send: sendMessage, remove, edit } = useRoomMessages(room.id)
+  const { messages, reads, send: sendMessage, sendFile, remove, edit } = useRoomMessages(room.id)
+  const [dragging, setDragging] = useState(false)
+  // 여러 파일은 차례로 보냄 (실패한 파일에서 멈춤)
+  const sendFiles = async (files: File[]) => {
+    stick.current = true
+    for (const f of files) if (!(await sendFile(f))) break
+  }
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
   const bodyRef = useRef<HTMLDivElement>(null)
@@ -169,8 +175,20 @@ function Room({ room }: { room: ChatRoomSummary }) {
         {room.description && <span className="t-cap truncate">{room.description}</span>}
       </div>
       <div
-        className="chat-body"
+        className={`chat-body ${dragging ? 'chat-drop' : ''}`}
         ref={bodyRef}
+        onDragOver={e => {
+          if (e.dataTransfer.types.includes('Files')) {
+            e.preventDefault()
+            setDragging(true)
+          }
+        }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={e => {
+          e.preventDefault()
+          setDragging(false)
+          if (e.dataTransfer.files.length) sendFiles([...e.dataTransfer.files])
+        }}
         onScroll={e => {
           const el = e.currentTarget
           stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 60
@@ -179,7 +197,23 @@ function Room({ room }: { room: ChatRoomSummary }) {
         <MessageList messages={messages} reads={reads} members={room.members} onRemove={remove} onEdit={edit} />
       </div>
       <div className="composer">
-        <textarea className="textarea" placeholder="메시지 입력 (Enter 전송, Shift+Enter 줄바꿈)" value={text} onChange={e => setText(e.target.value)} onKeyDown={onKey} maxLength={4000} aria-label="메시지" />
+        <AttachButton onFiles={sendFiles} />
+        <textarea
+          className="textarea"
+          placeholder="메시지 입력 (Enter 전송, Shift+Enter 줄바꿈) · 사진은 붙여넣기(Ctrl+V)나 끌어다 놓기도 돼요"
+          value={text}
+          onChange={e => setText(e.target.value)}
+          onKeyDown={onKey}
+          onPaste={e => {
+            const files = [...e.clipboardData.files]
+            if (files.length) {
+              e.preventDefault()
+              sendFiles(files)
+            }
+          }}
+          maxLength={4000}
+          aria-label="메시지"
+        />
         <button type="button" className="send-btn" onClick={send} disabled={!text.trim() || sending} aria-label="보내기">
           <Send size={16} />
         </button>

@@ -599,3 +599,17 @@ button.kpi:hover, a.kpi:hover { border-color: var(--blue); }
 /* 채팅 메시지 고치기 */
 .bubble-edit { display: flex; flex-direction: column; gap: 4px; min-width: 240px; max-width: 70%; }
 .bubble-edit .textarea { min-height: 56px; border-color: var(--blue); }
+
+/* 채팅 첨부 */
+.attach-btn { width: 36px; height: 36px; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; background: var(--white); color: var(--blue); border: 1px solid var(--line); cursor: pointer; }
+.attach-btn:hover { background: var(--yellow-tint); }
+.attach-btn:disabled { opacity: 0.5; }
+.spin { animation: spin 0.9s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.bubble.has-file { display: flex; flex-direction: column; gap: 6px; }
+.att-img { border: 0; padding: 0; background: none; cursor: zoom-in; line-height: 0; border-radius: 6px; overflow: hidden; max-width: 260px; }
+.att-img img { max-width: 260px; max-height: 260px; width: auto; height: auto; display: block; object-fit: cover; }
+.att-img .t-cap { line-height: 1.4; padding: 20px 12px; display: block; }
+.att-file { display: flex; align-items: center; gap: 8px; padding: 8px 10px; min-width: 200px; max-width: 280px; border: 1px solid var(--line); border-radius: 6px; background: var(--white); color: var(--blue); cursor: pointer; text-align: left; }
+.att-file:hover { background: var(--yellow-tint); }
+.chat-drop { outline: 3px dashed var(--blue); outline-offset: -6px; }

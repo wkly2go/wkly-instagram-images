@@ -191,6 +191,16 @@ export interface ChatRoomSummary extends ChatRoom {
   unread: number
 }
 
+/** 채팅 첨부 파일 (파일은 비공개 저장소, 방 사람만 열 수 있음) */
+export interface ChatAttachment {
+  path: string
+  name: string
+  size: number
+  type: string
+  /** 체험 모드: 브라우저에 담아 둔 파일 */
+  url?: string
+}
+
 export interface ChatMessage {
   id: number
   room_id: string
@@ -198,6 +208,7 @@ export interface ChatMessage {
   content: string
   created_at: string
   edited_at: string | null
+  attachment?: ChatAttachment | null
 }
 
 /** 채팅방별 마지막 읽은 시각 (읽음 표시용) */

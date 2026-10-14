@@ -7,6 +7,7 @@ import type { AppNotification, NotificationKind } from '../lib/types'
 import { Badge } from './ui'
 import { PushToggle } from './PushSetup'
 import { pushOn } from '../lib/push'
+import { playAlert, setSoundLevel, soundLevel, type SoundLevel } from '../lib/sound'
 
 const ICON: Record<NotificationKind, string> = { '할 일': '📌', 알람: '⏰', 승인: '✅', '일일 보고': '📝', 멘션: '💬', 시스템: '🔧', 결제: '💳' }
 const SEEN_KEY = 'wkly-erp-notified-max'
@@ -50,6 +51,8 @@ export function NotificationBell() {
     if (!list.length) return
     const max = Math.max(...list.map(n => n.id))
     const seen = readSeen()
+    // 새 알림 · 알람 → 크게 울림
+    if (seen && list.some(x => x.id > seen && !x.read_at)) playAlert('notify')
     // PC 푸시가 켜져 있으면 서비스 워커가 띄우므로 여기서는 생략 (중복 방지)
     if (seen && perm === 'granted' && !pushOn()) {
       for (const n of list.filter(x => x.id > seen && !x.read_at).slice(0, 3)) {
@@ -132,8 +135,39 @@ export function NotificationBell() {
             <span className="grow" />
             <span className="t-cap">매일 09:00 오늘 할 일 요약</span>
           </div>
+          <SoundSetting />
         </div>
       )}
+    </div>
+  )
+}
+
+/** 알림음 크기: 크게 · 보통 · 끔 (+ 들어보기) */
+function SoundSetting() {
+  const [level, setLevel] = useState<SoundLevel>(soundLevel)
+  const choose = (v: SoundLevel) => {
+    setSoundLevel(v)
+    setLevel(v)
+    if (v !== 'off') playAlert('notify', true)
+  }
+  return (
+    <div className="head" style={{ position: 'sticky', bottom: 0, borderBottom: 0, gap: 4 }}>
+      <span className="t-cap">알림음</span>
+      {(
+        [
+          ['loud', '크게'],
+          ['normal', '보통'],
+          ['off', '끔'],
+        ] as const
+      ).map(([v, label]) => (
+        <button key={v} type="button" className={`btn btn-sm ${level === v ? 'btn-blue' : 'btn-ghost'}`} onClick={() => choose(v)} aria-pressed={level === v}>
+          {label}
+        </button>
+      ))}
+      <span className="grow" />
+      <button type="button" className="btn btn-ghost btn-sm" onClick={() => playAlert('notify', true)}>
+        🔊 들어보기
+      </button>
     </div>
   )
 }

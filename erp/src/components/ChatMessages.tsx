@@ -1,8 +1,9 @@
-import { useState } from 'react'
-import { Check, Pencil, Trash2, X } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Check, Download, FileText, Loader2, Paperclip, Pencil, Trash2, X } from 'lucide-react'
 import { useApp } from '../lib/app'
 import { dateLabel, timeLabel, toDateKey } from '../lib/date'
-import type { ChatMessage, ChatRead } from '../lib/types'
+import type { ChatAttachment, ChatMessage, ChatRead } from '../lib/types'
+import { CHAT_FILE_MAX, friendlyError } from '../lib/api'
 import { Avatar, Empty } from './ui'
 
 /** 말풍선 목록 (날짜 구분 · 3분 안 연속 메시지 묶음 · 읽음 표시 · 내 메시지/관리자 삭제) */
@@ -75,7 +76,10 @@ export function MessageList({ messages, reads = [], members, onRemove, onEdit }:
                       </div>
                     </div>
                   ) : (
-                    <div className={`bubble ${mine ? 'mine' : 'other'}`}>{m.content}</div>
+                    <div className={`bubble ${mine ? 'mine' : 'other'} ${m.attachment ? 'has-file' : ''}`}>
+                      {m.attachment && <AttachmentView att={m.attachment} />}
+                      {(!m.attachment || m.content !== `📎 ${m.attachment.name}`) && <span>{m.content}</span>}
+                    </div>
                   )}
                   <span className="meta">
                     <button
@@ -127,6 +131,83 @@ export function MessageList({ messages, reads = [], members, onRemove, onEdit }:
           </div>
         )
       })}
+    </>
+  )
+}
+
+const sizeLabel = (n: number) => (n >= 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)}MB` : `${Math.max(1, Math.round(n / 1024))}KB`)
+
+/** 말풍선 속 첨부: 사진은 미리보기(누르면 크게), 파일은 이름 · 크기 + 내려받기 */
+function AttachmentView({ att }: { att: ChatAttachment }) {
+  const { api, toast } = useApp()
+  const isImage = att.type.startsWith('image/')
+  const [src, setSrc] = useState<string | null>(null)
+  useEffect(() => {
+    if (!isImage) return
+    let alive = true
+    api
+      .fileUrl(att)
+      .then(u => alive && setSrc(u))
+      .catch(() => undefined)
+    return () => {
+      alive = false
+    }
+  }, [api, att, isImage])
+  const open = async (download: boolean) => {
+    try {
+      const url = await api.fileUrl(att, download)
+      if (download) {
+        const a = document.createElement('a')
+        a.href = url
+        a.download = att.name
+        a.rel = 'noopener'
+        document.body.appendChild(a)
+        a.click()
+        a.remove()
+      } else window.open(url, '_blank', 'noopener')
+    } catch (e) {
+      toast(friendlyError(e))
+    }
+  }
+  if (isImage)
+    return (
+      <button type="button" className="att-img" onClick={() => open(false)} title={`${att.name} · 눌러서 크게 보기`}>
+        {src ? <img src={src} alt={att.name} loading="lazy" /> : <span className="t-cap">사진 불러오는 중…</span>}
+      </button>
+    )
+  return (
+    <button type="button" className="att-file" onClick={() => open(true)} title="내려받기">
+      <FileText size={18} />
+      <span className="col gap-2" style={{ minWidth: 0 }}>
+        <span className="t-smallb truncate">{att.name}</span>
+        <span className="t-cap">{sizeLabel(att.size)}</span>
+      </span>
+      <Download size={15} />
+    </button>
+  )
+}
+
+/** 📎 사진 · 파일 첨부 버튼 (여러 개 고르면 차례로 보냄) */
+export function AttachButton({ onFiles, disabled }: { onFiles: (files: File[]) => Promise<void>; disabled?: boolean }) {
+  const input = useRef<HTMLInputElement>(null)
+  const [busy, setBusy] = useState(false)
+  const pick = async (list: FileList | null) => {
+    const files = [...(list ?? [])]
+    if (input.current) input.current.value = ''
+    if (!files.length) return
+    setBusy(true)
+    try {
+      await onFiles(files)
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <>
+      <button type="button" className="attach-btn" onClick={() => input.current?.click()} disabled={disabled || busy} aria-label="사진 · 파일 첨부" title={`사진 · 파일 첨부 (한 파일 ${CHAT_FILE_MAX / 1024 / 1024}MB 까지, 끌어다 놓거나 붙여넣기도 됩니다)`}>
+        {busy ? <Loader2 size={16} className="spin" /> : <Paperclip size={16} />}
+      </button>
+      <input ref={input} type="file" multiple hidden onChange={e => pick(e.target.files)} />
     </>
   )
 }
