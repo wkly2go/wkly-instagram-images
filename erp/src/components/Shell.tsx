@@ -1,11 +1,11 @@
-import { useMemo, useRef, useState, type ChangeEvent, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from 'react'
 import { Camera, ChevronLeft, ChevronRight, CircleHelp, PictureInPicture2, Pin, PinOff } from 'lucide-react'
 import { NotificationBell } from './Notifications'
 import { useApp, useAsync, initial } from '../lib/app'
 import { friendlyError } from '../lib/api'
 import { addDays, addMonths, monthGrid, todayKey } from '../lib/date'
 import { squareThumb } from '../lib/image'
-import { inQuickWindow, pinAlways, setPinAlways, supportsPip } from '../lib/pip'
+import { inQuickWindow, supportsPip } from '../lib/pip'
 import { Link, useRouter } from '../lib/router'
 import { TODAY_STATUSES, type TodayStatus } from '../lib/types'
 import { toneOf } from './ui'
@@ -259,26 +259,28 @@ function MiniCalendar() {
   )
 }
 
-/** 항상 위 켜기 · 끄기: 켜면 다른 프로그램 위에 항상 떠 있는 작은 인트라넷 창 */
+/** 항상 위 창 열기 · 닫기 (누를 때만. 본창과 따로 씀) */
 function PinButton() {
-  const { openQuick, toast } = useApp()
-  const [on, setOn] = useState(pinAlways)
-  const toggle = () => {
-    const next = !on
-    setPinAlways(next)
-    setOn(next)
-    window.dispatchEvent(new Event('wkly-pin-changed'))
-    if (next) {
-      openQuick('pin')
-      toast('항상 위 창을 켰습니다. 닫아도 인트라넷을 다시 누르면 또 떠요.')
+  const { openQuick } = useApp()
+  const [open, setOpen] = useState(() => !!window.documentPictureInPicture?.window)
+  // 항상 위 창을 직접 닫아도 버튼 표시가 맞게
+  useEffect(() => {
+    const id = window.setInterval(() => setOpen(!!window.documentPictureInPicture?.window), 1000)
+    return () => window.clearInterval(id)
+  }, [])
+  const toggle = async () => {
+    const w = window.documentPictureInPicture?.window
+    if (w) {
+      w.close()
+      setOpen(false)
     } else {
-      window.documentPictureInPicture?.window?.close()
-      toast('항상 위 창을 껐습니다.')
+      await openQuick('pin')
+      setOpen(!!window.documentPictureInPicture?.window)
     }
   }
   return (
-    <button type="button" className={`quick-btn ${on ? 'on' : ''}`} onClick={toggle} aria-pressed={on} title="다른 프로그램 위에 항상 떠 있는 작은 인트라넷 창 (채팅 · 기록)">
-      {on ? <Pin size={14} /> : <PinOff size={14} />} 항상 위 {on ? '켜짐' : '꺼짐'}
+    <button type="button" className={`quick-btn ${open ? 'on' : ''}`} onClick={toggle} aria-pressed={open} title="다른 프로그램 위에 항상 떠 있는 작은 인트라넷 창 (채팅 · 기록). 본창과 따로 씁니다.">
+      {open ? <Pin size={14} /> : <PinOff size={14} />} 항상 위 창 {open ? '닫기' : '열기'}
     </button>
   )
 }
