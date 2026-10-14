@@ -289,6 +289,7 @@ a:hover { text-decoration: underline; }
 .pane-list { width: 220px; flex-shrink: 0; border-right: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
 .pane-list .pane-head { padding: 12px 12px 8px; display: flex; flex-direction: column; gap: 8px; }
 .pane-list .pane-body { overflow: auto; flex: 1; }
+.pane-list.chat-list { width: 200px; }
 .pane-detail { flex: 1; min-width: 0; display: flex; flex-direction: column; min-height: 0; }
 .back-btn { display: none; }
 .item { display: block; width: 100%; text-align: left; border: 0; background: none; padding: 8px 12px; cursor: pointer; color: inherit; border-bottom: 1px solid transparent; }
@@ -470,7 +471,7 @@ button.kpi:hover, a.kpi:hover { border-color: var(--blue); }
   .topbar .site-title { display: none; }
   .split.has-detail .pane-list { display: none; }
   .split:not(.has-detail) .pane-detail { display: none; }
-  .split .pane-list { width: 100%; border-right: 0; }
+  .split .pane-list { width: 100% !important; border-right: 0; }
   .back-btn { display: inline-flex; }
   .form-grid { grid-template-columns: 1fr; }
   .bubble, .log .extra { max-width: 88%; }
@@ -619,3 +620,44 @@ button.kpi:hover, a.kpi:hover { border-color: var(--blue); }
 .quick .chat-room { gap: 10px; }
 .chat-drop { outline: 3px dashed var(--blue); outline-offset: -6px; }
 .drop-hint { position: absolute; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center; gap: 8px; background: rgba(255, 255, 240, 0.88); color: var(--blue); font-weight: 700; font-size: 15px; pointer-events: none; }
+
+/* 구글 캘린더 연동 */
+.gcal-feed { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border: 1px solid var(--line); border-left: 4px solid var(--blue); border-radius: var(--r-panel); background: var(--white); }
+.gcal-url { font: 700 11px var(--mono); color: var(--gray); }
+
+/* ---------- 휴대폰 (640px 이하) ---------- */
+@media (max-width: 640px) {
+  /* 메뉴는 화면 아래 고정 (엄지로 누르기 쉽게) */
+  .app-page { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
+  .app-page .tabs {
+    position: fixed; top: auto; bottom: 0; left: 0; right: 0; z-index: 30;
+    padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
+    gap: 4px; background: var(--blue); border-top: 1px solid var(--blue);
+    overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch;
+  }
+  .app-page .tabs::-webkit-scrollbar { display: none; }
+  .app-page .tab {
+    flex: 0 0 auto; min-width: 56px; height: 44px; padding: 0 12px;
+    border: 0; border-radius: 10px; box-shadow: none; margin: 0;
+    background: transparent; color: var(--white); font-size: 13px;
+  }
+  .app-page .tab.active { background: var(--yellow); color: var(--blue); }
+  .app-page .tab:hover { background: var(--acid); color: var(--blue); }
+  /* 위쪽 줄: 로고 · 알림 · 사용법만 */
+  .app-page .topbar { flex-wrap: nowrap; position: sticky; top: 0; z-index: 20; background: var(--paper); padding: 6px 0; }
+  .pc-only, .hide-phone { display: none !important; }
+  .app-page .inner { padding: 8px; gap: 8px; }
+  .app-page .main { padding: 12px; border-radius: 10px; }
+  /* 프로필 · 작은 달력은 홈에서만 */
+  .app-page:not(.tab-home) .profile { display: none; }
+  .app-page.tab-home .profile .photo-del { display: none; }
+  /* 확대되지 않게 입력 글자 16px (아이폰) */
+  input, select, textarea, .input, .select, .textarea { font-size: 16px; }
+  .scrim { padding: 0; align-items: flex-end; }
+  .dialog { width: 100% !important; max-width: 100% !important; max-height: 92dvh; border-radius: 14px 14px 0 0; }
+  .dialog-actions { flex-wrap: wrap; }
+  .dialog-actions .btn { flex: 1 1 auto; justify-content: center; }
+  .main.flush { height: calc(100dvh - 150px); }
+  .btn { min-height: 36px; }
+  .notif-panel { position: fixed; left: 8px; right: 8px; top: 56px; width: auto; max-height: 70dvh; }
+}

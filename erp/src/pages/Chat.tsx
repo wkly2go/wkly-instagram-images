@@ -44,7 +44,7 @@ export default function Chat() {
   return (
     <Shell active="chat" flush>
       <div className={`split ${room ? 'has-detail' : ''}`}>
-        <div className="pane-list" style={{ width: 200 }}>
+        <div className="pane-list chat-list">
           <div className="pane-head">
             <div className="row">
               <span className="t-bodyb grow">채팅</span>

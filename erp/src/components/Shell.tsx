@@ -272,7 +272,7 @@ export function Shell({ active, flush, children }: { active: TabKey; flush?: boo
   const { api, me, openQuick } = useApp()
   const summary = useSummary()
   return (
-    <div className="page">
+    <div className={`page app-page tab-${active}`}>
       <div className="mini">
         <div className="book">
           <div className="inner">
@@ -286,14 +286,14 @@ export function Shell({ active, flush, children }: { active: TabKey; flush?: boo
               {api.mode === 'demo' && <span className="mode-badge" title="Supabase 연결 전 체험 모드. 데이터는 이 브라우저에만 저장됩니다.">DEMO</span>}
               <NotificationBell />
               <Link to="/help" className="quick-btn" title="사용법" style={{ textDecoration: 'none' }}>
-                <CircleHelp size={14} /> 사용법
+                <CircleHelp size={14} /> <span className="hide-phone">사용법</span>
               </Link>
               {inQuickWindow() ? (
                 <Link to="/quick" className="quick-btn" style={{ textDecoration: 'none' }}>
                   <PictureInPicture2 size={14} /> 빠른 창으로
                 </Link>
               ) : (
-                <button type="button" className="quick-btn" onClick={() => openQuick('window')} title="작은 독립 창. 전체 창을 닫아도 계속 쓸 수 있습니다.">
+                <button type="button" className="quick-btn pc-only" onClick={() => openQuick('window')} title="작은 독립 창. 전체 창을 닫아도 계속 쓸 수 있습니다.">
                   <PictureInPicture2 size={14} /> 빠른 창 띄우기
                 </button>
               )}
