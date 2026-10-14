@@ -273,6 +273,7 @@ function TaskList({ tasks, projects, mineOnly }: { tasks: Task[]; projects: Proj
   const today = todayKey()
   const [, we] = weekRange(today)
   const [showDone, setShowDone] = useState(false)
+  const [editing, setEditing] = useState<Task | null>(null)
   const rows = tasks.filter(t => (!mineOnly || t.assignee_id === me.id) && (showDone || t.status !== '완료'))
   const groups: [string, Task[]][] = [
     ['지연', rows.filter(t => t.status !== '완료' && t.due_date && t.due_date < today)],
@@ -304,17 +305,19 @@ function TaskList({ tasks, projects, mineOnly }: { tasks: Task[]; projects: Proj
                 assignee={profileName(t.assignee_id)}
                 onStatus={() => run(() => api.saveTask({ id: t.id, status: NEXT[t.status] }))}
                 onAlarm={v => run(() => api.saveTask({ id: t.id, remind_at: v }), v ? `알람을 ${alarmLabel(v)}에 맞췄어요.` : '알람을 껐어요.')}
+                onEdit={() => setEditing(t)}
               />
             ))}
           </div>
         ) : null,
       )}
       {rows.length === 0 && <Empty>{mineOnly ? '나에게 배정된 할 일이 없습니다.' : '할 일이 없습니다.'}</Empty>}
+      {editing && <TaskAssignModal task={editing} projects={projects} tasks={tasks} onClose={() => setEditing(null)} />}
     </div>
   )
 }
 
-function TaskRow({ t, late, projectName, assignee, onStatus, onDelete, onAlarm }: { t: Task; late?: boolean; projectName?: string; assignee: string; onStatus: () => void; onDelete?: () => void; onAlarm?: (iso: string | null) => void }) {
+function TaskRow({ t, late, projectName, assignee, onStatus, onDelete, onAlarm, onEdit }: { t: Task; late?: boolean; projectName?: string; assignee: string; onStatus: () => void; onDelete?: () => void; onAlarm?: (iso: string | null) => void; onEdit?: () => void }) {
   const { profileOf } = useApp()
   const [editAlarm, setEditAlarm] = useState(false)
   const creator = profileOf(t.created_by)
@@ -323,7 +326,12 @@ function TaskRow({ t, late, projectName, assignee, onStatus, onDelete, onAlarm }
     <div className="item-row">
       <input type="checkbox" checked={t.status === '완료'} onChange={onStatus} aria-label={`${t.title} 상태 바꾸기`} title="눌러서 상태 변경 (할 일 → 진행 중 → 완료)" />
       <span className="col gap-2 grow">
-        <span className="t-smallb truncate" style={t.status === '완료' ? { textDecoration: 'line-through', opacity: 0.6 } : undefined}>
+        <span
+          className="t-smallb truncate"
+          style={{ ...(t.status === '완료' ? { textDecoration: 'line-through', opacity: 0.6 } : null), ...(onEdit ? { cursor: 'pointer' } : null) }}
+          onClick={onEdit}
+          title={onEdit ? '눌러서 고치기' : undefined}
+        >
           {t.title}
         </span>
         <span className="t-cap truncate">
@@ -375,6 +383,11 @@ function TaskRow({ t, late, projectName, assignee, onStatus, onDelete, onAlarm }
         <StatusBadge status={late ? '지연' : t.status} />
       </button>
       {t.assignee_id && <Avatar name={assignee} size="xs" />}
+      {onEdit && (
+        <button type="button" className="icon-btn sm" onClick={onEdit} aria-label={`${t.title} 고치기`} title="고치기 (제목 · 담당 · 날짜 · 메모)">
+          <Pencil size={13} />
+        </button>
+      )}
       {onDelete && (
         <button type="button" className="icon-btn sm" onClick={onDelete} aria-label="할 일 삭제" title="삭제">
           <Trash2 size={13} />
@@ -389,6 +402,7 @@ function ProjectDetail({ project: p, data, onEdit, onBack }: { project: Project;
   const { navigate } = useRouter()
   const { busy, run } = useAction()
   const [approving, setApproving] = useState(false)
+  const [editingTask, setEditingTask] = useState<Task | null>(null)
   const tasks = data.tasks.filter(t => t.project_id === p.id)
   const client = data.clients.find(c => c.id === p.client_id)
   const today = todayKey()
@@ -475,6 +489,7 @@ function ProjectDetail({ project: p, data, onEdit, onBack }: { project: Project;
               onStatus={() => run(() => api.saveTask({ id: t.id, status: NEXT[t.status] }))}
               onDelete={() => window.confirm('이 할 일을 삭제할까요?') && run(() => api.deleteTask(t.id))}
               onAlarm={v => run(() => api.saveTask({ id: t.id, remind_at: v }), v ? `알람을 ${alarmLabel(v)}에 맞췄어요.` : '알람을 껐어요.')}
+              onEdit={() => setEditingTask(t)}
             />
           ))}
           <TaskAdder projectId={p.id} defaultAssignee={me.id} />
@@ -497,6 +512,7 @@ function ProjectDetail({ project: p, data, onEdit, onBack }: { project: Project;
         </div>
       </div>
       {me.role === 'admin' && <FinancePanel project={p} clients={data.clients} projects={data.projects} />}
+      {editingTask && <TaskAssignModal task={editingTask} projects={data.projects} tasks={data.tasks} onClose={() => setEditingTask(null)} />}
       {approving && <NewApproval preset={{ kind: '프로젝트', target_id: p.id, title: `프로젝트: ${p.name}` }} onClose={() => setApproving(false)} onCreated={id => navigate(`/approvals?view=mine&id=${id}`)} />}
     </>
   )
