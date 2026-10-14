@@ -1,0 +1,254 @@
+// THE WKLY 사내 인트라넷 PC 프로그램 (Electron)
+//  - 인트라넷 웹(https://wkly-erp.pages.dev)을 그대로 띄움 → 화면 기능은 웹 배포 때 함께 바뀜
+//  - 컴퓨터를 켜면 자동 실행 · 로그인 전에는 창을 닫을 수 없고 맨 위에 고정
+//  - 로그인 후 X 를 누르면 트레이(작업 표시줄 오른쪽 아래 / 맥 메뉴 막대)로 숨김 · 알림은 계속
+//  - 컴퓨터를 30분 안 쓰거나 화면 잠금 · 절전이면 인트라넷 화면도 잠금
+//  - 윈도우는 새 버전을 자동으로 받아 로그인 화면일 때 조용히 설치 (맥은 내려받기 안내)
+const { app, BrowserWindow, Tray, Menu, ipcMain, powerMonitor, shell, nativeImage, dialog } = require('electron')
+const path = require('path')
+const { autoUpdater } = require('electron-updater')
+
+// 개발 시험용: 설치본이 아닐 때만 WKLY_APP_URL 로 주소를 바꿀 수 있음
+const APP_URL = (!app.isPackaged && process.env.WKLY_APP_URL) || 'https://wkly-erp.pages.dev'
+const ORIGIN = new URL(APP_URL).origin
+const DOWNLOAD_PAGE = `${APP_URL}/download`
+const IDLE_LOCK_SEC = (!app.isPackaged && Number(process.env.WKLY_IDLE_SEC)) || 30 * 60
+const ICON = path.join(__dirname, 'build', 'icon.png')
+const isMac = process.platform === 'darwin'
+
+let win = null
+let tray = null
+let loggedIn = false
+let allowQuit = false // 시스템 종료 · 업데이트 설치 · 로그인 후 '종료'
+let updateReady = false
+let hiddenHintShown = false
+
+// 같은 프로그램은 하나만
+if (!app.requestSingleInstanceLock()) {
+  app.quit()
+} else {
+  app.on('second-instance', () => showWindow())
+  start()
+}
+
+function start() {
+  app.setAppUserModelId('com.thewkly.intranet')
+  // 알림음은 클릭 없이도 울리게 · 숨겨져 있어도 실시간 알림이 늦지 않게
+  app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required')
+
+  app.whenReady().then(() => {
+    if (app.isPackaged) app.setLoginItemSettings({ openAtLogin: true })
+    createWindow()
+    createTray()
+    watchIdle()
+    setupUpdates()
+  })
+
+  app.on('activate', () => showWindow()) // 맥: 독 아이콘 클릭
+  app.on('before-quit', e => {
+    if (allowQuit || loggedIn) {
+      allowQuit = true
+      return
+    }
+    // 로그인 전에는 종료하지 않음 (Cmd+Q 등)
+    e.preventDefault()
+    showWindow()
+  })
+  // 시스템 종료 · 로그아웃은 막지 않음
+  powerMonitor.on('shutdown', () => {
+    allowQuit = true
+    app.quit()
+  })
+  app.on('window-all-closed', () => {
+    /* 트레이에서 계속 실행 */
+  })
+
+  ipcMain.on('auth-state', (_e, v) => {
+    loggedIn = !!v
+    enforceLoginState()
+    maybeInstallUpdate()
+  })
+  ipcMain.on('app-info', e => {
+    e.returnValue = { version: app.getVersion(), platform: process.platform, origin: ORIGIN }
+  })
+}
+
+function createWindow() {
+  win = new BrowserWindow({
+    width: 1280,
+    height: 860,
+    minWidth: 420,
+    minHeight: 560,
+    title: 'WKLY 인트라넷',
+    icon: ICON,
+    backgroundColor: '#FFFFFF',
+    autoHideMenuBar: true,
+    show: false,
+    webPreferences: webPrefs(),
+  })
+  win.webContents.setUserAgent(`${win.webContents.getUserAgent()} WKLYDesktop/${app.getVersion()}`)
+  win.loadURL(APP_URL)
+  win.once('ready-to-show', () => {
+    win.show()
+    enforceLoginState()
+  })
+
+  win.on('close', e => {
+    if (allowQuit) return
+    e.preventDefault()
+    if (!loggedIn) {
+      // 로그인 전에는 닫을 수 없음
+      showWindow()
+      return
+    }
+    win.hide()
+    if (!hiddenHintShown && tray && process.platform === 'win32') {
+      hiddenHintShown = true
+      tray.displayBalloon({ title: 'WKLY 인트라넷', content: '인트라넷은 계속 실행 중입니다. 오른쪽 아래 아이콘을 누르면 다시 열립니다.', iconType: 'info' })
+    }
+  })
+  // 윈도우 시스템 종료 · 로그아웃
+  win.on('session-end', () => {
+    allowQuit = true
+  })
+
+  win.webContents.on('did-fail-load', (_e, code, _desc, _url, isMain) => {
+    if (isMain && code !== -3) win.loadFile(path.join(__dirname, 'offline.html'))
+  })
+}
+
+function webPrefs() {
+  return {
+    preload: path.join(__dirname, 'preload.js'),
+    contextIsolation: true,
+    nodeIntegration: false,
+    sandbox: true,
+    spellcheck: false,
+    backgroundThrottling: false,
+  }
+}
+
+/** 인트라넷 주소 밖 링크는 기본 브라우저로, 빠른 창은 프로그램 안 새 창으로 */
+function wireContents(contents) {
+  contents.setWindowOpenHandler(({ url }) => {
+    if (sameOrigin(url)) {
+      return { action: 'allow', overrideBrowserWindowOptions: { icon: ICON, autoHideMenuBar: true, webPreferences: webPrefs() } }
+    }
+    if (/^https?:|^mailto:|^webcal:/.test(url)) shell.openExternal(url)
+    return { action: 'deny' }
+  })
+  contents.on('will-navigate', (e, url) => {
+    if (!sameOrigin(url) && !url.startsWith('file:')) {
+      e.preventDefault()
+      shell.openExternal(url)
+    }
+  })
+}
+// 본창 · 빠른 창 모두
+app.on('web-contents-created', (_e, contents) => {
+  if (contents.getType() === 'window') wireContents(contents)
+})
+
+function sameOrigin(url) {
+  try {
+    return new URL(url).origin === ORIGIN
+  } catch {
+    return false
+  }
+}
+
+function showWindow() {
+  if (!win) return
+  if (win.isMinimized()) win.restore()
+  win.show()
+  win.focus()
+}
+
+/** 로그인 전(또는 잠금 중): 맨 위 고정 · 최소화 불가 / 로그인 후: 보통 창 */
+function enforceLoginState() {
+  if (!win) return
+  if (!loggedIn) {
+    win.setAlwaysOnTop(true, 'floating')
+    win.setMinimizable(false)
+    showWindow()
+  } else {
+    win.setAlwaysOnTop(false)
+    win.setMinimizable(true)
+  }
+  updateTrayMenu()
+}
+
+function createTray() {
+  let img = nativeImage.createFromPath(path.join(__dirname, 'build', 'tray.png'))
+  if (isMac) img = img.resize({ width: 18, height: 18 })
+  tray = new Tray(img)
+  tray.setToolTip('WKLY 인트라넷')
+  tray.on('click', () => showWindow())
+  updateTrayMenu()
+}
+
+function updateTrayMenu() {
+  if (!tray) return
+  tray.setContextMenu(
+    Menu.buildFromTemplate([
+      { label: '인트라넷 열기', click: () => showWindow() },
+      { label: '다시 불러오기', click: () => win && win.loadURL(APP_URL) },
+      { type: 'separator' },
+      { label: `버전 ${app.getVersion()}`, enabled: false },
+      {
+        label: loggedIn ? '종료' : '종료 (로그인 후 가능)',
+        enabled: loggedIn,
+        click: () => {
+          allowQuit = true
+          app.quit()
+        },
+      },
+    ]),
+  )
+}
+
+/** 컴퓨터를 30분 안 쓰거나 화면 잠금 · 절전 → 인트라넷 잠금 */
+function sendLock() {
+  for (const w of BrowserWindow.getAllWindows()) w.webContents.send('lock')
+}
+function watchIdle() {
+  setInterval(() => {
+    if (loggedIn && powerMonitor.getSystemIdleTime() >= IDLE_LOCK_SEC) sendLock()
+    maybeInstallUpdate()
+  }, 30_000)
+  powerMonitor.on('lock-screen', () => loggedIn && sendLock())
+  powerMonitor.on('suspend', () => loggedIn && sendLock())
+}
+
+/** 자동 업데이트 (GitHub 릴리스) */
+function setupUpdates() {
+  if (!app.isPackaged) return
+  autoUpdater.autoDownload = !isMac // 맥은 서명이 없어 자동 설치 불가 → 안내만
+  autoUpdater.autoInstallOnAppQuit = true
+  autoUpdater.on('update-available', info => {
+    if (!isMac) return
+    dialog
+      .showMessageBox({ type: 'info', message: `WKLY 인트라넷 새 버전 ${info.version}이 있습니다.`, detail: '내려받기 페이지에서 새 버전을 설치하세요.', buttons: ['내려받기', '나중에'] })
+      .then(r => r.response === 0 && shell.openExternal(DOWNLOAD_PAGE))
+  })
+  autoUpdater.on('update-downloaded', () => {
+    updateReady = true
+    maybeInstallUpdate()
+  })
+  autoUpdater.on('error', () => {
+    /* 네트워크 오류 등: 다음 확인 때 다시 */
+  })
+  const check = () => autoUpdater.checkForUpdates().catch(() => undefined)
+  setTimeout(check, 10_000)
+  setInterval(check, 6 * 60 * 60_000)
+}
+
+/** 받아 둔 새 버전은 로그인 · 잠금 화면에서 1분 넘게 손대지 않을 때만 설치 (입력 중에 끊지 않음) */
+function maybeInstallUpdate() {
+  if (updateReady && !loggedIn && powerMonitor.getSystemIdleTime() >= 60) installUpdate()
+}
+
+function installUpdate() {
+  allowQuit = true
+  autoUpdater.quitAndInstall(true, true)
+}

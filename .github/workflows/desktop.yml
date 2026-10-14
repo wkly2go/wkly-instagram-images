@@ -1,0 +1,53 @@
+# WKLY 인트라넷 PC 프로그램: 윈도우(.exe) · 맥(.dmg) 설치 파일을 만들어 GitHub 릴리스에 올림
+#  - erp/desktop 이 바뀌어 main 에 들어오면 자동 실행 (또는 Actions 탭에서 직접 실행)
+#  - 새 버전을 내려면 erp/desktop/package.json 의 version 을 올리면 됨 (릴리스 이름: v버전)
+#  - 인트라넷 '/download' 페이지는 항상 최신 릴리스의 파일로 연결됨
+name: desktop-app
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'erp/desktop/**'
+      - '.github/workflows/desktop.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: desktop-app
+  cancel-in-progress: false
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: erp/desktop
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - run: npx electron-builder --win --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  mac:
+    needs: windows
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: erp/desktop
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - run: npx electron-builder --mac --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
