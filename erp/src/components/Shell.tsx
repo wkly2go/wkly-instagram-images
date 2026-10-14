@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from 'react'
-import { Camera, ChevronLeft, ChevronRight, CircleHelp, PictureInPicture2, Pin, PinOff } from 'lucide-react'
+import { useMemo, useRef, useState, type ChangeEvent, type ReactNode } from 'react'
+import { Camera, ChevronLeft, ChevronRight, CircleHelp, PictureInPicture2 } from 'lucide-react'
 import { NotificationBell } from './Notifications'
 import { useApp, useAsync, initial } from '../lib/app'
 import { friendlyError } from '../lib/api'
 import { addDays, addMonths, monthGrid, todayKey } from '../lib/date'
 import { squareThumb } from '../lib/image'
-import { inQuickWindow, supportsPip } from '../lib/pip'
+import { inQuickWindow } from '../lib/pip'
 import { Link, useRouter } from '../lib/router'
 import { TODAY_STATUSES, type TodayStatus } from '../lib/types'
 import { toneOf } from './ui'
@@ -259,32 +259,6 @@ function MiniCalendar() {
   )
 }
 
-/** 항상 위 창 열기 · 닫기 (누를 때만. 본창과 따로 씀) */
-function PinButton() {
-  const { openQuick } = useApp()
-  const [open, setOpen] = useState(() => !!window.documentPictureInPicture?.window)
-  // 항상 위 창을 직접 닫아도 버튼 표시가 맞게
-  useEffect(() => {
-    const id = window.setInterval(() => setOpen(!!window.documentPictureInPicture?.window), 1000)
-    return () => window.clearInterval(id)
-  }, [])
-  const toggle = async () => {
-    const w = window.documentPictureInPicture?.window
-    if (w) {
-      w.close()
-      setOpen(false)
-    } else {
-      await openQuick('pin')
-      setOpen(!!window.documentPictureInPicture?.window)
-    }
-  }
-  return (
-    <button type="button" className={`quick-btn ${open ? 'on' : ''}`} onClick={toggle} aria-pressed={open} title="다른 프로그램 위에 항상 떠 있는 작은 인트라넷 창 (채팅 · 기록). 본창과 따로 씁니다.">
-      {open ? <Pin size={14} /> : <PinOff size={14} />} 항상 위 창 {open ? '닫기' : '열기'}
-    </button>
-  )
-}
-
 /** 로고: 흰 로고는 시리즈 블루 위에서만 (로고 규정 허용 조합). 로그인 카드 위에 씀 */
 export function LogoTile() {
   return (
@@ -314,7 +288,6 @@ export function Shell({ active, flush, children }: { active: TabKey; flush?: boo
               <Link to="/help" className="quick-btn" title="사용법" style={{ textDecoration: 'none' }}>
                 <CircleHelp size={14} /> 사용법
               </Link>
-              {!inQuickWindow() && supportsPip() && <PinButton />}
               {inQuickWindow() ? (
                 <Link to="/quick" className="quick-btn" style={{ textDecoration: 'none' }}>
                   <PictureInPicture2 size={14} /> 빠른 창으로
