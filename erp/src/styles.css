@@ -195,8 +195,8 @@ a:hover { text-decoration: underline; }
 .mini-cal-grid .day:hover { background: var(--yellow-tint); }
 .mini-cal-grid .day.sun { color: var(--red); }
 .mini-cal-grid .day.today { background: var(--blue); color: var(--white); font-weight: 700; }
-.mini-cal-grid .day i { position: absolute; left: 50%; bottom: 2px; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: var(--blue); opacity: 0.45; }
-.mini-cal-grid .day i.mine { background: var(--pink); opacity: 1; }
+.mini-cal-grid .day i { position: absolute; left: 50%; bottom: 2px; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: var(--blue-tint); box-shadow: inset 0 0 0 1px var(--blue); }
+.mini-cal-grid .day i.mine { background: var(--blue); box-shadow: none; }
 .mini-cal-grid .day.today i { background: var(--white); opacity: 1; }
 
 /* ---------- 버튼 ---------- */
@@ -294,6 +294,10 @@ a:hover { text-decoration: underline; }
 .item { display: block; width: 100%; text-align: left; border: 0; background: none; padding: 8px 12px; cursor: pointer; color: inherit; border-bottom: 1px solid transparent; }
 .item:hover { background: var(--paper); text-decoration: none; }
 .item.active { background: var(--yellow); }
+/* 할 일: 내 것은 진한 파랑, 팀 것은 연한 파랑 띠 */
+.task-row { padding-left: 10px; }
+.task-row.mine { box-shadow: inset 4px 0 0 var(--blue); background: linear-gradient(90deg, var(--yellow-tint), transparent 60%); }
+.task-row.team { box-shadow: inset 4px 0 0 var(--blue-tint); }
 .item-row { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px dashed var(--line); min-width: 0; }
 
 /* ---------- 채팅 ---------- */
@@ -555,6 +559,7 @@ button.kpi:hover, a.kpi:hover { border-color: var(--blue); }
 .bigcal .n { display: flex; align-items: center; gap: 4px; font: 700 12px/1.4 var(--mono); color: var(--gray); }
 .cal-item { display: block; width: 100%; border: 0; border-radius: 4px; padding: 1px 5px; font-size: 11px; font-weight: 700; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; text-decoration: none; }
 .cal-item:hover { text-decoration: none; filter: brightness(0.95); }
+.cal-item.c-mine { background: var(--blue); color: var(--white); }
 .cal-item.c-task { background: var(--blue-tint); color: var(--blue); }
 .cal-item.c-late { background: var(--red); color: var(--white); }
 .cal-item.c-done { background: var(--paper); color: var(--gray); text-decoration: line-through; }

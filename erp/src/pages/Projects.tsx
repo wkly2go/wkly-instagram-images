@@ -288,6 +288,8 @@ function TaskList({ tasks, projects, mineOnly }: { tasks: Task[]; projects: Proj
       <TaskAdder projectId={null} defaultAssignee={me.id} />
       <label className="row t-cap" style={{ gap: 6 }}>
         <input type="checkbox" checked={showDone} onChange={e => setShowDone(e.target.checked)} /> 완료한 할 일도 보기
+        <span className="grow" />
+        {!mineOnly && <TaskLegend />}
       </label>
       {groups.map(([label, list]) =>
         list.length ? (
@@ -317,13 +319,27 @@ function TaskList({ tasks, projects, mineOnly }: { tasks: Task[]; projects: Proj
   )
 }
 
+/** 내 할 일 · 팀 할 일 색 구분 */
+function TaskLegend() {
+  return (
+    <span className="legend">
+      <span>
+        <i style={{ background: 'var(--blue)' }} />내 할 일
+      </span>
+      <span>
+        <i style={{ background: 'var(--blue-tint)' }} />팀 할 일
+      </span>
+    </span>
+  )
+}
+
 function TaskRow({ t, late, projectName, assignee, onStatus, onDelete, onAlarm, onEdit }: { t: Task; late?: boolean; projectName?: string; assignee: string; onStatus: () => void; onDelete?: () => void; onAlarm?: (iso: string | null) => void; onEdit?: () => void }) {
-  const { profileOf } = useApp()
+  const { me, profileOf } = useApp()
   const [editAlarm, setEditAlarm] = useState(false)
   const creator = profileOf(t.created_by)
   const pending = t.remind_at && !t.reminded_at && t.status !== '완료'
   return (
-    <div className="item-row">
+    <div className={`item-row task-row ${t.assignee_id === me.id ? 'mine' : 'team'}`} title={t.assignee_id === me.id ? '내 할 일' : `팀 할 일 · ${assignee}`}>
       <input type="checkbox" checked={t.status === '완료'} onChange={onStatus} aria-label={`${t.title} 상태 바꾸기`} title="눌러서 상태 변경 (할 일 → 진행 중 → 완료)" />
       <span className="col gap-2 grow">
         <span
@@ -479,7 +495,7 @@ function ProjectDetail({ project: p, data, onEdit, onBack }: { project: Project;
       </div>
       <div className="row top gap-12" style={{ flexWrap: 'wrap' }}>
         <div className="col grow" style={{ flexBasis: 300 }}>
-          <SectionHead title="할 일" count={`${tasks.filter(t => t.status === '완료').length}/${tasks.length}`} />
+          <SectionHead title="할 일" count={`${tasks.filter(t => t.status === '완료').length}/${tasks.length}`} right={<TaskLegend />} />
           {tasks.map(t => (
             <TaskRow
               key={t.id}
