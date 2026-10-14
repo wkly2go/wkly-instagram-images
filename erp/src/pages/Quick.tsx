@@ -8,7 +8,7 @@ import { QUICK_WINDOW, supportsPip } from '../lib/pip'
 import { useRouter } from '../lib/router'
 import { TODAY_STATUSES, type ChatRoomSummary, type TodayStatus, type WorkLog } from '../lib/types'
 import { QuickLogForm } from '../components/LogForm'
-import { AttachButton, MessageList } from '../components/ChatMessages'
+import { AttachButton, DropHint, MessageList, useFileDrop } from '../components/ChatMessages'
 import { TABS, useSummary } from '../components/Shell'
 import { Empty, KindBadge } from '../components/ui'
 
@@ -171,6 +171,7 @@ function QuickChat({ rooms }: { rooms: ChatRoomSummary[] }) {
     stick.current = true
     for (const f of files) if (!(await sendFile(f))) break
   }
+  const drop = useFileDrop(files => void sendFiles(files))
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
   const bodyRef = useRef<HTMLDivElement>(null)
@@ -200,7 +201,8 @@ function QuickChat({ rooms }: { rooms: ChatRoomSummary[] }) {
 
   if (!rooms.length) return <Empty>채팅방이 없습니다. 채팅 탭에서 방을 만들어 주세요.</Empty>
   return (
-    <>
+    <div className={`chat-room ${drop.dragging ? 'chat-drop' : ''}`} {...drop.props}>
+      {drop.dragging && <DropHint />}
       <select
         className="select"
         aria-label="채팅방"
@@ -235,6 +237,6 @@ function QuickChat({ rooms }: { rooms: ChatRoomSummary[] }) {
           <Send size={16} />
         </button>
       </div>
-    </>
+    </div>
   )
 }
