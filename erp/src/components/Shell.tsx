@@ -1,8 +1,9 @@
-import { useRef, useState, type ChangeEvent, type ReactNode } from 'react'
-import { Camera, CircleHelp, PictureInPicture2 } from 'lucide-react'
+import { useMemo, useRef, useState, type ChangeEvent, type ReactNode } from 'react'
+import { Camera, ChevronLeft, ChevronRight, CircleHelp, PictureInPicture2 } from 'lucide-react'
 import { NotificationBell } from './Notifications'
 import { useApp, useAsync, initial } from '../lib/app'
 import { friendlyError } from '../lib/api'
+import { addDays, addMonths, monthGrid, todayKey } from '../lib/date'
 import { squareThumb } from '../lib/image'
 import { inQuickWindow } from '../lib/pip'
 import { Link, useRouter } from '../lib/router'
@@ -100,8 +101,7 @@ function PhotoBox() {
 }
 
 function ProfilePanel({ summary }: { summary: Summary }) {
-  const { api, me, profiles, bump, toast } = useApp()
-  const { navigate } = useRouter()
+  const { api, me, bump, toast } = useApp()
   const [editing, setEditing] = useState(false)
   const [msg, setMsg] = useState(me.status_message ?? '')
 
@@ -117,6 +117,7 @@ function ProfilePanel({ summary }: { summary: Summary }) {
   return (
     <aside className="profile" aria-label="내 프로필">
       <PhotoBox />
+      <MiniCalendar />
       <div className="row" style={{ alignItems: 'baseline', gap: 6 }}>
         <span className="t-bodyb">{me.name}</span>
         {me.title && <span className="t-cap">{me.title}</span>}
@@ -176,23 +177,85 @@ function ProfilePanel({ summary }: { summary: Summary }) {
           · 안 읽은 채팅 <span className="n">{summary.unread}</span>
         </Link>
       </nav>
-      <label className="surf">
-        <select
-          value=""
-          onChange={e => e.target.value && navigate(`/work?user=${e.target.value}`)}
-          aria-label="팀원 파도타기: 팀원의 오늘 업무 보기"
-        >
-          <option value="">팀원 파도타기</option>
-          {profiles
-            .filter(p => p.active && p.id !== me.id)
-            .map(p => (
-              <option key={p.id} value={p.id}>
-                {p.name} · {p.today_status}
-              </option>
-            ))}
-        </select>
-      </label>
     </aside>
+  )
+}
+
+/** 왼쪽 위 작은 달력: 일정이 있는 날에 점, 날짜를 누르면 큰 달력으로 */
+function MiniCalendar() {
+  const { api, me, version, profileName } = useApp()
+  const { navigate } = useRouter()
+  const today = todayKey()
+  const [month, setMonth] = useState(today.slice(0, 7))
+  const { data } = useAsync(
+    async () => {
+      const [tasks, projects, leaves] = await Promise.all([api.listTasks(), api.listProjects(), api.listLeave()])
+      return { tasks, projects, leaves }
+    },
+    [version],
+    { tasks: [], projects: [], leaves: [] } as { tasks: Awaited<ReturnType<typeof api.listTasks>>; projects: Awaited<ReturnType<typeof api.listProjects>>; leaves: Awaited<ReturnType<typeof api.listLeave>> },
+  )
+  const byDay = useMemo(() => {
+    const m = new Map<string, { mine: boolean; labels: string[] }>()
+    const add = (d: string | null | undefined, label: string, mine = false) => {
+      if (!d || d.slice(0, 7) !== month) return
+      const cur = m.get(d) ?? { mine: false, labels: [] }
+      m.set(d, { mine: cur.mine || mine, labels: [...cur.labels, label] })
+    }
+    for (const t of data.tasks) {
+      if (t.status === '완료') continue
+      add(t.due_date ?? t.start_date, `${t.title} · ${profileName(t.assignee_id)}`, t.assignee_id === me.id)
+    }
+    for (const p of data.projects) {
+      if (p.status === '보류') continue
+      add(p.start_date, `${p.name} 시작`)
+      add(p.end_date, `${p.name} 종료`)
+    }
+    for (const l of data.leaves) {
+      if (l.status !== '승인') continue
+      for (let d = l.start_date; d <= l.end_date; d = addDays(d, 1)) add(d, `${profileName(l.profile_id)} ${l.kind}`, l.profile_id === me.id)
+    }
+    return m
+  }, [data, month, me.id, profileName])
+  const [y, mo] = month.split('-')
+  return (
+    <section className="mini-cal" aria-label="이번 달 달력">
+      <div className="row">
+        <button type="button" className="icon-btn" onClick={() => setMonth(addMonths(month, -1))} aria-label="이전 달">
+          <ChevronLeft size={14} />
+        </button>
+        <button type="button" className="mini-cal-title grow" onClick={() => setMonth(today.slice(0, 7))} title="이번 달로">
+          {y}.{mo}
+        </button>
+        <button type="button" className="icon-btn" onClick={() => setMonth(addMonths(month, 1))} aria-label="다음 달">
+          <ChevronRight size={14} />
+        </button>
+      </div>
+      <div className="mini-cal-grid">
+        {['일', '월', '화', '수', '목', '금', '토'].map(w => (
+          <span key={w} className="wd">
+            {w}
+          </span>
+        ))}
+        {monthGrid(month).map((d, i) => {
+          if (!d) return <span key={i} />
+          const ev = byDay.get(d)
+          const dow = i % 7
+          return (
+            <button
+              key={d}
+              type="button"
+              className={`day${d === today ? ' today' : ''}${dow === 0 ? ' sun' : ''}`}
+              title={ev ? ev.labels.join('\n') : undefined}
+              onClick={() => navigate('/projects?view=calendar')}
+            >
+              {Number(d.slice(8))}
+              {ev && <i className={ev.mine ? 'mine' : ''} />}
+            </button>
+          )
+        })}
+      </div>
+    </section>
   )
 }
 
