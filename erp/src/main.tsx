@@ -18,3 +18,9 @@ createRoot(document.getElementById('root')!).render(
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
   window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' }).catch(() => undefined))
 }
+
+// 채팅 영역 밖에 파일을 떨어뜨려도 브라우저가 파일을 열어 인트라넷 화면이 바뀌지 않게
+for (const ev of ['dragover', 'drop'] as const)
+  window.addEventListener(ev, e => {
+    if (e.dataTransfer?.types.includes('Files')) e.preventDefault()
+  })

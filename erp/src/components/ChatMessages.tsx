@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type DragEvent } from 'react'
 import { Check, Download, FileText, Loader2, Paperclip, Pencil, Trash2, X } from 'lucide-react'
 import { useApp } from '../lib/app'
 import { dateLabel, timeLabel, toDateKey } from '../lib/date'
@@ -209,5 +209,50 @@ export function AttachButton({ onFiles, disabled }: { onFiles: (files: File[]) =
       </button>
       <input ref={input} type="file" multiple hidden onChange={e => pick(e.target.files)} />
     </>
+  )
+}
+
+/** 파일 끌어다 놓기: 감싼 영역 어디에 놓아도 첨부. dragging 이면 '여기에 놓으세요' 표시 */
+export function useFileDrop(onFiles: (files: File[]) => void) {
+  const [dragging, setDragging] = useState(false)
+  const depth = useRef(0)
+  const hasFiles = (e: DragEvent) => e.dataTransfer.types.includes('Files')
+  return {
+    dragging,
+    props: {
+      onDragEnter: (e: DragEvent) => {
+        if (!hasFiles(e)) return
+        e.preventDefault()
+        depth.current++
+        setDragging(true)
+      },
+      onDragOver: (e: DragEvent) => {
+        if (!hasFiles(e)) return
+        e.preventDefault()
+        e.dataTransfer.dropEffect = 'copy'
+      },
+      onDragLeave: (e: DragEvent) => {
+        if (!hasFiles(e)) return
+        depth.current = Math.max(0, depth.current - 1)
+        if (!depth.current) setDragging(false)
+      },
+      onDrop: (e: DragEvent) => {
+        if (!hasFiles(e)) return
+        e.preventDefault()
+        e.stopPropagation()
+        depth.current = 0
+        setDragging(false)
+        const files = [...e.dataTransfer.files]
+        if (files.length) onFiles(files)
+      },
+    },
+  }
+}
+
+export function DropHint() {
+  return (
+    <div className="drop-hint" aria-hidden="true">
+      <Paperclip size={22} /> 여기에 놓으면 첨부됩니다
+    </div>
   )
 }

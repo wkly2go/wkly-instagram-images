@@ -8,7 +8,7 @@ import { Link, useRouter, withQuery } from '../lib/router'
 import type { ChatRoomSummary, Project } from '../lib/types'
 import { Shell } from '../components/Shell'
 import { Avatar, Badge, Button, Empty, Field, Modal } from '../components/ui'
-import { AttachButton, MessageList } from '../components/ChatMessages'
+import { AttachButton, DropHint, MessageList, useFileDrop } from '../components/ChatMessages'
 
 export default function Chat() {
   const { api, me, version, profileName, toast, bump } = useApp()
@@ -120,12 +120,12 @@ function Room({ room }: { room: ChatRoomSummary }) {
   const { api, me, version, profileName } = useApp()
   const { navigate } = useRouter()
   const { messages, reads, send: sendMessage, sendFile, remove, edit } = useRoomMessages(room.id)
-  const [dragging, setDragging] = useState(false)
   // 여러 파일은 차례로 보냄 (실패한 파일에서 멈춤)
   const sendFiles = async (files: File[]) => {
     stick.current = true
     for (const f of files) if (!(await sendFile(f))) break
   }
+  const drop = useFileDrop(files => void sendFiles(files))
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
   const bodyRef = useRef<HTMLDivElement>(null)
@@ -155,7 +155,8 @@ function Room({ room }: { room: ChatRoomSummary }) {
     }
   }
   return (
-    <>
+    <div className={`chat-room ${drop.dragging ? 'chat-drop' : ''}`} {...drop.props}>
+      {drop.dragging && <DropHint />}
       <div className="chat-head">
         <button type="button" className="icon-btn back-btn" onClick={() => navigate('/chat')} aria-label="채팅방 목록">
           <ArrowLeft size={18} />
@@ -175,20 +176,8 @@ function Room({ room }: { room: ChatRoomSummary }) {
         {room.description && <span className="t-cap truncate">{room.description}</span>}
       </div>
       <div
-        className={`chat-body ${dragging ? 'chat-drop' : ''}`}
+        className="chat-body"
         ref={bodyRef}
-        onDragOver={e => {
-          if (e.dataTransfer.types.includes('Files')) {
-            e.preventDefault()
-            setDragging(true)
-          }
-        }}
-        onDragLeave={() => setDragging(false)}
-        onDrop={e => {
-          e.preventDefault()
-          setDragging(false)
-          if (e.dataTransfer.files.length) sendFiles([...e.dataTransfer.files])
-        }}
         onScroll={e => {
           const el = e.currentTarget
           stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 60
@@ -218,7 +207,7 @@ function Room({ room }: { room: ChatRoomSummary }) {
           <Send size={16} />
         </button>
       </div>
-    </>
+    </div>
   )
 }
 
