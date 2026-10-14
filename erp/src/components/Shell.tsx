@@ -117,9 +117,6 @@ function ProfilePanel({ summary }: { summary: Summary }) {
   return (
     <aside className="profile" aria-label="내 프로필">
       <PhotoBox />
-      <Link to="/" className="profile-logo" aria-label="THE WKLY 홈">
-        <img src="/logo-on-series.svg" alt="WKLY" width={120} height={54} />
-      </Link>
       <div className="row" style={{ alignItems: 'baseline', gap: 6 }}>
         <span className="t-bodyb">{me.name}</span>
         {me.title && <span className="t-cap">{me.title}</span>}
@@ -236,7 +233,10 @@ export function Shell({ active, flush, children }: { active: TabKey; flush?: boo
           <Stickers />
           <div className="inner">
             <header className="topbar">
-              <span className="site-title">THE WKLY 사내 인트라넷</span>
+              <Link to="/" className="top-logo" aria-label="THE WKLY 홈">
+                <img src="/wkly-logo-blue.svg" alt="WKLY" width={76} height={24} />
+              </Link>
+              <span className="site-title">사내 인트라넷</span>
               <span className="site-url t-meta">{window.location.host}</span>
               <span className="grow" />
               {api.mode === 'demo' && <span className="mode-badge" title="Supabase 연결 전 체험 모드. 데이터는 이 브라우저에만 저장됩니다.">DEMO</span>}
