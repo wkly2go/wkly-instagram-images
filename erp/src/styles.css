@@ -438,6 +438,8 @@ button.kpi:hover, a.kpi:hover { border-color: var(--blue); }
 .notif.unread { background: var(--yellow-tint); }
 .notif.unread:hover { background: var(--paper); }
 .notif .dot { width: 6px; height: 6px; border-radius: 3px; background: var(--red); margin-top: 6px; flex-shrink: 0; }
+
+.quick-btn.on { background: var(--blue); color: var(--white); border-color: var(--blue); }
 .notif .dot.read { background: transparent; }
 
 /* ---------- 반응형 ---------- */

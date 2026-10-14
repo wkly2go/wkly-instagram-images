@@ -51,3 +51,21 @@ export function openQuickPopup() {
   const top = window.screenY + 80
   window.open('/quick', QUICK_WINDOW, `popup,width=${QUICK_SIZE.width},height=${QUICK_SIZE.height},left=${left},top=${top}`)
 }
+
+// '항상 위' 강제: 켜 두면 인트라넷 창을 처음 누를 때(또는 항상 위 창을 닫은 뒤 다시 누를 때)
+// 다른 프로그램 위에 항상 떠 있는 작은 창이 자동으로 다시 열림. 기본은 켜짐 (이 컴퓨터에만 저장)
+const PIN_KEY = 'wkly-erp-pin-always'
+export function pinAlways(): boolean {
+  try {
+    return localStorage.getItem(PIN_KEY) !== '0'
+  } catch {
+    return true
+  }
+}
+export function setPinAlways(on: boolean) {
+  try {
+    localStorage.setItem(PIN_KEY, on ? '1' : '0')
+  } catch {
+    /* noop */
+  }
+}
