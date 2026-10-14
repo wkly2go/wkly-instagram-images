@@ -205,24 +205,6 @@ export function LogoTile() {
   )
 }
 
-/** 장식용 핑크 스티커 (글자 없음: 핑크 위 글자는 검정만 허용되므로) */
-export function Stickers() {
-  return (
-    <span className="stickers" aria-hidden="true">
-      <svg className="sticker st-star" viewBox="0 0 100 100">
-        <path d="M50 4l11.8 26.6 29 3-21.7 19.5 6.2 28.5L50 66.9 24.7 81.6l6.2-28.5L9.2 33.6l29-3z" />
-      </svg>
-      <svg className="sticker st-heart" viewBox="0 0 100 100">
-        <path d="M50 88S10 62 10 35c0-13 10-23 22-23 8 0 14 4 18 10 4-6 10-10 18-10 12 0 22 10 22 23 0 27-40 53-40 53z" />
-      </svg>
-      <svg className="sticker st-dot" viewBox="0 0 100 100">
-        <circle cx="50" cy="50" r="44" />
-      </svg>
-      <span className="sticker st-tape" />
-    </span>
-  )
-}
-
 export function Shell({ active, flush, children }: { active: TabKey; flush?: boolean; children: ReactNode }) {
   const { api, me, openQuick } = useApp()
   const summary = useSummary()
@@ -230,7 +212,6 @@ export function Shell({ active, flush, children }: { active: TabKey; flush?: boo
     <div className="page">
       <div className="mini">
         <div className="book">
-          <Stickers />
           <div className="inner">
             <header className="topbar">
               <Link to="/" className="top-logo" aria-label="THE WKLY 홈">

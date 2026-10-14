@@ -3,7 +3,7 @@ import { api } from '../lib/app'
 import { friendlyError } from '../lib/api'
 import { DEMO_USERS, resetDemo } from '../lib/demoApi'
 import { Button, Field } from '../components/ui'
-import { LogoTile, Stickers } from '../components/Shell'
+import { LogoTile } from '../components/Shell'
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -28,7 +28,6 @@ export default function Login() {
     <div className="page">
       <div className="center-page grow">
       <form className="login" onSubmit={signIn}>
-        <Stickers />
         <div className="inner">
           <LogoTile />
           <h1 className="t-title" style={{ textAlign: 'center' }}>
