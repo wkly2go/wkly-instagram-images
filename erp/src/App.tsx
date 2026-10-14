@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { api, AppProvider } from './lib/app'
 import { friendlyError } from './lib/api'
-import { inQuickWindow, openPipWindow, openQuickPopup, pinAlways, supportsPip } from './lib/pip'
+import { openPipWindow, openQuickPopup, supportsPip } from './lib/pip'
 import { normalizePath, useRouter } from './lib/router'
 import type { Profile } from './lib/types'
 import Approvals from './pages/Approvals'
@@ -41,13 +41,6 @@ export default function App() {
   const [version, setVersion] = useState(0)
   const [toastMsg, setToastMsg] = useState<string | null>(null)
   const [pipWin, setPipWin] = useState<Window | null>(null)
-  // 항상 위 설정이 바뀌면 다시 확인
-  const [pinTick, setPinTick] = useState(0)
-  useEffect(() => {
-    const f = () => setPinTick(t => t + 1)
-    window.addEventListener('wkly-pin-changed', f)
-    return () => window.removeEventListener('wkly-pin-changed', f)
-  }, [])
   const toastTimer = useRef<number>()
 
   const bump = useCallback(() => setVersion(v => v + 1), [])
@@ -148,23 +141,6 @@ export default function App() {
     }
     openQuickPopup()
   }, [])
-
-  // '항상 위' 강제: 항상 위 창이 없으면 이 창을 누르는 순간 다시 띄움 (브라우저는 클릭 없이 창을 못 띄움)
-  useEffect(() => {
-    if (!userId || pipWin || !supportsPip() || inQuickWindow() || !pinAlways()) return
-    const reopen = () => {
-      if (!pinAlways() || window.documentPictureInPicture?.window) return
-      openPipWindow()
-        .then(w => {
-          if (!w) return
-          setPipWin(w)
-          w.addEventListener('pagehide', () => setPipWin(null), { once: true })
-        })
-        .catch(() => undefined)
-    }
-    window.addEventListener('pointerdown', reopen, { capture: true, once: true })
-    return () => window.removeEventListener('pointerdown', reopen, { capture: true })
-  }, [userId, pipWin, pinTick])
 
   if (userId === undefined) return <div className="center-page t-bodyb">불러오는 중…</div>
   if (!userId) return <Login />
