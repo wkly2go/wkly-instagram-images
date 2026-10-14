@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from
 import { LogOut, Pin, Send, X } from 'lucide-react'
 import { useApp, useAsync } from '../lib/app'
 import { friendlyError } from '../lib/api'
-import { useRoomMessages } from '../lib/chat'
+import { roomTitle, useRoomMessages } from '../lib/chat'
 import { timeLabel, todayKey } from '../lib/date'
 import { QUICK_WINDOW, supportsPip } from '../lib/pip'
 import { useRouter } from '../lib/router'
@@ -163,8 +163,10 @@ function QuickLog() {
 
 function QuickChat({ rooms }: { rooms: ChatRoomSummary[] }) {
   const [chosen, setChosen] = useState(load(ROOM_KEY))
-  const roomId = rooms.find(r => r.id === chosen)?.id ?? rooms[0]?.id ?? null
-  const { messages, reads, send, remove } = useRoomMessages(roomId)
+  const { me, profileName } = useApp()
+  const room = rooms.find(r => r.id === chosen) ?? rooms[0] ?? null
+  const roomId = room?.id ?? null
+  const { messages, reads, send, remove, edit } = useRoomMessages(roomId)
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
   const bodyRef = useRef<HTMLDivElement>(null)
@@ -207,7 +209,7 @@ function QuickChat({ rooms }: { rooms: ChatRoomSummary[] }) {
       >
         {rooms.map(r => (
           <option key={r.id} value={r.id}>
-            # {r.name}
+            {roomTitle(r, me.id, profileName)}
             {r.unread > 0 && r.id !== roomId ? ` (${r.unread})` : ''}
           </option>
         ))}
@@ -220,7 +222,7 @@ function QuickChat({ rooms }: { rooms: ChatRoomSummary[] }) {
           stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 60
         }}
       >
-        <MessageList messages={messages} reads={reads} onRemove={remove} />
+        <MessageList messages={messages} reads={reads} members={room?.members} onRemove={remove} onEdit={edit} />
       </div>
       <div className="quick-composer">
         <textarea className="textarea" placeholder="메시지 (Enter 전송)" value={text} onChange={e => setText(e.target.value)} onKeyDown={onKey} maxLength={4000} aria-label="메시지" />

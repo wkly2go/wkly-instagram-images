@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useApp } from './app'
 import { friendlyError } from './api'
-import type { ChatMessage, ChatRead } from './types'
+import type { ChatMessage, ChatRead, ChatRoom } from './types'
 
 /** 채팅방 메시지: 불러오기 · 실시간 반영 · 읽음 처리 · 보내기 · 삭제 (채팅 탭과 빠른 기록 창이 함께 씀) */
 export function useRoomMessages(roomId: string | null) {
@@ -56,5 +56,23 @@ export function useRoomMessages(roomId: string | null) {
       toast(friendlyError(e))
     }
   }
-  return { messages, reads, send, remove }
+  /** 성공하면 true */
+  const edit = async (id: number, content: string) => {
+    try {
+      const m = await api.editMessage(id, content)
+      setMessages(prev => prev.map(x => (x.id === id ? m : x)))
+      return true
+    } catch (e) {
+      toast(friendlyError(e))
+      return false
+    }
+  }
+  return { messages, reads, send, remove, edit }
+}
+
+/** 방 이름: 1:1 대화는 상대 이름, 나머지는 '# 방이름' */
+export function roomTitle(room: ChatRoom, meId: string, profileName: (id: string | null | undefined) => string): string {
+  if (!room.members) return `# ${room.name}`
+  const others = room.members.filter(id => id !== meId)
+  return `@ ${others.map(profileName).join(', ') || '나'}`
 }

@@ -180,6 +180,8 @@ export interface ChatRoom {
   is_archived: boolean
   created_by: string | null
   created_at: string
+  /** 비어 있으면 전체 공개 방, 값이 있으면 이 사람들만 보는 1:1 대화 */
+  members?: string[] | null
 }
 
 export interface ChatRoomSummary extends ChatRoom {

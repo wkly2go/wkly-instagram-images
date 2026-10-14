@@ -112,9 +112,13 @@ export interface Api {
   // 채팅
   listRooms(): Promise<ChatRoomSummary[]>
   createRoom(r: { name: string; description?: string | null; project_id?: string | null }): Promise<ChatRoom>
+  /** 팀원과 1:1 대화방 열기 (없으면 만듦) → 방 id */
+  openDm(otherId: string): Promise<string>
   listMessages(roomId: string, limit?: number): Promise<ChatMessage[]>
   sendMessage(roomId: string, content: string): Promise<ChatMessage>
   deleteMessage(id: number): Promise<void>
+  /** 내 메시지 고치기 (고친 시각 edited_at 이 남음) */
+  editMessage(id: number, content: string): Promise<ChatMessage>
   markRead(roomId: string): Promise<void>
   /** 방 참여자들의 마지막 읽은 시각 (누가 읽었는지 표시) */
   listRoomReads(roomId: string): Promise<ChatRead[]>

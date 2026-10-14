@@ -60,7 +60,7 @@ interface Store {
   digest_date?: string
 }
 
-const KEY = 'wkly-erp-demo-v6'
+const KEY = 'wkly-erp-demo-v7'
 const SESSION_KEY = 'wkly-erp-demo-session'
 
 const uid = () => crypto.randomUUID()
@@ -192,14 +192,17 @@ function seed(): Store {
     lg(U.haneul, -4, '11:20', '전화', '오브제랩 설치 시간 2시간 앞당김 요청 받음', { client_id: objet.id, minutes: 10 }),
     lg(U.admin, -10, '14:00', '메일 수신', '오브제랩 계약서 날인본 수신', { client_id: objet.id, email_counterpart: 'hello@objetlab.example', email_subject: '계약서 날인본 송부' }),
   ]
-  const room = (name: string, description: string | null, project: Project | null = null): ChatRoom => ({ id: uid(), name, description, project_id: project?.id ?? null, is_archived: false, created_by: U.admin, created_at: at(-30, '09:00') })
+  const room = (name: string, description: string | null, project: Project | null = null): ChatRoom => ({ id: uid(), name, description, project_id: project?.id ?? null, is_archived: false, created_by: U.admin, created_at: at(-30, '09:00'), members: null })
   const all = room('전체', '팀 전체 공지와 한마디')
   const rObjet = room('성수 팝업 오브제 위크', null, objetWeek)
   const rAutumn = room('가을 시즌 캠페인', null, autumn)
   const rContent = room('콘텐츠팀', null)
   let seq = 0
   const m = (r: ChatRoom, user: string, day: number, time: string, content: string): ChatMessage => ({ id: ++seq, room_id: r.id, user_id: user, content, created_at: at(day, time), edited_at: null })
+  // 1:1 대화 체험용: 관리자 ↔ 김하늘
+  const dmAdminHaneul: ChatRoom = { ...room(`dm:${U.admin}:${U.haneul}`, null), members: [U.admin, U.haneul] }
   const chat_messages = [
+    m(dmAdminHaneul, U.haneul, 0, '08:50', '대표님, 오늘 오후 외근이라 3시 미팅은 화상으로 들어가도 될까요?'), m(dmAdminHaneul, U.admin, 0, '08:58', '네 괜찮아요. 링크 보내 줄게요.'),
     m(all, U.seoyeon, 0, '09:15', '3주차 원고 초안 업로드 완료!'), m(all, U.doyun, 0, '09:40', '오후 3시 루프앤코 미팅 같이 가실 분?'), m(all, U.haneul, 0, '10:44', '오브제 위크 철수 체크리스트 드라이브에 올렸어요'),
     m(rObjet, U.doyun, 0, '09:40', '오늘 현장 마감 체크 누가 가나요?'), m(rObjet, U.admin, 0, '09:42', '제가 오후 3시에 갈게요. 철수 일정도 오브제랩에 메일로 안내하겠습니다.'),
     m(rObjet, U.seoyeon, 0, '10:15', '현장 사진 1차 셀렉 드라이브에 올렸어요 📁'), m(rObjet, U.haneul, 0, '10:43', '철수 일정 메일 보냈어요. 업무 일지에도 기록 완료 👍'),
@@ -359,7 +362,7 @@ function seed(): Store {
     ...[all, rObjet].map(r => ({ user_id: U.doyun, room_id: r.id, last_read_at: at(-1, '18:00') })),
   ]
   return {
-    profiles, clients, contacts, projects, tasks, work_logs, chat_rooms: [all, rObjet, rAutumn, rContent], chat_messages, chat_reads, approvals, approval_routes,
+    profiles, clients, contacts, projects, tasks, work_logs, chat_rooms: [all, rObjet, rAutumn, rContent, dmAdminHaneul], chat_messages, chat_reads, approvals, approval_routes,
     finances, payments, budget_lines, research_items, brand_contacts, email_templates, agent_tokens, notifications, attendance, hr_records, leave_records, agent_instructions, seq: Math.max(seq, nseq) + 100,
   }
 }
@@ -613,7 +616,7 @@ export function createDemoApi(): Api {
     async listRooms() {
       const self = requireMe()
       const rows: ChatRoomSummary[] = store.chat_rooms
-        .filter(r => !r.is_archived)
+        .filter(r => !r.is_archived && (!r.members || r.members.includes(self)))
         .map(r => {
           const msgs = store.chat_messages.filter(m => m.room_id === r.id).sort((a, b) => a.created_at.localeCompare(b.created_at))
           const last = msgs[msgs.length - 1]
@@ -630,6 +633,18 @@ export function createDemoApi(): Api {
       emit('chat_rooms')
       return clone(room)
     },
+    async openDm(otherId) {
+      const self = requireMe()
+      if (otherId === self) throw new ApiError('대화 상대를 골라 주세요.')
+      const key = [self, otherId].sort().join(':')
+      const found = store.chat_rooms.find(r => r.members && [...r.members].sort().join(':') === key)
+      if (found) return found.id
+      const room: ChatRoom = { id: uid(), name: `dm:${key}`, description: null, project_id: null, is_archived: false, created_by: self, created_at: now(), members: [self, otherId] }
+      store.chat_rooms.push(room)
+      persist()
+      emit('chat_rooms')
+      return room.id
+    },
     async listMessages(roomId, limit = 150) {
       return clone(store.chat_messages.filter(m => m.room_id === roomId).sort((a, b) => a.created_at.localeCompare(b.created_at)).slice(-limit))
     },
@@ -637,9 +652,18 @@ export function createDemoApi(): Api {
       const msg: ChatMessage = { id: ++store.seq + 1000, room_id: roomId, user_id: requireMe(), content, created_at: now(), edited_at: null }
       store.chat_messages.push(msg)
       const room = store.chat_rooms.find(r => r.id === roomId)
-      for (const p of store.profiles) if (p.id !== msg.user_id && content.includes(`@${p.name}`)) notify(p.id, '멘션', `${nameOf(msg.user_id)}님이 언급했어요 · ${room?.name ?? '채팅'}`, content.slice(0, 80), `/chat?room=${roomId}`)
+      for (const p of store.profiles) if (p.id !== msg.user_id && content.includes(`@${p.name}`) && (!room?.members || room.members.includes(p.id))) notify(p.id, '멘션', `${nameOf(msg.user_id)}님이 언급했어요 · ${room?.members ? '1:1 대화' : room?.name ?? '채팅'}`, content.slice(0, 80), `/chat?room=${roomId}`)
       persist()
       emit('chat_messages', { type: 'INSERT', message: msg } satisfies MessageEvent)
+      return clone(msg)
+    },
+    async editMessage(id, content) {
+      const msg = store.chat_messages.find(m => m.id === id)
+      if (!msg || msg.user_id !== requireMe()) throw new ApiError('내 메시지만 고칠 수 있습니다.')
+      msg.content = content
+      msg.edited_at = now()
+      persist()
+      emit('chat_messages', { type: 'UPDATE', message: clone(msg) } satisfies MessageEvent)
       return clone(msg)
     },
     async deleteMessage(id) {

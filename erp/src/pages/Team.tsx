@@ -121,6 +121,11 @@ function MemberCard({ p, presence, logs }: { p: Profile; presence: Presence; log
           {mins ? ` · ${minutesLabel(mins)}` : ''}
         </Link>
         <span className="grow" />
+        {!isMe && !p.is_agent && p.active && (
+          <Link to={`/chat?dm=${p.id}`} className="t-meta t-blue" title={`${p.name}님과 1:1 대화`}>
+            💬 1:1
+          </Link>
+        )}
         {p.is_agent && <Badge tone="acid">🤖 AI 팀원</Badge>}
         {p.role === 'admin' && <Badge tone="blue">관리자</Badge>}
         {!p.active && <Badge tone="paper">비활성</Badge>}
