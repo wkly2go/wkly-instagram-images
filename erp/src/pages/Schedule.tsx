@@ -569,38 +569,44 @@ export function WeekView({ projects, tasks }: { projects: Project[]; tasks: Task
   const days = Array.from({ length: 7 }, (_, i) => addDays(from, i))
   const to = days[6]
   const [mine, setMine] = useState(false)
+  const [allSpans, setAllSpans] = useState(false)
   const [editing, setEditing] = useState<Task | null>(null)
   const { data: leaves } = useAsync(() => api.listLeave(), [version], [] as LeaveRecord[])
   const go = (d: string) => navigate(withQuery(path, query, { date: d }), { replace: true })
   const projectName = (id: string | null) => projects.find(p => p.id === id)?.name ?? null
 
-  const byDay = useMemo(() => {
-    const m = new Map<string, { tasks: { t: Task; kind: '하루' | '시작' | '마감' | '진행' }[]; events: { key: string; label: string; tone: string; to: string }[] }>()
-    for (const d of days) m.set(d, { tasks: [], events: [] })
+  const view = useMemo(() => {
+    // 하루 업무는 그날 칸에, 여러 날 업무는 위쪽 기간 막대로 한 번만
+    const byDay = new Map<string, { tasks: Task[]; events: { key: string; label: string; tone: string; to: string }[] }>()
+    for (const d of days) byDay.set(d, { tasks: [], events: [] })
+    const spans: { t: Task; s: number; e: number; endsHere: boolean }[] = []
     for (const t of tasks) {
       if (mine && t.assignee_id !== me.id) continue
       const sp = spanOf(t)
       if (!sp || sp[1] < from || sp[0] > to) continue
-      for (const d of days) {
-        if (d < sp[0] || d > sp[1]) continue
-        const kind = sp[0] === sp[1] ? '하루' : d === sp[0] ? '시작' : d === sp[1] ? '마감' : '진행'
-        m.get(d)!.tasks.push({ t, kind })
-      }
+      if (sp[0] === sp[1]) byDay.get(sp[0])?.tasks.push(t)
+      else spans.push({ t, s: Math.max(0, days.indexOf(sp[0] < from ? from : sp[0])), e: days.indexOf(sp[1] > to ? to : sp[1]), endsHere: sp[1] <= to })
     }
     for (const p of projects) {
       if (p.status === '보류') continue
-      if (p.start_date && m.has(p.start_date)) m.get(p.start_date)!.events.push({ key: `${p.id}s`, label: `${p.name} 시작`, tone: 'project', to: `/projects?id=${p.id}` })
-      if (p.end_date && m.has(p.end_date)) m.get(p.end_date)!.events.push({ key: `${p.id}e`, label: `${p.name} 종료`, tone: 'project', to: `/projects?id=${p.id}` })
+      if (p.start_date && byDay.has(p.start_date)) byDay.get(p.start_date)!.events.push({ key: `${p.id}s`, label: `${p.name} 시작`, tone: 'project', to: `/projects?id=${p.id}` })
+      if (p.end_date && byDay.has(p.end_date)) byDay.get(p.end_date)!.events.push({ key: `${p.id}e`, label: `${p.name} 종료`, tone: 'project', to: `/projects?id=${p.id}` })
     }
     for (const l of leaves) {
       if (l.status !== '승인' || (mine && l.profile_id !== me.id)) continue
-      for (const d of days) if (d >= l.start_date && d <= l.end_date) m.get(d)!.events.push({ key: `${l.id}${d}`, label: `${profileName(l.profile_id)} ${l.kind}`, tone: 'leave', to: '/team?view=leave' })
+      for (const d of days) if (d >= l.start_date && d <= l.end_date) byDay.get(d)!.events.push({ key: `${l.id}${d}`, label: `${profileName(l.profile_id)} ${l.kind}`, tone: 'leave', to: '/team?view=leave' })
     }
-    for (const v of m.values()) v.tasks.sort((a, b) => (a.t.remind_at ?? '9').localeCompare(b.t.remind_at ?? '9') || a.t.title.localeCompare(b.t.title))
-    return m
+    for (const v of byDay.values()) v.tasks.sort((a, b) => (a.remind_at ?? '9').localeCompare(b.remind_at ?? '9') || a.title.localeCompare(b.title))
+    // 마감이 이번 주인 것 먼저, 그다음 시작 순
+    spans.sort((a, b) => Number(b.endsHere) - Number(a.endsHere) || a.e - b.e || a.s - b.s)
+    return { byDay, spans }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tasks, projects, leaves, mine, me.id, from, profileName])
-  const total = [...byDay.values()].reduce((n, v) => n + v.tasks.length, 0)
+  const dayCount = [...view.byDay.values()].reduce((n, v) => n + v.tasks.length, 0)
+  const SPAN_LIMIT = 8
+  const spans = allSpans ? view.spans : view.spans.slice(0, SPAN_LIMIT)
+  const stateOf = (t: Task) => (t.status === '완료' ? 'done' : t.due_date && t.due_date < today ? 'late' : t.assignee_id === me.id ? 'mine' : '')
+  const who = (t: Task) => [profileName(t.assignee_id), projectName(t.project_id)].filter(Boolean).join(' · ')
 
   return (
     <div className="col gap-10">
@@ -619,7 +625,9 @@ export function WeekView({ projects, tasks }: { projects: Project[]; tasks: Task
             이번 주
           </Button>
         )}
-        <span className="t-cap">업무 {total}건</span>
+        <span className="t-cap">
+          하루 업무 {dayCount} · 기간 업무 {view.spans.length}
+        </span>
         <span className="grow" />
         <div className="chips">
           <Chip active={!mine} onClick={() => setMine(false)}>
@@ -630,47 +638,79 @@ export function WeekView({ projects, tasks }: { projects: Project[]; tasks: Task
           </Chip>
         </div>
       </div>
-      <div className="week">
-        {days.map(d => {
-          const v = byDay.get(d)!
+      <div className="wk">
+        {days.map((d, i) => (
+          <button key={d} type="button" className={`wk-head${d === today ? ' today' : ''}${d === picked ? ' picked' : ''}${i >= 5 ? ' weekend' : ''}`} style={{ gridColumn: i + 1 }} onClick={() => go(d)}>
+            <span className={weekday(d) === '일' ? 't-red' : ''}>
+              {Number(d.slice(8))}
+              <small> {weekday(d)}</small>
+            </span>
+            {d === today && <Badge tone="yellow">오늘</Badge>}
+            <span className="grow" />
+            {view.byDay.get(d)!.tasks.length > 0 && <span className="t-meta">{view.byDay.get(d)!.tasks.length}</span>}
+          </button>
+        ))}
+        {spans.length > 0 && <span className="wk-label">기간 업무</span>}
+        {spans.map(({ t, s, e, endsHere }) => (
+          <button key={t.id} type="button" className={`wk-span ${stateOf(t)}`} style={{ gridColumn: `${s + 1} / ${e + 2}` }} onClick={() => setEditing(t)} title={`${t.title}\n${who(t)}\n${t.start_date ?? ''} ~ ${t.due_date ?? ''}`}>
+            <b>{t.title}</b>
+            <span className="t-meta">
+              {profileName(t.assignee_id)}
+              {endsHere && t.due_date ? ` · ~${Number(t.due_date.slice(5, 7))}/${Number(t.due_date.slice(8))}` : ' · 다음 주 계속'}
+            </span>
+          </button>
+        ))}
+        {view.spans.length > SPAN_LIMIT && (
+          <button type="button" className="wk-more" onClick={() => setAllSpans(!allSpans)}>
+            {allSpans ? '기간 업무 접기' : `기간 업무 ${view.spans.length - SPAN_LIMIT}건 더 보기`}
+          </button>
+        )}
+        {days.map((d, i) => {
+          const v = view.byDay.get(d)!
           return (
-            <section key={d} className={`week-day${d === today ? ' today' : ''}${d === picked ? ' picked' : ''}`} aria-label={`${shortDate(d)} (${weekday(d)})`}>
-              <button type="button" className="week-head" onClick={() => go(d)}>
-                <span className={`t-bodyb${weekday(d) === '일' ? ' t-red' : ''}`}>
-                  {shortDate(d)} ({weekday(d)})
-                </span>
-                {d === today && <Badge tone="yellow">오늘</Badge>}
-              </button>
-              {v.events.map(e => (
-                <Link key={e.key} to={e.to} className={`cal-item c-${e.tone}`}>
-                  {e.label}
+            <div key={d} className={`wk-day${d === today ? ' today' : ''}${i >= 5 ? ' weekend' : ''}`} style={{ gridColumn: i + 1 }}>
+              <span className="wk-day-label">
+                {shortDate(d)} ({weekday(d)}){d === today ? ' · 오늘' : ''}
+              </span>
+              {v.events.map(ev => (
+                <Link key={ev.key} to={ev.to} className={`wk-event c-${ev.tone}`} title={ev.label}>
+                  {ev.label}
                 </Link>
               ))}
-              {v.tasks.map(({ t, kind }) => {
-                const late = t.status !== '완료' && !!t.due_date && t.due_date < today
-                const pj = projectName(t.project_id)
+              {v.tasks.map(t => {
+                const st = stateOf(t)
+                const time = hhmm(t.remind_at)
                 return (
-                  <button key={`${t.id}${d}`} type="button" className={`week-task${t.assignee_id === me.id ? ' mine' : ''}${late ? ' late' : ''}${t.status === '완료' ? ' done' : ''}`} onClick={() => setEditing(t)}>
-                    <span className="row week-meta">
-                      {kind !== '하루' && <span className="t-meta">{kind === '시작' ? '▶ 시작' : kind === '마감' ? '■ 마감' : '기간 중'}</span>}
-                      {kind !== '진행' && hhmm(t.remind_at) && t.remind_at!.slice(0, 10) <= d && <span className="t-meta">⏰ {hhmm(t.remind_at)}</span>}
-                      <span className="grow" />
-                      <StatusBadge status={late ? '지연' : t.status} />
+                  <button key={t.id} type="button" className={`wk-task ${st}`} onClick={() => setEditing(t)} title={[t.title, who(t), t.memo].filter(Boolean).join('\n')}>
+                    <span className="wk-title">
+                      {time && t.remind_at!.slice(0, 10) <= d && <span className="wk-time">{time}</span>}
+                      {t.title}
                     </span>
-                    <span className="t-smallb">{t.title}</span>
-                    <span className="t-cap">
-                      {profileName(t.assignee_id)}
-                      {pj ? ` · ${pj}` : ''}
-                      {t.phase ? ` · ${t.phase}` : ''}
-                    </span>
-                    {t.memo && kind !== '진행' && <span className="t-cap week-memo">{t.memo.split('\n').filter(l => !l.startsWith('[자동') && !l.startsWith('Gmail thread')).slice(0, 2).join(' · ')}</span>}
+                    <span className="wk-who">{who(t)}</span>
+                    {st === 'done' && <span className="wk-state">✓ 완료</span>}
+                    {st === 'late' && <span className="wk-state t-red">지연</span>}
                   </button>
                 )
               })}
-              {v.tasks.length === 0 && v.events.length === 0 && <span className="t-cap">일정 없음</span>}
-            </section>
+              {v.tasks.length === 0 && v.events.length === 0 && <span className="wk-empty">–</span>}
+            </div>
           )
         })}
+      </div>
+      <div className="legend">
+        <span>
+          <i style={{ background: 'var(--blue)' }} />내 업무
+        </span>
+        <span>
+          <i style={{ background: 'var(--blue-tint)' }} />팀 업무
+        </span>
+        <span>
+          <i style={{ background: 'var(--red)' }} />지연
+        </span>
+        <span>
+          <i style={{ background: 'var(--line)' }} />완료
+        </span>
+        <span className="t-cap">업무를 누르면 내용 · 메모를 보고 고칠 수 있어요</span>
       </div>
       {editing && <TaskAssignModal task={editing} projects={projects} tasks={tasks} onClose={() => setEditing(null)} />}
     </div>
