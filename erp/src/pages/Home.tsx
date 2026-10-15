@@ -102,7 +102,7 @@ export default function Home() {
           <span className="t-cap">진행 프로젝트</span>
           <span className="t-num">{count('진행')}</span>
           <span className="t-cap">
-            기획 {count('기획')} · 보류 {count('보류')}
+            기획 {count('기획')} · NIC {count('NIC')} · 보류 {count('보류')}
           </span>
         </button>
         <button type="button" className="stat" style={{ textAlign: 'left', cursor: 'pointer' }} onClick={() => navigate('/chat')}>

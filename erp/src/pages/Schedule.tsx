@@ -164,7 +164,7 @@ export function Gantt({ projects, tasks }: { projects: Project[]; tasks: Task[] 
   const { profileName } = useApp()
   const { query, path, navigate } = useRouter()
   const today = todayKey()
-  const active = projects.filter(p => p.status === '진행' || p.status === '기획')
+  const active = projects.filter(p => p.status === '진행' || p.status === '기획' || p.status === 'NIC')
   const projectId = query.get('project') ?? 'all'
   const project = projects.find(p => p.id === projectId) ?? null
   const [editing, setEditing] = useState<Task | 'new' | null>(null)
