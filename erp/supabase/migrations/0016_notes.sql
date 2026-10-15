@@ -14,3 +14,4 @@ create policy notes_own on public.notes for all to authenticated
   using (user_id = (select auth.uid()))
   with check (user_id = (select auth.uid()));
 grant select, insert, update, delete on public.notes to authenticated;
+revoke all on public.notes from anon;
