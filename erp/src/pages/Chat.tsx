@@ -8,7 +8,7 @@ import { Link, useRouter, withQuery } from '../lib/router'
 import type { ChatRoomSummary, Project } from '../lib/types'
 import { Shell } from '../components/Shell'
 import { Avatar, Badge, Button, Empty, Field, Modal } from '../components/ui'
-import { AttachButton, DropHint, MessageList, useFileDrop } from '../components/ChatMessages'
+import { AgentTyping, AttachButton, DropHint, MessageList, useFileDrop } from '../components/ChatMessages'
 
 export default function Chat() {
   const { api, me, version, profileName, toast, bump } = useApp()
@@ -184,6 +184,7 @@ function Room({ room }: { room: ChatRoomSummary }) {
         }}
       >
         <MessageList messages={messages} reads={reads} members={room.members} onRemove={remove} onEdit={edit} />
+        <AgentTyping messages={messages} members={room.members} />
       </div>
       <div className="composer">
         <AttachButton onFiles={sendFiles} />
@@ -215,7 +216,10 @@ function Room({ room }: { room: ChatRoomSummary }) {
 function DmPicker({ onClose, onPick }: { onClose: () => void; onPick: (id: string) => void }) {
   const { me, profiles } = useApp()
   const [q, setQ] = useState('')
-  const people = profiles.filter(p => p.active && !p.is_agent && p.id !== me.id && (!q.trim() || p.name.includes(q.trim())))
+  // AI 팀원을 맨 위에 (말을 걸면 바로 답하고 일을 처리함)
+  const people = profiles
+    .filter(p => p.active && p.id !== me.id && (!q.trim() || p.name.includes(q.trim())))
+    .sort((a, b) => Number(b.is_agent) - Number(a.is_agent))
   return (
     <Modal title="1:1 대화" onClose={onClose}>
       <input className="input" autoFocus placeholder="이름 검색" value={q} onChange={e => setQ(e.target.value)} aria-label="이름 검색" />
@@ -227,10 +231,10 @@ function DmPicker({ onClose, onPick }: { onClose: () => void; onPick: (id: strin
             className="item row"
             onClick={() => onPick(p.id)}
           >
-            <Avatar name={p.name} size="sm" />
+            <Avatar name={p.is_agent ? '🤖' : p.name} size="sm" />
             <span className="t-smallb grow">{p.name}</span>
-            {p.title && <span className="t-cap">{p.title}</span>}
-            <span className="t-meta">{p.today_status}</span>
+            {p.is_agent ? <Badge tone="acid">AI 팀원 · 바로 답함</Badge> : p.title && <span className="t-cap">{p.title}</span>}
+            {!p.is_agent && <span className="t-meta">{p.today_status}</span>}
           </button>
         ))}
         {people.length === 0 && <Empty>대화할 팀원이 없습니다.</Empty>}

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Bot, Send } from 'lucide-react'
+import { Bot, MessageCircle, Send } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { relativeLabel } from '../lib/date'
 import { useRouter } from '../lib/router'
@@ -8,11 +8,11 @@ import { Badge, Button, SectionHead, type Tone } from './ui'
 
 const TONE: Record<InstructionStatus, Tone> = { 대기: 'yellow', '진행 중': 'acid', 완료: 'blue', 보류: 'paper' }
 
-/** AI 팀원(WKLY 총괄)에게 직접 지시. 에이전트가 예약 실행 때(평일 08:24 · 17:54) 처리하고 답을 남김 */
+/** AI 팀원(WKLY 총괄)에게 직접 지시. 바로 처리하고 답을 남김 (메일 확인이 필요한 일은 평일 08:24 정기 실행) */
 export function AgentDesk() {
   const { api, me, profiles, version, profileName } = useApp()
   const { busy, run } = useAction()
-  const { query } = useRouter()
+  const { query, navigate } = useRouter()
   const agents = profiles.filter(p => p.is_agent && p.active)
   const [agentId, setAgentId] = useState('')
   const [text, setText] = useState('')
@@ -27,12 +27,19 @@ export function AgentDesk() {
   const send = async () => {
     const v = text.trim()
     if (!v) return
-    if (await run(() => api.instructAgent(target, v), `${profileName(target)}에게 지시했습니다. 다음 실행(평일 08:24 · 17:54) 때 처리하고 알림으로 답해요.`)) setText('')
+    if (await run(() => api.instructAgent(target, v), `${profileName(target)}에게 지시했습니다. 바로 처리하고 여기에 답을 남깁니다.`)) setText('')
   }
   const recent = list.slice(0, 6)
   return (
     <section className="section" ref={ref} aria-label="AI 팀원에게 지시">
-      <SectionHead title="AI 팀원에게 지시" right={<span className="t-cap">평일 08:24 · 17:54에 처리</span>} />
+      <SectionHead title="AI 팀원에게 지시" right={
+          <span className="row gap-6">
+            <span className="t-cap">바로 처리 · 메일 확인은 평일 08:24</span>
+            <Button kind="outline" size="sm" onClick={() => navigate(`/chat?dm=${target}`)}>
+              <MessageCircle size={13} /> 1:1 대화
+            </Button>
+          </span>
+        } />
       <div className="box col gap-6" style={{ background: 'var(--white)' }}>
         <div className="row top gap-6">
           <Bot size={18} className="t-blue" style={{ marginTop: 8, flexShrink: 0 }} />

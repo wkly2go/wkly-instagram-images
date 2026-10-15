@@ -668,3 +668,11 @@ button.kpi:hover, a.kpi:hover { border-color: var(--blue); }
 .lock-screen { position: fixed; inset: 0; z-index: 200; display: flex; align-items: center; justify-content: center; padding: 16px; background: var(--paper); }
 .lock-icon { align-self: center; width: 48px; height: 48px; border-radius: 24px; display: flex; align-items: center; justify-content: center; background: var(--blue); color: var(--white); }
 .away-tag { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; font-weight: 700; color: var(--gray); background: var(--white); border: 1px dashed var(--gray); border-radius: 999px; padding: 1px 7px; white-space: nowrap; }
+
+/* AI 팀원이 답하는 중 */
+.agent-typing { display: flex; align-items: center; gap: 8px; padding: 6px 12px; font-size: 12px; font-weight: 700; color: var(--blue); }
+.agent-typing .dots { display: inline-flex; gap: 3px; }
+.agent-typing .dots i { width: 6px; height: 6px; border-radius: 3px; background: var(--blue); animation: typing 1.2s infinite ease-in-out; }
+.agent-typing .dots i:nth-child(2) { animation-delay: 0.15s; }
+.agent-typing .dots i:nth-child(3) { animation-delay: 0.3s; }
+@keyframes typing { 0%, 80%, 100% { opacity: 0.25; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-3px); } }

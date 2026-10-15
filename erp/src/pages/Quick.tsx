@@ -8,7 +8,7 @@ import { QUICK_WINDOW, supportsPip } from '../lib/pip'
 import { useRouter } from '../lib/router'
 import { TODAY_STATUSES, type ChatRoomSummary, type TodayStatus, type WorkLog } from '../lib/types'
 import { QuickLogForm } from '../components/LogForm'
-import { AttachButton, DropHint, MessageList, useFileDrop } from '../components/ChatMessages'
+import { AgentTyping, AttachButton, DropHint, MessageList, useFileDrop } from '../components/ChatMessages'
 import { TABS, useSummary } from '../components/Shell'
 import { Empty, KindBadge } from '../components/ui'
 
@@ -229,6 +229,7 @@ function QuickChat({ rooms }: { rooms: ChatRoomSummary[] }) {
         }}
       >
         <MessageList messages={messages} reads={reads} members={room?.members} onRemove={remove} onEdit={edit} />
+        <AgentTyping messages={messages} members={room?.members} />
       </div>
       <div className="quick-composer">
         <AttachButton onFiles={sendFiles} />
