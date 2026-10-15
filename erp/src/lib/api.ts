@@ -64,6 +64,11 @@ export type ExportTable = (typeof EXPORT_TABLES)[number]
 
 export interface WorkLogFilter {
   date?: string
+  /** 기간 (log_date 포함) */
+  from?: string
+  to?: string
+  /** 내용 검색 */
+  q?: string
   userId?: string
   clientId?: string
   projectId?: string

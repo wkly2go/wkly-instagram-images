@@ -11,6 +11,7 @@ import { FinancePanel } from '../components/FinancePanel'
 import { ProjectDashboard } from './ProjectDashboard'
 import { Payments } from './Payments'
 import { Gantt, MonthCalendar, SentTasks, TaskAssignModal, WeekView } from './Schedule'
+import { PendingReports, useWorkReports } from '../components/WorkReports'
 
 interface Data {
   projects: Project[]
@@ -93,6 +94,7 @@ export default function Projects() {
         <MonthCalendar projects={data.projects} tasks={data.tasks} />
       ) : view === 'mine' || view === 'tasks' ? (
         <div className="col gap-12">
+          {view === 'mine' && <MineReports />}
           {view === 'mine' && <SentTasks projects={data.projects} tasks={data.tasks} />}
           <TaskList tasks={data.tasks} projects={data.projects} mineOnly={view === 'mine'} />
         </div>
@@ -624,3 +626,9 @@ export function ProjectForm({ project, clients, onClose, onSaved }: { project: P
   )
 }
 
+
+/** 내 할 일 위: 승인 안 된 업무 보고 (승인될 때까지 남음) */
+function MineReports() {
+  const { data } = useWorkReports()
+  return <PendingReports reports={data} />
+}
