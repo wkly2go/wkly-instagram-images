@@ -708,3 +708,31 @@ button.kpi:hover, a.kpi:hover { border-color: var(--blue); }
   .work-body { position: relative; }
 }
 .composer-meta .pick + .pick .pick-list { left: auto; right: 0; }
+
+/* 주간 상세 */
+.mini-cal-grid .day.in-week:not(.today) { background: var(--blue-tint); color: var(--blue); }
+.week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; align-items: start; }
+.week-day { display: flex; flex-direction: column; gap: 5px; min-width: 0; min-height: 160px; padding: 8px; background: var(--white); border: 1px solid var(--line); border-radius: var(--r-panel); }
+.week-day.today { border-color: var(--blue); }
+.week-day.picked { box-shadow: 0 0 0 2px var(--blue); }
+.week-head { display: flex; align-items: center; gap: 6px; border: 0; background: none; padding: 0 0 4px; border-bottom: 1px dashed var(--line); cursor: pointer; text-align: left; font: inherit; color: inherit; }
+.week-task { display: flex; flex-direction: column; gap: 2px; text-align: left; border: 1px solid var(--line); border-left: 3px solid var(--blue-tint); background: var(--white); border-radius: 6px; padding: 5px 6px; cursor: pointer; font: inherit; color: var(--gray); min-width: 0; }
+.week-task:hover { background: var(--yellow-tint); }
+.week-task.mine { border-left-color: var(--blue); }
+.week-task.late { border-left-color: var(--red); }
+.week-task.done { opacity: 0.6; }
+.week-task .t-smallb { color: var(--blue); word-break: keep-all; overflow-wrap: anywhere; }
+.week-memo { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+@media (max-width: 1100px) { .week { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 640px) { .week { grid-template-columns: minmax(0, 1fr); } .week-day { min-height: 0; } }
+
+/* 거래처 리서치 보고서 · 프로젝트별 결제 */
+.report { min-width: 0; }
+.report .report-h { margin: 8px 0 0; font-size: 14px; font-weight: 700; color: var(--blue); }
+.report-list { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
+.report a { overflow-wrap: anywhere; }
+.report-toggle { border: 0; background: none; padding: 0; cursor: pointer; text-align: left; font: inherit; color: inherit; gap: 6px; }
+.pay-group { display: flex; flex-direction: column; gap: 2px; padding: 8px 0 4px; border-top: 1px dashed var(--line); }
+.textarea.mono { font-family: var(--mono); font-size: 12px; line-height: 1.6; }
+.week-meta { gap: 4px; flex-wrap: wrap; }
+.week-meta .t-meta { white-space: nowrap; }

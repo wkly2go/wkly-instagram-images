@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState, type ReactNode } from 'react'
-import { ArrowLeft, Pencil, Plus, Search, Trash2, Upload } from 'lucide-react'
+import { ArrowLeft, FileText, Pencil, Plus, Search, Trash2, Upload } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { parseCsv } from '../lib/csv'
 import { relativeLabel, shortDate, toDateKey } from '../lib/date'
@@ -11,6 +11,7 @@ import {
   RESEARCH_KINDS,
   RESEARCH_STATUSES,
   type BrandContact,
+  type Client,
   type ChatRoomSummary,
   type Draft,
   type EmailTemplate,
@@ -19,9 +20,10 @@ import {
   type ResearchStatus,
 } from '../lib/types'
 import { Shell } from '../components/Shell'
+import { REPORT_KIND, ReportBody, ReportForm, ReportTemplates, clientCatLabel } from '../components/Reports'
 import { Badge, Button, Chip, Empty, Field, Modal, type Tone } from '../components/ui'
 
-type Tab = 'research' | 'contacts' | 'templates' | 'agents'
+type Tab = 'research' | 'reports' | 'contacts' | 'templates' | 'agents'
 
 export default function Library() {
   const { query, path, navigate } = useRouter()
@@ -32,6 +34,7 @@ export default function Library() {
       {(
         [
           ['research', '리서치'],
+          ['reports', '보고서 양식'],
           ['contacts', '브랜드 담당자'],
           ['templates', '메일 템플릿'],
           ['agents', '에이전트 연결 안내'],
@@ -45,7 +48,7 @@ export default function Library() {
   )
   return (
     <Shell active="library" flush={tab === 'research'}>
-      {tab === 'research' ? <Research tabs={tabs} /> : tab === 'contacts' ? <Contacts tabs={tabs} /> : tab === 'templates' ? <Templates tabs={tabs} /> : <AgentGuide tabs={tabs} />}
+      {tab === 'research' ? <Research tabs={tabs} /> : tab === 'reports' ? <ReportTemplates tabs={tabs} /> : tab === 'contacts' ? <Contacts tabs={tabs} /> : tab === 'templates' ? <Templates tabs={tabs} /> : <AgentGuide tabs={tabs} />}
     </Shell>
   )
 }
@@ -68,23 +71,30 @@ function splitBody(body: string | null): { kv: [string, string][]; text: string[
 }
 
 function Research({ tabs }: { tabs: ReactNode }) {
-  const { api, version } = useApp()
+  const { api, version, profileOf } = useApp()
   const { query, path, navigate } = useRouter()
   const selectedId = query.get('id')
   const status = (query.get('status') as ResearchStatus | 'all' | null) ?? '새 자료'
   const [q, setQ] = useState('')
-  const [editing, setEditing] = useState<ResearchItem | 'new' | null>(null)
+  const [editing, setEditing] = useState<ResearchItem | 'new' | 'report' | null>(null)
+  const kind = query.get('kind')
   const go = (patch: Record<string, string | null>) => navigate(withQuery(path, query, patch), { replace: true })
   const { data, loading } = useAsync(
     async () => {
-      const [items, projects, rooms] = await Promise.all([api.listResearch(), api.listProjects(), api.listRooms()])
-      return { items, projects, rooms }
+      const [items, projects, rooms, clients] = await Promise.all([api.listResearch(), api.listProjects(), api.listRooms(), api.listClients()])
+      return { items, projects, rooms, clients }
     },
     [version],
-    { items: [] as ResearchItem[], projects: [] as Project[], rooms: [] as ChatRoomSummary[] },
+    { items: [] as ResearchItem[], projects: [] as Project[], rooms: [] as ChatRoomSummary[], clients: [] as Client[] },
   )
   const words = q.trim().toLowerCase().split(/\s+/).filter(Boolean)
-  const list = data.items.filter(r => (status === 'all' || r.status === status) && (!words.length || words.every(w => [r.title, r.summary, r.brand_name, r.tags.join(' '), r.source_name].join(' ').toLowerCase().includes(w))))
+  // 검색어가 있으면 상태와 관계없이 전체에서 찾음 (본문 포함)
+  const list = data.items.filter(
+    r =>
+      (words.length > 0 || status === 'all' || r.status === status) &&
+      (!kind || r.kind === kind) &&
+      (!words.length || words.every(w => [r.title, r.summary, r.brand_name, r.tags.join(' '), r.source_name, r.body].join(' ').toLowerCase().includes(w))),
+  )
   const selected = data.items.find(r => r.id === selectedId) ?? null
   const count = (s: ResearchStatus) => data.items.filter(r => r.status === s).length
 
@@ -96,8 +106,11 @@ function Research({ tabs }: { tabs: ReactNode }) {
           <div className="row">
             <label className="search grow">
               <Search size={14} />
-              <input className="input" value={q} onChange={e => setQ(e.target.value)} placeholder="제목·태그·브랜드 검색" aria-label="자료 검색" />
+              <input className="input" value={q} onChange={e => setQ(e.target.value)} placeholder="제목·거래처·본문 검색" aria-label="자료 검색" />
             </label>
+            <button type="button" className="icon-btn" onClick={() => setEditing('report')} aria-label="거래처 보고서 쓰기" title="거래처 리서치 보고서 쓰기 (공통 양식)">
+              <FileText size={17} />
+            </button>
             <button type="button" className="icon-btn" onClick={() => setEditing('new')} aria-label="자료 추가" title="자료 직접 추가">
               <Plus size={18} />
             </button>
@@ -112,13 +125,21 @@ function Research({ tabs }: { tabs: ReactNode }) {
               전체
             </Chip>
           </div>
+          <div className="chips">
+            <Chip active={!kind} onClick={() => go({ kind: null })}>
+              모든 종류
+            </Chip>
+            <Chip active={kind === REPORT_KIND} onClick={() => go({ kind: kind === REPORT_KIND ? null : REPORT_KIND })}>
+              📑 거래처 리포트 {data.items.filter(r => r.kind === REPORT_KIND).length || ''}
+            </Chip>
+          </div>
         </div>
         <div className="pane-body">
           {list.map(r => (
             <button key={r.id} type="button" className={`item ${r.id === selectedId ? 'active' : ''}`} onClick={() => go({ id: r.id })} style={{ borderBottom: '1px solid var(--line)' }}>
               <span className="row" style={{ gap: 6 }}>
                 <Badge>{r.kind}</Badge>
-                <span className="t-cap truncate grow">{r.collected_by_agent ? `🤖 ${r.collected_by_agent}` : ''}</span>
+                <span className="t-cap truncate grow">{r.collected_by_agent ? `🤖 ${(profileOf(r.collected_by_agent)?.name ?? r.collected_by_agent)}` : ''}</span>
                 <span className="t-meta">{relativeLabel(r.created_at)}</span>
               </span>
               <span className="t-smallb" style={{ display: 'block', marginTop: 3 }}>
@@ -137,18 +158,22 @@ function Research({ tabs }: { tabs: ReactNode }) {
       </div>
       <div className="pane-detail">
         {selected ? (
-          <ResearchDetail r={selected} projects={data.projects} rooms={data.rooms} onBack={() => go({ id: null })} onEdit={() => setEditing(selected)} />
+          <ResearchDetail r={selected} projects={data.projects} rooms={data.rooms} clients={data.clients} onBack={() => go({ id: null })} onEdit={() => setEditing(selected)} />
         ) : (
           <Empty>왼쪽에서 자료를 고르세요. 검토 → 할 일 만들기 · 프로젝트 연결 · 채팅 공유 · 브랜드 담당자 저장으로 바로 활용할 수 있어요.</Empty>
         )}
       </div>
-      {editing && <ResearchForm item={editing === 'new' ? null : editing} projects={data.projects} onClose={() => setEditing(null)} onSaved={id => go({ id })} />}
+      {editing === 'report' || (editing && editing !== 'new' && editing.kind === REPORT_KIND) ? (
+        <ReportForm item={editing === 'report' ? null : (editing as ResearchItem)} clients={data.clients} onClose={() => setEditing(null)} onSaved={id => go({ id })} />
+      ) : (
+        editing && <ResearchForm item={editing === 'new' ? null : editing} projects={data.projects} onClose={() => setEditing(null)} onSaved={id => go({ id })} />
+      )}
     </div>
   )
 }
 
-function ResearchDetail({ r, projects, rooms, onBack, onEdit }: { r: ResearchItem; projects: Project[]; rooms: ChatRoomSummary[]; onBack: () => void; onEdit: () => void }) {
-  const { api, me, profileName } = useApp()
+function ResearchDetail({ r, projects, rooms, clients, onBack, onEdit }: { r: ResearchItem; projects: Project[]; rooms: ChatRoomSummary[]; clients: Client[]; onBack: () => void; onEdit: () => void }) {
+  const { api, me, profileName, profileOf } = useApp()
   const { navigate } = useRouter()
   const { busy, run } = useAction()
   const [modal, setModal] = useState<'task' | 'project' | 'chat' | 'contact' | null>(null)
@@ -165,7 +190,7 @@ function ResearchDetail({ r, projects, rooms, onBack, onEdit }: { r: ResearchIte
         <Badge tone={R_TONE[r.status]}>{r.status}</Badge>
         <span className="grow" />
         <span className="t-cap">
-          {r.collected_by_agent ? `🤖 ${r.collected_by_agent}` : profileName(r.created_by)} · {shortDate(toDateKey(r.created_at))} {relativeLabel(r.created_at)}
+          {r.collected_by_agent ? `🤖 ${(profileOf(r.collected_by_agent)?.name ?? r.collected_by_agent)}` : profileName(r.created_by)} · {shortDate(toDateKey(r.created_at))} {relativeLabel(r.created_at)}
         </span>
         {(me.role === 'admin' || r.created_by === me.id) && (
           <>
@@ -190,6 +215,24 @@ function ResearchDetail({ r, projects, rooms, onBack, onEdit }: { r: ResearchIte
           {r.source_name ? ` · ${r.source_name}` : ''}
         </span>
       )}
+      {r.kind === REPORT_KIND && (
+        <span className="t-cap">
+          {r.client_id && (
+            <>
+              거래처: <Link to={`/clients?id=${r.client_id}`}>{clients.find(c => c.id === r.client_id)?.name ?? r.brand_name ?? '거래처'}</Link>
+              {clients.find(c => c.id === r.client_id) && ` (${clientCatLabel(clients.find(c => c.id === r.client_id)!.category)})`}
+            </>
+          )}
+          {r.shared_to && <> · 보고받는 사람: <b>{profileName(r.shared_to)}</b></>}
+        </span>
+      )}
+      {r.kind === REPORT_KIND ? (
+        <>
+          {r.summary && <div className="note pre">{r.summary}</div>}
+          {r.body && <ReportBody body={r.body} />}
+        </>
+      ) : (
+      <>
       {(kv.length > 0 || r.brand_name) && (
         <div className="box">
           <dl className="kv">
@@ -214,6 +257,8 @@ function ResearchDetail({ r, projects, rooms, onBack, onEdit }: { r: ResearchIte
           {t}
         </p>
       ))}
+      </>
+      )}
       {r.tags.length > 0 && <span className="t-cap t-blue">{r.tags.map(t => `#${t}`).join(' ')}</span>}
       {r.project_id && (
         <span className="t-cap">

@@ -212,3 +212,18 @@ curl -s "$WKLY_ERP_URL/rest/v1/rpc/agent_submit" \
 3. 같은 화면 **Network access** 를 Limited 로 두고 **Allowed domains** 에 `<프로젝트>.supabase.co` 를 추가합니다
    (Allow package managers 체크는 그대로). 자세한 단계: https://code.claude.com/docs/en/cloud-environments#network-access
 4. 다음 실행 뒤 관리 › WKLY 총괄 칸이 '연결됨'으로 바뀌고 '마지막 사용'·'마지막 일일 보고' 시각이 보이면 연결된 것입니다.
+
+## 거래처 리서치 보고서 (2026-10-15)
+
+메일이 온 협력사 · 클라이언트(발주처)와 과거 거래처를 조사해 **공통 양식**으로 보고서를 쓰고 담당자에게 알립니다.
+보고서는 자료실(종류 `거래처 리포트`)과 **거래처 화면 › 리서치 보고서**에 함께 보입니다.
+
+| RPC | scope | 하는 일 |
+|---|---|---|
+| `agent_research_context(p_token, p_query)` | `read` | 기본 보고서 양식, 팀원 목록, 거래처(담당자 · 기존 보고서 · 최근 프로젝트 책임자). `p_query` 로 이름 · 이메일 · 웹사이트 검색 |
+| `agent_submit_report(p_token, p_payload)` | `research` | 보고서 등록 + 담당자 알림. payload: `client_id` 또는 `client_name`, `body`(필수), `title`, `summary`, `source_url`, `tags`, `share_to`(팀원 id · 이름 · 이메일) |
+
+- 양식은 자료실 › **보고서 양식**에서 고칩니다 (기본 양식은 하나, AI 도 이 양식을 씀).
+- `share_to` 가 없으면 거래처 최근 프로젝트 책임자, 그것도 없으면 관리자 전체에게 알립니다.
+- 금액(견적 · 계약금 · 마진)은 보고서에 쓰지 않습니다.
+- 정기 실행: 매일 07:57 메일 확인 → 할 일 등록 → 거래처 보고서 최대 8건 (메일 온 거래처 먼저, 그다음 과거 기록 순).

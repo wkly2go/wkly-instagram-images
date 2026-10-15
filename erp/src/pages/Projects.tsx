@@ -10,7 +10,7 @@ import { NewApproval } from './Approvals'
 import { FinancePanel } from '../components/FinancePanel'
 import { ProjectDashboard } from './ProjectDashboard'
 import { Payments } from './Payments'
-import { Gantt, MonthCalendar, SentTasks, TaskAssignModal } from './Schedule'
+import { Gantt, MonthCalendar, SentTasks, TaskAssignModal, WeekView } from './Schedule'
 
 interface Data {
   projects: Project[]
@@ -23,7 +23,7 @@ export default function Projects() {
   const { query, path, navigate } = useRouter()
   const { me } = useApp()
   const admin = me.role === 'admin'
-  const view = query.get('view') // null(대시보드) | 'schedule' | 'calendar' | 'list' | 'mine' | 'tasks' | 'payments'
+  const view = query.get('view') // null(대시보드) | 'schedule' | 'week' | 'calendar' | 'list' | 'mine' | 'tasks' | 'payments'
   const status = (query.get('status') as ProjectStatus | 'all' | null) ?? '진행'
   const selectedId = query.get('id')
   const [editing, setEditing] = useState<Project | 'new' | null>(null)
@@ -53,6 +53,7 @@ export default function Projects() {
   const tabs: [string | null, string][] = [
     [null, '대시보드'],
     ['schedule', '일정표'],
+    ['week', '주간'],
     ['calendar', '캘린더'],
     ['list', '프로젝트 목록'],
     ['mine', '내 할 일'],
@@ -86,6 +87,8 @@ export default function Projects() {
         <Payments projects={data.projects} clients={data.clients} />
       ) : view === 'schedule' ? (
         <Gantt projects={data.projects} tasks={data.tasks} />
+      ) : view === 'week' ? (
+        <WeekView projects={data.projects} tasks={data.tasks} />
       ) : view === 'calendar' ? (
         <MonthCalendar projects={data.projects} tasks={data.tasks} />
       ) : view === 'mine' || view === 'tasks' ? (

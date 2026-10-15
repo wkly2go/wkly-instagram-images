@@ -1,11 +1,12 @@
-import { useState } from 'react'
-import { ArrowLeft, Mail, Notebook, Pencil, Phone, Plus, Search, Star, Trash2 } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { ArrowLeft, ChevronDown, ChevronRight, FileText, Mail, Notebook, Pencil, Phone, Plus, Search, Star, Trash2 } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { manwon, shortDate, timeLabel, todayKey } from '../lib/date'
 import { isOverdue, sameName, vendorSummary } from '../lib/finance'
 import { openGmail, telUrl } from '../lib/links'
 import { Link, useRouter, withQuery } from '../lib/router'
-import { CLIENT_CATEGORIES, type Client, type ClientCategory, type Contact, type Payment, type Project, type WorkLog } from '../lib/types'
+import { CLIENT_CATEGORIES, type Client, type ClientCategory, type Contact, type Payment, type Project, type ResearchItem, type WorkLog } from '../lib/types'
+import { REPORT_KIND, ReportBody, ReportForm, clientCatLabel } from '../components/Reports'
 import { Shell } from '../components/Shell'
 import { Avatar, Badge, Button, Chip, Empty, Field, KindBadge, Modal, SectionHead, StatusBadge } from '../components/ui'
 
@@ -16,10 +17,29 @@ export default function Clients() {
   const [cat, setCat] = useState<ClientCategory | null>(null)
   const [editing, setEditing] = useState<Client | 'new' | null>(null)
   const { data: clients, loading } = useAsync(() => api.listClients(), [version], [] as Client[])
+  // 검색: 거래처 정보 + 담당자(이름·메일·연락처) + 리서치 보고서 내용
+  const { data: extra } = useAsync(
+    async () => {
+      const [contacts, research] = await Promise.all([api.listContacts().catch(() => [] as Contact[]), api.listResearch().catch(() => [] as ResearchItem[])])
+      return { contacts, reports: research.filter(r => r.kind === REPORT_KIND && r.client_id) }
+    },
+    [version],
+    { contacts: [] as Contact[], reports: [] as ResearchItem[] },
+  )
   const selectedId = query.get('id')
   const selected = clients.find(c => c.id === selectedId) ?? null
-  const term = q.trim().toLowerCase()
-  const list = clients.filter(c => (!cat || c.category === cat) && (!term || [c.name, c.memo, c.email, c.phone].some(v => v?.toLowerCase().includes(term))))
+  const haystack = useMemo(() => {
+    const m = new Map<string, string>()
+    const add = (id: string, ...v: (string | null | undefined)[]) => m.set(id, `${m.get(id) ?? ''} ${v.filter(Boolean).join(' ')}`)
+    for (const c of clients) add(c.id, c.name, c.memo, c.email, c.phone, c.website, c.business_no, c.address)
+    for (const x of extra.contacts) add(x.client_id, x.name, x.title, x.email, x.phone, x.memo)
+    for (const r of extra.reports) add(r.client_id!, r.title, r.summary, r.tags.join(' '), r.body)
+    for (const [k, v] of m) m.set(k, v.toLowerCase())
+    return m
+  }, [clients, extra])
+  const reported = useMemo(() => new Set(extra.reports.map(r => r.client_id)), [extra.reports])
+  const words = q.trim().toLowerCase().split(/\s+/).filter(Boolean)
+  const list = clients.filter(c => (!cat || c.category === cat) && (!words.length || words.every(w => haystack.get(c.id)?.includes(w))))
   const go = (id: string | null) => navigate(withQuery(path, query, { id }), { replace: true })
 
   return (
@@ -35,7 +55,7 @@ export default function Clients() {
             </div>
             <div className="search">
               <Search size={14} />
-              <input className="input" placeholder="이름·메모 검색" value={q} onChange={e => setQ(e.target.value)} aria-label="거래처 검색" />
+              <input className="input" placeholder="협력사·발주처 · 담당자 · 이메일 · 보고서 검색" value={q} onChange={e => setQ(e.target.value)} aria-label="거래처 검색" />
             </div>
             <div className="chips">
               <Chip active={!cat} onClick={() => setCat(null)}>
@@ -43,7 +63,7 @@ export default function Clients() {
               </Chip>
               {CLIENT_CATEGORIES.map(c => (
                 <Chip key={c} active={cat === c} onClick={() => setCat(c)}>
-                  {c}
+                  {clientCatLabel(c)} {clients.filter(x => x.category === c).length}
                 </Chip>
               ))}
             </div>
@@ -53,21 +73,26 @@ export default function Clients() {
               <button key={c.id} type="button" className={`item ${c.id === selectedId ? 'active' : ''}`} onClick={() => go(c.id)}>
                 <div className="row">
                   <Avatar name={c.name} size="sm" />
-                  <span className="col gap-2 grow">
+                  <span className="col gap-2 grow" style={{ minWidth: 0 }}>
                     <span className="t-smallb truncate">{c.name}</span>
                     <span className="t-cap truncate">
-                      {c.category}
+                      {clientCatLabel(c.category)}
                       {c.phone ? ` · ${c.phone}` : ''}
                     </span>
                   </span>
+                  {reported.has(c.id) && (
+                    <span title="리서치 보고서 있음" aria-label="리서치 보고서 있음">
+                      📑
+                    </span>
+                  )}
                 </div>
               </button>
             ))}
-            {list.length === 0 && <Empty>{loading ? '불러오는 중…' : '거래처가 없습니다.'}</Empty>}
+            {list.length === 0 && <Empty>{loading ? '불러오는 중…' : words.length ? '찾는 거래처가 없습니다.' : '거래처가 없습니다.'}</Empty>}
           </div>
         </div>
         <div className="pane-detail" style={{ overflow: 'auto' }}>
-          {selected ? <ClientDetail key={selected.id} client={selected} onEdit={() => setEditing(selected)} onBack={() => go(null)} /> : <Empty>왼쪽에서 거래처를 고르세요.</Empty>}
+          {selected ? <ClientDetail key={selected.id} client={selected} clients={clients} onEdit={() => setEditing(selected)} onBack={() => go(null)} /> : <Empty>왼쪽에서 거래처를 고르세요.</Empty>}
         </div>
       </div>
       {editing && <ClientForm client={editing === 'new' ? null : editing} onClose={() => setEditing(null)} onSaved={id => go(id)} />}
@@ -75,18 +100,19 @@ export default function Clients() {
   )
 }
 
-function ClientDetail({ client: c, onEdit, onBack }: { client: Client; onEdit: () => void; onBack: () => void }) {
+function ClientDetail({ client: c, clients, onEdit, onBack }: { client: Client; clients: Client[]; onEdit: () => void; onBack: () => void }) {
   const { api, me, version, profileName } = useApp()
   const { navigate } = useRouter()
   const { run } = useAction()
   const [contactForm, setContactForm] = useState<Contact | 'new' | null>(null)
+  const [reportForm, setReportForm] = useState<ResearchItem | 'new' | null>(null)
   const { data } = useAsync(
     async () => {
-      const [contacts, logs, projects] = await Promise.all([api.listContacts(c.id), api.listWorkLogs({ clientId: c.id, limit: 30 }), api.listProjects()])
-      return { contacts, logs, projects: projects.filter(p => p.client_id === c.id) }
+      const [contacts, logs, projects, research] = await Promise.all([api.listContacts(c.id), api.listWorkLogs({ clientId: c.id, limit: 30 }), api.listProjects(), api.listResearch()])
+      return { contacts, logs, projects: projects.filter(p => p.client_id === c.id), allProjects: projects, reports: research.filter(r => r.client_id === c.id) }
     },
     [c.id, version],
-    { contacts: [] as Contact[], logs: [] as WorkLog[], projects: [] as Project[] },
+    { contacts: [] as Contact[], logs: [] as WorkLog[], projects: [] as Project[], allProjects: [] as Project[], reports: [] as ResearchItem[] },
   )
   const setPrimary = async (contacts: Contact[], id: string) => {
     await Promise.all(contacts.filter(o => o.is_primary && o.id !== id).map(o => api.saveContact({ id: o.id, is_primary: false })))
@@ -103,7 +129,7 @@ function ClientDetail({ client: c, onEdit, onBack }: { client: Client; onEdit: (
           <ArrowLeft size={18} />
         </button>
         <h2 className="t-title">{c.name}</h2>
-        <Badge>{c.category}</Badge>
+        <Badge>{clientCatLabel(c.category)}</Badge>
         <span className="grow" />
         {phone && (
           <a className="btn btn-outline btn-sm" href={telUrl(phone)}>
@@ -157,6 +183,7 @@ function ClientDetail({ client: c, onEdit, onBack }: { client: Client; onEdit: (
         </dl>
         {![c.business_no, c.phone, c.email, c.address, c.website, c.memo].some(Boolean) && <span className="t-cap">등록된 정보가 없습니다. 연필 버튼으로 채워 주세요.</span>}
       </div>
+      <ClientReports reports={data.reports} onWrite={() => setReportForm('new')} onEdit={r => setReportForm(r)} />
       <div className="row top gap-12" style={{ flexWrap: 'wrap' }}>
         <div className="col grow" style={{ flexBasis: 220 }}>
           <SectionHead title="담당자" right={<button type="button" className="btn btn-ghost btn-sm" onClick={() => setContactForm('new')}>+ 추가</button>} />
@@ -198,7 +225,7 @@ function ClientDetail({ client: c, onEdit, onBack }: { client: Client; onEdit: (
             ))}
             {data.projects.length === 0 && <span className="t-cap">연결된 프로젝트가 없습니다.</span>}
           </div>
-          {me.role === 'admin' && <ClientPayments client={c} />}
+          {me.role === 'admin' && <ClientPayments client={c} projects={data.allProjects} />}
         </div>
         <div className="col grow" style={{ flexBasis: 240 }}>
           <SectionHead title="커뮤니케이션 이력" right="업무 일지 연동" />
@@ -218,40 +245,125 @@ function ClientDetail({ client: c, onEdit, onBack }: { client: Client; onEdit: (
           {data.logs.length === 0 && <span className="t-cap">업무 일지에서 이 거래처를 골라 기록하면 여기에 쌓입니다.</span>}
         </div>
       </div>
+      {reportForm && <ReportForm item={reportForm === 'new' ? null : reportForm} clients={clients} presetClient={c.id} onClose={() => setReportForm(null)} />}
       {contactForm && <ContactForm clientId={c.id} contact={contactForm === 'new' ? null : contactForm} others={data.contacts} onClose={() => setContactForm(null)} />}
     </div>
   )
 }
 
-/** 거래처 상세의 결제 현황 (관리자) */
-function ClientPayments({ client: c }: { client: Client }) {
+/** 거래처 리서치 보고서: 최신 보고서는 펼쳐서, 이전 것은 목록으로 */
+function ClientReports({ reports, onWrite, onEdit }: { reports: ResearchItem[]; onWrite: () => void; onEdit: (r: ResearchItem) => void }) {
+  const { profileName, profileOf } = useApp()
+  const list = reports.filter(r => r.kind === REPORT_KIND).sort((a, b) => b.created_at.localeCompare(a.created_at))
+  const others = reports.filter(r => r.kind !== REPORT_KIND)
+  // 처음에는 최신 보고서를 펼침 (undefined = 자동)
+  const [picked, setOpen] = useState<string | null | undefined>(undefined)
+  const open = picked === undefined ? list[0]?.id ?? null : picked
+  return (
+    <div className="col gap-6">
+      <SectionHead
+        title="리서치 보고서"
+        right={
+          <button type="button" className="btn btn-ghost btn-sm" onClick={onWrite}>
+            <FileText size={13} /> 보고서 쓰기
+          </button>
+        }
+      />
+      {list.length === 0 && <span className="t-cap">아직 보고서가 없습니다. AI 팀원이 매일 아침 메일 온 거래처와 과거 거래처 순서로 작성합니다.</span>}
+      {list.map(r => (
+        <div key={r.id} className="box col gap-6">
+          <button type="button" className="row report-toggle" onClick={() => setOpen(open === r.id ? null : r.id)} aria-expanded={open === r.id}>
+            {open === r.id ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+            <span className="t-smallb grow">{r.title}</span>
+            <span className="t-cap">
+              {r.collected_by_agent ? `🤖 ${(profileOf(r.collected_by_agent)?.name ?? r.collected_by_agent)}` : profileName(r.created_by)} · {shortDate(r.created_at.slice(0, 10))}
+              {r.shared_to ? ` · ${profileName(r.shared_to)}님께 보고` : ''}
+            </span>
+          </button>
+          {open === r.id && (
+            <>
+              {r.summary && <div className="note pre">{r.summary}</div>}
+              {r.body && <ReportBody body={r.body} />}
+              <div className="row" style={{ gap: 6 }}>
+                <Link to={`/library?id=${r.id}`} className="btn btn-outline btn-sm">
+                  자료실에서 보기
+                </Link>
+                <Button kind="ghost" size="sm" onClick={() => onEdit(r)}>
+                  <Pencil size={12} /> 고치기
+                </Button>
+              </div>
+            </>
+          )}
+        </div>
+      ))}
+      {others.length > 0 && (
+        <span className="t-cap">
+          관련 자료:{' '}
+          {others.map((r, i) => (
+            <span key={r.id}>
+              {i > 0 && ' · '}
+              <Link to={`/library?id=${r.id}`}>{r.title}</Link>
+            </span>
+          ))}
+        </span>
+      )}
+    </div>
+  )
+}
+
+/** 거래처 상세의 결제 현황 (관리자): 전체 합계 + 프로젝트별 */
+function ClientPayments({ client: c, projects }: { client: Client; projects: Project[] }) {
   const { api, version } = useApp()
   const today = todayKey()
   const { data: list } = useAsync(async () => (await api.listPayments()).filter(p => p.client_id === c.id || (!p.client_id && sameName(p.payee, c.name))), [c.id, version], [] as Payment[])
   const v = vendorSummary(list, [c], today)[0]
+  const groups = useMemo(() => {
+    const m = new Map<string, Payment[]>()
+    for (const p of list) m.set(p.project_id ?? '', [...(m.get(p.project_id ?? '') ?? []), p])
+    const name = (id: string) => (id ? projects.find(x => x.id === id)?.name ?? '프로젝트' : '프로젝트 미지정')
+    return [...m.entries()]
+      .map(([id, rows]) => ({ id, name: name(id), project: projects.find(x => x.id === id) ?? null, rows: rows.slice().sort((a, b) => (b.due_date ?? b.paid_date ?? '').localeCompare(a.due_date ?? a.paid_date ?? '')), sum: vendorSummary(rows, [c], today)[0] }))
+      .sort((a, b) => (a.id ? 0 : 1) - (b.id ? 0 : 1) || (b.rows[0]?.due_date ?? '').localeCompare(a.rows[0]?.due_date ?? ''))
+  }, [list, projects, c, today])
+  const line = (s: NonNullable<typeof v>) => (
+    <>
+      받을 돈 <b className="t-blue">{manwon(s.receivable) || '0'}</b> · 받은 돈 {manwon(s.received) || '0'} · 줄 돈 <b className="t-blue">{manwon(s.payable) || '0'}</b> · 준 돈 {manwon(s.paid) || '0'}
+      {s.overdue > 0 && <span className="t-red"> · 연체 {s.overdue}건</span>}
+    </>
+  )
   return (
     <>
-      <SectionHead title="결제 현황" right={<Link to={`/projects?view=payments&q=${encodeURIComponent(c.name)}`}>결제 대장 ›</Link>} />
+      <SectionHead title="결제 현황 (프로젝트별)" right={<Link to={`/projects?view=payments&q=${encodeURIComponent(c.name)}`}>결제 대장 ›</Link>} />
       {!v ? (
         <span className="t-cap">결제 내역이 없습니다.</span>
       ) : (
         <>
-          <span className="t-cap">
-            받을 돈 <b className="t-blue">{manwon(v.receivable) || '0'}</b> · 받은 돈 {manwon(v.received) || '0'} · 줄 돈 <b className="t-blue">{manwon(v.payable) || '0'}</b> · 준 돈 {manwon(v.paid) || '0'} (공급가액)
-            {v.overdue > 0 && <span className="t-red"> · 연체 {v.overdue}건</span>}
-          </span>
-          {list
-            .slice()
-            .sort((a, b) => (b.due_date ?? b.paid_date ?? '').localeCompare(a.due_date ?? a.paid_date ?? ''))
-            .slice(0, 6)
-            .map(p => (
-              <Link key={p.id} to={`/projects?view=payments&pid=${p.id}`} className="row t-small dashed" style={{ padding: '4px 0', color: 'inherit' }}>
-                <Badge tone={p.direction === '수금' ? 'blue' : 'gray'}>{p.direction}</Badge>
-                <span className="truncate grow">{p.title}</span>
-                <span className="t-meta t-blue">{manwon(p.amount)}</span>
-                <Badge tone={isOverdue(p, today) ? 'red' : p.status === '완료' ? 'acid' : 'outline'}>{isOverdue(p, today) ? '연체' : p.status}</Badge>
-              </Link>
-            ))}
+          <span className="t-cap">전체 · {line(v)} (공급가액)</span>
+          {groups.map(g => (
+            <div key={g.id || 'none'} className="pay-group">
+              <div className="row" style={{ gap: 6 }}>
+                {g.project && <StatusBadge status={g.project.status} />}
+                {g.id ? (
+                  <Link to={`/projects?id=${g.id}`} className="t-smallb grow truncate">
+                    {g.name}
+                  </Link>
+                ) : (
+                  <span className="t-smallb grow">{g.name}</span>
+                )}
+                <span className="t-meta">{g.rows.length}건</span>
+              </div>
+              {g.sum && <span className="t-cap">{line(g.sum)}</span>}
+              {g.rows.slice(0, 8).map(p => (
+                <Link key={p.id} to={`/projects?view=payments&pid=${p.id}`} className="row t-small dashed" style={{ padding: '4px 0', color: 'inherit' }}>
+                  <Badge tone={p.direction === '수금' ? 'blue' : 'gray'}>{p.direction}</Badge>
+                  <span className="truncate grow">{p.title}</span>
+                  <span className="t-meta t-blue">{manwon(p.amount)}</span>
+                  <Badge tone={isOverdue(p, today) ? 'red' : p.status === '완료' ? 'acid' : 'outline'}>{isOverdue(p, today) ? '연체' : p.status}</Badge>
+                </Link>
+              ))}
+              {g.rows.length > 8 && <span className="t-cap">외 {g.rows.length - 8}건 · 결제 대장에서 보기</span>}
+            </div>
+          ))}
         </>
       )}
     </>

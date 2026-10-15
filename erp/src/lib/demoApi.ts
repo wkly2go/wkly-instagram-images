@@ -1,5 +1,6 @@
 import { ApiError, type Api, type ImportResult, type MessageEvent } from './api'
 import { addDays, nextMonday, toDateKey, todayKey } from './date'
+import { DEFAULT_REPORT_BODY } from './reports'
 import type {
   AccessLog,
   Note,
@@ -24,6 +25,7 @@ import type {
   Profile,
   Project,
   ProjectFinance,
+  ReportTemplate,
   ResearchItem,
   Task,
   WorkLog,
@@ -56,6 +58,7 @@ interface Store {
   attendance?: Attendance[]
   access_log?: AccessLog[]
   notes?: Note[]
+  report_templates?: ReportTemplate[]
   desktop_only?: boolean
   hr_records?: HrRecord[]
   leave_records?: LeaveRecord[]
@@ -65,7 +68,7 @@ interface Store {
   digest_date?: string
 }
 
-const KEY = 'wkly-erp-demo-v8'
+const KEY = 'wkly-erp-demo-v9'
 const SESSION_KEY = 'wkly-erp-demo-session'
 
 const uid = () => crypto.randomUUID()
@@ -145,6 +148,12 @@ function seed(): Store {
   }
   const research_items: ResearchItem[] = [
     plant,
+    {
+      id: uid(), kind: '거래처 리포트', title: '오브제랩 리서치 보고서', summary: '리빙 오브제 편집숍 · 성수 쇼룸 운영\n최근 6개월 팝업 2회 · 인스타그램 중심 운영\n가을 시즌 공간 협업 제안 여지 있음',
+      body: '# 오브제랩 리서치 보고서\n\n구분: 클라이언트 (발주처)\n작성일: 2026.10.15\n작성자: WKLY 총괄\n홈페이지: https://objetlab.example\n\n## 1. 한눈에 보기\n- 리빙 오브제 편집숍, 성수 쇼룸 운영\n- 최근 6개월 팝업 2회\n- 가을 시즌 공간 협업 제안 여지\n\n## 4. 마케팅 방향성\n- 타깃 고객: 20~30대 라이프스타일 관심층\n- 주력 채널: 인스타그램 · 오프라인 팝업\n\n## 8. 출처\n- https://objetlab.example/about',
+      source_url: 'https://objetlab.example', source_name: 'AI 리서치', brand_name: '오브제랩', tags: ['거래처 리포트', '클라이언트', '리빙'], status: '새 자료',
+      client_id: objet.id, project_id: null, shared_to: U.admin, collected_by_agent: U.pm, created_by: U.pm, created_at: at(0, '08:05'), updated_at: at(0, '08:05'),
+    },
     { id: uid(), kind: '브랜드', title: '루미에르 코스메틱 첫 오프라인 행사', summary: '뷰티 브랜드 첫 팝업. 보도자료에 협업 담당 이메일 공개.', body: null, source_url: 'https://lumiere.example/news/popup', source_name: '보도자료', brand_name: '루미에르 코스메틱', tags: ['뷰티', '첫팝업'], status: '새 자료', client_id: null, project_id: null, collected_by_agent: '팝업스케줄 리서치', created_by: null, created_at: at(0, '09:10'), updated_at: at(0, '09:10') },
     { id: uid(), kind: '트렌드', title: '10월 3주차 핫 마케팅 사례 5선', summary: '굿즈·체험형 팝업 강세, 예약제 운영이 늘어나는 흐름.', body: null, source_url: null, source_name: '마케팅 사례 에이전트', brand_name: null, tags: ['주간핫마케팅'], status: '검토 완료', client_id: null, project_id: weekly.id, collected_by_agent: '마케팅 사례', created_by: null, created_at: at(0, '08:55'), updated_at: at(0, '09:30') },
     { id: uid(), kind: '인터뷰', title: '오브제랩 대표 인터뷰 녹취 요약', summary: '공간 기획 의도 3가지와 방문객 동선 설계 이유.', body: null, source_url: 'https://drive.google.com/', source_name: 'Google Drive', brand_name: '오브제랩', tags: ['인터뷰'], status: '활용', client_id: objet.id, project_id: objetWeek.id, collected_by_agent: null, created_by: U.seoyeon, created_at: at(-1, '16:00'), updated_at: at(-1, '16:00') },
@@ -543,7 +552,7 @@ export function createDemoApi(): Api {
       persist()
     },
     async listContacts(clientId) {
-      return clone(store.contacts.filter(x => x.client_id === clientId).sort((a, b) => Number(b.is_primary) - Number(a.is_primary)))
+      return clone(store.contacts.filter(x => !clientId || x.client_id === clientId).sort((a, b) => Number(b.is_primary) - Number(a.is_primary)))
     },
     async saveContact(c) {
       return upsert<'contacts', Contact>('contacts', c, () => ({ created_at: now(), client_id: '', name: '', title: null, phone: null, email: null, memo: null, is_primary: false }) as unknown as Contact)
@@ -979,6 +988,21 @@ export function createDemoApi(): Api {
     async saveResearch(r) {
       requireMe()
       return upsert<'research_items', ResearchItem>('research_items', r, () => ({ ...base(), kind: '기타', title: '', summary: null, body: null, source_url: null, source_name: null, brand_name: null, tags: [], status: '새 자료', client_id: null, project_id: null, collected_by_agent: null }) as unknown as ResearchItem)
+    },
+    async listReportTemplates() {
+      if (!store.report_templates) {
+        store.report_templates = [{ id: uid(), name: '거래처 리서치 보고서 (기본)', body: DEFAULT_REPORT_BODY, is_default: true, created_by: null, created_at: now(), updated_at: now() }]
+        persist()
+      }
+      return clone([...store.report_templates].sort((a, b) => Number(b.is_default) - Number(a.is_default) || b.updated_at.localeCompare(a.updated_at)))
+    },
+    async saveReportTemplate(t) {
+      const list = (store.report_templates ??= [])
+      if (t.is_default) for (const x of list) if (x.id !== t.id) x.is_default = false
+      return upsert<'report_templates', ReportTemplate>('report_templates', t, () => ({ ...base(), name: '', body: '', is_default: false }) as unknown as ReportTemplate)
+    },
+    async deleteReportTemplate(id) {
+      del('report_templates', id, () => isAdmin() || (store.report_templates ?? []).some(x => x.id === id && x.created_by === me))
     },
     async deleteResearch(id) {
       const self = requireMe()
