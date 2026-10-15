@@ -26,6 +26,7 @@ import {
   TodayBadge,
 } from "../components/ui";
 import { NewApproval } from "./Approvals";
+import { AssignTaskButton } from "../components/AssignTask";
 import { MemoPad } from "../components/MemoPad";
 import { PendingReports, ReportCheck, WorkTodo, reportDate, useWorkReports } from "../components/WorkReports";
 
@@ -346,7 +347,7 @@ function TeamSide({
         <Search size={14} />
         <input className="input" value={text} onChange={(e) => setText(e.target.value)} onBlur={() => text.trim() !== q && go({ q: text.trim() || null })} placeholder="업무 내용 검색" aria-label="업무 내용 검색" />
       </form>
-      <span className="t-cap">팀원별 업무 보고</span>
+      <span className="t-cap">팀원별 업무 보고 · ✈ 눌러 바로 업무 지시</span>
       <button type="button" className={`team-person${team ? " active" : ""}`} onClick={() => go({ user: null, team: "1" })}>
         <span className="grow">팀 전체</span>
         <span className="t-meta">{logs.length}건</span>
@@ -355,7 +356,8 @@ function TeamSide({
         const active = !team && viewUser === p.id;
         const pend = pending(p.id);
         return (
-          <button key={p.id} type="button" className={`team-person${active ? " active" : ""}`} onClick={() => go({ user: p.id === me.id ? null : p.id, team: null })}>
+          <div key={p.id} className="team-row">
+          <button type="button" className={`team-person${active ? " active" : ""}`} onClick={() => go({ user: p.id === me.id ? null : p.id, team: null })}>
             <Avatar name={p.name} size="xs" />
             <span className="col grow" style={{ minWidth: 0 }}>
               <span className="t-smallb truncate">
@@ -372,6 +374,8 @@ function TeamSide({
               </Badge>
             )}
           </button>
+          <AssignTaskButton assignee={p.id} className="icon-btn team-assign" title={`${p.name}님에게 업무 지시`} />
+          </div>
         );
       })}
     </aside>

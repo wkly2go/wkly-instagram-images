@@ -560,3 +560,39 @@ export interface AdCampaign {
   flags: string | null
   checked_at: string
 }
+export const AD_SIDES = ['우리', '경쟁사', '해외'] as const
+export type AdSide = (typeof AD_SIDES)[number]
+export interface AdCreative {
+  id: string
+  side: AdSide
+  brand: string
+  platform: string | null
+  campaign: string | null
+  name: string
+  format: string | null
+  headline: string | null
+  body: string | null
+  image_url: string | null
+  link: string | null
+  status: string | null
+  started_on: string | null
+  last_seen: string | null
+  impressions: number | null
+  clicks: number | null
+  cost: number | null
+  note: string | null
+  updated_at: string
+}
+export const AD_REPORT_KINDS = ['일일 보고', '경쟁사 분석', '해외 사례'] as const
+export type AdReportKind = (typeof AD_REPORT_KINDS)[number]
+export interface AdReport {
+  id: string
+  kind: AdReportKind
+  report_date: string
+  title: string
+  summary: string | null
+  body: string | null
+  sources: string | null
+  created_at: string
+  updated_at: string
+}

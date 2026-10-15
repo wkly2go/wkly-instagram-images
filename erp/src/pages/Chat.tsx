@@ -8,6 +8,7 @@ import { Link, useRouter, withQuery } from '../lib/router'
 import type { ChatRoomSummary, Project } from '../lib/types'
 import { Shell } from '../components/Shell'
 import { Avatar, Badge, Button, Empty, Field, Modal } from '../components/ui'
+import { AssignTaskButton } from '../components/AssignTask'
 import { AgentTyping, AttachButton, DropHint, MessageList, useFileDrop } from '../components/ChatMessages'
 
 export default function Chat() {
@@ -117,7 +118,7 @@ export default function Chat() {
 }
 
 function Room({ room }: { room: ChatRoomSummary }) {
-  const { api, me, version, profileName } = useApp()
+  const { api, me, version, profileName, profiles } = useApp()
   const { navigate } = useRouter()
   const { messages, reads, send: sendMessage, sendFile, remove, edit } = useRoomMessages(room.id)
   // 여러 파일은 차례로 보냄 (실패한 파일에서 멈춤)
@@ -154,6 +155,7 @@ function Room({ room }: { room: ChatRoomSummary }) {
       send()
     }
   }
+  const dmPartner = room.members?.find(id => id !== me.id && !profiles.find(p => p.id === id)?.is_agent) ?? null
   return (
     <div className={`chat-room ${drop.dragging ? 'chat-drop' : ''}`} {...drop.props}>
       {drop.dragging && <DropHint />}
@@ -187,7 +189,10 @@ function Room({ room }: { room: ChatRoomSummary }) {
         <AgentTyping messages={messages} members={room.members} />
       </div>
       <div className="composer">
-        <AttachButton onFiles={sendFiles} />
+        <div className="composer-tools">
+          <AttachButton onFiles={sendFiles} />
+          <AssignTaskButton assignee={dmPartner} className="assign-chip" label="업무 지시" title={dmPartner ? `${profileName(dmPartner)}님에게 업무 지시` : '업무 지시'} />
+        </div>
         <textarea
           className="textarea"
           placeholder="메시지 입력 (Enter 전송, Shift+Enter 줄바꿈) · 사진은 붙여넣기(Ctrl+V)나 끌어다 놓기도 돼요"

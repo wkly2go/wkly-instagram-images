@@ -126,7 +126,7 @@ const TOOLS: Anthropic.Tool[] = [
   },
   {
     name: 'queue_mail_work',
-    description: '메일함 확인이 필요한 일을 아침 정기 실행(평일 08:24)으로 넘김. 지금은 메일함을 볼 수 없을 때 사용.',
+    description: '메일함 확인이 필요한 일을 아침 정기 실행(매일 07:57)으로 넘김. 지금은 메일함을 볼 수 없을 때 사용.',
     input_schema: { type: 'object', properties: { instruction: { type: 'string' } }, required: ['instruction'], additionalProperties: false },
   },
 ]
@@ -252,7 +252,7 @@ async function runTool(ctx: Ctx, name: string, input: Record<string, unknown>): 
     case 'queue_mail_work': {
       const { error } = await sb.from('agent_instructions').insert({ agent_id: ctx.agent.id, instruction: `[메일 확인 필요] ${s('instruction')}`.slice(0, 2000), created_by: ctx.requester.id })
       if (error) throw error
-      return { ok: true, note: '평일 08:24 정기 실행에서 메일을 보고 처리합니다.' }
+      return { ok: true, note: '매일 07:57 정기 실행에서 메일을 보고 처리합니다.' }
     }
   }
   throw new Error(`알 수 없는 도구: ${name}`)
@@ -273,7 +273,7 @@ function systemPrompt(ctx: Ctx, where: string) {
 - 요청은 바로 도구로 처리하고, 끝나면 무엇을 했는지 짧게 알린다. 되묻기보다 합리적으로 정해서 처리하고, 정한 내용을 답에 밝힌다. 정말 정할 수 없을 때만 한 가지를 묻는다.
 - 담당자 · 날짜가 필요하면 list_people · list_tasks 로 확인한다. '내일' '다음 주 화요일' 같은 날짜는 위 현재 시각 기준으로 계산한다.
 - 이미 같은 할 일이 있으면 새로 만들지 않고 알려 준다.
-- 메일함 확인이 필요한 일은 지금 볼 수 없으니 queue_mail_work 로 아침 정기 실행에 넘기고 그렇게 말한다.
+- 메일함 · 구글 드라이브 확인이 필요한 일은 지금 볼 수 없으니 queue_mail_work 로 아침 정기 실행에 넘기고 그렇게 말한다.
 - 할 수 없는 일(메일 발송 · 결제 · 외부 사이트 로그인 · 금액 확인)은 할 수 없다고 짧게 말한다.
 
 규칙
@@ -285,7 +285,7 @@ function systemPrompt(ctx: Ctx, where: string) {
 
 async function ask(ctx: Ctx, where: string, messages: Anthropic.MessageParam[]): Promise<string> {
   const apiKey = Deno.env.get('ANTHROPIC_API_KEY')
-  if (!apiKey) return 'AI 연결 키(ANTHROPIC_API_KEY)가 아직 설정되지 않아 답할 수 없습니다. 관리자에게 알려 주세요.'
+  if (!apiKey) return 'AI 연결 키 미설정 — 접수했습니다. 실시간 답변이 아직 연결되지 않아 다음 정기 실행(매일 07:57 메일 확인 · 평일 17:54 일일 보고)에서 처리합니다.'
   const client = new Anthropic({ apiKey })
   const system = systemPrompt(ctx, where)
   let useFallback = true

@@ -16,6 +16,8 @@ import type {
   Payment,
   ProjectFinance,
   AdCampaign,
+  AdCreative,
+  AdReport,
   AdDaily,
   AgentAction,
   AgentJob,
@@ -208,6 +210,8 @@ export interface Api {
   // 광고 대시보드 (관리자)
   listAdDaily(from: string, to: string): Promise<AdDaily[]>
   listAdCampaigns(): Promise<AdCampaign[]>
+  listAdCreatives(): Promise<AdCreative[]>
+  listAdReports(): Promise<AdReport[]>
   listReportTemplates(): Promise<ReportTemplate[]>
   saveReportTemplate(t: Draft<ReportTemplate>): Promise<ReportTemplate>
   deleteReportTemplate(id: string): Promise<void>
