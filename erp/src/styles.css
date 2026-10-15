@@ -736,3 +736,20 @@ button.kpi:hover, a.kpi:hover { border-color: var(--blue); }
 .textarea.mono { font-family: var(--mono); font-size: 12px; line-height: 1.6; }
 .week-meta { gap: 4px; flex-wrap: wrap; }
 .week-meta .t-meta { white-space: nowrap; }
+
+/* AI 에이전트 · 광고 대시보드 */
+.agent-job { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; background: var(--white); border: 1px solid var(--line); border-radius: var(--r-panel); }
+.agent-job.off { opacity: 0.6; }
+.agent-sum { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.agent-report { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; background: var(--white); border: 1px solid var(--line); border-radius: var(--r-panel); }
+.agent-report.lead { border: 2px solid var(--blue); }
+.agent-body { max-height: 520px; overflow: auto; padding: 8px 10px; background: var(--paper); border-radius: 6px; overflow-wrap: anywhere; }
+.ad-chart { display: flex; align-items: stretch; gap: 3px; height: 200px; padding: 8px 4px 0; background: var(--white); border: 1px solid var(--line); border-radius: var(--r-panel); }
+.ad-bar { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 2px; }
+.ad-bar .t-meta { font-size: 10px; white-space: nowrap; }
+.ad-stack { width: 70%; max-width: 32px; display: flex; flex-direction: column-reverse; gap: 2px; border-radius: 4px 4px 0 0; overflow: hidden; min-height: 2px; }
+.ad-stack i { display: block; min-height: 2px; }
+.ad-bar:hover .ad-stack { outline: 2px solid var(--yellow); }
+.ad-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; }
+.kpis.kpis-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 900px) { .kpis.kpis-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

@@ -21,6 +21,8 @@ import { playAlert } from './lib/sound'
 import { accessSource } from './lib/desktop'
 import { LockScreen, useSessionPolicy } from './lib/session'
 import Download from './pages/Download'
+import Agents from './pages/Agents'
+import Ads from './pages/Ads'
 
 const PAGES: Record<string, () => JSX.Element> = {
   '/': Home,
@@ -32,6 +34,8 @@ const PAGES: Record<string, () => JSX.Element> = {
   '/library': Library,
   '/team': Team,
   '/admin': Admin,
+  '/agents': Agents,
+  '/ads': Ads,
   '/help': Help,
   '/download': Download,
 }

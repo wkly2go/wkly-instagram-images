@@ -25,6 +25,11 @@ import type {
   Profile,
   Project,
   ProjectFinance,
+  AdCampaign,
+  AdDaily,
+  AgentJob,
+  AgentJobRequest,
+  AgentReport,
   ReportTemplate,
   ResearchItem,
   Task,
@@ -59,6 +64,11 @@ interface Store {
   access_log?: AccessLog[]
   notes?: Note[]
   report_templates?: ReportTemplate[]
+  agent_jobs?: AgentJob[]
+  agent_reports?: AgentReport[]
+  agent_job_requests?: AgentJobRequest[]
+  ad_daily?: AdDaily[]
+  ad_campaigns?: AdCampaign[]
   desktop_only?: boolean
   hr_records?: HrRecord[]
   leave_records?: LeaveRecord[]
@@ -68,7 +78,7 @@ interface Store {
   digest_date?: string
 }
 
-const KEY = 'wkly-erp-demo-v9'
+const KEY = 'wkly-erp-demo-v10'
 const SESSION_KEY = 'wkly-erp-demo-session'
 
 const uid = () => crypto.randomUUID()
@@ -469,6 +479,40 @@ export function createDemoApi(): Api {
     emit(String(table), removed)
   }
   const base = () => ({ created_by: me, created_at: now(), updated_at: now() })
+  /** 체험용 AI 에이전트 · 보고 */
+  function seedAgents() {
+    const today = todayKey()
+    const job = (id: string, name: string, group_name: string, label: string, verdict: string, summary: string, h: number): AgentJob => ({
+      trigger_id: id, name, group_name, cron: null, schedule_label: label, enabled: true, model: 'claude-opus', last_status: '성공',
+      last_fired_at: `${today}T${String(h).padStart(2, '0')}:00:00+09:00`, last_finished_at: `${today}T${String(h).padStart(2, '0')}:03:00+09:00`,
+      next_run_at: `${addDays(today, 1)}T${String(h).padStart(2, '0')}:00:00+09:00`, last_verdict: verdict, last_summary: summary, session_url: null, removed: false, synced_at: now(),
+    })
+    store.agent_jobs = [
+      job('demo_mail', 'WKLY 총괄 메일→ERP 할 일 · 거래처 리서치', 'ERP · 메일', '매일 07:57', '완료', '할 일 6건 등록 · 리서치 보고서 3건', 8),
+      job('demo_ads', 'WKLY 광고 대시보드 갱신', '광고', '매일 08:37', '완료', '어제 광고비 합계와 캠페인 상태 갱신', 8),
+      job('demo_popup', 'WKLY 팝업스케줄 홈페이지 배포', '콘텐츠', '매일 09:31', '일부 실패', '게시 4건 · 1건 브라우저 연결 없음', 9),
+      job('demo_trend', 'WKLY AI 트렌드 리서치', '리서치', '매일 06:13', '변동 없음', '새 항목 없음', 6),
+    ]
+    store.agent_reports = store.agent_jobs.map(j => ({ id: uid(), trigger_id: j.trigger_id, job_name: j.name, report_date: today, run_at: j.last_fired_at, verdict: j.last_verdict as AgentReport['verdict'], title: `${j.name} · ${today}`, summary: j.last_summary, body: `${j.last_verdict} — ${j.last_summary}\n· 체험용 보고 본문`, link: null, created_at: now() }))
+    persist()
+  }
+  /** 체험용 광고 숫자 */
+  function seedAds() {
+    const today = todayKey()
+    const rows: AdDaily[] = []
+    const camps: [AdDaily['platform'], string, number][] = [['Google', '인테리어', 6000], ['Google', '팝업', 6000], ['Google', '검색', 12000], ['Meta', '인테리어', 7000], ['Meta', '팝업', 7000], ['Meta', '페스티벌', 6000]]
+    for (let i = 14; i >= 1; i--) {
+      const d = addDays(today, -i)
+      camps.forEach(([platform, campaign, budget], k) => {
+        const impressions = 800 + ((i * 37 + k * 91) % 900)
+        const clicks = Math.round(impressions * (0.006 + (k % 3) * 0.004))
+        rows.push({ date: d, platform, campaign, impressions, clicks, cost: Math.round(budget * (0.7 + ((i + k) % 5) * 0.08)), conversions: platform === 'Google' ? (i + k) % 3 : null, note: null, updated_at: now() })
+      })
+    }
+    store.ad_daily = rows
+    store.ad_campaigns = camps.map(([platform, campaign, budget]) => ({ platform, campaign, full_name: `WKLY ${campaign} 사례_2610`, status: '게재 중', daily_budget: budget, start_date: addDays(today, -14), end_date: addDays(today, 13), flags: null, checked_at: now() }))
+    persist()
+  }
   const paymentDefaults = (): Payment => ({
     ...base(), id: '', direction: '지급', project_id: null, client_id: null, budget_line_id: null, approval_id: null, category: null, title: '', payee: null, contract_type: null, stage: null,
     amount: 0, vat: 0, tax_invoice: '미발행', tax_invoice_date: null, status: '예정', is_estimate: false, requested_date: todayKey(), due_date: null, paid_date: null, advance_by: null,
@@ -988,6 +1032,36 @@ export function createDemoApi(): Api {
     async saveResearch(r) {
       requireMe()
       return upsert<'research_items', ResearchItem>('research_items', r, () => ({ ...base(), kind: '기타', title: '', summary: null, body: null, source_url: null, source_name: null, brand_name: null, tags: [], status: '새 자료', client_id: null, project_id: null, collected_by_agent: null }) as unknown as ResearchItem)
+    },
+    async listAgentJobs() {
+      if (!store.agent_jobs) seedAgents()
+      return clone(store.agent_jobs ?? [])
+    },
+    async listAgentReports(from, to) {
+      if (!store.agent_jobs) seedAgents()
+      return clone((store.agent_reports ?? []).filter(r => r.report_date >= from && r.report_date <= to))
+    },
+    async listAgentJobRequests() {
+      return clone([...(store.agent_job_requests ?? [])].sort((a, b) => b.created_at.localeCompare(a.created_at)))
+    },
+    async requestAgentJob(req) {
+      if (!isAdmin()) throw new ApiError('관리자만 할 수 있습니다.')
+      ;(store.agent_job_requests ??= []).push({ id: uid(), trigger_id: req.trigger_id, action: req.action, detail: req.detail ?? null, status: '대기', result: null, requested_by: me, created_at: now(), handled_at: null })
+      persist()
+      emit('agent_job_requests')
+    },
+    async cancelAgentJobRequest(id) {
+      store.agent_job_requests = (store.agent_job_requests ?? []).filter(r => !(r.id === id && r.status === '대기'))
+      persist()
+      emit('agent_job_requests')
+    },
+    async listAdDaily(from, to) {
+      if (!store.ad_daily) seedAds()
+      return clone((store.ad_daily ?? []).filter(r => r.date >= from && r.date <= to))
+    },
+    async listAdCampaigns() {
+      if (!store.ad_campaigns) seedAds()
+      return clone(store.ad_campaigns ?? [])
     },
     async listReportTemplates() {
       if (!store.report_templates) {

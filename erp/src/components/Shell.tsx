@@ -11,7 +11,7 @@ import { Link, useRouter } from '../lib/router'
 import { TODAY_STATUSES, type TodayStatus } from '../lib/types'
 import { toneOf } from './ui'
 
-export type TabKey = 'home' | 'approvals' | 'chat' | 'work' | 'projects' | 'clients' | 'library' | 'team' | 'admin'
+export type TabKey = 'home' | 'approvals' | 'chat' | 'work' | 'projects' | 'clients' | 'library' | 'team' | 'agents' | 'ads' | 'admin'
 
 export const TABS: { key: TabKey; label: string; path: string; admin?: boolean }[] = [
   { key: 'home', label: '홈', path: '/' },
@@ -22,6 +22,8 @@ export const TABS: { key: TabKey; label: string; path: string; admin?: boolean }
   { key: 'clients', label: '거래처', path: '/clients' },
   { key: 'library', label: '자료실', path: '/library' },
   { key: 'team', label: '팀·근태', path: '/team' },
+  { key: 'agents', label: 'AI팀', path: '/agents', admin: true },
+  { key: 'ads', label: '광고', path: '/ads', admin: true },
   { key: 'admin', label: '관리', path: '/admin', admin: true },
 ]
 
