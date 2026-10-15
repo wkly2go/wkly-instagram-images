@@ -753,3 +753,32 @@ button.kpi:hover, a.kpi:hover { border-color: var(--blue); }
 .ad-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; }
 .kpis.kpis-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 @media (max-width: 900px) { .kpis.kpis-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* 업무 탭: 팀원별 업무 보고 · 할 일 */
+.team-side { width: 230px; flex-shrink: 0; display: flex; flex-direction: column; gap: 6px; padding: 10px; border-right: 1px solid var(--line); background: var(--white); overflow: auto; }
+.team-person { display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px 8px; border: 1px solid transparent; border-radius: var(--r-panel); background: none; cursor: pointer; text-align: left; font: inherit; color: inherit; }
+.team-person:hover { background: var(--yellow-tint); }
+.team-person.active { border-color: var(--blue); background: var(--blue-tint); }
+.todo-pad { width: 300px; }
+.todo-row { gap: 6px; padding: 4px 0; border-bottom: 1px dashed var(--line); align-items: flex-start; cursor: pointer; }
+.todo-row input[type="checkbox"] { margin-top: 3px; }
+.todo-row.late .t-small { color: var(--red); }
+.pending-reports { padding: 8px; border: 1px solid var(--red); border-radius: var(--r-panel); background: var(--white); }
+.report-check { display: inline-flex; align-items: center; gap: 3px; border: 0; background: none; padding: 0; font: 700 12px/1.4 var(--font); color: var(--gray); cursor: pointer; white-space: nowrap; }
+.report-check:disabled { cursor: default; }
+.report-check:not(:disabled) { color: var(--blue); }
+.report-check.done { color: var(--green); }
+.report-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 8px 14px; border-bottom: 1px dashed var(--line); background: var(--white); }
+.report-chip { gap: 4px; }
+.log-day { align-self: flex-start; border: 0; background: var(--paper); border-radius: 999px; padding: 2px 10px; font: 700 12px/1.6 var(--mono); color: var(--blue); cursor: pointer; }
+@media (max-width: 900px) {
+  .work-body { flex-direction: column; }
+  .team-side { width: auto; border-right: 0; border-bottom: 1px solid var(--line); max-height: 220px; }
+  .todo-pad, .memo-pad { width: auto; border-left: 0; border-top: 1px solid var(--line); }
+}
+/* 업무 탭 3단일 때 입력창이 좁아지지 않게 */
+.work-main .composer-row { flex-wrap: wrap; }
+.work-main .composer-row > .textarea { flex-basis: 100%; min-width: 0; }
+.work-main .composer-meta { width: auto; flex: 1 1 260px; min-width: 0; flex-wrap: wrap; }
+.work-main .composer-meta .pick { flex: 1 1 140px; min-width: 0; }
+@media (max-width: 1300px) { .team-side { width: 190px; } .todo-pad, .memo-pad { width: 250px; } }

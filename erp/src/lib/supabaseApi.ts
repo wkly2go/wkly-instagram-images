@@ -165,6 +165,9 @@ export function createSupabaseApi(url: string, key: string): Api {
     async listWorkLogs(f) {
       let q = sb.from('work_logs').select('*')
       if (f.date) q = q.eq('log_date', f.date)
+      if (f.from) q = q.gte('log_date', f.from)
+      if (f.to) q = q.lte('log_date', f.to)
+      if (f.q?.trim()) q = q.ilike('content', `%${f.q.trim().replace(/[%_]/g, '')}%`)
       if (f.userId) q = q.eq('user_id', f.userId)
       if (f.clientId) q = q.eq('client_id', f.clientId)
       if (f.projectId) q = q.eq('project_id', f.projectId)

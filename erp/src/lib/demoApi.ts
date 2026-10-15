@@ -650,7 +650,7 @@ export function createDemoApi(): Api {
     },
 
     async listWorkLogs(f) {
-      let rows = store.work_logs.filter(x => (!f.date || x.log_date === f.date) && (!f.userId || x.user_id === f.userId) && (!f.clientId || x.client_id === f.clientId) && (!f.projectId || x.project_id === f.projectId))
+      let rows = store.work_logs.filter(x => (!f.date || x.log_date === f.date) && (!f.from || x.log_date >= f.from) && (!f.to || x.log_date <= f.to) && (!f.q?.trim() || x.content.toLowerCase().includes(f.q.trim().toLowerCase())) && (!f.userId || x.user_id === f.userId) && (!f.clientId || x.client_id === f.clientId) && (!f.projectId || x.project_id === f.projectId))
       rows = rows.sort((a, b) => (f.date ? a.created_at.localeCompare(b.created_at) : b.created_at.localeCompare(a.created_at)))
       if (f.limit) rows = rows.slice(0, f.limit)
       return clone(rows)
