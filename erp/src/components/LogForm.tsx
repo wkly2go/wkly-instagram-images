@@ -83,7 +83,7 @@ function useSubmit(date: string | undefined, onDone: () => void) {
 // ---------------------------------------------------------------------
 // 검색해서 고르는 칸 (거래처 · 프로젝트)
 // ---------------------------------------------------------------------
-interface PickItem {
+export interface PickItem {
   id: string
   label: string
   sub?: string

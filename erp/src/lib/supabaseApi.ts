@@ -25,6 +25,7 @@ import type {
   Profile,
   Project,
   ProjectFinance,
+  ReportTemplate,
   ResearchItem,
   Task,
   WorkLog,
@@ -135,6 +136,7 @@ export function createSupabaseApi(url: string, key: string): Api {
     saveClient: c => save('clients', c) as Promise<Client>,
     deleteClient: id => remove('clients', id),
     async listContacts(clientId) {
+      if (!clientId) return must(await sb.from('contacts').select('*').limit(5000)) as Contact[]
       return must(await sb.from('contacts').select('*').eq('client_id', clientId).order('is_primary', { ascending: false }).order('created_at')) as Contact[]
     },
     saveContact: c => save('contacts', c) as Promise<Contact>,
@@ -389,6 +391,12 @@ export function createSupabaseApi(url: string, key: string): Api {
     },
     saveResearch: r => save('research_items', r) as Promise<ResearchItem>,
     deleteResearch: id => remove('research_items', id),
+    async listReportTemplates() {
+      const r = await sb.from('report_templates').select('*').order('is_default', { ascending: false }).order('updated_at', { ascending: false })
+      return r.error ? [] : (r.data as ReportTemplate[])
+    },
+    saveReportTemplate: t => save('report_templates', t) as Promise<ReportTemplate>,
+    deleteReportTemplate: id => remove('report_templates', id),
     async listBrandContacts() {
       return must(await sb.from('brand_contacts').select('*').order('created_at', { ascending: false }).limit(2000)) as BrandContact[]
     },

@@ -15,6 +15,7 @@ import type {
   EmailTemplate,
   Payment,
   ProjectFinance,
+  ReportTemplate,
   ResearchItem,
   Attendance,
   HrRecord,
@@ -97,7 +98,8 @@ export interface Api {
   listClients(): Promise<Client[]>
   saveClient(c: Draft<Client>): Promise<Client>
   deleteClient(id: string): Promise<void>
-  listContacts(clientId: string): Promise<Contact[]>
+  /** clientId 없으면 전체 (거래처 검색용) */
+  listContacts(clientId?: string): Promise<Contact[]>
   saveContact(c: Draft<Contact>): Promise<Contact>
   deleteContact(id: string): Promise<void>
 
@@ -186,6 +188,9 @@ export interface Api {
 
   // 자료실
   listResearch(): Promise<ResearchItem[]>
+  listReportTemplates(): Promise<ReportTemplate[]>
+  saveReportTemplate(t: Draft<ReportTemplate>): Promise<ReportTemplate>
+  deleteReportTemplate(id: string): Promise<void>
   saveResearch(r: Draft<ResearchItem>): Promise<ResearchItem>
   deleteResearch(id: string): Promise<void>
   listBrandContacts(): Promise<BrandContact[]>

@@ -185,7 +185,7 @@ function ProfilePanel({ summary }: { summary: Summary }) {
 /** 왼쪽 위 작은 달력: 일정이 있는 날에 점, 날짜를 누르면 큰 달력으로 */
 function MiniCalendar() {
   const { api, me, version, profileName } = useApp()
-  const { navigate } = useRouter()
+  const { navigate, path, query } = useRouter()
   const today = todayKey()
   const [month, setMonth] = useState(today.slice(0, 7))
   const { data } = useAsync(
@@ -219,6 +219,13 @@ function MiniCalendar() {
     return m
   }, [data, month, me.id, profileName])
   const [y, mo] = month.split('-')
+  // 주간 보기 중이면 그 주(월~일)를 표시
+  const weekOf = useMemo<[string, string] | null>(() => {
+    if (path !== '/projects' || query.get('view') !== 'week') return null
+    const d = query.get('date') ?? today
+    const dow = (new Date(`${d}T00:00:00Z`).getUTCDay() + 6) % 7
+    return [addDays(d, -dow), addDays(d, 6 - dow)]
+  }, [path, query, today])
   return (
     <section className="mini-cal" aria-label="이번 달 달력">
       <div className="row">
@@ -246,9 +253,9 @@ function MiniCalendar() {
             <button
               key={d}
               type="button"
-              className={`day${d === today ? ' today' : ''}${dow === 0 ? ' sun' : ''}`}
-              title={ev ? ev.labels.join('\n') : undefined}
-              onClick={() => navigate('/projects?view=calendar')}
+              className={`day${d === today ? ' today' : ''}${dow === 0 ? ' sun' : ''}${weekOf && d >= weekOf[0] && d <= weekOf[1] ? ' in-week' : ''}`}
+              title={ev ? ev.labels.join('\n') : '이 주 일정 보기'}
+              onClick={() => navigate(`/projects?view=week&date=${d}`)}
             >
               {Number(d.slice(8))}
               {ev && <i className={ev.mine ? 'mine' : ''} />}

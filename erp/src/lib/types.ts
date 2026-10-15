@@ -378,7 +378,7 @@ export interface AdminOverview {
 }
 
 // ---------- 자료실 ----------
-export const RESEARCH_KINDS = ['팝업', '브랜드', '트렌드', '경쟁사', '인터뷰', '기타'] as const
+export const RESEARCH_KINDS = ['거래처 리포트', '팝업', '브랜드', '트렌드', '경쟁사', '인터뷰', '기타'] as const
 export type ResearchKind = (typeof RESEARCH_KINDS)[number]
 export const RESEARCH_STATUSES = ['새 자료', '검토 완료', '활용', '보관'] as const
 export type ResearchStatus = (typeof RESEARCH_STATUSES)[number]
@@ -397,6 +397,19 @@ export interface ResearchItem {
   client_id: string | null
   project_id: string | null
   collected_by_agent: string | null
+  /** 보고받는 담당자 (거래처 리포트) */
+  shared_to?: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+/** 리서치 보고서 공통 양식: {{거래처}} {{구분}} {{작성일}} {{작성자}} 를 채워 씀 */
+export interface ReportTemplate {
+  id: string
+  name: string
+  body: string
+  is_default: boolean
   created_by: string | null
   created_at: string
   updated_at: string
