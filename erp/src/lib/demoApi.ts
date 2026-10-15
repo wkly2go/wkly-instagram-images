@@ -65,7 +65,7 @@ interface Store {
   digest_date?: string
 }
 
-const KEY = 'wkly-erp-demo-v7'
+const KEY = 'wkly-erp-demo-v8'
 const SESSION_KEY = 'wkly-erp-demo-session'
 
 const uid = () => crypto.randomUUID()
@@ -132,7 +132,7 @@ function seed(): Store {
   const objetWeek = pj("성수 팝업 '오브제 위크'", objet, '팝업', '진행', U.haneul, -2, 14, '서울 성동구 성수동', '오브제랩 브랜드 팝업 운영 · 현장 사진 · 철수')
   const autumn = pj('가을 시즌 인스타 캠페인', loop, '캠페인', '진행', U.doyun, -11, 19, null, '릴스 6편 + 피드 12장')
   const weekly = pj('주간 핫 마케팅 3주차', null, '콘텐츠', '기획', U.seoyeon, 1, 7)
-  const paper = pj("연남 팝업 '페이퍼 마켓'", high, '팝업', '기획', U.seoyeon, 21, 34, '서울 마포구 연남동')
+  const paper = pj("연남 팝업 '페이퍼 마켓'", high, '팝업', 'NIC', U.seoyeon, 21, 34, '서울 마포구 연남동')
   const yeouido = pj('여의도 팝업 리뷰 콘텐츠', green, '콘텐츠', '완료', U.haneul, -20, -7)
   const hannam = pj('한남 플래그십 인테리어', objet, '팝업', '진행', U.admin, -35, 120, '서울 용산구 한남동', '브랜드 플래그십 매장 설계 · 시공 (협력사 협업)')
   const projects = [objetWeek, autumn, weekly, paper, yeouido, hannam]

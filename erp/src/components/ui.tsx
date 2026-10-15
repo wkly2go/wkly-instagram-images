@@ -25,6 +25,7 @@ const STATUS_TONE: Record<string, Tone> = {
   취소: 'paper',
   기획: 'outline',
   진행: 'blue',
+  NIC: 'red',
   완료: 'acid',
   보류: 'paper',
   '할 일': 'outline',
@@ -33,7 +34,11 @@ const STATUS_TONE: Record<string, Tone> = {
 }
 
 export function StatusBadge({ status }: { status: ApprovalStatus | ProjectStatus | TaskStatus | '지연' }) {
-  return <Badge tone={STATUS_TONE[status] ?? 'outline'}>{status}</Badge>
+  return (
+    <Badge tone={STATUS_TONE[status] ?? 'outline'} title={status === 'NIC' ? 'Not In Contract · 계약 전' : undefined}>
+      {status}
+    </Badge>
+  )
 }
 
 export function KindBadge({ kind }: { kind: LogKind | string }) {

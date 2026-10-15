@@ -129,7 +129,8 @@ export interface Contact {
 
 export const PROJECT_CATEGORIES = ['팝업', '캠페인', '콘텐츠', '기타'] as const
 export type ProjectCategory = (typeof PROJECT_CATEGORIES)[number]
-export const PROJECT_STATUSES = ['기획', '진행', '완료', '보류'] as const
+/** NIC = Not In Contract (계약 전) */
+export const PROJECT_STATUSES = ['기획', '진행', 'NIC', '완료', '보류'] as const
 export type ProjectStatus = (typeof PROJECT_STATUSES)[number]
 
 export interface Project {
