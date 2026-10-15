@@ -658,6 +658,16 @@ export function createDemoApi(): Api {
       for (const p of store.profiles) if (p.id !== msg.user_id && content.includes(`@${p.name}`) && (!room?.members || room.members.includes(p.id))) notify(p.id, '멘션', `${nameOf(msg.user_id)}님이 언급했어요 · ${room?.members ? '1:1 대화' : room?.name ?? '채팅'}`, content.slice(0, 80), `/chat?room=${roomId}`)
       persist()
       emit('chat_messages', { type: 'INSERT', message: msg } satisfies MessageEvent)
+      // 체험 모드: AI 팀원에게 말을 걸면 안내 답장 (실제 서비스는 Claude 가 바로 처리)
+      const agent = store.profiles.find(p => p.is_agent && p.active && (room?.members?.includes(p.id) || content.includes(`@${p.name}`)))
+      if (agent && agent.id !== msg.user_id) {
+        window.setTimeout(() => {
+          const reply: ChatMessage = { id: ++store.seq + 1000, room_id: roomId, user_id: agent.id, content: '(체험 모드) 실제 인트라넷에서는 여기서 바로 요청을 처리하고 결과를 알려 드립니다. 예: 할 일 등록 · 일정 정리 · 담당자 알림.', created_at: now(), edited_at: null }
+          store.chat_messages.push(reply)
+          persist()
+          emit('chat_messages', { type: 'INSERT', message: reply } satisfies MessageEvent)
+        }, 2500)
+      }
       return clone(msg)
     },
     async sendFile(roomId, file, caption) {

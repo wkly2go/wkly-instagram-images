@@ -256,3 +256,31 @@ export function DropHint() {
     </div>
   )
 }
+
+/** AI 팀원이 답을 쓰는 중 표시: AI 가 있는 방에서 사람이 AI 에게 말을 건 뒤 아직 답이 없을 때 (최대 3분) */
+export function AgentTyping({ messages, members }: { messages: ChatMessage[]; members?: string[] | null }) {
+  const { profiles } = useApp()
+  const [, tick] = useState(0)
+  const agents = profiles.filter(p => p.is_agent && p.active)
+  const last = messages[messages.length - 1]
+  const lastIsHuman = !!last && !agents.some(a => a.id === last.user_id)
+  const agent = last && lastIsHuman ? agents.find(a => (members ?? []).includes(a.id) || last.content.includes(`@${a.name}`)) : undefined
+  const age = last ? Date.now() - new Date(last.created_at).getTime() : Infinity
+  const waiting = !!agent && age < 3 * 60_000
+  useEffect(() => {
+    if (!waiting) return
+    const id = window.setInterval(() => tick(t => t + 1), 5_000)
+    return () => window.clearInterval(id)
+  }, [waiting])
+  if (!waiting || !agent) return null
+  return (
+    <div className="agent-typing" role="status">
+      <span className="dots" aria-hidden="true">
+        <i />
+        <i />
+        <i />
+      </span>
+      {agent.name}이(가) 확인하고 처리하는 중…
+    </div>
+  )
+}
