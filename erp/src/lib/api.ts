@@ -15,6 +15,12 @@ import type {
   EmailTemplate,
   Payment,
   ProjectFinance,
+  AdCampaign,
+  AdDaily,
+  AgentAction,
+  AgentJob,
+  AgentJobRequest,
+  AgentReport,
   ReportTemplate,
   ResearchItem,
   Attendance,
@@ -188,6 +194,15 @@ export interface Api {
 
   // 자료실
   listResearch(): Promise<ResearchItem[]>
+  // Claude AI 에이전트 (관리자)
+  listAgentJobs(): Promise<AgentJob[]>
+  listAgentReports(from: string, to: string): Promise<AgentReport[]>
+  listAgentJobRequests(): Promise<AgentJobRequest[]>
+  requestAgentJob(r: { trigger_id: string; action: AgentAction; detail?: string | null }): Promise<void>
+  cancelAgentJobRequest(id: string): Promise<void>
+  // 광고 대시보드 (관리자)
+  listAdDaily(from: string, to: string): Promise<AdDaily[]>
+  listAdCampaigns(): Promise<AdCampaign[]>
   listReportTemplates(): Promise<ReportTemplate[]>
   saveReportTemplate(t: Draft<ReportTemplate>): Promise<ReportTemplate>
   deleteReportTemplate(id: string): Promise<void>

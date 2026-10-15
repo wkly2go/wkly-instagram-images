@@ -25,6 +25,11 @@ import type {
   Profile,
   Project,
   ProjectFinance,
+  AdCampaign,
+  AdDaily,
+  AgentJob,
+  AgentJobRequest,
+  AgentReport,
   ReportTemplate,
   ResearchItem,
   Task,
@@ -391,6 +396,32 @@ export function createSupabaseApi(url: string, key: string): Api {
     },
     saveResearch: r => save('research_items', r) as Promise<ResearchItem>,
     deleteResearch: id => remove('research_items', id),
+    async listAgentJobs() {
+      const r = await sb.from('agent_jobs').select('*').eq('removed', false).order('group_name').order('name')
+      return r.error ? [] : (r.data as AgentJob[])
+    },
+    async listAgentReports(from, to) {
+      const r = await sb.from('agent_reports').select('*').gte('report_date', from).lte('report_date', to).order('report_date', { ascending: false }).order('run_at', { ascending: false, nullsFirst: false }).limit(1000)
+      return r.error ? [] : (r.data as AgentReport[])
+    },
+    async listAgentJobRequests() {
+      const r = await sb.from('agent_job_requests').select('*').order('created_at', { ascending: false }).limit(100)
+      return r.error ? [] : (r.data as AgentJobRequest[])
+    },
+    async requestAgentJob(req) {
+      must(await sb.from('agent_job_requests').insert({ trigger_id: req.trigger_id, action: req.action, detail: req.detail ?? null }))
+    },
+    async cancelAgentJobRequest(id) {
+      must(await sb.from('agent_job_requests').delete().eq('id', id))
+    },
+    async listAdDaily(from, to) {
+      const r = await sb.from('ad_daily').select('*').gte('date', from).lte('date', to).order('date').limit(5000)
+      return r.error ? [] : (r.data as AdDaily[])
+    },
+    async listAdCampaigns() {
+      const r = await sb.from('ad_campaigns').select('*').order('platform').order('campaign')
+      return r.error ? [] : (r.data as AdCampaign[])
+    },
     async listReportTemplates() {
       const r = await sb.from('report_templates').select('*').order('is_default', { ascending: false }).order('updated_at', { ascending: false })
       return r.error ? [] : (r.data as ReportTemplate[])

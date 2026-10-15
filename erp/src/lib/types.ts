@@ -488,3 +488,75 @@ export interface AppNotification {
 
 // 저장용 입력 타입: id 가 있으면 수정, 없으면 생성
 export type Draft<T> = Partial<T>
+
+// ---------- Claude AI 에이전트 · 광고 ----------
+export const AGENT_VERDICTS = ['완료', '변동 없음', '일부 실패', '실패', '미실행', '진행 중'] as const
+export type AgentVerdict = (typeof AGENT_VERDICTS)[number]
+export interface AgentJob {
+  trigger_id: string
+  name: string
+  group_name: string
+  cron: string | null
+  schedule_label: string | null
+  enabled: boolean
+  model: string | null
+  last_status: string | null
+  last_fired_at: string | null
+  last_finished_at: string | null
+  next_run_at: string | null
+  last_verdict: string | null
+  last_summary: string | null
+  session_url: string | null
+  removed: boolean
+  synced_at: string
+}
+export interface AgentReport {
+  id: string
+  trigger_id: string | null
+  job_name: string
+  report_date: string
+  run_at: string | null
+  verdict: AgentVerdict
+  title: string
+  summary: string | null
+  body: string | null
+  link: string | null
+  created_at: string
+}
+export const AGENT_ACTIONS = ['지금 실행', '일시정지', '재개', '시간 변경', '지시 수정'] as const
+export type AgentAction = (typeof AGENT_ACTIONS)[number]
+export interface AgentJobRequest {
+  id: string
+  trigger_id: string
+  action: AgentAction
+  detail: string | null
+  status: '대기' | '처리 중' | '완료' | '수동 필요' | '거절'
+  result: string | null
+  requested_by: string | null
+  created_at: string
+  handled_at: string | null
+}
+export const AD_PLATFORMS = ['Google', 'Meta', 'Naver', '기타'] as const
+export type AdPlatform = (typeof AD_PLATFORMS)[number]
+export interface AdDaily {
+  date: string
+  platform: AdPlatform
+  campaign: string
+  impressions: number | null
+  clicks: number | null
+  cost: number | null
+  conversions: number | null
+  note: string | null
+  updated_at: string
+}
+export interface AdCampaign {
+  platform: AdPlatform
+  campaign: string
+  full_name: string | null
+  status: string | null
+  daily_budget: number | null
+  start_date: string | null
+  end_date: string | null
+  flags: string | null
+  checked_at: string
+}
