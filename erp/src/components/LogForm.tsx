@@ -1,5 +1,5 @@
-import { useState, type KeyboardEvent } from 'react'
-import { Send } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { Search, Send, X } from 'lucide-react'
 import { useApp, useAsync } from '../lib/app'
 import { friendlyError } from '../lib/api'
 import { todayKey } from '../lib/date'
@@ -26,7 +26,7 @@ function useLookups() {
   return useAsync<{ clients: Client[]; projects: Project[] }>(
     async () => {
       const [clients, projects] = await Promise.all([api.listClients(), api.listProjects()])
-      return { clients, projects: projects.filter(p => p.status !== '완료') }
+      return { clients, projects }
     },
     [version],
     { clients: [], projects: [] },
@@ -80,27 +80,225 @@ function useSubmit(date: string | undefined, onDone: () => void) {
   return { busy, submit }
 }
 
+// ---------------------------------------------------------------------
+// 검색해서 고르는 칸 (거래처 · 프로젝트)
+// ---------------------------------------------------------------------
+interface PickItem {
+  id: string
+  label: string
+  sub?: string
+  group?: string
+}
+
+const norm = (s: string) => s.toLowerCase().replace(/[\s·.,()[\]'"‘’“”_-]/g, '')
+
+export function SearchPick({ items, value, onChange, placeholder, label, groups }: { items: PickItem[]; value: string; onChange: (id: string) => void; placeholder: string; label: string; groups?: string[] }) {
+  const [q, setQ] = useState('')
+  const [open, setOpen] = useState(false)
+  const [hi, setHi] = useState(0)
+  const box = useRef<HTMLDivElement>(null)
+  const selected = items.find(i => i.id === value)
+  useEffect(() => {
+    if (!open) return
+    const off = (e: MouseEvent) => !box.current?.contains(e.target as Node) && setOpen(false)
+    document.addEventListener('mousedown', off)
+    return () => document.removeEventListener('mousedown', off)
+  }, [open])
+  const list = useMemo(() => {
+    const k = norm(q)
+    const hit = k ? items.filter(i => norm(i.label).includes(k) || (i.sub && norm(i.sub).includes(k))) : items
+    const order = groups ?? []
+    return [...hit].sort((a, b) => order.indexOf(a.group ?? '') - order.indexOf(b.group ?? ''))
+  }, [items, q, groups])
+  const pick = (id: string) => {
+    onChange(id)
+    setQ('')
+    setOpen(false)
+  }
+  const onKey = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.nativeEvent.isComposing) return
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setOpen(true)
+      setHi(h => Math.min(h + 1, list.length - 1))
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setHi(h => Math.max(h - 1, 0))
+    } else if (e.key === 'Enter' && open && list[hi]) {
+      e.preventDefault()
+      pick(list[hi].id)
+    } else if (e.key === 'Escape') setOpen(false)
+  }
+  return (
+    <div className="pick" ref={box}>
+      {selected && !open ? (
+        <button type="button" className="pick-chosen" onClick={() => setOpen(true)} title={`${label} 바꾸기`}>
+          <span className="truncate">{selected.label}</span>
+          <span
+            className="pick-x"
+            role="button"
+            aria-label={`${label} 지우기`}
+            onClick={e => {
+              e.stopPropagation()
+              onChange('')
+            }}
+          >
+            <X size={12} />
+          </span>
+        </button>
+      ) : (
+        <label className="pick-input">
+          <Search size={13} aria-hidden="true" />
+          <input
+            className="input"
+            value={q}
+            placeholder={placeholder}
+            autoFocus={open && !!selected}
+            onFocus={() => setOpen(true)}
+            onChange={e => {
+              setQ(e.target.value)
+              setHi(0)
+              setOpen(true)
+            }}
+            onKeyDown={onKey}
+            aria-label={`${label} 검색`}
+          />
+        </label>
+      )}
+      {open && (
+        <div className="pick-list" role="listbox" aria-label={label}>
+          {list.length === 0 && <div className="pick-empty">'{q}' 검색 결과가 없습니다.</div>}
+          {list.slice(0, 60).map((it, i) => {
+            const head = it.group && (i === 0 || list[i - 1].group !== it.group)
+            return (
+              <div key={it.id}>
+                {head && <div className="pick-group">{it.group}</div>}
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={it.id === value}
+                  className={`pick-item ${i === hi ? 'hi' : ''} ${it.id === value ? 'on' : ''}`}
+                  onMouseEnter={() => setHi(i)}
+                  onClick={() => pick(it.id)}
+                >
+                  <span className="truncate grow">{it.label}</span>
+                  {it.sub && <span className="t-cap truncate">{it.sub}</span>}
+                </button>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** 프로젝트 묶음: 진행 중 · 기획(NIC) · 보류 · 완료 */
+export const PROJECT_GROUPS = ['진행 중', '기획 · NIC', '보류', '완료']
+export const projectGroup = (p: Project) => (p.status === '진행' ? '진행 중' : p.status === '기획' ? '기획 · NIC' : p.status)
+
+/** 업무 내용에서 프로젝트 · 거래처 찾기: 이름이 통째로 들어 있거나, 이름의 주요 단어가 들어 있으면 연결 */
+export function guessLinks(text: string, projects: Project[], clients: Client[]): { projectId?: string; clientId?: string } {
+  const t = norm(text)
+  if (t.length < 2) return {}
+  const words = (name: string) => name.split(/[\s·.,()[\]'"‘’“”_/-]+/).map(norm).filter(w => w.length >= 2)
+  const score = (name: string) => {
+    const n = norm(name)
+    if (n.length >= 2 && t.includes(n)) return 100 + n.length
+    const ws = words(name)
+    const hit = ws.filter(w => t.includes(w))
+    // 긴 단어 하나(3자 이상) 또는 단어 두 개 이상이 맞을 때만
+    if (hit.length >= 2) return 50 + hit.join('').length
+    if (hit.length === 1 && hit[0].length >= 3) return 20 + hit[0].length
+    return 0
+  }
+  const live = projects.filter(p => p.status !== '완료')
+  let best: { p: Project; s: number } | null = null
+  for (const p of live) {
+    const s = score(p.name)
+    if (s > 0 && (!best || s > best.s)) best = { p, s }
+  }
+  let client: Client | null = null
+  let cs = 0
+  for (const c of clients) {
+    const s = score(c.name)
+    if (s > cs) {
+      cs = s
+      client = c
+    }
+  }
+  if (best) return { projectId: best.p.id, clientId: best.p.client_id ?? client?.id }
+  if (client) {
+    const theirs = live.filter(p => p.client_id === client!.id)
+    return { clientId: client.id, projectId: theirs.length === 1 ? theirs[0].id : undefined }
+  }
+  return {}
+}
+
 function Selects({ d, set, clients, projects }: { d: LogDraft; set: (p: Partial<LogDraft>) => void; clients: Client[]; projects: Project[] }) {
+  const clientName = (id: string | null) => clients.find(c => c.id === id)?.name
   return (
     <>
-      <select className="select" value={d.clientId} onChange={e => set({ clientId: e.target.value })} aria-label="거래처">
-        <option value="">거래처 ▾</option>
-        {clients.map(c => (
-          <option key={c.id} value={c.id}>
-            {c.name}
-          </option>
-        ))}
-      </select>
-      <select className="select" value={d.projectId} onChange={e => set({ projectId: e.target.value })} aria-label="프로젝트">
-        <option value="">프로젝트 ▾</option>
-        {projects.map(p => (
-          <option key={p.id} value={p.id}>
-            {p.name}
-          </option>
-        ))}
-      </select>
+      <SearchPick
+        label="거래처"
+        placeholder="거래처 검색"
+        value={d.clientId}
+        onChange={id => set({ clientId: id })}
+        items={clients.map(c => ({ id: c.id, label: c.name, sub: c.category }))}
+      />
+      <SearchPick
+        label="프로젝트"
+        placeholder="프로젝트 검색"
+        value={d.projectId}
+        groups={PROJECT_GROUPS}
+        onChange={id => {
+          const p = projects.find(x => x.id === id)
+          // 프로젝트를 고르면 그 거래처도 함께
+          set({ projectId: id, ...(p?.client_id && !d.clientId ? { clientId: p.client_id } : {}) })
+        }}
+        items={projects.map(p => ({ id: p.id, label: p.name, sub: clientName(p.client_id) ?? undefined, group: projectGroup(p) }))}
+      />
     </>
   )
+}
+
+/** 업무 내용을 쓰는 동안 프로젝트 · 거래처를 자동으로 연결 (직접 고르면 그대로 둠) */
+function useAutoLink(d: LogDraft, set: (p: Partial<LogDraft>) => void, projects: Project[], clients: Client[]) {
+  const manual = useRef({ project: false, client: false })
+  const [auto, setAuto] = useState<{ project: boolean; client: boolean }>({ project: false, client: false })
+  useEffect(() => {
+    const id = window.setTimeout(() => {
+      const g = guessLinks(`${d.content} ${d.subject}`, projects, clients)
+      const patch: Partial<LogDraft> = {}
+      const next = { ...auto }
+      if (!manual.current.project && g.projectId && g.projectId !== d.projectId) {
+        patch.projectId = g.projectId
+        next.project = true
+      }
+      if (!manual.current.client && g.clientId && g.clientId !== d.clientId) {
+        patch.clientId = g.clientId
+        next.client = true
+      }
+      if (Object.keys(patch).length) {
+        set(patch)
+        setAuto(next)
+      }
+    }, 350)
+    return () => window.clearTimeout(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [d.content, d.subject, projects, clients])
+  // 사람이 고르면 자동 연결을 멈춤
+  const setManual = (p: Partial<LogDraft>) => {
+    if ('projectId' in p) manual.current.project = true
+    if ('clientId' in p) manual.current.client = true
+    setAuto({ project: false, client: false })
+    set(p)
+  }
+  const reset = () => {
+    manual.current = { project: false, client: false }
+    setAuto({ project: false, client: false })
+  }
+  return { setManual, reset, auto: auto.project || auto.client }
 }
 
 /** 업무 일지 화면 하단: 채팅처럼 쓰는 입력줄 */
@@ -108,7 +306,11 @@ export function LogComposer({ date, initialClientId = '' }: { date: string; init
   const { clients, projects } = useLookups()
   const [d, setD] = useState<LogDraft>(() => empty('업무', initialClientId))
   const set = (p: Partial<LogDraft>) => setD(prev => ({ ...prev, ...p }))
-  const { busy, submit } = useSubmit(date, () => setD(prev => empty(prev.kind, prev.clientId, prev.projectId)))
+  const link = useAutoLink(d, set, projects, clients)
+  const { busy, submit } = useSubmit(date, () => {
+    setD(prev => empty(prev.kind))
+    link.reset()
+  })
   const onKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
       e.preventDefault()
@@ -124,6 +326,9 @@ export function LogComposer({ date, initialClientId = '' }: { date: string; init
           </Chip>
         ))}
       </div>
+      {link.auto && (d.projectId || d.clientId) && (
+        <span className="auto-link t-cap">✨ 업무 내용으로 자동 연결했습니다. 다르면 오른쪽에서 바꾸세요.</span>
+      )}
       {isMail(d.kind) && (
         <div className="row">
           <input className="input" placeholder={d.kind === '메일 발신' ? '받는 사람 이메일' : '보낸 사람 이메일'} value={d.counterpart} onChange={e => set({ counterpart: e.target.value })} />
@@ -141,7 +346,7 @@ export function LogComposer({ date, initialClientId = '' }: { date: string; init
           aria-label="기록 내용"
         />
         <div className="row composer-meta">
-          <Selects d={d} set={set} clients={clients} projects={projects} />
+          <Selects d={d} set={link.setManual} clients={clients} projects={projects} />
           <input className="input" style={{ width: 64, flexShrink: 0 }} inputMode="numeric" placeholder="분" value={d.minutes} onChange={e => set({ minutes: e.target.value.replace(/\D/g, '') })} aria-label="소요 시간(분)" />
         </div>
         {d.kind === '메일 발신' && (
@@ -162,7 +367,11 @@ export function QuickLogForm() {
   const { clients, projects } = useLookups()
   const [d, setD] = useState<LogDraft>(() => empty())
   const set = (p: Partial<LogDraft>) => setD(prev => ({ ...prev, ...p }))
-  const { busy, submit } = useSubmit(undefined, () => setD(prev => empty(prev.kind, prev.clientId)))
+  const link = useAutoLink(d, set, projects, clients)
+  const { busy, submit } = useSubmit(undefined, () => {
+    setD(prev => empty(prev.kind))
+    link.reset()
+  })
   return (
     <div className="col gap-10">
       <div className="chips" role="group" aria-label="기록 종류">
@@ -195,8 +404,9 @@ export function QuickLogForm() {
         />
       </Field>
       <div className="row">
-        <Selects d={d} set={set} clients={clients} projects={projects} />
+        <Selects d={d} set={link.setManual} clients={clients} projects={projects} />
       </div>
+      {link.auto && (d.projectId || d.clientId) && <span className="auto-link t-cap">✨ 업무 내용으로 자동 연결했습니다.</span>}
       <div className="row">
         <input className="input" style={{ width: 90 }} inputMode="numeric" placeholder="소요(분)" value={d.minutes} onChange={e => set({ minutes: e.target.value.replace(/\D/g, '') })} aria-label="소요 시간(분)" />
         <span className="grow" />

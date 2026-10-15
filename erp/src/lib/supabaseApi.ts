@@ -2,6 +2,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { ApiError, CHAT_FILE_MAX, type Api, type ImportResult } from './api'
 import type {
   AccessLog,
+  Note,
   AdminOverview,
   AgentToken,
   AppNotification,
@@ -442,6 +443,17 @@ export function createSupabaseApi(url: string, key: string): Api {
       const { error } = await sb.rpc('touch_attendance_v2', { p_source: source })
       if (error) await sb.rpc('touch_attendance') // 0014 미적용
     },
+    async listNotes() {
+      const { data, error } = await sb.from('notes').select('*').order('pinned', { ascending: false }).order('updated_at', { ascending: false })
+      if (error) return [] // 0016 미적용
+      return data as Note[]
+    },
+    async saveNote(n) {
+      const row = { content: n.content, ...(n.pinned !== undefined ? { pinned: n.pinned } : {}), updated_at: new Date().toISOString() }
+      if (n.id) return must(await sb.from('notes').update(row).eq('id', n.id).select().single()) as Note
+      return must(await sb.from('notes').insert(row).select().single()) as Note
+    },
+    deleteNote: id => remove('notes', id),
     async listAccessLog(day) {
       const { data, error } = await sb.from('access_log').select('*').eq('day', day)
       if (error) return [] // 0014 미적용

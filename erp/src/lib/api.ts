@@ -1,6 +1,7 @@
 import type { AccessSource } from './desktop'
 import type {
   AccessLog,
+  Note,
   AdminOverview,
   AgentScope,
   AgentToken,
@@ -207,6 +208,10 @@ export interface Api {
   /** source: 접속 경로. 설정에 따라 PC 프로그램 접속만 출근으로 인정 */
   touchAttendance(source: AccessSource): Promise<void>
   listAttendance(day: string): Promise<Attendance[]>
+  // 개인 메모장 (본인 것만)
+  listNotes(): Promise<Note[]>
+  saveNote(n: { id?: string; content: string; pinned?: boolean }): Promise<Note>
+  deleteNote(id: string): Promise<void>
   /** 그날 경로별 접속 기록 (외부 접속 표시용) */
   listAccessLog(day: string): Promise<AccessLog[]>
   /** 출근은 PC 프로그램에서만 인정할지 (관리 설정) */

@@ -676,3 +676,35 @@ button.kpi:hover, a.kpi:hover { border-color: var(--blue); }
 .agent-typing .dots i:nth-child(2) { animation-delay: 0.15s; }
 .agent-typing .dots i:nth-child(3) { animation-delay: 0.3s; }
 @keyframes typing { 0%, 80%, 100% { opacity: 0.25; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-3px); } }
+
+/* 검색해서 고르는 칸 (거래처 · 프로젝트) */
+.pick { position: relative; min-width: 150px; flex: 1 1 150px; }
+.pick-input { display: flex; align-items: center; gap: 4px; position: relative; }
+.pick-input svg { position: absolute; left: 8px; color: var(--gray); pointer-events: none; }
+.pick-input .input { padding-left: 26px; width: 100%; }
+.pick-chosen { display: flex; align-items: center; gap: 4px; width: 100%; height: 36px; padding: 0 6px 0 10px; border: 1px solid var(--blue); border-radius: 6px; background: var(--blue-tint); color: var(--blue); font-weight: 700; font-size: 13px; cursor: pointer; text-align: left; }
+.pick-x { display: inline-flex; padding: 3px; border-radius: 4px; flex-shrink: 0; }
+.pick-x:hover { background: var(--white); }
+.pick-list { position: absolute; z-index: 60; left: 0; right: 0; bottom: calc(100% + 4px); max-height: 300px; overflow: auto; min-width: 240px; background: var(--white); border: 1px solid var(--blue); border-radius: 8px; box-shadow: 0 6px 20px rgba(98, 98, 92, 0.25); padding: 4px; }
+.pick-group { padding: 6px 8px 2px; font-size: 11px; font-weight: 700; color: var(--gray); }
+.pick-item { display: flex; align-items: center; gap: 8px; width: 100%; padding: 7px 8px; border: 0; border-radius: 6px; background: none; color: var(--blue); font-size: 13px; text-align: left; cursor: pointer; }
+.pick-item.hi { background: var(--yellow-tint); }
+.pick-item.on { font-weight: 700; }
+.pick-empty { padding: 10px; font-size: 12px; color: var(--gray); }
+.auto-link { color: var(--blue); }
+
+/* 업무 탭: 기록 + 메모장 */
+.work-body { flex: 1; min-height: 0; display: flex; }
+.work-main { flex: 1; min-width: 0; display: flex; flex-direction: column; min-height: 0; }
+.memo-pad { width: 300px; flex-shrink: 0; display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border-left: 1px solid var(--line); background: var(--yellow-tint); overflow: auto; }
+.memo-list { display: flex; flex-direction: column; gap: 8px; }
+.memo { background: var(--white); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px 4px; }
+.memo.pinned { border-color: var(--blue); box-shadow: inset 3px 0 0 var(--blue); }
+.memo-text { width: 100%; border: 0; resize: vertical; font: inherit; font-size: 13px; color: var(--blue); background: transparent; outline: none; line-height: 1.5; }
+.memo-foot { gap: 2px; }
+.icon-btn.on { color: var(--blue); background: var(--blue-tint); }
+@media (max-width: 640px) {
+  .memo-pad { position: absolute; inset: 0; width: auto; z-index: 15; border-left: 0; }
+  .work-body { position: relative; }
+}
+.composer-meta .pick + .pick .pick-list { left: auto; right: 0; }
