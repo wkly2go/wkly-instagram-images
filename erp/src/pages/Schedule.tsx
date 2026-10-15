@@ -29,12 +29,12 @@ const PHASE_ORDER = ['디자인 기획', '디자인 개발', '디자인 보고',
 // 업무 지시 (새 업무 · 고치기)
 // ---------------------------------------------------------------------
 
-export function TaskAssignModal({ task, projects, tasks, presetProject, onClose }: { task?: Task; projects: Project[]; tasks: Task[]; presetProject?: string | null; onClose: () => void }) {
+export function TaskAssignModal({ task, projects, tasks, presetProject, presetAssignee, onClose }: { task?: Task; projects: Project[]; tasks: Task[]; presetProject?: string | null; presetAssignee?: string | null; onClose: () => void }) {
   const { api, me, profiles } = useApp()
   const { busy, run } = useAction()
   const [f, setF] = useState({
     title: task?.title ?? '',
-    assignee_id: task?.assignee_id ?? '',
+    assignee_id: task?.assignee_id ?? presetAssignee ?? '',
     project_id: task?.project_id ?? presetProject ?? '',
     phase: task?.phase ?? '',
     start_date: task?.start_date ?? '',

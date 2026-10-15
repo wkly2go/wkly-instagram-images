@@ -26,6 +26,8 @@ import type {
   Project,
   ProjectFinance,
   AdCampaign,
+  AdCreative,
+  AdReport,
   AdDaily,
   AgentJob,
   AgentJobRequest,
@@ -69,6 +71,8 @@ interface Store {
   agent_job_requests?: AgentJobRequest[]
   ad_daily?: AdDaily[]
   ad_campaigns?: AdCampaign[]
+  ad_creatives?: AdCreative[]
+  ad_reports?: AdReport[]
   desktop_only?: boolean
   hr_records?: HrRecord[]
   leave_records?: LeaveRecord[]
@@ -511,6 +515,25 @@ export function createDemoApi(): Api {
     }
     store.ad_daily = rows
     store.ad_campaigns = camps.map(([platform, campaign, budget]) => ({ platform, campaign, full_name: `WKLY ${campaign} 사례_2610`, status: '게재 중', daily_budget: budget, start_date: addDays(today, -14), end_date: addDays(today, 13), flags: null, checked_at: now() }))
+    persist()
+  }
+  /** 체험용 광고 소재 · 분석 보고서 */
+  function seedAdInsights() {
+    const today = todayKey()
+    const c = (side: AdCreative['side'], brand: string, platform: string, campaign: string, name: string, format: string, headline: string | null, status: string): AdCreative => ({ id: uid(), side, brand, platform, campaign, name, format, headline, body: null, image_url: null, link: null, status, started_on: addDays(today, -3), last_seen: today, impressions: null, clicks: null, cost: null, note: null, updated_at: now() })
+    store.ad_creatives = [
+      c('우리', '더위클리', 'Meta', '인테리어', 'interior-feed-v2.jpg', '피드 1:1 · v2', null, '집행 중 (최신)'),
+      c('우리', '더위클리', 'Meta', '팝업', 'popup-story-v2.jpg', '스토리 9:16 · v2', null, '집행 중 (최신)'),
+      c('우리', '더위클리', 'Google', '페스티벌', 'festival-gl-v3.jpg', '디스플레이 가로형 · v3', null, '집행 중 (최신)'),
+      c('경쟁사', '예시 공간기획사 A', 'Meta', '', '팝업 포트폴리오 캐러셀', '캐러셀', '브랜드 팝업, 기획부터 운영까지', '게재 중'),
+      c('해외', 'Example Agency (UK)', 'Meta', '', 'Experiential case video', '영상 15초', 'We build brand experiences', '게재 중'),
+    ]
+    const r = (kind: AdReport['kind'], title: string, summary: string, body: string): AdReport => ({ id: uid(), kind, report_date: today, title, summary, body, sources: null, created_at: now(), updated_at: now() })
+    store.ad_reports = [
+      r('일일 보고', `광고 일일 보고 · ${today}`, '어제 광고비는 일 예산 안 · 클릭률은 디스플레이 평균 수준', '# 광고 일일 보고\n\n## 개선점\n- 클릭률 낮은 소재 교체 검토\n\n## 경쟁사 현황\n- 체험용 예시입니다.'),
+      r('경쟁사 분석', '국내 공간 · 팝업 기획사 광고 분석', '체험용 예시 보고서', '# 경쟁사 분석\n\n체험용 예시입니다.'),
+      r('해외 사례', '해외 체험형 마케팅 에이전시 광고 집행', '체험용 예시 보고서', '# 해외 사례\n\n체험용 예시입니다.'),
+    ]
     persist()
   }
   const paymentDefaults = (): Payment => ({
@@ -1062,6 +1085,14 @@ export function createDemoApi(): Api {
     async listAdCampaigns() {
       if (!store.ad_campaigns) seedAds()
       return clone(store.ad_campaigns ?? [])
+    },
+    async listAdCreatives() {
+      if (!store.ad_creatives) seedAdInsights()
+      return clone(store.ad_creatives ?? [])
+    },
+    async listAdReports() {
+      if (!store.ad_reports) seedAdInsights()
+      return clone(store.ad_reports ?? []).sort((a, b) => b.report_date.localeCompare(a.report_date))
     },
     async listReportTemplates() {
       if (!store.report_templates) {

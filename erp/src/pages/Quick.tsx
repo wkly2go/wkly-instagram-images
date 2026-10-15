@@ -8,6 +8,7 @@ import { QUICK_WINDOW, supportsPip } from '../lib/pip'
 import { useRouter } from '../lib/router'
 import { TODAY_STATUSES, type ChatRoomSummary, type TodayStatus, type WorkLog } from '../lib/types'
 import { QuickLogForm } from '../components/LogForm'
+import { AssignTaskButton } from '../components/AssignTask'
 import { AgentTyping, AttachButton, DropHint, MessageList, useFileDrop } from '../components/ChatMessages'
 import { TABS, useSummary } from '../components/Shell'
 import { Empty, KindBadge } from '../components/ui'
@@ -163,7 +164,7 @@ function QuickLog() {
 
 function QuickChat({ rooms }: { rooms: ChatRoomSummary[] }) {
   const [chosen, setChosen] = useState(load(ROOM_KEY))
-  const { me, profileName } = useApp()
+  const { me, profileName, profiles } = useApp()
   const room = rooms.find(r => r.id === chosen) ?? rooms[0] ?? null
   const roomId = room?.id ?? null
   const { messages, reads, send, sendFile, remove, edit } = useRoomMessages(roomId)
@@ -200,6 +201,7 @@ function QuickChat({ rooms }: { rooms: ChatRoomSummary[] }) {
   }
 
   if (!rooms.length) return <Empty>채팅방이 없습니다. 채팅 탭에서 방을 만들어 주세요.</Empty>
+  const dmPartner = room?.members?.find(id => id !== me.id && !profiles.find(p => p.id === id)?.is_agent) ?? null
   return (
     <div className={`chat-room ${drop.dragging ? 'chat-drop' : ''}`} {...drop.props}>
       {drop.dragging && <DropHint />}
@@ -232,7 +234,10 @@ function QuickChat({ rooms }: { rooms: ChatRoomSummary[] }) {
         <AgentTyping messages={messages} members={room?.members} />
       </div>
       <div className="quick-composer">
-        <AttachButton onFiles={sendFiles} />
+        <div className="composer-tools">
+          <AttachButton onFiles={sendFiles} />
+          <AssignTaskButton assignee={dmPartner} className="assign-chip" label="지시" title={dmPartner ? `${profileName(dmPartner)}님에게 업무 지시` : '업무 지시'} />
+        </div>
         <textarea className="textarea" placeholder="메시지 (Enter 전송)" value={text} onChange={e => setText(e.target.value)} onKeyDown={onKey} maxLength={4000} aria-label="메시지" />
         <button type="button" className="send-btn" onClick={submit} disabled={!text.trim() || sending} aria-label="보내기">
           <Send size={16} />

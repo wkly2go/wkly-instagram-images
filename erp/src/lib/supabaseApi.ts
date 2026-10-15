@@ -26,6 +26,8 @@ import type {
   Project,
   ProjectFinance,
   AdCampaign,
+  AdCreative,
+  AdReport,
   AdDaily,
   AgentJob,
   AgentJobRequest,
@@ -424,6 +426,14 @@ export function createSupabaseApi(url: string, key: string): Api {
     async listAdCampaigns() {
       const r = await sb.from('ad_campaigns').select('*').order('platform').order('campaign')
       return r.error ? [] : (r.data as AdCampaign[])
+    },
+    async listAdCreatives() {
+      const r = await sb.from('ad_creatives').select('*').order('side').order('updated_at', { ascending: false }).limit(1000)
+      return r.error ? [] : (r.data as AdCreative[])
+    },
+    async listAdReports() {
+      const r = await sb.from('ad_reports').select('*').order('report_date', { ascending: false }).order('created_at', { ascending: false }).limit(300)
+      return r.error ? [] : (r.data as AdReport[])
     },
     async listReportTemplates() {
       const r = await sb.from('report_templates').select('*').order('is_default', { ascending: false }).order('updated_at', { ascending: false })
