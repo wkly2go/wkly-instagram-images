@@ -2,6 +2,7 @@ import { ApiError, type Api, type ImportResult, type MessageEvent } from './api'
 import { addDays, nextMonday, toDateKey, todayKey } from './date'
 import type {
   AccessLog,
+  Note,
   AgentToken,
   AppNotification,
   Approval,
@@ -54,6 +55,7 @@ interface Store {
   /** 예전 체험 데이터에는 없을 수 있음 */
   attendance?: Attendance[]
   access_log?: AccessLog[]
+  notes?: Note[]
   desktop_only?: boolean
   hr_records?: HrRecord[]
   leave_records?: LeaveRecord[]
@@ -1090,6 +1092,32 @@ export function createDemoApi(): Api {
     async listAttendance(day) {
       requireMe()
       return clone((store.attendance ?? []).filter(a => a.day === day))
+    },
+    async listNotes() {
+      const self = requireMe()
+      return clone((store.notes ?? []).filter(n => n.user_id === self).sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.updated_at.localeCompare(a.updated_at)))
+    },
+    async saveNote(n) {
+      const self = requireMe()
+      const list = (store.notes ??= [])
+      let row = n.id ? list.find(x => x.id === n.id && x.user_id === self) : undefined
+      if (n.id && !row) throw new ApiError('메모를 찾을 수 없습니다.')
+      if (!row) {
+        row = { id: uid(), user_id: self, content: '', pinned: false, created_at: now(), updated_at: now() }
+        list.push(row)
+      }
+      row.content = n.content
+      if (n.pinned !== undefined) row.pinned = n.pinned
+      row.updated_at = now()
+      persist()
+      emit('notes')
+      return clone(row)
+    },
+    async deleteNote(id) {
+      const self = requireMe()
+      store.notes = (store.notes ?? []).filter(n => !(n.id === id && n.user_id === self))
+      persist()
+      emit('notes')
     },
     async listAccessLog(day) {
       requireMe()

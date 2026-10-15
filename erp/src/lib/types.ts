@@ -78,6 +78,16 @@ export interface Attendance {
   last_at: string
 }
 
+/** 개인 메모 (본인만 봄 · 업무 일지에 안 들어감) */
+export interface Note {
+  id: string
+  user_id: string
+  content: string
+  pinned: boolean
+  created_at: string
+  updated_at: string
+}
+
 /** 접속 기록: 하루 · 경로별 (PC 프로그램 / 브라우저 / 휴대폰) */
 export interface AccessLog {
   user_id: string
