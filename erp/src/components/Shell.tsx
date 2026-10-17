@@ -327,11 +327,11 @@ export function Shell({ active, flush, children }: { active: TabKey; flush?: boo
               <main className={`main ${flush ? 'flush' : ''}`}>
                 {/* 가운데 창 뒤로 · 앞으로 (인트라넷 화면 이동 기록) */}
                 <div className="main-nav" role="group" aria-label="화면 이동">
-                  <button type="button" className="icon-btn sm" onClick={() => window.history.back()} aria-label="이전 화면" title="이전 화면">
-                    <ChevronLeft size={14} />
+                  <button type="button" className="main-nav-btn" onClick={() => window.history.back()} aria-label="이전 화면" title="이전 화면">
+                    <ChevronLeft size={13} /> 뒤로
                   </button>
-                  <button type="button" className="icon-btn sm" onClick={() => window.history.forward()} aria-label="다음 화면" title="다음 화면">
-                    <ChevronRight size={14} />
+                  <button type="button" className="main-nav-btn" onClick={() => window.history.forward()} aria-label="다음 화면" title="다음 화면">
+                    앞으로 <ChevronRight size={13} />
                   </button>
                 </div>
                 {children}

@@ -1143,9 +1143,9 @@ button.kpi:hover, a.kpi:hover { border-color: var(--blue); }
 .aorg-node.head { padding: 6px 14px; border: 1.5px solid var(--blue); background: var(--white); font-size: 13px; }
 
 /* 가운데 창 뒤로 · 앞으로 */
-.main-nav { display: flex; gap: 2px; flex-shrink: 0; height: 20px; margin: -8px 0 -4px -6px; }
-.main-nav .icon-btn.sm { width: 22px; height: 20px; color: var(--blue); border-radius: 6px; }
-.main-nav .icon-btn.sm:hover { background: var(--blue-tint); }
+.main-nav { display: flex; gap: 4px; flex-shrink: 0; margin: -6px 0 -2px -4px; }
+.main-nav-btn { display: inline-flex; align-items: center; gap: 2px; height: 22px; padding: 0 8px; border: 1px solid var(--blue); border-radius: 999px; background: var(--white); color: var(--blue); font: 700 11px/1 var(--font); cursor: pointer; }
+.main-nav-btn:hover { background: var(--blue-tint); }
 .main.flush > .main-nav { margin: 4px 0 0 6px; }
 
 /* 프로젝트 목록: 완료 · NIC 묶음 (접기) */
@@ -1164,3 +1164,6 @@ button.kpi:hover, a.kpi:hover { border-color: var(--blue); }
 .web-project .section-h .t-bodyb { font-size: 12px; }
 /* 넓은 화면은 오른쪽 칸에 자료가 나오므로 가운데의 중복 자료는 숨김 */
 @media (min-width: 900px) { .proj-inline-materials { display: none !important; } }
+
+/* 전체 공통: 목록은 가운데 그대로, 누른 항목의 결과는 오른쪽 칸 (2026-10-17) */
+.split.list-only .pane-list { width: 100%; border-right: 0; }

@@ -21,6 +21,7 @@ import {
 } from '../lib/types'
 import { Shell } from '../components/Shell'
 import { Board } from '../components/Board'
+import { usePanelWide, useRightPanel } from '../components/RightPanel'
 import { REPORT_KIND, ReportBody, ReportForm, ReportTemplates, clientCatLabel } from '../components/Reports'
 import { Badge, Button, Chip, Empty, Field, KindTag, Modal, type Tone } from '../components/ui'
 
@@ -99,7 +100,14 @@ function Research({ tabs }: { tabs: ReactNode }) {
   const selected = data.items.find(r => r.id === selectedId) ?? null
   const count = (s: ResearchStatus) => data.items.filter(r => r.status === s).length
 
-  if (selected) {
+  const wide = usePanelWide()
+  useRightPanel(
+    selected && wide ? `research:${selected.id}` : null,
+    '자료 상세',
+    selected ? <ResearchDetail r={selected} projects={data.projects} rooms={data.rooms} clients={data.clients} onBack={() => go({ id: null })} onEdit={() => setEditing(selected)} /> : null,
+  )
+
+  if (selected && !wide) {
     return (
       <div className="split has-detail">
         <div className="pane-detail">
@@ -154,6 +162,7 @@ function Research({ tabs }: { tabs: ReactNode }) {
             rows={list}
             rowKey={r => r.id}
             onRow={r => go({ id: r.id })}
+            selectedId={selectedId}
             empty={loading ? '불러오는 중…' : status === '새 자료' ? '새 자료가 없습니다. 에이전트가 모은 자료가 여기에 쌓입니다.' : '자료가 없습니다.'}
             cols={[
               { key: 'kind', label: '종류', width: 100, cell: r => <KindTag kind={r.kind} /> },
