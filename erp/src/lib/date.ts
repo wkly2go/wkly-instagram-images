@@ -45,6 +45,13 @@ export function shortDate(key: string | null | undefined): string {
   return key.slice(5).replace('-', '.')
 }
 
+/** 기간 표시: 시작 · 끝 중 비어 있는 쪽은 '미정' ('10.01 – 미정') */
+export function periodLabel(start: string | null | undefined, end: string | null | undefined, empty = '-'): string {
+  if (!start && !end) return empty
+  if (start && end) return start === end ? shortDate(start) : `${shortDate(start)} – ${shortDate(end)}`
+  return start ? `${shortDate(start)} – 미정` : `미정 – ${shortDate(end)}`
+}
+
 /** 'HH:mm' (KST) */
 export function timeLabel(iso: string): string {
   return hm.format(new Date(iso))

@@ -3,7 +3,7 @@ import { AlarmClock, ArrowLeft, CheckCircle2, ChevronLeft, ChevronRight, CircleS
 import { ProjectMaterials } from '../components/ProjectMaterials'
 import { useRightPanel } from '../components/RightPanel'
 import { useAction, useApp, useAsync } from '../lib/app'
-import { addMonths, dateLabel, monthGrid, shortDate, timeLabel, toDateKey, todayKey, weekRange, weekday } from '../lib/date'
+import { addMonths, dateLabel, monthGrid, shortDate, timeLabel, toDateKey, todayKey, weekRange, weekday, periodLabel } from '../lib/date'
 import { Link, useRouter, withQuery } from '../lib/router'
 import { PROJECT_CATEGORIES, PROJECT_STATUSES, type ChatRoomSummary, type Client, type Contact, type Project, type ProjectStatus, type Task, type TaskStatus, type WorkLog } from '../lib/types'
 import { ContactTimeline, ExchangeFilesSection, ProjectContactsSection } from '../components/ContactHistory'
@@ -170,7 +170,7 @@ function ProjectBoard({ list, data, loading, onOpen }: { list: Project[]; data: 
     { key: 'client', label: '거래처', width: 140, hideNarrow: true, cell: p => data.clients.find(c => c.id === p.client_id)?.name ?? '자체' },
     { key: 'cat', label: '구분', width: 70, hideNarrow: true, cell: p => p.category },
     { key: 'owner', label: '담당', width: 80, cell: p => (p.owner_id ? profileName(p.owner_id) : '-') },
-    { key: 'period', label: '기간', width: 150, hideNarrow: true, cell: p => (p.start_date || p.end_date ? `${shortDate(p.start_date)} – ${shortDate(p.end_date)}` : '-') },
+    { key: 'period', label: '기간', width: 150, hideNarrow: true, cell: p => periodLabel(p.start_date, p.end_date) },
     {
       key: 'tasks',
       label: '할 일',
@@ -499,7 +499,7 @@ function ProjectDetail({ project: p, data, onEdit, onBack }: { project: Project;
           <dt>담당</dt>
           <dd>{p.owner_id ? profileName(p.owner_id) : '-'}</dd>
           <dt>기간</dt>
-          <dd>{p.start_date || p.end_date ? `${p.start_date ? dateLabel(p.start_date) : '?'} – ${p.end_date ? dateLabel(p.end_date) : '?'}` : '-'}</dd>
+          <dd>{p.start_date && p.end_date ? `${dateLabel(p.start_date)} – ${dateLabel(p.end_date)}` : p.start_date ? `${dateLabel(p.start_date)} 시작 · 종료일 미정` : p.end_date ? `${dateLabel(p.end_date)} 마감 · 시작일 미정` : '기간 미정'}</dd>
           {p.location && (
             <>
               <dt>장소</dt>

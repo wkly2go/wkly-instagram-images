@@ -7,7 +7,6 @@ import { relativeLabel } from '../lib/date'
 import { Link, useRouter, withQuery } from '../lib/router'
 import type { ChatRoomSummary, Project } from '../lib/types'
 import { Shell } from '../components/Shell'
-import { usePanelWide, useRightPanel } from '../components/RightPanel'
 import { Badge, Button, Empty, Field, Modal } from '../components/ui'
 import { AssignTaskButton } from '../components/AssignTask'
 import { AgentTyping, AttachButton, DropHint, MessageList, useFileDrop } from '../components/ChatMessages'
@@ -43,13 +42,9 @@ export default function Chat() {
     if (!roomId && rooms.length && window.matchMedia('(min-width: 641px)').matches) navigate(withQuery(path, query, { room: rooms[0].id }), { replace: true })
   }, [dm, roomId, rooms, path, query, navigate])
 
-  // 넓은 화면: 가운데는 방 목록, 고른 방의 대화는 오른쪽 칸
-  const wide = usePanelWide()
-  useRightPanel(wide && room ? `room:${room.id}` : null, room ? (room.members ? '1:1 대화' : `# ${room.name}`) : '채팅', room && <div className="pane-detail chat-panel"><Room key={room.id} room={room} /></div>)
-
   return (
     <Shell active="chat" flush>
-      <div className={`split ${room && !wide ? 'has-detail' : ''}${wide ? ' list-only' : ''}`}>
+      <div className={`split ${room ? 'has-detail' : ''}`}>
         <div className="pane-list chat-list">
           <div className="pane-head">
             <div className="row">
@@ -99,7 +94,8 @@ export default function Chat() {
             {!loading && rooms.length === 0 && <Empty>채팅방이 없습니다.</Empty>}
           </div>
         </div>
-        {!wide && <div className="pane-detail">{room ? <Room key={room.id} room={room} /> : <Empty>채팅방을 고르세요.</Empty>}</div>}
+        {/* 채팅은 한 칸: 방 목록 옆에서 대화가 왼쪽→오른쪽으로 펼쳐짐 */}
+        <div className="pane-detail expand-in" key={room?.id ?? 'none'}>{room ? <Room room={room} /> : <Empty>채팅방을 고르세요.</Empty>}</div>
       </div>
       {dmPicking && (
         <DmPicker

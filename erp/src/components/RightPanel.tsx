@@ -67,6 +67,16 @@ export function DetailColumnHost() {
   const wide = usePanelWide()
   const [closed, setClosed] = useState<string | null>(null)
   const show = !!d && wide && closed !== d.key
+  // 닫은 뒤 같은 항목(목록 줄 · 보고 · 사람 등)을 다시 누르면 다시 열림
+  useEffect(() => {
+    if (!closed) return
+    const reopen = (e: MouseEvent) => {
+      const t = e.target as Element | null
+      if (t?.closest('main tr, main .item, main .team-person, main .report-toggle, main .g-task, main .proj-card, main .link-row')) setClosed(null)
+    }
+    document.addEventListener('click', reopen, true)
+    return () => document.removeEventListener('click', reopen, true)
+  }, [closed])
   useEffect(() => {
     document.documentElement.classList.toggle('detail-open', show)
     return () => document.documentElement.classList.remove('detail-open')

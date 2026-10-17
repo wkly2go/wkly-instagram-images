@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { useApp, useAsync } from '../lib/app'
-import { addMonths, manwon, shortDate, toDateKey, todayKey, weekRange } from '../lib/date'
+import { addMonths, manwon, shortDate, toDateKey, todayKey, weekRange, periodLabel } from '../lib/date'
 import { budgetByCategory, isOverdue, monthlyFlow, paymentChecks, paymentRun, projectMoney, runMonday, upcomingPayments, vendorSummary } from '../lib/finance'
 import { Link, useRouter } from '../lib/router'
 import type { BudgetLine, Client, Payment, Project, ProjectFinance, Task } from '../lib/types'
@@ -248,7 +248,7 @@ function ProgressBoard({ projects, tasks, today }: { projects: Project[]; tasks:
                       {r.p.name}
                     </Link>
                     <span className="t-cap">
-                      {r.p.status} · {shortDate(r.p.start_date)}~{shortDate(r.p.end_date)}
+                      {r.p.status} · {periodLabel(r.p.start_date, r.p.end_date, '기간 미정')}
                     </span>
                   </td>
                   <td className="nowrap">{profileName(r.p.owner_id)}</td>
