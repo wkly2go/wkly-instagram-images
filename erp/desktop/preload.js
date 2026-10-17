@@ -14,6 +14,14 @@ if (location.origin === info.origin) {
     searchBounds: rect => ipcRenderer.send('search-bounds', rect),
     searchNav: action => ipcRenderer.send('search-nav', String(action)),
     searchClose: () => ipcRenderer.send('search-close'),
+    /** v1.4+: PC 프로그램 새 버전을 받아 두었는지 · 지금 다시 시작해 설치 */
+    updateState: () => ipcRenderer.sendSync('update-query'),
+    onUpdate: cb => {
+      const handler = (_e, st) => cb(st)
+      ipcRenderer.on('update-state', handler)
+      return () => ipcRenderer.removeListener('update-state', handler)
+    },
+    installUpdate: () => ipcRenderer.send('update-install'),
     onLock: cb => {
       const handler = () => cb()
       ipcRenderer.on('lock', handler)

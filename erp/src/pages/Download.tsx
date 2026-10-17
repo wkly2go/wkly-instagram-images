@@ -18,7 +18,7 @@ export default function Download() {
             </h1>
             {app ? (
               <p className="t-small" style={{ textAlign: 'center', margin: 0 }}>
-                지금 PC 프로그램(버전 {app.version})으로 접속 중입니다. 새 버전은 자동으로 설치됩니다.
+                지금 PC 프로그램(버전 {app.version})으로 접속 중입니다. 새 버전은 저절로 받아 두었다가, 로그인 화면에서 잠시 쉴 때나 프로그램을 끌 때 설치됩니다 (윈도우 · 맥 모두, 맥은 1.4 부터). 위에 '지금 다시 시작' 띠가 뜨면 바로 바꿀 수도 있어요.
               </p>
             ) : (
               <p className="t-small" style={{ textAlign: 'center', margin: 0 }}>

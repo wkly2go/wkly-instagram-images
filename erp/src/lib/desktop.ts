@@ -17,6 +17,10 @@ export interface DesktopBridge {
   searchBounds?(rect: { x: number; y: number; width: number; height: number }): void
   searchNav?(action: 'back' | 'forward' | 'external'): void
   searchClose?(): void
+  /** v1.4+: PC 프로그램 새 버전 준비 여부 · 다시 시작해 설치 */
+  updateState?(): { ready: boolean; version: string | null }
+  onUpdate?(cb: (st: { ready: boolean; version: string | null }) => void): () => void
+  installUpdate?(): void
 }
 
 declare global {
