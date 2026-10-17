@@ -3,6 +3,8 @@ import { ApiError, groupIps, type Api, type ImportResult, type MessageEvent } fr
 import { addDays, nextMonday, toDateKey, todayKey } from './date'
 import { DEFAULT_REPORT_BODY } from './reports'
 import type {
+  ExchangeFile,
+  ProjectContact,
   AttendanceDevice,
   AccessLog,
   AttendanceCheckin,
@@ -87,6 +89,8 @@ interface Store {
   desktop_only?: boolean
   office_ips?: string[]
   devices?: AttendanceDevice[]
+  project_contacts?: ProjectContact[]
+  exchange_files?: ExchangeFile[]
   hr_records?: HrRecord[]
   leave_records?: LeaveRecord[]
   agent_instructions?: AgentInstruction[]
@@ -435,6 +439,12 @@ export function createDemoApi(): Api {
     }
   }
   persist()
+  // 업무 일지 상대방: contact_id 가 없으면 메일 상대 주소로 담당자 찾기 (서버 트리거 흉내)
+  const matchContact = (l: WorkLog, contactId: string) => {
+    if (l.contact_id) return l.contact_id === contactId
+    const c = store.contacts.find(x => x.id === contactId)
+    return !!c?.email && !!l.email_counterpart && l.email_counterpart.toLowerCase().includes(c.email.toLowerCase())
+  }
   const officeOk = (ip: string) => !(store.office_ips ?? []).length || (store.office_ips ?? []).some(x => ipInCidr(ip, x))
 
   let me: string | null = null
@@ -697,8 +707,51 @@ export function createDemoApi(): Api {
       del('tasks', id)
     },
 
+    async listProjectContacts(f) {
+      requireMe()
+      return clone((store.project_contacts ?? []).filter(x => (!f.projectId || x.project_id === f.projectId) && (!f.contactId || x.contact_id === f.contactId)))
+    },
+    async linkProjectContact(projectId, contactId, role) {
+      requireMe()
+      const list = (store.project_contacts ??= [])
+      const row = list.find(x => x.project_id === projectId && x.contact_id === contactId)
+      if (row) row.role = role?.trim() || null
+      else list.push({ project_id: projectId, contact_id: contactId, role: role?.trim() || null, created_at: now() })
+      persist()
+      emit('projects')
+    },
+    async unlinkProjectContact(projectId, contactId) {
+      requireMe()
+      store.project_contacts = (store.project_contacts ?? []).filter(x => !(x.project_id === projectId && x.contact_id === contactId))
+      persist()
+      emit('projects')
+    },
+    async listExchangeFiles(f) {
+      requireMe()
+      if (!f.clientId && !f.contactId && !f.projectId) return []
+      return clone((store.exchange_files ?? []).filter(x => (f.clientId && x.client_id === f.clientId) || (f.contactId && x.contact_id === f.contactId) || (f.projectId && x.project_id === f.projectId)).sort((a, b) => b.file_date.localeCompare(a.file_date)))
+    },
+    async addExchangeFile(f) {
+      const self = requireMe()
+      if (!f.file && !f.url?.trim()) throw new ApiError('파일을 고르거나 링크를 넣어 주세요.')
+      const url = f.file ? URL.createObjectURL(f.file) : f.url!.trim()
+      ;(store.exchange_files ??= []).push({ id: uid(), client_id: f.client_id, contact_id: f.contact_id ?? null, project_id: f.project_id ?? null, direction: f.direction, name: f.name?.trim() || f.file?.name || url, url, storage_path: null, size: f.file?.size ?? null, mime: f.file?.type ?? null, note: f.note?.trim() || null, file_date: f.file_date || todayKey(), source: '직접', work_log_id: null, created_by: self, created_at: now() })
+      persist()
+      emit('clients')
+    },
+    async deleteExchangeFile(id) {
+      const self = requireMe()
+      const row = (store.exchange_files ?? []).find(x => x.id === id)
+      if (!row || (row.created_by !== self && !isAdmin())) throw new ApiError('지울 수 없습니다 (올린 사람 · 관리자만).')
+      store.exchange_files = (store.exchange_files ?? []).filter(x => x.id !== id)
+      persist()
+      emit('clients')
+    },
+    async exchangeFileUrl(f) {
+      return f.url ?? ''
+    },
     async listWorkLogs(f) {
-      let rows = store.work_logs.filter(x => (!f.date || x.log_date === f.date) && (!f.from || x.log_date >= f.from) && (!f.to || x.log_date <= f.to) && (!f.q?.trim() || x.content.toLowerCase().includes(f.q.trim().toLowerCase())) && (!f.userId || x.user_id === f.userId) && (!f.clientId || x.client_id === f.clientId) && (!f.projectId || x.project_id === f.projectId))
+      let rows = store.work_logs.filter(x => (!f.date || x.log_date === f.date) && (!f.from || x.log_date >= f.from) && (!f.to || x.log_date <= f.to) && (!f.q?.trim() || x.content.toLowerCase().includes(f.q.trim().toLowerCase())) && (!f.userId || x.user_id === f.userId) && (!f.clientId || x.client_id === f.clientId) && (!f.projectId || x.project_id === f.projectId) && (!f.contactId || matchContact(x, f.contactId)))
       rows = rows.sort((a, b) => (f.date ? a.created_at.localeCompare(b.created_at) : b.created_at.localeCompare(a.created_at)))
       if (f.limit) rows = rows.slice(0, f.limit)
       return clone(rows)

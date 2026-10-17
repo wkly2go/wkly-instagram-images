@@ -3,9 +3,10 @@ import { AlarmClock, ArrowLeft, ChevronLeft, ChevronRight, Folder, Pencil, Trash
 import { useAction, useApp, useAsync } from '../lib/app'
 import { addMonths, dateLabel, monthGrid, shortDate, timeLabel, toDateKey, todayKey, weekRange, weekday } from '../lib/date'
 import { Link, useRouter, withQuery } from '../lib/router'
-import { PROJECT_CATEGORIES, PROJECT_STATUSES, type ChatRoomSummary, type Client, type Project, type ProjectStatus, type Task, type TaskStatus, type WorkLog } from '../lib/types'
+import { PROJECT_CATEGORIES, PROJECT_STATUSES, type ChatRoomSummary, type Client, type Contact, type Project, type ProjectStatus, type Task, type TaskStatus, type WorkLog } from '../lib/types'
+import { ContactTimeline, ExchangeFilesSection, ProjectContactsSection } from '../components/ContactHistory'
 import { Shell } from '../components/Shell'
-import { Badge, Button, Chip, Empty, Field, KindBadge, Modal, SectionHead, StatusBadge } from '../components/ui'
+import { Badge, Button, Chip, Empty, Field, Modal, SectionHead, StatusBadge } from '../components/ui'
 import { NewApproval } from './Approvals'
 import { FinancePanel } from '../components/FinancePanel'
 import { ProjectDashboard } from './ProjectDashboard'
@@ -429,11 +430,11 @@ function ProjectDetail({ project: p, data, onEdit, onBack }: { project: Project;
   const today = todayKey()
   const { data: extra } = useAsync(
     async () => {
-      const [logs, rooms] = await Promise.all([api.listWorkLogs({ projectId: p.id, limit: 20 }), api.listRooms()])
-      return { logs, room: rooms.find(r => r.project_id === p.id) ?? null }
+      const [logs, rooms, contacts] = await Promise.all([api.listWorkLogs({ projectId: p.id, limit: 50 }), api.listRooms(), api.listContacts().catch(() => [] as Contact[])])
+      return { logs, room: rooms.find(r => r.project_id === p.id) ?? null, contacts }
     },
     [p.id, version],
-    { logs: [] as WorkLog[], room: null as ChatRoomSummary | null },
+    { logs: [] as WorkLog[], room: null as ChatRoomSummary | null, contacts: [] as Contact[] },
   )
 
   const openRoom = async () => {
@@ -516,20 +517,10 @@ function ProjectDetail({ project: p, data, onEdit, onBack }: { project: Project;
           <TaskAdder projectId={p.id} defaultAssignee={me.id} />
         </div>
         <div className="col" style={{ flexBasis: 240, flexGrow: 1, maxWidth: 360 }}>
-          <SectionHead title="관련 업무 기록" right={<Link to={`/work?team=1`}>업무 일지 ›</Link>} />
-          {extra.logs.map(l => (
-            <div key={l.id} className="col gap-2 dashed" style={{ padding: '6px 0' }}>
-              <div className="row">
-                <span className="t-meta">
-                  {shortDate(l.log_date)} {timeLabel(l.created_at)}
-                </span>
-                <KindBadge kind={l.kind} />
-                <span className="t-cap">{profileName(l.user_id)}</span>
-              </div>
-              <span className="t-small t-blue pre">{l.content}</span>
-            </div>
-          ))}
-          {extra.logs.length === 0 && <span className="t-cap">업무 일지에서 이 프로젝트를 선택해 기록하면 여기에 모입니다.</span>}
+          <ProjectContactsSection project={p} clients={data.clients} contacts={extra.contacts} />
+          <ExchangeFilesSection clientId={p.client_id} projectId={p.id} contacts={extra.contacts} projects={data.projects} />
+          <SectionHead title="관련 업무 기록" count={extra.logs.length ? String(extra.logs.length) : undefined} right={<Link to={`/work?team=1`}>업무 일지 ›</Link>} />
+          <ContactTimeline logs={extra.logs} projects={[]} showContact contacts={extra.contacts} />
         </div>
       </div>
       {me.role === 'admin' && <FinancePanel project={p} clients={data.clients} projects={data.projects} />}
