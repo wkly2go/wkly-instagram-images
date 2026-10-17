@@ -1,4 +1,3 @@
-import { Apple, Download as DownloadIcon, Monitor } from 'lucide-react'
 import { DOWNLOADS, desktop } from '../lib/desktop'
 import { Link } from '../lib/router'
 import { LogoTile } from '../components/Shell'
@@ -28,16 +27,16 @@ export default function Download() {
             )}
             <div className="col gap-6">
               <a className={`btn ${isMac ? 'btn-outline' : 'btn-blue'} btn-block`} href={DOWNLOADS.windows}>
-                <Monitor size={15} /> 윈도우용 내려받기 (.exe)
+                윈도우용 내려받기 (.exe)
               </a>
               <a className={`btn ${isMac ? 'btn-blue' : 'btn-outline'} btn-block`} href={DOWNLOADS.mac}>
-                <Apple size={15} /> 맥용 내려받기 (.dmg)
+                맥용 내려받기 (.dmg)
               </a>
             </div>
 
             <div className="col gap-6">
               <span className="t-bodyb">
-                <DownloadIcon size={13} /> 설치 방법
+                설치 방법
               </span>
               <ol className="guide-steps">
                 <li>

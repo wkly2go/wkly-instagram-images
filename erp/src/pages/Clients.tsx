@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { ArrowLeft, Building2, ChevronDown, ChevronRight, FileText, Mail, Notebook, Pencil, Phone, Plus, Search, Star, Trash2, Users } from 'lucide-react'
+import { ArrowLeft, ChevronDown, ChevronRight, Pencil, Plus, Search, Star, Trash2 } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { manwon, shortDate, timeLabel, todayKey } from '../lib/date'
 import { isOverdue, sameName, vendorSummary } from '../lib/finance'
@@ -8,7 +8,7 @@ import { Link, useRouter, withQuery } from '../lib/router'
 import { CLIENT_CATEGORIES, type Client, type ClientCategory, type Contact, type Payment, type Project, type ResearchItem, type WorkLog } from '../lib/types'
 import { REPORT_KIND, ReportBody, ReportForm, clientCatLabel } from '../components/Reports'
 import { Shell } from '../components/Shell'
-import { Avatar, Badge, Button, Chip, Empty, Field, KindBadge, Modal, SectionHead, StatusBadge } from '../components/ui'
+import { Badge, Button, Chip, Empty, Field, KindBadge, Modal, SectionHead, StatusBadge } from '../components/ui'
 
 export default function Clients() {
   const { api, version } = useApp()
@@ -40,24 +40,27 @@ export default function Clients() {
   const reported = useMemo(() => new Set(extra.reports.map(r => r.client_id)), [extra.reports])
   const words = q.trim().toLowerCase().split(/\s+/).filter(Boolean)
   const list = clients.filter(c => (!cat || c.category === cat) && (!words.length || words.every(w => haystack.get(c.id)?.includes(w))))
-  const go = (id: string | null) => navigate(withQuery(path, query, { id, view: null }), { replace: true })
+  const go = (id: string | null) => navigate(withQuery(path, query, { id, view: null, pid: null }), { replace: true })
   const people = query.get('view') === 'people'
-  const setView = (v: 'people' | null) => navigate(withQuery(path, query, { view: v }), { replace: true })
+  const setView = (v: 'people' | null) => navigate(withQuery(path, query, { view: v, pid: null }), { replace: true })
+  const pid = query.get('pid')
+  const person = people ? extra.contacts.find(x => x.id === pid) ?? null : null
+  const goPerson = (id: string | null) => navigate(withQuery(path, query, { pid: id }), { replace: true })
 
   return (
     <Shell active="clients" flush>
-      <div className={`split ${selected && !people ? 'has-detail' : ''}${people ? ' people-mode' : ''}`}>
+      <div className={`split ${(people ? person : selected) ? 'has-detail' : ''}`}>
         <div className="pane-list">
           <div className="seg" role="tablist" aria-label="보기">
             <button type="button" role="tab" aria-selected={!people} className={!people ? 'on' : ''} onClick={() => setView(null)}>
-              <Building2 size={13} /> 거래처 {clients.length}
+              거래처 {clients.length}
             </button>
             <button type="button" role="tab" aria-selected={people} className={people ? 'on' : ''} onClick={() => setView('people')}>
-              <Users size={13} /> 연락처 {extra.contacts.length}
+              연락처 {extra.contacts.length}
             </button>
           </div>
           {people ? (
-            <PeopleList contacts={extra.contacts} clients={clients} onClient={go} />
+            <PeopleList contacts={extra.contacts} clients={clients} selectedId={pid} onSelect={goPerson} />
           ) : (
           <>
           <div className="pane-head">
@@ -86,7 +89,6 @@ export default function Clients() {
             {list.map(c => (
               <button key={c.id} type="button" className={`item ${c.id === selectedId ? 'active' : ''}`} onClick={() => go(c.id)}>
                 <div className="row">
-                  <Avatar name={c.name} size="sm" />
                   <span className="col gap-2 grow" style={{ minWidth: 0 }}>
                     <span className="t-smallb truncate">{c.name}</span>
                     <span className="t-cap truncate">
@@ -94,11 +96,7 @@ export default function Clients() {
                       {c.phone ? ` · ${c.phone}` : ''}
                     </span>
                   </span>
-                  {reported.has(c.id) && (
-                    <span title="리서치 보고서 있음" aria-label="리서치 보고서 있음">
-                      📑
-                    </span>
-                  )}
+                  {reported.has(c.id) && <span className="t-meta">보고서</span>}
                 </div>
               </button>
             ))}
@@ -107,11 +105,19 @@ export default function Clients() {
           </>
           )}
         </div>
-        {!people && (
         <div className="pane-detail" style={{ overflow: 'auto' }}>
-          {selected ? <ClientDetail key={selected.id} client={selected} clients={clients} onEdit={() => setEditing(selected)} onBack={() => go(null)} /> : <Empty>왼쪽에서 거래처를 고르세요.</Empty>}
+          {people ? (
+            person ? (
+              <ContactDetail key={person.id} contact={person} contacts={extra.contacts} clients={clients} onClient={go} onPerson={goPerson} />
+            ) : (
+              <Empty>왼쪽에서 사람을 고르세요.</Empty>
+            )
+          ) : selected ? (
+            <ClientDetail key={selected.id} client={selected} clients={clients} onEdit={() => setEditing(selected)} onBack={() => go(null)} />
+          ) : (
+            <Empty>왼쪽에서 거래처를 고르세요.</Empty>
+          )}
         </div>
-        )}
       </div>
       {editing && <ClientForm client={editing === 'new' ? null : editing} onClose={() => setEditing(null)} onSaved={id => go(id)} />}
     </Shell>
@@ -151,16 +157,16 @@ function ClientDetail({ client: c, clients, onEdit, onBack }: { client: Client; 
         <span className="grow" />
         {phone && (
           <a className="btn btn-outline btn-sm" href={telUrl(phone)}>
-            <Phone size={13} /> 전화
+            전화
           </a>
         )}
         {mailTo && (
           <Button kind="outline" size="sm" onClick={() => openGmail({ to: mailTo })}>
-            <Mail size={13} /> 메일 쓰기
+            메일 쓰기
           </Button>
         )}
         <Button kind="yellow" size="sm" onClick={() => navigate(`/work?client=${c.id}`)}>
-          <Notebook size={13} /> 업무 기록
+          업무 기록
         </Button>
         <button type="button" className="icon-btn" onClick={onEdit} aria-label="거래처 수정" title="수정">
           <Pencil size={15} />
@@ -283,7 +289,7 @@ function ClientReports({ reports, onWrite, onEdit }: { reports: ResearchItem[]; 
         title="리서치 보고서"
         right={
           <button type="button" className="btn btn-ghost btn-sm" onClick={onWrite}>
-            <FileText size={13} /> 보고서 쓰기
+            보고서 쓰기
           </button>
         }
       />
@@ -307,7 +313,7 @@ function ClientReports({ reports, onWrite, onEdit }: { reports: ResearchItem[]; 
                   자료실에서 보기
                 </Link>
                 <Button kind="ghost" size="sm" onClick={() => onEdit(r)}>
-                  <Pencil size={12} /> 고치기
+                  고치기
                 </Button>
               </div>
             </>
@@ -447,10 +453,10 @@ function ClientForm({ client, onClose, onSaved }: { client: Client | null; onClo
   )
 }
 
-/** 거래처 담당자를 사람 기준으로 모아 보기 · 검색 (이름 · 회사 · 직함 · 전화 · 이메일 · 메모) */
-function PeopleList({ contacts, clients, onClient }: { contacts: Contact[]; clients: Client[]; onClient: (id: string) => void }) {
+/** 거래처 담당자를 사람 기준으로 모아 보기 · 검색 (이름 · 회사 · 직함 · 전화 · 이메일 · 메모) — 거래처 목록과 같은 구성 */
+function PeopleList({ contacts, clients, selectedId, onSelect }: { contacts: Contact[]; clients: Client[]; selectedId: string | null; onSelect: (id: string) => void }) {
   const [q, setQ] = useState('')
-  const [form, setForm] = useState<Contact | 'new' | null>(null)
+  const [adding, setAdding] = useState(false)
   const byId = useMemo(() => new Map(clients.map(c => [c.id, c])), [clients])
   const words = q.trim().toLowerCase().split(/\s+/).filter(Boolean)
   const digits = q.replace(/\D/g, '')
@@ -465,60 +471,101 @@ function PeopleList({ contacts, clients, onClient }: { contacts: Contact[]; clie
     <>
       <div className="pane-head">
         <div className="row">
-          <span className="t-bodyb grow">연락처 {list.length === contacts.length ? contacts.length : `${list.length} / ${contacts.length}`}</span>
-          <button type="button" className="icon-btn" onClick={() => setForm('new')} aria-label="연락처 추가" title="연락처 추가">
+          <span className="t-bodyb grow">연락처 {contacts.length}</span>
+          <button type="button" className="icon-btn" onClick={() => setAdding(true)} aria-label="연락처 추가" title="연락처 추가">
             <Plus size={18} />
           </button>
         </div>
         <div className="search">
           <Search size={14} />
-          <input className="input" autoFocus placeholder="이름 · 회사 · 직함 · 전화번호 · 이메일 검색" value={q} onChange={e => setQ(e.target.value)} aria-label="연락처 검색" />
+          <input className="input" placeholder="이름 · 회사 · 직함 · 전화 · 이메일 검색" value={q} onChange={e => setQ(e.target.value)} aria-label="연락처 검색" />
         </div>
       </div>
       <div className="pane-body">
-        {list.map(x => {
-          const c = byId.get(x.client_id)
-          return (
-            <div key={x.id} className="item person">
-              <div className="row">
-                <Avatar name={x.name} size="sm" />
-                <button type="button" className="col gap-2 grow person-main" onClick={() => setForm(x)} title="연락처 수정">
-                  <span className="t-smallb truncate">
-                    {x.name} {x.title && <span className="t-cap">{x.title}</span>} {x.is_primary && <Badge tone="yellow">대표</Badge>}
-                  </span>
-                  <span className="t-cap truncate">{[x.phone, x.email].filter(Boolean).join(' · ') || '연락처 없음'}</span>
-                </button>
-                {x.phone && (
-                  <a className="icon-btn sm" href={telUrl(x.phone)} title="전화" aria-label={`${x.name} 전화`}>
-                    <Phone size={13} />
-                  </a>
-                )}
-                {x.email && (
-                  <button type="button" className="icon-btn sm" onClick={() => openGmail({ to: x.email })} title="메일 쓰기" aria-label={`${x.name} 메일`}>
-                    <Mail size={13} />
-                  </button>
-                )}
-              </div>
-              {c && (
-                <button type="button" className="person-co t-cap" onClick={() => onClient(c.id)}>
-                  <Building2 size={11} /> {c.name} ›
-                </button>
-              )}
-            </div>
-          )
-        })}
-        {list.length === 0 && <Empty>{words.length ? '찾는 사람이 없습니다.' : '연락처가 없습니다. + 로 추가하세요.'}</Empty>}
+        {list.map(x => (
+          <button key={x.id} type="button" className={`item ${x.id === selectedId ? 'active' : ''}`} onClick={() => onSelect(x.id)}>
+            <span className="col gap-2" style={{ minWidth: 0 }}>
+              <span className="t-smallb truncate">
+                {x.name}
+                {x.title ? ` ${x.title}` : ''}
+              </span>
+              <span className="t-cap truncate">
+                {byId.get(x.client_id)?.name ?? ''}
+                {x.phone ? ` · ${x.phone}` : ''}
+              </span>
+            </span>
+          </button>
+        ))}
+        {list.length === 0 && <Empty>{words.length ? '찾는 사람이 없습니다.' : '연락처가 없습니다.'}</Empty>}
       </div>
-      {form && (
-        <ContactForm
-          clientId={form === 'new' ? null : form.client_id}
-          clients={clients}
-          contact={form === 'new' ? null : form}
-          others={contacts.filter(o => o.client_id === (form === 'new' ? '' : form.client_id))}
-          onClose={() => setForm(null)}
-        />
-      )}
+      {adding && <ContactForm clientId={null} clients={clients} contact={null} others={[]} onClose={() => setAdding(false)} />}
     </>
+  )
+}
+
+/** 연락처(사람) 상세: 회사 · 전화 · 메일 · 메모 + 같은 회사 다른 담당자 */
+function ContactDetail({ contact: x, contacts, clients, onClient, onPerson }: { contact: Contact; contacts: Contact[]; clients: Client[]; onClient: (id: string) => void; onPerson: (id: string | null) => void }) {
+  const [editing, setEditing] = useState(false)
+  const c = clients.find(k => k.id === x.client_id)
+  const others = contacts.filter(o => o.client_id === x.client_id && o.id !== x.id)
+  return (
+    <div className="col gap-10" style={{ padding: '14px 16px' }}>
+      <div className="row wrap">
+        <button type="button" className="icon-btn back-btn" onClick={() => onPerson(null)} aria-label="목록으로">
+          <ArrowLeft size={18} />
+        </button>
+        <h2 className="t-title">{x.name}</h2>
+        {x.title && <span className="t-small">{x.title}</span>}
+        {x.is_primary && <Badge tone="yellow">대표 담당자</Badge>}
+        <span className="grow" />
+        {x.phone && (
+          <a className="btn btn-outline btn-sm" href={telUrl(x.phone)}>
+            전화
+          </a>
+        )}
+        {x.email && (
+          <Button kind="outline" size="sm" onClick={() => openGmail({ to: x.email })}>
+            메일 쓰기
+          </Button>
+        )}
+        <button type="button" className="icon-btn" onClick={() => setEditing(true)} aria-label="연락처 수정" title="수정">
+          <Pencil size={15} />
+        </button>
+      </div>
+      <dl className="kv">
+        <dt>회사</dt>
+        <dd>
+          {c ? (
+            <button type="button" className="link-btn" onClick={() => onClient(c.id)}>
+              {c.name} ›
+            </button>
+          ) : (
+            '-'
+          )}
+        </dd>
+        <dt>전화</dt>
+        <dd>{x.phone ? <a href={telUrl(x.phone)}>{x.phone}</a> : '-'}</dd>
+        <dt>이메일</dt>
+        <dd>{x.email ?? '-'}</dd>
+        <dt>메모</dt>
+        <dd>{x.memo ?? '-'}</dd>
+      </dl>
+      {others.length > 0 && (
+        <>
+          <SectionHead title={`${c?.name ?? ''} 다른 담당자`} />
+          {others.map(o => (
+            <button key={o.id} type="button" className="item-row link-row" onClick={() => onPerson(o.id)}>
+              <span className="t-smallb">
+                {o.name}
+                {o.title ? ` ${o.title}` : ''}
+              </span>
+              <span className="t-cap grow">{o.phone ?? o.email ?? ''}</span>
+            </button>
+          ))}
+        </>
+      )}
+      {editing && <ContactForm clientId={x.client_id} clients={clients} contact={x} others={contacts.filter(o => o.client_id === x.client_id)} onClose={() => setEditing(false)} />}
+    </div>
   )
 }
 

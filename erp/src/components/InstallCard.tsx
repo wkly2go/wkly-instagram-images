@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Download, X } from 'lucide-react'
+import { X } from 'lucide-react'
 
 interface InstallEvent extends Event {
   prompt: () => Promise<void>
@@ -40,7 +40,6 @@ export function InstallCard() {
   }
   return (
     <div className="install-card">
-      <Download size={16} />
       <span className="grow t-small">
         {ios ? (
           <>

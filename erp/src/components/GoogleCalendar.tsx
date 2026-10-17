@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { CalendarPlus, Copy, ExternalLink, RefreshCw } from 'lucide-react'
+import { ExternalLink } from 'lucide-react'
 import { useApp } from '../lib/app'
 import { friendlyError } from '../lib/api'
 import type { Task } from '../lib/types'
@@ -39,10 +39,10 @@ function FeedRow({ label, help, url }: { label: string; help: string; url: strin
       <div className="row wrap" style={{ gap: 6 }}>
         <span className="t-bodyb grow">{label}</span>
         <Button size="sm" onClick={copy}>
-          <Copy size={13} /> 주소 복사
+          주소 복사
         </Button>
         <a className="btn btn-outline btn-sm" href={url.replace(/^https:/, 'webcal:')} title="아이폰 · 맥 캘린더에 바로 추가">
-          <CalendarPlus size={13} /> 아이폰 캘린더
+          아이폰 캘린더
         </a>
       </div>
       <span className="t-cap">{help}</span>
@@ -102,7 +102,7 @@ export function GoogleCalendarModal({ onClose }: { onClose: () => void }) {
           <div className="row">
             <span className="grow" />
             <Button kind="ghost" size="sm" onClick={reset} disabled={busy}>
-              <RefreshCw size={13} /> 새 주소 만들기
+              새 주소 만들기
             </Button>
           </div>
         </div>

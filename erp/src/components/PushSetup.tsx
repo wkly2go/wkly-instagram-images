@@ -1,6 +1,5 @@
 import { isDesktopApp } from '../lib/desktop'
 import { useState } from 'react'
-import { BellRing, Download, Power } from 'lucide-react'
 import { useApp } from '../lib/app'
 import { friendlyError } from '../lib/api'
 import { usePush, useInstall } from '../lib/push'
@@ -72,7 +71,6 @@ export function PushSetupCard() {
   return (
     <div className="setup-card">
       <div className="row wrap">
-        <BellRing size={16} />
         <span className="t-bodyb grow">창을 닫아 둬도 채팅·알림 받기</span>
         {push.state === 'on' ? (
           <Badge tone="acid">알림 켜짐</Badge>
@@ -85,7 +83,6 @@ export function PushSetupCard() {
         )}
       </div>
       <div className="row wrap">
-        <Download size={16} />
         <span className="t-bodyb grow">앱으로 설치하고 컴퓨터 켤 때 자동 시작</span>
         {app.installed ? (
           <Badge tone="acid">설치됨</Badge>
@@ -97,7 +94,7 @@ export function PushSetupCard() {
           <span className="t-cap">주소창 오른쪽 설치 아이콘(⊕)을 눌러도 됩니다</span>
         )}
         <Button size="sm" kind="ghost" onClick={() => setGuide(g => !g)} aria-expanded={guide}>
-          <Power size={13} /> 자동 시작 방법
+          자동 시작 방법
         </Button>
       </div>
       {guide && <AutoStartGuide />}

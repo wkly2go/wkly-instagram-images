@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, ListTodo, NotebookPen, Search, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, ListTodo, Search, Trash2 } from "lucide-react";
 import { useAction, useApp, useAsync } from "../lib/app";
 import {
   addDays,
@@ -17,7 +17,6 @@ import type { Approval, Client, Project, Task, WorkLog as Log } from "../lib/typ
 import { Shell } from "../components/Shell";
 import { LogComposer, isMail } from "../components/LogForm";
 import {
-  Avatar,
   Badge,
   Button,
   Chip,
@@ -126,7 +125,6 @@ export default function WorkLog() {
         <div className="who">
           {!mine && (
             <>
-              <Avatar name={profileName(l.user_id)} size="xs" />
               <span className="t-cap">{profileName(l.user_id)}</span>
             </>
           )}
@@ -184,7 +182,6 @@ export default function WorkLog() {
         </button>
         {other ? (
           <>
-            <Avatar name={other.name} size="xs" />
             <span className="t-smallb">{other.name}님의 업무</span>
             <TodayBadge status={presenceOf(other, attendance.get(other.id))} />
           </>
@@ -197,10 +194,10 @@ export default function WorkLog() {
           {data.logs.length}건 · {minutesLabel(total)}
         </span>
         <Button kind={side === "todo" ? "blue" : "outline"} size="sm" onClick={() => setSide(side === "todo" ? "none" : "todo")} title="할 일 · 미승인 업무 보고">
-          <ListTodo size={13} /> 할 일
+          할 일
         </Button>
         <Button kind={side === "memo" ? "blue" : "outline"} size="sm" onClick={() => setSide(side === "memo" ? "none" : "memo")} title="나만 보는 메모 (업무 일지에 안 들어감)">
-          <NotebookPen size={13} /> 메모장
+          메모장
         </Button>
         {!other && !team && period === "day" && (
           <Button kind="yellow" size="sm" onClick={() => setReporting(true)} disabled={data.logs.length === 0}>
@@ -358,7 +355,6 @@ function TeamSide({
         return (
           <div key={p.id} className="team-row">
           <button type="button" className={`team-person${active ? " active" : ""}`} onClick={() => go({ user: p.id === me.id ? null : p.id, team: null })}>
-            <Avatar name={p.name} size="xs" />
             <span className="col grow" style={{ minWidth: 0 }}>
               <span className="t-smallb truncate">
                 {p.name}

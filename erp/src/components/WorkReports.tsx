@@ -112,7 +112,7 @@ export function WorkTodo({ projects, clients, tasks }: { projects: Project[]; cl
             </button>
           </div>
         )}
-        {!pick && guessed && <span className="t-cap auto-link">✨ {name(guessed)}에 연결</span>}
+        {!pick && guessed && <span className="t-cap auto-link">{name(guessed)}에 연결</span>}
       </div>
       {groups.length === 0 && <Empty>남은 할 일이 없습니다.</Empty>}
       {groups.map(([pid, list]) => (

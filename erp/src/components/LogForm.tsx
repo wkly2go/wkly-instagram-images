@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
-import { Search, Send, X } from 'lucide-react'
+import { Search, X } from 'lucide-react'
 import { useApp, useAsync } from '../lib/app'
 import { friendlyError } from '../lib/api'
 import { todayKey } from '../lib/date'
@@ -327,7 +327,7 @@ export function LogComposer({ date, initialClientId = '' }: { date: string; init
         ))}
       </div>
       {link.auto && (d.projectId || d.clientId) && (
-        <span className="auto-link t-cap">✨ 업무 내용으로 자동 연결했습니다. 다르면 오른쪽에서 바꾸세요.</span>
+        <span className="auto-link t-cap">업무 내용으로 자동 연결했습니다. 다르면 오른쪽에서 바꾸세요.</span>
       )}
       {isMail(d.kind) && (
         <div className="row">
@@ -406,7 +406,7 @@ export function QuickLogForm() {
       <div className="row">
         <Selects d={d} set={link.setManual} clients={clients} projects={projects} />
       </div>
-      {link.auto && (d.projectId || d.clientId) && <span className="auto-link t-cap">✨ 업무 내용으로 자동 연결했습니다.</span>}
+      {link.auto && (d.projectId || d.clientId) && <span className="auto-link t-cap">업무 내용으로 자동 연결했습니다.</span>}
       <div className="row">
         <input className="input" style={{ width: 90 }} inputMode="numeric" placeholder="소요(분)" value={d.minutes} onChange={e => set({ minutes: e.target.value.replace(/\D/g, '') })} aria-label="소요 시간(분)" />
         <span className="grow" />
@@ -423,7 +423,7 @@ export function QuickLogForm() {
           </>
         )}
         <Button className="grow" disabled={busy} onClick={() => submit(d, 'log')}>
-          <Send size={14} /> 기록
+          기록
         </Button>
       </div>
     </div>

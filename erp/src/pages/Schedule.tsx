@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react'
-import { CalendarPlus, ChevronLeft, ChevronRight, Send, Trash2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { addDays, addMonths, monthGrid, shortDate, todayKey, weekday } from '../lib/date'
 import { Link, useRouter, withQuery } from '../lib/router'
 import { TASK_STATUSES, type LeaveRecord, type Project, type Task, type TaskStatus } from '../lib/types'
-import { Avatar, Badge, Button, Chip, Empty, Field, Modal, StatusBadge } from '../components/ui'
+import { Badge, Button, Chip, Empty, Field, Modal, StatusBadge } from '../components/ui'
 import { GoogleCalendarModal, googleEventLink } from '../components/GoogleCalendar'
 
 const DAY = 86_400_000
@@ -77,19 +77,19 @@ export function TaskAssignModal({ task, projects, tasks, presetProject, presetAs
         <>
           {task && (
             <Button kind="ghost" onClick={remove} disabled={busy} className="del-btn" style={{ marginRight: 'auto' }}>
-              <Trash2 size={13} /> 삭제
+              삭제
             </Button>
           )}
           {gLink && (
             <a className="btn btn-outline" href={gLink} target="_blank" rel="noreferrer" title="이 업무를 내 구글 캘린더에 일정으로 넣기">
-              <CalendarPlus size={13} /> 구글 캘린더에 추가
+              구글 캘린더에 추가
             </a>
           )}
           <Button kind="ghost" onClick={onClose}>
             취소
           </Button>
           <Button onClick={save} disabled={busy || bad}>
-            <Send size={13} /> {task ? '저장' : '지시하기'}
+            {task ? '저장' : '지시하기'}
           </Button>
         </>
       }
@@ -227,7 +227,7 @@ export function Gantt({ projects, tasks }: { projects: Project[]; tasks: Task[] 
         </div>
         <span className="grow" />
         <Button onClick={() => setEditing('new')}>
-          <Send size={13} /> 업무 지시
+          업무 지시
         </Button>
       </div>
       {project && (
@@ -448,7 +448,7 @@ export function MonthCalendar({ projects, tasks }: { projects: Project[]; tasks:
         )}
         <span className="grow" />
         <Button kind="outline" size="sm" onClick={() => setGcal(true)} title="인트라넷 일정을 구글 캘린더 · 휴대폰 캘린더에 자동으로 넣기">
-          <CalendarPlus size={13} /> 구글 캘린더 연동
+          구글 캘린더 연동
         </Button>
         <div className="chips">
           <Chip active={!mine} onClick={() => setMine(false)}>
@@ -543,7 +543,6 @@ export function SentTasks({ projects, tasks }: { projects: Project[]; tasks: Tas
         const late = !!t.due_date && t.due_date < today
         return (
           <button key={t.id} type="button" className="item-row" style={{ textAlign: 'left', width: '100%', background: 'none', border: 0, cursor: 'pointer' }} onClick={() => setEditing(t)}>
-            <Avatar name={profileName(t.assignee_id)} size="xs" />
             <span className="col gap-2 grow">
               <span className="t-smallb truncate">{t.title}</span>
               <span className="t-cap truncate">

@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react'
-import { ArrowLeft, Lock, MessageCircle, Plus, Send } from 'lucide-react'
+import { ArrowLeft, Plus, Send } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { friendlyError } from '../lib/api'
 import { roomTitle, useRoomMessages } from '../lib/chat'
@@ -7,7 +7,7 @@ import { relativeLabel } from '../lib/date'
 import { Link, useRouter, withQuery } from '../lib/router'
 import type { ChatRoomSummary, Project } from '../lib/types'
 import { Shell } from '../components/Shell'
-import { Avatar, Badge, Button, Empty, Field, Modal } from '../components/ui'
+import { Badge, Button, Empty, Field, Modal } from '../components/ui'
 import { AssignTaskButton } from '../components/AssignTask'
 import { AgentTyping, AttachButton, DropHint, MessageList, useFileDrop } from '../components/ChatMessages'
 
@@ -50,7 +50,7 @@ export default function Chat() {
             <div className="row">
               <span className="t-bodyb grow">채팅</span>
               <button type="button" className="quick-btn" onClick={() => setDmPicking(true)} title="팀원과 둘이서만 보는 대화">
-                <MessageCircle size={13} /> 1:1 대화
+                1:1 대화
               </button>
             </div>
           </div>
@@ -75,7 +75,6 @@ export default function Chat() {
                 {(list as ChatRoomSummary[]).map(r => (
                   <Link key={r.id} to={withQuery(path, query, { room: r.id })} className={`item ${r.id === roomId ? 'active' : ''} ${r.members ? 'dm' : ''}`}>
                     <div className="row">
-                      {r.members && <Avatar name={profileName(r.members.find(id => id !== me.id))} size="xs" />}
                       <span className="t-smallb truncate grow">{r.members ? roomTitle(r, me.id, profileName).slice(2) : `# ${r.name}`}</span>
                       {r.last_at && <span className="t-meta">{relativeLabel(r.last_at)}</span>}
                     </div>
@@ -166,7 +165,7 @@ function Room({ room }: { room: ChatRoomSummary }) {
         <span className="t-bodyb truncate">{roomTitle(room, me.id, profileName)}</span>
         {room.members && (
           <span className="t-cap row" style={{ gap: 3 }} title="두 사람만 볼 수 있는 대화입니다 (관리자도 볼 수 없음)">
-            <Lock size={11} /> 둘만 보는 대화
+            둘만 보는 대화
           </span>
         )}
         {project && (
@@ -236,7 +235,6 @@ function DmPicker({ onClose, onPick }: { onClose: () => void; onPick: (id: strin
             className="item row"
             onClick={() => onPick(p.id)}
           >
-            <Avatar name={p.is_agent ? '🤖' : p.name} size="sm" />
             <span className="t-smallb grow">{p.name}</span>
             {p.is_agent ? <Badge tone="acid">AI 팀원 · 바로 답함</Badge> : p.title && <span className="t-cap">{p.title}</span>}
             {!p.is_agent && <span className="t-meta">{p.today_status}</span>}

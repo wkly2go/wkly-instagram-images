@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react'
-import { Pencil, Plus, Trash2 } from 'lucide-react'
+import { Pencil } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { shortDate, todayKey } from '../lib/date'
 import { Link } from '../lib/router'
 import type { AgentJob, Department, Project, Task } from '../lib/types'
-import { Avatar, Badge, Button, Chip, Empty, Field, Modal, SectionHead } from './ui'
+import { Badge, Button, Chip, Empty, Field, Modal, SectionHead } from './ui'
 
 const S_COLOR: Record<string, string> = { 진행: 'var(--blue)', 기획: 'var(--pink)', NIC: 'var(--green)', 보류: 'var(--gray)' }
 
@@ -56,9 +56,7 @@ function ProjectRow({ g }: { g: Prog }) {
       <span className={`t-meta org-pdue${late ? ' t-red' : ''}`}>{g.p.end_date ? `${late ? '지남 ' : '~'}${shortDate(g.p.end_date)}` : g.p.status}</span>
       <span className="org-people">
         {g.people.slice(0, 4).map(id => (
-          <span key={id} title={profileName(id)}>
-            <Avatar name={profileName(id)} size="xs" />
-          </span>
+          <span key={id} className="t-cap">{profileName(id)}</span>
         ))}
       </span>
     </div>
@@ -122,7 +120,7 @@ export function OrgSection() {
         right={
           admin ? (
             <Button kind="outline" size="sm" onClick={() => setEditing('new')}>
-              <Plus size={13} /> 부서 추가
+              부서 추가
             </Button>
           ) : undefined
         }
@@ -161,7 +159,6 @@ export function OrgSection() {
                   const late = open.filter(t => t.due_date && t.due_date < today).length
                   return (
                     <Link key={id} to={`/work?user=${id}`} className="org-load" title={`${profileName(id)} 남은 업무 ${open.length}${late ? ` · 지연 ${late}` : ''}`}>
-                      <Avatar name={profileName(id)} size="xs" />
                       <span className="t-small truncate">{profileName(id)}</span>
                       <span className="track">
                         <i style={{ width: `${(open.length / maxLoad) * 100}%` }} />
@@ -173,7 +170,6 @@ export function OrgSection() {
                 })}
                 {jobs.map(j => (
                   <span key={j.trigger_id} className="org-load" title={j.last_summary ?? j.name}>
-                    <Avatar name={j.name.replace(/^WKLY\s*/, '')} size="xs" />
                     <span className="t-small truncate">{j.name.replace(/^WKLY\s*/, '')}</span>
                     <span className="t-meta">{j.schedule_label ?? ''}</span>
                   </span>
@@ -210,7 +206,7 @@ function DeptModal({ dept, groups, profiles, onClose }: { dept: Department | nul
         <>
           {dept && (
             <Button kind="ghost" onClick={remove} disabled={busy} style={{ marginRight: 'auto' }}>
-              <Trash2 size={13} /> 삭제
+              삭제
             </Button>
           )}
           <Button kind="ghost" onClick={onClose}>

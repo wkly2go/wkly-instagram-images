@@ -5,7 +5,7 @@ import { budgetByCategory, isOverdue, monthlyFlow, paymentChecks, paymentRun, pr
 import { Link, useRouter } from '../lib/router'
 import type { BudgetLine, Client, Payment, Project, ProjectFinance, Task } from '../lib/types'
 import { BarChart, FlowChart, HBarChart, Meter, StackBar, shortMan } from '../components/charts'
-import { Avatar, Badge, Empty, type Tone } from '../components/ui'
+import { Badge, Empty, type Tone } from '../components/ui'
 
 interface FinData {
   finances: ProjectFinance[]
@@ -324,7 +324,6 @@ function OwnerProgress({ projects, tasks, money, today }: { projects: Project[];
                   <tr key={r.p.id}>
                     <td className="nowrap">
                       <span className="row" style={{ gap: 6 }}>
-                        <Avatar name={r.p.name} size="xs" />
                         <Link to={`/work?user=${r.p.id}`} className="strong">
                           {r.p.name}
                         </Link>

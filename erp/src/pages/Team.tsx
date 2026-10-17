@@ -10,7 +10,7 @@ import type { Profile, WorkLog } from '../lib/types'
 import { Shell } from '../components/Shell'
 import { PersonName } from '../components/Person'
 import { LeaveSection } from '../components/Leave'
-import { Avatar, Badge, Button, Chip, Field, SectionHead, TodayBadge } from '../components/ui'
+import { Badge, Button, Chip, Field, SectionHead, TodayBadge } from '../components/ui'
 
 type Tab = 'org' | 'attendance' | 'leave' | 'me'
 const TABS: [Tab, string][] = [
@@ -167,7 +167,6 @@ function MemberCard({ p, presence, logs }: { p: Profile; presence: Presence; log
   return (
     <div className={`member ${p.active ? '' : 'off'}`}>
       <div className="row">
-        <Avatar name={p.name} />
         <span className="col gap-2 grow">
           <span className="row" style={{ gap: 4 }}>
             <PersonName id={p.id} className="t-smallb truncate" />

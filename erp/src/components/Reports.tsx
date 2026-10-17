@@ -1,5 +1,4 @@
 import { Fragment, useState, type ReactNode } from 'react'
-import { FileText, Plus } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { todayKey } from '../lib/date'
 import { defaultTemplate, fillReport } from '../lib/reports'
@@ -163,7 +162,7 @@ export function ReportForm({ item, clients, presetClient, onClose, onSaved }: { 
           <span className="t-cap grow">본문은 공통 양식으로 시작합니다. '## 소제목', '- 목록', '항목: 내용' 형식이 보기 좋게 정리됩니다.</span>
           {templates.map(t => (
             <Button key={t.id} kind="outline" size="sm" onClick={() => useTemplate(t)}>
-              <FileText size={13} /> {t.name}
+              {t.name}
             </Button>
           ))}
         </div>
@@ -199,7 +198,7 @@ export function ReportTemplates({ tabs }: { tabs: ReactNode }) {
         {tabs}
         <span className="grow" />
         <Button onClick={() => setCur({ name: '', body: list[0]?.body ?? '', is_default: false })}>
-          <Plus size={13} /> 양식
+          양식
         </Button>
       </div>
       <div className="note">
