@@ -324,7 +324,18 @@ export function Shell({ active, flush, children }: { active: TabKey; flush?: boo
             </header>
             <div className="body" ref={mountWebSlot}>
               <ProfilePanel summary={summary} />
-              <main className={`main ${flush ? 'flush' : ''}`}>{children}</main>
+              <main className={`main ${flush ? 'flush' : ''}`}>
+                {/* 가운데 창 뒤로 · 앞으로 (인트라넷 화면 이동 기록) */}
+                <div className="main-nav" role="group" aria-label="화면 이동">
+                  <button type="button" className="icon-btn sm" onClick={() => window.history.back()} aria-label="이전 화면" title="이전 화면">
+                    <ChevronLeft size={14} />
+                  </button>
+                  <button type="button" className="icon-btn sm" onClick={() => window.history.forward()} aria-label="다음 화면" title="다음 화면">
+                    <ChevronRight size={14} />
+                  </button>
+                </div>
+                {children}
+              </main>
             </div>
           </div>
         </div>
