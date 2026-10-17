@@ -1193,3 +1193,20 @@ button.kpi:hover, a.kpi:hover { border-color: var(--blue); }
 .web-detail-head .t-meta { color: #1c1c1e; }
 .web-detail .web-project { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 8px 10px; }
 .web-detail .web-project > .chat-panel { height: 340px; min-height: 0; }
+
+/* ---------- 전체 공통 4단: 프로필 │ 본 화면 │ 결과 │ 인터넷(고정) (2026-10-17) ---------- */
+.detail-slot { display: contents; }
+.detail-col { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; background: var(--white); border: 1px solid var(--line); border-radius: var(--r-panel); overflow: hidden; animation: detail-in .34s cubic-bezier(.2, .8, .2, 1) both; }
+@keyframes detail-in {
+  from { flex-grow: 0; opacity: 0; transform: translateX(-32px); clip-path: inset(0 100% 0 0); }
+  to { flex-grow: 1; opacity: 1; transform: none; clip-path: inset(0 0 0 0); }
+}
+@media (prefers-reduced-motion: reduce) { .detail-col { animation: none; } }
+.detail-head { display: flex; align-items: center; gap: 6px; padding: 6px 8px 6px 12px; background: var(--yellow); color: #1c1c1e; font: 700 12px/1.3 var(--font); flex-shrink: 0; }
+.detail-head .icon-btn { color: #1c1c1e; }
+.detail-body { flex: 1; min-height: 0; overflow: auto; padding: 10px 12px; }
+.detail-body .section-h .t-bodyb { font-size: 12px; }
+.detail-body > .chat-panel { height: 100%; min-height: 0; }
+.detail-body > .memo-pad { width: auto; border-left: 0; padding: 0; background: none; overflow: visible; }
+html.detail-open .web-panel { max-width: 28vw; }
+@media (max-width: 1199px) { html.detail-open .body > .profile { display: none; } }

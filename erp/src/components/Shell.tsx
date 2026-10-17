@@ -3,10 +3,14 @@ import { ChevronLeft, ChevronRight, CircleHelp } from 'lucide-react'
 import { isDesktopApp } from '../lib/desktop'
 import { NotificationBell } from './Notifications'
 import { WebSearchBox, webSlot } from './WebSearch'
+import { detailSlot } from './RightPanel'
 
 /** 검색 창 자리(한 개뿐인 DOM)를 이 화면의 .body 끝으로 옮김 */
 const mountWebSlot = (el: HTMLDivElement | null) => {
-  if (el && webSlot && webSlot.parentElement !== el) el.appendChild(webSlot)
+  if (!el) return
+  // 순서: … 본 화면 │ 결과 칸 │ 인터넷 칸
+  if (detailSlot && detailSlot.parentElement !== el) el.appendChild(detailSlot)
+  if (webSlot && (webSlot.parentElement !== el || webSlot.previousSibling !== detailSlot)) el.appendChild(webSlot)
 }
 import { useApp, useAsync, initial } from '../lib/app'
 import { friendlyError } from '../lib/api'
