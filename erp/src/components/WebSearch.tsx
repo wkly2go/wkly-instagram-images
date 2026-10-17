@@ -484,6 +484,10 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
               {l}
             </button>
           ))}
+          {/* 언론은 첫 줄 맨 위로 (누르면 세 번째 줄에 언론사 목록) */}
+          <button type="button" role="tab" aria-selected={engine === 'press'} className={`web-tab${shownGroup === 'press' ? ' on' : ''}`} onClick={() => (q ? onSearch(q, 'press') : setLastGroup('press'))} title={`언론사만: ${SITE_GROUPS.press.sites.map(x => x.label).join(' · ')}`}>
+            {SITE_GROUPS.press.label}
+          </button>
         </div>
         <button type="button" className="icon-btn sm" onClick={() => (native ? app!.searchNav?.('external') : window.open(urlFor(engine, q), '_blank', 'noopener'))} aria-label="브라우저로 열기" title="브라우저로 열기">
           <ExternalLink size={13} />
@@ -494,7 +498,7 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
       </div>
       <div className="web-sites" role="group" aria-label="업무 사이트만 검색">
         <div className="web-tabs" role="tablist">
-          {(Object.keys(SITE_GROUPS) as SiteGroup[]).map(k => (
+          {(Object.keys(SITE_GROUPS) as SiteGroup[]).filter(k => k !== 'press').map(k => (
             <button key={k} type="button" role="tab" aria-selected={engine === k} className={`web-tab${shownGroup === k ? ' on' : ''}`} onClick={() => (q ? onSearch(q, k) : setLastGroup(k))} title={`업무 사이트만: ${SITE_GROUPS[k].sites.map(x => x.label).join(' · ')}`}>
               {SITE_GROUPS[k].label}
             </button>

@@ -38,9 +38,10 @@ export function ReportCheck({ a }: { a: Approval }) {
 }
 
 /** 미승인 업무 보고: 내가 승인할 것 + 내가 올리고 아직 승인 안 된 것 */
-export function PendingReports({ reports, title = '미승인 업무 보고' }: { reports: Approval[]; title?: string }) {
+export function PendingReports({ reports, title = '미승인 업무 보고', userId }: { reports: Approval[]; title?: string; userId?: string | null }) {
   const { me, profileName } = useApp()
-  const list = reports.filter(a => a.status === '대기' && (a.can_decide || a.requested_by === me.id)).sort((a, b) => reportDate(a).localeCompare(reportDate(b)))
+  // userId: 그 사람의 보고만 (업무 화면 왼쪽에서 고른 팀원과 연동), 없으면 내가 볼 수 있는 전체
+  const list = reports.filter(a => a.status === '대기' && (a.can_decide || a.requested_by === me.id) && (!userId || a.requested_by === userId)).sort((a, b) => reportDate(a).localeCompare(reportDate(b)))
   if (!list.length) return null
   return (
     <div className="col gap-4 pending-reports">
@@ -61,15 +62,18 @@ export function PendingReports({ reports, title = '미승인 업무 보고' }: {
 }
 
 /** 업무 할 일 (프로젝트별). 업무 일지와 같은 방식으로 내용에서 프로젝트를 찾아 연결 */
-export function WorkTodo({ projects, clients, tasks }: { projects: Project[]; clients: Client[]; tasks: Task[] }) {
-  const { api, me } = useApp()
+/** userId: 그 사람의 할 일 (기본 = 나), null = 팀 전체 */
+export function WorkTodo({ projects, clients, tasks, userId }: { projects: Project[]; clients: Client[]; tasks: Task[]; userId?: string | null }) {
+  const { api, me, profileName } = useApp()
+  const owner = userId === undefined ? me.id : userId
+  const team = owner === null
   const { busy, run } = useAction()
   const today = todayKey()
   const [text, setText] = useState('')
   const [pick, setPick] = useState('')
   const guessed = useMemo(() => (text.trim().length >= 2 ? guessLinks(text, projects, clients).projectId ?? '' : ''), [text, projects, clients])
   const projectId = pick || guessed
-  const mine = tasks.filter(t => t.assignee_id === me.id && t.status !== '완료')
+  const mine = tasks.filter(t => (team ? !!t.assignee_id : t.assignee_id === owner) && t.status !== '완료')
   const groups = useMemo(() => {
     const m = new Map<string, Task[]>()
     for (const t of mine) m.set(t.project_id ?? '', [...(m.get(t.project_id ?? '') ?? []), t])
@@ -80,7 +84,7 @@ export function WorkTodo({ projects, clients, tasks }: { projects: Project[]; cl
   const add = async () => {
     const title = text.trim()
     if (!title) return
-    if (await run(() => api.saveTask({ title: title.slice(0, 200), project_id: projectId || null, assignee_id: me.id, due_date: today, status: '할 일', memo: null }))) {
+    if (await run(() => api.saveTask({ title: title.slice(0, 200), project_id: projectId || null, assignee_id: owner ?? me.id, due_date: today, status: '할 일', memo: null }))) {
       setText('')
       setPick('')
     }
@@ -93,7 +97,7 @@ export function WorkTodo({ projects, clients, tasks }: { projects: Project[]; cl
           value={text}
           onChange={e => setText(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && !e.nativeEvent.isComposing && add()}
-          placeholder="할 일 추가 (Enter) · 프로젝트 이름을 쓰면 자동 연결"
+          placeholder={owner && owner !== me.id ? `${profileName(owner)}에게 할 일 추가 (Enter)` : '할 일 추가 (Enter) · 프로젝트 이름을 쓰면 자동 연결'}
           aria-label="할 일 추가"
         />
         {text.trim() && (
@@ -133,6 +137,7 @@ export function WorkTodo({ projects, clients, tasks }: { projects: Project[]; cl
               <label key={t.id} className={`row todo-row${late ? ' late' : ''}`}>
                 <input type="checkbox" checked={false} onChange={() => run(() => api.saveTask({ id: t.id, status: '완료' }), '완료했습니다.')} aria-label={`${t.title} 완료`} />
                 <span className="grow t-small">{t.title}</span>
+                {team && t.assignee_id && <span className="t-meta">{profileName(t.assignee_id)}</span>}
                 {t.due_date && <span className={`t-meta${late ? ' t-red' : ''}`}>{late ? '지연 ' : ''}{shortDate(t.due_date)}</span>}
               </label>
             )

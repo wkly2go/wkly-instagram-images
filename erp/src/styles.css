@@ -1167,3 +1167,12 @@ button.kpi:hover, a.kpi:hover { border-color: var(--blue); }
 
 /* 전체 공통: 목록은 가운데 그대로, 누른 항목의 결과는 오른쪽 칸 (2026-10-17) */
 .split.list-only .pane-list { width: 100%; border-right: 0; }
+.web-project > .memo-pad { width: auto; border-left: 0; padding: 0; background: none; overflow: visible; }
+.split.list-only .pane-list.chat-list { width: 100%; }
+.web-project > .chat-panel { height: 100%; min-height: 360px; }
+.split.team-one { flex-direction: column; overflow: auto; }
+.split.team-one > .pane-list { width: 100%; border-right: 0; border-bottom: 1px solid var(--line); flex: none; }
+.split.team-one > .pane-list .pane-body { overflow: visible; }
+.split.team-one > .pane-detail { flex: none; }
+.ad-analysis.one { grid-template-columns: minmax(0, 1fr); }
+.agent-report.picked { outline: 2px solid var(--blue); outline-offset: -2px; }

@@ -7,6 +7,7 @@ import { presenceOf, useAccessLog, useAttendance, useDesktopOnly, type Presence 
 import { SOURCE_LABEL } from '../lib/desktop'
 import type { Attendance, AttendanceCheckin, LeaveRecord, Profile, Project, ResearchItem, Task, WorkLog, WorkPlan } from '../lib/types'
 import { Shell } from '../components/Shell'
+import { usePanelWide, useRightPanel } from '../components/RightPanel'
 import { PersonName } from '../components/Person'
 import { LeaveSection } from '../components/Leave'
 import { Badge, Button, Chip, Field, KindBadge, SectionHead, StatusBadge, TodayBadge } from '../components/ui'
@@ -28,10 +29,13 @@ export default function Team() {
   const personId = query.get('user')
   const person = personId ? profiles.find(p => p.id === personId) ?? null : null
   const goPerson = (id: string | null) => navigate(withQuery(path, query, { user: id }), { replace: true })
+  // 넓은 화면: 사람 목록과 근태는 가운데 한 단, 누른 사람의 허브는 오른쪽 칸
+  const wide = usePanelWide()
+  useRightPanel(wide && tab === 'attendance' && person ? `person:${person.id}` : null, '팀원 상세', person && <PersonHub key={person.id} p={person} onBack={() => goPerson(null)} />)
   return (
     <Shell active="team" flush={tab === 'attendance'}>
       {tab === 'attendance' ? (
-        <div className={`split ${person ? 'has-detail' : ''}`}>
+        <div className={`split ${person && !wide ? 'has-detail' : ''}${wide ? ' team-one' : ''}`}>
           <div className="pane-list">
             <div className="pane-head">
               <div className="chips" role="tablist" aria-label="팀 메뉴">
@@ -46,7 +50,7 @@ export default function Team() {
           </div>
           <div className="pane-detail" style={{ overflow: 'auto' }}>
             <div className="col gap-10" style={{ padding: '14px 16px' }}>
-              {person ? (
+              {person && !wide ? (
                 <PersonHub key={person.id} p={person} onBack={() => goPerson(null)} />
               ) : (
                 <>

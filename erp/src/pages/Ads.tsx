@@ -5,6 +5,7 @@ import { addDays, dateTimeLabel, shortDate, todayKey } from '../lib/date'
 import { useRouter, withQuery } from '../lib/router'
 import { AD_PLATFORMS, type AdCampaign, type AdCreative, type AdDaily, type AdPlatform, type AdReport, type AdReportKind, type SeoCheck } from '../lib/types'
 import { Shell } from '../components/Shell'
+import { usePanelWide, useRightPanel } from '../components/RightPanel'
 import { Badge, Chip, Empty, SectionHead } from '../components/ui'
 import { ReportBody } from '../components/Reports'
 import { CompareBars, DayChart, Spark, type Series } from '../components/AdCharts'
@@ -556,8 +557,29 @@ function Analysis({ kind, reports, creatives, rows }: { kind: AdReportKind; repo
       : kind === '경쟁사 분석'
         ? '국내 공간 · 팝업 · 전시 · 브랜드 경험 회사의 광고 소재와 집행 방식 분석 (WKLY 총괄)'
         : '우리와 비슷한 매체 · 사업을 하는 해외 회사의 광고 집행 사례 분석 (WKLY 총괄)'
+  // 넓은 화면: 보고서 본문은 오른쪽 칸, 가운데는 목록 · 소재
+  const wide = usePanelWide()
+  const report = open && (
+    <article className="report-paper">
+      <div className="row">
+        <Badge tone="acid">{kind}</Badge>
+        <span className="t-meta grow">
+          {shortDate(open.report_date)} · {dateTimeLabel(open.updated_at)}
+        </span>
+      </div>
+      {open.summary && <p className="t-small pre ad-summary">{open.summary}</p>}
+      <ReportBody body={open.body ?? ''} />
+      {open.sources && (
+        <details>
+          <summary className="t-cap">출처</summary>
+          <span className="t-cap pre">{open.sources}</span>
+        </details>
+      )}
+    </article>
+  )
+  useRightPanel(wide && open ? `ad-report:${open.id}` : null, kind, report)
   return (
-    <div className="ad-analysis">
+    <div className={`ad-analysis${wide ? ' one' : ''}`}>
       <aside className="col gap-4">
         <span className="t-cap">{intro}</span>
         {list.length === 0 && <Empty>아직 보고서가 없습니다. 내일 09:00 보고부터 쌓입니다.</Empty>}
@@ -571,24 +593,7 @@ function Analysis({ kind, reports, creatives, rows }: { kind: AdReportKind; repo
         ))}
       </aside>
       <div className="col gap-8" style={{ minWidth: 0 }}>
-        {open && (
-          <article className="report-paper">
-            <div className="row">
-              <Badge tone="acid">{kind}</Badge>
-              <span className="t-meta grow">
-                {shortDate(open.report_date)} · {dateTimeLabel(open.updated_at)}
-              </span>
-            </div>
-            {open.summary && <p className="t-small pre ad-summary">{open.summary}</p>}
-            <ReportBody body={open.body ?? ''} />
-            {open.sources && (
-              <details>
-                <summary className="t-cap">출처</summary>
-                <span className="t-cap pre">{open.sources}</span>
-              </details>
-            )}
-          </article>
-        )}
+        {open && !wide && report}
         {creatives.length > 0 && (
           <>
             <SectionHead title={kind === '해외 사례' ? '해외 광고 소재' : '경쟁사 광고 소재'} count={creatives.length} />
