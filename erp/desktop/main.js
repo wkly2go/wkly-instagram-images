@@ -405,7 +405,10 @@ function chromeUserAgent(ua) {
 function placeSearch(rect) {
   if (!searchView || !rect) return
   const r = { x: Math.round(rect.x), y: Math.round(rect.y), width: Math.max(0, Math.round(rect.width)), height: Math.max(0, Math.round(rect.height)) }
-  searchView.setBounds(r)
+  // 인트라넷이 0 크기를 보내면(팝업 창 · 잠금 화면) 아예 감춤
+  const show = r.width > 0 && r.height > 0
+  if (typeof searchView.setVisible === 'function') searchView.setVisible(show)
+  if (show) searchView.setBounds(r)
 }
 
 function closeSearch() {
