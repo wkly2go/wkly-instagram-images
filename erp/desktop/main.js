@@ -376,6 +376,7 @@ const TRIM_JS = `(() => {
   const res = pick('#search') || pick('#rso') || pick('#islmp') || pick('#islrg') || pick('#center_col') || pick('#main_pack') || pick('#ct_wrap') || pick('#main') || pick('#container') || pick('main')
   const hide = el => { if (el && el.style) el.style.setProperty('display', 'none', 'important') }
   const run = () => {
+    if (document.querySelector('iframe[src*="recaptcha"], #captcha-form, .g-recaptcha, [data-sitekey]')) return
     if (res) {
       let node = res
       while (node && node !== document.body) {
@@ -407,6 +408,8 @@ const TRIM_JS = `(() => {
 function trimSearchChrome(wc) {
   const u = wc.getURL()
   try {
+    // 구글 '비정상 트래픽' 확인 페이지(/sorry): 로봇 확인(체크 · 그림 선택)이 보이도록 아무것도 숨기지 않음
+    if (/^https:\/\/(www\.|ipv4\.|ipv6\.)?google\.[a-z.]+\/sorry\//.test(u) || /recaptcha|captcha|challenge/i.test(u)) return
     // ChatGPT: 자체 입력창을 숨기고 인트라넷 상단 검색창으로만 질문 (CSS 한 번만, 스크립트 없음 → 흔들림 없음)
     if (/^https:\/\/([a-z0-9-]+\.)*chatgpt\.com/.test(u)) {
       wc.insertCSS(CHATGPT_CSS)
