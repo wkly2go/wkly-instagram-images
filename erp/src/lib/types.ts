@@ -19,6 +19,8 @@ export interface Profile {
   photo?: string | null
   /** AI 팀원(에이전트) 계정 */
   is_agent: boolean
+  /** AI 팀원을 맡은 사람 관리자 (0032) */
+  manager_id?: string | null
   created_at: string
 }
 

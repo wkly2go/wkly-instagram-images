@@ -3,7 +3,7 @@ import { ChevronDown, ChevronLeft, ChevronRight, Search } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { addDays, dateTimeLabel, relativeLabel, shortDate, todayKey, weekday } from '../lib/date'
 import { useRouter, withQuery } from '../lib/router'
-import { AGENT_VERDICTS, type AgentAction, type AgentJob, type AgentJobRequest, type AgentReport } from '../lib/types'
+import { AGENT_VERDICTS, type AgentAction, type AgentJob, type AgentJobRequest, type AgentReport, type Department } from '../lib/types'
 import { Shell } from '../components/Shell'
 import { Badge, Button, Chip, Empty, Field, Modal, SectionHead, type Tone } from '../components/ui'
 
@@ -11,7 +11,7 @@ const V_TONE: Record<string, Tone> = { 완료: 'acid', '변동 없음': 'outline
 const R_TONE: Record<string, Tone> = { 대기: 'yellow', '처리 중': 'blue', 완료: 'acid', '수동 필요': 'red', 거절: 'gray' }
 const MANAGER = 'WKLY 총괄 에이전트 관리'
 
-type Tab = 'jobs' | 'reports' | 'requests'
+type Tab = 'jobs' | 'org' | 'reports' | 'requests'
 
 /** Claude AI 에이전트(예약 작업) 관리 · 일일 보고 (관리자) */
 export default function Agents() {
@@ -33,6 +33,7 @@ export default function Agents() {
           {(
             [
               ['jobs', '에이전트'],
+              ['org', '조직도 · 관리자'],
               ['reports', '일일 보고'],
               ['requests', '관리 요청'],
             ] as [Tab, string][]
@@ -46,7 +47,7 @@ export default function Agents() {
         <span className="t-cap">Claude 예약 작업을 WKLY 총괄이 2시간마다 점검해 이곳에 기록합니다.</span>
       </div>
       <FailureBanner />
-      {tab === 'jobs' ? <Jobs /> : tab === 'reports' ? <Reports /> : <Requests />}
+      {tab === 'jobs' ? <Jobs /> : tab === 'org' ? <AgentOrg /> : tab === 'reports' ? <Reports /> : <Requests />}
     </Shell>
   )
 }
@@ -374,6 +375,134 @@ function FailureBanner() {
         </div>
       ))}
       <span className="t-cap">WKLY 총괄이 정기 점검 때 실패한 작업을 한 번 다시 실행합니다. 같은 작업이 두 번 실패하면 '관리 요청'에서 확인해 주세요.</span>
+    </div>
+  )
+}
+
+/** AI 팀 조직도: 대표 → 부서(책임자 · 사람 · AI 팀원 · 예약 작업 묶음) + AI 팀원별 사람 관리자 지정 */
+function AgentOrg() {
+  const { api, version, profiles, profileName } = useApp()
+  const { busy, run } = useAction()
+  const { data } = useAsync(
+    async () => {
+      const [departments, jobs] = await Promise.all([api.listDepartments(), api.listAgentJobs()])
+      return { departments, jobs: jobs.filter(j => !j.removed) }
+    },
+    [version],
+    { departments: [] as Department[], jobs: [] as AgentJob[] },
+  )
+  const active = profiles.filter(p => p.active)
+  const humans = active.filter(p => !p.is_agent)
+  const agents = active.filter(p => p.is_agent)
+  const heads = humans.filter(p => p.role === 'admin')
+  const deptOf = (id: string) => data.departments.find(d => d.member_ids.includes(id)) ?? null
+  const groups = [...new Set(data.jobs.map(j => j.group_name))]
+  const groupDept = (g: string) => data.departments.find(d => d.agent_groups.includes(g)) ?? null
+  const unassigned = groups.filter(g => !groupDept(g))
+  return (
+    <div className="col gap-10">
+      <SectionHead title="조직도" right={<span className="t-cap">부서 · 구성원 편집은 프로젝트 › 조직 현황, 소속 부서는 관리 › 팀원 관리에서</span>} />
+      <div className="aorg">
+        <div className="aorg-top">
+          <span className="aorg-node head">
+            <b>대표</b> {heads.map(h => h.name).join(' · ') || '–'}
+          </span>
+        </div>
+        <div className="aorg-depts">
+          {data.departments.map(d => {
+            const ppl = d.member_ids.map(id => active.find(p => p.id === id)).filter((p): p is (typeof active)[number] => !!p)
+            const jobGroups = d.agent_groups.filter(g => groups.includes(g))
+            return (
+              <section key={d.id} className="aorg-dept">
+                <span className="t-bodyb">{d.name}</span>
+                <span className="t-cap">책임 {d.lead_id ? profileName(d.lead_id) : '미지정'}</span>
+                <div className="aorg-list">
+                  {ppl.filter(p => !p.is_agent).map(p => (
+                    <span key={p.id} className="aorg-node">
+                      {p.name}
+                      {p.title && <i>{p.title}</i>}
+                    </span>
+                  ))}
+                  {ppl.filter(p => p.is_agent).map(p => (
+                    <span key={p.id} className="aorg-node ai">
+                      <b>AI</b> {p.name}
+                      <i>관리 {p.manager_id ? profileName(p.manager_id) : '미지정'}</i>
+                    </span>
+                  ))}
+                  {jobGroups.map(g => (
+                    <span key={g} className="aorg-node job" title={data.jobs.filter(j => j.group_name === g).map(j => j.name).join('\n')}>
+                      <b>예약</b> {g} <i>{data.jobs.filter(j => j.group_name === g).length}개 · 관리 {d.lead_id ? profileName(d.lead_id) : '미지정'}</i>
+                    </span>
+                  ))}
+                  {ppl.length === 0 && jobGroups.length === 0 && <span className="t-cap">구성원 없음</span>}
+                </div>
+              </section>
+            )
+          })}
+          {unassigned.length > 0 && (
+            <section className="aorg-dept none">
+              <span className="t-bodyb">부서 미지정 예약 작업</span>
+              <div className="aorg-list">
+                {unassigned.map(g => (
+                  <span key={g} className="aorg-node job">
+                    <b>예약</b> {g} <i>{data.jobs.filter(j => j.group_name === g).length}개</i>
+                  </span>
+                ))}
+              </div>
+            </section>
+          )}
+        </div>
+      </div>
+
+      <SectionHead title="AI 팀원 · 사람 관리자" count={agents.length} right={<span className="t-cap">관리자는 AI 팀원의 보고 · 요청을 확인하고 지시합니다</span>} />
+      {agents.length === 0 ? (
+        <Empty>AI 팀원이 없습니다.</Empty>
+      ) : (
+        <div className="table-wrap">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>AI 팀원</th>
+                <th>부서</th>
+                <th>사람 관리자</th>
+                <th>부서 책임자</th>
+              </tr>
+            </thead>
+            <tbody>
+              {agents.map(a => {
+                const d = deptOf(a.id)
+                return (
+                  <tr key={a.id}>
+                    <td className="nowrap">
+                      <Badge tone="blue">AI</Badge> {a.name}
+                    </td>
+                    <td>{d?.name ?? '미지정'}</td>
+                    <td>
+                      <select
+                        className="select"
+                        style={{ padding: '2px 6px', fontSize: 12, width: 130 }}
+                        value={a.manager_id ?? ''}
+                        disabled={busy}
+                        onChange={e => run(() => api.updateProfile(a.id, { manager_id: e.target.value || null }), e.target.value ? `${a.name} 관리자를 ${profileName(e.target.value)} 님으로 정했습니다.` : `${a.name} 관리자를 비웠습니다.`)}
+                        aria-label={`${a.name} 사람 관리자`}
+                      >
+                        <option value="">미지정</option>
+                        {humans.map(h => (
+                          <option key={h.id} value={h.id}>
+                            {h.name}
+                            {h.title ? ` · ${h.title}` : ''}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="t-cap">{d?.lead_id ? profileName(d.lead_id) : '–'}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   )
 }

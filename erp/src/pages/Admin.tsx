@@ -6,7 +6,7 @@ import { EXPORT_TABLES, type ExportTable } from '../lib/api'
 import { downloadText, toCsv } from '../lib/csv'
 import { relativeLabel, shortDate, timeLabel, toDateKey, todayKey } from '../lib/date'
 import { Link } from '../lib/router'
-import { AGENT_SCOPES, APPROVAL_KINDS, type AdminOverview, type AgentScope, type AgentToken, type Approval, type ApprovalKind, type ApprovalRoute, type Profile, type ResearchItem } from '../lib/types'
+import { AGENT_SCOPES, APPROVAL_KINDS, type AdminOverview, type AgentScope, type AgentToken, type Approval, type ApprovalKind, type ApprovalRoute, type Department, type Profile, type ResearchItem } from '../lib/types'
 import { Meter } from '../components/charts'
 import { Shell } from '../components/Shell'
 import { PersonName } from '../components/Person'
@@ -130,14 +130,31 @@ function SystemStatus({ overview }: { overview: AdminOverview | null }) {
 }
 
 function Members() {
-  const { api, me, profiles } = useApp()
+  const { api, me, profiles, version } = useApp()
   const { busy, run } = useAction()
-  const [f, setF] = useState({ name: '', email: '', password: '', title: '', is_agent: false })
+  const [f, setF] = useState({ name: '', email: '', password: '', title: '', is_agent: false, dept: '' })
   const active = profiles.filter(p => p.active)
+  const { data: depts } = useAsync(() => api.listDepartments(), [version], [] as Department[])
+  const deptOf = (id: string) => depts.find(d => d.member_ids.includes(id)) ?? null
+  /** 부서 바꾸기: 다른 부서에서는 빼고 고른 부서에 넣음 (한 사람은 한 부서) */
+  const moveTo = async (personId: string, deptId: string) => {
+    for (const d of depts) {
+      const has = d.member_ids.includes(personId)
+      if (d.id === deptId && !has) await api.saveDepartment({ ...d, member_ids: [...d.member_ids, personId] })
+      else if (d.id !== deptId && has) await api.saveDepartment({ ...d, member_ids: d.member_ids.filter(x => x !== personId) })
+    }
+  }
   const add = async () => {
     if (!f.name.trim() || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(f.email.trim()) || f.password.length < 8) return
-    const ok = await run(() => api.createMember({ name: f.name.trim(), email: f.email.trim(), password: f.password, title: f.title.trim() || null, role: 'member', is_agent: f.is_agent }), `${f.name.trim()} 님을 추가했습니다. 임시 비밀번호를 전달해 주세요.`)
-    if (ok) setF({ name: '', email: '', password: '', title: '', is_agent: false })
+    const email = f.email.trim()
+    const ok = await run(async () => {
+      await api.createMember({ name: f.name.trim(), email, password: f.password, title: f.title.trim() || null, role: 'member', is_agent: f.is_agent })
+      if (f.dept) {
+        const p = (await api.listProfiles()).find(x => (x.email ?? '').toLowerCase() === email.toLowerCase())
+        if (p) await moveTo(p.id, f.dept)
+      }
+    }, `${f.name.trim()} 님을 추가했습니다. 임시 비밀번호를 전달해 주세요.`)
+    if (ok) setF({ name: '', email: '', password: '', title: '', is_agent: false, dept: '' })
   }
   const update = (p: Profile, patch: Partial<Pick<Profile, 'role' | 'active' | 'is_agent'>>, msg: string) => run(() => api.updateProfile(p.id, patch), msg)
   const [resetFor, setResetFor] = useState<Profile | null>(null)
@@ -157,6 +174,7 @@ function Members() {
             <tr>
               <th>이름</th>
               <th>이메일</th>
+              <th>부서</th>
               <th>직함</th>
               <th>권한</th>
               <th>구분</th>
@@ -201,6 +219,24 @@ function Members() {
                     </span>
                   </td>
                   <td className="nowrap">{p.email ?? '–'}</td>
+                  <td>
+                    <select
+                      className="select"
+                      style={{ padding: '2px 6px', fontSize: 12, width: 110 }}
+                      value={deptOf(p.id)?.id ?? ''}
+                      disabled={busy || !depts.length}
+                      onChange={e => run(() => moveTo(p.id, e.target.value), e.target.value ? `${p.name} 님을 ${depts.find(d => d.id === e.target.value)?.name ?? ''} 부서로 옮겼습니다.` : `${p.name} 님을 부서에서 뺐습니다.`)}
+                      aria-label={`${p.name} 부서`}
+                      title={depts.length ? '부서 선택' : '프로젝트 › 조직 현황에서 부서를 먼저 만들어 주세요'}
+                    >
+                      <option value="">미지정</option>
+                      {depts.map(d => (
+                        <option key={d.id} value={d.id}>
+                          {d.name}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
                   <td className="max truncate">{p.title ?? '–'}</td>
                   <td>
                     <select className="select" style={{ padding: '2px 6px', fontSize: 12, width: 84 }} value={p.role} disabled={busy || self} onChange={e => update(p, { role: e.target.value as Profile['role'] }, '권한을 바꿨습니다.')} aria-label={`${p.name} 권한`}>
@@ -258,6 +294,14 @@ function Members() {
         <input className="input" style={{ flex: '1 1 90px' }} placeholder="이름" value={f.name} onChange={e => setF({ ...f, name: e.target.value })} aria-label="새 팀원 이름" />
         <input className="input" style={{ flex: '2 1 160px' }} placeholder="이메일" type="email" value={f.email} onChange={e => setF({ ...f, email: e.target.value })} aria-label="새 팀원 이메일" />
         <input className="input" style={{ flex: '1 1 120px' }} placeholder="임시 비밀번호 (8자+)" type="text" autoComplete="off" value={f.password} onChange={e => setF({ ...f, password: e.target.value })} aria-label="임시 비밀번호" />
+        <select className="select" style={{ flex: '1 1 110px' }} value={f.dept} onChange={e => setF({ ...f, dept: e.target.value })} aria-label="부서">
+          <option value="">부서 (미지정)</option>
+          {depts.map(d => (
+            <option key={d.id} value={d.id}>
+              {d.name}
+            </option>
+          ))}
+        </select>
         <input className="input" style={{ flex: '1 1 90px' }} placeholder="직함" value={f.title} onChange={e => setF({ ...f, title: e.target.value })} aria-label="직함" />
         <select className="select" style={{ width: 80 }} value={f.is_agent ? 'ai' : 'human'} onChange={e => setF({ ...f, is_agent: e.target.value === 'ai' })} aria-label="구분">
           <option value="human">사람</option>
