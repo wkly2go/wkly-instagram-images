@@ -956,7 +956,7 @@ button.kpi:hover, a.kpi:hover { border-color: var(--blue); }
 .web-tab { height: 26px; box-sizing: border-box; padding: 0 10px; border: 1px solid var(--blue); border-radius: 999px; background: var(--white); color: var(--blue); font: inherit; font-size: 12px; font-weight: 700; line-height: 24px; cursor: pointer; white-space: nowrap; }
 .web-tab:hover { background: var(--paper); }
 .web-tab.on { background: var(--yellow); }
-.web-sites { display: grid; grid-template-columns: 64px minmax(0, 1fr); align-items: start; gap: 6px; padding: 6px 0; border-top: 1px dashed var(--blue); border-bottom: 1px dashed var(--blue); }
+.web-sites { display: grid; grid-template-columns: minmax(0, 1fr); align-items: start; gap: 6px; padding: 6px 0; border-top: 1px dashed var(--blue); border-bottom: 1px dashed var(--blue); }
 .web-sites-label { display: inline-flex; align-items: center; height: 26px; padding: 0 8px; border-radius: 6px; background: var(--blue-tint); color: var(--blue); font: 700 11px/1 var(--mono); white-space: nowrap; }
 .web-sites .web-tab { border-color: var(--blue-tint); background: var(--paper); }
 .web-sites .web-tab.on { background: var(--yellow); border-color: var(--blue); }
