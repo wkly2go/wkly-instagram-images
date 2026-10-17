@@ -318,6 +318,8 @@ export function Shell({ active, flush, children }: { active: TabKey; flush?: boo
             <div className="body">
               <ProfilePanel summary={summary} />
               <main className={`main ${flush ? 'flush' : ''}`}>{children}</main>
+              {/* 구글 검색 창이 열리면 여기(본 화면 오른쪽)에 들어옴 */}
+              <div id="web-slot" className="web-slot" />
             </div>
           </div>
         </div>

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { ExternalLink, Search, X } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { desktop } from '../lib/desktop'
@@ -125,7 +126,7 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
       return native ? 640 : 420
     }
   })
-  // 검색창이 열린 동안 본 화면을 그만큼 줄여 옆에 나란히 (좁은 화면은 덮어서 표시)
+  // 검색 창이 열린 동안 인트라넷 상자를 그 폭만큼 넓혀 본 화면 오른쪽에 나란히 (좁은 화면은 덮어서 표시)
   useEffect(() => {
     const el = document.documentElement
     el.style.setProperty('--web-w', `${width}px`)
@@ -137,7 +138,8 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
   }, [width])
   const startDrag = (e: React.PointerEvent) => {
     e.preventDefault()
-    const move = (ev: PointerEvent) => setWidth(Math.round(Math.min(Math.max(window.innerWidth - ev.clientX, 320), window.innerWidth * 0.7)))
+    const right = (e.currentTarget.parentElement as HTMLElement).getBoundingClientRect().right
+    const move = (ev: PointerEvent) => setWidth(Math.round(Math.min(Math.max(right - ev.clientX, 320), window.innerWidth * 0.6)))
     const up = () => {
       window.removeEventListener('pointermove', move)
       window.removeEventListener('pointerup', up)
@@ -211,10 +213,10 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
   }, [onClose])
 
   const recent = readRecent()
-  return (
+  const slot = document.getElementById('web-slot')
+  return createPortal(
     <aside className={`web-panel${native ? ' is-native' : ''}`} aria-label="인터넷 검색">
       <div className="web-resize" onPointerDown={startDrag} role="separator" aria-orientation="vertical" aria-label="검색 창 폭 조절" title="끌어서 폭 조절" />
-      <div className="web-inner">
       <div className="row">
         <form
           className="web-search wide grow"
@@ -300,8 +302,8 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
         </div>
       )}
       {!native && me.role === 'admin' && <CxSetting cx={cx} />}
-      </div>
-    </aside>
+    </aside>,
+    slot ?? document.body,
   )
 }
 
