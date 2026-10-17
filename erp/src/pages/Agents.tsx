@@ -45,6 +45,7 @@ export default function Agents() {
         <span className="grow" />
         <span className="t-cap">Claude 예약 작업을 WKLY 총괄이 2시간마다 점검해 이곳에 기록합니다.</span>
       </div>
+      <FailureBanner />
       {tab === 'jobs' ? <Jobs /> : tab === 'reports' ? <Reports /> : <Requests />}
     </Shell>
   )
@@ -352,6 +353,27 @@ function Requests() {
           )}
         </div>
       ))}
+    </div>
+  )
+}
+
+/** 최근 24시간 실패 · 일부 실패 · 미실행 경고 (맨 위 빨간 상자) */
+function FailureBanner() {
+  const { api, version } = useApp()
+  const today = todayKey()
+  const { data } = useAsync(() => api.listAgentReports(addDays(today, -1), today), [version, today], [] as AgentReport[])
+  const bad = data.filter(r => r.verdict === '실패' || r.verdict === '일부 실패' || r.verdict === '미실행')
+  if (!bad.length) return null
+  return (
+    <div className="fail-banner">
+      <b>⚠ 최근 24시간 확인 필요 {bad.length}건</b>
+      {bad.slice(0, 8).map(r => (
+        <div key={r.id} className="t-small">
+          · {r.job_name} — {r.verdict}
+          {r.summary ? ` · ${r.summary.slice(0, 120)}` : ''}
+        </div>
+      ))}
+      <span className="t-cap">WKLY 총괄이 정기 점검 때 실패한 작업을 한 번 다시 실행합니다. 같은 작업이 두 번 실패하면 '관리 요청'에서 확인해 주세요.</span>
     </div>
   )
 }
