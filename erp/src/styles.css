@@ -946,7 +946,10 @@ button.kpi:hover, a.kpi:hover { border-color: var(--blue); }
 .pane-list > .seg { margin: 10px 12px 0; align-self: flex-start; }
 .notif-kind { min-width: 44px; padding-top: 2px; }
 /* 노트북 화면: 검색 창이 열려 있는 동안 왼쪽 프로필 칸을 접어 본 화면 폭 확보 */
-@media (min-width: 900px) and (max-width: 1499px) { html.web-open .body > .profile { display: none; } }
+/* 해상도별: 검색 창 폭을 화면에 맞춰 줄이고(최대 36vw), 프로필 칸은 1100px 미만에서만 접음 */
+@media (min-width: 1300px) and (max-width: 1599px) { .web-panel { max-width: 36vw; } }
+@media (min-width: 1100px) and (max-width: 1299px) { .web-panel { max-width: 30vw; } }
+@media (min-width: 900px) and (max-width: 1099px) { html.web-open .body > .profile { display: none; } .web-panel { max-width: 40vw; } }
 /* 검색 창 위쪽: 한 줄 도구 막대 (검색어 · 종류 · 뒤로/앞으로 · 브라우저 · 닫기) */
 .web-bar { display: flex; align-items: center; gap: 6px; min-width: 0; }
 /* 첫 줄은 한 줄 고정: 넘치면 버튼이 줄어들고 가로로 스크롤 (두 줄로 늘지 않음) */
