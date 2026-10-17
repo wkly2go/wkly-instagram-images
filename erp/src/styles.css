@@ -1082,31 +1082,38 @@ button.kpi:hover, a.kpi:hover { border-color: var(--blue); }
 @media (prefers-color-scheme: dark) {
   :root {
     color-scheme: dark;
-    --page-bg: #11141f;
-    --white: #1c2030;
-    --paper: #161926;
-    --gray: #c7c9d3;
-    --line: #353a4f;
-    --blue: #8da4ff;
-    --blue-tint: #2b3660;
-    --yellow: #ffe600;
-    --yellow-tint: #262a1f;
-    --acid: #c8ff00;
-    --red: #ff5a5d;
-    --green: #4fc46b;
-    --pink: #ff5fcb;
-    --scrim: rgba(8, 10, 20, 0.6);
-    --zebra: rgba(255, 255, 255, 0.035);
+    /* macOS 다크 모드 색 구성: 창 바탕 · 패널 · 구분선은 중성 회색, 강조는 시스템 블루 */
+    --page-bg: #1e1e1e;
+    --white: #2c2c2e;
+    --paper: #242426;
+    --gray: #d1d1d6;
+    --line: #3a3a3c;
+    --blue: #6fb0ff;
+    --blue-tint: #2f3a4f;
+    --yellow: #ffd60a;
+    --yellow-tint: #2f2d24;
+    --acid: #b8e34a;
+    --red: #ff6961;
+    --green: #30d158;
+    --pink: #ff6ac1;
+    --scrim: rgba(0, 0, 0, 0.55);
+    --zebra: rgba(255, 255, 255, 0.03);
   }
-  /* 노랑 · 연두 · 흰 바탕 위 글자는 진한 파랑 그대로 (대비 유지) */
+  /* 노랑 · 연두 바탕 위 글자는 맥 배지처럼 진한 회색 (대비 유지) */
   .badge.yellow, .badge.acid, .btn-yellow, .chip.active, .item.active, .pane-list .item.active, .bubble.mine, .cal button.today .n, .g-week.today,
   .web-tab.on, .web-sites .web-tab.on, .board tbody tr.sel td, .proj-code, .mode-badge, .board-count, .section-h .badge.yellow,
-  .app-page .tab.active, .tab.active, .avatar.c3, .photo.c3, .quick-menu-item:hover, .seg button.on, .bulk, .notif-panel .head, .kpi .t-cap { color: #1c44f1; }
-  .board tbody tr.sel td .t-smallb, .board tbody tr.sel td a, .item.active .t-smallb, .item.active a { color: #1c44f1; }
-  .tab { color: var(--white); }
-  .tab.active { background: var(--white); color: var(--blue); }
-  .top-logo img, .quick-logo { filter: brightness(0) invert(1); opacity: .92; }
-  .drop-hint { background: rgba(22, 25, 38, 0.88); }
-  .chart .tip, .notif-panel, .pick-list, .ad-tip { box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45); }
+  .avatar.c3, .photo.c3, .quick-menu-item:hover, .seg button.on, .bulk, .notif-panel .head { color: #1c1c1e; }
+  .kpi .t-cap { color: var(--blue); }
+  .board tbody tr.sel td .t-smallb, .board tbody tr.sel td a, .item.active .t-smallb, .item.active a { color: #1c1c1e; }
+  .top-logo img, .quick-logo { filter: brightness(0) invert(1); opacity: .9; }
+  .drop-hint { background: rgba(36, 36, 38, 0.88); }
+  .chart .tip, .notif-panel, .pick-list, .ad-tip { box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5); }
+  .tab { background: #3a3a3c; border-color: #3a3a3c; box-shadow: inset 0 0 0 1.5px #2c2c2e; color: #e5e5ea; }
+  .tab:hover { background: #48484a; border-color: #48484a; color: #fff; }
+  .tab.active { background: var(--white); border-color: var(--blue); color: var(--blue); }
+  .app-page .tabs { background: #1e1e1e; border-top-color: #3a3a3c; }
+  .app-page .tab.active { background: var(--blue); color: #fff; }
+  .section-h, .board-head { background: #323234; border-color: #323234; border-bottom-color: #48484a; }
+  .section-h::before { background: var(--blue) !important; }
   img.person-photo, .photo img { opacity: .92; }
 }
