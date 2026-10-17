@@ -382,6 +382,12 @@ const TRIM_JS = `(() => {
       }
     }
     for (const el of document.querySelectorAll('header, [role="banner"], form[role="search"], #searchform, #gb, #hdtb, #top_nav, #appbar')) hide(el)
+    // 사이트 자체 검색창(모바일 화면 포함): 검색 입력칸을 찾아 그 입력칸이 든 머리 부분을 숨김 (결과가 든 상자는 건드리지 않음)
+    for (const inp of document.querySelectorAll('input[type="search"], input[name="q"], input[name="query"], input[name="search_query"], input[name="keyword"], input[name="searchKeyword"], input[name="sword"], input[name="kw"], input[name="searchword"], input[name="stext"]')) {
+      let el = inp.closest('form, header, [role="search"], [role="banner"], .search, .sch, .sch_area, .sch_w, .search-bar, .searchbar') || inp.parentElement
+      while (el && el !== document.body && el.parentElement && el.parentElement.getBoundingClientRect().height < 180 && !el.parentElement.contains(res)) el = el.parentElement
+      if (el && el !== document.body && !el.contains(res)) hide(el)
+    }
     for (const el of document.body.querySelectorAll('div, nav, header')) {
       const cs = getComputedStyle(el)
       if ((cs.position === 'fixed' || cs.position === 'sticky') && el.getBoundingClientRect().top < 60 && el.getBoundingClientRect().height < 220 && !el.contains(res)) hide(el)
