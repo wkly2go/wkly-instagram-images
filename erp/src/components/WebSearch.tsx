@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { createPortal } from 'react-dom'
-import { ChevronLeft, ChevronRight, ExternalLink, Search } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ExternalLink, Search, X } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { desktop } from '../lib/desktop'
 
@@ -433,7 +433,7 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
   const slot = webSlot
   const shownGroup = groupOf(engine) ?? lastGroup
   return createPortal(
-    <aside className={`web-panel${native ? ' is-native' : ''}`} aria-label="인터넷 검색">
+    <aside className={`web-panel${native ? ' is-native' : ''}${q ? ' has-q' : ''}`} aria-label="인터넷 검색">
       <div className="web-resize" onPointerDown={startDrag} role="separator" aria-orientation="vertical" aria-label="검색 창 폭 조절" title="끌어서 폭 조절" />
       <div className="web-bar">
         <div className="web-tabs grow" role="tablist" aria-label="검색 종류">
@@ -445,6 +445,9 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
         </div>
         <button type="button" className="icon-btn sm" onClick={() => (native ? app!.searchNav?.('external') : window.open(urlFor(engine, q), '_blank', 'noopener'))} aria-label="브라우저로 열기" title="브라우저로 열기">
           <ExternalLink size={13} />
+        </button>
+        <button type="button" className="icon-btn sm web-close" onClick={onClose} aria-label="검색 창 닫기" title="닫기">
+          <X size={14} />
         </button>
       </div>
       <div className="web-sites" role="group" aria-label="업무 사이트만 검색">

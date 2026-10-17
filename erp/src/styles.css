@@ -20,6 +20,8 @@
   --blue-tint: #d2dafc;
   --yellow-tint: #fffff0;
   --scrim: rgba(98, 98, 92, 0.38);
+  --page-bg: var(--yellow);
+  --zebra: rgba(240, 240, 236, 0.45);
 
   --font: 'Noto Sans KR', system-ui, -apple-system, 'Apple SD Gothic Neo', sans-serif;
   --mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
@@ -36,7 +38,7 @@
 html, body, #root { height: 100%; }
 body {
   margin: 0;
-  background: var(--yellow);
+  background: var(--page-bg);
   color: var(--gray);
   font: 400 14px/1.45 var(--font);
   -webkit-font-smoothing: antialiased;
@@ -375,7 +377,7 @@ a:hover { text-decoration: underline; }
 .quick { height: 100%; padding: 8px; display: flex; flex-direction: column; }
 .quick .card { flex: 1; background: var(--white); border: 1px solid var(--line); border-radius: 16px; padding: 6px; display: flex; min-height: 0; }
 .quick .inner { overflow: auto; }
-.pip-body { margin: 0; background: var(--yellow); height: 100vh; }
+.pip-body { margin: 0; background: var(--page-bg); height: 100vh; }
 .pip-body > div { height: 100%; }
 
 
@@ -450,7 +452,7 @@ button.kpi:hover, a.kpi:hover { border-color: var(--blue); }
   .topbar { flex-wrap: wrap; row-gap: 6px; }
   .book { height: auto; min-height: calc(100vh - 44px); border-radius: 0; border: 0; padding: 0; }
   .inner { border-radius: 0; border: 0; }
-  .tabs { flex-direction: row; padding: 8px 8px 0; overflow-x: auto; width: 100%; position: sticky; top: 0; z-index: 10; background: var(--yellow); }
+  .tabs { flex-direction: row; padding: 8px 8px 0; overflow-x: auto; width: 100%; position: sticky; top: 0; z-index: 10; background: var(--page-bg); }
   .tab { width: auto; padding: 0 14px; border-radius: 8px 8px 0 0; border: 2px solid var(--blue); border-bottom: none; margin-left: 0; height: 36px; }
   .tab.active { border-color: var(--blue); }
   .page { padding: 0; }
@@ -929,9 +931,14 @@ button.kpi:hover, a.kpi:hover { border-color: var(--blue); }
 .web-resize { position: absolute; left: 0; top: 0; bottom: 0; width: 6px; cursor: col-resize; z-index: 1; border-radius: var(--r-panel) 0 0 var(--r-panel); }
 .web-resize:hover, .web-resize:active { background: var(--yellow-tint); }
 /* 좁은 화면: 화면 전체를 덮어서 표시 */
+.web-close { display: none !important; }
 @media (max-width: 899px) {
-  .web-panel { position: fixed; inset: 0; width: 100vw; max-width: 100vw; z-index: 60; border-radius: 0; }
+  /* 좁은 화면(휴대폰 · 태블릿 세로): 검색어를 넣었을 때만 화면 전체를 덮고, 닫기 버튼으로 돌아감 */
+  .web-panel { display: none; }
+  .web-panel.has-q { display: flex; position: fixed; inset: 0; width: 100vw; max-width: 100vw; z-index: 60; border-radius: 0; }
+  .web-panel.has-q .web-close { display: inline-flex !important; }
   .web-resize { display: none; }
+  html.web-open .inner, html.web-open .main { --web-w: 0px; }
 }
 .web-native { flex: 1 1 auto; min-height: 200px; background: var(--paper); border: 1px solid var(--line); border-radius: 6px; }
 .web-panel.is-native .web-note, .web-panel.is-native .web-setting { flex-shrink: 0; }
@@ -996,14 +1003,14 @@ button.kpi:hover, a.kpi:hover { border-color: var(--blue); }
 * + .section-h { margin-top: 10px; }
 /* 2) 목록 줄: 실선 구분 + 번갈아 옅은 바탕 + 올리면 강조 */
 .dashed { border-bottom: 1px solid var(--line); }
-.col > .dashed:nth-child(even), .col > .dashed.row:nth-child(even) { background: rgba(240, 240, 236, .45); }
+.col > .dashed:nth-child(even), .col > .dashed.row:nth-child(even) { background: var(--zebra); }
 .col > .dashed { padding-left: 6px !important; padding-right: 6px !important; }
 .col > .dashed:hover, .item-row:hover { background: var(--blue-tint); }
 .item-row { border-bottom: 1px solid var(--line); padding-left: 6px; padding-right: 6px; }
 .item { border-bottom: 1px solid var(--line); }
 /* 3) 표: 머리글 파란 밑줄 + 줄무늬 */
 .table th { border-bottom: 2px solid var(--blue); color: var(--blue); font-weight: 700; }
-.table tbody tr:nth-child(even) td { background: rgba(240, 240, 236, .45); }
+.table tbody tr:nth-child(even) td { background: var(--zebra); }
 .table tbody tr:hover td { background: var(--blue-tint); }
 /* 4) 항목 : 값 — 이름 칸에 바탕 */
 .kv { gap: 2px 10px; }
@@ -1036,7 +1043,7 @@ button.kpi:hover, a.kpi:hover { border-color: var(--blue); }
 .board .num-col { font: 700 12px/1.4 var(--mono); color: var(--gray); }
 .board th.center, .board td.center { text-align: center; }
 .board th.num, .board td.num { text-align: right; font-variant-numeric: tabular-nums; }
-.board tbody tr:nth-child(even) td { background: rgba(240, 240, 236, .45); }
+.board tbody tr:nth-child(even) td { background: var(--zebra); }
 .board.clickable tbody tr { cursor: pointer; }
 .board.clickable tbody tr:hover td { background: var(--blue-tint); }
 .board tbody tr.sel td { background: var(--yellow); box-shadow: inset 3px 0 0 var(--blue); }
@@ -1070,3 +1077,36 @@ button.kpi:hover, a.kpi:hover { border-color: var(--blue); }
 .side-tools { margin-top: auto; padding-top: 10px; border-top: 1px dashed var(--line); display: flex; flex-wrap: wrap; gap: 6px; }
 .side-tools .quick-btn { height: 28px; padding: 0 10px; font-size: 12px; }
 @media (max-width: 760px) { .side-tools { flex-basis: 100%; border-top: 0; padding-top: 0; } }
+
+/* ---------- 다크 모드 (기기 설정을 따름 · 검정 대신 짙은 남색 계열) ---------- */
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --page-bg: #11141f;
+    --white: #1c2030;
+    --paper: #161926;
+    --gray: #c7c9d3;
+    --line: #353a4f;
+    --blue: #8da4ff;
+    --blue-tint: #2b3660;
+    --yellow: #ffe600;
+    --yellow-tint: #262a1f;
+    --acid: #c8ff00;
+    --red: #ff5a5d;
+    --green: #4fc46b;
+    --pink: #ff5fcb;
+    --scrim: rgba(8, 10, 20, 0.6);
+    --zebra: rgba(255, 255, 255, 0.035);
+  }
+  /* 노랑 · 연두 · 흰 바탕 위 글자는 진한 파랑 그대로 (대비 유지) */
+  .badge.yellow, .badge.acid, .btn-yellow, .chip.active, .item.active, .pane-list .item.active, .bubble.mine, .cal button.today .n, .g-week.today,
+  .web-tab.on, .web-sites .web-tab.on, .board tbody tr.sel td, .proj-code, .mode-badge, .board-count, .section-h .badge.yellow,
+  .app-page .tab.active, .tab.active, .avatar.c3, .photo.c3, .quick-menu-item:hover, .seg button.on, .bulk, .notif-panel .head, .kpi .t-cap { color: #1c44f1; }
+  .board tbody tr.sel td .t-smallb, .board tbody tr.sel td a, .item.active .t-smallb, .item.active a { color: #1c44f1; }
+  .tab { color: var(--white); }
+  .tab.active { background: var(--white); color: var(--blue); }
+  .top-logo img, .quick-logo { filter: brightness(0) invert(1); opacity: .92; }
+  .drop-hint { background: rgba(22, 25, 38, 0.88); }
+  .chart .tip, .notif-panel, .pick-list, .ad-tip { box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45); }
+  img.person-photo, .photo img { opacity: .92; }
+}
