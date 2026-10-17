@@ -187,9 +187,11 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
     window.addEventListener('pointermove', move)
     window.addEventListener('pointerup', up)
   }
+  // 팝업 창(.scrim) · 잠금 화면이 떠 있으면 구글 칸을 숨김 (PC 프로그램의 구글 칸은 항상 화면 맨 위에 그려지므로)
+  const covered = () => !!document.querySelector('.scrim, .lock-screen')
   const rectOf = () => {
     const r = nativeBox.current?.getBoundingClientRect()
-    return r ? { x: r.left, y: r.top, width: r.width, height: r.height } : { x: 0, y: 0, width: 0, height: 0 }
+    return r && !covered() ? { x: r.left, y: r.top, width: r.width, height: r.height } : { x: 0, y: 0, width: 0, height: 0 }
   }
 
   // PC 프로그램: 검색 결과를 패널 안 칸에 띄우고, 크기가 바뀌면 따라감 · 패널을 닫으면 함께 닫힘
@@ -226,10 +228,13 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
     const send = () => app!.searchBounds?.(rectOf())
     const ro = new ResizeObserver(send)
     ro.observe(nativeBox.current)
+    const mo = new MutationObserver(send) // 팝업 창이 뜨고 닫힐 때 바로 반영
+    mo.observe(document.body, { childList: true })
     window.addEventListener('resize', send)
     const t = window.setInterval(send, 800)
     return () => {
       ro.disconnect()
+      mo.disconnect()
       window.removeEventListener('resize', send)
       window.clearInterval(t)
       // 화면을 옮기느라 잠시 사라지는 경우는 닫지 않음 (닫기 버튼 · Esc 로 닫을 때만)
