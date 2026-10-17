@@ -940,8 +940,11 @@ button.kpi:hover, a.kpi:hover { border-color: var(--blue); }
 /* 노트북 화면: 검색 창이 열려 있는 동안 왼쪽 프로필 칸을 접어 본 화면 폭 확보 */
 @media (min-width: 900px) and (max-width: 1499px) { html.web-open .body > .profile { display: none; } }
 /* 검색 창 위쪽: 한 줄 도구 막대 (검색어 · 종류 · 뒤로/앞으로 · 브라우저 · 닫기) */
-.web-bar { display: flex; align-items: flex-start; gap: 6px; min-width: 0; }
-.web-bar .web-tabs { min-width: 0; }
+.web-bar { display: flex; align-items: center; gap: 6px; min-width: 0; }
+/* 첫 줄은 한 줄 고정: 넘치면 버튼이 줄어들고 가로로 스크롤 (두 줄로 늘지 않음) */
+.web-bar .web-tabs { min-width: 0; flex: 1 1 auto; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; gap: 4px; }
+.web-bar .web-tabs::-webkit-scrollbar { display: none; }
+.web-bar .web-tab { padding: 0 8px; flex-shrink: 0; }
 .web-bar .web-search { height: 28px; }
 .web-nav { display: inline-flex; align-items: center; gap: 0; border: 1px solid var(--blue); border-radius: 999px; background: var(--white); padding: 0 2px; height: 26px; box-sizing: border-box; flex-shrink: 0; }
 .web-nav .icon-btn.sm, .web-bar > .icon-btn.sm { width: 22px; height: 22px; color: var(--blue); }
