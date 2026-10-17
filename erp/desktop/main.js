@@ -4,7 +4,7 @@
 //  - 로그인 후 X 를 누르면 트레이(작업 표시줄 오른쪽 아래 / 맥 메뉴 막대)로 숨김 · 알림은 계속
 //  - 컴퓨터를 30분 안 쓰거나 화면 잠금 · 절전이면 인트라넷 화면도 잠금
 //  - 윈도우는 새 버전을 자동으로 받아 로그인 화면일 때 조용히 설치 (맥은 내려받기 안내)
-const { app, BrowserWindow, Tray, Menu, ipcMain, powerMonitor, shell, nativeImage, dialog, WebContentsView } = require('electron')
+const { app, BrowserWindow, Tray, Menu, ipcMain, powerMonitor, shell, nativeImage, dialog, WebContentsView, nativeTheme } = require('electron')
 const path = require('path')
 const fs = require('fs')
 const crypto = require('crypto')
@@ -101,7 +101,7 @@ function createWindow() {
     minHeight: 560,
     title: 'WKLY 인트라넷',
     icon: ICON,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: nativeTheme.shouldUseDarkColors ? '#11141f' : '#FFFFFF', // 기기 다크 모드를 따름 (창이 뜰 때 흰 번쩍임 방지)
     autoHideMenuBar: true,
     show: false,
     webPreferences: webPrefs(),
