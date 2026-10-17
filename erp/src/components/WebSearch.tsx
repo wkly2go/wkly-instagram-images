@@ -113,6 +113,9 @@ let nativeShowing: string | null = null
 export function WebSearchBox() {
   const open = useOpenState()
   const [q, setQ] = useState(open?.q ?? '')
+  useEffect(() => {
+    if (open?.q) setQ(open.q)
+  }, [open?.q])
   const setOpen = setOpenState
   const submit = (engine: Engine = open?.engine ?? 'google') => {
     const v = q.trim()
@@ -131,7 +134,7 @@ export function WebSearchBox() {
         }}
       >
         <Search size={14} />
-        <input value={q} onChange={e => setQ(e.target.value)} placeholder="구글 검색" aria-label="구글 검색" enterKeyHint="search" />
+        <input value={q} onChange={e => setQ(e.target.value)} placeholder="검색" aria-label="구글 검색" enterKeyHint="search" title="검색어를 넣고 Enter · 결과는 오른쪽 검색 창에" />
       </form>
       {open && <WebPanel q={open.q} engine={open.engine} onSearch={(v, e) => { setQ(v); setOpen({ q: v, engine: e }) }} onClose={() => setOpen(null)} />}
     </>
@@ -141,7 +144,6 @@ export function WebSearchBox() {
 function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine; onSearch: (q: string, e: Engine) => void; onClose: () => void }) {
   const { api, me, version } = useApp()
   const { data: cx } = useAsync(() => api.getSearchCx(), [version], null as string | null)
-  const [text, setText] = useState(q)
   const [err, setErr] = useState('')
   const [blocked, setBlocked] = useState(false)
   const box = useRef<HTMLDivElement>(null)
@@ -240,7 +242,6 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
 
   // 결과를 인트라넷 안에 (검색 ID가 있을 때) · 없으면 오른쪽에 구글 창
   useEffect(() => {
-    setText(q)
     setErr('')
     if (native) return
     if (!inline) {
@@ -286,16 +287,19 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
             </button>
           </span>
         )}
-        <form
-          className="web-search wide grow"
-          onSubmit={e => {
-            e.preventDefault()
-            text.trim() && onSearch(text.trim(), engine)
-          }}
-        >
-          <Search size={12} />
-          <input value={text} onChange={e => setText(e.target.value)} aria-label="검색어" placeholder="검색어 입력 후 Enter" />
-        </form>
+        <div className="web-tabs grow" role="tablist" aria-label="검색 종류">
+          {ENGINES.map(([k, l]) => (
+            <button key={k} type="button" role="tab" aria-selected={engine === k} className={`web-tab${engine === k ? ' on' : ''}`} onClick={() => onSearch(q, k)}>
+              {l}
+            </button>
+          ))}
+          <span className="web-tabs-sep" aria-hidden="true" />
+          {(Object.keys(SITE_GROUPS) as SiteGroup[]).map(k => (
+            <button key={k} type="button" role="tab" aria-selected={engine === k} className={`web-tab${engine === k ? ' on' : ''}`} onClick={() => onSearch(q, k)} title={`업무 사이트만: ${SITE_GROUPS[k].sites.join(' · ')}`}>
+              {SITE_GROUPS[k].label}
+            </button>
+          ))}
+        </div>
         {native && app!.searchZoom && (
           <span className="web-nav">
             <button type="button" className="icon-btn sm web-zoom" onClick={() => changeZoom(-0.1)} aria-label="글자 작게" title={`글자 작게 (지금 ${Math.round(zoom * 100)}%)`}>
@@ -312,19 +316,6 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
         <button type="button" className="icon-btn sm" onClick={onClose} aria-label="검색 창 닫기" title="닫기 (Esc)">
           <X size={14} />
         </button>
-      </div>
-      <div className="web-tabs" role="tablist" aria-label="검색 종류">
-        {ENGINES.map(([k, l]) => (
-          <button key={k} type="button" role="tab" aria-selected={engine === k} className={`web-tab${engine === k ? ' on' : ''}`} onClick={() => onSearch(text.trim() || q, k)}>
-            {l}
-          </button>
-        ))}
-        <span className="web-tabs-sep" aria-hidden="true" />
-        {(Object.keys(SITE_GROUPS) as SiteGroup[]).map(k => (
-          <button key={k} type="button" role="tab" aria-selected={engine === k} className={`web-tab${engine === k ? ' on' : ''}`} onClick={() => onSearch(text.trim() || q, k)} title={`업무 사이트만: ${SITE_GROUPS[k].sites.join(' · ')}`}>
-            {SITE_GROUPS[k].label}
-          </button>
-        ))}
       </div>
       {native ? (
         <>

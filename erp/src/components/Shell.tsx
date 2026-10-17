@@ -293,8 +293,8 @@ export function Shell({ active, flush, children }: { active: TabKey; flush?: boo
               </Link>
               <span className="site-title">사내 인트라넷</span>
               <span className="site-url t-meta">{window.location.host}</span>
-              <WebSearchBox />
               <span className="grow" />
+              <WebSearchBox />
               {api.mode === 'demo' && <span className="mode-badge" title="Supabase 연결 전 체험 모드. 데이터는 이 브라우저에만 저장됩니다.">DEMO</span>}
               <NotificationBell />
               {!isDesktopApp() && (
