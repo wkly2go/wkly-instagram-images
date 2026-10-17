@@ -905,3 +905,15 @@ button.kpi:hover, a.kpi:hover { border-color: var(--blue); }
 .fail-banner { display: flex; flex-direction: column; gap: 3px; padding: 10px 14px; border: 2px solid var(--red); border-radius: var(--r-panel); background: var(--white); color: var(--red); }
 .fail-banner .t-small { color: var(--blue); }
 .install-card { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border: 1px dashed var(--blue); border-radius: var(--r-panel); background: var(--white); }
+/* 인터넷 검색 (구글) */
+.web-search { display: flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px; width: 150px; border: 1px solid var(--line); border-radius: 999px; background: var(--white); color: var(--blue); transition: width .25s ease, border-color .2s; flex: 0 1 auto; min-width: 0; }
+.web-search:focus-within { width: min(420px, 40vw); border-color: var(--blue); box-shadow: 0 0 0 3px var(--yellow-tint); }
+.web-search input { border: 0; outline: 0; background: none; font: inherit; font-size: 13px; color: inherit; width: 100%; min-width: 0; }
+.web-search.wide, .web-search.wide:focus-within { width: auto; }
+.web-panel { position: fixed; top: 0; right: 0; bottom: 0; width: min(560px, 100vw); z-index: 60; display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; background: var(--white); border-left: 2px solid var(--blue); box-shadow: -8px 0 24px rgba(28, 68, 241, .12); overflow-y: auto; animation: web-in .22s ease; }
+@keyframes web-in { from { transform: translateX(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+.web-results { flex: 1; min-height: 300px; }
+.web-note { padding: 12px; background: var(--yellow-tint); border-radius: var(--r-panel); }
+.web-setting { border-top: 1px dashed var(--line); padding-top: 8px; }
+.web-setting ol { margin: 6px 0; padding-left: 18px; }
+@media (max-width: 760px) { .web-search { width: 40px; padding: 0 11px; } .web-search input::placeholder { color: transparent; } .web-search:focus-within { width: 60vw; } }

@@ -591,6 +591,13 @@ export function createSupabaseApi(url: string, key: string): Api {
     async setAttendanceRule(key, value) {
       must(await sb.rpc('set_app_setting', { p_key: key, p_value: value }))
     },
+    async getSearchCx() {
+      const { data } = await sb.from('app_settings').select('value').eq('key', 'google_cse_cx').maybeSingle()
+      return typeof data?.value === 'string' ? data.value : null
+    },
+    async setSearchCx(cx) {
+      must(await sb.rpc('set_app_setting', { p_key: 'google_cse_cx', p_value: cx }))
+    },
     async attendanceMonthSummary(month) {
       const { data, error } = await sb.rpc('attendance_month_summary', { p_month: `${month}-01` })
       return error ? [] : (data as AttendanceMonthRow[]).map(r => ({ ...r, leave_days: Number(r.leave_days) }))

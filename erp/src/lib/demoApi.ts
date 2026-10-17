@@ -80,6 +80,7 @@ interface Store {
   work_plans?: WorkPlan[]
   checkins?: AttendanceCheckin[]
   rules?: AttendanceRules
+  search_cx?: string | null
   ad_reports?: AdReport[]
   desktop_only?: boolean
   hr_records?: HrRecord[]
@@ -1424,6 +1425,16 @@ export function createDemoApi(): Api {
       const r = (store.rules ??= { workStart: '10:00', planDeadline: '18:00' })
       if (key === 'work_start') r.workStart = value
       else r.planDeadline = value
+      persist()
+      emit('app_settings')
+    },
+    async getSearchCx() {
+      return store.search_cx ?? null
+    },
+    async setSearchCx(cx) {
+      requireAdmin()
+      if (cx && !/^[A-Za-z0-9:_-]{5,80}$/.test(cx)) throw new ApiError('검색엔진 ID 형식이 올바르지 않습니다.')
+      store.search_cx = cx
       persist()
       emit('app_settings')
     },
