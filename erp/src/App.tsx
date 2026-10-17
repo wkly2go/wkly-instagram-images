@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { WebPanelHost } from './components/WebSearch'
+import { DetailColumnHost } from './components/RightPanel'
 import { api, AppProvider } from './lib/app'
 import { friendlyError } from './lib/api'
 import { openPipWindow, openQuickPopup, supportsPip } from './lib/pip'
@@ -167,6 +168,7 @@ export default function App() {
   return (
     <AppProvider me={me} profiles={profiles} version={version} bump={bump} toast={toast} openQuick={openQuick}>
       {path === '/quick' ? <Quick /> : <Page />}
+      {path !== '/quick' && <DetailColumnHost />}
       {path !== '/quick' && <WebPanelHost />}
       {pipWin && createPortal(<Quick onClose={() => pipWin.close()} />, pipWin.document.body)}
       {toastMsg && (

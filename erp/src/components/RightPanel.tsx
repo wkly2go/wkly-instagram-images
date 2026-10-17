@@ -1,9 +1,12 @@
-import { useEffect, useSyncExternalStore, type ReactNode } from 'react'
+import { useEffect, useState, useSyncExternalStore, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
+import { X } from 'lucide-react'
 
 /**
- * 오른쪽 칸 (인터넷 검색 칸) 에 띄우는 상세 내용.
- * 전체 공통 규칙 (대표 지시 2026-10-17 "버튼을 누르면 오른쪽에 결과 노출"):
- * 목록에서 항목을 누르면 가운데는 목록 그대로 두고 결과를 오른쪽 칸에 보여 준다.
+ * 결과 칸: 전체 공통 4단 구성 (대표 지시 2026-10-17)
+ * 프로필 │ 본 화면 │ 결과 │ 인터넷(항상 고정).
+ * 목록에서 자료 · 링크를 누르면 본 화면 오른쪽에 결과 칸이 왼쪽→오른쪽으로 펼쳐지며 나타나고,
+ * 가운데 두 칸(본 화면 · 결과)은 폭이 함께 늘고 줄어든다.
  */
 export type PanelDetail = { key: string; title: string; node: ReactNode }
 
@@ -51,5 +54,36 @@ export function usePanelWide() {
     },
     wideNow,
     () => false,
+  )
+}
+
+/** 결과 칸이 들어갈 자리 (인터넷 칸 바로 왼쪽, 화면이 바뀌어도 같은 DOM 재사용) */
+export const detailSlot: HTMLDivElement | null = typeof document !== 'undefined' ? document.createElement('div') : null
+if (detailSlot) detailSlot.className = 'detail-slot'
+
+/** 앱 맨 위에서 한 번만 그리는 결과 칸 */
+export function DetailColumnHost() {
+  const d = usePanelDetail()
+  const wide = usePanelWide()
+  const [closed, setClosed] = useState<string | null>(null)
+  const show = !!d && wide && closed !== d.key
+  useEffect(() => {
+    document.documentElement.classList.toggle('detail-open', show)
+    return () => document.documentElement.classList.remove('detail-open')
+  }, [show])
+  if (!show || !detailSlot) return null
+  return createPortal(
+    <aside className="detail-col" aria-label={d.title}>
+      <div className="detail-head">
+        <span className="grow truncate">{d.title}</span>
+        <button type="button" className="icon-btn sm" onClick={() => setClosed(d.key)} aria-label="결과 칸 닫기" title="닫기">
+          <X size={14} />
+        </button>
+      </div>
+      <div className="detail-body" key={d.key}>
+        {d.node}
+      </div>
+    </aside>,
+    detailSlot,
   )
 }
