@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { ExternalLink, Search, X } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
+import { desktop } from '../lib/desktop'
 
 type Engine = 'google' | 'images' | 'news' | 'maps' | 'naver' | SiteGroup
 type SiteGroup = 'popup' | 'design' | 'trend' | 'press' | 'social' | 'bid'
@@ -113,12 +114,40 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
   const [err, setErr] = useState('')
   const [blocked, setBlocked] = useState(false)
   const box = useRef<HTMLDivElement>(null)
-  const inline = !!cx && engine === 'google'
+  const nativeBox = useRef<HTMLDivElement>(null)
+  const app = desktop()
+  const native = !!app?.searchOpen // PC 프로그램 v1.1+: 구글을 이 창 안에 바로 띄움
+  const inline = !native && !!cx && engine === 'google'
+  const rectOf = () => {
+    const r = nativeBox.current?.getBoundingClientRect()
+    return r ? { x: r.left, y: r.top, width: r.width, height: r.height } : { x: 0, y: 0, width: 0, height: 0 }
+  }
+
+  // PC 프로그램: 검색 결과를 패널 안 칸에 띄우고, 크기가 바뀌면 따라감 · 패널을 닫으면 함께 닫힘
+  useEffect(() => {
+    if (!native) return
+    app!.searchOpen!(urlFor(engine, q), rectOf())
+  }, [native, q, engine])
+  useEffect(() => {
+    if (!native || !nativeBox.current) return
+    const send = () => app!.searchBounds?.(rectOf())
+    const ro = new ResizeObserver(send)
+    ro.observe(nativeBox.current)
+    window.addEventListener('resize', send)
+    const t = window.setInterval(send, 800)
+    return () => {
+      ro.disconnect()
+      window.removeEventListener('resize', send)
+      window.clearInterval(t)
+      app!.searchClose?.()
+    }
+  }, [native])
 
   // 결과를 인트라넷 안에 (검색 ID가 있을 때) · 없으면 오른쪽에 구글 창
   useEffect(() => {
     setText(q)
     setErr('')
+    if (native) return
     if (!inline) {
       setBlocked(!openDocked(urlFor(engine, q)))
       return
@@ -138,7 +167,7 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
     return () => {
       off = true
     }
-  }, [q, engine, inline, cx])
+  }, [q, engine, inline, cx, native])
 
   useEffect(() => {
     const k = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
@@ -148,7 +177,7 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
 
   const recent = readRecent()
   return (
-    <aside className="web-panel" aria-label="인터넷 검색">
+    <aside className={`web-panel${native ? ' is-native' : ''}`} aria-label="인터넷 검색">
       <div className="row">
         <form
           className="web-search wide grow"
@@ -186,7 +215,23 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
         ))}
       </div>
       {isGroup(engine) && <span className="t-cap">검색 사이트: {SITE_GROUPS[engine].sites.join(' · ')}</span>}
-      {inline ? (
+      {native ? (
+        <>
+          <div className="row" style={{ gap: 4 }}>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => app!.searchNav?.('back')}>
+              ‹ 뒤로
+            </button>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => app!.searchNav?.('forward')}>
+              앞으로 ›
+            </button>
+            <span className="grow" />
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => app!.searchNav?.('external')}>
+              브라우저로 열기
+            </button>
+          </div>
+          <div className="web-native" ref={nativeBox} />
+        </>
+      ) : inline ? (
         <div className="web-results" ref={box} />
       ) : (
         <div className="col gap-6 web-note">
@@ -200,11 +245,12 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
           <button type="button" className="btn btn-blue btn-sm" style={{ alignSelf: 'flex-start' }} onClick={() => setBlocked(!openDocked(urlFor(engine, q)))}>
             오른쪽 창에서 다시 열기
           </button>
+          <span className="t-cap">💡 <b>PC 프로그램</b>(1.1 이상)에서는 구글 결과가 이 창 안에 바로 나옵니다. <a href="/download">내려받기 ›</a></span>
           {engine === 'google' && !cx && <span className="t-cap">구글은 보안 정책상 다른 사이트 안에 넣을 수 없어 오른쪽에 붙는 별도 창으로 엽니다. 위 ‘업무 사이트만’ 탭을 누르면 팝업 · 디자인 · 트렌드 · 언론 등 정해 둔 사이트에서만 찾습니다.</span>}
         </div>
       )}
       {err && <span className="t-small t-red">{err}</span>}
-      {recent.length > 0 && (
+      {!native && recent.length > 0 && (
         <div className="col gap-2">
           <span className="t-cap">최근 검색</span>
           <div className="chips">
@@ -216,7 +262,7 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
           </div>
         </div>
       )}
-      {me.role === 'admin' && <CxSetting cx={cx} />}
+      {!native && me.role === 'admin' && <CxSetting cx={cx} />}
     </aside>
   )
 }

@@ -917,3 +917,5 @@ button.kpi:hover, a.kpi:hover { border-color: var(--blue); }
 .web-setting { border-top: 1px dashed var(--line); padding-top: 8px; }
 .web-setting ol { margin: 6px 0; padding-left: 18px; }
 @media (max-width: 760px) { .web-search { width: 40px; padding: 0 11px; } .web-search input::placeholder { color: transparent; } .web-search:focus-within { width: 60vw; } }
+.web-panel.is-native { width: min(720px, 60vw); overflow: hidden; }
+.web-native { flex: 1; min-height: 200px; background: var(--paper); border: 1px solid var(--line); border-radius: 6px; }

@@ -10,6 +10,11 @@ export interface DesktopBridge {
   setAuth(loggedIn: boolean): void
   /** 컴퓨터를 30분 안 쓰거나 화면 잠금 · 절전이면 호출됨 */
   onLock(cb: () => void): () => void
+  /** v1.1+: 인트라넷 화면 안 칸에 구글 등 웹 페이지를 띄움 */
+  searchOpen?(url: string, rect: { x: number; y: number; width: number; height: number }): void
+  searchBounds?(rect: { x: number; y: number; width: number; height: number }): void
+  searchNav?(action: 'back' | 'forward' | 'external'): void
+  searchClose?(): void
 }
 
 declare global {

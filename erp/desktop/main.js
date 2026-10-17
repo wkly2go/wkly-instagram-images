@@ -4,7 +4,7 @@
 //  - 로그인 후 X 를 누르면 트레이(작업 표시줄 오른쪽 아래 / 맥 메뉴 막대)로 숨김 · 알림은 계속
 //  - 컴퓨터를 30분 안 쓰거나 화면 잠금 · 절전이면 인트라넷 화면도 잠금
 //  - 윈도우는 새 버전을 자동으로 받아 로그인 화면일 때 조용히 설치 (맥은 내려받기 안내)
-const { app, BrowserWindow, Tray, Menu, ipcMain, powerMonitor, shell, nativeImage, dialog } = require('electron')
+const { app, BrowserWindow, Tray, Menu, ipcMain, powerMonitor, shell, nativeImage, dialog, WebContentsView } = require('electron')
 const path = require('path')
 const { autoUpdater } = require('electron-updater')
 
@@ -68,6 +68,7 @@ function start() {
     enforceLoginState()
     maybeInstallUpdate()
   })
+  setupSearchView()
   ipcMain.on('app-info', e => {
     e.returnValue = { version: app.getVersion(), platform: process.platform, origin: ORIGIN }
   })
@@ -145,8 +146,9 @@ function wireContents(contents) {
   })
 }
 // 본창 · 빠른 창 모두
+let creatingSearch = false // 검색 창은 외부 사이트를 그 안에서 열어야 하므로 제외
 app.on('web-contents-created', (_e, contents) => {
-  if (contents.getType() === 'window') wireContents(contents)
+  if (contents.getType() === 'window' && !creatingSearch) wireContents(contents)
 })
 
 function sameOrigin(url) {
@@ -251,4 +253,70 @@ function maybeInstallUpdate() {
 function installUpdate() {
   allowQuit = true
   autoUpdater.quitAndInstall(true, true)
+}
+
+/**
+ * 인트라넷 안 구글 검색 창 (v1.1)
+ *  - 구글은 다른 사이트 안(iframe)에 넣을 수 없지만, PC 프로그램은 화면 위에 별도 웹 화면(WebContentsView)을 겹쳐 띄울 수 있음
+ *  - 인트라넷이 알려 준 칸(검색 패널 아래 영역)에 정확히 맞춰 놓고, 창 크기가 바뀌면 인트라넷이 다시 알려 줌
+ *  - 검색 창 안 링크는 그 창 안에서 열림 (새 창 링크도 같은 창으로)
+ */
+let searchView = null
+let searchOwner = null
+const ALLOWED = /^https:\/\//
+
+function placeSearch(rect) {
+  if (!searchView || !rect) return
+  const r = { x: Math.round(rect.x), y: Math.round(rect.y), width: Math.max(0, Math.round(rect.width)), height: Math.max(0, Math.round(rect.height)) }
+  searchView.setBounds(r)
+}
+
+function closeSearch() {
+  if (!searchView) return
+  try {
+    searchOwner && !searchOwner.isDestroyed() && searchOwner.contentView.removeChildView(searchView)
+    searchView.webContents.close()
+  } catch {
+    /* 이미 닫힘 */
+  }
+  searchView = null
+  searchOwner = null
+}
+
+function setupSearchView() {
+  ipcMain.on('search-open', (e, { url, rect }) => {
+    const owner = BrowserWindow.fromWebContents(e.sender)
+    if (!owner || !ALLOWED.test(url)) return
+    if (searchView && searchOwner !== owner) closeSearch()
+    if (!searchView) {
+      creatingSearch = true
+      try {
+        searchView = new WebContentsView({ webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false, spellcheck: false } })
+      } finally {
+        creatingSearch = false
+      }
+      searchOwner = owner
+      owner.contentView.addChildView(searchView)
+      const wc = searchView.webContents
+      wc.setWindowOpenHandler(({ url: u }) => {
+        if (ALLOWED.test(u)) wc.loadURL(u)
+        return { action: 'deny' }
+      })
+      owner.once('closed', () => {
+        searchView = null
+        searchOwner = null
+      })
+    }
+    placeSearch(rect)
+    searchView.webContents.loadURL(url)
+  })
+  ipcMain.on('search-bounds', (_e, rect) => placeSearch(rect))
+  ipcMain.on('search-nav', (_e, action) => {
+    if (!searchView) return
+    const wc = searchView.webContents
+    if (action === 'back' && wc.navigationHistory.canGoBack()) wc.navigationHistory.goBack()
+    else if (action === 'forward' && wc.navigationHistory.canGoForward()) wc.navigationHistory.goForward()
+    else if (action === 'external') shell.openExternal(wc.getURL())
+  })
+  ipcMain.on('search-close', () => closeSearch())
 }
