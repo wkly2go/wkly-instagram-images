@@ -231,13 +231,23 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
     }
   }, [native, q, engine])
   // 검색 칸 글자 크기 (PC 프로그램 1.5+): 기본 70%, 가− / 가+ 로 조절 · 이 PC에 기억
-  const [zoom] = useState(() => {
+  const [zoom, setZoom] = useState(() => {
     try {
       return Number(localStorage.getItem('wkly-web-zoom')) || 0.6
     } catch {
       return 0.6
     }
   })
+  const stepZoom = (d: number) => {
+    const z = Math.round(Math.min(1.2, Math.max(0.4, zoom + d)) * 100) / 100
+    setZoom(z)
+    try {
+      localStorage.setItem('wkly-web-zoom', String(z))
+    } catch {
+      /* 저장 불가 */
+    }
+    if (native) app!.searchZoom?.(z)
+  }
   useEffect(() => {
     if (!native || !nativeBox.current) return
     const send = () => app!.searchBounds?.(rectOf())
@@ -321,15 +331,29 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
           <X size={14} />
         </button>
       </div>
-      <div className="web-tabs web-sites" role="tablist" aria-label="업무 사이트만 검색">
-        <span className="t-cap" style={{ alignSelf: 'center' }}>
-          업무 사이트
-        </span>
-        {(Object.keys(SITE_GROUPS) as SiteGroup[]).map(k => (
-          <button key={k} type="button" role="tab" aria-selected={engine === k} className={`web-tab${engine === k ? ' on' : ''}`} onClick={() => onSearch(q, k)} title={`업무 사이트만: ${SITE_GROUPS[k].sites.join(' · ')}`}>
-            {SITE_GROUPS[k].label}
-          </button>
-        ))}
+      <div className="web-sites" role="group" aria-label="업무 사이트만 검색">
+        <span className="web-sites-label">업무 사이트</span>
+        <div className="web-tabs" role="tablist">
+          {(Object.keys(SITE_GROUPS) as SiteGroup[]).map(k => (
+            <button key={k} type="button" role="tab" aria-selected={engine === k} className={`web-tab${engine === k ? ' on' : ''}`} onClick={() => onSearch(q, k)} title={`업무 사이트만: ${SITE_GROUPS[k].sites.join(' · ')}`}>
+              {SITE_GROUPS[k].label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="web-zoom" role="group" aria-label="검색 창 글자 크기">
+        <span className="web-sites-label">글자 크기</span>
+        <button type="button" className="web-tab" onClick={() => stepZoom(-0.1)} aria-label="글자 작게" title="글자 작게">
+          가−
+        </button>
+        <span className="t-mono web-zoom-v">{Math.round(zoom * 100)}%</span>
+        <button type="button" className="web-tab" onClick={() => stepZoom(0.1)} aria-label="글자 크게" title="글자 크게">
+          가+
+        </button>
+        <button type="button" className="link-btn t-cap" onClick={() => stepZoom(0.6 - zoom)} title="기본 60%">
+          기본
+        </button>
+        {!native && <span className="t-cap">PC 프로그램에서 적용</span>}
       </div>
       {!q ? (
         <div className="col gap-6 web-note">
