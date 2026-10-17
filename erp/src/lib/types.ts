@@ -223,6 +223,8 @@ export type ProjectStatus = (typeof PROJECT_STATUSES)[number]
 
 export interface Project {
   id: string
+  /** 연번 TWyyNN (드라이브 폴더 이름 규칙, 0030+) */
+  code?: string | null
   name: string
   client_id: string | null
   category: ProjectCategory
