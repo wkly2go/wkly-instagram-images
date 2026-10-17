@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { ExternalLink, Search, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ExternalLink, Search, X } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { desktop } from '../lib/desktop'
 
@@ -217,7 +217,7 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
   return createPortal(
     <aside className={`web-panel${native ? ' is-native' : ''}`} aria-label="인터넷 검색">
       <div className="web-resize" onPointerDown={startDrag} role="separator" aria-orientation="vertical" aria-label="검색 창 폭 조절" title="끌어서 폭 조절" />
-      <div className="row">
+      <div className="web-bar">
         <form
           className="web-search wide grow"
           onSubmit={e => {
@@ -225,49 +225,42 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
             text.trim() && onSearch(text.trim(), engine)
           }}
         >
-          <Search size={14} />
+          <Search size={13} />
           <input value={text} onChange={e => setText(e.target.value)} aria-label="검색어" autoFocus />
         </form>
-        <button type="button" className="icon-btn" onClick={onClose} aria-label="검색 창 닫기">
-          <X size={16} />
+        <select className="web-engine" value={engine} onChange={e => onSearch(text.trim() || q, e.target.value as Engine)} aria-label="검색 종류" title={isGroup(engine) ? SITE_GROUPS[engine].sites.join(' · ') : undefined}>
+          {ENGINES.map(([k, l]) => (
+            <option key={k} value={k}>
+              {l}
+            </option>
+          ))}
+          <optgroup label="업무 사이트만">
+            {(Object.keys(SITE_GROUPS) as SiteGroup[]).map(k => (
+              <option key={k} value={k}>
+                {SITE_GROUPS[k].label}
+              </option>
+            ))}
+          </optgroup>
+        </select>
+        {native && (
+          <>
+            <button type="button" className="icon-btn sm" onClick={() => app!.searchNav?.('back')} aria-label="뒤로" title="뒤로">
+              <ChevronLeft size={15} />
+            </button>
+            <button type="button" className="icon-btn sm" onClick={() => app!.searchNav?.('forward')} aria-label="앞으로" title="앞으로">
+              <ChevronRight size={15} />
+            </button>
+          </>
+        )}
+        <button type="button" className="icon-btn sm" onClick={() => (native ? app!.searchNav?.('external') : window.open(urlFor(engine, q), '_blank', 'noopener'))} aria-label="브라우저로 열기" title="브라우저로 열기">
+          <ExternalLink size={14} />
+        </button>
+        <button type="button" className="icon-btn sm" onClick={onClose} aria-label="검색 창 닫기" title="닫기 (Esc)">
+          <X size={15} />
         </button>
       </div>
-      <div className="chips">
-        {ENGINES.map(([k, l]) => (
-          <button key={k} type="button" className={`chip${engine === k ? ' active' : ''}`} onClick={() => onSearch(text.trim() || q, k)}>
-            {l}
-          </button>
-        ))}
-        <span className="grow" />
-        <a className="t-meta t-blue row" style={{ gap: 3 }} href={urlFor(engine, q)} target="_blank" rel="noreferrer">
-          새 탭 <ExternalLink size={12} />
-        </a>
-      </div>
-      <div className="chips">
-        <span className="t-cap" style={{ alignSelf: 'center' }}>
-          업무 사이트만
-        </span>
-        {(Object.keys(SITE_GROUPS) as SiteGroup[]).map(k => (
-          <button key={k} type="button" className={`chip${engine === k ? ' active' : ''}`} onClick={() => onSearch(text.trim() || q, k)} title={SITE_GROUPS[k].sites.join(' · ')}>
-            {SITE_GROUPS[k].label}
-          </button>
-        ))}
-      </div>
-      {isGroup(engine) && <span className="t-cap">검색 사이트: {SITE_GROUPS[engine].sites.join(' · ')}</span>}
       {native ? (
         <>
-          <div className="row" style={{ gap: 4 }}>
-            <button type="button" className="btn btn-ghost btn-sm" onClick={() => app!.searchNav?.('back')}>
-              ‹ 뒤로
-            </button>
-            <button type="button" className="btn btn-ghost btn-sm" onClick={() => app!.searchNav?.('forward')}>
-              앞으로 ›
-            </button>
-            <span className="grow" />
-            <button type="button" className="btn btn-ghost btn-sm" onClick={() => app!.searchNav?.('external')}>
-              브라우저로 열기
-            </button>
-          </div>
           <div className="web-native" ref={nativeBox} />
         </>
       ) : inline ? (
@@ -285,7 +278,7 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
             오른쪽 창에서 다시 열기
           </button>
           <span className="t-cap"><b>PC 프로그램</b>(1.1 이상)에서는 구글 결과가 이 창 안에 바로 나옵니다. <a href="/download">내려받기 ›</a></span>
-          {engine === 'google' && !cx && <span className="t-cap">구글은 보안 정책상 다른 사이트 안에 넣을 수 없어 오른쪽에 붙는 별도 창으로 엽니다. 위 ‘업무 사이트만’ 탭을 누르면 팝업 · 디자인 · 트렌드 · 언론 등 정해 둔 사이트에서만 찾습니다.</span>}
+          {engine === 'google' && !cx && <span className="t-cap">구글은 보안 정책상 다른 사이트 안에 넣을 수 없어 오른쪽에 붙는 별도 창으로 엽니다. 위 검색 종류에서 ‘업무 사이트만’을 고르면 팝업 · 디자인 · 트렌드 · 언론 등 정해 둔 사이트에서만 찾습니다.</span>}
         </div>
       )}
       {err && <span className="t-small t-red">{err}</span>}
