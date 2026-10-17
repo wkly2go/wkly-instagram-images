@@ -956,12 +956,16 @@ button.kpi:hover, a.kpi:hover { border-color: var(--blue); }
 .web-tab { height: 26px; box-sizing: border-box; padding: 0 10px; border: 1px solid var(--blue); border-radius: 999px; background: var(--white); color: var(--blue); font: inherit; font-size: 12px; font-weight: 700; line-height: 24px; cursor: pointer; white-space: nowrap; }
 .web-tab:hover { background: var(--paper); }
 .web-tab.on { background: var(--yellow); }
-.web-sites { display: grid; grid-template-columns: minmax(0, 1fr); align-items: start; gap: 6px; padding: 6px 0; border-top: 1px dashed var(--blue); border-bottom: 1px dashed var(--blue); }
+.web-sites { display: block; padding: 6px 0; border-top: 1px dashed var(--blue); border-bottom: 1px dashed var(--blue); }
+.web-sites .web-tabs { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 4px; max-height: 60px; overflow-y: auto; scrollbar-width: none; overscroll-behavior: contain; }
+.web-sites .web-tabs::-webkit-scrollbar { display: none; }
+.web-sites .web-tab { height: 28px; padding: 0 6px; line-height: 26px; overflow: hidden; text-overflow: ellipsis; text-align: center; min-width: 0; }
 .web-sites-label { display: inline-flex; align-items: center; height: 26px; padding: 0 8px; border-radius: 6px; background: var(--blue-tint); color: var(--blue); font: 700 11px/1 var(--mono); white-space: nowrap; }
 .web-sites .web-tab { border-color: var(--blue-tint); background: var(--paper); }
 .web-sites .web-tab.on { background: var(--yellow); border-color: var(--blue); }
 .web-zoom { display: inline-flex; align-items: center; gap: 4px; height: 32px; }
 .web-shops { border-top: 0; padding-top: 0; }
+.web-shops .web-tabs { max-height: 92px; }
 .web-shops .web-tab { border-color: var(--acid); background: var(--white); }
 .web-shops .web-tab.on { background: var(--acid); border-color: var(--blue); }
 .web-zoom .icon-btn.sm { width: 34px; height: 24px; padding: 0; border: 1px solid var(--blue); border-radius: 999px; color: var(--blue); font: 700 11px/1 var(--font); white-space: nowrap; }

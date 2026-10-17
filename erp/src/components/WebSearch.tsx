@@ -4,7 +4,7 @@ import { ChevronLeft, ChevronRight, ExternalLink, Search } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { desktop } from '../lib/desktop'
 
-type SiteGroup = 'popup' | 'design' | 'trend' | 'press' | 'social' | 'video' | 'shop' | 'brand' | 'expo' | 'gov' | 'bid' | 'hire'
+type SiteGroup = 'popup' | 'design' | 'trend' | 'press' | 'social' | 'video' | 'shop' | 'estate' | 'expo' | 'gov' | 'bid' | 'hire'
 /** 사이트 하나: 주소 · 이름 · (있으면) 그 사이트 자체 검색 주소 */
 interface Site {
   host: string
@@ -40,12 +40,12 @@ const SITE_GROUPS: Record<SiteGroup, { label: string; sites: Site[] }> = {
     sites: [site('youtube.com', '유튜브', s => `https://www.youtube.com/results?search_query=${s}`), site('tiktok.com', '틱톡', s => `https://www.tiktok.com/search?q=${s}`), site('instagram.com/reels', '릴스', s => `https://www.instagram.com/explore/search/keyword/?q=${s}`), site('vimeo.com', 'Vimeo', s => `https://vimeo.com/search?q=${s}`)],
   },
   shop: {
-    label: '쇼핑몰',
-    sites: [site('coupang.com', '쿠팡', s => `https://www.coupang.com/np/search?q=${s}`), site('shopping.naver.com', '네이버 쇼핑', s => `https://msearch.shopping.naver.com/search/all?query=${s}`), site('gmarket.co.kr', 'G마켓', s => `https://www.gmarket.co.kr/n/search?keyword=${s}`), site('11st.co.kr', '11번가', s => `https://m.11st.co.kr/products/m/search?searchKeyword=${s}`), site('ssg.com', 'SSG', s => `https://www.ssg.com/search.ssg?query=${s}`), site('ohou.se', '오늘의집', s => `https://ohou.se/store/search?query=${s}`), site('kurly.com', '컬리', s => `https://www.kurly.com/search?sword=${s}`), site('auction.co.kr', '옥션', s => `https://browse.auction.co.kr/search?keyword=${s}`), site('lotteon.com', '롯데온', s => `https://www.lotteon.com/search/search/search.ecn?render=search&q=${s}`)],
+    label: '쇼핑 · 브랜드',
+    sites: [site('coupang.com', '쿠팡', s => `https://www.coupang.com/np/search?q=${s}`), site('shopping.naver.com', '네이버 쇼핑', s => `https://msearch.shopping.naver.com/search/all?query=${s}`), site('gmarket.co.kr', 'G마켓', s => `https://www.gmarket.co.kr/n/search?keyword=${s}`), site('11st.co.kr', '11번가', s => `https://m.11st.co.kr/products/m/search?searchKeyword=${s}`), site('ssg.com', 'SSG', s => `https://www.ssg.com/search.ssg?query=${s}`), site('ohou.se', '오늘의집', s => `https://ohou.se/store/search?query=${s}`), site('kurly.com', '컬리', s => `https://www.kurly.com/search?sword=${s}`), site('auction.co.kr', '옥션', s => `https://browse.auction.co.kr/search?keyword=${s}`), site('lotteon.com', '롯데온', s => `https://www.lotteon.com/search/search/search.ecn?render=search&q=${s}`), site('musinsa.com', '무신사', s => `https://www.musinsa.com/search/goods?keyword=${s}`), site('29cm.co.kr', '29CM', s => `https://www.29cm.co.kr/search?keyword=${s}`), site('wconcept.co.kr', 'W컨셉', s => `https://www.wconcept.co.kr/Search?kw=${s}`), site('kream.co.kr', '크림', s => `https://kream.co.kr/search?keyword=${s}`), site('oliveyoung.co.kr', '올리브영', s => `https://m.oliveyoung.co.kr/m/search/searchList.do?query=${s}`), site('kasina.co.kr', '카시나'), site('thehandsome.com', '한섬')],
   },
-  brand: {
-    label: '브랜드 · 편집숍',
-    sites: [site('musinsa.com', '무신사', s => `https://www.musinsa.com/search/goods?keyword=${s}`), site('29cm.co.kr', '29CM', s => `https://www.29cm.co.kr/search?keyword=${s}`), site('wconcept.co.kr', 'W컨셉', s => `https://www.wconcept.co.kr/Search?kw=${s}`), site('kream.co.kr', '크림', s => `https://kream.co.kr/search?keyword=${s}`), site('oliveyoung.co.kr', '올리브영', s => `https://m.oliveyoung.co.kr/m/search/searchList.do?query=${s}`), site('kasina.co.kr', '카시나'), site('thehandsome.com', '한섬')],
+  estate: {
+    label: '부동산',
+    sites: [site('m.land.naver.com', '네이버 부동산', s => `https://m.land.naver.com/search/result/${s}`), site('zigbang.com', '직방'), site('dabangapp.com', '다방'), site('hogangnono.com', '호갱노노'), site('kbland.kr', 'KB부동산'), site('disco.re', '디스코'), site('valueupmap.com', '밸류맵'), site('rt.molit.go.kr', '국토부 실거래가'), site('r-one.co.kr', '한국부동산원'), site('seereal.lh.or.kr', '씨리얼 (LH)'), site('eum.go.kr', '토지이음'), site('golmok.seoul.go.kr', '서울 상권분석'), site('sbiz.or.kr', '소상공인 상권정보'), site('data.go.kr', '공공데이터포털', s => `https://www.data.go.kr/tcs/dss/selectDataSetList.do?keyword=${s}`), site('data.seoul.go.kr', '서울 열린데이터', s => `https://data.seoul.go.kr/dataList/datasetList.do?searchKeyword=${s}`), site('kosis.kr', '통계청 KOSIS', s => `https://kosis.kr/search/search.do?query=${s}`)],
   },
   expo: {
     label: '전시 · 박람회',
