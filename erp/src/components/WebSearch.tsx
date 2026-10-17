@@ -25,25 +25,25 @@ const SITE_GROUPS: Record<SiteGroup, { label: string; sites: Site[] }> = {
       site('spacecloud.kr', '스페이스클라우드', s => `https://www.spacecloud.kr/search?keyword=${s}`),
       site('festivallife.kr', '페스티벌라이프'),
       site('korean.visitkorea.or.kr', '대한민국 구석구석', s => `https://korean.visitkorea.or.kr/search/search_list.do?keyword=${s}`),
-      site('culture.go.kr', '문화포털'),
-      site('visitseoul.net', '비짓서울'),
+      site('culture.go.kr', '문화포털', s => `https://www.culture.go.kr/portal/search/search/list.do?queryTp=total&keyword=${s}`),
+      site('visitseoul.net', '비짓서울', s => `https://english.visitseoul.net/search?searchTerm=${s}`),
       site('tickets.interpark.com', '인터파크 티켓', s => `https://tickets.interpark.com/search?keyword=${s}`),
       site('ticket.melon.com', '멜론티켓'),
-      site('ticket.yes24.com', '예스24 티켓'),
-      site('ticketlink.co.kr', '티켓링크'),
+      site('ticket.yes24.com', '예스24 티켓', s => `https://m.ticket.yes24.com/Search/List.aspx?SearchText=${s}`),
+      site('ticketlink.co.kr', '티켓링크', s => `https://www.ticketlink.co.kr/search?query=${s}`),
     ],
   },
   design: {
     label: '디자인 · 건축',
-    sites: [site('designhouse.co.kr', '디자인하우스'), site('vmspace.com', 'VMSPACE'), site('dezeen.com', 'Dezeen', s => `https://www.dezeen.com/?s=${s}`), site('archdaily.com', 'ArchDaily', s => `https://www.archdaily.com/search/all?q=${s}`), site('designboom.com', 'designboom', s => `https://www.designboom.com/?s=${s}`), site('frameweb.com', 'FRAME'), site('wallpaper.com', 'Wallpaper*'), site('behance.net', 'Behance', s => `https://www.behance.net/search/projects?search=${s}`), site('pinterest.com', 'Pinterest', s => `https://www.pinterest.com/search/pins/?q=${s}`)],
+    sites: [site('designhouse.co.kr', '디자인하우스', s => `https://finder.designhouse.co.kr/finder?b=www&k=${s}`), site('vmspace.com', 'VMSPACE', s => `https://vmspace.com/common/top_search.html?search_YN=Y&tag=${s}`), site('dezeen.com', 'Dezeen', s => `https://www.dezeen.com/?s=${s}`), site('archdaily.com', 'ArchDaily', s => `https://www.archdaily.com/search/all?q=${s}`), site('designboom.com', 'designboom', s => `https://www.designboom.com/?s=${s}`), site('frameweb.com', 'FRAME'), site('wallpaper.com', 'Wallpaper*'), site('behance.net', 'Behance', s => `https://www.behance.net/search/projects?search=${s}`), site('pinterest.com', 'Pinterest', s => `https://www.pinterest.com/search/pins/?q=${s}`)],
   },
   trend: {
     label: '마케팅 · 트렌드',
-    sites: [site('ditoday.com', '디지털인사이트'), site('openads.co.kr', '오픈애즈'), site('the-pr.co.kr', '더피알'), site('mobiinside.co.kr', '모비인사이드'), site('i-boss.co.kr', '아이보스'), site('careet.net', '캐릿'), site('20slab.org', '대학내일20대연구소'), site('hypebeast.kr', '하입비스트'), site('fashionbiz.co.kr', '패션비즈')],
+    sites: [site('ditoday.com', '디지털인사이트'), site('openads.co.kr', '오픈애즈', s => `https://www.openads.co.kr/search/result?type=contents&keyword=${s}`), site('the-pr.co.kr', '더피알', s => `https://www.the-pr.co.kr/news/articleList.html?sc_area=A&view_type=sm&sc_word=${s}`), site('mobiinside.co.kr', '모비인사이드'), site('i-boss.co.kr', '아이보스'), site('careet.net', '캐릿'), site('20slab.org', '대학내일20대연구소'), site('hypebeast.kr', '하입비스트'), site('fashionbiz.co.kr', '패션비즈')],
   },
   press: {
     label: '언론',
-    sites: [site('mk.co.kr', '매일경제'), site('hankyung.com', '한국경제'), site('chosun.com', '조선일보'), site('mt.co.kr', '머니투데이'), site('joongang.co.kr', '중앙일보'), site('donga.com', '동아일보'), site('yna.co.kr', '연합뉴스'), site('edaily.co.kr', '이데일리')],
+    sites: [site('mk.co.kr', '매일경제'), site('hankyung.com', '한국경제', s => `https://search.hankyung.com/search/total?query=${s}`), site('chosun.com', '조선일보'), site('mt.co.kr', '머니투데이'), site('joongang.co.kr', '중앙일보'), site('donga.com', '동아일보'), site('yna.co.kr', '연합뉴스'), site('edaily.co.kr', '이데일리', s => `https://www.edaily.co.kr/search/index?keyword=${s}`)],
   },
   social: {
     label: 'SNS · 블로그',
@@ -63,15 +63,15 @@ const SITE_GROUPS: Record<SiteGroup, { label: string; sites: Site[] }> = {
   },
   expo: {
     label: '전시 · 박람회',
-    sites: [site('coex.co.kr', '코엑스'), site('kintex.com', '킨텍스'), site('bexco.co.kr', '벡스코'), site('exco.co.kr', '엑스코'), site('sac.or.kr', '예술의전당'), site('sejongpac.or.kr', '세종문화회관'), site('mmca.go.kr', '국립현대미술관'), site('sema.seoul.go.kr', '서울시립미술관'), site('ddp.or.kr', 'DDP')],
+    sites: [site('coex.co.kr', '코엑스'), site('kintex.com', '킨텍스'), site('bexco.co.kr', '벡스코'), site('exco.co.kr', '엑스코'), site('sac.or.kr', '예술의전당', s => `https://www.sac.or.kr/site/main/search/search?query=${s}`), site('sejongpac.or.kr', '세종문화회관'), site('mmca.go.kr', '국립현대미술관'), site('sema.seoul.go.kr', '서울시립미술관'), site('ddp.or.kr', 'DDP', s => `https://ddp.or.kr/?menuno=675&keyword=${s}`)],
   },
   gov: {
     label: '공공 · 지자체',
-    sites: [site('seoul.go.kr', '서울시'), site('mediahub.seoul.go.kr', '서울시 미디어허브'), site('korea.kr', '정책브리핑'), site('gg.go.kr', '경기도'), site('incheon.go.kr', '인천시'), site('sba.seoul.kr', '서울경제진흥원'), site('kocca.kr', '콘텐츠진흥원')],
+    sites: [site('seoul.go.kr', '서울시', s => `https://newsearch.seoul.go.kr/ksearch/search.do?kwd=${s}`), site('mediahub.seoul.go.kr', '서울시 미디어허브'), site('korea.kr', '정책브리핑'), site('gg.go.kr', '경기도', s => `https://www.gg.go.kr/search.do?kwd=${s}`), site('incheon.go.kr', '인천시'), site('sba.seoul.kr', '서울경제진흥원'), site('kocca.kr', '콘텐츠진흥원', s => `https://portal.kocca.kr/search/portal/search.do?searchTerm=${s}`)],
   },
   bid: {
     label: '입찰 · 공공',
-    sites: [site('g2b.go.kr', '나라장터'), site('lh.or.kr', 'LH'), site('sh.co.kr', 'SH'), site('ebid.seoul.go.kr', '서울 전자입찰'), site('kintex.com', '킨텍스'), site('coex.co.kr', '코엑스')],
+    sites: [site('g2b.go.kr', '나라장터'), site('lh.or.kr', 'LH', s => `https://www.lh.or.kr/search.es?mid=a10813010000&allKeyWord=${s}`), site('sh.co.kr', 'SH'), site('contract.seoul.go.kr', '서울 계약·입찰', s => `https://contract.seoul.go.kr/new1/views/pubBidInfo.do?ps_selectForm=1&ps1_selectSearch=1&ps1_searchTxt=${s}`), site('kintex.com', '킨텍스'), site('coex.co.kr', '코엑스')],
   },
 }
 /** 세 번째 줄에서 고른 사이트: 'site:' + 주소 */
