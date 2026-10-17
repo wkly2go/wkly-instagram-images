@@ -350,8 +350,16 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
   // 팝업 창(.scrim) · 잠금 화면이 떠 있으면 구글 칸을 숨김 (PC 프로그램의 구글 칸은 항상 화면 맨 위에 그려지므로)
   const covered = () => !!document.querySelector('.scrim, .lock-screen, .notif-panel')
   const rectOf = () => {
-    const r = nativeBox.current?.getBoundingClientRect()
-    return r && !covered() ? { x: r.left, y: r.top, width: r.width, height: r.height } : { x: 0, y: 0, width: 0, height: 0 }
+    const box = nativeBox.current
+    const r = box?.getBoundingClientRect()
+    if (!box || !r || covered()) return { x: 0, y: 0, width: 0, height: 0 }
+    // 검색 창(aside) 영역 안으로만: 레이아웃이 바뀌는 순간에도 결과 칸이 본 화면 위로 튀어나오지 않게
+    const pr = box.closest('.web-panel')?.getBoundingClientRect()
+    const left = Math.max(r.left, pr?.left ?? r.left)
+    const top = Math.max(r.top, pr?.top ?? r.top)
+    const right = Math.min(r.right, pr?.right ?? r.right)
+    const bottom = Math.min(r.bottom, pr?.bottom ?? r.bottom)
+    return { x: left, y: top, width: Math.max(0, right - left), height: Math.max(0, bottom - top) }
   }
 
   // PC 프로그램: 검색 결과를 패널 안 칸에 띄우고, 크기가 바뀌면 따라감 · 패널을 닫으면 함께 닫힘

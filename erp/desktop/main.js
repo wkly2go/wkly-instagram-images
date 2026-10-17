@@ -429,7 +429,23 @@ const FIT_CSS = `
 
 function placeSearch(rect) {
   if (!searchView || !rect) return
-  const r = { x: Math.round(rect.x), y: Math.round(rect.y), width: Math.max(0, Math.round(rect.width)), height: Math.max(0, Math.round(rect.height)) }
+  // 인트라넷 창 배율(Cmd +/−)을 반영하고, 창 안으로 자름
+  let z = 1
+  let cw = Infinity
+  let ch = Infinity
+  try {
+    if (searchOwner && !searchOwner.isDestroyed()) {
+      z = searchOwner.webContents.getZoomFactor() || 1
+      const [w, h] = searchOwner.getContentSize()
+      cw = w
+      ch = h
+    }
+  } catch {
+    /* 창이 닫히는 중 */
+  }
+  const x = Math.max(0, Math.round(rect.x * z))
+  const y = Math.max(0, Math.round(rect.y * z))
+  const r = { x, y, width: Math.max(0, Math.min(Math.round(rect.width * z), cw - x)), height: Math.max(0, Math.min(Math.round(rect.height * z), ch - y)) }
   // 인트라넷이 0 크기를 보내면(팝업 창 · 잠금 화면) 아예 감춤
   const show = r.width > 0 && r.height > 0
   if (typeof searchView.setVisible === 'function') searchView.setVisible(show)
@@ -486,7 +502,11 @@ function setupSearchView() {
     placeSearch(rect)
     searchView.webContents.loadURL(url)
   })
-  ipcMain.on('search-bounds', (_e, rect) => placeSearch(rect))
+  ipcMain.on('search-bounds', (e, rect) => {
+    // 검색 칸을 가진 창이 보낸 좌표만 반영 (빠른 창 등 다른 창의 좌표로 옮겨지지 않게)
+    if (searchOwner && !searchOwner.isDestroyed() && e.sender !== searchOwner.webContents) return
+    placeSearch(rect)
+  })
   ipcMain.on('search-nav', (_e, action) => {
     if (!searchView) return
     const wc = searchView.webContents
