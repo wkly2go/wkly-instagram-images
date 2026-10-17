@@ -40,13 +40,12 @@ function PersonCard({ p, onClose }: { p: Profile; onClose: () => void }) {
   return (
     <Modal title="인사기록" onClose={onClose} wide>
       <div className="row top gap-12">
-        {p.photo ? <img className="person-photo" src={p.photo} alt="" /> : <Avatar name={p.is_agent ? '🤖' : p.name} />}
+        {p.photo ? <img className="person-photo" src={p.photo} alt="" /> : <Avatar name={p.name} />}
         <div className="col grow">
           <span className="row wrap" style={{ gap: 6 }}>
             <span className="t-title">{p.name}</span>
             {p.title && <span className="t-cap">{p.title}</span>}
             {p.role === 'admin' && <Badge tone="blue">관리자</Badge>}
-            {p.is_agent && <Badge tone="acid">AI 팀원</Badge>}
             {!p.active && <Badge tone="paper">비활성</Badge>}
           </span>
           <span className="t-meta">{p.email ?? '–'}</span>

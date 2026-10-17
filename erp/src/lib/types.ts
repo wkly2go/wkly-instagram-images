@@ -97,6 +97,52 @@ export interface AccessLog {
   last_at: string
 }
 
+/** 부서 · 주요 업무 (사람 · AI 구분 없이 member_ids, 예약 작업은 agent_groups) */
+export interface Department {
+  id: string
+  name: string
+  duties: string | null
+  lead_id: string | null
+  member_ids: string[]
+  agent_groups: string[]
+  sort: number
+  updated_at: string
+}
+export const WORK_PLAN_KINDS = ['외근', '재택', '현장 직출'] as const
+export type WorkPlanKind = (typeof WORK_PLAN_KINDS)[number]
+export type DecideStatus = '대기' | '승인' | '반려'
+/** 외근 · 재택 · 현장 직출 사전 신청 (전날 승인 → 그날 휴대폰 출근 자동 승인) */
+export interface WorkPlan {
+  id: string
+  user_id: string
+  day: string
+  kind: WorkPlanKind
+  place: string | null
+  reason: string | null
+  status: DecideStatus
+  decided_by: string | null
+  decided_at: string | null
+  created_at: string
+}
+export const CHECKIN_KINDS = ['출근', '외근', '재택', '현장 직출'] as const
+export type CheckinKind = (typeof CHECKIN_KINDS)[number]
+/** 휴대폰 출근 체크 (위치는 본인 · 관리자만) */
+export interface AttendanceCheckin {
+  id: string
+  user_id: string
+  day: string
+  at: string
+  kind: CheckinKind
+  plan_id: string | null
+  status: DecideStatus
+  lat: number | null
+  lng: number | null
+  accuracy_m: number | null
+  note: string | null
+  decided_by: string | null
+  decided_at: string | null
+}
+
 export const CLIENT_CATEGORIES = ['클라이언트', '협력사', '기타'] as const
 export type ClientCategory = (typeof CLIENT_CATEGORIES)[number]
 

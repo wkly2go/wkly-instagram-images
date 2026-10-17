@@ -3,6 +3,9 @@ import { addDays, nextMonday, toDateKey, todayKey } from './date'
 import { DEFAULT_REPORT_BODY } from './reports'
 import type {
   AccessLog,
+  AttendanceCheckin,
+  Department,
+  WorkPlan,
   Note,
   AgentToken,
   AppNotification,
@@ -72,6 +75,9 @@ interface Store {
   ad_daily?: AdDaily[]
   ad_campaigns?: AdCampaign[]
   ad_creatives?: AdCreative[]
+  departments?: Department[]
+  work_plans?: WorkPlan[]
+  checkins?: AttendanceCheckin[]
   ad_reports?: AdReport[]
   desktop_only?: boolean
   hr_records?: HrRecord[]
@@ -1314,6 +1320,95 @@ export function createDemoApi(): Api {
       store.agent_instructions = (store.agent_instructions ?? []).filter(x => x.id !== id)
       persist()
       emit('agent_instructions')
+    },
+    async listDepartments() {
+      requireMe()
+      if (!store.departments) {
+        const id = (n: string) => store.profiles.find(p => p.name === n)?.id
+        const d = (name: string, duties: string, lead: string, members: string[], groups: string[], sort: number): Department => ({ id: uid(), name, duties, lead_id: id(lead) ?? null, member_ids: members.map(id).filter((x): x is string => !!x), agent_groups: groups, sort, updated_at: now() })
+        const names = store.profiles.filter(p => p.active).map(p => p.name)
+        store.departments = [
+          d('경영지원', '회사 운영 · 계약 · 결제 결정\n재무 · 거래처 관리', names[0], names.slice(0, 1).concat(store.profiles.filter(p => p.is_agent).map(p => p.name)), ['ERP', '보고'], 1),
+          d('공간 기획 · 디자인', '제안서 · PT\n공간 기획 · 도면', names[1], names.slice(1, 3), [], 2),
+          d('마케팅 · 콘텐츠', '인스타그램 · 광고 · 리서치', names[3] ?? names[1], names.slice(3), ['광고', '콘텐츠'], 3),
+        ]
+        persist()
+      }
+      return clone(store.departments).sort((a, b) => a.sort - b.sort)
+    },
+    async saveDepartment(d) {
+      requireAdmin()
+      const list = (store.departments ??= [])
+      const row = d.id ? list.find(x => x.id === d.id) : undefined
+      const next: Department = { id: row?.id ?? uid(), name: d.name, duties: d.duties ?? null, lead_id: d.lead_id ?? null, member_ids: d.member_ids ?? [], agent_groups: d.agent_groups ?? [], sort: d.sort ?? 0, updated_at: now() }
+      if (row) Object.assign(row, next)
+      else list.push(next)
+      persist()
+      emit('departments')
+    },
+    async deleteDepartment(id) {
+      requireAdmin()
+      store.departments = (store.departments ?? []).filter(d => d.id !== id)
+      persist()
+      emit('departments')
+    },
+    async listWorkPlans(fromDay) {
+      const self = requireMe()
+      return clone((store.work_plans ?? []).filter(p => p.day >= fromDay && (isAdmin() || p.user_id === self))).sort((a, b) => a.day.localeCompare(b.day))
+    },
+    async requestWorkPlan(p) {
+      const self = requireMe()
+      if (p.day < todayKey()) throw new ApiError('지난 날짜는 신청할 수 없습니다.')
+      const list = (store.work_plans ??= [])
+      if (list.some(x => x.user_id === self && x.day === p.day)) throw new ApiError('그날은 이미 신청했습니다.')
+      list.push({ id: uid(), user_id: self, day: p.day, kind: p.kind, place: p.place || null, reason: p.reason || null, status: '대기', decided_by: null, decided_at: null, created_at: now() })
+      persist()
+      emit('work_plans')
+    },
+    async cancelWorkPlan(id) {
+      const self = requireMe()
+      store.work_plans = (store.work_plans ?? []).filter(p => !(p.id === id && (isAdmin() || (p.user_id === self && p.status === '대기'))))
+      persist()
+      emit('work_plans')
+    },
+    async decideWorkPlan(id, status) {
+      const self = requireAdmin()
+      const p = (store.work_plans ?? []).find(x => x.id === id)
+      if (!p) throw new ApiError('신청을 찾을 수 없습니다.')
+      Object.assign(p, { status, decided_by: self, decided_at: now() })
+      if (status === '승인') for (const c of store.checkins ?? []) if (c.user_id === p.user_id && c.day === p.day && c.status === '대기') Object.assign(c, { status: '승인', plan_id: p.id, decided_by: self, decided_at: now() })
+      persist()
+      emit('work_plans')
+    },
+    async listCheckins(day) {
+      const self = requireMe()
+      return clone((store.checkins ?? []).filter(c => c.day === day && (isAdmin() || c.user_id === self)))
+    },
+    async mobileCheckIn(c) {
+      const self = requireMe()
+      const day = todayKey()
+      const list = (store.checkins ??= [])
+      const had = list.find(x => x.user_id === self && x.day === day)
+      if (had) return { status: had.status, already: true }
+      const plan = (store.work_plans ?? []).find(p => p.user_id === self && p.day === day && p.status === '승인')
+      const status = plan ? '승인' : '대기'
+      list.push({ id: uid(), user_id: self, day, at: now(), kind: c.kind, plan_id: plan?.id ?? null, status, lat: c.lat ?? null, lng: c.lng ?? null, accuracy_m: c.accuracy == null ? null : Math.round(c.accuracy), note: c.note || null, decided_by: null, decided_at: plan ? now() : null })
+      const att = (store.attendance ??= [])
+      if (!att.some(a => a.user_id === self && a.day === day)) att.push({ user_id: self, day, first_at: now(), last_at: now() })
+      const me = store.profiles.find(p => p.id === self)
+      if (me) me.today_status = c.kind === '재택' ? '재택' : c.kind === '출근' ? '출근' : '외근'
+      persist()
+      emit('attendance')
+      emit('profiles')
+      return { status, already: false }
+    },
+    async decideCheckin(id, status) {
+      const self = requireAdmin()
+      const c = (store.checkins ?? []).find(x => x.id === id)
+      if (!c) throw new ApiError('기록을 찾을 수 없습니다.')
+      Object.assign(c, { status, decided_by: self, decided_at: now() })
+      persist()
+      emit('attendance')
     },
     async listAttendanceFor(userId, fromDay) {
       requireMe()

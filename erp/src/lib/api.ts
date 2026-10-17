@@ -1,6 +1,12 @@
 import type { AccessSource } from './desktop'
 import type {
   AccessLog,
+  AttendanceCheckin,
+  CheckinKind,
+  DecideStatus,
+  Department,
+  WorkPlan,
+  WorkPlanKind,
   Note,
   AdminOverview,
   AgentScope,
@@ -248,6 +254,18 @@ export interface Api {
   setDesktopOnly(on: boolean): Promise<void>
   /** 한 사람의 fromDay 이후 근태 (최근 날짜 먼저) */
   listAttendanceFor(userId: string, fromDay: string): Promise<Attendance[]>
+  // 부서 · 주요 업무
+  listDepartments(): Promise<Department[]>
+  saveDepartment(d: Partial<Department> & { name: string }): Promise<void>
+  deleteDepartment(id: string): Promise<void>
+  // 휴대폰 출근 · 외근 사전 신청
+  listWorkPlans(fromDay: string): Promise<WorkPlan[]>
+  requestWorkPlan(p: { day: string; kind: WorkPlanKind; place?: string | null; reason?: string | null }): Promise<void>
+  cancelWorkPlan(id: string): Promise<void>
+  decideWorkPlan(id: string, status: '승인' | '반려'): Promise<void>
+  listCheckins(day: string): Promise<AttendanceCheckin[]>
+  mobileCheckIn(c: { kind: CheckinKind; note?: string | null; lat?: number | null; lng?: number | null; accuracy?: number | null }): Promise<{ status: DecideStatus; already: boolean }>
+  decideCheckin(id: string, status: '승인' | '반려'): Promise<void>
 
   // 휴가
   listLeave(): Promise<LeaveRecord[]>

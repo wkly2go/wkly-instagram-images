@@ -1,14 +1,24 @@
 import { useState } from 'react'
+import { CheckInCard, CheckinTag, useCheckins, WorkPlanSection } from '../components/CheckIn'
+import { OrgSection } from '../components/Org'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { addDays, minutesLabel, timeLabel, todayKey } from '../lib/date'
-import { Link } from '../lib/router'
+import { Link, useRouter, withQuery } from '../lib/router'
 import { presenceOf, useAccessLog, useAttendance, useDesktopOnly, type Presence } from '../lib/attendance'
 import { SOURCE_LABEL } from '../lib/desktop'
 import type { Profile, WorkLog } from '../lib/types'
 import { Shell } from '../components/Shell'
 import { PersonName } from '../components/Person'
 import { LeaveSection } from '../components/Leave'
-import { Avatar, Badge, Button, Field, SectionHead, TodayBadge } from '../components/ui'
+import { Avatar, Badge, Button, Chip, Field, SectionHead, TodayBadge } from '../components/ui'
+
+type Tab = 'org' | 'attendance' | 'leave' | 'me'
+const TABS: [Tab, string][] = [
+  ['org', '조직 · 프로젝트'],
+  ['attendance', '근태'],
+  ['leave', '휴가'],
+  ['me', '내 정보'],
+]
 
 export default function Team() {
   const { api, me, profiles, version } = useApp()
@@ -17,21 +27,41 @@ export default function Team() {
   const active = profiles.filter(p => p.active)
   const inactive = profiles.filter(p => !p.active)
   const attendance = useAttendance(today)
+  const { query, path, navigate } = useRouter()
+  const tab = (TABS.some(([k]) => k === query.get('tab')) ? query.get('tab') : 'org') as Tab
   return (
     <Shell active="team">
-      <SectionHead
-        title="우리 팀"
-        count={`${active.length}명`}
-        right={me.role === 'admin' ? <Link to="/admin">팀원 추가·권한은 관리 ›</Link> : undefined}
-      />
-      <div className="members">
-        {[...active, ...inactive].map(p => (
-          <MemberCard key={p.id} p={p} presence={presenceOf(p, attendance.get(p.id))} logs={logs.filter(l => l.user_id === p.id)} />
+      <div className="chips" role="tablist" aria-label="팀 메뉴">
+        {TABS.map(([k, l]) => (
+          <Chip key={k} active={tab === k} onClick={() => navigate(withQuery(path, query, { tab: k === 'org' ? null : k }))}>
+            {l}
+          </Chip>
         ))}
       </div>
-      <AttendanceSection />
-      <LeaveSection />
-      <MySettings />
+      {tab === 'org' && (
+        <>
+          <OrgSection />
+          <SectionHead
+            title="우리 팀"
+            count={`${active.length}명`}
+            right={me.role === 'admin' ? <Link to="/admin">팀원 추가·권한은 관리 ›</Link> : undefined}
+          />
+          <div className="members">
+            {[...active, ...inactive].map(p => (
+              <MemberCard key={p.id} p={p} presence={presenceOf(p, attendance.get(p.id))} logs={logs.filter(l => l.user_id === p.id)} />
+            ))}
+          </div>
+        </>
+      )}
+      {tab === 'attendance' && (
+        <>
+          <CheckInCard always />
+          <WorkPlanSection />
+          <AttendanceSection />
+        </>
+      )}
+      {tab === 'leave' && <LeaveSection />}
+      {tab === 'me' && <MySettings />}
     </Shell>
   )
 }
@@ -44,6 +74,7 @@ function AttendanceSection() {
   const rows = useAttendance(day)
   const access = useAccessLog(day)
   const { data: desktopOnly } = useDesktopOnly()
+  const checkins = useCheckins(day)
   const people = profiles.filter(p => p.active && !p.is_agent)
   const absent = people.filter(p => !rows.has(p.id)).length
   return (
@@ -90,6 +121,7 @@ function AttendanceSection() {
                   <td className="num">{a ? timeLabel(a.last_at) : '–'}</td>
                   <td>
                     <span className="row wrap" style={{ gap: 4 }}>
+                      <CheckinTag c={checkins.get(p.id)} />
                       {(access.get(p.id) ?? [])
                         .filter(x => x.source !== 'desktop')
                         .sort((x, y) => x.first_at.localeCompare(y.first_at))
@@ -109,7 +141,7 @@ function AttendanceSection() {
       <span className="t-cap">
         {desktopOnly ? (
           <>
-            <b>PC 프로그램</b>으로 그날 처음 접속한 시각이 출근 시각입니다. 휴대폰 · 브라우저 접속은 출근으로 치지 않고 '외부 접속'에만 남습니다.{' '}
+            <b>PC 프로그램</b>으로 그날 처음 접속한 시각이 출근 시각입니다. 휴대폰 · 브라우저 접속은 '외부 접속'에만 남고, 외근 · 재택은 위의 <b>휴대폰 출근 체크</b>로 출근합니다 (전날 승인된 신청이 있으면 자동 인정).{' '}
           </>
         ) : (
           <>그날 처음 로그인 · 접속한 시각이 출근 시각입니다 (PC 프로그램 · 브라우저 · 휴대폰 모두). </>
@@ -127,7 +159,7 @@ function MemberCard({ p, presence, logs }: { p: Profile; presence: Presence; log
   return (
     <div className={`member ${p.active ? '' : 'off'}`}>
       <div className="row">
-        <Avatar name={p.is_agent ? '🤖' : p.name} />
+        <Avatar name={p.name} />
         <span className="col gap-2 grow">
           <span className="row" style={{ gap: 4 }}>
             <PersonName id={p.id} className="t-smallb truncate" />
@@ -146,12 +178,11 @@ function MemberCard({ p, presence, logs }: { p: Profile; presence: Presence; log
           {mins ? ` · ${minutesLabel(mins)}` : ''}
         </Link>
         <span className="grow" />
-        {!isMe && !p.is_agent && p.active && (
+        {!isMe && p.active && (
           <Link to={`/chat?dm=${p.id}`} className="t-meta t-blue" title={`${p.name}님과 1:1 대화`}>
             💬 1:1
           </Link>
         )}
-        {p.is_agent && <Badge tone="acid">🤖 AI 팀원</Badge>}
         {p.role === 'admin' && <Badge tone="blue">관리자</Badge>}
         {!p.active && <Badge tone="paper">비활성</Badge>}
       </div>

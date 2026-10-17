@@ -2,6 +2,10 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { ApiError, CHAT_FILE_MAX, type Api, type ImportResult } from './api'
 import type {
   AccessLog,
+  AttendanceCheckin,
+  DecideStatus,
+  Department,
+  WorkPlan,
   Note,
   AdminOverview,
   AgentToken,
@@ -545,6 +549,38 @@ export function createSupabaseApi(url: string, key: string): Api {
     deleteAgentInstruction: id => remove('agent_instructions', id),
     async listAttendanceFor(userId, fromDay) {
       return must(await sb.from('attendance').select('*').eq('user_id', userId).gte('day', fromDay).order('day', { ascending: false })) as Attendance[]
+    },
+    async listDepartments() {
+      const { data, error } = await sb.from('departments').select('*').order('sort').order('name')
+      return error ? [] : (data as Department[])
+    },
+    async saveDepartment(d) {
+      const row = { name: d.name, duties: d.duties ?? null, lead_id: d.lead_id ?? null, member_ids: d.member_ids ?? [], agent_groups: d.agent_groups ?? [], sort: d.sort ?? 0, updated_at: new Date().toISOString() }
+      if (d.id) mustAffect(await sb.from('departments').update(row).eq('id', d.id).select('id'))
+      else must(await sb.from('departments').insert(row).select('id'))
+    },
+    deleteDepartment: id => remove('departments', id),
+    async listWorkPlans(fromDay) {
+      const { data, error } = await sb.from('work_plans').select('*').gte('day', fromDay).order('day')
+      return error ? [] : (data as WorkPlan[])
+    },
+    async requestWorkPlan(p) {
+      must(await sb.from('work_plans').insert({ day: p.day, kind: p.kind, place: p.place || null, reason: p.reason || null }).select('id'))
+    },
+    cancelWorkPlan: id => remove('work_plans', id),
+    async decideWorkPlan(id, status) {
+      must(await sb.rpc('decide_work_plan', { p_id: id, p_status: status }))
+    },
+    async listCheckins(day) {
+      const { data, error } = await sb.from('attendance_checkins').select('*').eq('day', day)
+      return error ? [] : (data as AttendanceCheckin[])
+    },
+    async mobileCheckIn(c) {
+      const r = must(await sb.rpc('mobile_check_in', { p_kind: c.kind, p_note: c.note || null, p_lat: c.lat ?? null, p_lng: c.lng ?? null, p_accuracy: c.accuracy == null ? null : Math.round(c.accuracy) })) as { status: DecideStatus; already: boolean }
+      return r
+    },
+    async decideCheckin(id, status) {
+      must(await sb.rpc('decide_checkin', { p_id: id, p_status: status }))
     },
   }
 }
