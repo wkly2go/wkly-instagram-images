@@ -4,38 +4,85 @@ import { ChevronLeft, ChevronRight, ExternalLink, Search } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { desktop } from '../lib/desktop'
 
-type Shop = 'coupang' | 'nshop' | 'gmarket' | '11st' | 'ssg' | 'ohou' | 'kurly' | 'musinsa' | '29cm' | 'oliveyoung'
-type Engine = 'google' | 'images' | 'news' | 'naver' | 'youtube' | 'tiktok' | 'instagram' | Shop | SiteGroup
-type SiteGroup = 'popup' | 'design' | 'trend' | 'press' | 'social' | 'video' | 'brand' | 'expo' | 'gov' | 'bid' | 'hire'
-/** 업무 사이트 묶음: 탭을 누르면 이 사이트들만 구글로 검색 (site: 조건) */
-const SITE_GROUPS: Record<SiteGroup, { label: string; sites: string[] }> = {
-  popup: { label: '팝업 · 공간', sites: ['popply.co.kr', 'heypop.kr', 'spacecloud.kr', 'sweetspot.co.kr', 'visitseoul.net', 'coex.co.kr', 'kintex.com', 'mmca.go.kr'] },
-  design: { label: '디자인 · 건축', sites: ['designhouse.co.kr', 'vmspace.com', 'dezeen.com', 'archdaily.com', 'designboom.com', 'frameweb.com', 'wallpaper.com', 'ohou.se', 'behance.net', 'pinterest.com'] },
-  trend: { label: '마케팅 · 트렌드', sites: ['ditoday.com', 'openads.co.kr', 'the-pr.co.kr', 'mobiinside.co.kr', 'i-boss.co.kr', 'careet.net', '20slab.org', 'hypebeast.com', 'hypebeast.kr', 'fashionbiz.co.kr'] },
-  press: { label: '언론', sites: ['mk.co.kr', 'hankyung.com', 'chosun.com', 'mt.co.kr', 'joongang.co.kr', 'donga.com', 'yna.co.kr', 'edaily.co.kr'] },
-  social: { label: 'SNS · 블로그', sites: ['instagram.com', 'threads.net', 'linkedin.com', 'blog.naver.com', 'tistory.com', 'brunch.co.kr', 'x.com'] },
-  video: { label: '영상 · 숏폼', sites: ['youtube.com', 'tiktok.com', 'vimeo.com', 'instagram.com/reels'] },
-  brand: { label: '브랜드 · 편집숍', sites: ['musinsa.com', '29cm.co.kr', 'wconcept.co.kr', 'kream.co.kr', 'oliveyoung.co.kr', 'kasina.co.kr', 'thehandsome.com'] },
-  expo: { label: '전시 · 박람회', sites: ['coex.co.kr', 'kintex.com', 'bexco.co.kr', 'exco.co.kr', 'sac.or.kr', 'sejongpac.or.kr', 'mmca.go.kr', 'sema.seoul.go.kr', 'ddp.or.kr'] },
-  gov: { label: '공공 · 지자체', sites: ['seoul.go.kr', 'mediahub.seoul.go.kr', 'korea.kr', 'gg.go.kr', 'incheon.go.kr', 'sba.seoul.kr', 'kocca.kr'] },
-  bid: { label: '입찰 · 공공', sites: ['g2b.go.kr', 'lh.or.kr', 'kintex.com', 'coex.co.kr', 'sh.co.kr', 'ebid.seoul.go.kr'] },
-  hire: { label: '구인 · 외주', sites: ['saramin.co.kr', 'jobkorea.co.kr', 'wanted.co.kr', 'kmong.com', 'soomgo.com', 'loud.kr'] },
+type SiteGroup = 'popup' | 'design' | 'trend' | 'press' | 'social' | 'video' | 'shop' | 'brand' | 'expo' | 'gov' | 'bid' | 'hire'
+/** 사이트 하나: 주소 · 이름 · (있으면) 그 사이트 자체 검색 주소 */
+interface Site {
+  host: string
+  label: string
+  /** 그 사이트의 검색 결과 페이지 (없으면 구글 site: 검색) */
+  search?: (s: string) => string
 }
-/** 쇼핑몰: 각 몰의 검색 결과 페이지로 바로 (구글을 거치지 않음) */
-const SHOPS: Record<Shop, { label: string; url: (s: string) => string }> = {
-  coupang: { label: '쿠팡', url: s => `https://www.coupang.com/np/search?q=${s}` },
-  nshop: { label: '네이버 쇼핑', url: s => `https://msearch.shopping.naver.com/search/all?query=${s}` },
-  gmarket: { label: 'G마켓', url: s => `https://www.gmarket.co.kr/n/search?keyword=${s}` },
-  '11st': { label: '11번가', url: s => `https://m.11st.co.kr/products/m/search?searchKeyword=${s}` },
-  ssg: { label: 'SSG', url: s => `https://www.ssg.com/search.ssg?query=${s}` },
-  ohou: { label: '오늘의집', url: s => `https://ohou.se/store/search?query=${s}` },
-  kurly: { label: '컬리', url: s => `https://www.kurly.com/search?sword=${s}` },
-  musinsa: { label: '무신사', url: s => `https://www.musinsa.com/search/goods?keyword=${s}` },
-  '29cm': { label: '29CM', url: s => `https://www.29cm.co.kr/search?keyword=${s}` },
-  oliveyoung: { label: '올리브영', url: s => `https://m.oliveyoung.co.kr/m/search/searchList.do?query=${s}` },
+const site = (host: string, label: string, search?: (s: string) => string): Site => ({ host, label, search })
+/** 업무 사이트 묶음(두 번째 줄). 묶음을 누르면 세 번째 줄에 저장된 사이트가 나오고, 사이트를 누르면 그 사이트에서 바로 검색 */
+const SITE_GROUPS: Record<SiteGroup, { label: string; sites: Site[] }> = {
+  popup: {
+    label: '팝업 · 공간',
+    sites: [site('popply.co.kr', '팝플리', s => `https://www.popply.co.kr/popup/search?keyword=${s}`), site('heypop.kr', '헤이팝'), site('spacecloud.kr', '스페이스클라우드', s => `https://www.spacecloud.kr/search?keyword=${s}`), site('sweetspot.co.kr', '스위트스팟'), site('visitseoul.net', '비짓서울'), site('coex.co.kr', '코엑스'), site('kintex.com', '킨텍스'), site('mmca.go.kr', '국립현대미술관')],
+  },
+  design: {
+    label: '디자인 · 건축',
+    sites: [site('designhouse.co.kr', '디자인하우스'), site('vmspace.com', 'VMSPACE'), site('dezeen.com', 'Dezeen', s => `https://www.dezeen.com/?s=${s}`), site('archdaily.com', 'ArchDaily', s => `https://www.archdaily.com/search/all?q=${s}`), site('designboom.com', 'designboom', s => `https://www.designboom.com/?s=${s}`), site('frameweb.com', 'FRAME'), site('wallpaper.com', 'Wallpaper*'), site('ohou.se', '오늘의집', s => `https://ohou.se/contents/search?query=${s}`), site('behance.net', 'Behance', s => `https://www.behance.net/search/projects?search=${s}`), site('pinterest.com', 'Pinterest', s => `https://www.pinterest.com/search/pins/?q=${s}`)],
+  },
+  trend: {
+    label: '마케팅 · 트렌드',
+    sites: [site('ditoday.com', '디지털인사이트'), site('openads.co.kr', '오픈애즈'), site('the-pr.co.kr', '더피알'), site('mobiinside.co.kr', '모비인사이드'), site('i-boss.co.kr', '아이보스'), site('careet.net', '캐릿'), site('20slab.org', '대학내일20대연구소'), site('hypebeast.kr', '하입비스트'), site('fashionbiz.co.kr', '패션비즈')],
+  },
+  press: {
+    label: '언론',
+    sites: [site('mk.co.kr', '매일경제'), site('hankyung.com', '한국경제'), site('chosun.com', '조선일보'), site('mt.co.kr', '머니투데이'), site('joongang.co.kr', '중앙일보'), site('donga.com', '동아일보'), site('yna.co.kr', '연합뉴스'), site('edaily.co.kr', '이데일리')],
+  },
+  social: {
+    label: 'SNS · 블로그',
+    sites: [site('instagram.com', '인스타그램', s => `https://www.instagram.com/explore/search/keyword/?q=${s}`), site('threads.net', '스레드', s => `https://www.threads.net/search?q=${s}`), site('linkedin.com', '링크드인', s => `https://www.linkedin.com/search/results/all/?keywords=${s}`), site('blog.naver.com', '네이버 블로그', s => `https://m.search.naver.com/search.naver?where=m_blog&query=${s}`), site('tistory.com', '티스토리'), site('brunch.co.kr', '브런치', s => `https://brunch.co.kr/search?q=${s}`), site('x.com', 'X', s => `https://x.com/search?q=${s}`)],
+  },
+  video: {
+    label: '영상 · 숏폼',
+    sites: [site('youtube.com', '유튜브', s => `https://www.youtube.com/results?search_query=${s}`), site('tiktok.com', '틱톡', s => `https://www.tiktok.com/search?q=${s}`), site('instagram.com/reels', '릴스', s => `https://www.instagram.com/explore/search/keyword/?q=${s}`), site('vimeo.com', 'Vimeo', s => `https://vimeo.com/search?q=${s}`)],
+  },
+  shop: {
+    label: '쇼핑몰',
+    sites: [site('coupang.com', '쿠팡', s => `https://www.coupang.com/np/search?q=${s}`), site('shopping.naver.com', '네이버 쇼핑', s => `https://msearch.shopping.naver.com/search/all?query=${s}`), site('gmarket.co.kr', 'G마켓', s => `https://www.gmarket.co.kr/n/search?keyword=${s}`), site('11st.co.kr', '11번가', s => `https://m.11st.co.kr/products/m/search?searchKeyword=${s}`), site('ssg.com', 'SSG', s => `https://www.ssg.com/search.ssg?query=${s}`), site('ohou.se', '오늘의집', s => `https://ohou.se/store/search?query=${s}`), site('kurly.com', '컬리', s => `https://www.kurly.com/search?sword=${s}`), site('auction.co.kr', '옥션', s => `https://browse.auction.co.kr/search?keyword=${s}`), site('lotteon.com', '롯데온', s => `https://www.lotteon.com/search/search/search.ecn?render=search&q=${s}`)],
+  },
+  brand: {
+    label: '브랜드 · 편집숍',
+    sites: [site('musinsa.com', '무신사', s => `https://www.musinsa.com/search/goods?keyword=${s}`), site('29cm.co.kr', '29CM', s => `https://www.29cm.co.kr/search?keyword=${s}`), site('wconcept.co.kr', 'W컨셉', s => `https://www.wconcept.co.kr/Search?kw=${s}`), site('kream.co.kr', '크림', s => `https://kream.co.kr/search?keyword=${s}`), site('oliveyoung.co.kr', '올리브영', s => `https://m.oliveyoung.co.kr/m/search/searchList.do?query=${s}`), site('kasina.co.kr', '카시나'), site('thehandsome.com', '한섬')],
+  },
+  expo: {
+    label: '전시 · 박람회',
+    sites: [site('coex.co.kr', '코엑스'), site('kintex.com', '킨텍스'), site('bexco.co.kr', '벡스코'), site('exco.co.kr', '엑스코'), site('sac.or.kr', '예술의전당'), site('sejongpac.or.kr', '세종문화회관'), site('mmca.go.kr', '국립현대미술관'), site('sema.seoul.go.kr', '서울시립미술관'), site('ddp.or.kr', 'DDP')],
+  },
+  gov: {
+    label: '공공 · 지자체',
+    sites: [site('seoul.go.kr', '서울시'), site('mediahub.seoul.go.kr', '서울시 미디어허브'), site('korea.kr', '정책브리핑'), site('gg.go.kr', '경기도'), site('incheon.go.kr', '인천시'), site('sba.seoul.kr', '서울경제진흥원'), site('kocca.kr', '콘텐츠진흥원')],
+  },
+  bid: {
+    label: '입찰 · 공공',
+    sites: [site('g2b.go.kr', '나라장터'), site('lh.or.kr', 'LH'), site('sh.co.kr', 'SH'), site('ebid.seoul.go.kr', '서울 전자입찰'), site('kintex.com', '킨텍스'), site('coex.co.kr', '코엑스')],
+  },
+  hire: {
+    label: '구인 · 외주',
+    sites: [site('saramin.co.kr', '사람인', s => `https://www.saramin.co.kr/zf_user/search?searchword=${s}`), site('jobkorea.co.kr', '잡코리아', s => `https://www.jobkorea.co.kr/Search/?stext=${s}`), site('wanted.co.kr', '원티드', s => `https://www.wanted.co.kr/search?query=${s}`), site('kmong.com', '크몽', s => `https://kmong.com/search?keyword=${s}`), site('soomgo.com', '숨고'), site('loud.kr', '라우드소싱')],
+  },
 }
-const isShop = (e: Engine): e is Shop => e in SHOPS
+/** 세 번째 줄에서 고른 사이트: 'site:' + 주소 */
+type SiteKey = `site:${string}`
+type Engine = 'google' | 'images' | 'news' | 'naver' | 'youtube' | 'tiktok' | 'instagram' | SiteGroup | SiteKey
 const isGroup = (e: Engine): e is SiteGroup => e in SITE_GROUPS
+const isSite = (e: Engine): e is SiteKey => e.startsWith('site:')
+const siteOf = (e: SiteKey): Site | undefined => {
+  const host = e.slice(5)
+  for (const g of Object.values(SITE_GROUPS)) {
+    const f = g.sites.find(x => x.host === host)
+    if (f) return f
+  }
+  return undefined
+}
+/** 사이트가 속한 묶음 (세 번째 줄을 어느 묶음으로 보여 줄지) */
+const groupOf = (e: Engine): SiteGroup | null => {
+  if (isGroup(e)) return e
+  if (isSite(e)) return (Object.keys(SITE_GROUPS) as SiteGroup[]).find(g => SITE_GROUPS[g].sites.some(x => x.host === e.slice(5))) ?? null
+  return null
+}
 const ENGINES: [Engine, string][] = [
   ['google', '구글'],
   ['images', '이미지'],
@@ -46,9 +93,12 @@ const ENGINES: [Engine, string][] = [
   ['instagram', '인스타그램'],
 ]
 const urlFor = (e: Engine, q: string) => {
-  if (isGroup(e)) return `https://www.google.com/search?q=${encodeURIComponent(`${q} (${SITE_GROUPS[e].sites.map(x => `site:${x}`).join(' OR ')})`)}`
+  if (isGroup(e)) return `https://www.google.com/search?q=${encodeURIComponent(`${q} (${SITE_GROUPS[e].sites.map(x => `site:${x.host}`).join(' OR ')})`)}`
   const s = encodeURIComponent(q)
-  if (isShop(e)) return SHOPS[e].url(s)
+  if (isSite(e)) {
+    const st = siteOf(e)
+    return st?.search ? st.search(s) : `https://www.google.com/search?q=${encodeURIComponent(`${q} site:${e.slice(5)}`)}`
+  }
   if (e === 'images') return `https://www.google.com/search?tbm=isch&q=${s}`
   if (e === 'news') return `https://www.google.com/search?tbm=nws&q=${s}`
   if (e === 'naver') return `https://m.search.naver.com/search.naver?query=${s}`
@@ -230,6 +280,11 @@ export function WebSearchBox() {
 }
 
 function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine; onSearch: (q: string, e: Engine) => void; onClose: () => void }) {
+  const [lastGroup, setLastGroup] = useState<SiteGroup | null>(() => groupOf(engine) ?? 'popup')
+  useEffect(() => {
+    const g = groupOf(engine)
+    if (g) setLastGroup(g)
+  }, [engine])
   const { api, me, version } = useApp()
   const { data: cx } = useAsync(() => api.getSearchCx(), [version], null as string | null)
   const [err, setErr] = useState('')
@@ -357,6 +412,7 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
 
   const recent = readRecent()
   const slot = webSlot
+  const shownGroup = groupOf(engine) ?? lastGroup
   return createPortal(
     <aside className={`web-panel${native ? ' is-native' : ''}`} aria-label="인터넷 검색">
       <div className="web-resize" onPointerDown={startDrag} role="separator" aria-orientation="vertical" aria-label="검색 창 폭 조절" title="끌어서 폭 조절" />
@@ -375,21 +431,23 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
       <div className="web-sites" role="group" aria-label="업무 사이트만 검색">
         <div className="web-tabs" role="tablist">
           {(Object.keys(SITE_GROUPS) as SiteGroup[]).map(k => (
-            <button key={k} type="button" role="tab" aria-selected={engine === k} className={`web-tab${engine === k ? ' on' : ''}`} onClick={() => onSearch(q, k)} title={`업무 사이트만: ${SITE_GROUPS[k].sites.join(' · ')}`}>
+            <button key={k} type="button" role="tab" aria-selected={engine === k} className={`web-tab${shownGroup === k ? ' on' : ''}`} onClick={() => (q ? onSearch(q, k) : setLastGroup(k))} title={`업무 사이트만: ${SITE_GROUPS[k].sites.map(x => x.label).join(' · ')}`}>
               {SITE_GROUPS[k].label}
             </button>
           ))}
         </div>
       </div>
-      <div className="web-sites web-shops" role="tablist" aria-label="쇼핑몰에서 바로 검색">
-        <div className="web-tabs">
-          {(Object.keys(SHOPS) as Shop[]).map(k => (
-            <button key={k} type="button" role="tab" aria-selected={engine === k} className={`web-tab${engine === k ? ' on' : ''}`} onClick={() => onSearch(q, k)} title={`${SHOPS[k].label}에서 바로 검색`}>
-              {SHOPS[k].label}
-            </button>
-          ))}
+      {shownGroup && (
+        <div className="web-sites web-shops" role="tablist" aria-label={`${SITE_GROUPS[shownGroup].label} 사이트에서 바로 검색`}>
+          <div className="web-tabs">
+            {SITE_GROUPS[shownGroup].sites.map(st => (
+              <button key={st.host} type="button" role="tab" aria-selected={engine === `site:${st.host}`} className={`web-tab${engine === `site:${st.host}` ? ' on' : ''}`} onClick={() => onSearch(q, `site:${st.host}`)} title={st.search ? `${st.label}에서 바로 검색` : `구글로 ${st.host} 안에서만 검색`}>
+                {st.label}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
       {!q ? (
         <div className="col gap-6 web-note">
           <span className="t-small">위 검색창에 검색어를 넣고 Enter 를 누르면 이 자리에 결과가 나옵니다.</span>
@@ -407,7 +465,7 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
             <span className="t-small t-red">브라우저가 새 창을 막았습니다. 주소창 오른쪽의 팝업 차단 아이콘에서 이 사이트를 허용하거나 아래 버튼을 눌러 주세요.</span>
           ) : (
             <span className="t-small">
-              <b>‘{q}’</b> {isGroup(engine) ? `${SITE_GROUPS[engine].label} 사이트` : isShop(engine) ? SHOPS[engine].label : ENGINES.find(e => e[0] === engine)?.[1]} 검색 결과를 화면 오른쪽 창에 열었습니다.
+              <b>‘{q}’</b> {isGroup(engine) ? `${SITE_GROUPS[engine].label} 사이트` : isSite(engine) ? (siteOf(engine)?.label ?? engine.slice(5)) : ENGINES.find(e => e[0] === engine)?.[1]} 검색 결과를 화면 오른쪽 창에 열었습니다.
             </span>
           )}
           <button type="button" className="btn btn-blue btn-sm" style={{ alignSelf: 'flex-start' }} onClick={() => setBlocked(!openDocked(urlFor(engine, q)))}>
