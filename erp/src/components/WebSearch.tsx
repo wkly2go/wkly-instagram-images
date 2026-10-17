@@ -302,7 +302,7 @@ export function WebSearchBox() {
         }}
       >
         <Search size={14} />
-        <input value={q} onChange={e => setQ(e.target.value)} placeholder="구글 · 인터넷 검색" aria-label="구글 · 인터넷 검색" enterKeyHint="search" title="검색어를 넣고 Enter · 결과는 오른쪽 검색 창에" />
+        <input value={q} onChange={e => setQ(e.target.value)} placeholder={open?.engine === 'chatgpt' ? 'ChatGPT 에 질문 (Enter)' : open?.engine === 'perplexity' ? 'Perplexity 에 질문 (Enter)' : '구글 · 인터넷 검색'} aria-label="구글 · 인터넷 검색" enterKeyHint="search" title="검색어를 넣고 Enter · 결과는 오른쪽 검색 창에" />
       </form>
       <span className="web-zoom" role="group" aria-label="검색 창 글자 크기" title={`검색 창 글자 크기 ${Math.round(zoom * 100)}% (PC 프로그램에서 적용)`}>
         <button type="button" className="icon-btn sm" onClick={() => stepZoom(-0.1)} aria-label="글자 작게">

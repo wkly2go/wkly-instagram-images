@@ -365,6 +365,9 @@ const NAVER_CSS = `
   #content { padding: 0 8px !important; }
   body { padding-top: 4px !important; overflow-x: hidden !important; }
 `
+const CHATGPT_CSS = `
+  #thread-bottom-container, form:has(#prompt-textarea), [data-testid="composer-footer-actions"], div:has(> form #prompt-textarea) { display: none !important; }
+`
 // 그 밖의 사이트: 맨 위 머리글 · 검색창만 숨김 (결과 · 본문은 그대로)
 const OTHER_CSS = `header, [role="banner"], form[role="search"], .search-form, #search-form, .header-search, #masthead-container, ytd-masthead, #guide, #guide-button, [data-e2e="nav-search"], [data-e2e="top-search"], nav[role="navigation"] { display: none !important; } ytd-app, #page-manager { margin-top: 0 !important; }`
 // 아이디가 바뀌어도 되도록: 결과 목록(#search · #rso · #main_pack 등) 위에 있는 요소를 모두 숨기고, 위에 붙은 고정 머리글도 숨김
@@ -404,6 +407,11 @@ const TRIM_JS = `(() => {
 function trimSearchChrome(wc) {
   const u = wc.getURL()
   try {
+    // ChatGPT: 자체 입력창을 숨기고 인트라넷 상단 검색창으로만 질문 (CSS 한 번만, 스크립트 없음 → 흔들림 없음)
+    if (/^https:\/\/([a-z0-9-]+\.)*chatgpt\.com/.test(u)) {
+      wc.insertCSS(CHATGPT_CSS)
+      return
+    }
     if (AI_SITE.test(u) || SHOP_SITE.test(u)) return // AI · 쇼핑 사이트는 손대지 않음 (다시 그려지며 흔들리거나, 화면을 고치면 봇으로 보고 막음)
     wc.insertCSS(FIT_CSS)
     if (/^https:\/\/(www\.)?google\.[a-z.]+\/maps/.test(u) || /^https:\/\/(m\.)?map\.naver\.com/.test(u)) return // 지도는 그대로
