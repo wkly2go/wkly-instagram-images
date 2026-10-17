@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { createPortal } from 'react-dom'
 import { ChevronLeft, ChevronRight, ExternalLink, Search, X } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
@@ -80,11 +80,41 @@ const cseReady = (cx: string) =>
     document.head.appendChild(s)
   })
 
-/** 상단 검색창: 누르면 오른쪽으로 넓어지고, Enter 를 누르면 오른쪽 검색 창이 열림 */
+/** 검색 창 상태는 화면(탭)을 옮겨도 그대로: 모듈 전역 + 이 창(sessionStorage)에 기억 */
+type OpenState = { q: string; engine: Engine } | null
+const OPEN_KEY = 'wkly-web-open'
+let openState: OpenState = (() => {
+  try {
+    return JSON.parse(sessionStorage.getItem(OPEN_KEY) ?? 'null') as OpenState
+  } catch {
+    return null
+  }
+})()
+const openListeners = new Set<() => void>()
+function setOpenState(v: OpenState) {
+  openState = v
+  try {
+    if (v) sessionStorage.setItem(OPEN_KEY, JSON.stringify(v))
+    else sessionStorage.removeItem(OPEN_KEY)
+  } catch {
+    /* 저장 불가 */
+  }
+  for (const l of openListeners) l()
+}
+const useOpenState = () =>
+  useSyncExternalStore(cb => {
+    openListeners.add(cb)
+    return () => openListeners.delete(cb)
+  }, () => openState)
+/** PC 프로그램: 검색 칸(WebContentsView)이 이미 떠 있으면 화면을 옮겨도 다시 불러오지 않음 */
+let nativeShowing: string | null = null
+
+/** 상단 검색창: Enter 를 누르면 본 화면 오른쪽에 검색 창이 열리고, 다른 탭으로 가도 그대로 남음 */
 export function WebSearchBox() {
-  const [q, setQ] = useState('')
-  const [open, setOpen] = useState<{ q: string; engine: Engine } | null>(null)
-  const submit = (engine: Engine = 'google') => {
+  const open = useOpenState()
+  const [q, setQ] = useState(open?.q ?? '')
+  const setOpen = setOpenState
+  const submit = (engine: Engine = open?.engine ?? 'google') => {
     const v = q.trim()
     if (!v) return
     saveRecent([v, ...readRecent().filter(x => x !== v)])
@@ -164,14 +194,19 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
   useEffect(() => {
     if (!native) return
     app!.searchZoom?.(zoom)
-    app!.searchOpen!(urlFor(engine, q), rectOf())
+    const url = urlFor(engine, q)
+    if (nativeShowing === url) app!.searchBounds?.(rectOf())
+    else {
+      nativeShowing = url
+      app!.searchOpen!(url, rectOf())
+    }
   }, [native, q, engine])
   // 검색 칸 글자 크기 (PC 프로그램 1.5+): 기본 70%, 가− / 가+ 로 조절 · 이 PC에 기억
   const [zoom, setZoom] = useState(() => {
     try {
-      return Number(localStorage.getItem('wkly-web-zoom')) || 0.7
+      return Number(localStorage.getItem('wkly-web-zoom')) || 0.6
     } catch {
-      return 0.7
+      return 0.6
     }
   })
   const changeZoom = (d: number) => {
@@ -195,7 +230,11 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
       ro.disconnect()
       window.removeEventListener('resize', send)
       window.clearInterval(t)
-      app!.searchClose?.()
+      // 화면을 옮기느라 잠시 사라지는 경우는 닫지 않음 (닫기 버튼 · Esc 로 닫을 때만)
+      if (!openState) {
+        nativeShowing = null
+        app!.searchClose?.()
+      }
     }
   }, [native])
 
@@ -237,6 +276,16 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
     <aside className={`web-panel${native ? ' is-native' : ''}`} aria-label="인터넷 검색">
       <div className="web-resize" onPointerDown={startDrag} role="separator" aria-orientation="vertical" aria-label="검색 창 폭 조절" title="끌어서 폭 조절" />
       <div className="web-bar">
+        {native && (
+          <span className="web-nav">
+            <button type="button" className="icon-btn sm" onClick={() => app!.searchNav?.('back')} aria-label="뒤로" title="뒤로">
+              <ChevronLeft size={14} />
+            </button>
+            <button type="button" className="icon-btn sm" onClick={() => app!.searchNav?.('forward')} aria-label="앞으로" title="앞으로">
+              <ChevronRight size={14} />
+            </button>
+          </span>
+        )}
         <form
           className="web-search wide grow"
           onSubmit={e => {
@@ -244,49 +293,38 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
             text.trim() && onSearch(text.trim(), engine)
           }}
         >
-          <Search size={13} />
-          <input value={text} onChange={e => setText(e.target.value)} aria-label="검색어" autoFocus />
+          <Search size={12} />
+          <input value={text} onChange={e => setText(e.target.value)} aria-label="검색어" placeholder="검색어 입력 후 Enter" />
         </form>
-        <select className="web-engine" value={engine} onChange={e => onSearch(text.trim() || q, e.target.value as Engine)} aria-label="검색 종류" title={isGroup(engine) ? SITE_GROUPS[engine].sites.join(' · ') : undefined}>
-          {ENGINES.map(([k, l]) => (
-            <option key={k} value={k}>
-              {l}
-            </option>
-          ))}
-          <optgroup label="업무 사이트만">
-            {(Object.keys(SITE_GROUPS) as SiteGroup[]).map(k => (
-              <option key={k} value={k}>
-                {SITE_GROUPS[k].label}
-              </option>
-            ))}
-          </optgroup>
-        </select>
-        {native && (
-          <>
-            <button type="button" className="icon-btn sm" onClick={() => app!.searchNav?.('back')} aria-label="뒤로" title="뒤로">
-              <ChevronLeft size={15} />
+        {native && app!.searchZoom && (
+          <span className="web-nav">
+            <button type="button" className="icon-btn sm web-zoom" onClick={() => changeZoom(-0.1)} aria-label="글자 작게" title={`글자 작게 (지금 ${Math.round(zoom * 100)}%)`}>
+              가−
             </button>
-            <button type="button" className="icon-btn sm" onClick={() => app!.searchNav?.('forward')} aria-label="앞으로" title="앞으로">
-              <ChevronRight size={15} />
+            <button type="button" className="icon-btn sm web-zoom" onClick={() => changeZoom(0.1)} aria-label="글자 크게" title={`글자 크게 (지금 ${Math.round(zoom * 100)}%)`}>
+              가+
             </button>
-            {app!.searchZoom && (
-              <>
-                <button type="button" className="icon-btn sm web-zoom" onClick={() => changeZoom(-0.1)} aria-label="글자 작게" title={`글자 작게 (지금 ${Math.round(zoom * 100)}%)`}>
-                  가−
-                </button>
-                <button type="button" className="icon-btn sm web-zoom" onClick={() => changeZoom(0.1)} aria-label="글자 크게" title={`글자 크게 (지금 ${Math.round(zoom * 100)}%)`}>
-                  가+
-                </button>
-              </>
-            )}
-          </>
+          </span>
         )}
         <button type="button" className="icon-btn sm" onClick={() => (native ? app!.searchNav?.('external') : window.open(urlFor(engine, q), '_blank', 'noopener'))} aria-label="브라우저로 열기" title="브라우저로 열기">
-          <ExternalLink size={14} />
+          <ExternalLink size={13} />
         </button>
         <button type="button" className="icon-btn sm" onClick={onClose} aria-label="검색 창 닫기" title="닫기 (Esc)">
-          <X size={15} />
+          <X size={14} />
         </button>
+      </div>
+      <div className="web-tabs" role="tablist" aria-label="검색 종류">
+        {ENGINES.map(([k, l]) => (
+          <button key={k} type="button" role="tab" aria-selected={engine === k} className={`web-tab${engine === k ? ' on' : ''}`} onClick={() => onSearch(text.trim() || q, k)}>
+            {l}
+          </button>
+        ))}
+        <span className="web-tabs-sep" aria-hidden="true" />
+        {(Object.keys(SITE_GROUPS) as SiteGroup[]).map(k => (
+          <button key={k} type="button" role="tab" aria-selected={engine === k} className={`web-tab${engine === k ? ' on' : ''}`} onClick={() => onSearch(text.trim() || q, k)} title={`업무 사이트만: ${SITE_GROUPS[k].sites.join(' · ')}`}>
+            {SITE_GROUPS[k].label}
+          </button>
+        ))}
       </div>
       {native ? (
         <>

@@ -1,71 +1,319 @@
 import { useState } from 'react'
 import { AttendanceRulesPanel, CheckInCard, CheckinTag, MonthSummary, OfficeNetworkPanel, useCheckins, WorkPlanSection } from '../components/CheckIn'
-import { OrgSection } from '../components/Org'
 import { useAction, useApp, useAsync } from '../lib/app'
-import { addDays, minutesLabel, timeLabel, todayKey } from '../lib/date'
+import { addDays, minutesLabel, shortDate, timeLabel, todayKey } from '../lib/date'
 import { Link, useRouter, withQuery } from '../lib/router'
 import { presenceOf, useAccessLog, useAttendance, useDesktopOnly, type Presence } from '../lib/attendance'
 import { SOURCE_LABEL } from '../lib/desktop'
-import type { Profile, WorkLog } from '../lib/types'
+import type { Attendance, AttendanceCheckin, LeaveRecord, Profile, Project, ResearchItem, Task, WorkLog, WorkPlan } from '../lib/types'
 import { Shell } from '../components/Shell'
 import { PersonName } from '../components/Person'
 import { LeaveSection } from '../components/Leave'
-import { Badge, Button, Chip, Field, SectionHead, TodayBadge } from '../components/ui'
+import { Badge, Button, Chip, Field, KindBadge, SectionHead, StatusBadge, TodayBadge } from '../components/ui'
+import { AssignTaskButton } from '../components/AssignTask'
 
-type Tab = 'org' | 'attendance' | 'leave' | 'me'
+type Tab = 'attendance' | 'leave' | 'me'
 const TABS: [Tab, string][] = [
-  ['org', '조직 · 프로젝트'],
   ['attendance', '근태'],
   ['leave', '휴가'],
   ['me', '내 정보'],
 ]
 
+/** 팀 · 근태: 근태만. 조직 · 프로젝트 현황은 프로젝트 › 조직 탭으로 옮김 */
 export default function Team() {
-  const { api, me, profiles, version } = useApp()
+  const { me, profiles } = useApp()
   const today = todayKey()
-  const { data: logs } = useAsync(() => api.listWorkLogs({ date: today }), [version, today], [] as WorkLog[])
-  const active = profiles.filter(p => p.active)
-  const inactive = profiles.filter(p => !p.active)
-  const attendance = useAttendance(today)
   const { query, path, navigate } = useRouter()
-  const tab = (TABS.some(([k]) => k === query.get('tab')) ? query.get('tab') : 'org') as Tab
+  const tab = (TABS.some(([k]) => k === query.get('tab')) ? query.get('tab') : 'attendance') as Tab
+  const personId = query.get('user')
+  const person = personId ? profiles.find(p => p.id === personId) ?? null : null
+  const goPerson = (id: string | null) => navigate(withQuery(path, query, { user: id }), { replace: true })
   return (
-    <Shell active="team">
-      <div className="chips" role="tablist" aria-label="팀 메뉴">
-        {TABS.map(([k, l]) => (
-          <Chip key={k} active={tab === k} onClick={() => navigate(withQuery(path, query, { tab: k === 'org' ? null : k }))}>
-            {l}
-          </Chip>
-        ))}
-      </div>
-      {tab === 'org' && (
+    <Shell active="team" flush={tab === 'attendance'}>
+      {tab === 'attendance' ? (
+        <div className={`split ${person ? 'has-detail' : ''}`}>
+          <div className="pane-list">
+            <div className="pane-head">
+              <div className="chips" role="tablist" aria-label="팀 메뉴">
+                {TABS.map(([k, l]) => (
+                  <Chip key={k} active={tab === k} onClick={() => navigate(withQuery(path, query, { tab: k === 'attendance' ? null : k, user: null }))}>
+                    {l}
+                  </Chip>
+                ))}
+              </div>
+            </div>
+            <PeopleList selectedId={personId} onSelect={goPerson} />
+          </div>
+          <div className="pane-detail" style={{ overflow: 'auto' }}>
+            <div className="col gap-10" style={{ padding: '14px 16px' }}>
+              {person ? (
+                <PersonHub key={person.id} p={person} onBack={() => goPerson(null)} />
+              ) : (
+                <>
+                  <CheckInCard always />
+                  <WorkPlanSection />
+                  <AttendanceSection />
+                  {me.role === 'admin' && <MonthSummary month={query.get('month') ?? today.slice(0, 7)} onMonth={m => navigate(withQuery(path, query, { month: m }))} />}
+                  {me.role === 'admin' && <AttendanceRulesPanel />}
+                  {me.role === 'admin' && <OfficeNetworkPanel />}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : (
         <>
-          <OrgSection />
-          <SectionHead
-            title="우리 팀"
-            count={`${active.length}명`}
-            right={me.role === 'admin' ? <Link to="/admin">팀원 추가·권한은 관리 ›</Link> : undefined}
-          />
-          <div className="members">
-            {[...active, ...inactive].map(p => (
-              <MemberCard key={p.id} p={p} presence={presenceOf(p, attendance.get(p.id))} logs={logs.filter(l => l.user_id === p.id)} />
+          <div className="chips" role="tablist" aria-label="팀 메뉴">
+            {TABS.map(([k, l]) => (
+              <Chip key={k} active={tab === k} onClick={() => navigate(withQuery(path, query, { tab: k === 'attendance' ? null : k, user: null }))}>
+                {l}
+              </Chip>
             ))}
           </div>
+          {tab === 'leave' && <LeaveSection />}
+          {tab === 'me' && <MySettings />}
         </>
       )}
-      {tab === 'attendance' && (
-        <>
-          <CheckInCard always />
-          {me.role === 'admin' && <AttendanceRulesPanel />}
-          {me.role === 'admin' && <OfficeNetworkPanel />}
-          <WorkPlanSection />
-          <AttendanceSection />
-          {me.role === 'admin' && <MonthSummary month={query.get('month') ?? today.slice(0, 7)} onMonth={m => navigate(withQuery(path, query, { month: m }))} />}
-        </>
-      )}
-      {tab === 'leave' && <LeaveSection />}
-      {tab === 'me' && <MySettings />}
     </Shell>
+  )
+}
+
+/** 왼쪽: 사람을 세로로 나열 (오늘 상태 · 출근 시각). 누르면 그 사람의 업무 · 자료 전부 */
+function PeopleList({ selectedId, onSelect }: { selectedId: string | null; onSelect: (id: string) => void }) {
+  const { profiles } = useApp()
+  const today = todayKey()
+  const attendance = useAttendance(today)
+  const people = profiles.filter(p => p.active && !p.is_agent)
+  const absent = people.filter(p => !attendance.has(p.id)).length
+  return (
+    <>
+      <div className="pane-head" style={{ paddingTop: 0 }}>
+        <span className="t-bodyb">
+          오늘 출근 {people.length - absent} · 미출근 {absent}
+        </span>
+      </div>
+      <div className="pane-body">
+        {people.map(p => {
+          const a = attendance.get(p.id)
+          return (
+            <button key={p.id} type="button" className={`item ${p.id === selectedId ? 'active' : ''}`} onClick={() => onSelect(p.id)}>
+              <span className="col gap-2" style={{ minWidth: 0 }}>
+                <span className="row" style={{ gap: 6 }}>
+                  <span className="t-smallb truncate">{p.name}</span>
+                  {p.title && <span className="t-cap">{p.title}</span>}
+                </span>
+                <span className="row" style={{ gap: 6 }}>
+                  <TodayBadge status={presenceOf(p, a)} />
+                  <span className="t-cap">{a ? `출근 ${timeLabel(a.first_at)}` : '기록 없음'}</span>
+                </span>
+              </span>
+            </button>
+          )
+        })}
+      </div>
+    </>
+  )
+}
+
+/** 사람을 누르면: 오늘 상태 · 최근 30일 근태 · 외근/재택 신청 · 휴가 · 할 일 · 프로젝트 · 업무 일지 · 올린 자료 */
+function PersonHub({ p, onBack }: { p: Profile; onBack: () => void }) {
+  const { api, me, version, profileName } = useApp()
+  const today = todayKey()
+  const from = addDays(today, -29)
+  const attendance = useAttendance(today)
+  const { data } = useAsync(
+    async () => {
+      const [days, tasks, projects, logs, plans, leave, research, checkins] = await Promise.all([
+        api.listAttendanceFor(p.id, from),
+        api.listTasks(),
+        api.listProjects(),
+        api.listWorkLogs({ userId: p.id, limit: 40 }),
+        api.listWorkPlans(addDays(today, -30)),
+        api.listLeave().catch(() => [] as LeaveRecord[]),
+        api.listResearch().catch(() => [] as ResearchItem[]),
+        api.listCheckins(today),
+      ])
+      return { days, tasks: tasks.filter(t => t.assignee_id === p.id), projects, logs, plans: plans.filter(x => x.user_id === p.id), leave: leave.filter(l => l.profile_id === p.id), research: research.filter(r => r.created_by === p.id), checkin: checkins.find(c => c.user_id === p.id) ?? null }
+    },
+    [p.id, version],
+    { days: [] as Attendance[], tasks: [] as Task[], projects: [] as Project[], logs: [] as WorkLog[], plans: [] as WorkPlan[], leave: [] as LeaveRecord[], research: [] as ResearchItem[], checkin: null as AttendanceCheckin | null },
+  )
+  const todayRow = attendance.get(p.id)
+  const open = data.tasks.filter(t => t.status !== '완료')
+  const late = open.filter(t => t.due_date && t.due_date < today)
+  const myProjects = data.projects.filter(pr => pr.owner_id === p.id || data.tasks.some(t => t.project_id === pr.id))
+  const pname = (id: string | null) => (id ? data.projects.find(x => x.id === id)?.name : undefined)
+  const isMe = p.id === me.id
+  const mins = data.logs.filter(l => l.log_date === today).reduce((s, l) => s + (l.minutes ?? 0), 0)
+  // 근태 30일: 날짜별 한 줄 (출근 · 마지막 접속 · 외근/재택 · 휴가)
+  const dayRows = Array.from({ length: 30 }, (_, i) => addDays(today, -i)).map(d => {
+    const a = data.days.find(x => x.day === d)
+    const plan = data.plans.find(x => x.day === d && x.status === '승인')
+    const lv = data.leave.find(l => l.status === '승인' && l.start_date <= d && d >= l.start_date && d <= l.end_date)
+    return { d, a, plan, lv }
+  })
+  const wd = (d: string) => new Date(`${d}T00:00:00+09:00`).getDay()
+  return (
+    <>
+      <div className="row wrap">
+        <button type="button" className="icon-btn back-btn" onClick={onBack} aria-label="목록으로">
+          ‹
+        </button>
+        <h2 className="t-title">{p.name}</h2>
+        {p.title && <span className="t-small">{p.title}</span>}
+        <TodayBadge status={presenceOf(p, todayRow)} />
+        {todayRow && <span className="t-cap">출근 {timeLabel(todayRow.first_at)} · 마지막 {timeLabel(todayRow.last_at)}</span>}
+        <CheckinTag c={data.checkin ?? undefined} />
+        <span className="grow" />
+        <PersonName id={p.id} className="btn btn-outline btn-sm" />
+        <Link to={isMe ? '/work' : `/work?user=${p.id}`} className="btn btn-outline btn-sm" style={{ textDecoration: 'none' }}>
+          업무 일지
+        </Link>
+        {!isMe && (
+          <Link to={`/chat?dm=${p.id}`} className="btn btn-outline btn-sm" style={{ textDecoration: 'none' }}>
+            1:1 대화
+          </Link>
+        )}
+        {!isMe && <AssignTaskButton assignee={p.id} label="업무 지시" className="btn btn-yellow btn-sm" />}
+      </div>
+      {p.status_message && <span className="t-small pre">{p.status_message}</span>}
+      <div className="kpis kpis-4">
+        <div className="kpi">
+          <span className="t-cap">남은 할 일</span>
+          <span className="v">{open.length}</span>
+          <span className="sub">지연 {late.length}</span>
+        </div>
+        <div className="kpi">
+          <span className="t-cap">참여 프로젝트</span>
+          <span className="v">{myProjects.filter(x => x.status !== '완료').length}</span>
+          <span className="sub">담당 {myProjects.filter(x => x.owner_id === p.id && x.status !== '완료').length}</span>
+        </div>
+        <div className="kpi">
+          <span className="t-cap">오늘 기록</span>
+          <span className="v">{data.logs.filter(l => l.log_date === today).length}</span>
+          <span className="sub">{mins ? minutesLabel(mins) : '시간 미기록'}</span>
+        </div>
+        <div className="kpi">
+          <span className="t-cap">30일 출근</span>
+          <span className="v">{data.days.length}</span>
+          <span className="sub">휴가 {data.leave.filter(l => l.status === '승인' && l.end_date >= from).reduce((n, l) => n + l.days, 0)}일</span>
+        </div>
+      </div>
+      <div className="row top gap-12" style={{ flexWrap: 'wrap' }}>
+        <div className="col grow gap-10" style={{ flexBasis: 320 }}>
+          <SectionHead title="할 일" count={`${data.tasks.filter(t => t.status === '완료').length}/${data.tasks.length}`} right={<Link to={`/projects?view=tasks`}>팀 할 일 ›</Link>} />
+          {open.slice(0, 20).map(t => (
+            <div key={t.id} className="row wrap dashed" style={{ padding: '5px 0', gap: 6 }}>
+              <StatusBadge status={t.due_date && t.due_date < today ? '지연' : t.status} />
+              <Link to={t.project_id ? `/projects?id=${t.project_id}` : '/projects?view=tasks'} className="t-smallb truncate" style={{ maxWidth: 260 }}>
+                {t.title}
+              </Link>
+              <span className="grow" />
+              {t.project_id && <span className="t-cap truncate" style={{ maxWidth: 160 }}>{pname(t.project_id)}</span>}
+              {t.due_date && <span className={`t-meta ${t.due_date < today ? 't-red' : ''}`}>{shortDate(t.due_date)}</span>}
+            </div>
+          ))}
+          {open.length === 0 && <span className="t-cap">남은 할 일이 없습니다.</span>}
+          <SectionHead title="프로젝트" count={myProjects.length ? String(myProjects.length) : undefined} />
+          {myProjects.map(pr => (
+            <div key={pr.id} className="row wrap dashed" style={{ padding: '5px 0', gap: 6 }}>
+              <Link to={`/projects?id=${pr.id}`} className="t-smallb">
+                {pr.name}
+              </Link>
+              <StatusBadge status={pr.status} />
+              {pr.owner_id === p.id && <Badge tone="yellow">담당</Badge>}
+              <span className="grow" />
+              <span className="t-cap">할 일 {data.tasks.filter(t => t.project_id === pr.id && t.status !== '완료').length}건 남음</span>
+            </div>
+          ))}
+          {myProjects.length === 0 && <span className="t-cap">맡은 프로젝트가 없습니다.</span>}
+          <SectionHead title="업무 일지" count={data.logs.length ? String(data.logs.length) : undefined} right={<Link to={isMe ? '/work' : `/work?user=${p.id}`}>전체 보기 ›</Link>} />
+          {data.logs.slice(0, 15).map(l => (
+            <div key={l.id} className="col gap-2 dashed" style={{ padding: '6px 0' }}>
+              <div className="row wrap" style={{ gap: 6 }}>
+                <span className="t-meta">
+                  {shortDate(l.log_date)} {timeLabel(l.created_at)}
+                </span>
+                <KindBadge kind={l.kind} />
+                {l.email_counterpart && <span className="t-cap">{l.email_counterpart}</span>}
+                <span className="grow" />
+                {l.project_id && pname(l.project_id) && (
+                  <Link to={`/projects?id=${l.project_id}`} className="t-cap">
+                    {pname(l.project_id)} ›
+                  </Link>
+                )}
+              </div>
+              <span className="t-small t-blue pre">{l.content}</span>
+            </div>
+          ))}
+          {data.logs.length === 0 && <span className="t-cap">업무 일지가 없습니다.</span>}
+          {data.research.length > 0 && (
+            <>
+              <SectionHead title="올린 자료 · 보고서" count={String(data.research.length)} right={<Link to="/library">자료실 ›</Link>} />
+              {data.research.slice(0, 10).map(r => (
+                <div key={r.id} className="row wrap dashed" style={{ padding: '5px 0', gap: 6 }}>
+                  <span className="t-meta">{shortDate(r.created_at.slice(0, 10))}</span>
+                  <Badge tone="outline">{r.kind}</Badge>
+                  <Link to={`/library?id=${r.id}`} className="t-smallb truncate" style={{ maxWidth: 300 }}>
+                    {r.title}
+                  </Link>
+                </div>
+              ))}
+            </>
+          )}
+        </div>
+        <div className="col gap-10" style={{ flexBasis: 300, flexGrow: 1, maxWidth: 420 }}>
+          <SectionHead title="근태 30일" right={<span className="t-cap">{profileName(p.id)} · {shortDate(from)}부터</span>} />
+          <div className="col">
+            {dayRows.map(({ d, a, plan, lv }) => (
+              <div key={d} className={`row dashed att-day ${a || lv ? '' : wd(d) === 0 || wd(d) === 6 ? 'off' : 'absent'}`} style={{ padding: '3px 0', gap: 6 }}>
+                <span className="t-meta" style={{ width: 64 }}>
+                  {shortDate(d)} {['일', '월', '화', '수', '목', '금', '토'][wd(d)]}
+                </span>
+                {lv ? (
+                  <Badge tone="paper">{lv.kind}</Badge>
+                ) : a ? (
+                  <span className="t-small">
+                    {timeLabel(a.first_at)} – {timeLabel(a.last_at)}
+                  </span>
+                ) : wd(d) === 0 || wd(d) === 6 ? (
+                  <span className="t-meta">주말</span>
+                ) : (
+                  <span className="t-meta t-red">미출근</span>
+                )}
+                <span className="grow" />
+                {plan && <Badge tone="acid">{plan.kind}</Badge>}
+              </div>
+            ))}
+          </div>
+          <SectionHead title="외근 · 재택 신청 (30일)" count={data.plans.length ? String(data.plans.length) : undefined} />
+          {data.plans.slice(0, 10).map(x => (
+            <div key={x.id} className="row wrap dashed" style={{ padding: '4px 0', gap: 6 }}>
+              <span className="t-meta">{shortDate(x.day)}</span>
+              <Badge tone="outline">{x.kind}</Badge>
+              <span className="t-cap truncate" style={{ maxWidth: 160 }}>{x.place ?? ''}</span>
+              <span className="grow" />
+              <Badge tone={x.status === '승인' ? 'acid' : x.status === '반려' ? 'red' : 'yellow'}>{x.status}</Badge>
+            </div>
+          ))}
+          {data.plans.length === 0 && <span className="t-cap">신청이 없습니다.</span>}
+          <SectionHead title="휴가" count={data.leave.length ? String(data.leave.length) : undefined} right={<Link to="/team?tab=leave">휴가 탭 ›</Link>} />
+          {data.leave.slice(0, 8).map(l => (
+            <div key={l.id} className="row wrap dashed" style={{ padding: '4px 0', gap: 6 }}>
+              <span className="t-meta">
+                {shortDate(l.start_date)}
+                {l.end_date !== l.start_date ? ` – ${shortDate(l.end_date)}` : ''}
+              </span>
+              <Badge tone="outline">{l.kind}</Badge>
+              <span className="t-cap">{l.days}일</span>
+              <span className="grow" />
+              <Badge tone={l.status === '승인' ? 'acid' : l.status === '반려' ? 'red' : 'yellow'}>{l.status}</Badge>
+            </div>
+          ))}
+          {data.leave.length === 0 && <span className="t-cap">휴가 기록이 없습니다.</span>}
+        </div>
+      </div>
+    </>
   )
 }
 
@@ -157,43 +405,6 @@ function AttendanceSection() {
         접속 기록이 없으면 미출근입니다. <Link to="/download">PC 프로그램 내려받기 ›</Link>
       </span>
     </>
-  )
-}
-
-function MemberCard({ p, presence, logs }: { p: Profile; presence: Presence; logs: WorkLog[] }) {
-  const { me } = useApp()
-  const mins = logs.reduce((s, l) => s + (l.minutes ?? 0), 0)
-  const isMe = p.id === me.id
-  return (
-    <div className={`member ${p.active ? '' : 'off'}`}>
-      <div className="row">
-        <span className="col gap-2 grow">
-          <span className="row" style={{ gap: 4 }}>
-            <PersonName id={p.id} className="t-smallb truncate" />
-            {p.title && <span className="t-cap">{p.title}</span>}
-          </span>
-          <span className="row" style={{ gap: 4 }}>
-            <span className="t-meta">TODAY IS</span>
-            <TodayBadge status={presence} />
-          </span>
-        </span>
-      </div>
-      <span className="t-cap pre">{p.status_message || ' '}</span>
-      <div className="row">
-        <Link to={isMe ? '/work' : `/work?user=${p.id}`} className="t-meta t-blue" title="오늘 업무 보기 (파도타기)">
-          기록 {logs.length}
-          {mins ? ` · ${minutesLabel(mins)}` : ''}
-        </Link>
-        <span className="grow" />
-        {!isMe && p.active && (
-          <Link to={`/chat?dm=${p.id}`} className="t-meta t-blue" title={`${p.name}님과 1:1 대화`}>
-            💬 1:1
-          </Link>
-        )}
-        {p.role === 'admin' && <Badge tone="blue">관리자</Badge>}
-        {!p.active && <Badge tone="paper">비활성</Badge>}
-      </div>
-    </div>
   )
 }
 

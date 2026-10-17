@@ -17,7 +17,7 @@ export default function Help() {
       <Part title="처음 로그인했을 때">
         <Step n={1}>관리자에게 받은 회사 이메일과 임시 비밀번호로 로그인합니다.</Step>
         <Step n={2}>
-          <Link to="/team">팀 › 내 정보</Link>에서 새 비밀번호로 바꿉니다.
+          <Link to="/team?tab=me">팀 › 내 정보</Link>에서 새 비밀번호로 바꿉니다.
         </Step>
         <Step n={3}>위쪽 종 모양 › 'PC 알림 (창을 닫아도)' 켜기를 누릅니다. 인트라넷 창을 닫아 둬도 채팅·승인 요청·할 일 알람이 PC 알림으로 옵니다.</Step>
         <Step n={4}>PC 크롬·엣지는 주소창 오른쪽 '앱 설치', 휴대폰은 공유 › '홈 화면에 추가'로 앱처럼 씁니다.</Step>
