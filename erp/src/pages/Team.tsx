@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { CheckInCard, CheckinTag, useCheckins, WorkPlanSection } from '../components/CheckIn'
+import { AttendanceRulesPanel, CheckInCard, CheckinTag, MonthSummary, useCheckins, WorkPlanSection } from '../components/CheckIn'
 import { OrgSection } from '../components/Org'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { addDays, minutesLabel, timeLabel, todayKey } from '../lib/date'
@@ -56,8 +56,10 @@ export default function Team() {
       {tab === 'attendance' && (
         <>
           <CheckInCard always />
+          {me.role === 'admin' && <AttendanceRulesPanel />}
           <WorkPlanSection />
           <AttendanceSection />
+          {me.role === 'admin' && <MonthSummary month={query.get('month') ?? today.slice(0, 7)} onMonth={m => navigate(withQuery(path, query, { month: m }))} />}
         </>
       )}
       {tab === 'leave' && <LeaveSection />}
@@ -68,13 +70,15 @@ export default function Team() {
 
 /** 근태 관리: 하루 첫 접속 = 출근. 그날 접속 기록이 없으면 미출근 */
 function AttendanceSection() {
-  const { profiles } = useApp()
+  const { api, profiles, version } = useApp()
   const today = todayKey()
   const [day, setDay] = useState(today)
   const rows = useAttendance(day)
   const access = useAccessLog(day)
   const { data: desktopOnly } = useDesktopOnly()
   const checkins = useCheckins(day)
+  const { data: rules } = useAsync(() => api.getAttendanceRules(), [version], { workStart: '10:00', planDeadline: '18:00' })
+  const hm = (iso: string) => new Date(new Date(iso).getTime() + 9 * 3600_000).toISOString().slice(11, 16)
   const people = profiles.filter(p => p.active && !p.is_agent)
   const absent = people.filter(p => !rows.has(p.id)).length
   return (
@@ -117,7 +121,10 @@ function AttendanceSection() {
                   <td>
                     <TodayBadge status={status} />
                   </td>
-                  <td className="num">{a ? timeLabel(a.first_at) : '–'}</td>
+                  <td className="num">
+                    {a ? timeLabel(a.first_at) : '–'}
+                    {a && hm(a.first_at) > rules.workStart && checkins.get(p.id)?.status !== '승인' && <span className="t-red t-meta"> 지각</span>}
+                  </td>
                   <td className="num">{a ? timeLabel(a.last_at) : '–'}</td>
                   <td>
                     <span className="row wrap" style={{ gap: 4 }}>

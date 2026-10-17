@@ -2,6 +2,8 @@ import type { AccessSource } from './desktop'
 import type {
   AccessLog,
   AttendanceCheckin,
+  AttendanceMonthRow,
+  AttendanceRules,
   CheckinKind,
   DecideStatus,
   Department,
@@ -266,6 +268,9 @@ export interface Api {
   listCheckins(day: string): Promise<AttendanceCheckin[]>
   mobileCheckIn(c: { kind: CheckinKind; note?: string | null; lat?: number | null; lng?: number | null; accuracy?: number | null }): Promise<{ status: DecideStatus; already: boolean }>
   decideCheckin(id: string, status: '승인' | '반려'): Promise<void>
+  getAttendanceRules(): Promise<AttendanceRules>
+  setAttendanceRule(key: 'work_start' | 'plan_deadline', value: string): Promise<void>
+  attendanceMonthSummary(month: string): Promise<AttendanceMonthRow[]>
 
   // 휴가
   listLeave(): Promise<LeaveRecord[]>
