@@ -382,11 +382,15 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
   }, [native, q, engine])
   // 검색 칸 글자 크기 (PC 프로그램 1.5+): 기본 70%, 가− / 가+ 로 조절 · 이 PC에 기억
   const zoom = useZoom()
+  // 결과 칸은 검색어가 있을 때만 그려지므로, 검색어가 생길 때마다 감시를 다시 건다 (창 크기 · 배치 변화를 계속 따라감)
   useEffect(() => {
-    if (!native || !nativeBox.current) return
+    if (!native || !q || !nativeBox.current) return
     const send = () => app!.searchBounds?.(rectOf())
     const ro = new ResizeObserver(send)
     ro.observe(nativeBox.current)
+    const panel = nativeBox.current.closest('.web-panel')
+    if (panel) ro.observe(panel)
+    send()
     const mo = new MutationObserver(send) // 팝업 창이 뜨고 닫힐 때 바로 반영
     mo.observe(document.body, { childList: true, subtree: true })
     window.addEventListener('resize', send)
@@ -402,7 +406,7 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
         app!.searchClose?.()
       }
     }
-  }, [native])
+  }, [native, !!q])
 
   // 결과를 인트라넷 안에 (검색 ID가 있을 때) · 없으면 오른쪽에 구글 창
   useEffect(() => {
