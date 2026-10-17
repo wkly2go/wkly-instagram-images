@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { createPortal } from 'react-dom'
-import { ProjectMaterials, usePanelProject } from './ProjectMaterials'
+import { usePanelDetail } from './RightPanel'
 import { ChevronLeft, ChevronRight, ExternalLink, Search, X } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { desktop } from '../lib/desktop'
@@ -284,16 +284,6 @@ export function WebSearchBox() {
   const zoom = useZoom()
   return (
     <>
-      {app?.searchNav && (
-        <span className="web-nav" role="group" aria-label="검색 창 이동">
-          <button type="button" className="icon-btn sm" onClick={() => app.searchNav?.('back')} aria-label="뒤로" title="검색 창 뒤로">
-            <ChevronLeft size={14} />
-          </button>
-          <button type="button" className="icon-btn sm" onClick={() => app.searchNav?.('forward')} aria-label="앞으로" title="검색 창 앞으로">
-            <ChevronRight size={14} />
-          </button>
-        </span>
-      )}
       <form
         className="web-search"
         role="search"
@@ -305,6 +295,16 @@ export function WebSearchBox() {
         <Search size={14} />
         <input value={q} onChange={e => setQ(e.target.value)} placeholder={open?.engine === 'chatgpt' ? 'ChatGPT 에 질문 (Enter)' : open?.engine === 'perplexity' ? 'Perplexity 에 질문 (Enter)' : '구글 · 인터넷 검색'} aria-label="구글 · 인터넷 검색" enterKeyHint="search" title="검색어를 넣고 Enter · 결과는 오른쪽 검색 창에" />
       </form>
+      {app?.searchNav && (
+        <span className="web-nav" role="group" aria-label="인터넷 창 이동">
+          <button type="button" className="icon-btn sm" onClick={() => app.searchNav?.('back')} aria-label="뒤로" title="인터넷 창 뒤로">
+            <ChevronLeft size={14} />
+          </button>
+          <button type="button" className="icon-btn sm" onClick={() => app.searchNav?.('forward')} aria-label="앞으로" title="인터넷 창 앞으로">
+            <ChevronRight size={14} />
+          </button>
+        </span>
+      )}
       <span className="web-zoom" role="group" aria-label="검색 창 글자 크기" title={`검색 창 글자 크기 ${Math.round(zoom * 100)}% (PC 프로그램에서 적용)`}>
         <button type="button" className="icon-btn sm" onClick={() => stepZoom(-0.1)} aria-label="글자 작게">
           가−
@@ -320,10 +320,12 @@ export function WebSearchBox() {
 function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine; onSearch: (q: string, e: Engine) => void; onClose: () => void }) {
   const [lastGroup, setLastGroup] = useState<SiteGroup | null>(() => groupOf(engine) ?? 'popup')
   // 프로젝트를 열면 오른쪽 칸에 그 프로젝트 자료를 먼저 보여 줌 (인터넷 ↔ 프로젝트 자료 전환)
-  const panelProject = usePanelProject()
-  const [mode, setMode] = useState<'web' | 'project'>(panelProject ? 'project' : 'web')
-  useEffect(() => setMode(panelProject ? 'project' : 'web'), [panelProject])
-  const showProject = mode === 'project' && !!panelProject
+  // 목록에서 항목을 누르면 그 결과(상세)를 이 칸에 먼저 보여 줌 (결과 ↔ 인터넷 전환)
+  const detail = usePanelDetail()
+  const detailKey = detail?.key ?? null
+  const [mode, setMode] = useState<'web' | 'project'>(detailKey ? 'project' : 'web')
+  useEffect(() => setMode(detailKey ? 'project' : 'web'), [detailKey])
+  const showProject = mode === 'project' && !!detail
   const modeRef = useRef(showProject)
   modeRef.current = showProject
   useEffect(() => {
@@ -510,10 +512,10 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
           </div>
         </div>
       )}
-      {panelProject && (
+      {detail && (
         <div className="web-mode" role="tablist" aria-label="오른쪽 칸 보기">
           <button type="button" role="tab" aria-selected={showProject} className={`web-tab${showProject ? ' on' : ''}`} onClick={() => setMode('project')}>
-            프로젝트 자료
+            {detail.title}
           </button>
           <button type="button" role="tab" aria-selected={!showProject} className={`web-tab${!showProject ? ' on' : ''}`} onClick={() => setMode('web')}>
             인터넷
@@ -521,8 +523,8 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
         </div>
       )}
       {showProject ? (
-        <div className="web-project">
-          <ProjectMaterials projectId={panelProject!} />
+        <div className="web-project" key={detail!.key}>
+          {detail!.node}
         </div>
       ) : !q ? (
         <div className="col gap-6 web-note">

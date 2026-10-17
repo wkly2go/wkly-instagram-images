@@ -9,6 +9,7 @@ import { Link, useRouter, withQuery } from '../lib/router'
 import { APPROVAL_KINDS, CONTRACT_TYPES, type Approval, type ApprovalKind, type ApprovalRoute, type Project, type WorkLog } from '../lib/types'
 import { Shell } from '../components/Shell'
 import { Board, BoardHead } from '../components/Board'
+import { usePanelWide, useRightPanel } from '../components/RightPanel'
 import { Button, Chip, Field, KindBadge, KindTag, Modal, StatusBadge } from '../components/ui'
 
 type View = 'todo' | 'mine' | 'all'
@@ -108,6 +109,8 @@ export default function Approvals() {
   const selected = data.find(a => a.id === selectedId) ?? null
   const go = (patch: Record<string, string | null>) => navigate(withQuery(path, query, patch), { replace: true })
   const daily = data.filter(a => a.kind === '일일 보고' && a.status === '대기' && a.can_decide).length
+  const wide = usePanelWide()
+  useRightPanel(selected && wide ? `approval:${selected.id}` : null, '승인 상세', selected ? <ApprovalDetail a={selected} onBack={() => go({ id: null })} /> : null)
 
   return (
     <Shell active="approvals">
@@ -146,12 +149,12 @@ export default function Approvals() {
           ) : null
         })}
       </div>
-      {selected ? (
+      {selected && !wide ? (
         <div className="pane-detail">
           <ApprovalDetail a={selected} onBack={() => go({ id: null })} />
         </div>
       ) : (
-        <ApprovalBoards list={list} byKind={!kind} loading={loading} view={view} onOpen={id => go({ id })} />
+        <ApprovalBoards list={list} byKind={!kind} loading={loading} view={view} selectedId={selectedId} onOpen={id => go({ id })} />
       )}
       {creating && <NewApproval onClose={() => setCreating(false)} onCreated={id => go({ view: 'mine', id })} />}
     </Shell>
@@ -159,7 +162,7 @@ export default function Approvals() {
 }
 
 /** 승인 게시판: 종류별로 묶어 (색 머리띠) 번호 · 제목 · 요청자 · 요청일 · 상태 · 처리 */
-function ApprovalBoards({ list, byKind, loading, view, onOpen }: { list: Approval[]; byKind: boolean; loading: boolean; view: View; onOpen: (id: string) => void }) {
+function ApprovalBoards({ list, byKind, loading, view, selectedId, onOpen }: { list: Approval[]; byKind: boolean; loading: boolean; view: View; selectedId?: string | null; onOpen: (id: string) => void }) {
   const { profileName } = useApp()
   const groups: [string, Approval[]][] = byKind ? APPROVAL_KINDS.map(k => [k, list.filter(a => a.kind === k)] as [string, Approval[]]).filter(([, l]) => l.length) : [['', list]]
   const empty = loading ? '불러오는 중…' : view === 'todo' ? '처리할 승인이 없습니다.' : '요청이 없습니다.'
@@ -173,6 +176,7 @@ function ApprovalBoards({ list, byKind, loading, view, onOpen }: { list: Approva
             rows={rows}
             rowKey={a => a.id}
             onRow={a => onOpen(a.id)}
+            selectedId={selectedId}
             numbered={!k}
             empty={empty}
             cols={[

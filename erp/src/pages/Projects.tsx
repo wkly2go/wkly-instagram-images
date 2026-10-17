@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { AlarmClock, ArrowLeft, CheckCircle2, ChevronLeft, ChevronRight, CircleSlash, Pencil, Trash2 } from 'lucide-react'
-import { setPanelProject } from '../components/ProjectMaterials'
+import { ProjectMaterials } from '../components/ProjectMaterials'
+import { useRightPanel } from '../components/RightPanel'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { addMonths, dateLabel, monthGrid, shortDate, timeLabel, toDateKey, todayKey, weekRange, weekday } from '../lib/date'
 import { Link, useRouter, withQuery } from '../lib/router'
@@ -438,10 +439,7 @@ function ProjectDetail({ project: p, data, onEdit, onBack }: { project: Project;
   const tasks = data.tasks.filter(t => t.project_id === p.id)
   const client = data.clients.find(c => c.id === p.client_id)
   // 이 프로젝트에 연결된 자료는 오른쪽 칸(검색 창 자리)에 표시
-  useEffect(() => {
-    setPanelProject(p.id)
-    return () => setPanelProject(null)
-  }, [p.id])
+  useRightPanel(`project:${p.id}`, '프로젝트 자료', <ProjectMaterials projectId={p.id} />)
   const { data: extra } = useAsync(
     async () => {
       const [logs, rooms, contacts] = await Promise.all([api.listWorkLogs({ projectId: p.id, limit: 50 }), api.listRooms(), api.listContacts().catch(() => [] as Contact[])])

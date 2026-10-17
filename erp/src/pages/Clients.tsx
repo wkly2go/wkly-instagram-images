@@ -9,6 +9,7 @@ import { CLIENT_CATEGORIES, type Client, type ClientCategory, type Contact, type
 import { REPORT_KIND, ReportBody, ReportForm, clientCatLabel } from '../components/Reports'
 import { ContactProjectsSection, ContactTimeline, ExchangeFilesSection } from '../components/ContactHistory'
 import { Shell } from '../components/Shell'
+import { usePanelWide, useRightPanel } from '../components/RightPanel'
 import { Badge, Button, Chip, Empty, Field, Modal, SectionHead, StatusBadge } from '../components/ui'
 
 export default function Clients() {
@@ -47,10 +48,18 @@ export default function Clients() {
   const pid = query.get('pid')
   const person = people ? extra.contacts.find(x => x.id === pid) ?? null : null
   const goPerson = (id: string | null) => navigate(withQuery(path, query, { pid: id }), { replace: true })
+  const wide = usePanelWide()
+  useRightPanel(
+    wide ? (people ? (person ? `contact:${person.id}` : null) : selected ? `client:${selected.id}` : null) : null,
+    people ? '연락처 상세' : '거래처 상세',
+    people
+      ? person && <ContactDetail key={person.id} contact={person} contacts={extra.contacts} clients={clients} onClient={go} onPerson={goPerson} />
+      : selected && <ClientDetail key={selected.id} client={selected} clients={clients} onEdit={() => setEditing(selected)} onBack={() => go(null)} />,
+  )
 
   return (
     <Shell active="clients" flush>
-      <div className={`split ${(people ? person : selected) ? 'has-detail' : ''}`}>
+      <div className={`split ${(people ? person : selected) ? 'has-detail' : ''}${wide ? ' list-only' : ''}`}>
         <div className="pane-list">
           <div className="seg" role="tablist" aria-label="보기">
             <button type="button" role="tab" aria-selected={!people} className={!people ? 'on' : ''} onClick={() => setView(null)}>
@@ -106,6 +115,7 @@ export default function Clients() {
           </>
           )}
         </div>
+        {!wide && (
         <div className="pane-detail" style={{ overflow: 'auto' }}>
           {people ? (
             person ? (
@@ -119,6 +129,7 @@ export default function Clients() {
             <Empty>왼쪽에서 거래처를 고르세요.</Empty>
           )}
         </div>
+        )}
       </div>
       {editing && <ClientForm client={editing === 'new' ? null : editing} onClose={() => setEditing(null)} onSaved={id => go(id)} />}
     </Shell>

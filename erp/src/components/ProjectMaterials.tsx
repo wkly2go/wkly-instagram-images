@@ -1,24 +1,9 @@
-import { useSyncExternalStore } from 'react'
 import { useApp, useAsync } from '../lib/app'
 import { shortDate } from '../lib/date'
 import { Link } from '../lib/router'
 import type { Approval, ChatRoomSummary, Client, Contact, Payment, Project, WorkLog } from '../lib/types'
 import { Badge, Empty, SectionHead } from './ui'
 import { ContactTimeline, ExchangeFilesSection, ProjectContactsSection } from './ContactHistory'
-
-/** 지금 열어 둔 프로젝트 (오른쪽 칸에 그 프로젝트 자료를 보여 주기 위해) */
-let current: string | null = null
-const listeners = new Set<() => void>()
-export function setPanelProject(id: string | null) {
-  if (current === id) return
-  current = id
-  for (const l of listeners) l()
-}
-export const usePanelProject = () =>
-  useSyncExternalStore(cb => {
-    listeners.add(cb)
-    return () => listeners.delete(cb)
-  }, () => current)
 
 const won = (n: number) => `${Math.round(n).toLocaleString('ko-KR')}원`
 
