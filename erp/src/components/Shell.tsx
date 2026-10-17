@@ -110,7 +110,7 @@ function PhotoBox() {
 }
 
 function ProfilePanel({ summary }: { summary: Summary }) {
-  const { api, me, bump, toast } = useApp()
+  const { api, me, bump, toast, openQuick } = useApp()
   const [editing, setEditing] = useState(false)
   const [msg, setMsg] = useState(me.status_message ?? '')
 
@@ -186,6 +186,20 @@ function ProfilePanel({ summary }: { summary: Summary }) {
           · 안 읽은 채팅 <span className="n">{summary.unread}</span>
         </Link>
       </nav>
+      <div className="side-tools">
+        <Link to="/help" className="quick-btn" title="사용법" style={{ textDecoration: 'none' }}>
+          <CircleHelp size={14} /> 사용법
+        </Link>
+        {inQuickWindow() ? (
+          <Link to="/quick" className="quick-btn" style={{ textDecoration: 'none' }}>
+            빠른 창으로
+          </Link>
+        ) : (
+          <button type="button" className="quick-btn pc-only" onClick={() => openQuick('window')} title="작은 독립 창. 전체 창을 닫아도 계속 쓸 수 있습니다.">
+            빠른 창 띄우기
+          </button>
+        )}
+      </div>
     </aside>
   )
 }
@@ -285,7 +299,7 @@ export function LogoTile() {
 }
 
 export function Shell({ active, flush, children }: { active: TabKey; flush?: boolean; children: ReactNode }) {
-  const { api, me, openQuick } = useApp()
+  const { api, me } = useApp()
   const summary = useSummary()
   return (
     <div className={`page app-page tab-${active}`}>
@@ -306,18 +320,6 @@ export function Shell({ active, flush, children }: { active: TabKey; flush?: boo
                 <Link to="/download" className="quick-btn pc-only" title="회사 컴퓨터용 PC 프로그램 (출근 기록)" style={{ textDecoration: 'none' }}>
                   PC 프로그램
                 </Link>
-              )}
-              <Link to="/help" className="quick-btn" title="사용법" style={{ textDecoration: 'none' }}>
-                <CircleHelp size={14} /> <span className="hide-phone">사용법</span>
-              </Link>
-              {inQuickWindow() ? (
-                <Link to="/quick" className="quick-btn" style={{ textDecoration: 'none' }}>
-                  빠른 창으로
-                </Link>
-              ) : (
-                <button type="button" className="quick-btn pc-only" onClick={() => openQuick('window')} title="작은 독립 창. 전체 창을 닫아도 계속 쓸 수 있습니다.">
-                  빠른 창 띄우기
-                </button>
               )}
             </header>
             <div className="body" ref={mountWebSlot}>
