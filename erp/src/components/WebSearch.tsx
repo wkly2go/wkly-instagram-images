@@ -1,0 +1,226 @@
+import { useEffect, useRef, useState } from 'react'
+import { ExternalLink, Search, X } from 'lucide-react'
+import { useAction, useApp, useAsync } from '../lib/app'
+
+type Engine = 'google' | 'images' | 'news' | 'maps' | 'naver'
+const ENGINES: [Engine, string][] = [
+  ['google', '구글'],
+  ['images', '이미지'],
+  ['news', '뉴스'],
+  ['maps', '지도'],
+  ['naver', '네이버'],
+]
+const urlFor = (e: Engine, q: string) => {
+  const s = encodeURIComponent(q)
+  if (e === 'images') return `https://www.google.com/search?tbm=isch&q=${s}`
+  if (e === 'news') return `https://www.google.com/search?tbm=nws&q=${s}`
+  if (e === 'maps') return `https://www.google.com/maps/search/${s}`
+  if (e === 'naver') return `https://search.naver.com/search.naver?query=${s}`
+  return `https://www.google.com/search?q=${s}`
+}
+
+const RECENT = 'wkly-web-recent'
+const readRecent = (): string[] => {
+  try {
+    return JSON.parse(localStorage.getItem(RECENT) ?? '[]') as string[]
+  } catch {
+    return []
+  }
+}
+const saveRecent = (list: string[]) => {
+  try {
+    localStorage.setItem(RECENT, JSON.stringify(list.slice(0, 8)))
+  } catch {
+    /* 저장 못 해도 검색은 됨 */
+  }
+}
+
+/** 화면 오른쪽에 붙는 검색 창 (구글은 다른 사이트 안에 넣을 수 없어 별도 창으로 띄움) */
+let docked: Window | null = null
+function openDocked(url: string) {
+  const w = Math.min(760, Math.round(window.screen.availWidth * 0.42))
+  const h = window.screen.availHeight
+  const left = (window.screen as unknown as { availLeft?: number }).availLeft ?? 0
+  const features = `popup=yes,width=${w},height=${h},left=${left + window.screen.availWidth - w},top=0`
+  if (docked && !docked.closed) {
+    docked.location.href = url
+    docked.focus()
+    return true
+  }
+  docked = window.open(url, 'wkly-web', features)
+  return !!docked
+}
+
+interface Cse {
+  search: { cse: { element: { render: (o: object) => void; getElement: (g: string) => { execute: (q: string) => void } | undefined } } }
+}
+const cseReady = (cx: string) =>
+  new Promise<void>((resolve, reject) => {
+    const g = (window as unknown as { google?: Cse }).google
+    if (g?.search?.cse?.element) return resolve()
+    ;(window as unknown as { __gcse: object }).__gcse = { parsetags: 'explicit', callback: () => resolve() }
+    const s = document.createElement('script')
+    s.src = `https://cse.google.com/cse.js?cx=${encodeURIComponent(cx)}`
+    s.async = true
+    s.onerror = () => reject(new Error('구글 검색을 불러오지 못했습니다.'))
+    document.head.appendChild(s)
+  })
+
+/** 상단 검색창: 누르면 오른쪽으로 넓어지고, Enter 를 누르면 오른쪽 검색 창이 열림 */
+export function WebSearchBox() {
+  const [q, setQ] = useState('')
+  const [open, setOpen] = useState<{ q: string; engine: Engine } | null>(null)
+  const submit = (engine: Engine = 'google') => {
+    const v = q.trim()
+    if (!v) return
+    saveRecent([v, ...readRecent().filter(x => x !== v)])
+    setOpen({ q: v, engine })
+  }
+  return (
+    <>
+      <form
+        className="web-search"
+        role="search"
+        onSubmit={e => {
+          e.preventDefault()
+          submit()
+        }}
+      >
+        <Search size={14} />
+        <input value={q} onChange={e => setQ(e.target.value)} placeholder="구글 검색" aria-label="구글 검색" enterKeyHint="search" />
+      </form>
+      {open && <WebPanel q={open.q} engine={open.engine} onSearch={(v, e) => { setQ(v); setOpen({ q: v, engine: e }) }} onClose={() => setOpen(null)} />}
+    </>
+  )
+}
+
+function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine; onSearch: (q: string, e: Engine) => void; onClose: () => void }) {
+  const { api, me, version } = useApp()
+  const { data: cx } = useAsync(() => api.getSearchCx(), [version], null as string | null)
+  const [text, setText] = useState(q)
+  const [err, setErr] = useState('')
+  const [blocked, setBlocked] = useState(false)
+  const box = useRef<HTMLDivElement>(null)
+  const inline = !!cx && engine === 'google'
+
+  // 결과를 인트라넷 안에 (검색 ID가 있을 때) · 없으면 오른쪽에 구글 창
+  useEffect(() => {
+    setText(q)
+    setErr('')
+    if (!inline) {
+      setBlocked(!openDocked(urlFor(engine, q)))
+      return
+    }
+    let off = false
+    cseReady(cx!)
+      .then(() => {
+        if (off) return
+        const g = (window as unknown as { google: Cse }).google
+        if (!g.search.cse.element.getElement('wkly') && box.current) {
+          box.current.innerHTML = ''
+          g.search.cse.element.render({ div: box.current, tag: 'searchresults-only', gname: 'wkly', attributes: { linkTarget: '_blank', enableHistory: false } })
+        }
+        g.search.cse.element.getElement('wkly')?.execute(q)
+      })
+      .catch(e => setErr(e instanceof Error ? e.message : String(e)))
+    return () => {
+      off = true
+    }
+  }, [q, engine, inline, cx])
+
+  useEffect(() => {
+    const k = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    window.addEventListener('keydown', k)
+    return () => window.removeEventListener('keydown', k)
+  }, [onClose])
+
+  const recent = readRecent()
+  return (
+    <aside className="web-panel" aria-label="인터넷 검색">
+      <div className="row">
+        <form
+          className="web-search wide grow"
+          onSubmit={e => {
+            e.preventDefault()
+            text.trim() && onSearch(text.trim(), engine)
+          }}
+        >
+          <Search size={14} />
+          <input value={text} onChange={e => setText(e.target.value)} aria-label="검색어" autoFocus />
+        </form>
+        <button type="button" className="icon-btn" onClick={onClose} aria-label="검색 창 닫기">
+          <X size={16} />
+        </button>
+      </div>
+      <div className="chips">
+        {ENGINES.map(([k, l]) => (
+          <button key={k} type="button" className={`chip${engine === k ? ' active' : ''}`} onClick={() => onSearch(text.trim() || q, k)}>
+            {l}
+          </button>
+        ))}
+        <span className="grow" />
+        <a className="t-meta t-blue row" style={{ gap: 3 }} href={urlFor(engine, q)} target="_blank" rel="noreferrer">
+          새 탭 <ExternalLink size={12} />
+        </a>
+      </div>
+      {inline ? (
+        <div className="web-results" ref={box} />
+      ) : (
+        <div className="col gap-6 web-note">
+          {blocked ? (
+            <span className="t-small t-red">브라우저가 새 창을 막았습니다. 주소창 오른쪽의 팝업 차단 아이콘에서 이 사이트를 허용하거나 아래 버튼을 눌러 주세요.</span>
+          ) : (
+            <span className="t-small">
+              <b>‘{q}’</b> {ENGINES.find(e => e[0] === engine)?.[1]} 검색 결과를 화면 오른쪽 창에 열었습니다.
+            </span>
+          )}
+          <button type="button" className="btn btn-blue btn-sm" style={{ alignSelf: 'flex-start' }} onClick={() => setBlocked(!openDocked(urlFor(engine, q)))}>
+            오른쪽 창에서 다시 열기
+          </button>
+          {engine === 'google' && !cx && <span className="t-cap">구글은 보안 정책상 다른 사이트 안에 넣을 수 없어 오른쪽에 붙는 별도 창으로 엽니다. 관리자가 아래 ‘검색 결과를 인트라넷 안에 보기’를 설정하면 이 창 안에 결과가 바로 나옵니다.</span>}
+        </div>
+      )}
+      {err && <span className="t-small t-red">{err}</span>}
+      {recent.length > 0 && (
+        <div className="col gap-2">
+          <span className="t-cap">최근 검색</span>
+          <div className="chips">
+            {recent.map(r => (
+              <button key={r} type="button" className="chip" onClick={() => onSearch(r, engine)}>
+                {r}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      {me.role === 'admin' && <CxSetting cx={cx} />}
+    </aside>
+  )
+}
+
+/** 관리자: Google 프로그래머블 검색 ID 등록 → 결과를 인트라넷 안에 표시 */
+function CxSetting({ cx }: { cx: string | null }) {
+  const { api } = useApp()
+  const { busy, run } = useAction()
+  const [v, setV] = useState(cx ?? '')
+  return (
+    <details className="web-setting">
+      <summary className="t-cap">검색 결과를 인트라넷 안에 보기 (관리자 설정)</summary>
+      <ol className="t-cap">
+        <li>
+          <a href="https://programmablesearchengine.google.com/controlpanel/create" target="_blank" rel="noreferrer">
+            Google 프로그래머블 검색
+          </a>
+          에서 info@thewklyn.com 으로 로그인 → 새 검색엔진 만들기 → ‘전체 웹 검색’ 선택
+        </li>
+        <li>만든 뒤 나오는 ‘검색엔진 ID’ (cx) 를 아래에 붙여 넣고 저장</li>
+      </ol>
+      <div className="row">
+        <input className="input grow" value={v} onChange={e => setV(e.target.value.trim())} placeholder="예) 0123456789abcdef0" aria-label="검색엔진 ID" />
+        <button type="button" className="btn btn-outline btn-sm" disabled={busy || v === (cx ?? '')} onClick={() => run(() => api.setSearchCx(v || null), v ? '저장했습니다. 다음 검색부터 인트라넷 안에 결과가 나옵니다.' : '해제했습니다.')}>
+          저장
+        </button>
+      </div>
+    </details>
+  )
+}

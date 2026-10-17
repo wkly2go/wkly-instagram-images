@@ -271,6 +271,9 @@ export interface Api {
   getAttendanceRules(): Promise<AttendanceRules>
   setAttendanceRule(key: 'work_start' | 'plan_deadline', value: string): Promise<void>
   attendanceMonthSummary(month: string): Promise<AttendanceMonthRow[]>
+  /** 인트라넷 구글 검색: Google 프로그래머블 검색 ID (없으면 null) */
+  getSearchCx(): Promise<string | null>
+  setSearchCx(cx: string | null): Promise<void>
 
   // 휴가
   listLeave(): Promise<LeaveRecord[]>

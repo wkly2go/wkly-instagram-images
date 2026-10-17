@@ -2,6 +2,7 @@ import { useMemo, useRef, useState, type ChangeEvent, type ReactNode } from 'rea
 import { Camera, ChevronLeft, ChevronRight, CircleHelp, Monitor, PictureInPicture2 } from 'lucide-react'
 import { isDesktopApp } from '../lib/desktop'
 import { NotificationBell } from './Notifications'
+import { WebSearchBox } from './WebSearch'
 import { useApp, useAsync, initial } from '../lib/app'
 import { friendlyError } from '../lib/api'
 import { addDays, addMonths, monthGrid, todayKey } from '../lib/date'
@@ -292,6 +293,7 @@ export function Shell({ active, flush, children }: { active: TabKey; flush?: boo
               </Link>
               <span className="site-title">사내 인트라넷</span>
               <span className="site-url t-meta">{window.location.host}</span>
+              <WebSearchBox />
               <span className="grow" />
               {api.mode === 'demo' && <span className="mode-badge" title="Supabase 연결 전 체험 모드. 데이터는 이 브라우저에만 저장됩니다.">DEMO</span>}
               <NotificationBell />
