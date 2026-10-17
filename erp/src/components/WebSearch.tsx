@@ -28,8 +28,8 @@ const urlFor = (e: Engine, q: string) => {
   const s = encodeURIComponent(q)
   if (e === 'images') return `https://www.google.com/search?tbm=isch&q=${s}`
   if (e === 'news') return `https://www.google.com/search?tbm=nws&q=${s}`
-  if (e === 'maps') return `https://www.google.com/maps?q=${s}&output=embed` // 지도만 화면 위에 꽉 차게 (검색창 · 옆 목록 없음)
-  if (e === 'naver') return `https://search.naver.com/search.naver?query=${s}`
+  if (e === 'maps') return `https://m.map.naver.com/search2/search.naver?query=${s}` // 네이버 지도 (모바일 화면: 좁은 창에서도 지도가 위에 보임)
+  if (e === 'naver') return `https://m.search.naver.com/search.naver?query=${s}`
   return `https://www.google.com/search?q=${s}`
 }
 
@@ -206,7 +206,7 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
     window.addEventListener('pointerup', up)
   }
   // 팝업 창(.scrim) · 잠금 화면이 떠 있으면 구글 칸을 숨김 (PC 프로그램의 구글 칸은 항상 화면 맨 위에 그려지므로)
-  const covered = () => !!document.querySelector('.scrim, .lock-screen')
+  const covered = () => !!document.querySelector('.scrim, .lock-screen, .notif-panel')
   const rectOf = () => {
     const r = nativeBox.current?.getBoundingClientRect()
     return r && !covered() ? { x: r.left, y: r.top, width: r.width, height: r.height } : { x: 0, y: 0, width: 0, height: 0 }
@@ -254,7 +254,7 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
     const ro = new ResizeObserver(send)
     ro.observe(nativeBox.current)
     const mo = new MutationObserver(send) // 팝업 창이 뜨고 닫힐 때 바로 반영
-    mo.observe(document.body, { childList: true })
+    mo.observe(document.body, { childList: true, subtree: true })
     window.addEventListener('resize', send)
     const t = window.setInterval(send, 800)
     return () => {
@@ -340,20 +340,14 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
             </button>
           ))}
         </div>
-      </div>
-      <div className="web-zoom" role="group" aria-label="검색 창 글자 크기">
-        <span className="web-sites-label">글자 크기</span>
-        <button type="button" className="web-tab" onClick={() => stepZoom(-0.1)} aria-label="글자 작게" title="글자 작게">
-          가−
-        </button>
-        <span className="t-mono web-zoom-v">{Math.round(zoom * 100)}%</span>
-        <button type="button" className="web-tab" onClick={() => stepZoom(0.1)} aria-label="글자 크게" title="글자 크게">
-          가+
-        </button>
-        <button type="button" className="link-btn t-cap" onClick={() => stepZoom(0.6 - zoom)} title="기본 60%">
-          기본
-        </button>
-        {!native && <span className="t-cap">PC 프로그램에서 적용</span>}
+        <span className="web-zoom" role="group" aria-label="검색 창 글자 크기" title={`글자 크기 ${Math.round(zoom * 100)}% (PC 프로그램 검색 칸에 적용)`}>
+          <button type="button" className="icon-btn sm" onClick={() => stepZoom(-0.1)} aria-label="글자 작게">
+            가−
+          </button>
+          <button type="button" className="icon-btn sm" onClick={() => stepZoom(0.1)} aria-label="글자 크게">
+            가+
+          </button>
+        </span>
       </div>
       {!q ? (
         <div className="col gap-6 web-note">

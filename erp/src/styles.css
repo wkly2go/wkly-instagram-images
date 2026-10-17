@@ -432,7 +432,7 @@ button.kpi:hover, a.kpi:hover { border-color: var(--blue); }
 /* ---------- 알림 ---------- */
 .bell { position: relative; }
 .bell .count { position: absolute; top: -4px; right: -6px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px; background: var(--red); color: var(--white); font: 700 10px/16px var(--mono); text-align: center; }
-.notif-panel { position: absolute; right: 0; top: calc(100% + 6px); width: min(360px, calc(100vw - 24px)); max-height: 460px; overflow: auto; background: var(--white); border: 1px solid var(--blue); border-radius: 8px; box-shadow: 0 6px 20px rgba(98, 98, 92, 0.25); z-index: 40; display: flex; flex-direction: column; }
+.notif-panel { position: absolute; right: 0; top: calc(100% + 6px); width: min(360px, calc(100vw - 24px)); max-height: 460px; overflow: auto; background: var(--white); border: 1px solid var(--blue); border-radius: 8px; box-shadow: 0 6px 20px rgba(98, 98, 92, 0.25); z-index: 60; display: flex; flex-direction: column; }
 .notif-panel .head { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--white); }
 .notif { display: flex; gap: 8px; padding: 9px 12px; border-bottom: 1px dashed var(--line); text-align: left; background: none; border-left: 0; border-right: 0; border-top: 0; width: 100%; cursor: pointer; color: inherit; }
 .notif:hover { background: var(--paper); }
@@ -951,13 +951,13 @@ button.kpi:hover, a.kpi:hover { border-color: var(--blue); }
 .web-tab { height: 26px; box-sizing: border-box; padding: 0 10px; border: 1px solid var(--blue); border-radius: 999px; background: var(--white); color: var(--blue); font: inherit; font-size: 12px; font-weight: 700; line-height: 24px; cursor: pointer; white-space: nowrap; }
 .web-tab:hover { background: var(--paper); }
 .web-tab.on { background: var(--yellow); }
-.web-sites { display: grid; grid-template-columns: 64px minmax(0, 1fr); align-items: start; gap: 6px; padding: 6px 0; border-top: 1px dashed var(--blue); border-bottom: 1px dashed var(--blue); }
+.web-sites { display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; align-items: start; gap: 6px; padding: 6px 0; border-top: 1px dashed var(--blue); border-bottom: 1px dashed var(--blue); }
 .web-sites-label { display: inline-flex; align-items: center; height: 26px; padding: 0 8px; border-radius: 6px; background: var(--blue-tint); color: var(--blue); font: 700 11px/1 var(--mono); white-space: nowrap; }
 .web-sites .web-tab { border-color: var(--blue-tint); background: var(--paper); }
 .web-sites .web-tab.on { background: var(--yellow); border-color: var(--blue); }
-.web-zoom { display: flex; align-items: center; gap: 6px; padding-bottom: 6px; border-bottom: 1px dashed var(--line); }
-.web-zoom .web-tab { padding: 0 8px; }
-.web-zoom-v { min-width: 36px; text-align: center; }
+.web-zoom { display: inline-flex; align-items: center; gap: 4px; height: 26px; }
+.web-zoom .icon-btn.sm { width: 34px; height: 24px; padding: 0; border: 1px solid var(--blue); border-radius: 999px; color: var(--blue); font: 700 11px/1 var(--font); white-space: nowrap; }
+.web-zoom .icon-btn.sm:hover { background: var(--yellow); }
 .web-panel { padding: 8px 10px; gap: 6px; font-size: 11px; }
 .web-panel .t-small, .web-panel .web-search input { font-size: 11px; }
 .web-panel .t-cap, .web-panel .t-meta { font-size: 10px; }
