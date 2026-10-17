@@ -323,11 +323,9 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
   // 목록에서 항목을 누르면 그 결과(상세)를 이 칸에 먼저 보여 줌 (결과 ↔ 인터넷 전환)
   const detail = usePanelDetail()
   const detailKey = detail?.key ?? null
-  const [mode, setMode] = useState<'web' | 'project'>(detailKey ? 'project' : 'web')
-  useEffect(() => setMode(detailKey ? 'project' : 'web'), [detailKey])
-  const showProject = mode === 'project' && !!detail
-  const modeRef = useRef(showProject)
-  modeRef.current = showProject
+  // 인터넷은 항상 고정 (대표 지시 2026-10-17). 누른 결과는 인터넷 위 칸에 (접기 가능)
+  const [folded, setFolded] = useState(false)
+  useEffect(() => setFolded(false), [detailKey])
   useEffect(() => {
     const g = groupOf(engine)
     if (g) setLastGroup(g)
@@ -382,7 +380,7 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
   const rectOf = () => {
     const box = nativeBox.current
     const r = box?.getBoundingClientRect()
-    if (!box || !r || covered() || modeRef.current) return { x: 0, y: 0, width: 0, height: 0 }
+    if (!box || !r || covered()) return { x: 0, y: 0, width: 0, height: 0 }
     // 검색 창(aside) 영역 안으로만: 레이아웃이 바뀌는 순간에도 결과 칸이 본 화면 위로 튀어나오지 않게
     const pr = box.closest('.web-panel')?.getBoundingClientRect()
     const left = Math.max(r.left, pr?.left ?? r.left)
@@ -475,8 +473,21 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
   const slot = webSlot
   const shownGroup = groupOf(engine) ?? lastGroup
   return createPortal(
-    <aside className={`web-panel${native ? ' is-native' : ''}${q ? ' has-q' : ''}${showProject ? ' is-project' : ''}`} aria-label="인터넷 검색">
+    <aside className={`web-panel${native ? ' is-native' : ''}${q ? ' has-q' : ''}${detail ? ' has-detail' : ''}`} aria-label="인터넷 검색">
       <div className="web-resize" onPointerDown={startDrag} role="separator" aria-orientation="vertical" aria-label="검색 창 폭 조절" title="끌어서 폭 조절" />
+      {detail && (
+        <section className={`web-detail${folded ? ' folded' : ''}`} aria-label={detail.title}>
+          <button type="button" className="web-detail-head" onClick={() => setFolded(f => !f)} aria-expanded={!folded} title={folded ? '펼치기' : '접기'}>
+            <span className="grow truncate">{detail.title}</span>
+            <span className="t-meta">{folded ? '펼치기 ▾' : '접기 ▴'}</span>
+          </button>
+          {!folded && (
+            <div className="web-project" key={detail.key}>
+              {detail.node}
+            </div>
+          )}
+        </section>
+      )}
       <div className="web-bar">
         <div className="web-tabs grow" role="tablist" aria-label="검색 종류">
           {ENGINES.map(([k, l]) => (
@@ -516,21 +527,7 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
           </div>
         </div>
       )}
-      {detail && (
-        <div className="web-mode" role="tablist" aria-label="오른쪽 칸 보기">
-          <button type="button" role="tab" aria-selected={showProject} className={`web-tab${showProject ? ' on' : ''}`} onClick={() => setMode('project')}>
-            {detail.title}
-          </button>
-          <button type="button" role="tab" aria-selected={!showProject} className={`web-tab${!showProject ? ' on' : ''}`} onClick={() => setMode('web')}>
-            인터넷
-          </button>
-        </div>
-      )}
-      {showProject ? (
-        <div className="web-project" key={detail!.key}>
-          {detail!.node}
-        </div>
-      ) : !q ? (
+      {!q ? (
         <div className="col gap-6 web-note">
           <span className="t-small">위 검색창에 검색어를 넣고 Enter 를 누르면 이 자리에 결과가 나옵니다.</span>
           <span className="t-cap">구글 · 이미지 · 네이버 · ChatGPT · Perplexity, 그리고 팝업 · 디자인 · 트렌드 등 업무 사이트만 골라 찾을 수 있습니다.</span>
