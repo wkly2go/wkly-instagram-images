@@ -400,6 +400,7 @@ function trimSearchChrome(wc) {
   try {
     wc.insertCSS(FIT_CSS)
     if (/^https:\/\/(www\.)?google\.[a-z.]+\/maps/.test(u) || /^https:\/\/(m\.)?map\.naver\.com/.test(u)) return // 지도는 그대로
+    if (/^https:\/\/(chatgpt\.com|claude\.ai|gemini\.google\.com|www\.perplexity\.ai)/.test(u)) return // AI 사이트는 자체 화면 그대로 (입력창 · 로그인 필요)
     if (/^https:\/\/(www\.)?google\./.test(u)) wc.insertCSS(HIDE_GOOGLE_CSS)
     else if (/^https:\/\/(search|m\.search)\.naver\.com/.test(u)) wc.insertCSS(NAVER_CSS)
     else wc.insertCSS(OTHER_CSS)
