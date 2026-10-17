@@ -959,3 +959,39 @@ button.kpi:hover, a.kpi:hover { border-color: var(--blue); }
 .instr-day { display: flex; flex-direction: column; gap: 4px; }
 .instr-date { font: 700 11px/1 var(--mono); color: var(--gray); padding: 6px 0 2px; }
 .instr-day .instr:first-of-type { border-top: 0; }
+
+/* ---------- 구분 강화: 모든 묶음 · 줄 · 표 · 칸이 한눈에 나뉘게 ---------- */
+/* 1) 묶음 제목: 옅은 띠 + 아래 파란 실선, 묶음 사이 간격 */
+.section-h { padding: 6px 10px 6px 8px; margin-top: 4px; background: var(--paper); border: 1px solid var(--line); border-bottom: 2px solid var(--blue); border-radius: 6px 6px 0 0; }
+.section-h:first-child { margin-top: 0; }
+* + .section-h { margin-top: 10px; }
+.section-h .t-bodyb { color: var(--blue); }
+/* 2) 목록 줄: 실선 구분 + 번갈아 옅은 바탕 + 올리면 강조 */
+.dashed { border-bottom: 1px solid var(--line); }
+.col > .dashed:nth-child(even), .col > .dashed.row:nth-child(even) { background: rgba(240, 240, 236, .45); }
+.col > .dashed { padding-left: 6px !important; padding-right: 6px !important; }
+.col > .dashed:hover, .item-row:hover { background: var(--blue-tint); }
+.item-row { border-bottom: 1px solid var(--line); padding-left: 6px; padding-right: 6px; }
+.item { border-bottom: 1px solid var(--line); }
+/* 3) 표: 머리글 파란 밑줄 + 줄무늬 */
+.table th { border-bottom: 2px solid var(--blue); color: var(--blue); font-weight: 700; }
+.table tbody tr:nth-child(even) td { background: rgba(240, 240, 236, .45); }
+.table tbody tr:hover td { background: var(--blue-tint); }
+/* 4) 항목 : 값 — 이름 칸에 바탕 */
+.kv { gap: 2px 10px; }
+.kv dt { background: var(--paper); border-radius: 4px; padding: 3px 6px; color: var(--blue); font-weight: 700; }
+.kv dd { padding: 3px 0; border-bottom: 1px solid var(--line); }
+/* 5) 왼쪽 목록 칸은 옅은 바탕, 오른쪽 상세는 흰 바탕 — 경계 파란 실선 */
+.pane-list { background: var(--paper); border-right: 2px solid var(--blue); }
+.pane-list .pane-head { background: var(--white); border-bottom: 1px solid var(--line); }
+.pane-list .item { background: var(--white); }
+.pane-list .item:hover { background: var(--blue-tint); }
+.pane-list .item.active { background: var(--yellow); border-left: 4px solid var(--blue); padding-left: 8px; }
+/* 6) 입력 묶음: 테두리 상자 */
+.form-grid { padding: 10px; background: var(--paper); border: 1px solid var(--line); border-radius: 6px; }
+.dialog .form-grid { background: var(--white); }
+/* 7) 큰 숫자 칸 · 상자: 테두리 살짝 진하게 */
+.box, .kpi, .checkin-card, .office-net, .rules-row { border-color: var(--gray); }
+.kpi .t-cap { color: var(--blue); font-weight: 700; }
+/* 8) 알약 탭 묶음과 아래 내용 사이 */
+.main > .chips:first-child, .main > .row:first-child > .chips { padding-bottom: 8px; border-bottom: 1px solid var(--line); }
