@@ -366,7 +366,7 @@ const NAVER_CSS = `
   body { padding-top: 4px !important; overflow-x: hidden !important; }
 `
 // 그 밖의 사이트: 맨 위 머리글 · 검색창만 숨김 (결과 · 본문은 그대로)
-const OTHER_CSS = `header, [role="banner"], form[role="search"], .search-form, #search-form, .header-search { display: none !important; }`
+const OTHER_CSS = `header, [role="banner"], form[role="search"], .search-form, #search-form, .header-search, #masthead-container, ytd-masthead, #guide, #guide-button, [data-e2e="nav-search"], [data-e2e="top-search"] { display: none !important; } ytd-app, #page-manager { margin-top: 0 !important; }`
 // 아이디가 바뀌어도 되도록: 결과 목록(#search · #rso · #main_pack 등) 위에 있는 요소를 모두 숨기고, 위에 붙은 고정 머리글도 숨김
 const TRIM_JS = `(() => {
   const pick = s => document.querySelector(s)

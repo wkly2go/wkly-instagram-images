@@ -4,16 +4,21 @@ import { ChevronLeft, ChevronRight, ExternalLink, Search, X } from 'lucide-react
 import { useAction, useApp, useAsync } from '../lib/app'
 import { desktop } from '../lib/desktop'
 
-type Engine = 'google' | 'images' | 'news' | 'maps' | 'naver' | SiteGroup
-type SiteGroup = 'popup' | 'design' | 'trend' | 'press' | 'social' | 'bid'
+type Engine = 'google' | 'images' | 'news' | 'maps' | 'naver' | 'youtube' | 'tiktok' | SiteGroup
+type SiteGroup = 'popup' | 'design' | 'trend' | 'press' | 'social' | 'video' | 'brand' | 'expo' | 'gov' | 'bid' | 'hire'
 /** 업무 사이트 묶음: 탭을 누르면 이 사이트들만 구글로 검색 (site: 조건) */
 const SITE_GROUPS: Record<SiteGroup, { label: string; sites: string[] }> = {
   popup: { label: '팝업 · 공간', sites: ['popply.co.kr', 'heypop.kr', 'spacecloud.kr', 'sweetspot.co.kr', 'visitseoul.net', 'coex.co.kr', 'kintex.com', 'mmca.go.kr'] },
   design: { label: '디자인 · 건축', sites: ['designhouse.co.kr', 'vmspace.com', 'dezeen.com', 'archdaily.com', 'designboom.com', 'frameweb.com', 'wallpaper.com', 'ohou.se', 'behance.net', 'pinterest.com'] },
   trend: { label: '마케팅 · 트렌드', sites: ['ditoday.com', 'openads.co.kr', 'the-pr.co.kr', 'mobiinside.co.kr', 'i-boss.co.kr', 'careet.net', '20slab.org', 'hypebeast.com', 'hypebeast.kr', 'fashionbiz.co.kr'] },
   press: { label: '언론', sites: ['mk.co.kr', 'hankyung.com', 'chosun.com', 'mt.co.kr', 'joongang.co.kr', 'donga.com', 'yna.co.kr', 'edaily.co.kr'] },
-  social: { label: 'SNS · 블로그', sites: ['instagram.com', 'youtube.com', 'threads.net', 'linkedin.com', 'blog.naver.com', 'tistory.com', 'brunch.co.kr', 'musinsa.com', '29cm.co.kr', 'wconcept.co.kr'] },
-  bid: { label: '입찰 · 공공', sites: ['g2b.go.kr', 'lh.or.kr', 'kintex.com', 'coex.co.kr'] },
+  social: { label: 'SNS · 블로그', sites: ['instagram.com', 'threads.net', 'linkedin.com', 'blog.naver.com', 'tistory.com', 'brunch.co.kr', 'x.com'] },
+  video: { label: '영상 · 숏폼', sites: ['youtube.com', 'tiktok.com', 'vimeo.com', 'instagram.com/reels'] },
+  brand: { label: '쇼핑 · 브랜드', sites: ['musinsa.com', '29cm.co.kr', 'wconcept.co.kr', 'kream.co.kr', 'oliveyoung.co.kr', 'ssg.com', 'lotteon.com'] },
+  expo: { label: '전시 · 박람회', sites: ['coex.co.kr', 'kintex.com', 'bexco.co.kr', 'exco.co.kr', 'sac.or.kr', 'sejongpac.or.kr', 'mmca.go.kr', 'sema.seoul.go.kr', 'ddp.or.kr'] },
+  gov: { label: '공공 · 지자체', sites: ['seoul.go.kr', 'mediahub.seoul.go.kr', 'korea.kr', 'gg.go.kr', 'incheon.go.kr', 'sba.seoul.kr', 'kocca.kr'] },
+  bid: { label: '입찰 · 공공', sites: ['g2b.go.kr', 'lh.or.kr', 'kintex.com', 'coex.co.kr', 'sh.co.kr', 'ebid.seoul.go.kr'] },
+  hire: { label: '구인 · 외주', sites: ['saramin.co.kr', 'jobkorea.co.kr', 'wanted.co.kr', 'kmong.com', 'soomgo.com', 'loud.kr'] },
 }
 const isGroup = (e: Engine): e is SiteGroup => e in SITE_GROUPS
 const ENGINES: [Engine, string][] = [
@@ -22,6 +27,8 @@ const ENGINES: [Engine, string][] = [
   ['news', '뉴스'],
   ['maps', '지도'],
   ['naver', '네이버'],
+  ['youtube', '유튜브'],
+  ['tiktok', '틱톡'],
 ]
 const urlFor = (e: Engine, q: string) => {
   if (isGroup(e)) return `https://www.google.com/search?q=${encodeURIComponent(`${q} (${SITE_GROUPS[e].sites.map(x => `site:${x}`).join(' OR ')})`)}`
@@ -30,6 +37,8 @@ const urlFor = (e: Engine, q: string) => {
   if (e === 'news') return `https://www.google.com/search?tbm=nws&q=${s}`
   if (e === 'maps') return `https://m.map.naver.com/search2/search.naver?query=${s}` // 네이버 지도 (모바일 화면: 좁은 창에서도 지도가 위에 보임)
   if (e === 'naver') return `https://m.search.naver.com/search.naver?query=${s}`
+  if (e === 'youtube') return `https://www.youtube.com/results?search_query=${s}`
+  if (e === 'tiktok') return `https://www.tiktok.com/search?q=${s}`
   return `https://www.google.com/search?q=${s}`
 }
 
