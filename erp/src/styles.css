@@ -1141,3 +1141,26 @@ button.kpi:hover, a.kpi:hover { border-color: var(--blue); }
 .aorg-node.ai { border-color: var(--blue); }
 .aorg-node.job b { background: var(--yellow-tint); color: var(--gray); }
 .aorg-node.head { padding: 6px 14px; border: 1.5px solid var(--blue); background: var(--white); font-size: 13px; }
+
+/* 가운데 창 뒤로 · 앞으로 */
+.main-nav { display: flex; gap: 2px; flex-shrink: 0; height: 20px; margin: -8px 0 -4px -6px; }
+.main-nav .icon-btn.sm { width: 22px; height: 20px; color: var(--blue); border-radius: 6px; }
+.main-nav .icon-btn.sm:hover { background: var(--blue-tint); }
+.main.flush > .main-nav { margin: 4px 0 0 6px; }
+
+/* 프로젝트 목록: 완료 · NIC 묶음 (접기) */
+.proj-group { margin-top: 8px; border: 1px solid var(--line); border-radius: var(--r-panel); background: var(--white); }
+.proj-group > summary { display: flex; align-items: center; gap: 6px; padding: 7px 10px; cursor: pointer; list-style: none; color: var(--blue); }
+.proj-group > summary::-webkit-details-marker { display: none; }
+.proj-group.g-done > summary { color: var(--green); }
+.proj-group.g-done > summary .t-bodyb { color: var(--green); }
+.proj-group[open] > summary { border-bottom: 1px dashed var(--line); }
+.proj-group > .board-wrap { border: 0; border-radius: 0 0 var(--r-panel) var(--r-panel); }
+
+/* 오른쪽 칸: 프로젝트 자료 ↔ 인터넷 */
+.web-mode { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; flex-shrink: 0; }
+.web-panel.is-project .web-sites, .web-panel.is-project .web-bar { display: none; }
+.web-project { flex: 1; min-height: 0; overflow: auto; }
+.web-project .section-h .t-bodyb { font-size: 12px; }
+/* 넓은 화면은 오른쪽 칸에 자료가 나오므로 가운데의 중복 자료는 숨김 */
+@media (min-width: 900px) { .proj-inline-materials { display: none !important; } }

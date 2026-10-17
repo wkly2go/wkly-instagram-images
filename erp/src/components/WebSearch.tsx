@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { createPortal } from 'react-dom'
+import { ProjectMaterials, usePanelProject } from './ProjectMaterials'
 import { ChevronLeft, ChevronRight, ExternalLink, Search, X } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { desktop } from '../lib/desktop'
@@ -318,6 +319,13 @@ export function WebSearchBox() {
 
 function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine; onSearch: (q: string, e: Engine) => void; onClose: () => void }) {
   const [lastGroup, setLastGroup] = useState<SiteGroup | null>(() => groupOf(engine) ?? 'popup')
+  // 프로젝트를 열면 오른쪽 칸에 그 프로젝트 자료를 먼저 보여 줌 (인터넷 ↔ 프로젝트 자료 전환)
+  const panelProject = usePanelProject()
+  const [mode, setMode] = useState<'web' | 'project'>(panelProject ? 'project' : 'web')
+  useEffect(() => setMode(panelProject ? 'project' : 'web'), [panelProject])
+  const showProject = mode === 'project' && !!panelProject
+  const modeRef = useRef(showProject)
+  modeRef.current = showProject
   useEffect(() => {
     const g = groupOf(engine)
     if (g) setLastGroup(g)
@@ -372,7 +380,7 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
   const rectOf = () => {
     const box = nativeBox.current
     const r = box?.getBoundingClientRect()
-    if (!box || !r || covered()) return { x: 0, y: 0, width: 0, height: 0 }
+    if (!box || !r || covered() || modeRef.current) return { x: 0, y: 0, width: 0, height: 0 }
     // 검색 창(aside) 영역 안으로만: 레이아웃이 바뀌는 순간에도 결과 칸이 본 화면 위로 튀어나오지 않게
     const pr = box.closest('.web-panel')?.getBoundingClientRect()
     const left = Math.max(r.left, pr?.left ?? r.left)
@@ -465,7 +473,7 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
   const slot = webSlot
   const shownGroup = groupOf(engine) ?? lastGroup
   return createPortal(
-    <aside className={`web-panel${native ? ' is-native' : ''}${q ? ' has-q' : ''}`} aria-label="인터넷 검색">
+    <aside className={`web-panel${native ? ' is-native' : ''}${q ? ' has-q' : ''}${showProject ? ' is-project' : ''}`} aria-label="인터넷 검색">
       <div className="web-resize" onPointerDown={startDrag} role="separator" aria-orientation="vertical" aria-label="검색 창 폭 조절" title="끌어서 폭 조절" />
       <div className="web-bar">
         <div className="web-tabs grow" role="tablist" aria-label="검색 종류">
@@ -502,7 +510,21 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
           </div>
         </div>
       )}
-      {!q ? (
+      {panelProject && (
+        <div className="web-mode" role="tablist" aria-label="오른쪽 칸 보기">
+          <button type="button" role="tab" aria-selected={showProject} className={`web-tab${showProject ? ' on' : ''}`} onClick={() => setMode('project')}>
+            프로젝트 자료
+          </button>
+          <button type="button" role="tab" aria-selected={!showProject} className={`web-tab${!showProject ? ' on' : ''}`} onClick={() => setMode('web')}>
+            인터넷
+          </button>
+        </div>
+      )}
+      {showProject ? (
+        <div className="web-project">
+          <ProjectMaterials projectId={panelProject!} />
+        </div>
+      ) : !q ? (
         <div className="col gap-6 web-note">
           <span className="t-small">위 검색창에 검색어를 넣고 Enter 를 누르면 이 자리에 결과가 나옵니다.</span>
           <span className="t-cap">구글 · 이미지 · 네이버 · ChatGPT · Perplexity, 그리고 팝업 · 디자인 · 트렌드 등 업무 사이트만 골라 찾을 수 있습니다.</span>

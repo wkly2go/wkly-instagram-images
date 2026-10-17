@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react'
-import { AlarmClock, ArrowLeft, ChevronLeft, ChevronRight, Pencil, Trash2 } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { AlarmClock, ArrowLeft, CheckCircle2, ChevronLeft, ChevronRight, CircleSlash, Pencil, Trash2 } from 'lucide-react'
+import { setPanelProject } from '../components/ProjectMaterials'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { addMonths, dateLabel, monthGrid, shortDate, timeLabel, toDateKey, todayKey, weekRange, weekday } from '../lib/date'
 import { Link, useRouter, withQuery } from '../lib/router'
@@ -41,7 +42,7 @@ export default function Projects() {
     [version],
     { projects: [], tasks: [], clients: [] },
   )
-  const go = (patch: Record<string, string | null>) => navigate(withQuery(path, query, patch), { replace: true })
+  const go = (patch: Record<string, string | null>) => navigate(withQuery(path, query, patch), { replace: !('id' in patch) })
   const selected = data.projects.find(p => p.id === selectedId)
 
   if (selectedId) {
@@ -72,7 +73,7 @@ export default function Projects() {
       <div className="row wrap">
         <div className="chips">
           {tabs.map(([v, label]) => (
-            <Chip key={label} active={view === v || (v === null && !tabs.some(t => t[0] === view))} onClick={() => navigate(v ? `/projects?view=${v}` : '/projects', { replace: true })}>
+            <Chip key={label} active={view === v || (v === null && !tabs.some(t => t[0] === view))} onClick={() => navigate(v ? `/projects?view=${v}` : '/projects')}>
               {label}
             </Chip>
           ))}
@@ -112,16 +113,29 @@ export default function Projects() {
         <div className="row top gap-12" style={{ flex: 1, minHeight: 0, flexWrap: 'wrap' }}>
           <div className="col grow" style={{ flexBasis: 320 }}>
             <div className="chips" style={{ paddingBottom: 4 }}>
-              {PROJECT_STATUSES.map(s => (
+              {PROJECT_STATUSES.filter(s => s !== '완료' && s !== 'NIC').map(s => (
                 <Chip key={s} active={status === s} onClick={() => go({ status: s === '진행' ? null : s })}>
                   {s} {counts(s)}
                 </Chip>
               ))}
               <Chip active={status === 'all'} onClick={() => go({ status: 'all' })}>
-                전체 {data.projects.length}
+                전체 {data.projects.filter(p => p.status !== '완료' && p.status !== 'NIC').length}
               </Chip>
             </div>
-            <ProjectBoard list={list} data={data} loading={loading} onOpen={id => go({ id })} />
+            <ProjectBoard list={list.filter(p => status === '완료' || status === 'NIC' || (p.status !== '완료' && p.status !== 'NIC'))} data={data} loading={loading} onOpen={id => go({ id })} />
+            {(['완료', 'NIC'] as ProjectStatus[]).map(s => {
+              const rows = data.projects.filter(p => p.status === s)
+              return (
+                <details key={s} className={`proj-group g-${s === '완료' ? 'done' : 'nic'}`} open={status === s}>
+                  <summary>
+                    {s === '완료' ? <CheckCircle2 size={14} /> : <CircleSlash size={14} />}
+                    <span className="t-bodyb">{s === '완료' ? '완료된 프로젝트' : 'NIC 프로젝트'}</span>
+                    <span className="board-count">{rows.length}</span>
+                  </summary>
+                  <ProjectBoard list={rows} data={data} loading={loading} onOpen={id => go({ id })} />
+                </details>
+              )
+            })}
           </div>
           <MiniCalendar data={data} />
         </div>
@@ -423,6 +437,11 @@ function ProjectDetail({ project: p, data, onEdit, onBack }: { project: Project;
   const [editingTask, setEditingTask] = useState<Task | null>(null)
   const tasks = data.tasks.filter(t => t.project_id === p.id)
   const client = data.clients.find(c => c.id === p.client_id)
+  // 이 프로젝트에 연결된 자료는 오른쪽 칸(검색 창 자리)에 표시
+  useEffect(() => {
+    setPanelProject(p.id)
+    return () => setPanelProject(null)
+  }, [p.id])
   const { data: extra } = useAsync(
     async () => {
       const [logs, rooms, contacts] = await Promise.all([api.listWorkLogs({ projectId: p.id, limit: 50 }), api.listRooms(), api.listContacts().catch(() => [] as Contact[])])
@@ -509,7 +528,7 @@ function ProjectDetail({ project: p, data, onEdit, onBack }: { project: Project;
           />
           <TaskAdder projectId={p.id} defaultAssignee={me.id} />
         </div>
-        <div className="col" style={{ flexBasis: 240, flexGrow: 1, maxWidth: 360 }}>
+        <div className="col proj-inline-materials" style={{ flexBasis: 240, flexGrow: 1, maxWidth: 360 }}>
           <ProjectContactsSection project={p} clients={data.clients} contacts={extra.contacts} />
           <ExchangeFilesSection clientId={p.client_id} projectId={p.id} contacts={extra.contacts} projects={data.projects} />
           <SectionHead title="관련 업무 기록" count={extra.logs.length ? String(extra.logs.length) : undefined} right={<Link to={`/work?team=1`}>업무 일지 ›</Link>} />
