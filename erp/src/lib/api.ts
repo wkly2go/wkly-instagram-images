@@ -57,7 +57,7 @@ import type {
   WorkLog,
 } from './types'
 
-export type ProfilePatch = Partial<Pick<Profile, 'name' | 'title' | 'today_status' | 'status_message' | 'photo' | 'role' | 'active' | 'is_agent'>>
+export type ProfilePatch = Partial<Pick<Profile, 'name' | 'title' | 'today_status' | 'status_message' | 'photo' | 'role' | 'active' | 'is_agent' | 'manager_id'>>
 
 export interface NewMember {
   email: string
