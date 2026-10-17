@@ -134,7 +134,7 @@ export function WebSearchBox() {
         }}
       >
         <Search size={14} />
-        <input value={q} onChange={e => setQ(e.target.value)} placeholder="검색" aria-label="구글 검색" enterKeyHint="search" title="검색어를 넣고 Enter · 결과는 오른쪽 검색 창에" />
+        <input value={q} onChange={e => setQ(e.target.value)} placeholder="구글 · 인터넷 검색" aria-label="구글 · 인터넷 검색" enterKeyHint="search" title="검색어를 넣고 Enter · 결과는 오른쪽 검색 창에" />
       </form>
       {open && <WebPanel q={open.q} engine={open.engine} onSearch={(v, e) => { setQ(v); setOpen({ q: v, engine: e }) }} onClose={() => setOpen(null)} />}
     </>
