@@ -910,7 +910,7 @@ button.kpi:hover, a.kpi:hover { border-color: var(--blue); }
 .install-card { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border: 1px dashed var(--blue); border-radius: var(--r-panel); background: var(--white); }
 /* 인터넷 검색 (구글) */
 .web-search { display: flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px; width: 150px; border: 1px solid var(--line); border-radius: 999px; background: var(--white); color: var(--blue); transition: width .25s ease, border-color .2s; flex: 0 1 auto; min-width: 0; }
-.web-search:focus-within { width: min(420px, 40vw); border-color: var(--blue); box-shadow: 0 0 0 3px var(--yellow-tint); }
+.web-search:focus-within { width: min(360px, 34vw); border-color: var(--blue); box-shadow: 0 0 0 3px var(--yellow-tint); }
 .web-search input { border: 0; outline: 0; background: none; font: inherit; font-size: 13px; color: inherit; width: 100%; min-width: 0; }
 .web-search.wide, .web-search.wide:focus-within { width: auto; }
 .web-slot:empty { display: none; }
@@ -939,7 +939,8 @@ html.web-open .mini { width: calc(1180px + min(var(--web-w, 420px), 60vw) + 10px
 /* 노트북 화면: 검색 창이 열려 있는 동안 왼쪽 프로필 칸을 접어 본 화면 폭 확보 */
 @media (min-width: 900px) and (max-width: 1499px) { html.web-open .body > .profile { display: none; } }
 /* 검색 창 위쪽: 한 줄 도구 막대 (검색어 · 종류 · 뒤로/앞으로 · 브라우저 · 닫기) */
-.web-bar { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.web-bar { display: flex; align-items: flex-start; gap: 4px; min-width: 0; }
+.web-bar .web-tabs { min-width: 0; padding-top: 4px; }
 .web-bar .web-search { height: 28px; }
 .web-nav { display: inline-flex; align-items: center; gap: 0; border: 1px solid var(--line); border-radius: 999px; background: var(--white); padding: 0 2px; height: 28px; }
 .web-nav .icon-btn.sm { width: 24px; height: 24px; }
