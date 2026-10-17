@@ -16,12 +16,25 @@ const site = (host: string, label: string, search?: (s: string) => string): Site
 /** 업무 사이트 묶음(두 번째 줄). 묶음을 누르면 세 번째 줄에 저장된 사이트가 나오고, 사이트를 누르면 그 사이트에서 바로 검색 */
 const SITE_GROUPS: Record<SiteGroup, { label: string; sites: Site[] }> = {
   popup: {
-    label: '팝업 · 공간',
-    sites: [site('popply.co.kr', '팝플리', s => `https://www.popply.co.kr/popup/search?keyword=${s}`), site('heypop.kr', '헤이팝'), site('spacecloud.kr', '스페이스클라우드', s => `https://www.spacecloud.kr/search?keyword=${s}`), site('sweetspot.co.kr', '스위트스팟'), site('visitseoul.net', '비짓서울'), site('coex.co.kr', '코엑스'), site('kintex.com', '킨텍스'), site('mmca.go.kr', '국립현대미술관')],
+    label: '팝업 · 페스티벌',
+    sites: [
+      site('popply.co.kr', '팝플리', s => `https://www.popply.co.kr/popup/search?keyword=${s}`),
+      site('heypop.kr', '헤이팝'),
+      site('sweetspot.co.kr', '스위트스팟'),
+      site('spacecloud.kr', '스페이스클라우드', s => `https://www.spacecloud.kr/search?keyword=${s}`),
+      site('festivallife.kr', '페스티벌라이프'),
+      site('korean.visitkorea.or.kr', '대한민국 구석구석', s => `https://korean.visitkorea.or.kr/search/search_list.do?keyword=${s}`),
+      site('culture.go.kr', '문화포털'),
+      site('visitseoul.net', '비짓서울'),
+      site('tickets.interpark.com', '인터파크 티켓', s => `https://tickets.interpark.com/search?keyword=${s}`),
+      site('ticket.melon.com', '멜론티켓'),
+      site('ticket.yes24.com', '예스24 티켓'),
+      site('ticketlink.co.kr', '티켓링크'),
+    ],
   },
   design: {
     label: '디자인 · 건축',
-    sites: [site('designhouse.co.kr', '디자인하우스'), site('vmspace.com', 'VMSPACE'), site('dezeen.com', 'Dezeen', s => `https://www.dezeen.com/?s=${s}`), site('archdaily.com', 'ArchDaily', s => `https://www.archdaily.com/search/all?q=${s}`), site('designboom.com', 'designboom', s => `https://www.designboom.com/?s=${s}`), site('frameweb.com', 'FRAME'), site('wallpaper.com', 'Wallpaper*'), site('ohou.se', '오늘의집', s => `https://ohou.se/contents/search?query=${s}`), site('behance.net', 'Behance', s => `https://www.behance.net/search/projects?search=${s}`), site('pinterest.com', 'Pinterest', s => `https://www.pinterest.com/search/pins/?q=${s}`)],
+    sites: [site('designhouse.co.kr', '디자인하우스'), site('vmspace.com', 'VMSPACE'), site('dezeen.com', 'Dezeen', s => `https://www.dezeen.com/?s=${s}`), site('archdaily.com', 'ArchDaily', s => `https://www.archdaily.com/search/all?q=${s}`), site('designboom.com', 'designboom', s => `https://www.designboom.com/?s=${s}`), site('frameweb.com', 'FRAME'), site('wallpaper.com', 'Wallpaper*'), site('behance.net', 'Behance', s => `https://www.behance.net/search/projects?search=${s}`), site('pinterest.com', 'Pinterest', s => `https://www.pinterest.com/search/pins/?q=${s}`)],
   },
   trend: {
     label: '마케팅 · 트렌드',
