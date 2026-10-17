@@ -66,7 +66,7 @@ const SITE_GROUPS: Record<SiteGroup, { label: string; sites: Site[] }> = {
 }
 /** 세 번째 줄에서 고른 사이트: 'site:' + 주소 */
 type SiteKey = `site:${string}`
-type Engine = 'google' | 'images' | 'news' | 'naver' | 'youtube' | 'tiktok' | 'instagram' | SiteGroup | SiteKey
+type Engine = 'google' | 'images' | 'news' | 'naver' | 'chatgpt' | 'claude' | 'gemini' | 'perplexity' | SiteGroup | SiteKey
 const isGroup = (e: Engine): e is SiteGroup => e in SITE_GROUPS
 const isSite = (e: Engine): e is SiteKey => e.startsWith('site:')
 const siteOf = (e: SiteKey): Site | undefined => {
@@ -88,9 +88,10 @@ const ENGINES: [Engine, string][] = [
   ['images', '이미지'],
   ['news', '뉴스'],
   ['naver', '네이버'],
-  ['youtube', '유튜브'],
-  ['tiktok', '틱톡'],
-  ['instagram', '인스타그램'],
+  ['chatgpt', 'ChatGPT'],
+  ['claude', 'Claude'],
+  ['gemini', 'Gemini'],
+  ['perplexity', 'Perplexity'],
 ]
 const urlFor = (e: Engine, q: string) => {
   if (isGroup(e)) return `https://www.google.com/search?q=${encodeURIComponent(`${q} (${SITE_GROUPS[e].sites.map(x => `site:${x.host}`).join(' OR ')})`)}`
@@ -102,9 +103,11 @@ const urlFor = (e: Engine, q: string) => {
   if (e === 'images') return `https://www.google.com/search?tbm=isch&q=${s}`
   if (e === 'news') return `https://www.google.com/search?tbm=nws&q=${s}`
   if (e === 'naver') return `https://m.search.naver.com/search.naver?query=${s}`
-  if (e === 'youtube') return `https://www.youtube.com/results?search_query=${s}`
-  if (e === 'tiktok') return `https://www.tiktok.com/search?q=${s}`
-  if (e === 'instagram') return `https://www.instagram.com/explore/search/keyword/?q=${s}`
+  // AI 검색: 검색어를 바로 질문으로 넘김 (Gemini 는 주소로 질문을 못 받아 앱만 열림)
+  if (e === 'chatgpt') return `https://chatgpt.com/?q=${s}`
+  if (e === 'claude') return `https://claude.ai/new?q=${s}`
+  if (e === 'gemini') return `https://gemini.google.com/app`
+  if (e === 'perplexity') return `https://www.perplexity.ai/search?q=${s}`
   return `https://www.google.com/search?q=${s}`
 }
 
@@ -126,7 +129,21 @@ const saveRecent = (list: string[]) => {
 
 /** 화면 오른쪽에 붙는 검색 창 (구글은 다른 사이트 안에 넣을 수 없어 별도 창으로 띄움) */
 let docked: Window | null = null
+const DOCKED_KEY = 'wkly-web-docked-url'
+/** 화면을 새로 고쳐도 같은 검색이면 창을 또 열지 않음 (팝업 창이 계속 늘어나는 오류 방지) */
+function alreadyDocked(url: string) {
+  try {
+    return sessionStorage.getItem(DOCKED_KEY) === url
+  } catch {
+    return false
+  }
+}
 function openDocked(url: string) {
+  try {
+    sessionStorage.setItem(DOCKED_KEY, url)
+  } catch {
+    /* 저장 불가 */
+  }
   const w = Math.min(760, Math.round(window.screen.availWidth * 0.42))
   const h = window.screen.availHeight
   const left = (window.screen as unknown as { availLeft?: number }).availLeft ?? 0
@@ -384,7 +401,9 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
     setErr('')
     if (native || !q) return
     if (!inline) {
-      setBlocked(!openDocked(urlFor(engine, q)))
+      const url = urlFor(engine, q)
+      if (!docked && alreadyDocked(url)) return // 새로 고침 뒤: 이미 열어 둔 창이 있음
+      setBlocked(!openDocked(url))
       return
     }
     let off = false
@@ -451,7 +470,7 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
       {!q ? (
         <div className="col gap-6 web-note">
           <span className="t-small">위 검색창에 검색어를 넣고 Enter 를 누르면 이 자리에 결과가 나옵니다.</span>
-          <span className="t-cap">구글 · 이미지 · 뉴스 · 네이버 · 유튜브 · 틱톡 · 인스타그램, 그리고 팝업 · 디자인 · 트렌드 등 업무 사이트만 골라 찾을 수 있습니다.</span>
+          <span className="t-cap">구글 · 이미지 · 뉴스 · 네이버 · ChatGPT · Claude · Gemini · Perplexity, 그리고 팝업 · 디자인 · 트렌드 등 업무 사이트만 골라 찾을 수 있습니다.</span>
         </div>
       ) : native ? (
         <>
