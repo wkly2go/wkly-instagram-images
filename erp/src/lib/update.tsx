@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { desktop } from './desktop'
 
 /**
  * 자동 업데이트: 새로 배포되면 열려 있는 창이 스스로 새 버전으로 바뀐다.
@@ -73,6 +74,18 @@ export function UpdateBanner() {
       window.removeEventListener('focus', check)
     }
   }, [])
+  const app = useDesktopUpdate()
+  if (app) {
+    const bridge = desktop()!
+    return (
+      <div className="update-bar" role="status">
+        <span>PC 프로그램 새 버전 {app}이 준비됐습니다. 다시 시작하면 바로 바뀌어요 (로그인 화면에서 잠시 쉬면 저절로 설치).</span>
+        <button type="button" onClick={() => bridge.installUpdate?.()}>
+          지금 다시 시작
+        </button>
+      </div>
+    )
+  }
   if (!ready) return null
   return (
     <div className="update-bar" role="status">
@@ -82,4 +95,14 @@ export function UpdateBanner() {
       </button>
     </div>
   )
+}
+
+/** PC 프로그램(v1.4+)이 새 버전을 받아 두었으면 그 버전 */
+function useDesktopUpdate(): string | null {
+  const [ver, setVer] = useState<string | null>(() => {
+    const st = desktop()?.updateState?.()
+    return st?.ready ? st.version ?? '' : null
+  })
+  useEffect(() => desktop()?.onUpdate?.(st => setVer(st.ready ? st.version ?? '' : null)), [])
+  return ver
 }

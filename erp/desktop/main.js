@@ -50,6 +50,7 @@ function start() {
   app.on('before-quit', e => {
     if (allowQuit || loggedIn) {
       allowQuit = true
+      if (isMac && updateReady) spawnMacSwap(false) // 맥: 끌 때 받아 둔 새 버전으로 바꿈 (다시 켜지는 않음)
       return
     }
     // 로그인 전에는 종료하지 않음 (Cmd+Q 등)
@@ -240,19 +241,35 @@ function watchIdle() {
   powerMonitor.on('suspend', () => loggedIn && sendLock())
 }
 
-/** 자동 업데이트 (GitHub 릴리스) */
+/**
+ * 자동 업데이트 (GitHub 릴리스)
+ *  - 윈도우: 새 버전을 저절로 받아 둠 (electron-updater)
+ *  - 맥: 서명이 없어 기본 방식은 안 되므로, 새 버전 zip 을 직접 받아 풀어 둠
+ *  - 받아 둔 새 버전은 ① 로그인 · 잠금 화면에서 1분 넘게 손대지 않을 때 ② 프로그램을 끌 때 ③ 인트라넷 위 '지금 다시 시작'을 누를 때 설치
+ */
+let macUpdateApp = null // 맥: 풀어 둔 새 .app 경로
+let updateVersion = null
+const RELEASE_BASE = 'https://github.com/wkly2go/wkly-instagram-images/releases/download'
+
+function sendUpdateState() {
+  for (const w of BrowserWindow.getAllWindows()) w.webContents.send('update-state', { ready: updateReady, version: updateVersion })
+}
+
 function setupUpdates() {
-  if (!app.isPackaged) return
-  autoUpdater.autoDownload = !isMac // 맥은 서명이 없어 자동 설치 불가 → 안내만
-  autoUpdater.autoInstallOnAppQuit = true
-  autoUpdater.on('update-available', info => {
-    if (!isMac) return
-    dialog
-      .showMessageBox({ type: 'info', message: `WKLY 인트라넷 새 버전 ${info.version}이 있습니다.`, detail: '내려받기 페이지에서 새 버전을 설치하세요.', buttons: ['내려받기', '나중에'] })
-      .then(r => r.response === 0 && shell.openExternal(DOWNLOAD_PAGE))
+  ipcMain.on('update-install', () => updateReady && installUpdate())
+  ipcMain.on('update-query', e => {
+    e.returnValue = { ready: updateReady, version: updateVersion }
   })
-  autoUpdater.on('update-downloaded', () => {
+  if (!app.isPackaged) return
+  autoUpdater.autoDownload = !isMac
+  autoUpdater.autoInstallOnAppQuit = !isMac
+  autoUpdater.on('update-available', info => {
+    if (isMac) prepareMacUpdate(info.version).catch(() => undefined)
+  })
+  autoUpdater.on('update-downloaded', info => {
+    updateVersion = info.version
     updateReady = true
+    sendUpdateState()
     maybeInstallUpdate()
   })
   autoUpdater.on('error', () => {
@@ -260,17 +277,64 @@ function setupUpdates() {
   })
   const check = () => autoUpdater.checkForUpdates().catch(() => undefined)
   setTimeout(check, 10_000)
-  setInterval(check, 6 * 60 * 60_000)
+  setInterval(check, 60 * 60_000)
 }
 
-/** 받아 둔 새 버전은 로그인 · 잠금 화면에서 1분 넘게 손대지 않을 때만 설치 (입력 중에 끊지 않음) */
+/** 맥: 새 버전 zip 을 받아 임시 폴더에 풀어 둠 */
+async function prepareMacUpdate(version) {
+  if (macUpdateApp || !/^\d+\.\d+\.\d+$/.test(version)) return
+  const { execFile } = require('child_process')
+  const run = (cmd, args) => new Promise((ok, fail) => execFile(cmd, args, err => (err ? fail(err) : ok())))
+  const dir = fs.mkdtempSync(path.join(app.getPath('temp'), `wkly-update-${version}-`))
+  const zip = path.join(dir, 'update.zip')
+  const res = await fetch(`${RELEASE_BASE}/v${version}/WKLY-Intranet.zip`, { redirect: 'follow' })
+  if (!res.ok) throw new Error(`download ${res.status}`)
+  fs.writeFileSync(zip, Buffer.from(await res.arrayBuffer()))
+  await run('/usr/bin/ditto', ['-x', '-k', zip, dir])
+  const name = fs.readdirSync(dir).find(f => f.endsWith('.app'))
+  if (!name) throw new Error('no app in zip')
+  macUpdateApp = path.join(dir, name)
+  updateVersion = version
+  updateReady = true
+  sendUpdateState()
+  maybeInstallUpdate()
+}
+
+/** 받아 둔 새 버전은 로그인 · 잠금 화면에서 1분 넘게 손대지 않을 때 설치 (입력 중에 끊지 않음) */
 function maybeInstallUpdate() {
   if (updateReady && !loggedIn && powerMonitor.getSystemIdleTime() >= 60) installUpdate()
 }
 
 function installUpdate() {
   allowQuit = true
-  autoUpdater.quitAndInstall(true, true)
+  if (!isMac) return autoUpdater.quitAndInstall(true, true)
+  if (spawnMacSwap(true)) app.quit()
+  else shell.openExternal(DOWNLOAD_PAGE)
+}
+
+/** 맥: 프로그램이 끝나면 지금 .app 을 새 것으로 바꾸고 다시 실행하는 작업을 띄움 (한 번만) */
+let macSwapStarted = false
+function spawnMacSwap(relaunch) {
+  if (macSwapStarted) return true
+  const target = path.resolve(process.execPath, '..', '..', '..')
+  if (!macUpdateApp || !target.endsWith('.app')) return false
+  try {
+    fs.accessSync(path.dirname(target), fs.constants.W_OK)
+  } catch {
+    return false
+  }
+  const q = v => `'${String(v).replace(/'/g, `'\\''`)}'`
+  const script = [
+    `while kill -0 ${process.pid} 2>/dev/null; do sleep 0.5; done`,
+    `rm -rf ${q(target + '.old')} && mv ${q(target)} ${q(target + '.old')}`,
+    `if /usr/bin/ditto ${q(macUpdateApp)} ${q(target)}; then rm -rf ${q(target + '.old')}; else rm -rf ${q(target)}; mv ${q(target + '.old')} ${q(target)}; fi`,
+    `/usr/bin/xattr -dr com.apple.quarantine ${q(target)} 2>/dev/null`,
+    relaunch ? `open ${q(target)}` : ':',
+  ].join('\n')
+  const { spawn } = require('child_process')
+  spawn('/bin/sh', ['-c', script], { detached: true, stdio: 'ignore' }).unref()
+  macSwapStarted = true
+  return true
 }
 
 /**
