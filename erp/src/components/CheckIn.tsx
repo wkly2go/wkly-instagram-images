@@ -3,7 +3,7 @@ import { MapPin, Smartphone } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { addDays, shortDate, timeLabel, todayKey, weekday } from '../lib/date'
 import { useAttendance } from '../lib/attendance'
-import { CHECKIN_KINDS, WORK_PLAN_KINDS, type AttendanceCheckin, type CheckinKind, type DecideStatus, type WorkPlan, type WorkPlanKind } from '../lib/types'
+import { CHECKIN_KINDS, WORK_PLAN_KINDS, type AttendanceCheckin, type AttendanceMonthRow, type CheckinKind, type DecideStatus, type WorkPlan, type WorkPlanKind } from '../lib/types'
 import { Badge, Button, Chip, Empty, Field, SectionHead } from './ui'
 
 const S_TONE: Record<DecideStatus, 'acid' | 'yellow' | 'red'> = { 승인: 'acid', 대기: 'yellow', 반려: 'red' }
@@ -108,12 +108,14 @@ export function WorkPlanSection() {
   const tomorrow = addDays(today, 1)
   const { data } = useAsync(
     async () => {
-      const [plans, checkins] = await Promise.all([api.listWorkPlans(addDays(today, -7)), api.listCheckins(today)])
-      return { plans, checkins }
+      const [plans, checkins, rules] = await Promise.all([api.listWorkPlans(addDays(today, -7)), api.listCheckins(today), api.getAttendanceRules()])
+      return { plans, checkins, rules }
     },
     [version, today],
-    { plans: [] as WorkPlan[], checkins: [] as AttendanceCheckin[] },
+    { plans: [] as WorkPlan[], checkins: [] as AttendanceCheckin[], rules: { workStart: '10:00', planDeadline: '18:00' } },
   )
+  const nowHm = new Date(Date.now() + 9 * 3600_000).toISOString().slice(11, 16)
+  const late = (day: string) => day <= today || (day === tomorrow && nowHm > data.rules.planDeadline)
   const [f, setF] = useState({ day: tomorrow, kind: '외근' as WorkPlanKind, place: '', reason: '' })
   const mine = data.plans.filter(p => p.user_id === me.id && p.day >= today)
   const pending = data.plans.filter(p => p.status === '대기' && p.day >= today)
@@ -146,7 +148,9 @@ export function WorkPlanSection() {
         </Field>
       </div>
       <div className="row">
-        <span className="t-cap grow">{f.day === today ? '⚠ 당일 신청은 대표가 승인해야 인정됩니다.' : `${shortDate(f.day)} (${weekday(f.day)}) ${f.kind} 신청`}</span>
+        <span className="t-cap grow">
+          {late(f.day) ? `⚠ 마감(전날 ${data.rules.planDeadline}) 지남 — 늦은 신청으로 표시되고 대표 승인이 필요합니다.` : `${shortDate(f.day)} (${weekday(f.day)}) ${f.kind} 신청 · 마감 전날 ${data.rules.planDeadline}`}
+        </span>
         <Button size="sm" onClick={submit} disabled={busy}>
           신청
         </Button>
@@ -159,6 +163,8 @@ export function WorkPlanSection() {
               <span className="grow t-small">
                 {shortDate(p.day)} ({weekday(p.day)}) {p.kind}
                 {p.place ? ` · ${p.place}` : ''}
+                {p.task_id && <span className="t-meta"> · 현장 일정 자동</span>}
+                {p.late && <span className="t-red"> · 늦은 신청</span>}
               </span>
               {p.status === '대기' && (
                 <button type="button" className="btn btn-ghost btn-sm" onClick={() => run(() => api.cancelWorkPlan(p.id), '신청을 취소했습니다.')}>
@@ -171,16 +177,26 @@ export function WorkPlanSection() {
       )}
       {admin && (
         <>
-          <SectionHead title="승인할 신청 · 휴대폰 출근 확인" count={pending.length + pendingCheckins.length} />
+          <SectionHead
+            title="승인할 신청 · 휴대폰 출근 확인"
+            count={pending.length + pendingCheckins.length}
+            right={
+              pending.filter(p => !p.late).length > 1 ? (
+                <Button size="sm" kind="outline" disabled={busy} onClick={() => run(async () => { for (const p of pending.filter(x => !x.late)) await api.decideWorkPlan(p.id, '승인') }, '기한 내 신청을 모두 승인했습니다.')}>
+                  기한 내 신청 모두 승인
+                </Button>
+              ) : undefined
+            }
+          />
           {pending.length + pendingCheckins.length === 0 && <Empty>확인할 것이 없습니다.</Empty>}
           {pending.map(p => (
             <div key={p.id} className="row todo-row">
-              <Badge tone="yellow">신청</Badge>
+              <Badge tone={p.task_id ? 'acid' : 'yellow'}>{p.task_id ? '현장 일정' : '신청'}</Badge>
               <span className="grow t-small">
                 {profileName(p.user_id)} · {shortDate(p.day)} ({weekday(p.day)}) {p.kind}
                 {p.place ? ` · ${p.place}` : ''}
                 {p.reason ? ` · ${p.reason}` : ''}
-                {p.created_at.slice(0, 10) >= p.day && <span className="t-red"> (당일 신청)</span>}
+                {p.late && <span className="t-red"> (늦은 신청)</span>}
               </span>
               <Button size="sm" onClick={() => run(() => api.decideWorkPlan(p.id, '승인'), '승인했습니다.')} disabled={busy}>
                 승인
@@ -235,5 +251,102 @@ export function CheckinTag({ c }: { c: AttendanceCheckin | undefined }) {
         </a>
       )}
     </span>
+  )
+}
+
+/** 근태 규칙 설정 (관리자): 출근 기준 시각 · 사전 신청 마감 */
+export function AttendanceRulesPanel() {
+  const { api, version } = useApp()
+  const { busy, run } = useAction()
+  const { data } = useAsync(() => api.getAttendanceRules(), [version], { workStart: '10:00', planDeadline: '18:00' })
+  const [ws, setWs] = useState<string | null>(null)
+  const [pd, setPd] = useState<string | null>(null)
+  const w = ws ?? data.workStart
+  const d = pd ?? data.planDeadline
+  return (
+    <div className="row wrap rules-row">
+      <span className="t-smallb">근태 규칙</span>
+      <label className="row t-small" style={{ gap: 4 }}>
+        출근 기준
+        <input className="input" type="time" style={{ width: 110 }} value={w} onChange={e => setWs(e.target.value)} />
+      </label>
+      <label className="row t-small" style={{ gap: 4 }}>
+        사전 신청 마감 (전날)
+        <input className="input" type="time" style={{ width: 110 }} value={d} onChange={e => setPd(e.target.value)} />
+      </label>
+      <Button
+        size="sm"
+        kind="outline"
+        disabled={busy || (w === data.workStart && d === data.planDeadline)}
+        onClick={() =>
+          run(async () => {
+            if (w !== data.workStart) await api.setAttendanceRule('work_start', w)
+            if (d !== data.planDeadline) await api.setAttendanceRule('plan_deadline', d)
+            setWs(null)
+            setPd(null)
+          }, '근태 규칙을 저장했습니다.')
+        }
+      >
+        저장
+      </Button>
+      <span className="t-cap">출근 기준 + 30분까지 기록이 없으면 본인 · 대표에게 미출근 알림 (평일, 휴가자 제외)</span>
+    </div>
+  )
+}
+
+/** 월간 근태 요약 (관리자) — 매월 1일 지난달 리포트가 알림으로 옴 */
+export function MonthSummary({ month, onMonth }: { month: string; onMonth: (m: string) => void }) {
+  const { api, version } = useApp()
+  const { data, loading } = useAsync(() => api.attendanceMonthSummary(month), [version, month], [] as AttendanceMonthRow[])
+  const max = Math.max(1, ...data.map(r => r.work_days + r.absent_days))
+  return (
+    <>
+      <SectionHead
+        title="월간 근태"
+        right={<input className="input" type="month" style={{ width: 150 }} value={month} max={todayKey().slice(0, 7)} onChange={e => e.target.value && onMonth(e.target.value)} aria-label="월" />}
+      />
+      {data.length === 0 ? (
+        <Empty>{loading ? '불러오는 중…' : '기록이 없습니다.'}</Empty>
+      ) : (
+        <div className="table-wrap">
+          <table className="table table-compact">
+            <thead>
+              <tr>
+                <th>이름</th>
+                <th>출근 · 미출근</th>
+                <th className="num">출근일</th>
+                <th className="num">지각</th>
+                <th className="num">외근 · 재택</th>
+                <th className="num">휴대폰 출근</th>
+                <th className="num">확인 대기</th>
+                <th className="num">휴가</th>
+                <th className="num">미출근</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.map(r => (
+                <tr key={r.user_id}>
+                  <td>{r.name}</td>
+                  <td style={{ minWidth: 140 }}>
+                    <span className="month-bar" title={`출근 ${r.work_days} · 미출근 ${r.absent_days}`}>
+                      <i style={{ width: `${(r.work_days / max) * 100}%` }} />
+                      <i className="absent" style={{ width: `${(r.absent_days / max) * 100}%` }} />
+                    </span>
+                  </td>
+                  <td className="num">{r.work_days}</td>
+                  <td className={`num${r.late_days ? ' t-red' : ''}`}>{r.late_days}</td>
+                  <td className="num">{r.field_days}</td>
+                  <td className="num">{r.mobile_days}</td>
+                  <td className={`num${r.pending ? ' t-red' : ''}`}>{r.pending}</td>
+                  <td className="num">{r.leave_days}</td>
+                  <td className={`num${r.absent_days ? ' t-red' : ''}`}>{r.absent_days}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <span className="t-cap">지각 = 출근 기준 시각 이후 첫 접속 (승인된 외근 · 재택 · 현장 직출 날은 제외). 미출근 = 평일 중 출근 기록 · 승인 휴가가 없는 날 (인트라넷 사용 시작일부터).</span>
+    </>
   )
 }

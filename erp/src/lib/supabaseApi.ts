@@ -3,6 +3,7 @@ import { ApiError, CHAT_FILE_MAX, type Api, type ImportResult } from './api'
 import type {
   AccessLog,
   AttendanceCheckin,
+  AttendanceMonthRow,
   DecideStatus,
   Department,
   WorkPlan,
@@ -581,6 +582,18 @@ export function createSupabaseApi(url: string, key: string): Api {
     },
     async decideCheckin(id, status) {
       must(await sb.rpc('decide_checkin', { p_id: id, p_status: status }))
+    },
+    async getAttendanceRules() {
+      const { data } = await sb.from('app_settings').select('key, value').in('key', ['work_start', 'plan_deadline'])
+      const get = (k: string, d: string) => (data?.find(r => r.key === k)?.value as string | undefined) ?? d
+      return { workStart: get('work_start', '10:00'), planDeadline: get('plan_deadline', '18:00') }
+    },
+    async setAttendanceRule(key, value) {
+      must(await sb.rpc('set_app_setting', { p_key: key, p_value: value }))
+    },
+    async attendanceMonthSummary(month) {
+      const { data, error } = await sb.rpc('attendance_month_summary', { p_month: `${month}-01` })
+      return error ? [] : (data as AttendanceMonthRow[]).map(r => ({ ...r, leave_days: Number(r.leave_days) }))
     },
   }
 }

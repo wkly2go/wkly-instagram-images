@@ -123,6 +123,27 @@ export interface WorkPlan {
   decided_by: string | null
   decided_at: string | null
   created_at: string
+  /** 전날 마감 시각 이후 신청 */
+  late?: boolean
+  /** 현장 일정(업무)에서 자동으로 만든 신청 */
+  task_id?: string | null
+}
+/** 근태 규칙 (관리자 설정) */
+export interface AttendanceRules {
+  workStart: string
+  planDeadline: string
+}
+/** 월간 근태 요약 (사람별) */
+export interface AttendanceMonthRow {
+  user_id: string
+  name: string
+  work_days: number
+  late_days: number
+  mobile_days: number
+  field_days: number
+  pending: number
+  leave_days: number
+  absent_days: number
 }
 export const CHECKIN_KINDS = ['출근', '외근', '재택', '현장 직출'] as const
 export type CheckinKind = (typeof CHECKIN_KINDS)[number]

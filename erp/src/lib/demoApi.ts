@@ -4,6 +4,7 @@ import { DEFAULT_REPORT_BODY } from './reports'
 import type {
   AccessLog,
   AttendanceCheckin,
+  AttendanceRules,
   Department,
   WorkPlan,
   Note,
@@ -78,6 +79,7 @@ interface Store {
   departments?: Department[]
   work_plans?: WorkPlan[]
   checkins?: AttendanceCheckin[]
+  rules?: AttendanceRules
   ad_reports?: AdReport[]
   desktop_only?: boolean
   hr_records?: HrRecord[]
@@ -1361,7 +1363,10 @@ export function createDemoApi(): Api {
       if (p.day < todayKey()) throw new ApiError('지난 날짜는 신청할 수 없습니다.')
       const list = (store.work_plans ??= [])
       if (list.some(x => x.user_id === self && x.day === p.day)) throw new ApiError('그날은 이미 신청했습니다.')
-      list.push({ id: uid(), user_id: self, day: p.day, kind: p.kind, place: p.place || null, reason: p.reason || null, status: '대기', decided_by: null, decided_at: null, created_at: now() })
+      const deadline = store.rules?.planDeadline ?? '18:00'
+      const nowKst = new Date(Date.now() + 9 * 3600_000).toISOString()
+      const late = nowKst.slice(0, 10) >= p.day || (nowKst.slice(0, 10) === addDays(p.day, -1) && nowKst.slice(11, 16) > deadline)
+      list.push({ id: uid(), user_id: self, day: p.day, kind: p.kind, place: p.place || null, reason: p.reason || null, status: '대기', decided_by: null, decided_at: null, created_at: now(), late, task_id: null })
       persist()
       emit('work_plans')
     },
@@ -1409,6 +1414,40 @@ export function createDemoApi(): Api {
       Object.assign(c, { status, decided_by: self, decided_at: now() })
       persist()
       emit('attendance')
+    },
+    async getAttendanceRules() {
+      return clone(store.rules ?? { workStart: '10:00', planDeadline: '18:00' })
+    },
+    async setAttendanceRule(key, value) {
+      requireAdmin()
+      if (!/^([01][0-9]|2[0-3]):[0-5][0-9]$/.test(value)) throw new ApiError('시각은 HH:MM 형식이어야 합니다.')
+      const r = (store.rules ??= { workStart: '10:00', planDeadline: '18:00' })
+      if (key === 'work_start') r.workStart = value
+      else r.planDeadline = value
+      persist()
+      emit('app_settings')
+    },
+    async attendanceMonthSummary(month) {
+      requireAdmin()
+      const start = store.rules?.workStart ?? '10:00'
+      const att = (store.attendance ?? []).filter(a => a.day.startsWith(month))
+      const kst = (iso: string) => new Date(new Date(iso).getTime() + 9 * 3600_000).toISOString().slice(11, 16)
+      return store.profiles
+        .filter(p => p.active && !p.is_agent)
+        .map(p => {
+          const mine = att.filter(a => a.user_id === p.id)
+          return {
+            user_id: p.id,
+            name: p.name,
+            work_days: mine.length,
+            late_days: mine.filter(a => kst(a.first_at) > start).length,
+            mobile_days: (store.checkins ?? []).filter(c => c.user_id === p.id && c.day.startsWith(month)).length,
+            field_days: (store.work_plans ?? []).filter(w => w.user_id === p.id && w.day.startsWith(month) && w.status === '승인').length,
+            pending: (store.checkins ?? []).filter(c => c.user_id === p.id && c.day.startsWith(month) && c.status === '대기').length,
+            leave_days: 0,
+            absent_days: 0,
+          }
+        })
     },
     async listAttendanceFor(userId, fromDay) {
       requireMe()
