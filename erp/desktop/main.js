@@ -359,12 +359,14 @@ const HIDE_GOOGLE_CSS = `
 `
 const NAVER_CSS = `
   #header, #header_wrap, .header_wrap, #lnb, #lnb_wrap, .lnb_wrap, #nx_search_form, .sch_area, #snb, #sub_pack, #footer, .api_flicking_wrap, .api_subject_bx_header,
-  #gnb, .gnb_wrap, .lnb, .sc_new.sp_nreview_header, #nx_right_related_keywords, .sticky_wrap, .header_sticky { display: none !important; }
-  #wrap, #container, #content { padding-top: 0 !important; margin-top: 0 !important; }
-  body { padding-top: 4px !important; }
+  #gnb, .gnb_wrap, .sc_new.sp_nreview_header, #nx_right_related_keywords, .sticky_wrap, .header_sticky,
+  .sch_top, .sch_bar, .sch_w, #_sch_form, .lnb_area, .lnb_wrap, #sch_lnb, .u_skip, .api_title_area .btn_more, .fixed_header, .flick_bx.type_lnb { display: none !important; }
+  #wrap, #container, #content, #main_pack, .main_pack, #ct { width: auto !important; min-width: 0 !important; max-width: 100% !important; padding-top: 0 !important; margin: 0 !important; }
+  #content { padding: 0 8px !important; }
+  body { padding-top: 4px !important; overflow-x: hidden !important; }
 `
 // 그 밖의 사이트: 맨 위 머리글 · 검색창만 숨김 (결과 · 본문은 그대로)
-const OTHER_CSS = `header, [role="banner"], form[role="search"], .search-form, #search-form, .header-search { display: none !important; }`
+const OTHER_CSS = `header, [role="banner"], form[role="search"], .search-form, #search-form, .header-search, #masthead-container, ytd-masthead, #guide, #guide-button, [data-e2e="nav-search"], [data-e2e="top-search"] { display: none !important; } ytd-app, #page-manager { margin-top: 0 !important; }`
 // 아이디가 바뀌어도 되도록: 결과 목록(#search · #rso · #main_pack 등) 위에 있는 요소를 모두 숨기고, 위에 붙은 고정 머리글도 숨김
 const TRIM_JS = `(() => {
   const pick = s => document.querySelector(s)
@@ -396,7 +398,7 @@ const TRIM_JS = `(() => {
 function trimSearchChrome(wc) {
   const u = wc.getURL()
   try {
-    if (/^https:\/\/(www\.)?google\.[a-z.]+\/maps/.test(u)) return // 지도는 그대로 (output=embed 로 지도만 나옴)
+    if (/^https:\/\/(www\.)?google\.[a-z.]+\/maps/.test(u) || /^https:\/\/(m\.)?map\.naver\.com/.test(u)) return // 지도는 그대로
     if (/^https:\/\/(www\.)?google\./.test(u)) wc.insertCSS(HIDE_GOOGLE_CSS)
     else if (/^https:\/\/(search|m\.search)\.naver\.com/.test(u)) wc.insertCSS(NAVER_CSS)
     else wc.insertCSS(OTHER_CSS)
