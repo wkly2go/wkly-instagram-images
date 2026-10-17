@@ -6,6 +6,8 @@
 export interface DesktopBridge {
   version: string
   platform: string
+  /** v1.2+: 이 컴퓨터의 기기 ID (회사 PC 출근 확인) */
+  deviceId?: string
   /** 로그인 상태를 알려 주면, 로그인 전에는 창을 못 닫고 맨 위에 고정 */
   setAuth(loggedIn: boolean): void
   /** 컴퓨터를 30분 안 쓰거나 화면 잠금 · 절전이면 호출됨 */

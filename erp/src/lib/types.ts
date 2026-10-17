@@ -95,6 +95,27 @@ export interface AccessLog {
   source: 'desktop' | 'web' | 'mobile'
   first_at: string
   last_at: string
+  /** 접속한 공인 IP (0027+) */
+  ip?: string | null
+}
+
+/** 지금 내 접속 정보 · 회사 IP 설정 (회사 인터넷 + 등록된 회사 PC 에서만 출근) */
+export interface AccessInfo {
+  ip: string | null
+  /** 지금 회사 인터넷인지 (회사 IP 미등록이면 true) */
+  office: boolean
+  /** 등록된 회사 IP 목록 (관리자만) */
+  officeIps: string[] | null
+  configured: boolean
+}
+
+/** 출근 인정 회사 PC (PC 프로그램 기기 ID) */
+export interface AttendanceDevice {
+  user_id: string
+  device_id: string
+  label: string | null
+  created_at: string
+  last_seen: string
 }
 
 /** 부서 · 주요 업무 (사람 · AI 구분 없이 member_ids, 예약 작업은 agent_groups) */

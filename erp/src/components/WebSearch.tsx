@@ -118,6 +118,41 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
   const app = desktop()
   const native = !!app?.searchOpen // PC 프로그램 v1.1+: 구글을 이 창 안에 바로 띄움
   const inline = !native && !!cx && engine === 'google'
+  const [width, setWidth] = useState(() => {
+    try {
+      return Number(localStorage.getItem('wkly-web-w')) || (native ? 640 : 420)
+    } catch {
+      return native ? 640 : 420
+    }
+  })
+  // 검색창이 열린 동안 본 화면을 그만큼 줄여 옆에 나란히 (좁은 화면은 덮어서 표시)
+  useEffect(() => {
+    const el = document.documentElement
+    el.style.setProperty('--web-w', `${width}px`)
+    el.classList.add('web-open')
+    return () => {
+      el.classList.remove('web-open')
+      el.style.removeProperty('--web-w')
+    }
+  }, [width])
+  const startDrag = (e: React.PointerEvent) => {
+    e.preventDefault()
+    const move = (ev: PointerEvent) => setWidth(Math.round(Math.min(Math.max(window.innerWidth - ev.clientX, 320), window.innerWidth * 0.7)))
+    const up = () => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', up)
+      setWidth(w => {
+        try {
+          localStorage.setItem('wkly-web-w', String(w))
+        } catch {
+          /* 저장 불가 */
+        }
+        return w
+      })
+    }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
+  }
   const rectOf = () => {
     const r = nativeBox.current?.getBoundingClientRect()
     return r ? { x: r.left, y: r.top, width: r.width, height: r.height } : { x: 0, y: 0, width: 0, height: 0 }
@@ -178,6 +213,7 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
   const recent = readRecent()
   return (
     <aside className={`web-panel${native ? ' is-native' : ''}`} aria-label="인터넷 검색">
+      <div className="web-resize" onPointerDown={startDrag} role="separator" aria-orientation="vertical" aria-label="검색 창 폭 조절" title="끌어서 폭 조절" />
       <div className="row">
         <form
           className="web-search wide grow"

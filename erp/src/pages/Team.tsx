@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { AttendanceRulesPanel, CheckInCard, CheckinTag, MonthSummary, useCheckins, WorkPlanSection } from '../components/CheckIn'
+import { AttendanceRulesPanel, CheckInCard, CheckinTag, MonthSummary, OfficeNetworkPanel, useCheckins, WorkPlanSection } from '../components/CheckIn'
 import { OrgSection } from '../components/Org'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { addDays, minutesLabel, timeLabel, todayKey } from '../lib/date'
@@ -57,6 +57,7 @@ export default function Team() {
         <>
           <CheckInCard always />
           {me.role === 'admin' && <AttendanceRulesPanel />}
+          {me.role === 'admin' && <OfficeNetworkPanel />}
           <WorkPlanSection />
           <AttendanceSection />
           {me.role === 'admin' && <MonthSummary month={query.get('month') ?? today.slice(0, 7)} onMonth={m => navigate(withQuery(path, query, { month: m }))} />}
@@ -148,7 +149,7 @@ function AttendanceSection() {
       <span className="t-cap">
         {desktopOnly ? (
           <>
-            <b>PC 프로그램</b>으로 그날 처음 접속한 시각이 출근 시각입니다. 휴대폰 · 브라우저 접속은 '외부 접속'에만 남고, 외근 · 재택은 위의 <b>휴대폰 출근 체크</b>로 출근합니다 (전날 승인된 신청이 있으면 자동 인정).{' '}
+            <b>회사 인터넷</b>에서 <b>각자 등록된 회사 PC의 PC 프로그램</b>으로 그날 처음 접속한 시각이 출근 시각입니다. 휴대폰 · 브라우저 · 회사 밖 접속은 '외부 접속'에만 남고, 외근 · 재택은 <b>승인된 날만</b> 위 칸에서 노트북 · 휴대폰으로 출근 체크합니다 (승인이 없으면 긴급 신청 → 대표 승인).{' '}
           </>
         ) : (
           <>그날 처음 로그인 · 접속한 시각이 출근 시각입니다 (PC 프로그램 · 브라우저 · 휴대폰 모두). </>

@@ -6,6 +6,8 @@
 //  - 윈도우는 새 버전을 자동으로 받아 로그인 화면일 때 조용히 설치 (맥은 내려받기 안내)
 const { app, BrowserWindow, Tray, Menu, ipcMain, powerMonitor, shell, nativeImage, dialog, WebContentsView } = require('electron')
 const path = require('path')
+const fs = require('fs')
+const crypto = require('crypto')
 const { autoUpdater } = require('electron-updater')
 
 // 개발 시험용: 설치본이 아닐 때만 WKLY_APP_URL 로 주소를 바꿀 수 있음
@@ -70,8 +72,24 @@ function start() {
   })
   setupSearchView()
   ipcMain.on('app-info', e => {
-    e.returnValue = { version: app.getVersion(), platform: process.platform, origin: ORIGIN }
+    e.returnValue = { version: app.getVersion(), platform: process.platform, origin: ORIGIN, deviceId: deviceId() }
   })
+}
+
+// 이 컴퓨터의 기기 ID (출근 인정 회사 PC 확인용). 설치 후 처음 한 번 만들어 보관
+let cachedDeviceId = null
+function deviceId() {
+  if (cachedDeviceId) return cachedDeviceId
+  const file = path.join(app.getPath('userData'), 'device.json')
+  try {
+    const v = JSON.parse(fs.readFileSync(file, 'utf8')).id
+    if (typeof v === 'string' && v.length >= 8) return (cachedDeviceId = v)
+  } catch {}
+  cachedDeviceId = crypto.randomUUID()
+  try {
+    fs.writeFileSync(file, JSON.stringify({ id: cachedDeviceId, created: new Date().toISOString() }))
+  } catch {}
+  return cachedDeviceId
 }
 
 function createWindow() {
