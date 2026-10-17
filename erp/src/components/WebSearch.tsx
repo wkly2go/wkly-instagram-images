@@ -5,7 +5,7 @@ import { useAction, useApp, useAsync } from '../lib/app'
 import { desktop } from '../lib/desktop'
 
 type Engine = 'google' | 'images' | 'news' | 'naver' | 'youtube' | 'tiktok' | 'instagram' | SiteGroup
-type SiteGroup = 'popup' | 'design' | 'trend' | 'press' | 'social' | 'video' | 'brand' | 'expo' | 'gov' | 'bid' | 'hire'
+type SiteGroup = 'popup' | 'design' | 'trend' | 'press' | 'social' | 'video' | 'shop' | 'brand' | 'expo' | 'gov' | 'bid' | 'hire'
 /** 업무 사이트 묶음: 탭을 누르면 이 사이트들만 구글로 검색 (site: 조건) */
 const SITE_GROUPS: Record<SiteGroup, { label: string; sites: string[] }> = {
   popup: { label: '팝업 · 공간', sites: ['popply.co.kr', 'heypop.kr', 'spacecloud.kr', 'sweetspot.co.kr', 'visitseoul.net', 'coex.co.kr', 'kintex.com', 'mmca.go.kr'] },
@@ -14,7 +14,8 @@ const SITE_GROUPS: Record<SiteGroup, { label: string; sites: string[] }> = {
   press: { label: '언론', sites: ['mk.co.kr', 'hankyung.com', 'chosun.com', 'mt.co.kr', 'joongang.co.kr', 'donga.com', 'yna.co.kr', 'edaily.co.kr'] },
   social: { label: 'SNS · 블로그', sites: ['instagram.com', 'threads.net', 'linkedin.com', 'blog.naver.com', 'tistory.com', 'brunch.co.kr', 'x.com'] },
   video: { label: '영상 · 숏폼', sites: ['youtube.com', 'tiktok.com', 'vimeo.com', 'instagram.com/reels'] },
-  brand: { label: '쇼핑 · 브랜드', sites: ['musinsa.com', '29cm.co.kr', 'wconcept.co.kr', 'kream.co.kr', 'oliveyoung.co.kr', 'ssg.com', 'lotteon.com'] },
+  shop: { label: '쇼핑몰', sites: ['coupang.com', 'shopping.naver.com', 'smartstore.naver.com', 'gmarket.co.kr', '11st.co.kr', 'auction.co.kr', 'ssg.com', 'lotteon.com', 'kurly.com', 'ohou.se'] },
+  brand: { label: '브랜드 · 편집숍', sites: ['musinsa.com', '29cm.co.kr', 'wconcept.co.kr', 'kream.co.kr', 'oliveyoung.co.kr', 'kasina.co.kr', 'thehandsome.com'] },
   expo: { label: '전시 · 박람회', sites: ['coex.co.kr', 'kintex.com', 'bexco.co.kr', 'exco.co.kr', 'sac.or.kr', 'sejongpac.or.kr', 'mmca.go.kr', 'sema.seoul.go.kr', 'ddp.or.kr'] },
   gov: { label: '공공 · 지자체', sites: ['seoul.go.kr', 'mediahub.seoul.go.kr', 'korea.kr', 'gg.go.kr', 'incheon.go.kr', 'sba.seoul.kr', 'kocca.kr'] },
   bid: { label: '입찰 · 공공', sites: ['g2b.go.kr', 'lh.or.kr', 'kintex.com', 'coex.co.kr', 'sh.co.kr', 'ebid.seoul.go.kr'] },
