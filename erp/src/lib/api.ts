@@ -1,5 +1,6 @@
 import type { AccessSource } from './desktop'
 import type {
+  Subscription,
   ExchangeFile,
   ProjectContact,
   AccessInfo,
@@ -193,6 +194,10 @@ export interface Api {
   // 재무 (관리자 전용: RLS 로 막혀 일반 팀원은 빈 목록)
   listFinances(): Promise<ProjectFinance[]>
   saveFinance(f: Draft<ProjectFinance> & { project_id: string }): Promise<ProjectFinance>
+  /** 구독료: 보기는 모두, 등록 · 수정 · 삭제는 관리자 */
+  listSubscriptions(): Promise<Subscription[]>
+  saveSubscription(s: Draft<Subscription>): Promise<Subscription>
+  deleteSubscription(id: string): Promise<void>
   listPayments(filter?: { projectId?: string; clientId?: string }): Promise<Payment[]>
   savePayment(p: Draft<Payment>): Promise<Payment>
   deletePayment(id: string): Promise<void>

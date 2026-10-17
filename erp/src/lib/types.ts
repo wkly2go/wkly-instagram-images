@@ -428,6 +428,34 @@ export const TAX_INVOICE_STATES = ['발행', '미발행', '해당 없음'] as co
 export type TaxInvoiceState = (typeof TAX_INVOICE_STATES)[number]
 export const PAYMENT_STAGES = ['계약금', '선금', '중도금', '잔금', '추가', '환불'] as const
 
+/** 구독 서비스 · 프로그램 (구독료 관리) */
+export const SUB_CATEGORIES = ['디자인', '협업 · 문서', 'AI', '개발 · 서버', '마케팅 · SNS', '회계 · 세무', '통신', '기타'] as const
+export type SubCategory = (typeof SUB_CATEGORIES)[number]
+export const SUB_CYCLES = ['월', '년', '1회'] as const
+export type SubCycle = (typeof SUB_CYCLES)[number]
+export const SUB_STATUSES = ['사용 중', '해지 예정', '해지'] as const
+export type SubStatus = (typeof SUB_STATUSES)[number]
+export interface Subscription {
+  id: string
+  name: string
+  category: SubCategory
+  plan: string | null
+  amount: number
+  currency: 'KRW' | 'USD'
+  cycle: SubCycle
+  next_billing: string | null
+  pay_method: string | null
+  account_email: string | null
+  owner_id: string | null
+  seats: number | null
+  url: string | null
+  status: SubStatus
+  memo: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
 /** 결제 대장 한 줄 (엑셀 결제 대장과 같은 항목) */
 export interface Payment {
   id: string

@@ -8,7 +8,7 @@ export function Button({ kind = 'blue', size, block, className = '', ...rest }: 
   return <button type="button" className={`btn btn-${kind} ${size === 'sm' ? 'btn-sm' : ''} ${block ? 'btn-block' : ''} ${className}`} {...rest} />
 }
 
-export type Tone = 'outline' | 'yellow' | 'acid' | 'blue' | 'red' | 'paper' | 'gray'
+export type Tone = 'outline' | 'yellow' | 'acid' | 'blue' | 'red' | 'paper' | 'gray' | 'green'
 
 export function Badge({ tone = 'outline', children, title }: { tone?: Tone; children: ReactNode; title?: string }) {
   return (
@@ -81,6 +81,27 @@ export function SectionHead({ title, count, right }: { title: string; count?: nu
       {right && <span className="more">{right}</span>}
     </div>
   )
+}
+
+/** 보고서 · 자료 종류별 색: 어디서나 같은 종류는 같은 색 */
+const KIND_TONE: Record<string, Tone> = {
+  '업무 보고': 'blue',
+  '일일 보고': 'acid',
+  '메일 발송': 'yellow',
+  프로젝트: 'green' as Tone,
+  거래처: 'paper',
+  '할 일': 'outline',
+  지출: 'red',
+  '거래처 리포트': 'blue',
+  팝업: 'yellow',
+  브랜드: 'acid',
+  트렌드: 'green' as Tone,
+  경쟁사: 'red',
+  인터뷰: 'paper',
+  기타: 'gray',
+}
+export function KindTag({ kind }: { kind: string }) {
+  return <Badge tone={KIND_TONE[kind] ?? 'outline'}>{kind}</Badge>
 }
 
 export function Empty({ children }: { children: ReactNode }) {

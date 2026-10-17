@@ -109,6 +109,23 @@ const useOpenState = () =>
 /** PC 프로그램: 검색 칸(WebContentsView)이 이미 떠 있으면 화면을 옮겨도 다시 불러오지 않음 */
 let nativeShowing: string | null = null
 
+/**
+ * 검색 창이 들어갈 자리(DOM 한 개를 계속 재사용). 화면(탭)이 바뀌어 Shell 이 다시 그려져도
+ * 이 요소를 새 .body 안으로 옮기기만 하므로 검색 창(구글 칸 포함)은 그대로 유지된다
+ */
+export const webSlot: HTMLDivElement | null = typeof document !== 'undefined' ? document.createElement('div') : null
+if (webSlot) {
+  webSlot.id = 'web-slot'
+  webSlot.className = 'web-slot'
+}
+
+/** 앱 맨 위에서 한 번만 그리는 검색 창 (페이지가 바뀌어도 다시 만들지 않음) */
+export function WebPanelHost() {
+  const open = useOpenState()
+  if (!open) return null
+  return <WebPanel q={open.q} engine={open.engine} onSearch={(v, e) => setOpenState({ q: v, engine: e })} onClose={() => setOpenState(null)} />
+}
+
 /** 상단 검색창: Enter 를 누르면 본 화면 오른쪽에 검색 창이 열리고, 다른 탭으로 가도 그대로 남음 */
 export function WebSearchBox() {
   const open = useOpenState()
@@ -136,7 +153,6 @@ export function WebSearchBox() {
         <Search size={14} />
         <input value={q} onChange={e => setQ(e.target.value)} placeholder="구글 · 인터넷 검색" aria-label="구글 · 인터넷 검색" enterKeyHint="search" title="검색어를 넣고 Enter · 결과는 오른쪽 검색 창에" />
       </form>
-      {open && <WebPanel q={open.q} engine={open.engine} onSearch={(v, e) => { setQ(v); setOpen({ q: v, engine: e }) }} onClose={() => setOpen(null)} />}
     </>
   )
 }
@@ -267,7 +283,7 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
   }, [onClose])
 
   const recent = readRecent()
-  const slot = document.getElementById('web-slot')
+  const slot = webSlot
   return createPortal(
     <aside className={`web-panel${native ? ' is-native' : ''}`} aria-label="인터넷 검색">
       <div className="web-resize" onPointerDown={startDrag} role="separator" aria-orientation="vertical" aria-label="검색 창 폭 조절" title="끌어서 폭 조절" />

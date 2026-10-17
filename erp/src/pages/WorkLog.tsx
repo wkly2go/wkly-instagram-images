@@ -15,6 +15,7 @@ import { Link, useRouter, withQuery } from "../lib/router";
 import { presenceOf, useAttendance } from "../lib/attendance";
 import type { Approval, Client, Project, Task, WorkLog as Log } from "../lib/types";
 import { Shell } from "../components/Shell";
+import { Board, BoardHead, type BoardCol } from "../components/Board";
 import { LogComposer, isMail } from "../components/LogForm";
 import {
   Badge,
@@ -118,55 +119,51 @@ export default function WorkLog() {
       l.project_id ? `할 일로 만들었습니다 (${projectName(l.project_id) ?? "프로젝트"}).` : "할 일로 만들었습니다.",
     );
 
-  const logItem = (l: Log) => {
-    const mine = l.user_id === me.id;
-    return (
-      <div key={l.id} className={`log ${mine ? "" : "other"}`}>
-        <div className="who">
-          {!mine && (
-            <>
-              <span className="t-cap">{profileName(l.user_id)}</span>
-            </>
+  // 게시판 줄: 번호 · 시각 · 구분 · 내용 · 거래처 · 프로젝트 · 작성자 · 시간 · 버튼
+  const logCols: BoardCol<Log>[] = [
+    { key: 'when', label: period === "day" ? "시각" : "날짜", width: period === "day" ? 60 : 110, cell: l => <span className="t-meta">{period !== "day" ? `${shortDate(l.log_date)} ` : ""}{timeLabel(l.created_at)}</span> },
+    { key: 'kind', label: "구분", width: 76, cell: l => <KindBadge kind={l.kind} /> },
+    {
+      key: 'content',
+      label: "내용",
+      kind: 'title',
+      cell: l => (
+        <>
+          <span className="cell-pre t-small t-blue">{l.content}</span>
+          {isMail(l.kind) && (l.email_counterpart || l.email_subject) && (
+            <span className="cell-sub">
+              {l.kind === "메일 발신" ? "받는 사람" : "보낸 사람"} {l.email_counterpart || "-"}
+              {l.email_subject ? ` · ${l.email_subject}` : ""}
+            </span>
           )}
-          <KindBadge kind={l.kind} />
-          <span className="t-meta">
-            {period !== "day" ? `${shortDate(l.log_date)} ` : ""}
-            {timeLabel(l.created_at)}
-            {l.minutes ? ` · ${l.minutes}분` : ""}
-          </span>
-          {mine && (
+        </>
+      ),
+    },
+    { key: 'client', label: "거래처", width: 120, hideNarrow: true, cell: l => (l.client_id ? <span onClick={e => e.stopPropagation()}><Link to={`/clients?id=${l.client_id}`}>{clientName(l.client_id) ?? "거래처"}</Link></span> : "-") },
+    { key: 'project', label: "프로젝트", width: 150, hideNarrow: true, cell: l => (l.project_id ? <span onClick={e => e.stopPropagation()}><Link to={`/projects?id=${l.project_id}`}>{projectName(l.project_id) ?? "프로젝트"}</Link></span> : "-") },
+    { key: 'who', label: "작성자", width: 72, cell: l => profileName(l.user_id) },
+    { key: 'min', label: "시간", width: 56, kind: 'num', cell: l => (l.minutes ? `${l.minutes}분` : "-") },
+    {
+      key: 'act',
+      label: "",
+      width: 58,
+      kind: 'center',
+      cell: l => (
+        <>
+          {l.user_id === me.id && (
             <button type="button" className="icon-btn sm" aria-label="할 일로 만들기" title="이 기록으로 할 일 만들기 (같은 프로젝트에 연결)" onClick={() => toTask(l)}>
               <ListTodo size={13} />
             </button>
           )}
-          {(mine || me.role === "admin") && (
-            <button
-              type="button"
-              className="icon-btn sm del"
-              aria-label="기록 삭제"
-              title="삭제"
-              onClick={() => window.confirm("이 기록을 삭제할까요?") && run(() => api.deleteWorkLog(l.id), "삭제했습니다.")}
-            >
+          {(l.user_id === me.id || me.role === "admin") && (
+            <button type="button" className="icon-btn sm" aria-label="기록 삭제" title="삭제" onClick={() => window.confirm("이 기록을 삭제할까요?") && run(() => api.deleteWorkLog(l.id), "삭제했습니다.")}>
               <Trash2 size={13} />
             </button>
           )}
-        </div>
-        <div className={`bubble ${mine ? "mine" : "other"}`}>{l.content}</div>
-        {isMail(l.kind) && (l.email_counterpart || l.email_subject) && (
-          <div className="extra">
-            {l.kind === "메일 발신" ? "받는 사람" : "보낸 사람"} {l.email_counterpart || "-"}
-            {l.email_subject ? ` · ${l.email_subject}` : ""}
-          </div>
-        )}
-        {(l.client_id || l.project_id) && (
-          <div className="links">
-            {l.client_id && <Link to={`/clients?id=${l.client_id}`}>🏢 {clientName(l.client_id) ?? "거래처"}</Link>}
-            {l.project_id && <Link to={`/projects?id=${l.project_id}`}>📁 {projectName(l.project_id) ?? "프로젝트"}</Link>}
-          </div>
-        )}
-      </div>
-    );
-  };
+        </>
+      ),
+    },
+  ];
 
   return (
     <Shell active="work" flush>
@@ -215,19 +212,27 @@ export default function WorkLog() {
           )}
           {periodReports.length > 0 && <ReportStrip reports={periodReports} period={period} />}
           <div className="chat-body" style={{ gap: 12 }}>
-            {data.logs.length === 0 && (
-              <Empty>{q ? "검색 결과가 없습니다." : other || team || period !== "day" ? "이 기간의 기록이 없습니다." : "아래 입력창에 오늘 한 일을 남겨 보세요. 메일·미팅·전화도 모두 기록할 수 있어요."}</Empty>
-            )}
-            {period === "day"
-              ? data.logs.map(logItem)
-              : byDate.map(([d, list]) => (
-                  <div key={d} className="col gap-8">
-                    <button type="button" className="log-day" onClick={() => go({ period: null, date: d })} title="이 날 보기">
-                      {shortDate(d)} ({weekday(d)}) · {list.length}건
-                    </button>
-                    {list.map(logItem)}
+            {period === "day" ? (
+              <Board rows={data.logs} cols={logCols} rowKey={l => l.id} compact empty={q ? "검색 결과가 없습니다." : other || team ? "이 기간의 기록이 없습니다." : "아래 입력창에 오늘 한 일을 남겨 보세요. 메일·미팅·전화도 모두 기록할 수 있어요."} />
+            ) : (
+              <>
+                {byDate.map(([d, list]) => (
+                  <div key={d} className="col gap-4">
+                    <BoardHead
+                      title={
+                        <button type="button" className="link-btn t-bodyb" onClick={() => go({ period: null, date: d })} title="이 날 보기">
+                          {shortDate(d)} ({weekday(d)})
+                        </button>
+                      }
+                      count={`${list.length}건`}
+                      right={`${minutesLabel(list.reduce((n, l) => n + (l.minutes ?? 0), 0))}`}
+                    />
+                    <Board rows={list} cols={logCols} rowKey={l => l.id} compact numbered={false} />
                   </div>
                 ))}
+                {data.logs.length === 0 && <Empty>{q ? "검색 결과가 없습니다." : "이 기간의 기록이 없습니다."}</Empty>}
+              </>
+            )}
           </div>
           {!other && !team && period === "day" && !q && <LogComposer key={date} date={date} initialClientId={query.get("client") ?? ""} />}
         </div>
