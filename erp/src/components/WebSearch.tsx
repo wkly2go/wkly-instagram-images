@@ -4,8 +4,9 @@ import { ChevronLeft, ChevronRight, ExternalLink, Search } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { desktop } from '../lib/desktop'
 
-type Engine = 'google' | 'images' | 'news' | 'naver' | 'youtube' | 'tiktok' | 'instagram' | SiteGroup
-type SiteGroup = 'popup' | 'design' | 'trend' | 'press' | 'social' | 'video' | 'shop' | 'brand' | 'expo' | 'gov' | 'bid' | 'hire'
+type Shop = 'coupang' | 'nshop' | 'gmarket' | '11st' | 'ssg' | 'ohou' | 'kurly' | 'musinsa' | '29cm' | 'oliveyoung'
+type Engine = 'google' | 'images' | 'news' | 'naver' | 'youtube' | 'tiktok' | 'instagram' | Shop | SiteGroup
+type SiteGroup = 'popup' | 'design' | 'trend' | 'press' | 'social' | 'video' | 'brand' | 'expo' | 'gov' | 'bid' | 'hire'
 /** 업무 사이트 묶음: 탭을 누르면 이 사이트들만 구글로 검색 (site: 조건) */
 const SITE_GROUPS: Record<SiteGroup, { label: string; sites: string[] }> = {
   popup: { label: '팝업 · 공간', sites: ['popply.co.kr', 'heypop.kr', 'spacecloud.kr', 'sweetspot.co.kr', 'visitseoul.net', 'coex.co.kr', 'kintex.com', 'mmca.go.kr'] },
@@ -14,13 +15,26 @@ const SITE_GROUPS: Record<SiteGroup, { label: string; sites: string[] }> = {
   press: { label: '언론', sites: ['mk.co.kr', 'hankyung.com', 'chosun.com', 'mt.co.kr', 'joongang.co.kr', 'donga.com', 'yna.co.kr', 'edaily.co.kr'] },
   social: { label: 'SNS · 블로그', sites: ['instagram.com', 'threads.net', 'linkedin.com', 'blog.naver.com', 'tistory.com', 'brunch.co.kr', 'x.com'] },
   video: { label: '영상 · 숏폼', sites: ['youtube.com', 'tiktok.com', 'vimeo.com', 'instagram.com/reels'] },
-  shop: { label: '쇼핑몰', sites: ['coupang.com', 'shopping.naver.com', 'smartstore.naver.com', 'gmarket.co.kr', '11st.co.kr', 'auction.co.kr', 'ssg.com', 'lotteon.com', 'kurly.com', 'ohou.se'] },
   brand: { label: '브랜드 · 편집숍', sites: ['musinsa.com', '29cm.co.kr', 'wconcept.co.kr', 'kream.co.kr', 'oliveyoung.co.kr', 'kasina.co.kr', 'thehandsome.com'] },
   expo: { label: '전시 · 박람회', sites: ['coex.co.kr', 'kintex.com', 'bexco.co.kr', 'exco.co.kr', 'sac.or.kr', 'sejongpac.or.kr', 'mmca.go.kr', 'sema.seoul.go.kr', 'ddp.or.kr'] },
   gov: { label: '공공 · 지자체', sites: ['seoul.go.kr', 'mediahub.seoul.go.kr', 'korea.kr', 'gg.go.kr', 'incheon.go.kr', 'sba.seoul.kr', 'kocca.kr'] },
   bid: { label: '입찰 · 공공', sites: ['g2b.go.kr', 'lh.or.kr', 'kintex.com', 'coex.co.kr', 'sh.co.kr', 'ebid.seoul.go.kr'] },
   hire: { label: '구인 · 외주', sites: ['saramin.co.kr', 'jobkorea.co.kr', 'wanted.co.kr', 'kmong.com', 'soomgo.com', 'loud.kr'] },
 }
+/** 쇼핑몰: 각 몰의 검색 결과 페이지로 바로 (구글을 거치지 않음) */
+const SHOPS: Record<Shop, { label: string; url: (s: string) => string }> = {
+  coupang: { label: '쿠팡', url: s => `https://www.coupang.com/np/search?q=${s}` },
+  nshop: { label: '네이버 쇼핑', url: s => `https://msearch.shopping.naver.com/search/all?query=${s}` },
+  gmarket: { label: 'G마켓', url: s => `https://www.gmarket.co.kr/n/search?keyword=${s}` },
+  '11st': { label: '11번가', url: s => `https://m.11st.co.kr/products/m/search?searchKeyword=${s}` },
+  ssg: { label: 'SSG', url: s => `https://www.ssg.com/search.ssg?query=${s}` },
+  ohou: { label: '오늘의집', url: s => `https://ohou.se/store/search?query=${s}` },
+  kurly: { label: '컬리', url: s => `https://www.kurly.com/search?sword=${s}` },
+  musinsa: { label: '무신사', url: s => `https://www.musinsa.com/search/goods?keyword=${s}` },
+  '29cm': { label: '29CM', url: s => `https://www.29cm.co.kr/search?keyword=${s}` },
+  oliveyoung: { label: '올리브영', url: s => `https://m.oliveyoung.co.kr/m/search/searchList.do?query=${s}` },
+}
+const isShop = (e: Engine): e is Shop => e in SHOPS
 const isGroup = (e: Engine): e is SiteGroup => e in SITE_GROUPS
 const ENGINES: [Engine, string][] = [
   ['google', '구글'],
@@ -34,6 +48,7 @@ const ENGINES: [Engine, string][] = [
 const urlFor = (e: Engine, q: string) => {
   if (isGroup(e)) return `https://www.google.com/search?q=${encodeURIComponent(`${q} (${SITE_GROUPS[e].sites.map(x => `site:${x}`).join(' OR ')})`)}`
   const s = encodeURIComponent(q)
+  if (isShop(e)) return SHOPS[e].url(s)
   if (e === 'images') return `https://www.google.com/search?tbm=isch&q=${s}`
   if (e === 'news') return `https://www.google.com/search?tbm=nws&q=${s}`
   if (e === 'naver') return `https://m.search.naver.com/search.naver?query=${s}`
@@ -366,6 +381,15 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
           ))}
         </div>
       </div>
+      <div className="web-sites web-shops" role="tablist" aria-label="쇼핑몰에서 바로 검색">
+        <div className="web-tabs">
+          {(Object.keys(SHOPS) as Shop[]).map(k => (
+            <button key={k} type="button" role="tab" aria-selected={engine === k} className={`web-tab${engine === k ? ' on' : ''}`} onClick={() => onSearch(q, k)} title={`${SHOPS[k].label}에서 바로 검색`}>
+              {SHOPS[k].label}
+            </button>
+          ))}
+        </div>
+      </div>
       {!q ? (
         <div className="col gap-6 web-note">
           <span className="t-small">위 검색창에 검색어를 넣고 Enter 를 누르면 이 자리에 결과가 나옵니다.</span>
@@ -383,7 +407,7 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
             <span className="t-small t-red">브라우저가 새 창을 막았습니다. 주소창 오른쪽의 팝업 차단 아이콘에서 이 사이트를 허용하거나 아래 버튼을 눌러 주세요.</span>
           ) : (
             <span className="t-small">
-              <b>‘{q}’</b> {isGroup(engine) ? `${SITE_GROUPS[engine].label} 사이트` : ENGINES.find(e => e[0] === engine)?.[1]} 검색 결과를 화면 오른쪽 창에 열었습니다.
+              <b>‘{q}’</b> {isGroup(engine) ? `${SITE_GROUPS[engine].label} 사이트` : isShop(engine) ? SHOPS[engine].label : ENGINES.find(e => e[0] === engine)?.[1]} 검색 결과를 화면 오른쪽 창에 열었습니다.
             </span>
           )}
           <button type="button" className="btn btn-blue btn-sm" style={{ alignSelf: 'flex-start' }} onClick={() => setBlocked(!openDocked(urlFor(engine, q)))}>
