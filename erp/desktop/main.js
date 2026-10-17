@@ -101,7 +101,7 @@ function createWindow() {
     minHeight: 560,
     title: 'WKLY 인트라넷',
     icon: ICON,
-    backgroundColor: nativeTheme.shouldUseDarkColors ? '#11141f' : '#FFFFFF', // 기기 다크 모드를 따름 (창이 뜰 때 흰 번쩍임 방지)
+    backgroundColor: nativeTheme.shouldUseDarkColors ? '#1e1e1e' : '#FFFFFF', // 기기 다크 모드를 따름 (창이 뜰 때 흰 번쩍임 방지)
     autoHideMenuBar: true,
     show: false,
     webPreferences: webPrefs(),
