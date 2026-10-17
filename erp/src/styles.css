@@ -869,3 +869,29 @@ button.kpi:hover, a.kpi:hover { border-color: var(--blue); }
 .link-btn:hover { text-decoration: underline; }
 .table-compact td, .table-compact th { padding-top: 5px; padding-bottom: 5px; }
 .ad-multiple .link-btn { align-self: flex-start; }
+/* 조직 · 프로젝트 진행 */
+.org-plist { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; background: var(--white); border: 1px solid var(--line); border-radius: var(--r-panel); }
+.org-prow { display: grid; grid-template-columns: minmax(110px, 220px) minmax(120px, 1fr) 70px 90px; gap: 10px; align-items: center; min-height: 26px; }
+.org-pname { display: inline-flex; align-items: center; gap: 4px; min-width: 0; }
+.org-bar { display: grid; grid-template-columns: 1fr 52px; gap: 6px; align-items: center; }
+.org-bar .track { display: flex; height: 12px; background: var(--paper); border-radius: 4px; overflow: hidden; }
+.org-bar .track i { display: block; height: 100%; }
+.org-pdue { text-align: right; white-space: nowrap; }
+.org-people { display: inline-flex; gap: 2px; justify-content: flex-end; }
+.org-depts { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
+.org-dept { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; background: var(--white); border: 1px solid var(--line); border-top: 4px solid var(--blue); border-radius: var(--r-panel); min-width: 0; }
+.org-dept:nth-child(4n + 2) { border-top-color: var(--pink); }
+.org-dept:nth-child(4n + 3) { border-top-color: var(--green); }
+.org-dept:nth-child(4n + 4) { border-top-color: var(--acid); }
+.org-dept .org-prow { grid-template-columns: minmax(80px, 1fr) minmax(90px, 1fr) 60px; }
+.org-dept .org-people { display: none; }
+.org-duties { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
+.org-load { display: grid; grid-template-columns: auto minmax(60px, 120px) 1fr auto; gap: 6px; align-items: center; color: inherit; text-decoration: none; min-height: 24px; }
+.org-load:hover { text-decoration: none; background: var(--yellow-tint); border-radius: 6px; }
+.org-load .track { position: relative; height: 8px; background: var(--paper); border-radius: 4px; overflow: hidden; }
+.org-load .track i { position: absolute; left: 0; top: 0; height: 100%; background: var(--blue); border-radius: 4px; }
+.org-load .track i.late { background: var(--red); }
+@media (max-width: 760px) { .org-prow { grid-template-columns: 1fr 1fr; } .org-pdue, .org-people { display: none; } }
+/* 휴대폰 출근 체크 */
+.checkin-card { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; background: var(--white); border: 2px solid var(--pink); border-radius: var(--r-panel); }
+.checkin-card.done { flex-direction: row; align-items: center; border: 1px solid var(--line); }
