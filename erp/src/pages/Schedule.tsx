@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
-import { addDays, addMonths, monthGrid, shortDate, todayKey, weekday } from '../lib/date'
+import { addDays, addMonths, monthGrid, shortDate, todayKey, weekday, periodLabel } from '../lib/date'
 import { Link, useRouter, withQuery } from '../lib/router'
 import { TASK_STATUSES, type LeaveRecord, type Project, type Task, type TaskStatus } from '../lib/types'
 import { Badge, Button, Chip, Empty, Field, Modal, StatusBadge } from '../components/ui'
@@ -236,7 +236,7 @@ export function Gantt({ projects, tasks }: { projects: Project[]; tasks: Task[] 
             {project.name}
           </Link>
           <span>
-            {project.start_date || project.end_date ? `${shortDate(project.start_date)} ~ ${shortDate(project.end_date)} · ` : ''}담당 {profileName(project.owner_id)}
+            {project.start_date || project.end_date ? `${periodLabel(project.start_date, project.end_date)} · ` : ''}담당 {profileName(project.owner_id)}
           </span>
         </div>
       )}

@@ -24,10 +24,8 @@ const SITE_GROUPS: Record<SiteGroup, { label: string; sites: Site[] }> = {
       site('spacecloud.kr', '스페이스클라우드', s => `https://www.spacecloud.kr/search?keyword=${s}`),
       site('festivallife.kr', '페스티벌라이프'),
       site('korean.visitkorea.or.kr', '대한민국 구석구석', s => `https://korean.visitkorea.or.kr/search/search_list.do?keyword=${s}`),
-      site('culture.go.kr', '문화포털', s => `https://www.culture.go.kr/portal/search/search/list.do?queryTp=total&keyword=${s}`),
       site('visitseoul.net', '비짓서울', s => `https://english.visitseoul.net/search?searchTerm=${s}`),
       site('tickets.interpark.com', '인터파크 티켓', s => `https://tickets.interpark.com/search?keyword=${s}`),
-      site('ticket.melon.com', '멜론티켓'),
       site('ticket.yes24.com', '예스24 티켓', s => `https://m.ticket.yes24.com/Search/List.aspx?SearchText=${s}`),
       site('ticketlink.co.kr', '티켓링크', s => `https://www.ticketlink.co.kr/search?query=${s}`),
     ],
@@ -54,7 +52,7 @@ const SITE_GROUPS: Record<SiteGroup, { label: string; sites: Site[] }> = {
   },
   shop: {
     label: '쇼핑 · 브랜드',
-    sites: [site('coupang.com', '쿠팡', s => `https://www.coupang.com/np/search?q=${s}`), site('shopping.naver.com', '네이버 쇼핑', s => `https://search.shopping.naver.com/search/all?query=${s}`), site('gmarket.co.kr', 'G마켓', s => `https://www.gmarket.co.kr/n/search?keyword=${s}`), site('11st.co.kr', '11번가', s => `https://search.11st.co.kr/Search.tmall?kwd=${s}`), site('ohou.se', '오늘의집', s => `https://ohou.se/store/search?query=${s}`), site('kurly.com', '컬리', s => `https://www.kurly.com/search?sword=${s}`), site('auction.co.kr', '옥션', s => `https://browse.auction.co.kr/search?keyword=${s}`), site('musinsa.com', '무신사', s => `https://www.musinsa.com/search/goods?keyword=${s}`), site('29cm.co.kr', '29CM', s => `https://www.29cm.co.kr/search?keyword=${s}`), site('wconcept.co.kr', 'W컨셉', s => `https://www.wconcept.co.kr/Search?kw=${s}`), site('kream.co.kr', '크림', s => `https://kream.co.kr/search?keyword=${s}`), site('oliveyoung.co.kr', '올리브영', s => `https://www.oliveyoung.co.kr/store/search/getSearchMain.do?query=${s}`)],
+    sites: [site('coupang.com', '쿠팡', s => `https://www.coupang.com/np/search?q=${s}`), site('shopping.naver.com', '네이버 쇼핑', s => `https://search.shopping.naver.com/search/all?query=${s}`), site('gmarket.co.kr', 'G마켓', s => `https://www.gmarket.co.kr/n/search?keyword=${s}`), site('11st.co.kr', '11번가', s => `https://search.11st.co.kr/Search.tmall?kwd=${s}`), site('ohou.se', '오늘의집', s => `https://ohou.se/store/search?query=${s}`), site('kurly.com', '컬리', s => `https://www.kurly.com/search?sword=${s}`), site('musinsa.com', '무신사', s => `https://www.musinsa.com/search/goods?keyword=${s}`), site('29cm.co.kr', '29CM', s => `https://www.29cm.co.kr/search?keyword=${s}`), site('wconcept.co.kr', 'W컨셉', s => `https://www.wconcept.co.kr/Search?kw=${s}`), site('oliveyoung.co.kr', '올리브영', s => `https://www.oliveyoung.co.kr/store/search/getSearchMain.do?query=${s}`)],
   },
   estate: {
     label: '부동산',

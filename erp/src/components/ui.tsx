@@ -1,5 +1,7 @@
 import { useEffect, type ButtonHTMLAttributes, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
+import { detailSlot, usePanelWide } from './RightPanel'
 import type { ApprovalStatus, LogKind, ProjectStatus, TaskStatus, TodayStatus } from '../lib/types'
 
 type BtnKind = 'blue' | 'yellow' | 'outline' | 'ghost'
@@ -123,6 +125,25 @@ export function Modal({ title, onClose, children, actions, wide }: { title: stri
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
+  // 전체 공통 (대표 지시 2026-10-17): 넓은 화면에서는 팝업 대신 결과 칸 자리에 왼쪽→오른쪽으로 펼쳐짐
+  const panelWide = usePanelWide()
+  if (panelWide && detailSlot?.isConnected) {
+    return createPortal(
+      <aside className="detail-col modal-col" role="dialog" aria-label={title}>
+        <div className="detail-head">
+          <span className="grow truncate">{title}</span>
+          <button type="button" className="icon-btn sm" onClick={onClose} aria-label="닫기" title="닫기">
+            <X size={14} />
+          </button>
+        </div>
+        <div className="detail-body col gap-10">
+          {children}
+          {actions && <div className="dialog-actions">{actions}</div>}
+        </div>
+      </aside>,
+      detailSlot,
+    )
+  }
   return (
     <div className="scrim" onMouseDown={e => e.target === e.currentTarget && onClose()}>
       <div className={`dialog ${wide ? 'wide' : ''}`} role="dialog" aria-modal="true" aria-label={title}>
