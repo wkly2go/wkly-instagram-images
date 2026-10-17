@@ -117,6 +117,31 @@ const useOpenState = () =>
     openListeners.add(cb)
     return () => openListeners.delete(cb)
   }, () => openState)
+/** 검색 칸 글자 크기 (PC 프로그램): 기본 60%, 가− / 가+ 로 조절 · 이 PC에 기억 */
+const ZOOM_KEY = 'wkly-web-zoom'
+let zoomState = (() => {
+  try {
+    return Number(localStorage.getItem(ZOOM_KEY)) || 0.6
+  } catch {
+    return 0.6
+  }
+})()
+const zoomListeners = new Set<() => void>()
+function stepZoom(d: number) {
+  zoomState = Math.round(Math.min(1.2, Math.max(0.4, zoomState + d)) * 100) / 100
+  try {
+    localStorage.setItem(ZOOM_KEY, String(zoomState))
+  } catch {
+    /* 저장 불가 */
+  }
+  desktop()?.searchZoom?.(zoomState)
+  for (const l of zoomListeners) l()
+}
+const useZoom = () =>
+  useSyncExternalStore(cb => {
+    zoomListeners.add(cb)
+    return () => zoomListeners.delete(cb)
+  }, () => zoomState)
 /** PC 프로그램: 검색 칸(WebContentsView)이 이미 떠 있으면 화면을 옮겨도 다시 불러오지 않음 */
 let nativeShowing: string | null = null
 
@@ -151,8 +176,20 @@ export function WebSearchBox() {
     saveRecent([v, ...readRecent().filter(x => x !== v)])
     setOpen({ q: v, engine })
   }
+  const app = desktop()
+  const zoom = useZoom()
   return (
     <>
+      {app?.searchNav && (
+        <span className="web-nav" role="group" aria-label="검색 창 이동">
+          <button type="button" className="icon-btn sm" onClick={() => app.searchNav?.('back')} aria-label="뒤로" title="검색 창 뒤로">
+            <ChevronLeft size={14} />
+          </button>
+          <button type="button" className="icon-btn sm" onClick={() => app.searchNav?.('forward')} aria-label="앞으로" title="검색 창 앞으로">
+            <ChevronRight size={14} />
+          </button>
+        </span>
+      )}
       <form
         className="web-search"
         role="search"
@@ -164,6 +201,14 @@ export function WebSearchBox() {
         <Search size={14} />
         <input value={q} onChange={e => setQ(e.target.value)} placeholder="구글 · 인터넷 검색" aria-label="구글 · 인터넷 검색" enterKeyHint="search" title="검색어를 넣고 Enter · 결과는 오른쪽 검색 창에" />
       </form>
+      <span className="web-zoom" role="group" aria-label="검색 창 글자 크기" title={`검색 창 글자 크기 ${Math.round(zoom * 100)}% (PC 프로그램에서 적용)`}>
+        <button type="button" className="icon-btn sm" onClick={() => stepZoom(-0.1)} aria-label="글자 작게">
+          가−
+        </button>
+        <button type="button" className="icon-btn sm" onClick={() => stepZoom(0.1)} aria-label="글자 크게">
+          가+
+        </button>
+      </span>
     </>
   )
 }
@@ -240,23 +285,7 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
     }
   }, [native, q, engine])
   // 검색 칸 글자 크기 (PC 프로그램 1.5+): 기본 70%, 가− / 가+ 로 조절 · 이 PC에 기억
-  const [zoom, setZoom] = useState(() => {
-    try {
-      return Number(localStorage.getItem('wkly-web-zoom')) || 0.6
-    } catch {
-      return 0.6
-    }
-  })
-  const stepZoom = (d: number) => {
-    const z = Math.round(Math.min(1.2, Math.max(0.4, zoom + d)) * 100) / 100
-    setZoom(z)
-    try {
-      localStorage.setItem('wkly-web-zoom', String(z))
-    } catch {
-      /* 저장 불가 */
-    }
-    if (native) app!.searchZoom?.(z)
-  }
+  const zoom = useZoom()
   useEffect(() => {
     if (!native || !nativeBox.current) return
     const send = () => app!.searchBounds?.(rectOf())
@@ -316,16 +345,6 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
     <aside className={`web-panel${native ? ' is-native' : ''}`} aria-label="인터넷 검색">
       <div className="web-resize" onPointerDown={startDrag} role="separator" aria-orientation="vertical" aria-label="검색 창 폭 조절" title="끌어서 폭 조절" />
       <div className="web-bar">
-        {native && (
-          <span className="web-nav">
-            <button type="button" className="icon-btn sm" onClick={() => app!.searchNav?.('back')} aria-label="뒤로" title="뒤로">
-              <ChevronLeft size={14} />
-            </button>
-            <button type="button" className="icon-btn sm" onClick={() => app!.searchNav?.('forward')} aria-label="앞으로" title="앞으로">
-              <ChevronRight size={14} />
-            </button>
-          </span>
-        )}
         <div className="web-tabs grow" role="tablist" aria-label="검색 종류">
           {ENGINES.map(([k, l]) => (
             <button key={k} type="button" role="tab" aria-selected={engine === k} className={`web-tab${engine === k ? ' on' : ''}`} onClick={() => onSearch(q, k)}>
@@ -349,14 +368,6 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
             </button>
           ))}
         </div>
-        <span className="web-zoom" role="group" aria-label="검색 창 글자 크기" title={`글자 크기 ${Math.round(zoom * 100)}% (PC 프로그램 검색 칸에 적용)`}>
-          <button type="button" className="icon-btn sm" onClick={() => stepZoom(-0.1)} aria-label="글자 작게">
-            가−
-          </button>
-          <button type="button" className="icon-btn sm" onClick={() => stepZoom(0.1)} aria-label="글자 크게">
-            가+
-          </button>
-        </span>
       </div>
       {!q ? (
         <div className="col gap-6 web-note">
