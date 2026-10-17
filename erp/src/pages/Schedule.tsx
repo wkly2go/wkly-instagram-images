@@ -236,7 +236,7 @@ export function Gantt({ projects, tasks }: { projects: Project[]; tasks: Task[] 
             {project.name}
           </Link>
           <span>
-            {shortDate(project.start_date)} ~ {shortDate(project.end_date)} · 담당 {profileName(project.owner_id)}
+            {project.start_date || project.end_date ? `${shortDate(project.start_date)} ~ ${shortDate(project.end_date)} · ` : ''}담당 {profileName(project.owner_id)}
           </span>
         </div>
       )}
