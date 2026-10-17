@@ -802,6 +802,17 @@ export function createDemoApi(): Api {
       emit('chat_rooms')
       return clone(room)
     },
+    async deleteRoom(id) {
+      const self = requireMe()
+      const room = store.chat_rooms.find(r => r.id === id)
+      if (!room) throw new ApiError('채팅방을 찾을 수 없습니다.')
+      if (room.created_by !== self && !isAdmin() && !room.members?.includes(self)) throw new ApiError('채팅방을 만든 사람이나 관리자만 지울 수 있습니다.')
+      store.chat_rooms = store.chat_rooms.filter(r => r.id !== id)
+      store.chat_messages = store.chat_messages.filter(m => m.room_id !== id)
+      store.chat_reads = store.chat_reads.filter(r => r.room_id !== id)
+      persist()
+      emit('chat_rooms')
+    },
     async openDm(otherId) {
       const self = requireMe()
       if (otherId === self) throw new ApiError('대화 상대를 골라 주세요.')

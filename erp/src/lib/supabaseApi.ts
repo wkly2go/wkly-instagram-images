@@ -208,6 +208,7 @@ export function createSupabaseApi(url: string, key: string): Api {
     async createRoom(r) {
       return must(await sb.from('chat_rooms').insert(r).select().single()) as ChatRoom
     },
+    deleteRoom: id => remove('chat_rooms', id),
     async openDm(otherId) {
       return must(await sb.rpc('chat_open_dm', { p_other: otherId })) as string
     },

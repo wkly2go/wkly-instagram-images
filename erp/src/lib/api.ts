@@ -159,6 +159,8 @@ export interface Api {
   // 채팅
   listRooms(): Promise<ChatRoomSummary[]>
   createRoom(r: { name: string; description?: string | null; project_id?: string | null }): Promise<ChatRoom>
+  /** 채팅방 삭제 (만든 사람 · 관리자 · 1:1 대화 당사자). 메시지도 함께 지워짐 */
+  deleteRoom(id: string): Promise<void>
   /** 팀원과 1:1 대화방 열기 (없으면 만듦) → 방 id */
   openDm(otherId: string): Promise<string>
   listMessages(roomId: string, limit?: number): Promise<ChatMessage[]>

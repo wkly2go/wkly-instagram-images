@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react'
-import { AlarmClock, ArrowLeft, CheckCircle2, ChevronLeft, ChevronRight, CircleSlash, Pencil, Trash2 } from 'lucide-react'
+import { AlarmClock, ArrowLeft, CheckCircle2, ChevronLeft, ChevronRight, CircleSlash, FolderOpen, Pencil, Trash2 } from 'lucide-react'
 import { ProjectMaterials } from '../components/ProjectMaterials'
 import { useRightPanel } from '../components/RightPanel'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { addMonths, dateLabel, monthGrid, shortDate, timeLabel, toDateKey, todayKey, weekRange, weekday, periodLabel } from '../lib/date'
 import { Link, useRouter, withQuery } from '../lib/router'
-import { PROJECT_CATEGORIES, PROJECT_STATUSES, type ChatRoomSummary, type Client, type Contact, type Project, type ProjectStatus, type Task, type TaskStatus, type WorkLog } from '../lib/types'
+import { PROJECT_CATEGORIES, PROJECT_STATUSES, type ChatRoomSummary, type Client, type Contact, type Project, type ProjectStatus, type Task, type TaskStatus, type WorkLog, projectBrand, projectDriveUrl } from '../lib/types'
 import { ContactTimeline, ExchangeFilesSection, ProjectContactsSection } from '../components/ContactHistory'
 import { OrgSection } from '../components/Org'
 import { Board, type BoardCol } from '../components/Board'
@@ -55,8 +55,19 @@ export default function Projects() {
     )
   }
 
-  const counts = (s: ProjectStatus) => data.projects.filter(p => p.status === s).length
-  const list = status === 'all' ? data.projects : data.projects.filter(p => p.status === status)
+  // 목록: 회사(AR 아트리어 · TW 더위클리) 거르기 + 정렬(연번 · 이름 · 최근)
+  const brand = query.get('brand')
+  const sort = query.get('sort')
+  const OPEN: ProjectStatus[] = ['진행', '기획']
+  const shown = brand ? data.projects.filter(p => projectBrand(p) === brand) : data.projects
+  const sorted = (rows: Project[]) =>
+    [...rows].sort((a, b) =>
+      sort === 'name'
+        ? a.name.localeCompare(b.name, 'ko')
+        : sort === 'recent'
+          ? (b.start_date ?? b.created_at).localeCompare(a.start_date ?? a.created_at)
+          : (b.code ?? '').localeCompare(a.code ?? '') || a.name.localeCompare(b.name, 'ko'),
+    )
   const tabs: [string | null, string][] = [
     [null, '대시보드'],
     ['schedule', '일정표'],
@@ -113,24 +124,45 @@ export default function Projects() {
       ) : view === 'list' ? (
         <div className="row top gap-12" style={{ flex: 1, minHeight: 0, flexWrap: 'wrap' }}>
           <div className="col grow" style={{ flexBasis: 320 }}>
-            <div className="chips" style={{ paddingBottom: 4 }}>
-              {PROJECT_STATUSES.filter(s => s !== '완료' && s !== 'NIC').map(s => (
-                <Chip key={s} active={status === s} onClick={() => go({ status: s === '진행' ? null : s })}>
-                  {s} {counts(s)}
+            <div className="row wrap" style={{ gap: 6, paddingBottom: 4 }}>
+              <div className="chips">
+                {(['진행', '기획'] as ProjectStatus[]).map(s => (
+                  <Chip key={s} active={status === s} onClick={() => go({ status: s === '진행' ? null : s })}>
+                    {s} {shown.filter(p => p.status === s).length}
+                  </Chip>
+                ))}
+                <Chip active={status === 'all'} onClick={() => go({ status: 'all' })}>
+                  전체 {shown.filter(p => OPEN.includes(p.status)).length}
                 </Chip>
-              ))}
-              <Chip active={status === 'all'} onClick={() => go({ status: 'all' })}>
-                전체 {data.projects.filter(p => p.status !== '완료' && p.status !== 'NIC').length}
-              </Chip>
+              </div>
+              <span className="grow" />
+              <div className="chips" aria-label="회사">
+                {([[null, '전체'], ['AR', '아트리어'], ['TW', '더위클리']] as [string | null, string][]).map(([k, l]) => (
+                  <Chip key={l} active={brand === k} onClick={() => go({ brand: k })}>
+                    {l}
+                  </Chip>
+                ))}
+              </div>
+              <div className="chips" aria-label="정렬">
+                {([[null, '연번순'], ['name', '이름순'], ['recent', '최근순']] as [string | null, string][]).map(([k, l]) => (
+                  <Chip key={l} active={sort === k} onClick={() => go({ sort: k })}>
+                    {l}
+                  </Chip>
+                ))}
+              </div>
             </div>
-            <ProjectBoard list={list.filter(p => status === '완료' || status === 'NIC' || (p.status !== '완료' && p.status !== 'NIC'))} data={data} loading={loading} onOpen={id => go({ id })} />
-            {(['완료', 'NIC'] as ProjectStatus[]).map(s => {
-              const rows = data.projects.filter(p => p.status === s)
+            <ProjectBoard list={sorted(shown.filter(p => OPEN.includes(p.status) && (status === 'all' || p.status === status)))} data={data} loading={loading} onOpen={id => go({ id })} />
+            {/* 드라이브 폴더 구성과 같게: 완료 · 대기 / NIC 는 펼쳐 보기 */}
+            {([
+              ['done', '완료 · 대기 프로젝트', ['완료', '보류']],
+              ['nic', 'NIC 프로젝트', ['NIC']],
+            ] as [string, string, ProjectStatus[]][]).map(([k, label, sts]) => {
+              const rows = sorted(shown.filter(p => sts.includes(p.status)))
               return (
-                <details key={s} className={`proj-group g-${s === '완료' ? 'done' : 'nic'}`} open={status === s}>
+                <details key={k} className={`proj-group g-${k}`} open={sts.includes(status as ProjectStatus)}>
                   <summary>
-                    {s === '완료' ? <CheckCircle2 size={14} /> : <CircleSlash size={14} />}
-                    <span className="t-bodyb">{s === '완료' ? '완료된 프로젝트' : 'NIC 프로젝트'}</span>
+                    {k === 'done' ? <CheckCircle2 size={14} /> : <CircleSlash size={14} />}
+                    <span className="t-bodyb">{label}</span>
                     <span className="board-count">{rows.length}</span>
                   </summary>
                   <ProjectBoard list={rows} data={data} loading={loading} onOpen={id => go({ id })} />
@@ -155,6 +187,19 @@ function ProjectBoard({ list, data, loading, onOpen }: { list: Project[]; data: 
   const today = todayKey()
   const cols: BoardCol<Project>[] = [
     { key: 'code', label: '연번', width: 72, cell: p => <span className="t-mono">{p.code ?? '-'}</span> },
+    {
+      key: 'drive',
+      label: '드라이브',
+      width: 64,
+      cell: p => {
+        const d = projectDriveUrl(p)
+        return (
+          <a href={d.url} target="_blank" rel="noreferrer" className={`drive-link${d.exact ? '' : ' guess'}`} onClick={e => e.stopPropagation()} title={d.exact ? '드라이브 폴더 열기' : '드라이브에서 찾기 (폴더 주소 없음)'}>
+            <FolderOpen size={14} />
+          </a>
+        )
+      },
+    },
     { key: 'status', label: '상태', width: 64, cell: p => <StatusBadge status={p.status} /> },
     {
       key: 'name',
@@ -469,6 +514,9 @@ function ProjectDetail({ project: p, data, onEdit, onBack }: { project: Project;
         <StatusBadge status={p.status} />
         <Badge>{p.category}</Badge>
         <span className="grow" />
+        <a className="btn btn-outline btn-sm drive-btn" href={projectDriveUrl(p).url} target="_blank" rel="noreferrer" title={projectDriveUrl(p).exact ? '구글 드라이브 프로젝트 폴더 열기' : '폴더 주소가 아직 없어 드라이브에서 연번 · 이름으로 찾기'}>
+          <FolderOpen size={13} /> 드라이브{projectDriveUrl(p).exact ? '' : ' 찾기'}
+        </a>
         <Button kind="outline" size="sm" onClick={openRoom} disabled={busy}>
           {extra.room ? '채팅방' : '채팅방 만들기'}
         </Button>
@@ -578,6 +626,9 @@ export function ProjectForm({ project, clients, onClose, onSaved }: { project: P
         )}
         <Field label="이름" className="full">
           <input className="input" autoFocus value={f.name ?? ''} onChange={e => set({ name: e.target.value })} placeholder="예) 성수 팝업 '오브제 위크'" />
+        </Field>
+        <Field label="구글 드라이브 폴더 주소" className="full">
+          <input className="input" value={f.drive_url ?? ''} onChange={e => set({ drive_url: e.target.value.trim() || null })} placeholder="https://drive.google.com/drive/folders/…  (비우면 연번 · 이름으로 찾기)" />
         </Field>
         <Field label="거래처">
           <select className="select" value={f.client_id ?? ''} onChange={e => set({ client_id: e.target.value || null })}>
