@@ -28,6 +28,7 @@ import {
 import { NewApproval } from "./Approvals";
 import { AssignTaskButton } from "../components/AssignTask";
 import { MemoPad } from "../components/MemoPad";
+import { usePanelWide, useRightPanel } from "../components/RightPanel";
 import { PendingReports, ReportCheck, WorkTodo, reportDate, useWorkReports } from "../components/WorkReports";
 
 const SIDE_KEY = "wkly-work-side";
@@ -165,6 +166,20 @@ export default function WorkLog() {
     },
   ];
 
+  // 업무 화면은 2단 (팀원 · 업무 기록). 할 일 · 메모는 오른쪽 칸에
+  const wide = usePanelWide();
+  const todoWho = !viewUser ? "팀 전체" : viewUser === me.id ? "내" : `${profileName(viewUser)}`;
+  const todoPad = (
+    <aside className="memo-pad todo-pad" aria-label="할 일">
+      <span className="t-bodyb">✅ {todoWho} 할 일</span>
+      <span className="t-cap">왼쪽에서 고른 사람의 할 일입니다. 프로젝트 이름을 쓰면 자동 연결되고, 승인 안 된 업무 보고는 승인될 때까지 여기에 남습니다.</span>
+      <PendingReports reports={reports} userId={viewUser ?? null} />
+      <WorkTodo projects={data.projects} clients={data.clients} tasks={data.tasks} userId={viewUser ?? null} />
+    </aside>
+  );
+  const memoPad = <MemoPad onClose={() => setSide("none")} />;
+  useRightPanel(wide && side !== "none" ? `work:${side}` : null, side === "memo" ? "메모" : `${todoWho} 할 일`, side === "memo" ? memoPad : todoPad);
+
   return (
     <Shell active="work" flush>
       <div className="row wrap" style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)" }}>
@@ -236,15 +251,8 @@ export default function WorkLog() {
           </div>
           {!other && !team && period === "day" && !q && <LogComposer key={date} date={date} initialClientId={query.get("client") ?? ""} />}
         </div>
-        {side === "todo" && (
-          <aside className="memo-pad todo-pad" aria-label="할 일">
-            <span className="t-bodyb">✅ 할 일</span>
-            <span className="t-cap">업무 일지처럼 프로젝트 이름을 쓰면 자동 연결됩니다. 승인 안 된 업무 보고는 승인될 때까지 여기에 남습니다.</span>
-            <PendingReports reports={reports} />
-            <WorkTodo projects={data.projects} clients={data.clients} tasks={data.tasks} />
-          </aside>
-        )}
-        {side === "memo" && <MemoPad onClose={() => setSide("none")} />}
+        {!wide && side === "todo" && todoPad}
+        {!wide && side === "memo" && memoPad}
       </div>
       {reporting && (
         <NewApproval preset={{ kind: "업무 보고", payload: { date } }} onClose={() => setReporting(false)} onCreated={(id) => navigate(`/approvals?view=mine&id=${id}`)} />

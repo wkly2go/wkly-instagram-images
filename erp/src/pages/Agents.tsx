@@ -5,6 +5,7 @@ import { addDays, dateTimeLabel, relativeLabel, shortDate, todayKey, weekday } f
 import { useRouter, withQuery } from '../lib/router'
 import { AGENT_VERDICTS, type AgentAction, type AgentJob, type AgentJobRequest, type AgentReport, type Department } from '../lib/types'
 import { Shell } from '../components/Shell'
+import { usePanelWide, useRightPanel } from '../components/RightPanel'
 import { Badge, Button, Chip, Empty, Field, Modal, SectionHead, type Tone } from '../components/ui'
 
 const V_TONE: Record<string, Tone> = { 완료: 'acid', '변동 없음': 'outline', '일부 실패': 'yellow', 실패: 'red', 미실행: 'gray', '진행 중': 'blue' }
@@ -238,6 +239,10 @@ function Reports() {
   const list = reports
     .filter(r => (!verdict || r.verdict === verdict) && (!words.length || words.every(w => `${r.job_name} ${r.title} ${r.summary ?? ''} ${r.body ?? ''}`.toLowerCase().includes(w))))
     .sort((a, b) => (a.job_name === MANAGER ? -1 : b.job_name === MANAGER ? 1 : 0) || b.report_date.localeCompare(a.report_date) || AGENT_VERDICTS.indexOf(b.verdict) - AGENT_VERDICTS.indexOf(a.verdict) || (b.run_at ?? '').localeCompare(a.run_at ?? ''))
+  // 넓은 화면: 누른 보고의 본문은 오른쪽 칸
+  const wide = usePanelWide()
+  const sel = list.find(r => (open ? r.id === open : r.job_name === MANAGER && open === null)) ?? null
+  useRightPanel(wide && sel ? `agent-report:${sel.id}` : null, 'AI 보고', sel && <AgentReportDetail r={sel} head />)
   const count = (v: string) => reports.filter(r => r.verdict === v).length
   return (
     <div className="col gap-10">
@@ -286,10 +291,11 @@ function Reports() {
       </div>
       {list.length === 0 && <Empty>{loading ? '불러오는 중…' : '이 기간의 보고가 없습니다.'}</Empty>}
       {list.map(r => {
-        const isOpen = open === r.id || (r.job_name === MANAGER && open === null)
+        const picked = open === r.id || (r.job_name === MANAGER && open === null)
+        const isOpen = !wide && picked
         return (
-          <div key={r.id} className={`agent-report${r.job_name === MANAGER ? ' lead' : ''}`}>
-            <button type="button" className="row report-toggle" onClick={() => setOpen(isOpen ? '' : r.id)} aria-expanded={isOpen}>
+          <div key={r.id} className={`agent-report${r.job_name === MANAGER ? ' lead' : ''}${wide && picked ? ' picked' : ''}`}>
+            <button type="button" className="row report-toggle" onClick={() => setOpen(wide ? r.id : isOpen ? '' : r.id)} aria-expanded={wide ? picked : isOpen}>
               {isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
               <Badge tone={V_TONE[r.verdict] ?? 'outline'}>{r.verdict}</Badge>
               <span className="t-smallb grow">{r.job_name === MANAGER ? `🤖 ${r.title}` : r.job_name}</span>
@@ -297,20 +303,27 @@ function Reports() {
             </button>
             {!isOpen && r.summary && <span className="t-cap agent-sum">{r.summary}</span>}
             {isOpen && (
-              <div className="col gap-6">
-                {r.job_name !== MANAGER && r.title !== r.job_name && <span className="t-cap">{r.title}</span>}
-                {r.summary && <div className="note pre">{r.summary}</div>}
-                {r.body && <div className="t-small pre agent-body">{r.body}</div>}
-                {r.link && /^https?:\/\//.test(r.link) && (
-                  <a href={r.link} target="_blank" rel="noreferrer" className="t-cap">
-                    원본 보기 ›
-                  </a>
-                )}
-              </div>
+              <AgentReportDetail r={r} />
             )}
           </div>
         )
       })}
+    </div>
+  )
+}
+
+function AgentReportDetail({ r, head }: { r: AgentReport; head?: boolean }) {
+  return (
+    <div className="col gap-6">
+      {head && <span className="t-bodyb">{r.job_name === MANAGER ? `🤖 ${r.title}` : r.job_name}</span>}
+      {r.job_name !== MANAGER && r.title !== r.job_name && <span className="t-cap">{r.title}</span>}
+      {r.summary && <div className="note pre">{r.summary}</div>}
+      {r.body && <div className="t-small pre agent-body">{r.body}</div>}
+      {r.link && /^https?:\/\//.test(r.link) && (
+        <a href={r.link} target="_blank" rel="noreferrer" className="t-cap">
+          원본 보기 ›
+        </a>
+      )}
     </div>
   )
 }
