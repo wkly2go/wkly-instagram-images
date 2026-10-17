@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { ChevronDown, ChevronLeft, ChevronRight, Pause, Play, RefreshCw, Search, SquarePen, Timer } from 'lucide-react'
+import { ChevronDown, ChevronLeft, ChevronRight, Search } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { addDays, dateTimeLabel, relativeLabel, shortDate, todayKey, weekday } from '../lib/date'
 import { useRouter, withQuery } from '../lib/router'
@@ -149,22 +149,22 @@ function Jobs() {
                 {j.last_summary && <span className="t-small pre agent-sum">{j.last_summary}</span>}
                 <div className="row wrap" style={{ gap: 4 }}>
                   <Button kind="outline" size="sm" onClick={() => setActing({ job: j, action: '지금 실행' })}>
-                    <Play size={12} /> 지금 실행
+                    지금 실행
                   </Button>
                   {j.enabled ? (
                     <Button kind="ghost" size="sm" onClick={() => setActing({ job: j, action: '일시정지' })}>
-                      <Pause size={12} /> 일시정지
+                      일시정지
                     </Button>
                   ) : (
                     <Button kind="ghost" size="sm" onClick={() => setActing({ job: j, action: '재개' })}>
-                      <RefreshCw size={12} /> 다시 켜기
+                      다시 켜기
                     </Button>
                   )}
                   <Button kind="ghost" size="sm" onClick={() => setActing({ job: j, action: '시간 변경' })}>
-                    <Timer size={12} /> 시간 변경
+                    시간 변경
                   </Button>
                   <Button kind="ghost" size="sm" onClick={() => setActing({ job: j, action: '지시 수정' })}>
-                    <SquarePen size={12} /> 지시 수정
+                    지시 수정
                   </Button>
                   {j.session_url && (
                     <a className="btn btn-ghost btn-sm" href={j.session_url} target="_blank" rel="noreferrer">

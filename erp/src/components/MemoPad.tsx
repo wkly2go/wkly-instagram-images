@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Lock, Pin, Plus, Search, Trash2, X } from 'lucide-react'
+import { Pin, Search, Trash2, X } from 'lucide-react'
 import { useApp, useAsync } from '../lib/app'
 import { friendlyError } from '../lib/api'
 import { relativeLabel } from '../lib/date'
@@ -97,7 +97,7 @@ export function MemoPad({ onClose }: { onClose: () => void }) {
         </button>
       </div>
       <span className="t-cap row" style={{ gap: 4 }}>
-        <Lock size={11} /> 나만 보는 메모 · 업무 일지와 업무 보고에 들어가지 않습니다
+        나만 보는 메모 · 업무 일지와 업무 보고에 들어가지 않습니다
       </span>
       <div className="col gap-6">
         <textarea
@@ -112,7 +112,7 @@ export function MemoPad({ onClose }: { onClose: () => void }) {
           aria-label="새 메모"
         />
         <Button size="sm" onClick={add} disabled={!draft.trim()}>
-          <Plus size={13} /> 메모 추가
+          메모 추가
         </Button>
       </div>
       {notes.length > 3 && (

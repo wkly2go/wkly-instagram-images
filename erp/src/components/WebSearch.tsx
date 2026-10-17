@@ -214,6 +214,7 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
   return (
     <aside className={`web-panel${native ? ' is-native' : ''}`} aria-label="인터넷 검색">
       <div className="web-resize" onPointerDown={startDrag} role="separator" aria-orientation="vertical" aria-label="검색 창 폭 조절" title="끌어서 폭 조절" />
+      <div className="web-inner">
       <div className="row">
         <form
           className="web-search wide grow"
@@ -281,7 +282,7 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
           <button type="button" className="btn btn-blue btn-sm" style={{ alignSelf: 'flex-start' }} onClick={() => setBlocked(!openDocked(urlFor(engine, q)))}>
             오른쪽 창에서 다시 열기
           </button>
-          <span className="t-cap">💡 <b>PC 프로그램</b>(1.1 이상)에서는 구글 결과가 이 창 안에 바로 나옵니다. <a href="/download">내려받기 ›</a></span>
+          <span className="t-cap"><b>PC 프로그램</b>(1.1 이상)에서는 구글 결과가 이 창 안에 바로 나옵니다. <a href="/download">내려받기 ›</a></span>
           {engine === 'google' && !cx && <span className="t-cap">구글은 보안 정책상 다른 사이트 안에 넣을 수 없어 오른쪽에 붙는 별도 창으로 엽니다. 위 ‘업무 사이트만’ 탭을 누르면 팝업 · 디자인 · 트렌드 · 언론 등 정해 둔 사이트에서만 찾습니다.</span>}
         </div>
       )}
@@ -299,6 +300,7 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
         </div>
       )}
       {!native && me.role === 'admin' && <CxSetting cx={cx} />}
+      </div>
     </aside>
   )
 }

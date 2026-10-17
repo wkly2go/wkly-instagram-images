@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState, type ChangeEvent, type ReactNode } from 'react'
-import { Camera, ChevronLeft, ChevronRight, CircleHelp, Monitor, PictureInPicture2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, CircleHelp } from 'lucide-react'
 import { isDesktopApp } from '../lib/desktop'
 import { NotificationBell } from './Notifications'
 import { WebSearchBox } from './WebSearch'
@@ -91,7 +91,7 @@ function PhotoBox() {
       >
         {me.photo ? <img src={me.photo} alt="" /> : <span aria-hidden="true">{initial(me.name)}</span>}
         <span className="photo-cta">
-          <Camera size={14} /> {busy ? '올리는 중…' : me.photo ? '사진 바꾸기' : '사진 올리기'}
+          {busy ? '올리는 중…' : me.photo ? '사진 바꾸기' : '사진 올리기'}
         </span>
       </button>
       <input ref={input} type="file" accept="image/*" hidden onChange={onFile} />
@@ -299,7 +299,7 @@ export function Shell({ active, flush, children }: { active: TabKey; flush?: boo
               <NotificationBell />
               {!isDesktopApp() && (
                 <Link to="/download" className="quick-btn pc-only" title="회사 컴퓨터용 PC 프로그램 (출근 기록)" style={{ textDecoration: 'none' }}>
-                  <Monitor size={14} /> PC 프로그램
+                  PC 프로그램
                 </Link>
               )}
               <Link to="/help" className="quick-btn" title="사용법" style={{ textDecoration: 'none' }}>
@@ -307,11 +307,11 @@ export function Shell({ active, flush, children }: { active: TabKey; flush?: boo
               </Link>
               {inQuickWindow() ? (
                 <Link to="/quick" className="quick-btn" style={{ textDecoration: 'none' }}>
-                  <PictureInPicture2 size={14} /> 빠른 창으로
+                  빠른 창으로
                 </Link>
               ) : (
                 <button type="button" className="quick-btn pc-only" onClick={() => openQuick('window')} title="작은 독립 창. 전체 창을 닫아도 계속 쓸 수 있습니다.">
-                  <PictureInPicture2 size={14} /> 빠른 창 띄우기
+                  빠른 창 띄우기
                 </button>
               )}
             </header>

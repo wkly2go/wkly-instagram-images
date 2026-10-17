@@ -1,6 +1,6 @@
 import { useDesktopOnly } from '../lib/attendance'
 import { useState } from 'react'
-import { Copy, Download, KeyRound, Pencil, Plus, Trash2 } from 'lucide-react'
+import { Pencil } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { EXPORT_TABLES, type ExportTable } from '../lib/api'
 import { downloadText, toCsv } from '../lib/csv'
@@ -10,7 +10,7 @@ import { AGENT_SCOPES, APPROVAL_KINDS, type AdminOverview, type AgentScope, type
 import { Meter } from '../components/charts'
 import { Shell } from '../components/Shell'
 import { PersonName } from '../components/Person'
-import { Avatar, Badge, Button, Empty, Field, Modal } from '../components/ui'
+import { Badge, Button, Empty, Field, Modal } from '../components/ui'
 
 export const SCOPE_LABEL: Record<AgentScope, string> = { read: '현황 조회', task: '할 일', daily_report: '일일 보고', notify: '알림', research: '리서치', contact: '브랜드 담당자', finance: '재무 요약(합계만)' }
 const FREE_DB = 500 * 1024 * 1024
@@ -172,7 +172,6 @@ function Members() {
                 <tr key={p.id} className={p.active ? '' : 'muted'}>
                   <td className="nowrap">
                     <span className="row" style={{ gap: 6 }}>
-                      <Avatar name={p.is_agent ? '🤖' : p.name} size="xs" />
                       {renaming === p.id ? (
                         <input
                           className="input"
@@ -245,7 +244,7 @@ function Members() {
                           run(() => api.deleteMember(p.id), `${p.name} 님 계정을 삭제했습니다.`)
                         }
                       >
-                        <Trash2 size={13} /> 삭제
+                        삭제
                       </button>
                     )}
                   </td>
@@ -265,7 +264,7 @@ function Members() {
           <option value="ai">AI</option>
         </select>
         <Button onClick={add} disabled={busy || !f.name.trim() || !f.email.trim() || f.password.length < 8}>
-          <Plus size={13} /> 팀원 추가
+          팀원 추가
         </Button>
       </div>
       <span className="t-cap">AI 팀원(예: WKLY 총괄)은 로그인하지 않고 아래 '에이전트 연결 키'로 일일 보고·할 일 배정을 합니다. 계정은 이름 표시와 기록용입니다.</span>
@@ -416,7 +415,7 @@ function AgentKeys({ tokens }: { tokens: AgentToken[] }) {
       )}
       <div className="row wrap">
         <Button kind="yellow" onClick={() => setCreating(true)}>
-          <KeyRound size={13} /> 새 키 만들기
+          새 키 만들기
         </Button>
         <span className="t-cap">
           연동 방법: <Link to="/library?tab=agents">자료실 › 에이전트 연결 안내</Link>
@@ -523,7 +522,7 @@ function TokenReveal({ token }: { token: string }) {
       <div className="box col gap-6" style={{ background: 'var(--white)' }}>
         <span className="t-smallb">가장 쉬운 방법: 세 줄을 한 번에 복사</span>
         <Button onClick={() => copy(envBlock, '환경 변수 세 줄을')}>
-          <Copy size={13} /> 환경 변수 세 줄 한 번에 복사
+          환경 변수 세 줄 한 번에 복사
         </Button>
         <span className="t-cap">Claude 클라우드 환경 › Edit › '환경 변수' 칸의 내용을 모두 지우고 그대로 붙여 넣은 뒤 저장하세요. 따로 고칠 것은 없습니다.</span>
       </div>
@@ -536,7 +535,7 @@ function TokenReveal({ token }: { token: string }) {
           <div className="row">
             <input className="input grow" readOnly value={v} onFocus={e => e.target.select()} aria-label={k} style={{ fontFamily: 'var(--mono)', fontSize: 12 }} />
             <Button kind="outline" size="sm" onClick={() => copy(v, k)}>
-              <Copy size={12} /> 복사
+              복사
             </Button>
           </div>
         </div>
@@ -609,7 +608,6 @@ function PmAgent({ tokens, approvals }: { tokens: AgentToken[]; approvals: Appro
       </div>
       {agent ? (
         <div className="box row wrap" style={{ background: 'var(--white)', gap: 10 }}>
-          <Avatar name="🤖" />
           <span className="col gap-2 grow">
             <span className="row" style={{ gap: 6 }}>
               <span className="t-bodyb">{agent.name}</span>
@@ -622,7 +620,7 @@ function PmAgent({ tokens, approvals }: { tokens: AgentToken[]; approvals: Appro
             </span>
           </span>
           <Button kind={keys.length ? 'outline' : 'yellow'} disabled={busy} onClick={newKey}>
-            <KeyRound size={13} /> {keys.length ? '키 새로 만들기' : '연결 키 만들기'}
+            {keys.length ? '키 새로 만들기' : '연결 키 만들기'}
           </Button>
         </div>
       ) : (
@@ -634,7 +632,7 @@ function PmAgent({ tokens, approvals }: { tokens: AgentToken[]; approvals: Appro
             <input className="input" style={{ flex: '1 1 120px' }} value={name} onChange={e => setName(e.target.value)} aria-label="AI 팀원 이름" />
             <input className="input" style={{ flex: '2 1 200px' }} type="email" value={email} onChange={e => setEmail(e.target.value)} aria-label="AI 팀원 이메일 (로그인용 아님)" />
             <Button kind="yellow" disabled={busy || !name.trim() || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())} onClick={register}>
-              <Plus size={13} /> 등록하기
+              등록하기
             </Button>
           </div>
           <span className="t-cap">이메일은 계정 구분용입니다(메일을 받지 않아도 됨). 팀원 추가 기능(Edge Function)이 꺼져 있으면, Supabase › Authentication › Add user 로 같은 이메일 계정을 먼저 만든 뒤 다시 누르세요.</span>
@@ -725,7 +723,7 @@ function Backup() {
       </div>
       <div className="row wrap" style={{ gap: 6 }}>
         <Button onClick={all} disabled={busy}>
-          <Download size={13} /> 전체 내려받기 (JSON)
+          전체 내려받기 (JSON)
         </Button>
         {BACKUP_GROUPS.map(([label, tables]) => (
           <Button key={label} kind="outline" onClick={() => csv(tables)} disabled={busy}>

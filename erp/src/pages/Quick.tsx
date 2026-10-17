@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react'
-import { LogOut, Pin, Send, X } from 'lucide-react'
+import { Pin, Send, X } from 'lucide-react'
 import { useApp, useAsync } from '../lib/app'
 import { friendlyError } from '../lib/api'
 import { roomTitle, useRoomMessages } from '../lib/chat'
@@ -135,7 +135,7 @@ function QuickMenu({ pip }: { pip: boolean }) {
       <span className="t-cap">{pip ? '누르면 원래 ERP 창에서 열립니다.' : "이 창 안에서 열립니다. 위쪽 '빠른 창으로'를 누르면 돌아옵니다."}</span>
       <span className="grow" />
       <button type="button" className="btn btn-ghost btn-sm" style={{ alignSelf: 'flex-start' }} onClick={() => api.signOut()}>
-        <LogOut size={14} /> 로그아웃
+        로그아웃
       </button>
     </>
   )

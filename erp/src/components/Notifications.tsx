@@ -3,13 +3,12 @@ import { Bell } from 'lucide-react'
 import { useApp, useAsync } from '../lib/app'
 import { relativeLabel } from '../lib/date'
 import { normalizePath, useRouter } from '../lib/router'
-import type { AppNotification, NotificationKind } from '../lib/types'
+import type { AppNotification } from '../lib/types'
 import { Badge } from './ui'
 import { PushToggle } from './PushSetup'
 import { pushOn } from '../lib/push'
 import { playAlert, setSoundLevel, soundLevel, type SoundLevel } from '../lib/sound'
 
-const ICON: Record<NotificationKind, string> = { '할 일': '📌', 알람: '⏰', 승인: '✅', '일일 보고': '📝', 멘션: '💬', 시스템: '🔧', 결제: '💳' }
 const SEEN_KEY = 'wkly-erp-notified-max'
 
 function readSeen(): number {
@@ -57,7 +56,7 @@ export function NotificationBell() {
     if (seen && perm === 'granted' && !pushOn()) {
       for (const n of list.filter(x => x.id > seen && !x.read_at).slice(0, 3)) {
         try {
-          const pc = new Notification(`${ICON[n.kind] ?? ''} ${n.title}`, { body: n.body ?? undefined, tag: `wkly-${n.id}`, icon: '/icon-192.png' })
+          const pc = new Notification(`[${n.kind}] ${n.title}`, { body: n.body ?? undefined, tag: `wkly-${n.id}`, icon: '/icon-192.png' })
           pc.onclick = () => {
             window.focus()
             if (n.link) navigate(normalizePath(n.link))
@@ -116,7 +115,7 @@ export function NotificationBell() {
           {list.length === 0 && <div className="empty">알림이 없습니다.</div>}
           {list.map(n => (
             <button key={n.id} type="button" className={`notif ${n.read_at ? '' : 'unread'}`} onClick={() => go(n)}>
-              <span aria-hidden="true">{ICON[n.kind] ?? '•'}</span>
+              <span className="t-meta nowrap notif-kind">{n.kind}</span>
               <span className="col gap-2 grow">
                 <span className="t-smallb" style={{ whiteSpace: 'normal' }}>
                   {n.title}

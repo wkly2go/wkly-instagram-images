@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Pencil, Plus, Trash2 } from 'lucide-react'
+import { Pencil, Trash2 } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { manwon, shortDate, todayKey } from '../lib/date'
 import { budgetByCategory, isOverdue, projectMoney, supply } from '../lib/finance'
@@ -75,7 +75,7 @@ export function FinancePanel({ project, clients, projects }: { project: Project;
         <span className="t-bodyb">재무 (관리자만 보임)</span>
         <span className="cap">공급가액 · VAT 별도</span>
         <Button kind="outline" size="sm" onClick={() => setEditFin(true)}>
-          <Pencil size={12} /> 계약·목표
+          계약·목표
         </Button>
       </div>
       <div className="kpis" style={{ gridTemplateColumns: 'repeat(4, minmax(0, 1fr))' }}>
@@ -176,7 +176,7 @@ export function FinancePanel({ project, clients, projects }: { project: Project;
         <input className="input" style={{ flex: '1 1 120px' }} placeholder="업체 (선택)" value={line.payee} onChange={e => setLine({ ...line, payee: e.target.value })} aria-label="새 예산 업체" />
         <input className="input" style={{ flex: '1 1 110px' }} inputMode="numeric" placeholder="예산 (원)" value={line.budget} onChange={e => setLine({ ...line, budget: e.target.value })} aria-label="새 예산 금액" />
         <Button kind="outline" onClick={addLine} disabled={busy || !line.category.trim()}>
-          <Plus size={13} /> 예산 줄
+          예산 줄
         </Button>
       </div>
 

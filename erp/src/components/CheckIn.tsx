@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { MapPin, Smartphone, Wifi } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { addDays, shortDate, timeLabel, todayKey, weekday } from '../lib/date'
 import { useAttendance } from '../lib/attendance'
@@ -46,7 +45,6 @@ export function CheckInCard({ always = false }: { always?: boolean }) {
   if (data.checkin) {
     return (
       <div className="checkin-card done">
-        <Smartphone size={16} />
         <span className="grow t-small">
           오늘 외부 출근 {timeLabel(data.checkin.at)} · {data.checkin.kind}
         </span>
@@ -79,7 +77,6 @@ export function CheckInCard({ always = false }: { always?: boolean }) {
   return (
     <div className="checkin-card">
       <div className="row">
-        <Smartphone size={16} />
         <span className="t-bodyb grow">{checkedIn ? '외근 · 재택 출근 체크' : '아직 출근 기록이 없습니다'}</span>
         {plan && <Badge tone={S_TONE[plan.status]}>{`오늘 ${plan.kind} 신청 ${plan.status}`}</Badge>}
       </div>
@@ -98,7 +95,7 @@ export function CheckInCard({ always = false }: { always?: boolean }) {
           <div className="row wrap">
             <label className="row t-small" style={{ gap: 4 }}>
               <input type="checkbox" checked={withLoc} onChange={e => setWithLoc(e.target.checked)} />
-              <MapPin size={13} /> 현재 위치 함께 기록 (대표만 봄)
+              현재 위치 함께 기록 (대표만 봄)
             </label>
             <span className="grow" />
             <Button onClick={submit} disabled={busy || locating}>
@@ -405,7 +402,6 @@ export function OfficeNetworkPanel() {
   return (
     <div className="office-net">
       <div className="row wrap">
-        <Wifi size={15} />
         <span className="t-smallb grow">회사 인터넷 · 회사 PC</span>
         <span className="t-cap">지금 내 IP {data.access?.ip ?? '확인 불가'}</span>
       </div>

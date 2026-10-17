@@ -27,8 +27,7 @@ export function AssignTaskButton({ assignee, label, className = 'icon-btn', titl
   return (
     <>
       <button type="button" className={className} onClick={() => setOpen(true)} title={title ?? '업무 지시'} aria-label={title ?? '업무 지시'}>
-        <Send size={13} />
-        {label && <span>{label}</span>}
+        {label ? <span>{label}</span> : <Send size={13} />}
       </button>
       {open && <AssignTaskModal assignee={assignee} onClose={() => setOpen(false)} />}
     </>

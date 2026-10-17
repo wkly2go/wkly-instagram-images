@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState, type ReactNode } from 'react'
-import { ArrowLeft, FileText, Pencil, Plus, Search, Trash2, Upload } from 'lucide-react'
+import { ArrowLeft, FileText, Pencil, Plus, Search, Trash2 } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { parseCsv } from '../lib/csv'
 import { relativeLabel, shortDate, toDateKey } from '../lib/date'
@@ -130,7 +130,7 @@ function Research({ tabs }: { tabs: ReactNode }) {
               모든 종류
             </Chip>
             <Chip active={kind === REPORT_KIND} onClick={() => go({ kind: kind === REPORT_KIND ? null : REPORT_KIND })}>
-              📑 거래처 리포트 {data.items.filter(r => r.kind === REPORT_KIND).length || ''}
+              거래처 리포트 {data.items.filter(r => r.kind === REPORT_KIND).length || ''}
             </Chip>
           </div>
         </div>
@@ -586,10 +586,10 @@ function Contacts({ tabs }: { tabs: ReactNode }) {
         <span className="grow" />
         <input ref={fileRef} type="file" accept=".csv,text/csv" hidden onChange={e => e.target.files?.[0] && importCsv(e.target.files[0]).finally(() => (e.target.value = ''))} />
         <Button kind="outline" onClick={() => fileRef.current?.click()} title="열: 브랜드, 담당자, 직함, 이메일, 전화, 출처, URL, 메모 (같은 이메일은 합침)">
-          <Upload size={13} /> CSV 가져오기
+          CSV 가져오기
         </Button>
         <Button onClick={() => setEditing('new')}>
-          <Plus size={13} /> 담당자
+          담당자
         </Button>
       </div>
       <div className="row wrap">
@@ -847,7 +847,7 @@ function Templates({ tabs }: { tabs: ReactNode }) {
         {tabs}
         <span className="grow" />
         <Button onClick={() => setCur({ name: '', subject: '', body: '', is_ad: true })}>
-          <Plus size={13} /> 템플릿
+          템플릿
         </Button>
       </div>
       <div className="note">

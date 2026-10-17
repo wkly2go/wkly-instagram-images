@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ChevronLeft, ChevronRight, Download, Plus, Search } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Search } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { toCsv, downloadText } from '../lib/csv'
 import { addDays, dateLabel, manwon, shortDate, todayKey } from '../lib/date'
@@ -186,10 +186,10 @@ function Register({ data, projects, clients }: { data: PayData; projects: Projec
         </div>
         <span className="grow" />
         <Button kind="outline" size="sm" onClick={exportCsv} disabled={!rows.length}>
-          <Download size={12} /> CSV
+          CSV
         </Button>
         <Button size="sm" onClick={() => setForm('new')}>
-          <Plus size={12} /> 결제 추가
+          결제 추가
         </Button>
       </div>
       <div className="note">
@@ -473,7 +473,7 @@ function Labor({ data, projects }: { data: PayData; projects: Project[] }) {
             <span className="t-bodyb">{month.replace('-', '.')} 노무비 명세</span>
             <span className="cap">{rows.length}건 · {rows.reduce((n, p) => n + p.amount, 0).toLocaleString('ko-KR')}원</span>
             <Button kind="outline" size="sm" onClick={exportCsv} disabled={!rows.length}>
-              <Download size={12} /> 세무사용 CSV
+              세무사용 CSV
             </Button>
           </div>
           {(unpaid.length > 0 || noType.length > 0 || otherHolder.length > 0) && (
@@ -641,7 +641,7 @@ function Run({ data, projects }: { data: PayData; projects: Project[] }) {
       <div className="row wrap">
         <span className="t-cap grow">은행 대량이체 양식과 열 순서가 다르면 CSV를 열어 맞춰 붙여 넣으세요. 계좌번호는 관리자 화면에만 보입니다.</span>
         <Button kind="outline" onClick={exportCsv} disabled={!ready.length}>
-          <Download size={13} /> 이체용 CSV
+          이체용 CSV
         </Button>
         <Button
           disabled={busy || !count}

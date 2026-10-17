@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ArrowLeft, Plus } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { dateLabel, dateTimeLabel, minutesLabel, relativeLabel, timeLabel, toDateKey, todayKey, won } from '../lib/date'
 import { openGmail } from '../lib/links'
@@ -129,7 +129,7 @@ export default function Approvals() {
           </Chip>
         )}
         <Button onClick={() => setCreating(true)}>
-          <Plus size={14} /> 승인 요청
+          승인 요청
         </Button>
       </div>
       <div className="chips">

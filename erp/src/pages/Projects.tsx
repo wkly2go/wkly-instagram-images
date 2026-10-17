@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react'
-import { AlarmClock, ArrowLeft, ChevronLeft, ChevronRight, Folder, MessageCircle, Pencil, Plus, Send, Trash2 } from 'lucide-react'
+import { AlarmClock, ArrowLeft, ChevronLeft, ChevronRight, Folder, Pencil, Trash2 } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { addMonths, dateLabel, monthGrid, shortDate, timeLabel, toDateKey, todayKey, weekRange, weekday } from '../lib/date'
 import { Link, useRouter, withQuery } from '../lib/router'
 import { PROJECT_CATEGORIES, PROJECT_STATUSES, type ChatRoomSummary, type Client, type Project, type ProjectStatus, type Task, type TaskStatus, type WorkLog } from '../lib/types'
 import { Shell } from '../components/Shell'
-import { Avatar, Badge, Button, Chip, Empty, Field, KindBadge, Modal, SectionHead, StatusBadge } from '../components/ui'
+import { Badge, Button, Chip, Empty, Field, KindBadge, Modal, SectionHead, StatusBadge } from '../components/ui'
 import { NewApproval } from './Approvals'
 import { FinancePanel } from '../components/FinancePanel'
 import { ProjectDashboard } from './ProjectDashboard'
@@ -75,12 +75,12 @@ export default function Projects() {
         {!view && admin && <span className="t-cap">{todayKey().slice(0, 4)}년 · 공급가액(VAT 별도)</span>}
         {view !== 'payments' && view !== 'schedule' && (
           <Button kind="outline" onClick={() => setAssigning(true)}>
-            <Send size={13} /> 업무 지시
+            업무 지시
           </Button>
         )}
         {view !== 'payments' && (
           <Button onClick={() => setEditing('new')}>
-            <Plus size={14} /> 프로젝트
+            프로젝트
           </Button>
         )}
       </div>
@@ -145,7 +145,7 @@ function ProjectRow({ p, data }: { p: Project; data: Data }) {
         <span className="t-meta">{p.start_date || p.end_date ? `${shortDate(p.start_date)} – ${shortDate(p.end_date)}` : ''}</span>
         <span className="t-cap">{tasks.length ? `할 일 ${done}/${tasks.length}` : ''}</span>
       </span>
-      {p.owner_id && <Avatar name={profileName(p.owner_id)} size="xs" />}
+      {p.owner_id && <span className="t-cap nowrap">{profileName(p.owner_id)}</span>}
       <StatusBadge status={p.status} />
     </Link>
   )
@@ -389,7 +389,7 @@ function TaskRow({ t, late, projectName, assignee, onStatus, onDelete, onAlarm, 
         />
       ) : t.remind_at && t.status !== '완료' ? (
         <button type="button" className={`badge ${pending ? 'paper' : 'outline'}`} style={{ cursor: onAlarm ? 'pointer' : 'default', gap: 4 }} onClick={() => onAlarm && setEditAlarm(true)} title={pending ? '알람 예정 (눌러서 변경)' : '알람 울림'}>
-          <AlarmClock size={11} /> {alarmLabel(t.remind_at)}
+          {alarmLabel(t.remind_at)}
         </button>
       ) : (
         onAlarm &&
@@ -403,7 +403,7 @@ function TaskRow({ t, late, projectName, assignee, onStatus, onDelete, onAlarm, 
       <button type="button" style={{ border: 0, background: 'none', padding: 0, cursor: 'pointer' }} onClick={onStatus} title="상태 변경">
         <StatusBadge status={late ? '지연' : t.status} />
       </button>
-      {t.assignee_id && <Avatar name={assignee} size="xs" />}
+      {t.assignee_id && <span className="t-cap nowrap">{assignee}</span>}
       {onEdit && (
         <button type="button" className="icon-btn sm" onClick={onEdit} aria-label={`${t.title} 고치기`} title="고치기 (제목 · 담당 · 날짜 · 메모)">
           <Pencil size={13} />
@@ -456,13 +456,13 @@ function ProjectDetail({ project: p, data, onEdit, onBack }: { project: Project;
         <Badge>{p.category}</Badge>
         <span className="grow" />
         <Button kind="outline" size="sm" onClick={openRoom} disabled={busy}>
-          <MessageCircle size={13} /> {extra.room ? '채팅방' : '채팅방 만들기'}
+          {extra.room ? '채팅방' : '채팅방 만들기'}
         </Button>
         <Button kind="outline" size="sm" onClick={() => setApproving(true)}>
           승인 요청
         </Button>
         <Button kind="yellow" size="sm" onClick={onEdit}>
-          <Pencil size={13} /> 수정
+          수정
         </Button>
         {me.role === 'admin' && (
           <Button

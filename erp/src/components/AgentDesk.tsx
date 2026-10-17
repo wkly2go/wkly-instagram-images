@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Bot, MessageCircle, Send } from 'lucide-react'
+import { Bot } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { relativeLabel } from '../lib/date'
 import { useRouter } from '../lib/router'
@@ -36,7 +36,7 @@ export function AgentDesk() {
           <span className="row gap-6">
             <span className="t-cap">바로 처리 · 메일 확인은 평일 08:24</span>
             <Button kind="outline" size="sm" onClick={() => navigate(`/chat?dm=${target}`)}>
-              <MessageCircle size={13} /> 1:1 대화
+              1:1 대화
             </Button>
           </span>
         } />
@@ -65,7 +65,7 @@ export function AgentDesk() {
             aria-label="지시 내용"
           />
           <Button onClick={send} disabled={busy || !text.trim()}>
-            <Send size={13} /> 지시
+            지시
           </Button>
         </div>
         {recent.map(i => (
