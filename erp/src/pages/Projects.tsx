@@ -555,7 +555,7 @@ export function ProjectForm({ project, clients, onClose, onSaved }: { project: P
     >
       <div className="form-grid">
         {project && (
-          <Field label="연번 (관리자만 변경 · 드라이브 폴더 이름 규칙 TW연도순번)">
+          <Field label="연번 (관리자만 변경 · 드라이브 폴더 규칙 AR+시작 연월, 관리 폴더는 AR0000)">
             <input className="input" value={f.code ?? ''} onChange={e => set({ code: e.target.value.trim().toUpperCase() || null })} disabled={me.role !== 'admin'} maxLength={12} />
           </Field>
         )}

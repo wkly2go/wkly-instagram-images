@@ -223,7 +223,7 @@ export type ProjectStatus = (typeof PROJECT_STATUSES)[number]
 
 export interface Project {
   id: string
-  /** 연번 TWyyNN (드라이브 폴더 이름 규칙, 0030+) */
+  /** 연번 AR+시작 연월 (드라이브 ARTERIOR 폴더 규칙 · 관리 폴더 AR0000 · 중복 가능, 0030+) */
   code?: string | null
   name: string
   client_id: string | null
@@ -729,6 +729,23 @@ export interface AdCreative {
   clicks: number | null
   cost: number | null
   note: string | null
+  updated_at: string
+}
+export const SEO_KINDS = ['SEO', 'AEO', 'GEO'] as const
+export type SeoKind = (typeof SEO_KINDS)[number]
+export const SEO_STATUSES = ['양호', '주의', '미흡', '미측정'] as const
+export type SeoStatus = (typeof SEO_STATUSES)[number]
+/** 검색 노출 점검 항목 측정값 (0031) */
+export interface SeoCheck {
+  checked_on: string
+  kind: SeoKind
+  item: string
+  score: number | null
+  status: SeoStatus
+  value: string | null
+  target: string | null
+  note: string | null
+  source: string | null
   updated_at: string
 }
 export const AD_REPORT_KINDS = ['일일 보고', '경쟁사 분석', '해외 사례'] as const
