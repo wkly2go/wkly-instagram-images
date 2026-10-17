@@ -33,7 +33,7 @@ const SITE_GROUPS: Record<SiteGroup, { label: string; sites: Site[] }> = {
   },
   social: {
     label: 'SNS · 블로그',
-    sites: [site('instagram.com', '인스타그램', s => `https://www.instagram.com/explore/search/keyword/?q=${s}`), site('threads.net', '스레드', s => `https://www.threads.net/search?q=${s}`), site('linkedin.com', '링크드인', s => `https://www.linkedin.com/search/results/all/?keywords=${s}`), site('blog.naver.com', '네이버 블로그', s => `https://m.search.naver.com/search.naver?where=m_blog&query=${s}`), site('tistory.com', '티스토리'), site('brunch.co.kr', '브런치', s => `https://brunch.co.kr/search?q=${s}`), site('x.com', 'X', s => `https://x.com/search?q=${s}`)],
+    sites: [site('instagram.com', '인스타그램', s => `https://www.instagram.com/explore/search/keyword/?q=${s}`), site('threads.net', '스레드', s => `https://www.threads.net/search?q=${s}`), site('blog.naver.com', '네이버 블로그', s => `https://m.search.naver.com/search.naver?where=m_blog&query=${s}`), site('tistory.com', '티스토리'), site('brunch.co.kr', '브런치', s => `https://brunch.co.kr/search?q=${s}`), site('x.com', 'X', s => `https://x.com/search?q=${s}`)],
   },
   video: {
     label: '영상 · 숏폼',
@@ -66,7 +66,7 @@ const SITE_GROUPS: Record<SiteGroup, { label: string; sites: Site[] }> = {
 }
 /** 세 번째 줄에서 고른 사이트: 'site:' + 주소 */
 type SiteKey = `site:${string}`
-type Engine = 'google' | 'images' | 'news' | 'naver' | 'chatgpt' | 'claude' | 'gemini' | 'perplexity' | SiteGroup | SiteKey
+type Engine = 'google' | 'images' | 'naver' | 'chatgpt' | 'claude' | 'gemini' | 'perplexity' | SiteGroup | SiteKey
 const isGroup = (e: Engine): e is SiteGroup => e in SITE_GROUPS
 const isSite = (e: Engine): e is SiteKey => e.startsWith('site:')
 const siteOf = (e: SiteKey): Site | undefined => {
@@ -86,7 +86,6 @@ const groupOf = (e: Engine): SiteGroup | null => {
 const ENGINES: [Engine, string][] = [
   ['google', '구글'],
   ['images', '이미지'],
-  ['news', '뉴스'],
   ['naver', '네이버'],
   ['chatgpt', 'ChatGPT'],
   ['claude', 'Claude'],
@@ -101,7 +100,6 @@ const urlFor = (e: Engine, q: string) => {
     return st?.search ? st.search(s) : `https://www.google.com/search?q=${encodeURIComponent(`${q} site:${e.slice(5)}`)}`
   }
   if (e === 'images') return `https://www.google.com/search?tbm=isch&q=${s}`
-  if (e === 'news') return `https://www.google.com/search?tbm=nws&q=${s}`
   if (e === 'naver') return `https://m.search.naver.com/search.naver?query=${s}`
   // AI 검색: 검색어를 바로 질문으로 넘김 (Gemini 는 주소로 질문을 못 받아 앱만 열림)
   if (e === 'chatgpt') return `https://chatgpt.com/?q=${s}`
@@ -485,7 +483,7 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
       {!q ? (
         <div className="col gap-6 web-note">
           <span className="t-small">위 검색창에 검색어를 넣고 Enter 를 누르면 이 자리에 결과가 나옵니다.</span>
-          <span className="t-cap">구글 · 이미지 · 뉴스 · 네이버 · ChatGPT · Claude · Gemini · Perplexity, 그리고 팝업 · 디자인 · 트렌드 등 업무 사이트만 골라 찾을 수 있습니다.</span>
+          <span className="t-cap">구글 · 이미지 · 네이버 · ChatGPT · Claude · Gemini · Perplexity, 그리고 팝업 · 디자인 · 트렌드 등 업무 사이트만 골라 찾을 수 있습니다.</span>
         </div>
       ) : native ? (
         <>
