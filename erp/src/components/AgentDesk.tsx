@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Bot } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
-import { relativeLabel } from '../lib/date'
+import { dateLabel, timeLabel, toDateKey, todayKey } from '../lib/date'
 import { useRouter } from '../lib/router'
 import type { AgentInstruction, InstructionStatus } from '../lib/types'
 import { Badge, Button, SectionHead, type Tone } from './ui'
@@ -29,7 +29,15 @@ export function AgentDesk() {
     if (!v) return
     if (await run(() => api.instructAgent(target, v), `${profileName(target)}에게 지시했습니다. 바로 처리하고 여기에 답을 남깁니다.`)) setText('')
   }
-  const recent = list.slice(0, 6)
+  const recent = list.slice(0, 12)
+  // 일별로 묶어서 표시 (최근 날짜 먼저)
+  const byDay = recent.reduce<{ day: string; items: AgentInstruction[] }[]>((acc, i) => {
+    const day = toDateKey(i.created_at)
+    const g = acc[acc.length - 1]
+    if (g && g.day === day) g.items.push(i)
+    else acc.push({ day, items: [i] })
+    return acc
+  }, [])
   return (
     <section className="section" ref={ref} aria-label="AI 팀원에게 지시">
       <SectionHead title="AI 팀원에게 지시" right={
@@ -68,25 +76,30 @@ export function AgentDesk() {
             지시
           </Button>
         </div>
-        {recent.map(i => (
-          <div key={i.id} className="instr">
-            <div className="row">
-              <Badge tone={TONE[i.status]}>{i.status}</Badge>
-              <span className="t-smallb grow">{i.instruction}</span>
-              <span className="t-cap nowrap">
-                {profileName(i.created_by)} · {relativeLabel(i.created_at)}
-              </span>
-              {(i.status === '대기' && (i.created_by === me.id || me.role === 'admin')) && (
-                <button type="button" className="btn btn-ghost btn-sm" onClick={() => window.confirm('이 지시를 취소할까요?') && run(() => api.deleteAgentInstruction(i.id), '지시를 취소했습니다.')}>
-                  취소
-                </button>
-              )}
-            </div>
-            {i.response && (
-              <p className="instr-res pre">
-                <b>{profileName(i.agent_id)}</b> {i.response}
-              </p>
-            )}
+        {byDay.map(g => (
+          <div key={g.day} className="instr-day">
+            <span className="instr-date">{g.day === todayKey() ? `오늘 · ${dateLabel(g.day)}` : dateLabel(g.day)}</span>
+            {g.items.map(i => (
+              <div key={i.id} className="instr">
+                <div className="row">
+                  <Badge tone={TONE[i.status]}>{i.status}</Badge>
+                  <span className="t-smallb grow">{i.instruction}</span>
+                  <span className="t-cap nowrap">
+                    {profileName(i.created_by)} · {timeLabel(i.created_at)}
+                  </span>
+                  {(i.status === '대기' && (i.created_by === me.id || me.role === 'admin')) && (
+                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => window.confirm('이 지시를 취소할까요?') && run(() => api.deleteAgentInstruction(i.id), '지시를 취소했습니다.')}>
+                      취소
+                    </button>
+                  )}
+                </div>
+                {i.response && (
+                  <p className="instr-res pre">
+                    <b>{profileName(i.agent_id)}</b> {i.response}
+                  </p>
+                )}
+              </div>
+            ))}
           </div>
         ))}
         {recent.length === 0 && <span className="t-cap">아직 지시가 없습니다. 일정 정리 · 지연 업무 독촉 · 수금 현황 보고 · 리서치 등을 맡겨 보세요.</span>}
