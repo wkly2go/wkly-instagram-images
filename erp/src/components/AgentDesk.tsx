@@ -47,6 +47,9 @@ export function AgentDesk() {
       <SectionHead title="AI 팀원에게 지시" right={
           <span className="row gap-6">
             <span className="t-cap">바로 처리 · 메일 확인은 평일 08:24</span>
+            <Button kind="outline" size="sm" disabled={pastCount === 0} style={{ minWidth: 112 }} onClick={() => setShowPast(v => !v)}>
+              {showPast ? '지난 지시 접기' : `지난 지시 보기${pastCount ? ` (${pastCount})` : ''}`}
+            </Button>
             <Button kind="outline" size="sm" onClick={() => navigate(`/chat?dm=${target}`)}>
               1:1 대화
             </Button>
@@ -107,11 +110,6 @@ export function AgentDesk() {
           </div>
         ))}
         {recent.length === 0 && <span className="t-cap">{pastCount ? '오늘 지시한 내용이 없습니다.' : '아직 지시가 없습니다. 일정 정리 · 지연 업무 독촉 · 수금 현황 보고 · 리서치 등을 맡겨 보세요.'}</span>}
-        {pastCount > 0 && (
-          <button type="button" className="link-btn t-cap" style={{ alignSelf: 'flex-start' }} onClick={() => setShowPast(v => !v)}>
-            {showPast ? '지난 지시 접기' : `지난 지시 보기 (${pastCount})`}
-          </button>
-        )}
       </div>
     </section>
   )

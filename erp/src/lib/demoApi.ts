@@ -38,6 +38,7 @@ import type {
   AdCreative,
   AdReport,
   AdDaily,
+  SeoCheck,
   AgentJob,
   AgentJobRequest,
   AgentReport,
@@ -88,6 +89,7 @@ interface Store {
   rules?: AttendanceRules
   search_cx?: string | null
   ad_reports?: AdReport[]
+  seo_checks?: SeoCheck[]
   desktop_only?: boolean
   office_ips?: string[]
   devices?: AttendanceDevice[]
@@ -183,7 +185,7 @@ function seed(): Store {
   const yeouido = pj('여의도 팝업 리뷰 콘텐츠', green, '콘텐츠', '완료', U.haneul, -20, -7)
   const hannam = pj('한남 플래그십 인테리어', objet, '팝업', '진행', U.admin, -35, 120, '서울 용산구 한남동', '브랜드 플래그십 매장 설계 · 시공 (협력사 협업)')
   const projects = [objetWeek, autumn, weekly, paper, yeouido, hannam]
-  projects.forEach((p, i) => (p.code = `TW26${String(i + 1).padStart(2, '0')}`))
+  projects.forEach(p => (p.code = p.start_date ? `AR${p.start_date.slice(2, 4)}${p.start_date.slice(5, 7)}` : 'AR0000'))
 
   const plant: ResearchItem = {
     id: uid(), kind: '팝업', title: "성수 '플랜트 하우스' 팝업 오픈", summary: '식물 공방 클래스 + 굿즈 판매 체험형 팝업. 주말 예약제, 사전 예약 30분 만에 마감.',
@@ -671,9 +673,9 @@ export function createDemoApi(): Api {
     },
     async saveProject(p) {
       if (!p.id && !p.code) {
-        const yy = String(new Date().getFullYear() % 100).padStart(2, '0')
-        const n = store.projects.filter(x => x.code?.startsWith(`TW${yy}`)).length + 1
-        p = { ...p, code: `TW${yy}${String(n).padStart(2, '0')}` }
+        // 드라이브 ARTERIOR 폴더 규칙: AR + 시작 연월 (중복 가능)
+        const d = p.start_date ?? todayKey()
+        p = { ...p, code: `AR${d.slice(2, 4)}${d.slice(5, 7)}` }
       }
       if (p.start_date && p.end_date && p.end_date < p.start_date) throw new ApiError('종료일이 시작일보다 빠릅니다.')
       return upsert<'projects', Project>('projects', p, () => ({ ...base(), name: '', client_id: null, category: '팝업', status: '기획', owner_id: null, start_date: null, end_date: null, location: null, description: null }) as Project)
@@ -1202,6 +1204,31 @@ export function createDemoApi(): Api {
     async listAdReports() {
       if (!store.ad_reports) seedAdInsights()
       return clone(store.ad_reports ?? []).sort((a, b) => b.report_date.localeCompare(a.report_date))
+    },
+    async listSeoChecks() {
+      if (!store.seo_checks) {
+        const today = todayKey()
+        const last = addDays(today, -7)
+        const c = (checked_on: string, kind: SeoCheck['kind'], item: string, score: number, value: string, target: string, note: string | null = null): SeoCheck => ({
+          checked_on, kind, item, score, status: score >= 70 ? '양호' : score >= 40 ? '주의' : '미흡', value, target, note, source: '체험용 예시', updated_at: now(),
+        })
+        store.seo_checks = [
+          c(today, 'SEO', '구글 색인 페이지 수', 72, '38쪽', '50쪽 이상'),
+          c(today, 'SEO', '핵심 키워드 순위 (팝업 제작 · 전시 부스 · 공간 디자인)', 45, '평균 18위', '10위 안'),
+          c(today, 'SEO', '사이트 속도 (LCP · Core Web Vitals)', 80, '2.1초', '2.5초 이하'),
+          c(today, 'SEO', '네이버 검색 노출 (블로그 · 플레이스 · 사이트)', 55, '블로그 상위 2건', '상위 5건'),
+          c(today, 'AEO', 'FAQ 구조화 (FAQPage · HowTo 스키마)', 30, '없음', '주요 페이지 5곳'),
+          c(today, 'AEO', '구글 AI 오버뷰 · 추천 스니펫 노출', 20, '0건', '3건 이상'),
+          c(today, 'GEO', 'ChatGPT 브랜드 언급 (팝업 제작 업체 추천)', 35, '10회 중 2회', '10회 중 5회 이상'),
+          c(today, 'GEO', 'Gemini 인용', 25, '10회 중 1회', '10회 중 4회 이상'),
+          c(today, 'GEO', 'AI 크롤러 허용 (robots.txt · llms.txt)', 60, 'robots 허용 · llms.txt 없음', '둘 다 갖춤'),
+          c(last, 'SEO', '구글 색인 페이지 수', 65, '34쪽', '50쪽 이상'),
+          c(last, 'SEO', '핵심 키워드 순위 (팝업 제작 · 전시 부스 · 공간 디자인)', 40, '평균 21위', '10위 안'),
+          c(last, 'GEO', 'ChatGPT 브랜드 언급 (팝업 제작 업체 추천)', 25, '10회 중 1회', '10회 중 5회 이상'),
+        ]
+        persist()
+      }
+      return clone(store.seo_checks ?? []).sort((a, b) => b.checked_on.localeCompare(a.checked_on))
     },
     async listReportTemplates() {
       if (!store.report_templates) {

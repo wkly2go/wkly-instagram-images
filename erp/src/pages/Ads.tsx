@@ -3,11 +3,12 @@ import { ExternalLink } from 'lucide-react'
 import { useApp, useAsync } from '../lib/app'
 import { addDays, dateTimeLabel, shortDate, todayKey } from '../lib/date'
 import { useRouter, withQuery } from '../lib/router'
-import { AD_PLATFORMS, type AdCampaign, type AdCreative, type AdDaily, type AdPlatform, type AdReport, type AdReportKind } from '../lib/types'
+import { AD_PLATFORMS, type AdCampaign, type AdCreative, type AdDaily, type AdPlatform, type AdReport, type AdReportKind, type SeoCheck } from '../lib/types'
 import { Shell } from '../components/Shell'
 import { Badge, Chip, Empty, SectionHead } from '../components/ui'
 import { ReportBody } from '../components/Reports'
 import { CompareBars, DayChart, Spark, type Series } from '../components/AdCharts'
+import { SeoPanel } from '../components/SeoPanel'
 
 const P_COLOR: Record<AdPlatform, string> = { Google: 'var(--blue)', Meta: 'var(--pink)', Naver: 'var(--green)', 기타: 'var(--gray)' }
 const won = (n: number) => `${Math.round(n).toLocaleString('ko-KR')}원`
@@ -16,7 +17,7 @@ const pct = (a: number, b: number) => (b ? `${((a / b) * 100).toFixed(2)}%` : '�
 const shortNum = (n: number) => (n >= 10000 ? `${(n / 10000).toFixed(n >= 100000 ? 0 : 1)}만` : num(n))
 
 type Range = 7 | 14 | 30 | 'month'
-type Tab = 'summary' | 'platform' | 'charts' | 'daily-table' | 'creatives' | 'competitors' | 'overseas' | 'daily'
+type Tab = 'summary' | 'platform' | 'charts' | 'daily-table' | 'creatives' | 'competitors' | 'overseas' | 'daily' | 'seo'
 const TABS: [Tab, string][] = [
   ['summary', '요약'],
   ['platform', '매체별 보고서'],
@@ -26,6 +27,7 @@ const TABS: [Tab, string][] = [
   ['competitors', '경쟁사 분석'],
   ['overseas', '해외 사례'],
   ['daily', '09시 일일 보고'],
+  ['seo', '검색 노출 (SEO · AEO · GEO)'],
 ]
 
 type MetricKey = 'cost' | 'impressions' | 'clicks' | 'ctr' | 'cpc' | 'conversions'
@@ -62,11 +64,11 @@ export default function Ads() {
   const prevFrom = range === 'month' ? addDays(from, -30) : addDays(from, -range)
   const { data, loading } = useAsync(
     async () => {
-      const [rows, campaigns, creatives, reports] = await Promise.all([api.listAdDaily(prevFrom, today), api.listAdCampaigns(), api.listAdCreatives(), api.listAdReports()])
-      return { rows, campaigns, creatives, reports }
+      const [rows, campaigns, creatives, reports, seo] = await Promise.all([api.listAdDaily(prevFrom, today), api.listAdCampaigns(), api.listAdCreatives(), api.listAdReports(), api.listSeoChecks()])
+      return { rows, campaigns, creatives, reports, seo }
     },
     [prevFrom, today, version],
-    { rows: [] as AdDaily[], campaigns: [] as AdCampaign[], creatives: [] as AdCreative[], reports: [] as AdReport[] },
+    { rows: [] as AdDaily[], campaigns: [] as AdCampaign[], creatives: [] as AdCreative[], reports: [] as AdReport[], seo: [] as SeoCheck[] },
   )
   const rows = data.rows.filter(r => (!platform || r.platform === platform) && r.date >= from)
   const prev = data.rows.filter(r => (!platform || r.platform === platform) && r.date >= prevFrom && r.date < from)
@@ -134,6 +136,8 @@ export default function Ads() {
         <Creatives list={data.creatives.filter(c => c.side === '우리')} rows={data.rows} side="우리" />
       ) : tab === 'competitors' ? (
         <Analysis kind="경쟁사 분석" reports={data.reports} creatives={data.creatives.filter(c => c.side === '경쟁사')} rows={data.rows} />
+      ) : tab === 'seo' ? (
+        <SeoPanel checks={data.seo} />
       ) : tab === 'overseas' ? (
         <Analysis kind="해외 사례" reports={data.reports} creatives={data.creatives.filter(c => c.side === '해외')} rows={data.rows} />
       ) : (

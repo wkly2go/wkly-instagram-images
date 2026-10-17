@@ -39,6 +39,7 @@ import type {
   AdCreative,
   AdReport,
   AdDaily,
+  SeoCheck,
   AgentJob,
   AgentJobRequest,
   AgentReport,
@@ -451,6 +452,10 @@ export function createSupabaseApi(url: string, key: string): Api {
     async listAdReports() {
       const r = await sb.from('ad_reports').select('*').order('report_date', { ascending: false }).order('created_at', { ascending: false }).limit(300)
       return r.error ? [] : (r.data as AdReport[])
+    },
+    async listSeoChecks() {
+      const r = await sb.from('seo_checks').select('*').order('checked_on', { ascending: false }).limit(1000)
+      return r.error ? [] : (r.data as SeoCheck[])
     },
     async listReportTemplates() {
       const r = await sb.from('report_templates').select('*').order('is_default', { ascending: false }).order('updated_at', { ascending: false })

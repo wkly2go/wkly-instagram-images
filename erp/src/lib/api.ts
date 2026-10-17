@@ -32,6 +32,7 @@ import type {
   AdCreative,
   AdReport,
   AdDaily,
+  SeoCheck,
   AgentAction,
   AgentJob,
   AgentJobRequest,
@@ -241,6 +242,8 @@ export interface Api {
   listAdCampaigns(): Promise<AdCampaign[]>
   listAdCreatives(): Promise<AdCreative[]>
   listAdReports(): Promise<AdReport[]>
+  /** 검색 노출 점검 (SEO · AEO · GEO) 최근 측정값 */
+  listSeoChecks(): Promise<SeoCheck[]>
   listReportTemplates(): Promise<ReportTemplate[]>
   saveReportTemplate(t: Draft<ReportTemplate>): Promise<ReportTemplate>
   deleteReportTemplate(id: string): Promise<void>

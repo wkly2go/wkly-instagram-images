@@ -28,7 +28,7 @@ const urlFor = (e: Engine, q: string) => {
   const s = encodeURIComponent(q)
   if (e === 'images') return `https://www.google.com/search?tbm=isch&q=${s}`
   if (e === 'news') return `https://www.google.com/search?tbm=nws&q=${s}`
-  if (e === 'maps') return `https://www.google.com/maps/search/${s}`
+  if (e === 'maps') return `https://www.google.com/maps?q=${s}&output=embed` // 지도만 화면 위에 꽉 차게 (검색창 · 옆 목록 없음)
   if (e === 'naver') return `https://search.naver.com/search.naver?query=${s}`
   return `https://www.google.com/search?q=${s}`
 }
@@ -83,11 +83,13 @@ const cseReady = (cx: string) =>
 /** 검색 창 상태는 화면(탭)을 옮겨도 그대로: 모듈 전역 + 이 창(sessionStorage)에 기억 */
 type OpenState = { q: string; engine: Engine } | null
 const OPEN_KEY = 'wkly-web-open'
+/** 검색 창은 항상 오른쪽에 붙어 있음 (닫기는 내용만 비움) */
+const DOCKED: OpenState = { q: '', engine: 'google' }
 let openState: OpenState = (() => {
   try {
-    return JSON.parse(sessionStorage.getItem(OPEN_KEY) ?? 'null') as OpenState
+    return (JSON.parse(sessionStorage.getItem(OPEN_KEY) ?? 'null') as OpenState) ?? DOCKED
   } catch {
-    return null
+    return DOCKED
   }
 })()
 const openListeners = new Set<() => void>()
@@ -123,7 +125,7 @@ if (webSlot) {
 export function WebPanelHost() {
   const open = useOpenState()
   if (!open) return null
-  return <WebPanel q={open.q} engine={open.engine} onSearch={(v, e) => setOpenState({ q: v, engine: e })} onClose={() => setOpenState(null)} />
+  return <WebPanel q={open.q} engine={open.engine} onSearch={(v, e) => setOpenState({ q: v, engine: e })} onClose={() => setOpenState({ q: '', engine: open.engine })} />
 }
 
 /** 상단 검색창: Enter 를 누르면 본 화면 오른쪽에 검색 창이 열리고, 다른 탭으로 가도 그대로 남음 */
@@ -214,6 +216,13 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
   useEffect(() => {
     if (!native) return
     app!.searchZoom?.(zoom)
+    if (!q) {
+      if (nativeShowing) {
+        nativeShowing = null
+        app!.searchClose?.()
+      }
+      return
+    }
     const url = urlFor(engine, q)
     if (nativeShowing === url) app!.searchBounds?.(rectOf())
     else {
@@ -244,7 +253,7 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
       window.removeEventListener('resize', send)
       window.clearInterval(t)
       // 화면을 옮기느라 잠시 사라지는 경우는 닫지 않음 (닫기 버튼 · Esc 로 닫을 때만)
-      if (!openState) {
+      if (!openState?.q) {
         nativeShowing = null
         app!.searchClose?.()
       }
@@ -254,7 +263,7 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
   // 결과를 인트라넷 안에 (검색 ID가 있을 때) · 없으면 오른쪽에 구글 창
   useEffect(() => {
     setErr('')
-    if (native) return
+    if (native || !q) return
     if (!inline) {
       setBlocked(!openDocked(urlFor(engine, q)))
       return
@@ -277,7 +286,7 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
   }, [q, engine, inline, cx, native])
 
   useEffect(() => {
-    const k = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    const k = (e: KeyboardEvent) => e.key === 'Escape' && !document.querySelector('.scrim') && onClose()
     window.addEventListener('keydown', k)
     return () => window.removeEventListener('keydown', k)
   }, [onClose])
@@ -322,7 +331,12 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
           </button>
         ))}
       </div>
-      {native ? (
+      {!q ? (
+        <div className="col gap-6 web-note">
+          <span className="t-small">위 검색창에 검색어를 넣고 Enter 를 누르면 이 자리에 결과가 나옵니다.</span>
+          <span className="t-cap">구글 · 이미지 · 뉴스 · 지도 · 네이버, 그리고 팝업 · 디자인 · 트렌드 등 업무 사이트만 골라 찾을 수 있습니다.</span>
+        </div>
+      ) : native ? (
         <>
           <div className="web-native" ref={nativeBox} />
         </>
@@ -345,7 +359,7 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
         </div>
       )}
       {err && <span className="t-small t-red">{err}</span>}
-      {!native && recent.length > 0 && (
+      {(!native || !q) && recent.length > 0 && (
         <div className="col gap-2">
           <span className="t-cap">최근 검색</span>
           <div className="chips">
