@@ -899,3 +899,9 @@ button.kpi:hover, a.kpi:hover { border-color: var(--blue); }
 .month-bar { display: flex; height: 10px; background: var(--paper); border-radius: 4px; overflow: hidden; }
 .month-bar i { display: block; height: 100%; background: var(--blue); }
 .month-bar i.absent { background: var(--red); opacity: .6; }
+.chip-count { margin-left: 4px; padding: 0 5px; border-radius: 999px; background: var(--paper); color: var(--gray); font: 700 11px/16px var(--mono); }
+.chip-count.over { background: var(--red); color: var(--white); }
+.overdue-box { padding: 10px 12px; border: 1px solid var(--red); border-radius: var(--r-panel); background: var(--white); }
+.fail-banner { display: flex; flex-direction: column; gap: 3px; padding: 10px 14px; border: 2px solid var(--red); border-radius: var(--r-panel); background: var(--white); color: var(--red); }
+.fail-banner .t-small { color: var(--blue); }
+.install-card { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border: 1px dashed var(--blue); border-radius: var(--r-panel); background: var(--white); }

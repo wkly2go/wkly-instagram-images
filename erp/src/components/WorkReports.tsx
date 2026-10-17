@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { CheckSquare, Plus, Square } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
-import { shortDate, todayKey } from '../lib/date'
+import { addDays, shortDate, todayKey } from '../lib/date'
 import { Link } from '../lib/router'
 import type { Approval, Client, Project, Task } from '../lib/types'
 import { guessLinks, SearchPick } from './LogForm'
@@ -137,6 +137,73 @@ export function WorkTodo({ projects, clients, tasks }: { projects: Project[]; cl
               </label>
             )
           })}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+/** 지연 업무 정리: 마감 지난 할 일을 한 번에 완료 · 마감 연장 · 다른 사람에게 */
+export function OverdueCleanup() {
+  const { api, me, version, profiles, profileName } = useApp()
+  const { busy, run } = useAction()
+  const today = todayKey()
+  const admin = me.role === 'admin'
+  const [all, setAll] = useState(false)
+  const { data } = useAsync(() => api.listTasks(), [version], [] as Task[])
+  const list = data
+    .filter(t => t.status !== '완료' && t.due_date && t.due_date < today && (all ? true : t.assignee_id === me.id))
+    .sort((a, b) => (a.due_date ?? '').localeCompare(b.due_date ?? ''))
+  const people = profiles.filter(p => p.active && !p.is_agent)
+  if (!list.length && !all) return null
+  const plus = (n: number) => addDays(today, n)
+  return (
+    <div className="col gap-4 overdue-box">
+      <div className="section-h">
+        <span className="t-bodyb t-red">마감 지난 업무 정리</span>
+        <Badge tone="red">{list.length}</Badge>
+        {admin && (
+          <span className="more">
+            <label className="row t-small" style={{ gap: 4 }}>
+              <input type="checkbox" checked={all} onChange={e => setAll(e.target.checked)} /> 팀 전체
+            </label>
+          </span>
+        )}
+      </div>
+      {list.length === 0 && <Empty>마감 지난 업무가 없습니다.</Empty>}
+      {list.slice(0, 40).map(t => (
+        <div key={t.id} className="row todo-row wrap">
+          <span className="grow t-small" style={{ minWidth: 160 }}>
+            {t.title}
+            <span className="t-meta t-red"> · {shortDate(t.due_date!)}</span>
+            {all && <span className="t-meta"> · {profileName(t.assignee_id)}</span>}
+          </span>
+          <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => run(() => api.saveTask({ id: t.id, status: '완료' }), '완료했습니다.')}>
+            완료
+          </button>
+          <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => run(() => api.saveTask({ id: t.id, due_date: plus(3) }), `마감을 ${shortDate(plus(3))}로 옮겼습니다.`)}>
+            +3일
+          </button>
+          <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => run(() => api.saveTask({ id: t.id, due_date: plus(7) }), `마감을 ${shortDate(plus(7))}로 옮겼습니다.`)}>
+            +7일
+          </button>
+          <select
+            className="select"
+            style={{ width: 110 }}
+            value=""
+            disabled={busy}
+            onChange={e => e.target.value && run(() => api.saveTask({ id: t.id, assignee_id: e.target.value, due_date: plus(3) }), `${profileName(e.target.value)}님에게 넘겼습니다.`)}
+            aria-label="다른 사람에게"
+          >
+            <option value="">넘기기…</option>
+            {people
+              .filter(p => p.id !== t.assignee_id)
+              .map(p => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+          </select>
         </div>
       ))}
     </div>

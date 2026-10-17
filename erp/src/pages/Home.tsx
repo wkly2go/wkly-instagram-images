@@ -4,6 +4,7 @@ import { dateLabel, dateTimeLabel, relativeLabel, todayKey } from '../lib/date'
 import { Link, useRouter } from '../lib/router'
 import type { Approval, ChatMessage, ChatRoomSummary, Project, Task, WorkLog } from '../lib/types'
 import { CheckInCard } from '../components/CheckIn'
+import { InstallCard } from '../components/InstallCard'
 import { Shell } from '../components/Shell'
 import { AgentDesk } from '../components/AgentDesk'
 import { PushSetupCard } from '../components/PushSetup'
@@ -48,6 +49,7 @@ export default function Home() {
   return (
     <Shell active="home">
       <CheckInCard />
+      <InstallCard />
       <PushSetupCard />
       <SectionHead title="승인 대기" count={toDecide.length} right={<Link to="/approvals">전체 보기 ›</Link>} />
       {toDecide.length === 0 ? (

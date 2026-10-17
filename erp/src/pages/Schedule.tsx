@@ -43,6 +43,7 @@ export function TaskAssignModal({ task, projects, tasks, presetProject, presetAs
     memo: task?.memo ?? '',
   })
   const phases = useMemo(() => [...new Set([...PHASE_ORDER, ...tasks.map(t => t.phase).filter((p): p is string => !!p)])], [tasks])
+  const assigneeOpen = tasks.filter(t => t.assignee_id === f.assignee_id && t.status !== '완료').length
   const bad = !f.title.trim() || !f.assignee_id || (!!f.start_date && !!f.due_date && f.start_date > f.due_date)
   const people = profiles.filter(p => p.active && !p.is_agent)
   const save = async () => {
@@ -97,12 +98,18 @@ export function TaskAssignModal({ task, projects, tasks, presetProject, presetAs
         <div className="label full" role="group" aria-label="받는 사람">
           <span>받는 사람</span>
           <div className="chips">
-            {people.map(p => (
-              <Chip key={p.id} active={f.assignee_id === p.id} onClick={() => setF({ ...f, assignee_id: p.id })}>
-                {p.name}
-                {p.id === me.id ? ' (나)' : ''}
-              </Chip>
-            ))}
+            {people.map(p => {
+              const open = tasks.filter(t => t.assignee_id === p.id && t.status !== '완료').length
+              return (
+                <Chip key={p.id} active={f.assignee_id === p.id} onClick={() => setF({ ...f, assignee_id: p.id })}>
+                  {p.name}
+                  {p.id === me.id ? ' (나)' : ''}
+                  <span className={`chip-count${open > 15 ? ' over' : ''}`} title="남은 할 일">
+                    {open}
+                  </span>
+                </Chip>
+              )
+            })}
           </div>
         </div>
         <Field label="업무" className="full">
@@ -151,7 +158,8 @@ export function TaskAssignModal({ task, projects, tasks, presetProject, presetAs
         </Field>
       </div>
       {f.start_date && f.due_date && f.start_date > f.due_date && <span className="t-cap t-red">시작일이 마감일보다 늦습니다.</span>}
-      {!task && <span className="t-cap">받는 사람에게 알림이 가고, 그 사람의 '내 할 일'과 프로젝트 일정표에 바로 들어갑니다.</span>}
+      {!task && f.assignee_id && assigneeOpen > 15 && <span className="t-cap t-red">⚠ 이 사람은 남은 할 일이 {assigneeOpen}건입니다. 다른 사람에게 나누거나 마감을 넉넉히 잡아 주세요.</span>}
+      {!task && <span className="t-cap">받는 사람에게 알림이 가고, 그 사람의 '내 할 일'과 프로젝트 일정표에 바로 들어갑니다. 이름 옆 숫자는 남은 할 일입니다.</span>}
     </Modal>
   )
 }

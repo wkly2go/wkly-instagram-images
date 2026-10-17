@@ -11,7 +11,7 @@ import { FinancePanel } from '../components/FinancePanel'
 import { ProjectDashboard } from './ProjectDashboard'
 import { Payments } from './Payments'
 import { Gantt, MonthCalendar, SentTasks, TaskAssignModal, WeekView } from './Schedule'
-import { PendingReports, useWorkReports } from '../components/WorkReports'
+import { OverdueCleanup, PendingReports, useWorkReports } from '../components/WorkReports'
 
 interface Data {
   projects: Project[]
@@ -630,5 +630,10 @@ export function ProjectForm({ project, clients, onClose, onSaved }: { project: P
 /** 내 할 일 위: 승인 안 된 업무 보고 (승인될 때까지 남음) */
 function MineReports() {
   const { data } = useWorkReports()
-  return <PendingReports reports={data} />
+  return (
+    <>
+      <OverdueCleanup />
+      <PendingReports reports={data} />
+    </>
+  )
 }
