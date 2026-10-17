@@ -946,7 +946,9 @@ button.kpi:hover, a.kpi:hover { border-color: var(--blue); }
 .web-bar .web-tabs::-webkit-scrollbar { display: none; }
 .web-bar .web-tab { padding: 0 8px; flex-shrink: 0; }
 .web-bar .web-search { height: 28px; }
-.web-nav { display: inline-flex; align-items: center; gap: 0; border: 1px solid var(--blue); border-radius: 999px; background: var(--white); padding: 0 2px; height: 26px; box-sizing: border-box; flex-shrink: 0; }
+.web-nav { display: inline-flex; align-items: center; gap: 0; border: 1px solid var(--line); border-radius: 999px; background: var(--white); padding: 0 2px; height: 32px; box-sizing: border-box; flex-shrink: 0; }
+.web-nav .icon-btn.sm { width: 24px; height: 24px; color: var(--blue); }
+.web-zoom .icon-btn.sm { width: 34px; height: 28px; }
 .web-nav .icon-btn.sm, .web-bar > .icon-btn.sm { width: 22px; height: 22px; color: var(--blue); }
 .web-bar > .icon-btn.sm { border: 1px solid var(--blue); border-radius: 999px; width: 26px; height: 26px; flex-shrink: 0; }
 /* 우리 검색 종류 탭 (구글 화면의 탭 대신): 작은 알약, 켜진 것은 파랑 */
@@ -954,11 +956,11 @@ button.kpi:hover, a.kpi:hover { border-color: var(--blue); }
 .web-tab { height: 26px; box-sizing: border-box; padding: 0 10px; border: 1px solid var(--blue); border-radius: 999px; background: var(--white); color: var(--blue); font: inherit; font-size: 12px; font-weight: 700; line-height: 24px; cursor: pointer; white-space: nowrap; }
 .web-tab:hover { background: var(--paper); }
 .web-tab.on { background: var(--yellow); }
-.web-sites { display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; align-items: start; gap: 6px; padding: 6px 0; border-top: 1px dashed var(--blue); border-bottom: 1px dashed var(--blue); }
+.web-sites { display: grid; grid-template-columns: 64px minmax(0, 1fr); align-items: start; gap: 6px; padding: 6px 0; border-top: 1px dashed var(--blue); border-bottom: 1px dashed var(--blue); }
 .web-sites-label { display: inline-flex; align-items: center; height: 26px; padding: 0 8px; border-radius: 6px; background: var(--blue-tint); color: var(--blue); font: 700 11px/1 var(--mono); white-space: nowrap; }
 .web-sites .web-tab { border-color: var(--blue-tint); background: var(--paper); }
 .web-sites .web-tab.on { background: var(--yellow); border-color: var(--blue); }
-.web-zoom { display: inline-flex; align-items: center; gap: 4px; height: 26px; }
+.web-zoom { display: inline-flex; align-items: center; gap: 4px; height: 32px; }
 .web-zoom .icon-btn.sm { width: 34px; height: 24px; padding: 0; border: 1px solid var(--blue); border-radius: 999px; color: var(--blue); font: 700 11px/1 var(--font); white-space: nowrap; }
 .web-zoom .icon-btn.sm:hover { background: var(--yellow); }
 .web-panel { padding: 8px 10px; gap: 6px; font-size: 11px; }
