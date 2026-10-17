@@ -66,7 +66,7 @@ const SITE_GROUPS: Record<SiteGroup, { label: string; sites: Site[] }> = {
 }
 /** 세 번째 줄에서 고른 사이트: 'site:' + 주소 */
 type SiteKey = `site:${string}`
-type Engine = 'google' | 'images' | 'naver' | 'chatgpt' | 'claude' | 'gemini' | 'perplexity' | SiteGroup | SiteKey
+type Engine = 'google' | 'images' | 'naver' | 'chatgpt' | 'perplexity' | SiteGroup | SiteKey
 const isGroup = (e: Engine): e is SiteGroup => e in SITE_GROUPS
 const isSite = (e: Engine): e is SiteKey => e.startsWith('site:')
 const siteOf = (e: SiteKey): Site | undefined => {
@@ -88,8 +88,6 @@ const ENGINES: [Engine, string][] = [
   ['images', '이미지'],
   ['naver', '네이버'],
   ['chatgpt', 'ChatGPT'],
-  ['claude', 'Claude'],
-  ['gemini', 'Gemini'],
   ['perplexity', 'Perplexity'],
 ]
 const urlFor = (e: Engine, q: string) => {
@@ -101,10 +99,8 @@ const urlFor = (e: Engine, q: string) => {
   }
   if (e === 'images') return `https://www.google.com/search?tbm=isch&q=${s}`
   if (e === 'naver') return `https://m.search.naver.com/search.naver?query=${s}`
-  // AI 검색: 검색어를 바로 질문으로 넘김 (Gemini 는 주소로 질문을 못 받아 앱만 열림)
+  // AI 검색: 검색어를 바로 질문으로 넘김
   if (e === 'chatgpt') return `https://chatgpt.com/?q=${s}`
-  if (e === 'claude') return `https://claude.ai/new?q=${s}`
-  if (e === 'gemini') return `https://gemini.google.com/app`
   if (e === 'perplexity') return `https://www.perplexity.ai/search?q=${s}`
   return `https://www.google.com/search?q=${s}`
 }
@@ -500,7 +496,7 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
       {!q ? (
         <div className="col gap-6 web-note">
           <span className="t-small">위 검색창에 검색어를 넣고 Enter 를 누르면 이 자리에 결과가 나옵니다.</span>
-          <span className="t-cap">구글 · 이미지 · 네이버 · ChatGPT · Claude · Gemini · Perplexity, 그리고 팝업 · 디자인 · 트렌드 등 업무 사이트만 골라 찾을 수 있습니다.</span>
+          <span className="t-cap">구글 · 이미지 · 네이버 · ChatGPT · Perplexity, 그리고 팝업 · 디자인 · 트렌드 등 업무 사이트만 골라 찾을 수 있습니다.</span>
         </div>
       ) : native ? (
         <>
