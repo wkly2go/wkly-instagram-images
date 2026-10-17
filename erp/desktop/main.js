@@ -355,11 +355,41 @@ const HIDE_GOOGLE_CSS = `
   body { padding-top: 4px !important; }
 `
 const NAVER_CSS = `#header, #snb, #footer, .api_subject_bx_header { display: none !important; } #container { padding-top: 4px !important; }`
+// 아이디가 바뀌어도 되도록: 결과 목록(#search · #rso · #main_pack 등) 위에 있는 요소를 모두 숨기고, 위에 붙은 고정 머리글도 숨김
+const TRIM_JS = `(() => {
+  const pick = s => document.querySelector(s)
+  const res = pick('#search') || pick('#rso') || pick('#center_col') || pick('#main_pack') || pick('#main') || pick('#container')
+  const hide = el => { if (el && el.style) el.style.setProperty('display', 'none', 'important') }
+  const run = () => {
+    if (res) {
+      let node = res
+      while (node && node !== document.body) {
+        let sib = node.previousElementSibling
+        while (sib) { hide(sib); sib = sib.previousElementSibling }
+        node = node.parentElement
+      }
+    }
+    for (const el of document.querySelectorAll('header, [role="banner"], form[role="search"], #searchform, #gb, #hdtb, #top_nav, #appbar')) hide(el)
+    for (const el of document.body.querySelectorAll('div, nav, header')) {
+      const cs = getComputedStyle(el)
+      if ((cs.position === 'fixed' || cs.position === 'sticky') && el.getBoundingClientRect().top < 60 && el.getBoundingClientRect().height < 220 && !el.contains(res)) hide(el)
+    }
+    document.body.style.paddingTop = '4px'
+  }
+  run()
+  if (!window.__wklyTrim) {
+    window.__wklyTrim = new MutationObserver(() => run())
+    window.__wklyTrim.observe(document.body, { childList: true, subtree: true })
+    setTimeout(() => window.__wklyTrim && window.__wklyTrim.disconnect(), 8000)
+  }
+})()`
 function trimSearchChrome(wc) {
   const u = wc.getURL()
   try {
     if (/^https:\/\/(www\.)?google\./.test(u)) wc.insertCSS(HIDE_GOOGLE_CSS)
     else if (/^https:\/\/search\.naver\.com/.test(u)) wc.insertCSS(NAVER_CSS)
+    else return
+    wc.executeJavaScript(TRIM_JS, true).catch(() => undefined)
   } catch {
     /* 페이지가 이미 바뀜 */
   }
@@ -411,6 +441,7 @@ function setupSearchView() {
       }
       wc.on('did-finish-load', fit)
       wc.on('dom-ready', () => trimSearchChrome(wc))
+      wc.on('did-navigate-in-page', () => trimSearchChrome(wc))
       wc.on('did-navigate-in-page', fit)
       wc.setWindowOpenHandler(({ url: u }) => {
         if (ALLOWED.test(u)) wc.loadURL(u)
