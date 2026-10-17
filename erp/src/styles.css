@@ -938,3 +938,8 @@ html.web-open .mini { width: calc(1180px + min(var(--web-w, 420px), 60vw) + 10px
 .notif-kind { min-width: 44px; padding-top: 2px; }
 /* 노트북 화면: 검색 창이 열려 있는 동안 왼쪽 프로필 칸을 접어 본 화면 폭 확보 */
 @media (min-width: 900px) and (max-width: 1499px) { html.web-open .body > .profile { display: none; } }
+/* 검색 창 위쪽: 한 줄 도구 막대 (검색어 · 종류 · 뒤로/앞으로 · 브라우저 · 닫기) */
+.web-bar { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.web-bar .web-search { height: 30px; }
+.web-engine { height: 30px; padding: 0 6px; border: 1px solid var(--line); border-radius: 999px; background: var(--white); color: var(--blue); font: inherit; font-size: 12px; max-width: 120px; cursor: pointer; }
+.web-panel { padding: 8px 10px; gap: 8px; font-size: 13px; }
