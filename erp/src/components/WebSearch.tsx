@@ -4,7 +4,7 @@ import { ChevronLeft, ChevronRight, ExternalLink, Search, X } from 'lucide-react
 import { useAction, useApp, useAsync } from '../lib/app'
 import { desktop } from '../lib/desktop'
 
-type SiteGroup = 'popup' | 'design' | 'trend' | 'press' | 'social' | 'video' | 'shop' | 'estate' | 'expo' | 'gov' | 'bid' | 'hire'
+type SiteGroup = 'popup' | 'design' | 'trend' | 'press' | 'social' | 'video' | 'shop' | 'estate' | 'expo' | 'gov' | 'bid'
 /** 사이트 하나: 주소 · 이름 · (있으면) 그 사이트 자체 검색 주소 */
 interface Site {
   host: string
@@ -71,10 +71,6 @@ const SITE_GROUPS: Record<SiteGroup, { label: string; sites: Site[] }> = {
   bid: {
     label: '입찰 · 공공',
     sites: [site('g2b.go.kr', '나라장터'), site('lh.or.kr', 'LH'), site('sh.co.kr', 'SH'), site('ebid.seoul.go.kr', '서울 전자입찰'), site('kintex.com', '킨텍스'), site('coex.co.kr', '코엑스')],
-  },
-  hire: {
-    label: '구인 · 외주',
-    sites: [site('saramin.co.kr', '사람인', s => `https://www.saramin.co.kr/zf_user/search?searchword=${s}`), site('jobkorea.co.kr', '잡코리아', s => `https://www.jobkorea.co.kr/Search/?stext=${s}`), site('wanted.co.kr', '원티드', s => `https://www.wanted.co.kr/search?query=${s}`), site('kmong.com', '크몽', s => `https://kmong.com/search?keyword=${s}`), site('soomgo.com', '숨고'), site('loud.kr', '라우드소싱')],
   },
 }
 /** 세 번째 줄에서 고른 사이트: 'site:' + 주소 */
