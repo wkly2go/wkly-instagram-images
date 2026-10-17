@@ -398,6 +398,7 @@ const TRIM_JS = `(() => {
 function trimSearchChrome(wc) {
   const u = wc.getURL()
   try {
+    wc.insertCSS(FIT_CSS)
     if (/^https:\/\/(www\.)?google\.[a-z.]+\/maps/.test(u) || /^https:\/\/(m\.)?map\.naver\.com/.test(u)) return // 지도는 그대로
     if (/^https:\/\/(www\.)?google\./.test(u)) wc.insertCSS(HIDE_GOOGLE_CSS)
     else if (/^https:\/\/(search|m\.search)\.naver\.com/.test(u)) wc.insertCSS(NAVER_CSS)
@@ -407,10 +408,17 @@ function trimSearchChrome(wc) {
     /* 페이지가 이미 바뀜 */
   }
 }
-function chromeUserAgent(ua) {
-  const platform = (ua.match(/\(([^)]+)\)/) || [])[1] || 'Windows NT 10.0; Win64; x64'
-  return `Mozilla/5.0 (${platform}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${process.versions.chrome} Safari/537.36`
+// 검색 칸은 좁은 세로 창이므로 '휴대폰 크롬'으로 알려 모든 사이트가 반응형(모바일) 화면을 보내게 함
+function chromeUserAgent() {
+  return `Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${process.versions.chrome} Mobile Safari/537.36`
 }
+// 모든 사이트 공통: 가로 넘침 금지 · 이미지 · 영상 · 표가 창 폭을 넘지 않게
+const FIT_CSS = `
+  html, body { overflow-x: hidden !important; max-width: 100vw !important; min-width: 0 !important; }
+  img, video, iframe, svg, canvas { max-width: 100% !important; height: auto; }
+  table { max-width: 100% !important; }
+  pre { white-space: pre-wrap !important; word-break: break-word !important; }
+`
 
 function placeSearch(rect) {
   if (!searchView || !rect) return
@@ -449,7 +457,7 @@ function setupSearchView() {
       owner.contentView.addChildView(searchView)
       const wc = searchView.webContents
       // 구글 로그인이 막히지 않도록 일반 크롬과 같은 브라우저 정보로 접속 (로그인은 이 PC에 계속 유지됨)
-      wc.setUserAgent(chromeUserAgent(wc.getUserAgent()))
+      wc.setUserAgent(chromeUserAgent())
       // 인트라넷 글자 크기와 맞추기 (사이트를 옮겨 다녀도 같은 배율)
       const fit = () => {
         wc.setZoomFactor(searchZoom)
