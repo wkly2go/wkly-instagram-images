@@ -1,6 +1,8 @@
 import type { AccessSource } from './desktop'
 import type {
+  AccessInfo,
   AccessLog,
+  AttendanceDevice,
   AttendanceCheckin,
   AttendanceMonthRow,
   AttendanceRules,
@@ -271,6 +273,15 @@ export interface Api {
   getAttendanceRules(): Promise<AttendanceRules>
   setAttendanceRule(key: 'work_start' | 'plan_deadline', value: string): Promise<void>
   attendanceMonthSummary(month: string): Promise<AttendanceMonthRow[]>
+  /** 지금 내 IP · 회사 인터넷 여부 · (관리자) 회사 IP 목록 */
+  getAccessInfo(): Promise<AccessInfo>
+  /** 회사 공인 IP (IP 또는 CIDR). 빈 목록이면 IP 제한 없음 */
+  setOfficeIps(ips: string[]): Promise<void>
+  /** 최근 14일 PC 프로그램 접속 IP (회사 IP 등록 도우미 · 관리자) */
+  listRecentDesktopIps(): Promise<{ ip: string; users: number; days: number; last: string }[]>
+  listAttendanceDevices(): Promise<AttendanceDevice[]>
+  /** 등록된 회사 PC 초기화 → 다음에 회사에서 켠 PC 가 새로 등록됨 */
+  deleteAttendanceDevice(userId: string, deviceId: string): Promise<void>
   /** 인트라넷 구글 검색: Google 프로그래머블 검색 ID (없으면 null) */
   getSearchCx(): Promise<string | null>
   setSearchCx(cx: string | null): Promise<void>
@@ -286,6 +297,19 @@ export interface Api {
   listAgentInstructions(): Promise<AgentInstruction[]>
   instructAgent(agentId: string, instruction: string): Promise<void>
   deleteAgentInstruction(id: string): Promise<void>
+}
+
+/** PC 프로그램 접속 기록 → IP 별 사람 수 · 날 수 (회사 IP 찾기) */
+export function groupIps(rows: { user_id: string; day: string; ip: string; last_at: string }[]) {
+  const m = new Map<string, { users: Set<string>; days: Set<string>; last: string }>()
+  for (const r of rows) {
+    const g = m.get(r.ip) ?? { users: new Set<string>(), days: new Set<string>(), last: r.last_at }
+    g.users.add(r.user_id)
+    g.days.add(r.day)
+    if (r.last_at > g.last) g.last = r.last_at
+    m.set(r.ip, g)
+  }
+  return [...m].map(([ip, g]) => ({ ip, users: g.users.size, days: g.days.size, last: g.last })).sort((a, b) => b.users - a.users || b.days - a.days)
 }
 
 export class ApiError extends Error {}

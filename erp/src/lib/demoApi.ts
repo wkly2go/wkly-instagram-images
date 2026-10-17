@@ -1,7 +1,9 @@
-import { ApiError, type Api, type ImportResult, type MessageEvent } from './api'
+import { desktop } from './desktop'
+import { ApiError, groupIps, type Api, type ImportResult, type MessageEvent } from './api'
 import { addDays, nextMonday, toDateKey, todayKey } from './date'
 import { DEFAULT_REPORT_BODY } from './reports'
 import type {
+  AttendanceDevice,
   AccessLog,
   AttendanceCheckin,
   AttendanceRules,
@@ -83,6 +85,8 @@ interface Store {
   search_cx?: string | null
   ad_reports?: AdReport[]
   desktop_only?: boolean
+  office_ips?: string[]
+  devices?: AttendanceDevice[]
   hr_records?: HrRecord[]
   leave_records?: LeaveRecord[]
   agent_instructions?: AgentInstruction[]
@@ -106,6 +110,17 @@ function at(dayOffset: number, time: string): string {
   return new Date(`${addDays(todayKey(), dayOffset)}T${time}:00+09:00`).toISOString()
 }
 /** 지금부터 n분 뒤 */
+/** 체험판에서는 접속 IP 를 이 값으로 흉내냄 */
+const DEMO_IP = '203.0.113.10'
+const IP_RE = /^(\d{1,3}\.){3}\d{1,3}(\/\d{1,2})?$|^[0-9a-fA-F:]+(\/\d{1,3})?$/
+function ipInCidr(ip: string, cidr: string) {
+  const [base, bits] = cidr.split('/')
+  if (!bits) return ip === base
+  const n = (x: string) => x.split('.').reduce((a, b) => a * 256 + Number(b), 0)
+  const mask = Number(bits)
+  if (!ip.includes('.') || !base.includes('.')) return ip === base
+  return Math.floor(n(ip) / 2 ** (32 - mask)) === Math.floor(n(base) / 2 ** (32 - mask))
+}
 const inMinutes = (n: number) => new Date(Date.now() + n * 60_000).toISOString()
 
 const U = {
@@ -420,6 +435,7 @@ export function createDemoApi(): Api {
     }
   }
   persist()
+  const officeOk = (ip: string) => !(store.office_ips ?? []).length || (store.office_ips ?? []).some(x => ipInCidr(ip, x))
 
   let me: string | null = null
   try {
@@ -1204,10 +1220,15 @@ export function createDemoApi(): Api {
       const self = requireMe()
       const day = todayKey()
       const logs = (store.access_log ??= [])
-      const log = logs.find(a => a.user_id === self && a.day === day && a.source === source)
-      if (!log) logs.push({ user_id: self, day, source, first_at: now(), last_at: now() })
+      let log = logs.find(a => a.user_id === self && a.day === day && a.source === source)
+      if (!log) logs.push((log = { user_id: self, day, source, first_at: now(), last_at: now() }))
       else log.last_at = now()
-      if (store.desktop_only && source !== 'desktop') {
+      log.ip = DEMO_IP
+      const dev = source === 'desktop' ? desktop()?.deviceId : undefined
+      const mine = (store.devices ??= []).filter(d => d.user_id === self)
+      if (dev && officeOk(DEMO_IP) && !mine.length) store.devices.push({ user_id: self, device_id: dev, label: '처음 출근한 회사 PC', created_at: now(), last_seen: now() })
+      const deviceOk = !dev || !mine.length || mine.some(d => d.device_id === dev)
+      if ((store.desktop_only && source !== 'desktop') || !officeOk(DEMO_IP) || !deviceOk) {
         persist()
         emit('access_log')
         return
@@ -1397,12 +1418,13 @@ export function createDemoApi(): Api {
       const had = list.find(x => x.user_id === self && x.day === day)
       if (had) return { status: had.status, already: true }
       const plan = (store.work_plans ?? []).find(p => p.user_id === self && p.day === day && p.status === '승인')
-      const status = plan ? '승인' : '대기'
-      list.push({ id: uid(), user_id: self, day, at: now(), kind: c.kind, plan_id: plan?.id ?? null, status, lat: c.lat ?? null, lng: c.lng ?? null, accuracy_m: c.accuracy == null ? null : Math.round(c.accuracy), note: c.note || null, decided_by: null, decided_at: plan ? now() : null })
+      if (!plan) throw new ApiError('오늘 승인된 외근 · 재택 신청이 없습니다. 신청 후 승인되면 출근 체크할 수 있습니다.')
+      const status = '승인' as const
+      list.push({ id: uid(), user_id: self, day, at: now(), kind: plan.kind, plan_id: plan?.id ?? null, status, lat: c.lat ?? null, lng: c.lng ?? null, accuracy_m: c.accuracy == null ? null : Math.round(c.accuracy), note: c.note || null, decided_by: null, decided_at: plan ? now() : null })
       const att = (store.attendance ??= [])
       if (!att.some(a => a.user_id === self && a.day === day)) att.push({ user_id: self, day, first_at: now(), last_at: now() })
       const me = store.profiles.find(p => p.id === self)
-      if (me) me.today_status = c.kind === '재택' ? '재택' : c.kind === '출근' ? '출근' : '외근'
+      if (me) me.today_status = plan.kind === '재택' ? '재택' : '외근'
       persist()
       emit('attendance')
       emit('profiles')
@@ -1427,6 +1449,31 @@ export function createDemoApi(): Api {
       else r.planDeadline = value
       persist()
       emit('app_settings')
+    },
+    async getAccessInfo() {
+      const list = store.office_ips ?? []
+      return { ip: DEMO_IP, office: officeOk(DEMO_IP), officeIps: isAdmin() ? clone(list) : null, configured: list.length > 0 }
+    },
+    async setOfficeIps(ips) {
+      requireAdmin()
+      for (const x of ips) if (!IP_RE.test(x)) throw new ApiError(`IP 형식이 올바르지 않습니다: ${x}`)
+      store.office_ips = [...new Set(ips)]
+      persist()
+      emit('app_settings')
+    },
+    async listRecentDesktopIps() {
+      requireAdmin()
+      return groupIps((store.access_log ?? []).filter(a => a.source === 'desktop' && a.ip).map(a => ({ user_id: a.user_id, day: a.day, ip: a.ip!, last_at: a.last_at })))
+    },
+    async listAttendanceDevices() {
+      const self = requireMe()
+      return clone((store.devices ?? []).filter(d => isAdmin() || d.user_id === self))
+    },
+    async deleteAttendanceDevice(userId, deviceId) {
+      requireAdmin()
+      store.devices = (store.devices ?? []).filter(d => !(d.user_id === userId && d.device_id === deviceId))
+      persist()
+      emit('attendance')
     },
     async getSearchCx() {
       return store.search_cx ?? null

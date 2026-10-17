@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { ArrowLeft, ChevronDown, ChevronRight, FileText, Mail, Notebook, Pencil, Phone, Plus, Search, Star, Trash2 } from 'lucide-react'
+import { ArrowLeft, Building2, ChevronDown, ChevronRight, FileText, Mail, Notebook, Pencil, Phone, Plus, Search, Star, Trash2, Users } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { manwon, shortDate, timeLabel, todayKey } from '../lib/date'
 import { isOverdue, sameName, vendorSummary } from '../lib/finance'
@@ -40,12 +40,26 @@ export default function Clients() {
   const reported = useMemo(() => new Set(extra.reports.map(r => r.client_id)), [extra.reports])
   const words = q.trim().toLowerCase().split(/\s+/).filter(Boolean)
   const list = clients.filter(c => (!cat || c.category === cat) && (!words.length || words.every(w => haystack.get(c.id)?.includes(w))))
-  const go = (id: string | null) => navigate(withQuery(path, query, { id }), { replace: true })
+  const go = (id: string | null) => navigate(withQuery(path, query, { id, view: null }), { replace: true })
+  const people = query.get('view') === 'people'
+  const setView = (v: 'people' | null) => navigate(withQuery(path, query, { view: v }), { replace: true })
 
   return (
     <Shell active="clients" flush>
-      <div className={`split ${selected ? 'has-detail' : ''}`}>
+      <div className={`split ${selected && !people ? 'has-detail' : ''}${people ? ' people-mode' : ''}`}>
         <div className="pane-list">
+          <div className="seg" role="tablist" aria-label="보기">
+            <button type="button" role="tab" aria-selected={!people} className={!people ? 'on' : ''} onClick={() => setView(null)}>
+              <Building2 size={13} /> 거래처 {clients.length}
+            </button>
+            <button type="button" role="tab" aria-selected={people} className={people ? 'on' : ''} onClick={() => setView('people')}>
+              <Users size={13} /> 연락처 {extra.contacts.length}
+            </button>
+          </div>
+          {people ? (
+            <PeopleList contacts={extra.contacts} clients={clients} onClient={go} />
+          ) : (
+          <>
           <div className="pane-head">
             <div className="row">
               <span className="t-bodyb grow">거래처 {clients.length}</span>
@@ -90,10 +104,14 @@ export default function Clients() {
             ))}
             {list.length === 0 && <Empty>{loading ? '불러오는 중…' : words.length ? '찾는 거래처가 없습니다.' : '거래처가 없습니다.'}</Empty>}
           </div>
+          </>
+          )}
         </div>
+        {!people && (
         <div className="pane-detail" style={{ overflow: 'auto' }}>
           {selected ? <ClientDetail key={selected.id} client={selected} clients={clients} onEdit={() => setEditing(selected)} onBack={() => go(null)} /> : <Empty>왼쪽에서 거래처를 고르세요.</Empty>}
         </div>
+        )}
       </div>
       {editing && <ClientForm client={editing === 'new' ? null : editing} onClose={() => setEditing(null)} onSaved={id => go(id)} />}
     </Shell>
@@ -429,10 +447,85 @@ function ClientForm({ client, onClose, onSaved }: { client: Client | null; onClo
   )
 }
 
-function ContactForm({ clientId, contact, others, onClose }: { clientId: string; contact: Contact | null; others: Contact[]; onClose: () => void }) {
+/** 거래처 담당자를 사람 기준으로 모아 보기 · 검색 (이름 · 회사 · 직함 · 전화 · 이메일 · 메모) */
+function PeopleList({ contacts, clients, onClient }: { contacts: Contact[]; clients: Client[]; onClient: (id: string) => void }) {
+  const [q, setQ] = useState('')
+  const [form, setForm] = useState<Contact | 'new' | null>(null)
+  const byId = useMemo(() => new Map(clients.map(c => [c.id, c])), [clients])
+  const words = q.trim().toLowerCase().split(/\s+/).filter(Boolean)
+  const digits = q.replace(/\D/g, '')
+  const list = contacts
+    .filter(x => {
+      if (!words.length) return true
+      const hay = [x.name, x.title, x.email, x.phone, x.memo, byId.get(x.client_id)?.name].filter(Boolean).join(' ').toLowerCase()
+      return words.every(w => hay.includes(w)) || (digits.length >= 3 && (x.phone ?? '').replace(/\D/g, '').includes(digits))
+    })
+    .sort((a, b) => a.name.localeCompare(b.name, 'ko'))
+  return (
+    <>
+      <div className="pane-head">
+        <div className="row">
+          <span className="t-bodyb grow">연락처 {list.length === contacts.length ? contacts.length : `${list.length} / ${contacts.length}`}</span>
+          <button type="button" className="icon-btn" onClick={() => setForm('new')} aria-label="연락처 추가" title="연락처 추가">
+            <Plus size={18} />
+          </button>
+        </div>
+        <div className="search">
+          <Search size={14} />
+          <input className="input" autoFocus placeholder="이름 · 회사 · 직함 · 전화번호 · 이메일 검색" value={q} onChange={e => setQ(e.target.value)} aria-label="연락처 검색" />
+        </div>
+      </div>
+      <div className="pane-body">
+        {list.map(x => {
+          const c = byId.get(x.client_id)
+          return (
+            <div key={x.id} className="item person">
+              <div className="row">
+                <Avatar name={x.name} size="sm" />
+                <button type="button" className="col gap-2 grow person-main" onClick={() => setForm(x)} title="연락처 수정">
+                  <span className="t-smallb truncate">
+                    {x.name} {x.title && <span className="t-cap">{x.title}</span>} {x.is_primary && <Badge tone="yellow">대표</Badge>}
+                  </span>
+                  <span className="t-cap truncate">{[x.phone, x.email].filter(Boolean).join(' · ') || '연락처 없음'}</span>
+                </button>
+                {x.phone && (
+                  <a className="icon-btn sm" href={telUrl(x.phone)} title="전화" aria-label={`${x.name} 전화`}>
+                    <Phone size={13} />
+                  </a>
+                )}
+                {x.email && (
+                  <button type="button" className="icon-btn sm" onClick={() => openGmail({ to: x.email })} title="메일 쓰기" aria-label={`${x.name} 메일`}>
+                    <Mail size={13} />
+                  </button>
+                )}
+              </div>
+              {c && (
+                <button type="button" className="person-co t-cap" onClick={() => onClient(c.id)}>
+                  <Building2 size={11} /> {c.name} ›
+                </button>
+              )}
+            </div>
+          )
+        })}
+        {list.length === 0 && <Empty>{words.length ? '찾는 사람이 없습니다.' : '연락처가 없습니다. + 로 추가하세요.'}</Empty>}
+      </div>
+      {form && (
+        <ContactForm
+          clientId={form === 'new' ? null : form.client_id}
+          clients={clients}
+          contact={form === 'new' ? null : form}
+          others={contacts.filter(o => o.client_id === (form === 'new' ? '' : form.client_id))}
+          onClose={() => setForm(null)}
+        />
+      )}
+    </>
+  )
+}
+
+function ContactForm({ clientId, contact, others, onClose, clients }: { clientId: string | null; contact: Contact | null; others: Contact[]; onClose: () => void; clients?: Client[] }) {
   const { api } = useApp()
   const { busy, run } = useAction()
-  const [f, setF] = useState<Partial<Contact>>(() => contact ?? { client_id: clientId, name: '', is_primary: others.length === 0 })
+  const [f, setF] = useState<Partial<Contact>>(() => contact ?? { client_id: clientId ?? undefined, name: '', is_primary: !!clientId && others.length === 0 })
   const set = (p: Partial<Contact>) => setF(prev => ({ ...prev, ...p }))
   const save = async () => {
     // 대표 담당자는 한 명만
@@ -454,13 +547,25 @@ function ContactForm({ clientId, contact, others, onClose }: { clientId: string;
           <Button kind="ghost" onClick={onClose}>
             취소
           </Button>
-          <Button disabled={busy || !f.name?.trim()} onClick={async () => (await run(save, '저장했습니다.')) && onClose()}>
+          <Button disabled={busy || !f.name?.trim() || !f.client_id} onClick={async () => (await run(save, '저장했습니다.')) && onClose()}>
             저장
           </Button>
         </>
       }
     >
       <div className="form-grid">
+        {clients && (
+          <Field label="회사 (거래처)" className="full">
+            <select className="input" value={f.client_id ?? ''} onChange={e => set({ client_id: e.target.value || undefined })}>
+              <option value="">거래처 선택</option>
+              {[...clients].sort((a, b) => a.name.localeCompare(b.name, 'ko')).map(c => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </Field>
+        )}
         <Field label="이름">
           <input className="input" autoFocus value={f.name ?? ''} onChange={e => set({ name: e.target.value })} />
         </Field>

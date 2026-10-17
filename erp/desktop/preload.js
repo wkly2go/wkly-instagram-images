@@ -6,6 +6,8 @@ if (location.origin === info.origin) {
   contextBridge.exposeInMainWorld('wklyDesktop', {
     version: info.version,
     platform: info.platform,
+    /** 이 컴퓨터의 기기 ID (회사 PC 출근 확인) */
+    deviceId: info.deviceId,
     setAuth: loggedIn => ipcRenderer.send('auth-state', !!loggedIn),
     /** 오른쪽 검색 창: 인트라넷 화면 안 지정한 칸(rect, CSS 픽셀)에 웹 페이지(구글 등)를 띄움 */
     searchOpen: (url, rect) => ipcRenderer.send('search-open', { url: String(url), rect }),

@@ -1,6 +1,8 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import { ApiError, CHAT_FILE_MAX, type Api, type ImportResult } from './api'
+import { ApiError, CHAT_FILE_MAX, groupIps, type Api, type ImportResult } from './api'
+import { desktop } from './desktop'
 import type {
+  AttendanceDevice,
   AccessLog,
   AttendanceCheckin,
   AttendanceMonthRow,
@@ -497,8 +499,11 @@ export function createSupabaseApi(url: string, key: string): Api {
     },
 
     async touchAttendance(source) {
-      const { error } = await sb.rpc('touch_attendance_v2', { p_source: source })
-      if (error) await sb.rpc('touch_attendance') // 0014 미적용
+      // 회사 인터넷 + 등록된 회사 PC 에서만 출근 (0027). PC 프로그램 1.2+ 는 기기 ID 를 함께 보냄
+      const { error } = await sb.rpc('touch_attendance_v3', { p_source: source, p_device: desktop()?.deviceId ?? null })
+      if (!error) return
+      const { error: e2 } = await sb.rpc('touch_attendance_v2', { p_source: source })
+      if (e2) await sb.rpc('touch_attendance') // 0014 미적용
     },
     async listNotes() {
       const { data, error } = await sb.from('notes').select('*').order('pinned', { ascending: false }).order('updated_at', { ascending: false })
@@ -590,6 +595,28 @@ export function createSupabaseApi(url: string, key: string): Api {
     },
     async setAttendanceRule(key, value) {
       must(await sb.rpc('set_app_setting', { p_key: key, p_value: value }))
+    },
+    async getAccessInfo() {
+      const { data, error } = await sb.rpc('my_access_info')
+      if (error || !data) return { ip: null, office: true, officeIps: null, configured: false }
+      const d = data as { ip: string | null; office: boolean; office_ips: string[] | null; configured: boolean }
+      return { ip: d.ip, office: d.office, officeIps: d.office_ips, configured: d.configured }
+    },
+    async setOfficeIps(ips) {
+      must(await sb.rpc('set_office_ips', { p_ips: ips }))
+    },
+    async listRecentDesktopIps() {
+      const from = new Date(Date.now() - 14 * 86400_000 + 9 * 3600_000).toISOString().slice(0, 10)
+      const { data, error } = await sb.from('access_log').select('user_id, day, ip, last_at').eq('source', 'desktop').gte('day', from).not('ip', 'is', null)
+      if (error) return []
+      return groupIps(data as { user_id: string; day: string; ip: string; last_at: string }[])
+    },
+    async listAttendanceDevices() {
+      const { data, error } = await sb.from('attendance_devices').select('*').order('last_seen', { ascending: false })
+      return error ? [] : (data as AttendanceDevice[])
+    },
+    async deleteAttendanceDevice(userId, deviceId) {
+      mustAffect(await sb.from('attendance_devices').delete().eq('user_id', userId).eq('device_id', deviceId).select('user_id'))
     },
     async getSearchCx() {
       const { data } = await sb.from('app_settings').select('value').eq('key', 'google_cse_cx').maybeSingle()
