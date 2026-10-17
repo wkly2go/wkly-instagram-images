@@ -346,7 +346,24 @@ function spawnMacSwap(relaunch) {
 let searchView = null
 let searchOwner = null
 const ALLOWED = /^https:\/\//
-let searchZoom = 0.7 // 검색 칸 화면 배율 (인트라넷에서 조절 가능)
+let searchZoom = 0.6 // 검색 칸 화면 배율 (인트라넷에서 조절 가능)
+// 구글 결과 화면의 자체 검색창 · 상단 탭 · 머리글을 숨김 (검색어 · 종류는 인트라넷 쪽 막대로 바꿈)
+const HIDE_GOOGLE_CSS = `
+  #searchform, #sfcnt, form[role="search"], header#gb, #gb, #top_nav, #hdtb, #hdtbMenus, #hdtb-msb, #hdtb-sc, #appbar, #before-appbar,
+  div[role="navigation"]:not(#center_col *), #uHMdif, #searchbox, .sfbg, #tophf, #cnt > #searchform, #taw ~ #bottomads, #footcnt, #footer { display: none !important; }
+  #main, #cnt, #rcnt, #center_col { margin-top: 0 !important; padding-top: 0 !important; }
+  body { padding-top: 4px !important; }
+`
+const NAVER_CSS = `#header, #snb, #footer, .api_subject_bx_header { display: none !important; } #container { padding-top: 4px !important; }`
+function trimSearchChrome(wc) {
+  const u = wc.getURL()
+  try {
+    if (/^https:\/\/(www\.)?google\./.test(u)) wc.insertCSS(HIDE_GOOGLE_CSS)
+    else if (/^https:\/\/search\.naver\.com/.test(u)) wc.insertCSS(NAVER_CSS)
+  } catch {
+    /* 페이지가 이미 바뀜 */
+  }
+}
 function chromeUserAgent(ua) {
   const platform = (ua.match(/\(([^)]+)\)/) || [])[1] || 'Windows NT 10.0; Win64; x64'
   return `Mozilla/5.0 (${platform}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${process.versions.chrome} Safari/537.36`
@@ -388,8 +405,12 @@ function setupSearchView() {
       // 구글 로그인이 막히지 않도록 일반 크롬과 같은 브라우저 정보로 접속 (로그인은 이 PC에 계속 유지됨)
       wc.setUserAgent(chromeUserAgent(wc.getUserAgent()))
       // 인트라넷 글자 크기와 맞추기 (사이트를 옮겨 다녀도 같은 배율)
-      const fit = () => wc.setZoomFactor(searchZoom)
+      const fit = () => {
+        wc.setZoomFactor(searchZoom)
+        trimSearchChrome(wc)
+      }
       wc.on('did-finish-load', fit)
+      wc.on('dom-ready', () => trimSearchChrome(wc))
       wc.on('did-navigate-in-page', fit)
       wc.setWindowOpenHandler(({ url: u }) => {
         if (ALLOWED.test(u)) wc.loadURL(u)

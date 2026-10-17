@@ -5,6 +5,7 @@ import { addMonths, dateLabel, monthGrid, shortDate, timeLabel, toDateKey, today
 import { Link, useRouter, withQuery } from '../lib/router'
 import { PROJECT_CATEGORIES, PROJECT_STATUSES, type ChatRoomSummary, type Client, type Contact, type Project, type ProjectStatus, type Task, type TaskStatus, type WorkLog } from '../lib/types'
 import { ContactTimeline, ExchangeFilesSection, ProjectContactsSection } from '../components/ContactHistory'
+import { OrgSection } from '../components/Org'
 import { Shell } from '../components/Shell'
 import { Badge, Button, Chip, Empty, Field, Modal, SectionHead, StatusBadge } from '../components/ui'
 import { NewApproval } from './Approvals'
@@ -58,6 +59,7 @@ export default function Projects() {
     ['week', '주간'],
     ['calendar', '캘린더'],
     ['list', '프로젝트 목록'],
+    ['org', '조직 · 진행 현황'],
     ['mine', '내 할 일'],
     ['tasks', '팀 할 일'],
     ...(admin ? ([['payments', '결제 대장']] as [string, string][]) : []),
@@ -87,6 +89,8 @@ export default function Projects() {
       </div>
       {view === 'payments' && admin ? (
         <Payments projects={data.projects} clients={data.clients} />
+      ) : view === 'org' ? (
+        <OrgSection />
       ) : view === 'schedule' ? (
         <Gantt projects={data.projects} tasks={data.tasks} />
       ) : view === 'week' ? (
