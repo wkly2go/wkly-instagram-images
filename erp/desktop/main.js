@@ -302,7 +302,10 @@ async function prepareMacUpdate(version) {
 
 /** 받아 둔 새 버전은 로그인 · 잠금 화면에서 1분 넘게 손대지 않을 때 설치 (입력 중에 끊지 않음) */
 function maybeInstallUpdate() {
-  if (updateReady && !loggedIn && powerMonitor.getSystemIdleTime() >= 60) installUpdate()
+  if (!updateReady) return
+  const idle = powerMonitor.getSystemIdleTime()
+  // 로그인 · 잠금 화면에서 1분, 로그인 중이라도 10분 넘게 손대지 않으면 설치 (작업 중에는 끊지 않음)
+  if ((!loggedIn && idle >= 60) || idle >= 10 * 60) installUpdate()
 }
 
 function installUpdate() {
