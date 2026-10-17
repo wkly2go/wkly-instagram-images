@@ -1046,3 +1046,7 @@ button.kpi:hover, a.kpi:hover { border-color: var(--blue); }
 .proj-code { font: 700 12px/1 var(--mono); color: var(--blue); background: var(--yellow); padding: 4px 8px; border-radius: 6px; white-space: nowrap; }
 .t-mono { font: 700 12px/1.4 var(--mono); color: var(--blue); }
 .section-h .legend, .section-h .legend span { color: var(--blue); }
+/* 왼쪽 패널 맨 아래: 사용법 · 빠른 창 */
+.side-tools { margin-top: auto; padding-top: 10px; border-top: 1px dashed var(--line); display: flex; flex-wrap: wrap; gap: 6px; }
+.side-tools .quick-btn { height: 28px; padding: 0 10px; font-size: 12px; }
+@media (max-width: 760px) { .side-tools { flex-basis: 100%; border-top: 0; padding-top: 0; } }
