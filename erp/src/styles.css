@@ -966,7 +966,7 @@ button.kpi:hover, a.kpi:hover { border-color: var(--blue); }
 .web-sites .web-tab.on { background: var(--yellow); border-color: var(--blue); }
 .web-zoom { display: inline-flex; align-items: center; gap: 4px; height: 32px; }
 .web-shops { border-top: 0; padding-top: 0; }
-.web-shops .web-tabs { height: 92px; }
+.web-shops .web-tabs { height: 60px; }
 .web-sites, .web-bar { flex-shrink: 0; }
 .web-shops .web-tab { border-color: var(--acid); background: var(--white); }
 .web-shops .web-tab.on { background: var(--acid); border-color: var(--blue); }
