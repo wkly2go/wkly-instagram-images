@@ -404,9 +404,9 @@ const TRIM_JS = `(() => {
 function trimSearchChrome(wc) {
   const u = wc.getURL()
   try {
+    if (AI_SITE.test(u)) return // AI 사이트는 손대지 않음 (CSS · 스크립트를 넣으면 화면이 다시 그려지며 흔들림)
     wc.insertCSS(FIT_CSS)
     if (/^https:\/\/(www\.)?google\.[a-z.]+\/maps/.test(u) || /^https:\/\/(m\.)?map\.naver\.com/.test(u)) return // 지도는 그대로
-    if (/^https:\/\/(chatgpt\.com|claude\.ai|gemini\.google\.com|www\.perplexity\.ai)/.test(u)) return // AI 사이트는 자체 화면 그대로 (입력창 · 로그인 필요)
     if (/^https:\/\/(www\.)?google\./.test(u)) wc.insertCSS(HIDE_GOOGLE_CSS)
     else if (/^https:\/\/(search|m\.search)\.naver\.com/.test(u)) wc.insertCSS(NAVER_CSS)
     else wc.insertCSS(OTHER_CSS)
@@ -419,6 +419,13 @@ function trimSearchChrome(wc) {
 function chromeUserAgent() {
   return `Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${process.versions.chrome} Mobile Safari/537.36`
 }
+// AI 사이트(ChatGPT · Perplexity)는 휴대폰 화면으로 열면 앱 설치 배너 · 화면 전환이 반복되며 흔들림 → 일반 PC 크롬으로 접속
+const AI_SITE = /^https:\/\/([a-z0-9-]+\.)*(chatgpt\.com|openai\.com|perplexity\.ai)(\/|$)/
+function desktopUserAgent() {
+  const platform = process.platform === 'darwin' ? 'Macintosh; Intel Mac OS X 10_15_7' : 'Windows NT 10.0; Win64; x64'
+  return `Mozilla/5.0 (${platform}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${process.versions.chrome} Safari/537.36`
+}
+const uaFor = url => (AI_SITE.test(url) ? desktopUserAgent() : chromeUserAgent())
 // 모든 사이트 공통: 가로 넘침 금지 · 이미지 · 영상 · 표가 창 폭을 넘지 않게
 const FIT_CSS = `
   html, body { overflow-x: hidden !important; max-width: 100vw !important; min-width: 0 !important; }
@@ -427,6 +434,7 @@ const FIT_CSS = `
   pre { white-space: pre-wrap !important; word-break: break-word !important; }
 `
 
+let lastPlace = ''
 function placeSearch(rect) {
   if (!searchView || !rect) return
   // 인트라넷 창 배율(Cmd +/−)을 반영하고, 창 안으로 자름
@@ -448,11 +456,15 @@ function placeSearch(rect) {
   const r = { x, y, width: Math.max(0, Math.min(Math.round(rect.width * z), cw - x)), height: Math.max(0, Math.min(Math.round(rect.height * z), ch - y)) }
   // 인트라넷이 0 크기를 보내면(팝업 창 · 잠금 화면) 아예 감춤
   const show = r.width > 0 && r.height > 0
+  const key = `${show}:${r.x},${r.y},${r.width},${r.height}`
+  if (key === lastPlace) return
+  lastPlace = key
   if (typeof searchView.setVisible === 'function') searchView.setVisible(show)
   if (show) searchView.setBounds(r)
 }
 
 function closeSearch() {
+  lastPlace = ''
   if (!searchView) return
   try {
     searchOwner && !searchOwner.isDestroyed() && searchOwner.contentView.removeChildView(searchView)
@@ -477,19 +489,19 @@ function setupSearchView() {
         creatingSearch = false
       }
       searchOwner = owner
+      lastPlace = '' // 새 검색 칸은 반드시 자리를 다시 잡음
       owner.contentView.addChildView(searchView)
       const wc = searchView.webContents
       // 구글 로그인이 막히지 않도록 일반 크롬과 같은 브라우저 정보로 접속 (로그인은 이 PC에 계속 유지됨)
-      wc.setUserAgent(chromeUserAgent())
-      // 인트라넷 글자 크기와 맞추기 (사이트를 옮겨 다녀도 같은 배율)
+      wc.setUserAgent(uaFor(url))
+      // 인트라넷 글자 크기와 맞추기 (사이트를 옮겨 다녀도 같은 배율) · 같은 배율이면 다시 넣지 않음 (다시 그려지며 흔들림)
       const fit = () => {
-        wc.setZoomFactor(searchZoom)
+        if (Math.abs(wc.getZoomFactor() - searchZoom) > 0.001) wc.setZoomFactor(searchZoom)
         trimSearchChrome(wc)
       }
       wc.on('did-finish-load', fit)
       wc.on('dom-ready', () => trimSearchChrome(wc))
-      wc.on('did-navigate-in-page', () => trimSearchChrome(wc))
-      wc.on('did-navigate-in-page', fit)
+      wc.on('did-navigate-in-page', (_e, _u, isMainFrame) => isMainFrame && trimSearchChrome(wc))
       wc.setWindowOpenHandler(({ url: u }) => {
         if (ALLOWED.test(u)) wc.loadURL(u)
         return { action: 'deny' }
@@ -500,6 +512,7 @@ function setupSearchView() {
       })
     }
     placeSearch(rect)
+    searchView.webContents.setUserAgent(uaFor(url))
     searchView.webContents.loadURL(url)
   })
   ipcMain.on('search-bounds', (e, rect) => {
