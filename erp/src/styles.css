@@ -945,13 +945,12 @@ button.kpi:hover, a.kpi:hover { border-color: var(--blue); }
 .web-nav { display: inline-flex; align-items: center; gap: 0; border: 1px solid var(--blue); border-radius: 999px; background: var(--white); padding: 0 2px; height: 26px; box-sizing: border-box; flex-shrink: 0; }
 .web-nav .icon-btn.sm, .web-bar > .icon-btn.sm { width: 22px; height: 22px; color: var(--blue); }
 .web-bar > .icon-btn.sm { border: 1px solid var(--blue); border-radius: 999px; width: 26px; height: 26px; flex-shrink: 0; }
-.web-zoom { font-size: 11px; font-weight: 700; width: auto !important; padding: 0 5px; }
 /* 우리 검색 종류 탭 (구글 화면의 탭 대신): 작은 알약, 켜진 것은 파랑 */
 .web-tabs { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .web-tab { height: 26px; box-sizing: border-box; padding: 0 10px; border: 1px solid var(--blue); border-radius: 999px; background: var(--white); color: var(--blue); font: inherit; font-size: 12px; font-weight: 700; line-height: 24px; cursor: pointer; white-space: nowrap; }
 .web-tab:hover { background: var(--paper); }
 .web-tab.on { background: var(--yellow); }
-.web-tabs-sep { width: 1px; height: 18px; background: var(--line); margin: 0 2px; }
+.web-sites { border-top: 1px solid var(--line); padding-top: 6px; }
 .web-panel { padding: 8px 10px; gap: 6px; font-size: 11px; }
 .web-panel .t-small, .web-panel .web-search input { font-size: 11px; }
 .web-panel .t-cap, .web-panel .t-meta { font-size: 10px; }
