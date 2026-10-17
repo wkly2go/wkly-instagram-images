@@ -275,9 +275,39 @@ export interface WorkLog {
   email_subject: string | null
   client_id: string | null
   project_id: string | null
+  /** 상대방 (거래처 담당자). 메일 상대 주소가 등록된 담당자면 자동 연결 (0028+) */
+  contact_id?: string | null
   minutes: number | null
   created_at: string
   updated_at: string
+}
+
+/** 프로젝트에 참여하는 거래처 담당자 */
+export interface ProjectContact {
+  project_id: string
+  contact_id: string
+  role: string | null
+  created_at: string
+}
+
+/** 거래처 · 담당자 · 프로젝트와 주고받은 자료 (파일 또는 링크) */
+export interface ExchangeFile {
+  id: string
+  client_id: string | null
+  contact_id: string | null
+  project_id: string | null
+  direction: '받음' | '보냄'
+  name: string
+  url: string | null
+  storage_path: string | null
+  size: number | null
+  mime: string | null
+  note: string | null
+  file_date: string
+  source: '직접' | '메일' | '채팅' | 'AI'
+  work_log_id: string | null
+  created_by: string | null
+  created_at: string
 }
 
 export interface ChatRoom {

@@ -1,7 +1,9 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import { ApiError, CHAT_FILE_MAX, groupIps, type Api, type ImportResult } from './api'
+import { ApiError, CHAT_FILE_MAX, EXCHANGE_FILE_MAX, groupIps, type Api, type ImportResult } from './api'
 import { desktop } from './desktop'
 import type {
+  ExchangeFile,
+  ProjectContact,
   AttendanceDevice,
   AccessLog,
   AttendanceCheckin,
@@ -180,6 +182,7 @@ export function createSupabaseApi(url: string, key: string): Api {
       if (f.userId) q = q.eq('user_id', f.userId)
       if (f.clientId) q = q.eq('client_id', f.clientId)
       if (f.projectId) q = q.eq('project_id', f.projectId)
+      if (f.contactId) q = q.eq('contact_id', f.contactId)
       q = q.order('log_date', { ascending: false }).order('created_at', { ascending: !!f.date })
       if (f.limit) q = q.limit(f.limit)
       return must(await q) as WorkLog[]
@@ -595,6 +598,60 @@ export function createSupabaseApi(url: string, key: string): Api {
     },
     async setAttendanceRule(key, value) {
       must(await sb.rpc('set_app_setting', { p_key: key, p_value: value }))
+    },
+    async listProjectContacts(f) {
+      let q = sb.from('project_contacts').select('*')
+      if (f.projectId) q = q.eq('project_id', f.projectId)
+      if (f.contactId) q = q.eq('contact_id', f.contactId)
+      const { data, error } = await q
+      return error ? [] : (data as ProjectContact[])
+    },
+    async linkProjectContact(projectId, contactId, role) {
+      must(await sb.from('project_contacts').upsert({ project_id: projectId, contact_id: contactId, role: role?.trim() || null }).select('project_id'))
+    },
+    async unlinkProjectContact(projectId, contactId) {
+      must(await sb.from('project_contacts').delete().eq('project_id', projectId).eq('contact_id', contactId).select('project_id'))
+    },
+    async listExchangeFiles(f) {
+      const ors = [f.clientId && `client_id.eq.${f.clientId}`, f.contactId && `contact_id.eq.${f.contactId}`, f.projectId && `project_id.eq.${f.projectId}`].filter(Boolean)
+      if (!ors.length) return []
+      const { data, error } = await sb.from('exchange_files').select('*').or(ors.join(',')).order('file_date', { ascending: false }).order('created_at', { ascending: false }).limit(500)
+      return error ? [] : (data as ExchangeFile[])
+    },
+    async addExchangeFile(f) {
+      let storage_path: string | null = null
+      let name = f.name?.trim() || ''
+      let size: number | null = null
+      let mime: string | null = null
+      if (f.file) {
+        if (f.file.size > EXCHANGE_FILE_MAX) throw new ApiError('파일은 50MB 까지 올릴 수 있습니다.')
+        const ext = (f.file.name.match(/\.[A-Za-z0-9]{1,8}$/)?.[0] ?? '').toLowerCase()
+        storage_path = `${crypto.randomUUID()}/file${ext}`
+        mime = f.file.type || 'application/octet-stream'
+        const up = await sb.storage.from('exchange-files').upload(storage_path, f.file, { contentType: mime, upsert: false })
+        if (up.error) throw new ApiError(`파일을 올리지 못했습니다: ${up.error.message}`)
+        name = name || f.file.name
+        size = f.file.size
+      }
+      const url = f.url?.trim() || null
+      if (!storage_path && !url) throw new ApiError('파일을 고르거나 링크를 넣어 주세요.')
+      const row = { client_id: f.client_id, contact_id: f.contact_id ?? null, project_id: f.project_id ?? null, direction: f.direction, name: name || url!, url, storage_path, size, mime, note: f.note?.trim() || null, ...(f.file_date ? { file_date: f.file_date } : {}) }
+      const res = await sb.from('exchange_files').insert(row).select('id')
+      if (res.error) {
+        if (storage_path) await sb.storage.from('exchange-files').remove([storage_path])
+        throw new ApiError(res.error.message)
+      }
+    },
+    async deleteExchangeFile(id) {
+      const row = must(await sb.from('exchange_files').delete().eq('id', id).select('storage_path')) as { storage_path: string | null }[]
+      if (!row.length) throw new ApiError('지울 수 없습니다 (올린 사람 · 관리자만).')
+      if (row[0].storage_path) await sb.storage.from('exchange-files').remove([row[0].storage_path])
+    },
+    async exchangeFileUrl(f) {
+      if (!f.storage_path) return f.url ?? ''
+      const r = await sb.storage.from('exchange-files').createSignedUrl(f.storage_path, 60 * 60, { download: f.name })
+      if (r.error || !r.data) throw new ApiError('파일을 열 수 없습니다.')
+      return r.data.signedUrl
     },
     async getAccessInfo() {
       const { data, error } = await sb.rpc('my_access_info')

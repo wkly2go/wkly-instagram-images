@@ -1,14 +1,15 @@
 import { useMemo, useState } from 'react'
 import { ArrowLeft, ChevronDown, ChevronRight, Pencil, Plus, Search, Star, Trash2 } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
-import { manwon, shortDate, timeLabel, todayKey } from '../lib/date'
+import { manwon, shortDate, todayKey } from '../lib/date'
 import { isOverdue, sameName, vendorSummary } from '../lib/finance'
 import { openGmail, telUrl } from '../lib/links'
 import { Link, useRouter, withQuery } from '../lib/router'
-import { CLIENT_CATEGORIES, type Client, type ClientCategory, type Contact, type Payment, type Project, type ResearchItem, type WorkLog } from '../lib/types'
+import { CLIENT_CATEGORIES, type Client, type ClientCategory, type Contact, type ExchangeFile, type Payment, type Project, type ResearchItem, type WorkLog } from '../lib/types'
 import { REPORT_KIND, ReportBody, ReportForm, clientCatLabel } from '../components/Reports'
+import { ContactProjectsSection, ContactTimeline, ExchangeFilesSection } from '../components/ContactHistory'
 import { Shell } from '../components/Shell'
-import { Badge, Button, Chip, Empty, Field, KindBadge, Modal, SectionHead, StatusBadge } from '../components/ui'
+import { Badge, Button, Chip, Empty, Field, Modal, SectionHead, StatusBadge } from '../components/ui'
 
 export default function Clients() {
   const { api, version } = useApp()
@@ -125,14 +126,14 @@ export default function Clients() {
 }
 
 function ClientDetail({ client: c, clients, onEdit, onBack }: { client: Client; clients: Client[]; onEdit: () => void; onBack: () => void }) {
-  const { api, me, version, profileName } = useApp()
+  const { api, me, version } = useApp()
   const { navigate } = useRouter()
   const { run } = useAction()
   const [contactForm, setContactForm] = useState<Contact | 'new' | null>(null)
   const [reportForm, setReportForm] = useState<ResearchItem | 'new' | null>(null)
   const { data } = useAsync(
     async () => {
-      const [contacts, logs, projects, research] = await Promise.all([api.listContacts(c.id), api.listWorkLogs({ clientId: c.id, limit: 30 }), api.listProjects(), api.listResearch()])
+      const [contacts, logs, projects, research] = await Promise.all([api.listContacts(c.id), api.listWorkLogs({ clientId: c.id, limit: 100 }), api.listProjects(), api.listResearch()])
       return { contacts, logs, projects: projects.filter(p => p.client_id === c.id), allProjects: projects, reports: research.filter(r => r.client_id === c.id) }
     },
     [c.id, version],
@@ -252,21 +253,9 @@ function ClientDetail({ client: c, clients, onEdit, onBack }: { client: Client; 
           {me.role === 'admin' && <ClientPayments client={c} projects={data.allProjects} />}
         </div>
         <div className="col grow" style={{ flexBasis: 240 }}>
-          <SectionHead title="커뮤니케이션 이력" right="업무 일지 연동" />
-          {data.logs.map(l => (
-            <div key={l.id} className="col gap-2 dashed" style={{ padding: '6px 0' }}>
-              <div className="row">
-                <span className="t-meta">
-                  {shortDate(l.log_date)} {timeLabel(l.created_at)}
-                </span>
-                <KindBadge kind={l.kind} />
-                <span className="t-cap">{profileName(l.user_id)}</span>
-              </div>
-              <span className="t-small t-blue pre">{l.content}</span>
-              {l.email_subject && <span className="t-cap">✉ {l.email_subject}</span>}
-            </div>
-          ))}
-          {data.logs.length === 0 && <span className="t-cap">업무 일지에서 이 거래처를 골라 기록하면 여기에 쌓입니다.</span>}
+          <SectionHead title="커뮤니케이션 이력" count={data.logs.length ? String(data.logs.length) : undefined} right="업무 일지 연동" />
+          <ContactTimeline logs={data.logs} projects={data.allProjects} showContact contacts={data.contacts} />
+          <ExchangeFilesSection clientId={c.id} contacts={data.contacts} projects={data.allProjects} />
         </div>
       </div>
       {reportForm && <ReportForm item={reportForm === 'new' ? null : reportForm} clients={clients} presetClient={c.id} onClose={() => setReportForm(null)} />}
@@ -505,9 +494,20 @@ function PeopleList({ contacts, clients, selectedId, onSelect }: { contacts: Con
 
 /** 연락처(사람) 상세: 회사 · 전화 · 메일 · 메모 + 같은 회사 다른 담당자 */
 function ContactDetail({ contact: x, contacts, clients, onClient, onPerson }: { contact: Contact; contacts: Contact[]; clients: Client[]; onClient: (id: string) => void; onPerson: (id: string | null) => void }) {
+  const { api, version } = useApp()
   const [editing, setEditing] = useState(false)
   const c = clients.find(k => k.id === x.client_id)
   const others = contacts.filter(o => o.client_id === x.client_id && o.id !== x.id)
+  // 이 사람과의 모든 기록: 연락 이력(업무 일지) · 주고받은 자료 · 프로젝트
+  const { data } = useAsync(
+    async () => {
+      const [logs, files, projects] = await Promise.all([api.listWorkLogs({ contactId: x.id, limit: 200 }), api.listExchangeFiles({ contactId: x.id }), api.listProjects()])
+      return { logs, files, projects }
+    },
+    [x.id, version],
+    { logs: [] as WorkLog[], files: [] as ExchangeFile[], projects: [] as Project[] },
+  )
+  const last = data.logs[0]
   return (
     <div className="col gap-10" style={{ padding: '14px 16px' }}>
       <div className="row wrap">
@@ -549,7 +549,19 @@ function ContactDetail({ contact: x, contacts, clients, onClient, onPerson }: { 
         <dd>{x.email ?? '-'}</dd>
         <dt>메모</dt>
         <dd>{x.memo ?? '-'}</dd>
+        <dt>최근 연락</dt>
+        <dd>{last ? `${shortDate(last.log_date)} · ${last.kind}${last.project_id ? ` · ${data.projects.find(p => p.id === last.project_id)?.name ?? ''}` : ''}` : '-'}</dd>
       </dl>
+      <div className="row top gap-12" style={{ flexWrap: 'wrap' }}>
+        <div className="col grow gap-10" style={{ flexBasis: 340 }}>
+          <SectionHead title="연락 이력" count={data.logs.length ? String(data.logs.length) : undefined} right={<Link to={`/work?client=${x.client_id}`}>업무 일지 ›</Link>} />
+          <ContactTimeline logs={data.logs} projects={data.projects} />
+        </div>
+        <div className="col grow gap-12" style={{ flexBasis: 300 }}>
+          <ContactProjectsSection contact={x} projects={data.projects} logs={data.logs} files={data.files} />
+          <ExchangeFilesSection clientId={x.client_id} contactId={x.id} contacts={contacts} projects={data.projects} />
+        </div>
+      </div>
       {others.length > 0 && (
         <>
           <SectionHead title={`${c?.name ?? ''} 다른 담당자`} />

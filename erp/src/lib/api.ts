@@ -1,5 +1,7 @@
 import type { AccessSource } from './desktop'
 import type {
+  ExchangeFile,
+  ProjectContact,
   AccessInfo,
   AccessLog,
   AttendanceDevice,
@@ -84,6 +86,8 @@ export interface WorkLogFilter {
   userId?: string
   clientId?: string
   projectId?: string
+  /** 상대방(거래처 담당자) */
+  contactId?: string
   limit?: number
 }
 
@@ -94,6 +98,7 @@ export interface TaskFilter {
 }
 
 export const CHAT_FILE_MAX = 20 * 1024 * 1024
+export const EXCHANGE_FILE_MAX = 50 * 1024 * 1024
 
 export type MessageEvent = { type: 'INSERT' | 'UPDATE' | 'DELETE'; message: ChatMessage }
 
@@ -125,6 +130,15 @@ export interface Api {
   listContacts(clientId?: string): Promise<Contact[]>
   saveContact(c: Draft<Contact>): Promise<Contact>
   deleteContact(id: string): Promise<void>
+  /** 프로젝트 ↔ 거래처 담당자 */
+  listProjectContacts(f: { projectId?: string; contactId?: string }): Promise<ProjectContact[]>
+  linkProjectContact(projectId: string, contactId: string, role?: string | null): Promise<void>
+  unlinkProjectContact(projectId: string, contactId: string): Promise<void>
+  /** 주고받은 자료 (거래처 · 담당자 · 프로젝트 중 하나 이상으로 찾음) */
+  listExchangeFiles(f: { clientId?: string; contactId?: string; projectId?: string }): Promise<ExchangeFile[]>
+  addExchangeFile(f: { client_id: string | null; contact_id?: string | null; project_id?: string | null; direction: '받음' | '보냄'; note?: string | null; file_date?: string; file?: File; url?: string; name?: string }): Promise<void>
+  deleteExchangeFile(id: string): Promise<void>
+  exchangeFileUrl(f: ExchangeFile): Promise<string>
 
   // 프로젝트·할 일
   listProjects(): Promise<Project[]>
