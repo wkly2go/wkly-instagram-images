@@ -136,22 +136,39 @@ function alreadyDocked(url: string) {
     return false
   }
 }
+/** 결과 창을 놓을 화면 좌표: 인트라넷 오른쪽 검색 칸(버튼 줄 아래) 자리에 정확히 겹치게 */
+function dockFeatures() {
+  const panel = document.querySelector('.web-panel') as HTMLElement | null
+  const anchor = (document.querySelector('.web-panel .web-note') as HTMLElement | null) ?? panel
+  const sw = window.screen.availWidth
+  const sh = window.screen.availHeight
+  if (!panel || !anchor || window.innerWidth < 900) {
+    // 좁은 화면 · 패널이 없을 때: 화면 오른쪽에 붙임
+    const w = Math.min(760, Math.round(sw * 0.42))
+    const left = (window.screen as unknown as { availLeft?: number }).availLeft ?? 0
+    return `popup=yes,width=${w},height=${sh},left=${left + sw - w},top=0`
+  }
+  const pr = panel.getBoundingClientRect()
+  const ar = anchor.getBoundingClientRect()
+  // 브라우저 바깥 틀(주소창 · 탭 줄) 두께를 더해 화면 좌표로 바꿈
+  const bx = window.screenX + Math.max(0, window.outerWidth - window.innerWidth)
+  const by = window.screenY + Math.max(0, window.outerHeight - window.innerHeight)
+  const left = Math.round(bx + pr.left)
+  const top = Math.round(by + ar.top)
+  const width = Math.round(pr.width)
+  // 결과 창 자체 주소 줄(약 70px)만큼 빼서 아래로 넘치지 않게
+  const height = Math.max(280, Math.round(pr.bottom - ar.top - 70))
+  return `popup=yes,width=${width},height=${height},left=${left},top=${top}`
+}
 function openDocked(url: string) {
   try {
     sessionStorage.setItem(DOCKED_KEY, url)
   } catch {
     /* 저장 불가 */
   }
-  const w = Math.min(760, Math.round(window.screen.availWidth * 0.42))
-  const h = window.screen.availHeight
-  const left = (window.screen as unknown as { availLeft?: number }).availLeft ?? 0
-  const features = `popup=yes,width=${w},height=${h},left=${left + window.screen.availWidth - w},top=0`
-  if (docked && !docked.closed) {
-    docked.location.href = url
-    docked.focus()
-    return true
-  }
-  docked = window.open(url, 'wkly-web', features)
+  // 열려 있던 창은 닫고 새 자리(지금 검색 칸 위치 · 크기)로 다시 엶 (다른 사이트 창은 옮기거나 크기를 바꿀 수 없음)
+  if (docked && !docked.closed) docked.close()
+  docked = window.open(url, 'wkly-web', dockFeatures())
   return !!docked
 }
 
@@ -497,13 +514,13 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
             <span className="t-small t-red">브라우저가 새 창을 막았습니다. 주소창 오른쪽의 팝업 차단 아이콘에서 이 사이트를 허용하거나 아래 버튼을 눌러 주세요.</span>
           ) : (
             <span className="t-small">
-              <b>‘{q}’</b> {isGroup(engine) ? `${SITE_GROUPS[engine].label} 사이트` : isSite(engine) ? (siteOf(engine)?.label ?? engine.slice(5)) : ENGINES.find(e => e[0] === engine)?.[1]} 검색 결과를 화면 오른쪽 창에 열었습니다.
+              <b>‘{q}’</b> {isGroup(engine) ? `${SITE_GROUPS[engine].label} 사이트` : isSite(engine) ? (siteOf(engine)?.label ?? engine.slice(5)) : ENGINES.find(e => e[0] === engine)?.[1]} 검색 결과를 이 자리에 맞춰 별도 창으로 열었습니다.
             </span>
           )}
           <button type="button" className="btn btn-blue btn-sm" style={{ alignSelf: 'flex-start' }} onClick={() => setBlocked(!openDocked(urlFor(engine, q)))}>
-            오른쪽 창에서 다시 열기
+            이 자리에 다시 열기
           </button>
-          <span className="t-cap"><b>PC 프로그램</b>(1.1 이상)에서는 구글 결과가 이 창 안에 바로 나옵니다. <a href="/download">내려받기 ›</a></span>
+          <span className="t-cap">웹 브라우저에서는 사이트 보안 정책 때문에 결과가 이 자리에 겹친 별도 창으로 열립니다. 인트라넷 창 크기를 바꾼 뒤에는 '이 자리에 다시 열기'를 눌러 주세요. <b>PC 프로그램</b>에서는 이 칸 안에 바로 나옵니다. <a href="/download">내려받기 ›</a></span>
           {engine === 'google' && !cx && <span className="t-cap">구글은 보안 정책상 다른 사이트 안에 넣을 수 없어 오른쪽에 붙는 별도 창으로 엽니다. 위 검색 종류에서 ‘업무 사이트만’을 고르면 팝업 · 디자인 · 트렌드 · 언론 등 정해 둔 사이트에서만 찾습니다.</span>}
         </div>
       )}
