@@ -75,6 +75,19 @@ export function UpdateBanner() {
     }
   }, [])
   const app = useDesktopUpdate()
+  const outdated = useOutdatedDesktop()
+  if (!app && outdated) {
+    return (
+      <div className="update-bar" role="status">
+        <span>
+          PC 프로그램이 예전 버전({outdated})입니다. 최신 {__DESKTOP_VERSION__}은 작업 표시줄 오른쪽 아래(맥은 위 메뉴 막대) 아이콘 → <b>종료</b> 뒤 다시 실행하면 설치됩니다.
+        </span>
+        <a href="/download" style={{ color: 'inherit' }}>
+          안 되면 내려받기
+        </a>
+      </div>
+    )
+  }
   if (app) {
     const bridge = desktop()!
     return (
@@ -105,4 +118,18 @@ function useDesktopUpdate(): string | null {
   })
   useEffect(() => desktop()?.onUpdate?.(st => setVer(st.ready ? st.version ?? '' : null)), [])
   return ver
+}
+
+const semver = (v: string) => v.split('.').map(n => Number(n) || 0)
+const older = (a: string, b: string) => {
+  const x = semver(a)
+  const y = semver(b)
+  for (let i = 0; i < 3; i++) if ((x[i] ?? 0) !== (y[i] ?? 0)) return (x[i] ?? 0) < (y[i] ?? 0)
+  return false
+}
+/** PC 프로그램이 이 배포본과 짝인 버전보다 낮으면 그 버전 (새 버전을 아직 못 받은 경우 안내용) */
+function useOutdatedDesktop(): string | null {
+  const d = desktop()
+  if (!d || !import.meta.env.PROD) return null
+  return older(d.version, __DESKTOP_VERSION__) ? d.version : null
 }
