@@ -346,7 +346,7 @@ function spawnMacSwap(relaunch) {
 let searchView = null
 let searchOwner = null
 const ALLOWED = /^https:\/\//
-const SEARCH_ZOOM = 0.8
+let searchZoom = 0.7 // 검색 칸 화면 배율 (인트라넷에서 조절 가능)
 function chromeUserAgent(ua) {
   const platform = (ua.match(/\(([^)]+)\)/) || [])[1] || 'Windows NT 10.0; Win64; x64'
   return `Mozilla/5.0 (${platform}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${process.versions.chrome} Safari/537.36`
@@ -388,7 +388,7 @@ function setupSearchView() {
       // 구글 로그인이 막히지 않도록 일반 크롬과 같은 브라우저 정보로 접속 (로그인은 이 PC에 계속 유지됨)
       wc.setUserAgent(chromeUserAgent(wc.getUserAgent()))
       // 인트라넷 글자 크기와 맞추기 (사이트를 옮겨 다녀도 같은 배율)
-      const fit = () => wc.setZoomFactor(SEARCH_ZOOM)
+      const fit = () => wc.setZoomFactor(searchZoom)
       wc.on('did-finish-load', fit)
       wc.on('did-navigate-in-page', fit)
       wc.setWindowOpenHandler(({ url: u }) => {
@@ -412,4 +412,10 @@ function setupSearchView() {
     else if (action === 'external') shell.openExternal(wc.getURL())
   })
   ipcMain.on('search-close', () => closeSearch())
+  ipcMain.on('search-zoom', (_e, z) => {
+    const v = Number(z)
+    if (!(v >= 0.5 && v <= 1.5)) return
+    searchZoom = v
+    if (searchView) searchView.webContents.setZoomFactor(v)
+  })
 }
