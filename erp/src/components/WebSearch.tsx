@@ -4,7 +4,7 @@ import { ChevronLeft, ChevronRight, ExternalLink, Search, X } from 'lucide-react
 import { useAction, useApp, useAsync } from '../lib/app'
 import { desktop } from '../lib/desktop'
 
-type SiteGroup = 'popup' | 'design' | 'trend' | 'press' | 'social' | 'video' | 'shop' | 'estate' | 'expo' | 'gov' | 'bid' | 'hire'
+type SiteGroup = 'popup' | 'design' | 'trend' | 'press' | 'social' | 'video' | 'shop' | 'estate' | 'expo' | 'gov' | 'bid'
 /** 사이트 하나: 주소 · 이름 · (있으면) 그 사이트 자체 검색 주소 */
 interface Site {
   host: string
@@ -54,7 +54,7 @@ const SITE_GROUPS: Record<SiteGroup, { label: string; sites: Site[] }> = {
   },
   shop: {
     label: '쇼핑 · 브랜드',
-    sites: [site('coupang.com', '쿠팡', s => `https://www.coupang.com/np/search?q=${s}`), site('shopping.naver.com', '네이버 쇼핑', s => `https://msearch.shopping.naver.com/search/all?query=${s}`), site('gmarket.co.kr', 'G마켓', s => `https://www.gmarket.co.kr/n/search?keyword=${s}`), site('11st.co.kr', '11번가', s => `https://m.11st.co.kr/products/m/search?searchKeyword=${s}`), site('ssg.com', 'SSG', s => `https://www.ssg.com/search.ssg?query=${s}`), site('ohou.se', '오늘의집', s => `https://ohou.se/store/search?query=${s}`), site('kurly.com', '컬리', s => `https://www.kurly.com/search?sword=${s}`), site('auction.co.kr', '옥션', s => `https://browse.auction.co.kr/search?keyword=${s}`), site('lotteon.com', '롯데온', s => `https://www.lotteon.com/search/search/search.ecn?render=search&q=${s}`), site('musinsa.com', '무신사', s => `https://www.musinsa.com/search/goods?keyword=${s}`), site('29cm.co.kr', '29CM', s => `https://www.29cm.co.kr/search?keyword=${s}`), site('wconcept.co.kr', 'W컨셉', s => `https://www.wconcept.co.kr/Search?kw=${s}`), site('kream.co.kr', '크림', s => `https://kream.co.kr/search?keyword=${s}`), site('oliveyoung.co.kr', '올리브영', s => `https://m.oliveyoung.co.kr/m/search/searchList.do?query=${s}`), site('kasina.co.kr', '카시나'), site('thehandsome.com', '한섬')],
+    sites: [site('coupang.com', '쿠팡', s => `https://www.coupang.com/np/search?q=${s}`), site('shopping.naver.com', '네이버 쇼핑', s => `https://search.shopping.naver.com/search/all?query=${s}`), site('gmarket.co.kr', 'G마켓', s => `https://www.gmarket.co.kr/n/search?keyword=${s}`), site('11st.co.kr', '11번가', s => `https://search.11st.co.kr/Search.tmall?kwd=${s}`), site('ssg.com', 'SSG', s => `https://www.ssg.com/search.ssg?query=${s}`), site('ohou.se', '오늘의집', s => `https://ohou.se/store/search?query=${s}`), site('kurly.com', '컬리', s => `https://www.kurly.com/search?sword=${s}`), site('auction.co.kr', '옥션', s => `https://browse.auction.co.kr/search?keyword=${s}`), site('lotteon.com', '롯데온', s => `https://www.lotteon.com/search/search/search.ecn?render=search&q=${s}`), site('musinsa.com', '무신사', s => `https://www.musinsa.com/search/goods?keyword=${s}`), site('29cm.co.kr', '29CM', s => `https://www.29cm.co.kr/search?keyword=${s}`), site('wconcept.co.kr', 'W컨셉', s => `https://www.wconcept.co.kr/Search?kw=${s}`), site('kream.co.kr', '크림', s => `https://kream.co.kr/search?keyword=${s}`), site('oliveyoung.co.kr', '올리브영', s => `https://www.oliveyoung.co.kr/store/search/getSearchMain.do?query=${s}`), site('kasina.co.kr', '카시나'), site('thehandsome.com', '한섬')],
   },
   estate: {
     label: '부동산',
@@ -71,10 +71,6 @@ const SITE_GROUPS: Record<SiteGroup, { label: string; sites: Site[] }> = {
   bid: {
     label: '입찰 · 공공',
     sites: [site('g2b.go.kr', '나라장터'), site('lh.or.kr', 'LH'), site('sh.co.kr', 'SH'), site('ebid.seoul.go.kr', '서울 전자입찰'), site('kintex.com', '킨텍스'), site('coex.co.kr', '코엑스')],
-  },
-  hire: {
-    label: '구인 · 외주',
-    sites: [site('saramin.co.kr', '사람인', s => `https://www.saramin.co.kr/zf_user/search?searchword=${s}`), site('jobkorea.co.kr', '잡코리아', s => `https://www.jobkorea.co.kr/Search/?stext=${s}`), site('wanted.co.kr', '원티드', s => `https://www.wanted.co.kr/search?query=${s}`), site('kmong.com', '크몽', s => `https://kmong.com/search?keyword=${s}`), site('soomgo.com', '숨고'), site('loud.kr', '라우드소싱')],
   },
 }
 /** 세 번째 줄에서 고른 사이트: 'site:' + 주소 */

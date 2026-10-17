@@ -404,7 +404,7 @@ const TRIM_JS = `(() => {
 function trimSearchChrome(wc) {
   const u = wc.getURL()
   try {
-    if (AI_SITE.test(u)) return // AI 사이트는 손대지 않음 (CSS · 스크립트를 넣으면 화면이 다시 그려지며 흔들림)
+    if (AI_SITE.test(u) || SHOP_SITE.test(u)) return // AI · 쇼핑 사이트는 손대지 않음 (다시 그려지며 흔들리거나, 화면을 고치면 봇으로 보고 막음)
     wc.insertCSS(FIT_CSS)
     if (/^https:\/\/(www\.)?google\.[a-z.]+\/maps/.test(u) || /^https:\/\/(m\.)?map\.naver\.com/.test(u)) return // 지도는 그대로
     if (/^https:\/\/(www\.)?google\./.test(u)) wc.insertCSS(HIDE_GOOGLE_CSS)
@@ -425,7 +425,27 @@ function desktopUserAgent() {
   const platform = process.platform === 'darwin' ? 'Macintosh; Intel Mac OS X 10_15_7' : 'Windows NT 10.0; Win64; x64'
   return `Mozilla/5.0 (${platform}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${process.versions.chrome} Safari/537.36`
 }
-const uaFor = url => (AI_SITE.test(url) ? desktopUserAgent() : chromeUserAgent())
+// 쇼핑몰 · 결제 사이트는 봇 차단(Akamai 등)이 엄격해, 휴대폰 UA + PC 헤더처럼 정보가 어긋나면 '접근 거부'를 띄움 → PC 크롬으로 일치시켜 접속
+const SHOP_SITE = /^https:\/\/([a-z0-9-]+\.)*(coupang\.com|shopping\.naver\.com|smartstore\.naver\.com|brand\.naver\.com|gmarket\.co\.kr|11st\.co\.kr|auction\.co\.kr|ssg\.com|lotteon\.com|kurly\.com|ohou\.se|musinsa\.com|29cm\.co\.kr|wconcept\.co\.kr|kream\.co\.kr|oliveyoung\.co\.kr|kasina\.co\.kr|thehandsome\.com|interpark\.com|melon\.com|yes24\.com|ticketlink\.co\.kr)(\/|$)/
+const isDesktopSite = url => AI_SITE.test(url) || SHOP_SITE.test(url)
+const uaFor = url => (isDesktopSite(url) ? desktopUserAgent() : chromeUserAgent())
+/** 검색 칸이 보내는 모든 요청의 브라우저 정보(UA · 모바일 여부 · 운영체제)를 서로 맞춤 (어긋나면 봇으로 보고 차단) */
+let uaHookInstalled = false
+function installUaHook(ses) {
+  if (uaHookInstalled) return
+  uaHookInstalled = true
+  ses.webRequest.onBeforeSendHeaders((details, cb) => {
+    if (!searchView || searchView.webContents.isDestroyed() || details.webContentsId !== searchView.webContents.id) return cb({ requestHeaders: details.requestHeaders })
+    const h = details.requestHeaders
+    // 페이지 주소 기준 (이미지 · 스크립트 요청도 그 페이지와 같은 정보로)
+    const page = searchView.webContents.getURL() || details.url
+    const desktopMode = isDesktopSite(details.resourceType === 'mainFrame' ? details.url : page)
+    h['User-Agent'] = desktopMode ? desktopUserAgent() : chromeUserAgent()
+    h['sec-ch-ua-mobile'] = desktopMode ? '?0' : '?1'
+    h['sec-ch-ua-platform'] = desktopMode ? (process.platform === 'darwin' ? '"macOS"' : '"Windows"') : '"Android"'
+    cb({ requestHeaders: h })
+  })
+}
 // 모든 사이트 공통: 가로 넘침 금지 · 이미지 · 영상 · 표가 창 폭을 넘지 않게
 const FIT_CSS = `
   html, body { overflow-x: hidden !important; max-width: 100vw !important; min-width: 0 !important; }
@@ -494,6 +514,11 @@ function setupSearchView() {
       const wc = searchView.webContents
       // 구글 로그인이 막히지 않도록 일반 크롬과 같은 브라우저 정보로 접속 (로그인은 이 PC에 계속 유지됨)
       wc.setUserAgent(uaFor(url))
+      installUaHook(wc.session)
+      // 다른 사이트로 옮겨 갈 때(구글 결과 → 쿠팡 등) 페이지 안 브라우저 정보도 맞춤
+      wc.on('did-start-navigation', (details) => {
+        if (details.isMainFrame && !details.isSameDocument) wc.setUserAgent(uaFor(details.url))
+      })
       // 인트라넷 글자 크기와 맞추기 (사이트를 옮겨 다녀도 같은 배율) · 같은 배율이면 다시 넣지 않음 (다시 그려지며 흔들림)
       const fit = () => {
         if (Math.abs(wc.getZoomFactor() - searchZoom) > 0.001) wc.setZoomFactor(searchZoom)
