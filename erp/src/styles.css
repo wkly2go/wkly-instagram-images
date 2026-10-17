@@ -942,4 +942,6 @@ html.web-open .mini { width: calc(1180px + min(var(--web-w, 420px), 60vw) + 10px
 .web-bar { display: flex; align-items: center; gap: 4px; min-width: 0; }
 .web-bar .web-search { height: 30px; }
 .web-engine { height: 30px; padding: 0 6px; border: 1px solid var(--line); border-radius: 999px; background: var(--white); color: var(--blue); font: inherit; font-size: 12px; max-width: 120px; cursor: pointer; }
-.web-panel { padding: 8px 10px; gap: 8px; font-size: 13px; }
+.web-panel { padding: 8px 10px; gap: 8px; font-size: 12px; }
+.web-panel .t-small, .web-panel .web-search input { font-size: 12px; }
+.web-zoom { font-size: 11px; font-weight: 700; width: auto; padding: 0 4px; }

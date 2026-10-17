@@ -163,8 +163,27 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
   // PC 프로그램: 검색 결과를 패널 안 칸에 띄우고, 크기가 바뀌면 따라감 · 패널을 닫으면 함께 닫힘
   useEffect(() => {
     if (!native) return
+    app!.searchZoom?.(zoom)
     app!.searchOpen!(urlFor(engine, q), rectOf())
   }, [native, q, engine])
+  // 검색 칸 글자 크기 (PC 프로그램 1.5+): 기본 70%, 가− / 가+ 로 조절 · 이 PC에 기억
+  const [zoom, setZoom] = useState(() => {
+    try {
+      return Number(localStorage.getItem('wkly-web-zoom')) || 0.7
+    } catch {
+      return 0.7
+    }
+  })
+  const changeZoom = (d: number) => {
+    const v = Math.round(Math.min(1.2, Math.max(0.5, zoom + d)) * 100) / 100
+    setZoom(v)
+    app?.searchZoom?.(v)
+    try {
+      localStorage.setItem('wkly-web-zoom', String(v))
+    } catch {
+      /* 저장 불가 */
+    }
+  }
   useEffect(() => {
     if (!native || !nativeBox.current) return
     const send = () => app!.searchBounds?.(rectOf())
@@ -250,6 +269,16 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
             <button type="button" className="icon-btn sm" onClick={() => app!.searchNav?.('forward')} aria-label="앞으로" title="앞으로">
               <ChevronRight size={15} />
             </button>
+            {app!.searchZoom && (
+              <>
+                <button type="button" className="icon-btn sm web-zoom" onClick={() => changeZoom(-0.1)} aria-label="글자 작게" title={`글자 작게 (지금 ${Math.round(zoom * 100)}%)`}>
+                  가−
+                </button>
+                <button type="button" className="icon-btn sm web-zoom" onClick={() => changeZoom(0.1)} aria-label="글자 크게" title={`글자 크게 (지금 ${Math.round(zoom * 100)}%)`}>
+                  가+
+                </button>
+              </>
+            )}
           </>
         )}
         <button type="button" className="icon-btn sm" onClick={() => (native ? app!.searchNav?.('external') : window.open(urlFor(engine, q), '_blank', 'noopener'))} aria-label="브라우저로 열기" title="브라우저로 열기">
