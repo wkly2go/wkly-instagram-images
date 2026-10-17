@@ -2,6 +2,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { ApiError, CHAT_FILE_MAX, EXCHANGE_FILE_MAX, groupIps, type Api, type ImportResult } from './api'
 import { desktop } from './desktop'
 import type {
+  Subscription,
   ExchangeFile,
   ProjectContact,
   AttendanceDevice,
@@ -314,6 +315,12 @@ export function createSupabaseApi(url: string, key: string): Api {
       const body = strip(f, READONLY) as Record<string, unknown>
       return must(await sb.from('project_finances').upsert(body, { onConflict: 'project_id' }).select().single()) as ProjectFinance
     },
+    async listSubscriptions() {
+      const { data, error } = await sb.from('subscriptions').select('*').order('status').order('next_billing', { ascending: true, nullsFirst: false }).order('name')
+      return error ? [] : (data as Subscription[])
+    },
+    saveSubscription: s => save('subscriptions', s) as Promise<Subscription>,
+    deleteSubscription: id => remove('subscriptions', id),
     async listPayments(filter = {}) {
       return pageAll<Payment>(() => {
         let q = sb.from('payments').select('*')

@@ -2,7 +2,12 @@ import { useMemo, useRef, useState, type ChangeEvent, type ReactNode } from 'rea
 import { ChevronLeft, ChevronRight, CircleHelp } from 'lucide-react'
 import { isDesktopApp } from '../lib/desktop'
 import { NotificationBell } from './Notifications'
-import { WebSearchBox } from './WebSearch'
+import { WebSearchBox, webSlot } from './WebSearch'
+
+/** 검색 창 자리(한 개뿐인 DOM)를 이 화면의 .body 끝으로 옮김 */
+const mountWebSlot = (el: HTMLDivElement | null) => {
+  if (el && webSlot && webSlot.parentElement !== el) el.appendChild(webSlot)
+}
 import { useApp, useAsync, initial } from '../lib/app'
 import { friendlyError } from '../lib/api'
 import { addDays, addMonths, monthGrid, todayKey } from '../lib/date'
@@ -315,11 +320,9 @@ export function Shell({ active, flush, children }: { active: TabKey; flush?: boo
                 </button>
               )}
             </header>
-            <div className="body">
+            <div className="body" ref={mountWebSlot}>
               <ProfilePanel summary={summary} />
               <main className={`main ${flush ? 'flush' : ''}`}>{children}</main>
-              {/* 구글 검색 창이 열리면 여기(본 화면 오른쪽)에 들어옴 */}
-              <div id="web-slot" className="web-slot" />
             </div>
           </div>
         </div>

@@ -8,7 +8,7 @@ import { InstallCard } from '../components/InstallCard'
 import { Shell } from '../components/Shell'
 import { AgentDesk } from '../components/AgentDesk'
 import { PushSetupCard } from '../components/PushSetup'
-import { Badge, Button, Empty, Modal, SectionHead, StatusBadge } from '../components/ui'
+import { KindTag, Button, Empty, Modal, SectionHead, StatusBadge } from '../components/ui'
 import { DailyReport, DecideButtons, reportSections } from './Approvals'
 import { MonthCalendar } from './Schedule'
 
@@ -58,7 +58,7 @@ export default function Home() {
             <span className="t-cap">처리할 승인이 없습니다. 내가 올린 요청:</span>
             {mine.map(a => (
               <div key={a.id} className="item-row">
-                <Badge>{a.kind}</Badge>
+                <KindTag kind={a.kind} />
                 <Link to={`/approvals?id=${a.id}`} className="t-smallb truncate grow">
                   {a.title}
                 </Link>
@@ -74,7 +74,7 @@ export default function Home() {
         <div className="col gap-2">
           {toDecide.slice(0, 5).map(a => (
             <div key={a.id} className="item-row" style={{ borderBottom: 0, padding: '3px 0' }}>
-              <Badge>{a.kind}</Badge>
+              <KindTag kind={a.kind} />
               <Link to={`/approvals?id=${a.id}`} className="t-smallb truncate">
                 {a.title}
               </Link>

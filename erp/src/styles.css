@@ -995,3 +995,41 @@ button.kpi:hover, a.kpi:hover { border-color: var(--blue); }
 .kpi .t-cap { color: var(--blue); font-weight: 700; }
 /* 8) 알약 탭 묶음과 아래 내용 사이 */
 .main > .chips:first-child, .main > .row:first-child > .chips { padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+
+/* ---------- 게시판 표 (모든 목록 공통) ---------- */
+.board-wrap { width: 100%; min-width: 0; overflow-x: auto; background: var(--white); border: 1px solid var(--line); border-top: 2px solid var(--blue); border-radius: 0 0 6px 6px; }
+.board { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: auto; }
+.board th.title, .board td.title { min-width: 180px; width: auto; }
+.board td:not(.title) { max-width: 220px; }
+.board th { background: var(--paper); color: var(--blue); font-size: 12px; font-weight: 700; text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--blue); white-space: nowrap; }
+.board td { padding: 8px 10px; border-bottom: 1px solid var(--line); color: var(--gray); vertical-align: middle; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.board td.title { white-space: normal; }
+.board td.title .t-smallb, .board td.title a { color: var(--blue); }
+.board .num-col { font: 700 12px/1.4 var(--mono); color: var(--gray); }
+.board th.center, .board td.center { text-align: center; }
+.board th.num, .board td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.board tbody tr:nth-child(even) td { background: rgba(240, 240, 236, .45); }
+.board.clickable tbody tr { cursor: pointer; }
+.board.clickable tbody tr:hover td { background: var(--blue-tint); }
+.board tbody tr.sel td { background: var(--yellow); box-shadow: inset 3px 0 0 var(--blue); }
+.board tbody tr.done td { opacity: .55; }
+.board tbody tr.late td .t-meta { color: var(--red); }
+.board.compact td { padding: 5px 8px; }
+.board .cell-sub { display: block; font-size: 11px; color: var(--gray); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.board .cell-pre { white-space: pre-wrap; word-break: break-word; }
+.board td .icon-btn.sm { vertical-align: middle; }
+.board-head { display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: var(--paper); border: 1px solid var(--line); border-bottom: 0; border-radius: 6px 6px 0 0; }
+.board-head .t-bodyb { color: var(--blue); }
+.board-head .more { margin-left: auto; font-size: 12px; color: var(--gray); display: inline-flex; gap: 6px; align-items: center; }
+.board-count { padding: 0 7px; border-radius: 999px; background: var(--yellow); color: var(--blue); font: 700 11px/18px var(--mono); }
+.board-head + .board-wrap { border-radius: 0 0 6px 6px; }
+@media (max-width: 800px) { .board .hide-narrow { display: none; } }
+
+/* 알림 종: 안 읽은 알림이 있으면 흔들리고 숫자가 두근거림 */
+.bell.has-unread .quick-btn { animation: bell-ring 2.6s ease-in-out infinite; transform-origin: 50% 0; }
+.bell.has-unread .count { animation: count-pulse 1.6s ease-in-out infinite; }
+@keyframes bell-ring { 0%, 60%, 100% { transform: rotate(0); } 64% { transform: rotate(-12deg); } 68% { transform: rotate(10deg); } 72% { transform: rotate(-8deg); } 76% { transform: rotate(6deg); } 80% { transform: rotate(-3deg); } 84% { transform: rotate(0); } }
+@keyframes count-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.18); box-shadow: 0 0 0 4px rgba(255, 51, 51, .25); } }
+@media (prefers-reduced-motion: reduce) { .bell.has-unread .quick-btn, .bell.has-unread .count { animation: none; } }
+/* 보고서 · 자료 종류 띠: 게시판 머리에 종류 색이 보이게 */
+.board-head .badge { font-size: 12px; padding: 2px 10px; }

@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react'
 import { ArrowLeft } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
-import { dateLabel, dateTimeLabel, minutesLabel, relativeLabel, timeLabel, toDateKey, todayKey, won } from '../lib/date'
+import { dateLabel, dateTimeLabel, minutesLabel, timeLabel, toDateKey, todayKey, won } from '../lib/date'
 import { openGmail } from '../lib/links'
 import { maskAccount } from '../lib/finance'
 import { Meter } from '../components/charts'
 import { Link, useRouter, withQuery } from '../lib/router'
 import { APPROVAL_KINDS, CONTRACT_TYPES, type Approval, type ApprovalKind, type ApprovalRoute, type Project, type WorkLog } from '../lib/types'
 import { Shell } from '../components/Shell'
-import { Badge, Button, Chip, Empty, Field, KindBadge, Modal, StatusBadge } from '../components/ui'
+import { Board, BoardHead } from '../components/Board'
+import { Button, Chip, Field, KindBadge, KindTag, Modal, StatusBadge } from '../components/ui'
 
 type View = 'todo' | 'mine' | 'all'
 
@@ -145,43 +146,50 @@ export default function Approvals() {
           ) : null
         })}
       </div>
-      <div className={`split ${selected ? 'has-detail' : ''}`} style={{ gap: 12 }}>
-        <div className="pane-list" style={{ width: 260, borderRight: 0 }}>
-          <div className="pane-body">
-            {list.map(a => (
-              <button key={a.id} type="button" className={`item ${a.id === selectedId ? 'active' : ''}`} style={{ borderBottom: '1px solid var(--line)' }} onClick={() => go({ id: a.id })}>
-                <div className="row">
-                  <Badge>{a.kind}</Badge>
-                  <span className="grow" />
-                  <StatusBadge status={a.status} />
-                </div>
-                <div className="t-smallb truncate" style={{ marginTop: 3 }}>
-                  {a.title}
-                </div>
-                <RequesterLine a={a} />
-              </button>
-            ))}
-            {list.length === 0 && <Empty>{loading ? '불러오는 중…' : view === 'todo' ? '처리할 승인이 없습니다.' : '요청이 없습니다.'}</Empty>}
-          </div>
-        </div>
+      {selected ? (
         <div className="pane-detail">
-          {selected ? <ApprovalDetail a={selected} onBack={() => go({ id: null })} /> : <Empty>왼쪽에서 요청을 고르세요.</Empty>}
+          <ApprovalDetail a={selected} onBack={() => go({ id: null })} />
         </div>
-      </div>
+      ) : (
+        <ApprovalBoards list={list} byKind={!kind} loading={loading} view={view} onOpen={id => go({ id })} />
+      )}
       {creating && <NewApproval onClose={() => setCreating(false)} onCreated={id => go({ view: 'mine', id })} />}
     </Shell>
   )
 }
 
-function RequesterLine({ a }: { a: Approval }) {
+/** 승인 게시판: 종류별로 묶어 (색 머리띠) 번호 · 제목 · 요청자 · 요청일 · 상태 · 처리 */
+function ApprovalBoards({ list, byKind, loading, view, onOpen }: { list: Approval[]; byKind: boolean; loading: boolean; view: View; onOpen: (id: string) => void }) {
   const { profileName } = useApp()
+  const groups: [string, Approval[]][] = byKind ? APPROVAL_KINDS.map(k => [k, list.filter(a => a.kind === k)] as [string, Approval[]]).filter(([, l]) => l.length) : [['', list]]
+  const empty = loading ? '불러오는 중…' : view === 'todo' ? '처리할 승인이 없습니다.' : '요청이 없습니다.'
+  if (!groups.length) return <Board<Approval> rows={[]} rowKey={a => a.id} cols={[]} empty={empty} />
   return (
-    <div className="t-cap">
-      {profileName(a.requested_by)} · {relativeLabel(a.created_at)}
-      {a.amount != null && ` · ${won(a.amount)}`}
+    <div className="col gap-12">
+      {groups.map(([k, rows]) => (
+        <div key={k || 'all'} className="col">
+          {k && <BoardHead title={<KindTag kind={k} />} count={rows.length} />}
+          <Board<Approval>
+            rows={rows}
+            rowKey={a => a.id}
+            onRow={a => onOpen(a.id)}
+            numbered={!k}
+            empty={empty}
+            cols={[
+              ...(k ? [] : [{ key: 'kind', label: '종류', width: 84, cell: (a: Approval) => <KindTag kind={a.kind} /> }]),
+            { key: 'title', label: '제목', kind: 'title', cell: a => <span className="t-smallb">{a.title}</span> },
+            { key: 'who', label: '요청자', width: 90, cell: a => profileName(a.requested_by) },
+            { key: 'when', label: '요청일', width: 110, hideNarrow: true, cell: a => dateTimeLabel(a.created_at) },
+            { key: 'status', label: '상태', width: 70, cell: a => <StatusBadge status={a.status} /> },
+              { key: 'act', label: '처리', width: 150, kind: 'center', cell: a => (a.status === '대기' && a.can_decide ? <span onClick={e => e.stopPropagation()}><DecideButtons approval={a} compact /></span> : '-') },
+            ]}
+          />
+        </div>
+      ))}
     </div>
   )
 }
+
 
 function ApprovalDetail({ a, onBack }: { a: Approval; onBack: () => void }) {
   const { api, me, profileName, profileOf } = useApp()
@@ -193,7 +201,7 @@ function ApprovalDetail({ a, onBack }: { a: Approval; onBack: () => void }) {
         <button type="button" className="icon-btn back-btn" onClick={onBack} aria-label="목록으로">
           <ArrowLeft size={18} />
         </button>
-        <Badge>{a.kind}</Badge>
+        <KindTag kind={a.kind} />
         <StatusBadge status={a.status} />
         <span className="grow" />
         <span className="t-cap">요청 {dateTimeLabel(a.created_at)}</span>

@@ -1,17 +1,19 @@
 import { useMemo, useState } from 'react'
-import { AlarmClock, ArrowLeft, ChevronLeft, ChevronRight, Folder, Pencil, Trash2 } from 'lucide-react'
+import { AlarmClock, ArrowLeft, ChevronLeft, ChevronRight, Pencil, Trash2 } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { addMonths, dateLabel, monthGrid, shortDate, timeLabel, toDateKey, todayKey, weekRange, weekday } from '../lib/date'
 import { Link, useRouter, withQuery } from '../lib/router'
 import { PROJECT_CATEGORIES, PROJECT_STATUSES, type ChatRoomSummary, type Client, type Contact, type Project, type ProjectStatus, type Task, type TaskStatus, type WorkLog } from '../lib/types'
 import { ContactTimeline, ExchangeFilesSection, ProjectContactsSection } from '../components/ContactHistory'
 import { OrgSection } from '../components/Org'
+import { Board, type BoardCol } from '../components/Board'
 import { Shell } from '../components/Shell'
 import { Badge, Button, Chip, Empty, Field, Modal, SectionHead, StatusBadge } from '../components/ui'
 import { NewApproval } from './Approvals'
 import { FinancePanel } from '../components/FinancePanel'
 import { ProjectDashboard } from './ProjectDashboard'
 import { Payments } from './Payments'
+import { Subscriptions } from './Subscriptions'
 import { Gantt, MonthCalendar, SentTasks, TaskAssignModal, WeekView } from './Schedule'
 import { OverdueCleanup, PendingReports, useWorkReports } from '../components/WorkReports'
 
@@ -63,6 +65,7 @@ export default function Projects() {
     ['mine', '내 할 일'],
     ['tasks', '팀 할 일'],
     ...(admin ? ([['payments', '결제 대장']] as [string, string][]) : []),
+    ['subs', '구독료'],
   ]
   return (
     <Shell active="projects">
@@ -76,7 +79,7 @@ export default function Projects() {
         </div>
         <span className="grow" />
         {!view && admin && <span className="t-cap">{todayKey().slice(0, 4)}년 · 공급가액(VAT 별도)</span>}
-        {view !== 'payments' && view !== 'schedule' && (
+        {view !== 'payments' && view !== 'schedule' && view !== 'subs' && (
           <Button kind="outline" onClick={() => setAssigning(true)}>
             업무 지시
           </Button>
@@ -91,6 +94,8 @@ export default function Projects() {
         <Payments projects={data.projects} clients={data.clients} />
       ) : view === 'org' ? (
         <OrgSection />
+      ) : view === 'subs' ? (
+        <Subscriptions />
       ) : view === 'schedule' ? (
         <Gantt projects={data.projects} tasks={data.tasks} />
       ) : view === 'week' ? (
@@ -116,10 +121,7 @@ export default function Projects() {
                 전체 {data.projects.length}
               </Chip>
             </div>
-            {list.map(p => (
-              <ProjectRow key={p.id} p={p} data={data} />
-            ))}
-            {list.length === 0 && <Empty>{loading ? '불러오는 중…' : '프로젝트가 없습니다.'}</Empty>}
+            <ProjectBoard list={list} data={data} loading={loading} onOpen={id => go({ id })} />
           </div>
           <MiniCalendar data={data} />
         </div>
@@ -132,28 +134,47 @@ export default function Projects() {
   )
 }
 
-function ProjectRow({ p, data }: { p: Project; data: Data }) {
+/** 프로젝트 목록 게시판: 번호 · 상태 · 프로젝트 · 거래처 · 구분 · 담당 · 기간 · 할 일 */
+function ProjectBoard({ list, data, loading, onOpen }: { list: Project[]; data: Data; loading: boolean; onOpen: (id: string) => void }) {
   const { profileName } = useApp()
-  const tasks = data.tasks.filter(t => t.project_id === p.id)
-  const done = tasks.filter(t => t.status === '완료').length
-  const client = data.clients.find(c => c.id === p.client_id)
-  return (
-    <Link to={`/projects?id=${p.id}`} className="item-row" title={p.name}>
-      <span className="avatar sm" style={{ background: p.status === '진행' ? 'var(--yellow)' : 'var(--paper)', borderColor: 'var(--line)' }}>
-        <Folder size={14} />
-      </span>
-      <span className="col gap-2 grow">
-        <span className="t-smallb truncate">{p.name}</span>
-        <span className="t-cap truncate">{[client?.name ?? '자체', p.category, p.location].filter(Boolean).join(' · ')}</span>
-      </span>
-      <span className="col gap-2" style={{ alignItems: 'flex-end', flexShrink: 0 }}>
-        <span className="t-meta">{p.start_date || p.end_date ? `${shortDate(p.start_date)} – ${shortDate(p.end_date)}` : ''}</span>
-        <span className="t-cap">{tasks.length ? `할 일 ${done}/${tasks.length}` : ''}</span>
-      </span>
-      {p.owner_id && <span className="t-cap nowrap">{profileName(p.owner_id)}</span>}
-      <StatusBadge status={p.status} />
-    </Link>
-  )
+  const today = todayKey()
+  const cols: BoardCol<Project>[] = [
+    { key: 'status', label: '상태', width: 64, cell: p => <StatusBadge status={p.status} /> },
+    {
+      key: 'name',
+      label: '프로젝트',
+      kind: 'title',
+      cell: p => (
+        <>
+          <span className="t-smallb">{p.name}</span>
+          {p.location && <span className="cell-sub">{p.location}</span>}
+        </>
+      ),
+    },
+    { key: 'client', label: '거래처', width: 140, hideNarrow: true, cell: p => data.clients.find(c => c.id === p.client_id)?.name ?? '자체' },
+    { key: 'cat', label: '구분', width: 70, hideNarrow: true, cell: p => p.category },
+    { key: 'owner', label: '담당', width: 80, cell: p => (p.owner_id ? profileName(p.owner_id) : '-') },
+    { key: 'period', label: '기간', width: 150, hideNarrow: true, cell: p => (p.start_date || p.end_date ? `${shortDate(p.start_date)} – ${shortDate(p.end_date)}` : '-') },
+    {
+      key: 'tasks',
+      label: '할 일',
+      width: 90,
+      kind: 'num',
+      cell: p => {
+        const tasks = data.tasks.filter(t => t.project_id === p.id)
+        const late = tasks.filter(t => t.status !== '완료' && t.due_date && t.due_date < today).length
+        return tasks.length ? (
+          <>
+            {tasks.filter(t => t.status === '완료').length}/{tasks.length}
+            {late > 0 && <span className="t-red"> 지연 {late}</span>}
+          </>
+        ) : (
+          '-'
+        )
+      },
+    },
+  ]
+  return <Board rows={list} cols={cols} rowKey={p => p.id} onRow={p => onOpen(p.id)} empty={loading ? '불러오는 중…' : '프로젝트가 없습니다.'} />
 }
 
 function MiniCalendar({ data }: { data: Data }) {
@@ -226,13 +247,7 @@ function MiniCalendar({ data }: { data: Data }) {
 
 const NEXT: Record<TaskStatus, TaskStatus> = { '할 일': '진행 중', '진행 중': '완료', 완료: '할 일' }
 
-/** datetime-local 값 ↔ ISO */
-const toLocalInput = (iso: string | null) => {
-  if (!iso) return ''
-  const d = new Date(iso)
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
-}
+/** datetime-local 값 → ISO */
 const fromLocalInput = (v: string) => (v ? new Date(v).toISOString() : null)
 const alarmLabel = (iso: string) => `${shortDate(toDateKey(iso))} ${timeLabel(iso)}`
 
@@ -278,7 +293,7 @@ function TaskAdder({ projectId, defaultAssignee }: { projectId: string | null; d
 }
 
 function TaskList({ tasks, projects, mineOnly }: { tasks: Task[]; projects: Project[]; mineOnly: boolean }) {
-  const { api, me, profileName } = useApp()
+  const { api, me } = useApp()
   const { run } = useAction()
   const today = todayKey()
   const [, we] = weekRange(today)
@@ -308,18 +323,13 @@ function TaskList({ tasks, projects, mineOnly }: { tasks: Task[]; projects: Proj
               <span className={`t-bodyb ${label === '지연' ? 't-red' : ''}`}>{label}</span>
               <Badge tone={label === '지연' ? 'red' : 'yellow'}>{list.length}</Badge>
             </div>
-            {list.map(t => (
-              <TaskRow
-                key={t.id}
-                t={t}
-                late={label === '지연'}
-                projectName={projects.find(p => p.id === t.project_id)?.name}
-                assignee={profileName(t.assignee_id)}
-                onStatus={() => run(() => api.saveTask({ id: t.id, status: NEXT[t.status] }))}
-                onAlarm={v => run(() => api.saveTask({ id: t.id, remind_at: v }), v ? `알람을 ${alarmLabel(v)}에 맞췄어요.` : '알람을 껐어요.')}
-                onEdit={() => setEditing(t)}
-              />
-            ))}
+            <TaskBoard
+              list={list}
+              late={label === '지연'}
+              projects={projects}
+              onStatus={t => run(() => api.saveTask({ id: t.id, status: NEXT[t.status] }))}
+              onEdit={t => setEditing(t)}
+            />
           </div>
         ) : null,
       )}
@@ -327,6 +337,66 @@ function TaskList({ tasks, projects, mineOnly }: { tasks: Task[]; projects: Proj
       {editing && <TaskAssignModal task={editing} projects={projects} tasks={tasks} onClose={() => setEditing(null)} />}
     </div>
   )
+}
+
+/** 할 일 게시판: 번호 · 상태 · 할 일 · 프로젝트 · 담당 · 마감 · 알람 · 고치기 */
+function TaskBoard({ list, late, projects, onStatus, onEdit, onDelete }: { list: Task[]; late?: boolean; projects: Project[]; onStatus: (t: Task) => void; onEdit?: (t: Task) => void; onDelete?: (t: Task) => void }) {
+  const { me, profileName, profileOf } = useApp()
+  const today = todayKey()
+  const cols: BoardCol<Task>[] = [
+    {
+      key: 'status',
+      label: '상태',
+      width: 72,
+      cell: t => (
+        <button type="button" className="link-btn" onClick={e => (e.stopPropagation(), onStatus(t))} title="눌러서 상태 변경 (할 일 → 진행 중 → 완료)">
+          <StatusBadge status={late || (t.status !== '완료' && !!t.due_date && t.due_date < today) ? '지연' : t.status} />
+        </button>
+      ),
+    },
+    {
+      key: 'title',
+      label: '할 일',
+      kind: 'title',
+      cell: t => {
+        const creator = profileOf(t.created_by)
+        const sub = [t.phase, creator?.is_agent ? `${creator.name} 배정` : creator && creator.id !== t.assignee_id ? `${creator.name} 지시` : null, t.start_date && t.due_date && t.start_date !== t.due_date ? `${shortDate(t.start_date)}~${shortDate(t.due_date)}` : null].filter(Boolean).join(' · ')
+        return (
+          <>
+            <span className="t-smallb" style={t.status === '완료' ? { textDecoration: 'line-through', opacity: 0.6 } : undefined}>
+              {t.title}
+            </span>
+            {sub && <span className="cell-sub">{sub}</span>}
+          </>
+        )
+      },
+    },
+    { key: 'project', label: '프로젝트', width: 170, hideNarrow: true, cell: t => (t.project_id ? <span onClick={e => e.stopPropagation()}><Link to={`/projects?id=${t.project_id}`}>{projects.find(p => p.id === t.project_id)?.name ?? ''}</Link></span> : '-') },
+    { key: 'assignee', label: '담당', width: 80, cell: t => (t.assignee_id ? <span className={t.assignee_id === me.id ? 't-smallb' : ''}>{profileName(t.assignee_id)}</span> : '-') },
+    { key: 'due', label: '마감', width: 96, cell: t => (t.due_date ? <span className={`t-meta ${t.status !== '완료' && t.due_date < today ? 't-red' : ''}`}>{t.due_date === today ? '오늘' : `${shortDate(t.due_date)} ${weekday(t.due_date)}`}</span> : '-') },
+    { key: 'alarm', label: '알람', width: 100, hideNarrow: true, cell: t => (t.remind_at && t.status !== '완료' ? <span className="t-meta">{alarmLabel(t.remind_at)}</span> : '-') },
+    {
+      key: 'act',
+      label: '',
+      width: onDelete ? 56 : 34,
+      kind: 'center',
+      cell: t => (
+        <>
+          {onEdit && (
+            <button type="button" className="icon-btn sm" onClick={e => (e.stopPropagation(), onEdit(t))} aria-label={`${t.title} 고치기`} title="고치기 (제목 · 담당 · 날짜 · 메모)">
+              <Pencil size={13} />
+            </button>
+          )}
+          {onDelete && (
+            <button type="button" className="icon-btn sm" onClick={e => (e.stopPropagation(), onDelete(t))} aria-label="할 일 삭제" title="삭제">
+              <Trash2 size={13} />
+            </button>
+          )}
+        </>
+      ),
+    },
+  ]
+  return <Board rows={list} cols={cols} rowKey={t => t.id} onRow={onEdit} rowClass={t => (t.status === '완료' ? 'done' : undefined)} compact empty="할 일이 없습니다." />
 }
 
 /** 내 할 일 · 팀 할 일 색 구분 */
@@ -343,85 +413,6 @@ function TaskLegend() {
   )
 }
 
-function TaskRow({ t, late, projectName, assignee, onStatus, onDelete, onAlarm, onEdit }: { t: Task; late?: boolean; projectName?: string; assignee: string; onStatus: () => void; onDelete?: () => void; onAlarm?: (iso: string | null) => void; onEdit?: () => void }) {
-  const { me, profileOf } = useApp()
-  const [editAlarm, setEditAlarm] = useState(false)
-  const creator = profileOf(t.created_by)
-  const pending = t.remind_at && !t.reminded_at && t.status !== '완료'
-  return (
-    <div className={`item-row task-row ${t.assignee_id === me.id ? 'mine' : 'team'}`} title={t.assignee_id === me.id ? '내 할 일' : `팀 할 일 · ${assignee}`}>
-      <input type="checkbox" checked={t.status === '완료'} onChange={onStatus} aria-label={`${t.title} 상태 바꾸기`} title="눌러서 상태 변경 (할 일 → 진행 중 → 완료)" />
-      <span className="col gap-2 grow">
-        <span
-          className="t-smallb truncate"
-          style={{ ...(t.status === '완료' ? { textDecoration: 'line-through', opacity: 0.6 } : null), ...(onEdit ? { cursor: 'pointer' } : null) }}
-          onClick={onEdit}
-          title={onEdit ? '눌러서 고치기' : undefined}
-        >
-          {t.title}
-        </span>
-        <span className="t-cap truncate">
-          {projectName && (
-            <Link to={`/projects?id=${t.project_id}`} className="t-cap">
-              {projectName}
-            </Link>
-          )}
-          {t.source_research_id && (
-            <>
-              {projectName ? ' · ' : ''}
-              <Link to={`/library?id=${t.source_research_id}`}>📚 리서치에서 만든 할 일</Link>
-            </>
-          )}
-          {creator?.is_agent && <span className="t-blue">{projectName || t.source_research_id ? ' · ' : ''}🤖 {creator.name} 배정</span>}
-          {t.phase && <span>{projectName || t.source_research_id || creator?.is_agent ? ' · ' : ''}{t.phase}</span>}
-          {creator && !creator.is_agent && creator.id !== t.assignee_id && <span className="t-blue">{projectName || t.phase ? ' · ' : ''}{creator.name} 지시</span>}
-          {t.start_date && t.due_date && t.start_date !== t.due_date && <span>{' · '}{shortDate(t.start_date)}~{shortDate(t.due_date)}</span>}
-        </span>
-      </span>
-      {editAlarm && onAlarm ? (
-        <input
-          className="input"
-          style={{ width: 178 }}
-          type="datetime-local"
-          autoFocus
-          defaultValue={toLocalInput(t.remind_at)}
-          onBlur={e => {
-            setEditAlarm(false)
-            const v = fromLocalInput(e.target.value)
-            if (v !== t.remind_at) onAlarm(v)
-          }}
-          aria-label="알람 시각"
-        />
-      ) : t.remind_at && t.status !== '완료' ? (
-        <button type="button" className={`badge ${pending ? 'paper' : 'outline'}`} style={{ cursor: onAlarm ? 'pointer' : 'default', gap: 4 }} onClick={() => onAlarm && setEditAlarm(true)} title={pending ? '알람 예정 (눌러서 변경)' : '알람 울림'}>
-          {alarmLabel(t.remind_at)}
-        </button>
-      ) : (
-        onAlarm &&
-        t.status !== '완료' && (
-          <button type="button" className="icon-btn sm" onClick={() => setEditAlarm(true)} aria-label="알람 맞추기" title="알람 맞추기">
-            <AlarmClock size={13} />
-          </button>
-        )
-      )}
-      {t.due_date && <span className={`t-meta ${late ? 't-red' : ''}`}>{t.due_date === todayKey() ? '오늘' : `${shortDate(t.due_date)} ${weekday(t.due_date)}`}</span>}
-      <button type="button" style={{ border: 0, background: 'none', padding: 0, cursor: 'pointer' }} onClick={onStatus} title="상태 변경">
-        <StatusBadge status={late ? '지연' : t.status} />
-      </button>
-      {t.assignee_id && <span className="t-cap nowrap">{assignee}</span>}
-      {onEdit && (
-        <button type="button" className="icon-btn sm" onClick={onEdit} aria-label={`${t.title} 고치기`} title="고치기 (제목 · 담당 · 날짜 · 메모)">
-          <Pencil size={13} />
-        </button>
-      )}
-      {onDelete && (
-        <button type="button" className="icon-btn sm" onClick={onDelete} aria-label="할 일 삭제" title="삭제">
-          <Trash2 size={13} />
-        </button>
-      )}
-    </div>
-  )
-}
 
 function ProjectDetail({ project: p, data, onEdit, onBack }: { project: Project; data: Data; onEdit: () => void; onBack: () => void }) {
   const { api, me, profileName, version } = useApp()
@@ -431,7 +422,6 @@ function ProjectDetail({ project: p, data, onEdit, onBack }: { project: Project;
   const [editingTask, setEditingTask] = useState<Task | null>(null)
   const tasks = data.tasks.filter(t => t.project_id === p.id)
   const client = data.clients.find(c => c.id === p.client_id)
-  const today = todayKey()
   const { data: extra } = useAsync(
     async () => {
       const [logs, rooms, contacts] = await Promise.all([api.listWorkLogs({ projectId: p.id, limit: 50 }), api.listRooms(), api.listContacts().catch(() => [] as Contact[])])
@@ -506,18 +496,13 @@ function ProjectDetail({ project: p, data, onEdit, onBack }: { project: Project;
       <div className="row top gap-12" style={{ flexWrap: 'wrap' }}>
         <div className="col grow" style={{ flexBasis: 300 }}>
           <SectionHead title="할 일" count={`${tasks.filter(t => t.status === '완료').length}/${tasks.length}`} right={<TaskLegend />} />
-          {tasks.map(t => (
-            <TaskRow
-              key={t.id}
-              t={t}
-              late={t.status !== '완료' && !!t.due_date && t.due_date < today}
-              assignee={profileName(t.assignee_id)}
-              onStatus={() => run(() => api.saveTask({ id: t.id, status: NEXT[t.status] }))}
-              onDelete={() => window.confirm('이 할 일을 삭제할까요?') && run(() => api.deleteTask(t.id))}
-              onAlarm={v => run(() => api.saveTask({ id: t.id, remind_at: v }), v ? `알람을 ${alarmLabel(v)}에 맞췄어요.` : '알람을 껐어요.')}
-              onEdit={() => setEditingTask(t)}
-            />
-          ))}
+          <TaskBoard
+            list={tasks}
+            projects={data.projects}
+            onStatus={t => run(() => api.saveTask({ id: t.id, status: NEXT[t.status] }))}
+            onDelete={t => window.confirm('이 할 일을 삭제할까요?') && run(() => api.deleteTask(t.id))}
+            onEdit={t => setEditingTask(t)}
+          />
           <TaskAdder projectId={p.id} defaultAssignee={me.id} />
         </div>
         <div className="col" style={{ flexBasis: 240, flexGrow: 1, maxWidth: 360 }}>

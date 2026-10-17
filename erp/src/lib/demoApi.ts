@@ -3,6 +3,7 @@ import { ApiError, groupIps, type Api, type ImportResult, type MessageEvent } fr
 import { addDays, nextMonday, toDateKey, todayKey } from './date'
 import { DEFAULT_REPORT_BODY } from './reports'
 import type {
+  Subscription,
   ExchangeFile,
   ProjectContact,
   AttendanceDevice,
@@ -63,6 +64,7 @@ interface Store {
   approval_routes: ApprovalRoute[]
   finances: ProjectFinance[]
   payments: Payment[]
+  subscriptions?: Subscription[]
   budget_lines: BudgetLine[]
   research_items: ResearchItem[]
   brand_contacts: BrandContact[]
@@ -986,6 +988,29 @@ export function createDemoApi(): Api {
       persist()
       emit('finances')
       return clone(row)
+    },
+    async listSubscriptions() {
+      requireMe()
+      if (!store.subscriptions) {
+        store.subscriptions = [
+          { id: uid(), name: 'Figma', category: '디자인', plan: 'Professional · 3석', amount: 45, currency: 'USD', cycle: '월', next_billing: addDays(todayKey(), 12), pay_method: '법인카드', account_email: 'info@thewklyn.com', owner_id: U.admin, seats: 3, url: 'https://figma.com', status: '사용 중', memo: null, created_by: U.admin, created_at: now(), updated_at: now() },
+          { id: uid(), name: 'Google Workspace', category: '협업 · 문서', plan: 'Business Starter · 6석', amount: 60000, currency: 'KRW', cycle: '월', next_billing: addDays(todayKey(), 3), pay_method: '법인카드', account_email: 'info@thewklyn.com', owner_id: U.admin, seats: 6, url: 'https://workspace.google.com', status: '사용 중', memo: null, created_by: U.admin, created_at: now(), updated_at: now() },
+          { id: uid(), name: 'Adobe Creative Cloud', category: '디자인', plan: '단체 · 2석', amount: 1200000, currency: 'KRW', cycle: '년', next_billing: addDays(todayKey(), 90), pay_method: '세금계산서', account_email: null, owner_id: U.doyun, seats: 2, url: null, status: '사용 중', memo: '연 갱신 전 좌석 수 재검토', created_by: U.admin, created_at: now(), updated_at: now() },
+        ]
+      }
+      return clone([...store.subscriptions].sort((a, b) => a.status.localeCompare(b.status) || (a.next_billing ?? '9999').localeCompare(b.next_billing ?? '9999')))
+    },
+    async saveSubscription(s) {
+      requireAdmin()
+      if (!(s.name ?? '').trim() && !s.id) throw new ApiError('이름을 적어 주세요.')
+      store.subscriptions ??= []
+      return upsert<'subscriptions', Subscription>('subscriptions', s, () => ({ id: '', name: '', category: '기타', plan: null, amount: 0, currency: 'KRW', cycle: '월', next_billing: null, pay_method: null, account_email: null, owner_id: null, seats: null, url: null, status: '사용 중', memo: null, created_by: requireMe(), created_at: now(), updated_at: now() }))
+    },
+    async deleteSubscription(id) {
+      requireAdmin()
+      store.subscriptions = (store.subscriptions ?? []).filter(x => x.id !== id)
+      persist()
+      emit('subscriptions')
     },
     async listPayments(filter = {}) {
       if (!isAdmin()) return []

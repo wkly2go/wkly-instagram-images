@@ -97,7 +97,7 @@ export function NotificationBell() {
   }
 
   return (
-    <div className="bell" ref={box}>
+    <div className={`bell${unread.length ? ' has-unread' : ''}`} ref={box}>
       <button type="button" className="quick-btn" onClick={() => setOpen(o => !o)} aria-expanded={open} aria-label={`알림 ${unread.length}개`} style={unread.length ? { background: 'var(--yellow)', borderColor: 'var(--blue)' } : undefined}>
         <Bell size={14} />
         {unread.length > 0 && <span className="count">{unread.length > 99 ? '99+' : unread.length}</span>}

@@ -20,8 +20,9 @@ import {
   type ResearchStatus,
 } from '../lib/types'
 import { Shell } from '../components/Shell'
+import { Board } from '../components/Board'
 import { REPORT_KIND, ReportBody, ReportForm, ReportTemplates, clientCatLabel } from '../components/Reports'
-import { Badge, Button, Chip, Empty, Field, Modal, type Tone } from '../components/ui'
+import { Badge, Button, Chip, Empty, Field, KindTag, Modal, type Tone } from '../components/ui'
 
 type Tab = 'research' | 'reports' | 'contacts' | 'templates' | 'agents'
 
@@ -98,9 +99,23 @@ function Research({ tabs }: { tabs: ReactNode }) {
   const selected = data.items.find(r => r.id === selectedId) ?? null
   const count = (s: ResearchStatus) => data.items.filter(r => r.status === s).length
 
+  if (selected) {
+    return (
+      <div className="split has-detail">
+        <div className="pane-detail">
+          <ResearchDetail r={selected} projects={data.projects} rooms={data.rooms} clients={data.clients} onBack={() => go({ id: null })} onEdit={() => setEditing(selected)} />
+        </div>
+        {editing === 'report' || (editing && editing !== 'new' && editing.kind === REPORT_KIND) ? (
+          <ReportForm item={editing === 'report' ? null : (editing as ResearchItem)} clients={data.clients} onClose={() => setEditing(null)} onSaved={id => go({ id })} />
+        ) : (
+          editing && <ResearchForm item={editing === 'new' ? null : editing} projects={data.projects} onClose={() => setEditing(null)} onSaved={id => go({ id })} />
+        )}
+      </div>
+    )
+  }
   return (
-    <div className={`split ${selected ? 'has-detail' : ''}`}>
-      <div className="pane-list" style={{ width: 300 }}>
+    <div className="split">
+      <div className="pane-list" style={{ width: '100%', borderRight: 0, background: 'var(--white)' }}>
         <div className="pane-head">
           {tabs}
           <div className="row">
@@ -134,34 +149,33 @@ function Research({ tabs }: { tabs: ReactNode }) {
             </Chip>
           </div>
         </div>
-        <div className="pane-body">
-          {list.map(r => (
-            <button key={r.id} type="button" className={`item ${r.id === selectedId ? 'active' : ''}`} onClick={() => go({ id: r.id })} style={{ borderBottom: '1px solid var(--line)' }}>
-              <span className="row" style={{ gap: 6 }}>
-                <Badge>{r.kind}</Badge>
-                <span className="t-cap truncate grow">{r.collected_by_agent ? `🤖 ${(profileOf(r.collected_by_agent)?.name ?? r.collected_by_agent)}` : ''}</span>
-                <span className="t-meta">{relativeLabel(r.created_at)}</span>
-              </span>
-              <span className="t-smallb" style={{ display: 'block', marginTop: 3 }}>
-                {r.title}
-              </span>
-              {r.summary && (
-                <span className="t-cap" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                  {r.summary}
-                </span>
-              )}
-              {r.tags.length > 0 && <span className="t-cap t-blue">{r.tags.map(t => `#${t}`).join(' ')}</span>}
-            </button>
-          ))}
-          {list.length === 0 && <Empty>{loading ? '불러오는 중…' : status === '새 자료' ? '새 자료가 없습니다. 에이전트가 모은 자료가 여기에 쌓입니다.' : '자료가 없습니다.'}</Empty>}
+        <div className="pane-body" style={{ padding: '0 12px 12px' }}>
+          <Board<ResearchItem>
+            rows={list}
+            rowKey={r => r.id}
+            onRow={r => go({ id: r.id })}
+            empty={loading ? '불러오는 중…' : status === '새 자료' ? '새 자료가 없습니다. 에이전트가 모은 자료가 여기에 쌓입니다.' : '자료가 없습니다.'}
+            cols={[
+              { key: 'kind', label: '종류', width: 100, cell: r => <KindTag kind={r.kind} /> },
+              {
+                key: 'title',
+                label: '제목',
+                kind: 'title',
+                cell: r => (
+                  <>
+                    <span className="t-smallb">{r.title}</span>
+                    {r.summary && <span className="cell-sub">{r.summary}</span>}
+                  </>
+                ),
+              },
+              { key: 'client', label: '거래처 · 브랜드', width: 150, hideNarrow: true, cell: r => (r.client_id ? data.clients.find(c => c.id === r.client_id)?.name : r.brand_name) ?? '-' },
+              { key: 'tags', label: '태그', width: 160, hideNarrow: true, cell: r => (r.tags.length ? r.tags.map(t => `#${t}`).join(' ') : '-') },
+              { key: 'by', label: '작성', width: 90, cell: r => (r.collected_by_agent ? profileOf(r.collected_by_agent)?.name ?? 'AI' : profileOf(r.created_by)?.name ?? '-') },
+              { key: 'when', label: '날짜', width: 90, cell: r => shortDate(toDateKey(r.created_at)) },
+              { key: 'status', label: '상태', width: 72, cell: r => <Badge tone={r.status === '새 자료' ? 'yellow' : 'outline'}>{r.status}</Badge> },
+            ]}
+          />
         </div>
-      </div>
-      <div className="pane-detail">
-        {selected ? (
-          <ResearchDetail r={selected} projects={data.projects} rooms={data.rooms} clients={data.clients} onBack={() => go({ id: null })} onEdit={() => setEditing(selected)} />
-        ) : (
-          <Empty>왼쪽에서 자료를 고르세요. 검토 → 할 일 만들기 · 프로젝트 연결 · 채팅 공유 · 브랜드 담당자 저장으로 바로 활용할 수 있어요.</Empty>
-        )}
       </div>
       {editing === 'report' || (editing && editing !== 'new' && editing.kind === REPORT_KIND) ? (
         <ReportForm item={editing === 'report' ? null : (editing as ResearchItem)} clients={data.clients} onClose={() => setEditing(null)} onSaved={id => go({ id })} />

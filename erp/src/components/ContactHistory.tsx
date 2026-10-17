@@ -4,6 +4,7 @@ import { shortDate, timeLabel, todayKey } from '../lib/date'
 import { Link } from '../lib/router'
 import type { Client, Contact, ExchangeFile, Project, ProjectContact, WorkLog } from '../lib/types'
 import { Badge, Button, Chip, Field, KindBadge, SectionHead } from './ui'
+import { Board, type BoardCol } from './Board'
 
 const fmtSize = (n: number | null) => (n == null ? '' : n > 1048576 ? `${(n / 1048576).toFixed(1)}MB` : `${Math.max(1, Math.round(n / 1024))}KB`)
 
@@ -15,31 +16,25 @@ export function ContactTimeline({ logs, projects, showContact, contacts }: { log
   const { profileName } = useApp()
   const pname = (id: string | null) => (id ? projects.find(p => p.id === id)?.name : undefined)
   const cname = (l: WorkLog) => (l.contact_id ? contacts?.find(c => c.id === l.contact_id)?.name : undefined) ?? l.email_counterpart ?? undefined
-  if (logs.length === 0) return <span className="t-cap">연락 기록이 아직 없습니다. 업무 일지에서 메일 · 전화 · 미팅을 기록하거나, 메일 상대 주소가 등록된 담당자면 AI 총괄이 매일 아침 자동으로 채웁니다.</span>
-  return (
-    <div className="col">
-      {logs.map(l => (
-        <div key={l.id} className="col gap-2 dashed" style={{ padding: '6px 0' }}>
-          <div className="row wrap" style={{ gap: 6 }}>
-            <span className="t-meta">
-              {shortDate(l.log_date)} {timeLabel(l.created_at)}
-            </span>
-            <KindBadge kind={l.kind} />
-            <span className="t-cap">{profileName(l.user_id)}</span>
-            {showContact && cname(l) && <span className="t-cap">· {cname(l)}</span>}
-            <span className="grow" />
-            {l.project_id && pname(l.project_id) && (
-              <Link to={`/projects?id=${l.project_id}`} className="t-cap">
-                {pname(l.project_id)} ›
-              </Link>
-            )}
-          </div>
+  const cols: BoardCol<WorkLog>[] = [
+    { key: 'when', label: '날짜', width: 100, cell: l => <span className="t-meta">{shortDate(l.log_date)} {timeLabel(l.created_at)}</span> },
+    { key: 'kind', label: '구분', width: 76, cell: l => <KindBadge kind={l.kind} /> },
+    ...(showContact ? [{ key: 'who', label: '상대', width: 110, cell: (l: WorkLog) => cname(l) ?? '-' } as BoardCol<WorkLog>] : []),
+    {
+      key: 'content',
+      label: '내용',
+      kind: 'title',
+      cell: l => (
+        <>
           {l.email_subject && <span className="t-smallb">{l.email_subject}</span>}
-          <span className="t-small t-blue pre">{l.content}</span>
-        </div>
-      ))}
-    </div>
-  )
+          <span className={`cell-pre t-small t-blue${l.email_subject ? ' cell-sub' : ''}`}>{l.content}</span>
+        </>
+      ),
+    },
+    { key: 'project', label: '프로젝트', width: 150, hideNarrow: true, cell: l => (l.project_id && pname(l.project_id) ? <Link to={`/projects?id=${l.project_id}`}>{pname(l.project_id)}</Link> : '-') },
+    { key: 'user', label: '담당', width: 72, cell: l => profileName(l.user_id) },
+  ]
+  return <Board rows={logs} cols={cols} rowKey={l => l.id} compact empty="연락 기록이 아직 없습니다. 업무 일지에서 메일 · 전화 · 미팅을 기록하거나, 메일 상대 주소가 등록된 담당자면 AI 총괄이 매일 아침 자동으로 채웁니다." />
 }
 
 /** 주고받은 자료: 파일 또는 링크 · 받음/보냄 · 어느 사람 · 어느 프로젝트 */
@@ -66,31 +61,45 @@ export function ExchangeFilesSection({ clientId, contactId, projectId, contacts,
         }
       />
       {adding && <ExchangeFileForm clientId={clientId} contactId={contactId ?? null} projectId={projectId ?? null} contacts={contacts} projects={projects} onDone={() => setAdding(false)} />}
-      {files.map(f => (
-        <div key={f.id} className="row wrap dashed" style={{ padding: '5px 0', gap: 6 }}>
-          <span className="t-meta">{shortDate(f.file_date)}</span>
-          <Badge tone={f.direction === '받음' ? 'yellow' : 'outline'}>{f.direction}</Badge>
-          <button type="button" className="link-btn t-smallb truncate" style={{ maxWidth: 260 }} onClick={() => open(f)} title={f.name}>
-            {f.name}
-          </button>
-          {f.size != null && <span className="t-meta">{fmtSize(f.size)}</span>}
-          {f.note && <span className="t-cap truncate" style={{ maxWidth: 220 }} title={f.note}>{f.note}</span>}
-          <span className="grow" />
-          {!contactId && byContact(f.contact_id) && <span className="t-cap">{byContact(f.contact_id)}</span>}
-          {!projectId && f.project_id && (
-            <Link to={`/projects?id=${f.project_id}`} className="t-cap">
-              {byProject(f.project_id)} ›
-            </Link>
-          )}
-          <span className="t-meta">{f.source === '직접' ? profileName(f.created_by) : f.source}</span>
-          {(f.created_by === me.id || me.role === 'admin') && (
-            <button type="button" className="link-btn t-meta" disabled={busy} onClick={() => window.confirm(`'${f.name}' 자료 기록을 지울까요?`) && run(() => api.deleteExchangeFile(f.id), '지웠습니다.')}>
-              지우기
-            </button>
-          )}
-        </div>
-      ))}
-      {files.length === 0 && !adding && <span className="t-cap">주고받은 자료가 없습니다. 메일 첨부는 AI 총괄이 매일 아침 자동으로 모으고, 직접 올리려면 + 자료.</span>}
+      <Board<ExchangeFile>
+        rows={files}
+        rowKey={f => f.id}
+        compact
+        empty="주고받은 자료가 없습니다. 메일 첨부는 AI 총괄이 매일 아침 자동으로 모으고, 직접 올리려면 + 자료."
+        cols={[
+          { key: 'date', label: '날짜', width: 70, cell: f => <span className="t-meta">{shortDate(f.file_date)}</span> },
+          { key: 'dir', label: '구분', width: 56, cell: f => <Badge tone={f.direction === '받음' ? 'yellow' : 'outline'}>{f.direction}</Badge> },
+          {
+            key: 'name',
+            label: '자료',
+            kind: 'title',
+            cell: f => (
+              <>
+                <button type="button" className="link-btn t-smallb" onClick={() => open(f)} title={f.name}>
+                  {f.name}
+                </button>
+                {f.note && <span className="cell-sub">{f.note}</span>}
+              </>
+            ),
+          },
+          { key: 'size', label: '크기', width: 64, kind: 'num', hideNarrow: true, cell: f => fmtSize(f.size) || '-' },
+          ...(!contactId ? [{ key: 'who', label: '상대', width: 90, cell: (f: ExchangeFile) => byContact(f.contact_id) ?? '-' } as BoardCol<ExchangeFile>] : []),
+          ...(!projectId ? [{ key: 'proj', label: '프로젝트', width: 140, hideNarrow: true, cell: (f: ExchangeFile) => (f.project_id ? <Link to={`/projects?id=${f.project_id}`}>{byProject(f.project_id)}</Link> : '-') } as BoardCol<ExchangeFile>] : []),
+          { key: 'src', label: '등록', width: 70, cell: f => (f.source === '직접' ? profileName(f.created_by) : f.source) },
+          {
+            key: 'act',
+            label: '',
+            width: 48,
+            kind: 'center',
+            cell: f =>
+              f.created_by === me.id || me.role === 'admin' ? (
+                <button type="button" className="link-btn t-meta" disabled={busy} onClick={() => window.confirm(`'${f.name}' 자료 기록을 지울까요?`) && run(() => api.deleteExchangeFile(f.id), '지웠습니다.')}>
+                  지우기
+                </button>
+              ) : null,
+          },
+        ]}
+      />
     </div>
   )
 }
