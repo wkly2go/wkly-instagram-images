@@ -1104,7 +1104,7 @@ button.kpi:hover, a.kpi:hover { border-color: var(--blue); }
   }
   /* 노랑 · 연두 바탕 위 글자는 맥 배지처럼 진한 회색 (대비 유지) */
   .badge.yellow, .badge.acid, .btn-yellow, .chip.active, .item.active, .pane-list .item.active, .bubble.mine, .cal button.today .n, .g-week.today,
-  .web-tab.on, .web-sites .web-tab.on, .board tbody tr.sel td, .proj-code, .mode-badge, .board-count, .section-h .badge.yellow,
+  .web-tab.on, .web-sites .web-tab.on, .board tbody tr.sel td, .proj-code, .mode-badge, .section-h .badge.yellow,
   .avatar.c3, .photo.c3, .quick-menu-item:hover, .seg button.on, .bulk, .notif-panel .head { color: #1c1c1e; }
   .kpi .t-cap { color: var(--blue); }
   .board tbody tr.sel td .t-smallb, .board tbody tr.sel td a, .item.active .t-smallb, .item.active a { color: #1c1c1e; }
@@ -1115,10 +1115,17 @@ button.kpi:hover, a.kpi:hover { border-color: var(--blue); }
   .tab:hover { background: #48484a; border-color: #48484a; color: #fff; }
   .tab.active { background: var(--white); border-color: var(--blue); color: var(--blue); }
   .app-page .tabs { background: #1e1e1e; border-top-color: #3a3a3c; }
-  .app-page .tab.active { background: var(--blue); color: #fff; }
+  .app-page .tab.active { background: var(--blue); color: #1c1c1e; }
   .section-h, .board-head { background: #323234; border-color: #323234; border-bottom-color: #48484a; }
   .section-h::before { background: var(--blue) !important; }
   img.person-photo, .photo img { opacity: .92; }
+  /* 가독성: 밝은 색 바탕(노랑 · 연두 · 하늘색) 위 글자는 진한 회색, 어두운 바탕 위 숫자 배지는 밝은 파랑 */
+  .photo:not(.has-img), .g-bar, .bubble.mine .t-meta, .bubble.mine .t-cap, .bubble.mine a, .badge.blue, .badge.green, .badge.red, .btn-blue, .avatar.c1, .avatar.c2, .photo.c1, .photo.c2, .update-bar, .quick-menu-item { color: #1c1c1e; }
+  .board-count { color: var(--blue); border-color: var(--blue); }
+  .t-cap, .t-meta, .cap, .board .cell-sub { color: #aeaeb2; }
+  .g-bar.s-doing, .g-bar.s-done { color: #1c1c1e; }
+  /* 노랑 · 연두 바탕 칸 안의 보조 글자도 진한 회색 */
+  :is(.item.active, .pane-list .item.active, .bubble.mine, .chip.active, .board tbody tr.sel td, .notif-panel .head, .bulk, .badge.yellow, .badge.acid) :is(.t-cap, .t-meta, .t-small, .t-smallb, .t-bodyb, .cap, a, span, b) { color: #1c1c1e; }
 }
 
 /* AI 팀 조직도 */
