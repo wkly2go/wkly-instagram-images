@@ -206,23 +206,13 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
     }
   }, [native, q, engine])
   // 검색 칸 글자 크기 (PC 프로그램 1.5+): 기본 70%, 가− / 가+ 로 조절 · 이 PC에 기억
-  const [zoom, setZoom] = useState(() => {
+  const [zoom] = useState(() => {
     try {
       return Number(localStorage.getItem('wkly-web-zoom')) || 0.6
     } catch {
       return 0.6
     }
   })
-  const changeZoom = (d: number) => {
-    const v = Math.round(Math.min(1.2, Math.max(0.5, zoom + d)) * 100) / 100
-    setZoom(v)
-    app?.searchZoom?.(v)
-    try {
-      localStorage.setItem('wkly-web-zoom', String(v))
-    } catch {
-      /* 저장 불가 */
-    }
-  }
   useEffect(() => {
     if (!native || !nativeBox.current) return
     const send = () => app!.searchBounds?.(rectOf())
@@ -298,29 +288,23 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
               {l}
             </button>
           ))}
-          <span className="web-tabs-sep" aria-hidden="true" />
-          {(Object.keys(SITE_GROUPS) as SiteGroup[]).map(k => (
-            <button key={k} type="button" role="tab" aria-selected={engine === k} className={`web-tab${engine === k ? ' on' : ''}`} onClick={() => onSearch(q, k)} title={`업무 사이트만: ${SITE_GROUPS[k].sites.join(' · ')}`}>
-              {SITE_GROUPS[k].label}
-            </button>
-          ))}
         </div>
-        {native && app!.searchZoom && (
-          <span className="web-nav">
-            <button type="button" className="icon-btn sm web-zoom" onClick={() => changeZoom(-0.1)} aria-label="글자 작게" title={`글자 작게 (지금 ${Math.round(zoom * 100)}%)`}>
-              가−
-            </button>
-            <button type="button" className="icon-btn sm web-zoom" onClick={() => changeZoom(0.1)} aria-label="글자 크게" title={`글자 크게 (지금 ${Math.round(zoom * 100)}%)`}>
-              가+
-            </button>
-          </span>
-        )}
         <button type="button" className="icon-btn sm" onClick={() => (native ? app!.searchNav?.('external') : window.open(urlFor(engine, q), '_blank', 'noopener'))} aria-label="브라우저로 열기" title="브라우저로 열기">
           <ExternalLink size={13} />
         </button>
         <button type="button" className="icon-btn sm" onClick={onClose} aria-label="검색 창 닫기" title="닫기 (Esc)">
           <X size={14} />
         </button>
+      </div>
+      <div className="web-tabs web-sites" role="tablist" aria-label="업무 사이트만 검색">
+        <span className="t-cap" style={{ alignSelf: 'center' }}>
+          업무 사이트
+        </span>
+        {(Object.keys(SITE_GROUPS) as SiteGroup[]).map(k => (
+          <button key={k} type="button" role="tab" aria-selected={engine === k} className={`web-tab${engine === k ? ' on' : ''}`} onClick={() => onSearch(q, k)} title={`업무 사이트만: ${SITE_GROUPS[k].sites.join(' · ')}`}>
+            {SITE_GROUPS[k].label}
+          </button>
+        ))}
       </div>
       {native ? (
         <>
