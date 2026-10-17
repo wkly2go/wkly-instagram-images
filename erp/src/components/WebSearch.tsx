@@ -2,7 +2,18 @@ import { useEffect, useRef, useState } from 'react'
 import { ExternalLink, Search, X } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 
-type Engine = 'google' | 'images' | 'news' | 'maps' | 'naver'
+type Engine = 'google' | 'images' | 'news' | 'maps' | 'naver' | SiteGroup
+type SiteGroup = 'popup' | 'design' | 'trend' | 'press' | 'social' | 'bid'
+/** 업무 사이트 묶음: 탭을 누르면 이 사이트들만 구글로 검색 (site: 조건) */
+const SITE_GROUPS: Record<SiteGroup, { label: string; sites: string[] }> = {
+  popup: { label: '팝업 · 공간', sites: ['popply.co.kr', 'heypop.kr', 'spacecloud.kr', 'sweetspot.co.kr', 'visitseoul.net', 'coex.co.kr', 'kintex.com', 'mmca.go.kr'] },
+  design: { label: '디자인 · 건축', sites: ['designhouse.co.kr', 'vmspace.com', 'dezeen.com', 'archdaily.com', 'designboom.com', 'frameweb.com', 'wallpaper.com', 'ohou.se', 'behance.net', 'pinterest.com'] },
+  trend: { label: '마케팅 · 트렌드', sites: ['ditoday.com', 'openads.co.kr', 'the-pr.co.kr', 'mobiinside.co.kr', 'i-boss.co.kr', 'careet.net', '20slab.org', 'hypebeast.com', 'hypebeast.kr', 'fashionbiz.co.kr'] },
+  press: { label: '언론', sites: ['mk.co.kr', 'hankyung.com', 'chosun.com', 'mt.co.kr', 'joongang.co.kr', 'donga.com', 'yna.co.kr', 'edaily.co.kr'] },
+  social: { label: 'SNS · 블로그', sites: ['instagram.com', 'youtube.com', 'threads.net', 'linkedin.com', 'blog.naver.com', 'tistory.com', 'brunch.co.kr', 'musinsa.com', '29cm.co.kr', 'wconcept.co.kr'] },
+  bid: { label: '입찰 · 공공', sites: ['g2b.go.kr', 'lh.or.kr', 'kintex.com', 'coex.co.kr'] },
+}
+const isGroup = (e: Engine): e is SiteGroup => e in SITE_GROUPS
 const ENGINES: [Engine, string][] = [
   ['google', '구글'],
   ['images', '이미지'],
@@ -11,6 +22,7 @@ const ENGINES: [Engine, string][] = [
   ['naver', '네이버'],
 ]
 const urlFor = (e: Engine, q: string) => {
+  if (isGroup(e)) return `https://www.google.com/search?q=${encodeURIComponent(`${q} (${SITE_GROUPS[e].sites.map(x => `site:${x}`).join(' OR ')})`)}`
   const s = encodeURIComponent(q)
   if (e === 'images') return `https://www.google.com/search?tbm=isch&q=${s}`
   if (e === 'news') return `https://www.google.com/search?tbm=nws&q=${s}`
@@ -163,6 +175,17 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
           새 탭 <ExternalLink size={12} />
         </a>
       </div>
+      <div className="chips">
+        <span className="t-cap" style={{ alignSelf: 'center' }}>
+          업무 사이트만
+        </span>
+        {(Object.keys(SITE_GROUPS) as SiteGroup[]).map(k => (
+          <button key={k} type="button" className={`chip${engine === k ? ' active' : ''}`} onClick={() => onSearch(text.trim() || q, k)} title={SITE_GROUPS[k].sites.join(' · ')}>
+            {SITE_GROUPS[k].label}
+          </button>
+        ))}
+      </div>
+      {isGroup(engine) && <span className="t-cap">검색 사이트: {SITE_GROUPS[engine].sites.join(' · ')}</span>}
       {inline ? (
         <div className="web-results" ref={box} />
       ) : (
@@ -171,13 +194,13 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
             <span className="t-small t-red">브라우저가 새 창을 막았습니다. 주소창 오른쪽의 팝업 차단 아이콘에서 이 사이트를 허용하거나 아래 버튼을 눌러 주세요.</span>
           ) : (
             <span className="t-small">
-              <b>‘{q}’</b> {ENGINES.find(e => e[0] === engine)?.[1]} 검색 결과를 화면 오른쪽 창에 열었습니다.
+              <b>‘{q}’</b> {isGroup(engine) ? `${SITE_GROUPS[engine].label} 사이트` : ENGINES.find(e => e[0] === engine)?.[1]} 검색 결과를 화면 오른쪽 창에 열었습니다.
             </span>
           )}
           <button type="button" className="btn btn-blue btn-sm" style={{ alignSelf: 'flex-start' }} onClick={() => setBlocked(!openDocked(urlFor(engine, q)))}>
             오른쪽 창에서 다시 열기
           </button>
-          {engine === 'google' && !cx && <span className="t-cap">구글은 보안 정책상 다른 사이트 안에 넣을 수 없어 오른쪽에 붙는 별도 창으로 엽니다. 관리자가 아래 ‘검색 결과를 인트라넷 안에 보기’를 설정하면 이 창 안에 결과가 바로 나옵니다.</span>}
+          {engine === 'google' && !cx && <span className="t-cap">구글은 보안 정책상 다른 사이트 안에 넣을 수 없어 오른쪽에 붙는 별도 창으로 엽니다. 위 ‘업무 사이트만’ 탭을 누르면 팝업 · 디자인 · 트렌드 · 언론 등 정해 둔 사이트에서만 찾습니다.</span>}
         </div>
       )}
       {err && <span className="t-small t-red">{err}</span>}
