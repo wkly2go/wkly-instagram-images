@@ -968,7 +968,7 @@ button.kpi:hover, a.kpi:hover { border-color: var(--blue); }
 .web-tab:hover { background: var(--paper); }
 .web-tab.on { background: var(--yellow); }
 .web-sites { display: block; padding: 4px 0; border-top: 1px dashed var(--blue); border-bottom: 1px dashed var(--blue); }
-.web-sites .web-tabs { display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); grid-auto-rows: 20px; align-content: start; gap: 3px; height: 43px; overflow-y: auto; scrollbar-width: none; overscroll-behavior: contain; }
+.web-sites .web-tabs { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); grid-auto-rows: 20px; align-content: start; gap: 3px; height: 43px; overflow-y: auto; scrollbar-width: none; overscroll-behavior: contain; }
 .web-sites .web-tabs::-webkit-scrollbar { display: none; }
 .web-sites .web-tab { height: 20px; padding: 0 4px; line-height: 18px; overflow: hidden; text-overflow: ellipsis; text-align: center; min-width: 0; }
 .web-sites-label { display: inline-flex; align-items: center; height: 26px; padding: 0 8px; border-radius: 6px; background: var(--blue-tint); color: var(--blue); font: 700 11px/1 var(--mono); white-space: nowrap; }
