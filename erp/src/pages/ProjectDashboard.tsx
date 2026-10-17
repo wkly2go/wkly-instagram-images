@@ -244,6 +244,7 @@ function ProgressBoard({ projects, tasks, today }: { projects: Project[]; tasks:
                 <tr key={r.p.id}>
                   <td className="max">
                     <Link to={`/projects?view=schedule&project=${r.p.id}`} className="strong truncate" style={{ display: 'block' }} title={`${r.p.name} 일정표`}>
+                      {r.p.code && <span className="t-mono" style={{ marginRight: 6 }}>{r.p.code}</span>}
                       {r.p.name}
                     </Link>
                     <span className="t-cap">

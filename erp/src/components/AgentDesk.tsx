@@ -29,7 +29,11 @@ export function AgentDesk() {
     if (!v) return
     if (await run(() => api.instructAgent(target, v), `${profileName(target)}에게 지시했습니다. 바로 처리하고 여기에 답을 남깁니다.`)) setText('')
   }
-  const recent = list.slice(0, 12)
+  const [showPast, setShowPast] = useState(false)
+  // 오늘 지시만 보임 (하루 지난 지시는 '지난 지시 보기'로)
+  const todayList = list.filter(i => toDateKey(i.created_at) === todayKey())
+  const pastCount = list.length - todayList.length
+  const recent = showPast ? list.slice(0, 40) : todayList
   // 일별로 묶어서 표시 (최근 날짜 먼저)
   const byDay = recent.reduce<{ day: string; items: AgentInstruction[] }[]>((acc, i) => {
     const day = toDateKey(i.created_at)
@@ -102,7 +106,12 @@ export function AgentDesk() {
             ))}
           </div>
         ))}
-        {recent.length === 0 && <span className="t-cap">아직 지시가 없습니다. 일정 정리 · 지연 업무 독촉 · 수금 현황 보고 · 리서치 등을 맡겨 보세요.</span>}
+        {recent.length === 0 && <span className="t-cap">{pastCount ? '오늘 지시한 내용이 없습니다.' : '아직 지시가 없습니다. 일정 정리 · 지연 업무 독촉 · 수금 현황 보고 · 리서치 등을 맡겨 보세요.'}</span>}
+        {pastCount > 0 && (
+          <button type="button" className="link-btn t-cap" style={{ alignSelf: 'flex-start' }} onClick={() => setShowPast(v => !v)}>
+            {showPast ? '지난 지시 접기' : `지난 지시 보기 (${pastCount})`}
+          </button>
+        )}
       </div>
     </section>
   )

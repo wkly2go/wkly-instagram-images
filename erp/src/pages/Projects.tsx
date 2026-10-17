@@ -139,6 +139,7 @@ function ProjectBoard({ list, data, loading, onOpen }: { list: Project[]; data: 
   const { profileName } = useApp()
   const today = todayKey()
   const cols: BoardCol<Project>[] = [
+    { key: 'code', label: '연번', width: 72, cell: p => <span className="t-mono">{p.code ?? '-'}</span> },
     { key: 'status', label: '상태', width: 64, cell: p => <StatusBadge status={p.status} /> },
     {
       key: 'name',
@@ -446,6 +447,7 @@ function ProjectDetail({ project: p, data, onEdit, onBack }: { project: Project;
         <button type="button" className="icon-btn" onClick={onBack} aria-label="목록으로">
           <ArrowLeft size={18} />
         </button>
+        {p.code && <span className="proj-code">{p.code}</span>}
         <h2 className="t-title truncate">{p.name}</h2>
         <StatusBadge status={p.status} />
         <Badge>{p.category}</Badge>
@@ -473,6 +475,8 @@ function ProjectDetail({ project: p, data, onEdit, onBack }: { project: Project;
       </div>
       <div className="box">
         <dl className="kv">
+          <dt>연번</dt>
+          <dd>{p.code ?? '-'} <span className="t-cap">· 드라이브 폴더 이름과 같은 번호</span></dd>
           <dt>거래처</dt>
           <dd>{client ? <Link to={`/clients?id=${client.id}`}>{client.name}</Link> : '자체'}</dd>
           <dt>담당</dt>
@@ -550,6 +554,11 @@ export function ProjectForm({ project, clients, onClose, onSaved }: { project: P
       }
     >
       <div className="form-grid">
+        {project && (
+          <Field label="연번 (관리자만 변경 · 드라이브 폴더 이름 규칙 TW연도순번)">
+            <input className="input" value={f.code ?? ''} onChange={e => set({ code: e.target.value.trim().toUpperCase() || null })} disabled={me.role !== 'admin'} maxLength={12} />
+          </Field>
+        )}
         <Field label="이름" className="full">
           <input className="input" autoFocus value={f.name ?? ''} onChange={e => set({ name: e.target.value })} placeholder="예) 성수 팝업 '오브제 위크'" />
         </Field>
