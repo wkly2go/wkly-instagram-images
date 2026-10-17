@@ -236,10 +236,23 @@ export interface Project {
   end_date: string | null
   location: string | null
   description: string | null
+  /** 구글 드라이브 프로젝트 폴더 주소 (0035) */
+  drive_url?: string | null
   created_by: string | null
   created_at: string
   updated_at: string
 }
+
+/** 프로젝트 드라이브 폴더: 저장된 주소 → 설명 속 드라이브 주소 → 연번 · 이름으로 드라이브 검색 */
+export function projectDriveUrl(p: Pick<Project, 'drive_url' | 'description' | 'code' | 'name'>): { url: string; exact: boolean } {
+  if (p.drive_url) return { url: p.drive_url, exact: true }
+  const m = p.description?.match(/https:\/\/drive\.google\.com\/[^\s)]+/)
+  if (m) return { url: m[0], exact: true }
+  return { url: `https://drive.google.com/drive/search?q=${encodeURIComponent(p.code ? `${p.code} ${p.name}` : p.name)}`, exact: false }
+}
+
+/** 브랜드: 연번 앞자리 AR = 아트리어디자인스튜디오, TW = 더위클리 */
+export const projectBrand = (p: Pick<Project, 'code'>): 'AR' | 'TW' | null => (p.code?.startsWith('TW') ? 'TW' : p.code?.startsWith('AR') ? 'AR' : null)
 
 export const TASK_STATUSES = ['할 일', '진행 중', '완료'] as const
 export type TaskStatus = (typeof TASK_STATUSES)[number]

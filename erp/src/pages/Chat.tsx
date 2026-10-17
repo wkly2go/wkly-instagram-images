@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react'
-import { ArrowLeft, Plus, Send } from 'lucide-react'
+import { ArrowLeft, Plus, Send, Trash2 } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { friendlyError } from '../lib/api'
 import { roomTitle, useRoomMessages } from '../lib/chat'
@@ -156,6 +156,17 @@ function Room({ room }: { room: ChatRoomSummary }) {
     }
   }
   const dmPartner = room.members?.find(id => id !== me.id && !profiles.find(p => p.id === id)?.is_agent) ?? null
+  // 채팅방 삭제: 만든 사람 · 관리자 · 1:1 대화 당사자 (두 번 눌러 확인, 팝업 없음)
+  const { bump } = useApp()
+  const { busy: deleting, run } = useAction()
+  const [confirmDel, setConfirmDel] = useState(false)
+  const canDelete = me.role === 'admin' || room.created_by === me.id || !!room.members?.includes(me.id)
+  const removeRoom = async () => {
+    if (await run(() => api.deleteRoom(room.id), '채팅방을 삭제했습니다.')) {
+      bump()
+      navigate('/chat', { replace: true })
+    }
+  }
   return (
     <div className={`chat-room ${drop.dragging ? 'chat-drop' : ''}`} {...drop.props}>
       {drop.dragging && <DropHint />}
@@ -175,7 +186,23 @@ function Room({ room }: { room: ChatRoomSummary }) {
           </Link>
         )}
         <span className="grow" />
-        {room.description && <span className="t-cap truncate">{room.description}</span>}
+        {room.description && !confirmDel && <span className="t-cap truncate">{room.description}</span>}
+        {canDelete &&
+          (confirmDel ? (
+            <span className="row room-del" style={{ gap: 4 }}>
+              <span className="t-small t-red">대화 내용까지 모두 지울까요?</span>
+              <button type="button" className="btn btn-sm room-del-yes" onClick={removeRoom} disabled={deleting}>
+                삭제
+              </button>
+              <button type="button" className="btn btn-sm btn-outline" onClick={() => setConfirmDel(false)}>
+                취소
+              </button>
+            </span>
+          ) : (
+            <button type="button" className="icon-btn sm" onClick={() => setConfirmDel(true)} aria-label="채팅방 삭제" title="채팅방 삭제">
+              <Trash2 size={15} />
+            </button>
+          ))}
       </div>
       <div
         className="chat-body"
