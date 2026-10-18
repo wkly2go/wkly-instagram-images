@@ -373,7 +373,7 @@ export interface ChatRead {
   last_read_at: string
 }
 
-export const APPROVAL_KINDS = ['업무 보고', '일일 보고', '메일 발송', '프로젝트', '거래처', '할 일', '지출', '기타'] as const
+export const APPROVAL_KINDS = ['업무 보고', '일일 보고', '회의록', '메일 발송', '프로젝트', '거래처', '할 일', '지출', '기타'] as const
 export type ApprovalKind = (typeof APPROVAL_KINDS)[number]
 export const APPROVAL_STATUSES = ['대기', '승인', '반려', '취소'] as const
 export type ApprovalStatus = (typeof APPROVAL_STATUSES)[number]

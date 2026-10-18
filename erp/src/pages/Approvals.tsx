@@ -101,6 +101,7 @@ export default function Approvals() {
   const kind = query.get('kind') as ApprovalKind | null
   const selectedId = query.get('id')
   const [creating, setCreating] = useState(false)
+  const [minutes, setMinutes] = useState(false)
   const { data, loading } = useAsync(() => api.listApprovals(), [version], [] as Approval[])
 
   const todo = data.filter(a => a.status === '대기' && a.can_decide && (a.requested_by !== me.id || me.role === 'admin'))
@@ -127,6 +128,13 @@ export default function Approvals() {
           </Chip>
         </div>
         <span className="grow" />
+        {/* 회의록 방: 회의록만 모아 보기 · 바로 쓰기 */}
+        <Chip active={kind === '회의록'} onClick={() => go({ kind: kind === '회의록' ? null : '회의록', view: kind === '회의록' ? null : 'all' })}>
+          📝 회의록 {data.filter(a => a.kind === '회의록').length}
+        </Chip>
+        <Button kind="outline" onClick={() => setMinutes(true)}>
+          회의록 쓰기
+        </Button>
         {daily > 0 && (
           <Chip active={kind === '일일 보고'} onClick={() => go({ kind: kind === '일일 보고' ? null : '일일 보고' })}>
             일일 보고 {daily}
@@ -156,6 +164,7 @@ export default function Approvals() {
       ) : (
         <ApprovalBoards list={list} byKind={!kind} loading={loading} view={view} selectedId={selectedId} onOpen={id => go({ id })} />
       )}
+      {minutes && <NewApproval preset={{ kind: '회의록' }} onClose={() => setMinutes(false)} onCreated={id => go({ view: 'all', kind: '회의록', id })} />}
       {creating && <NewApproval onClose={() => setCreating(false)} onCreated={id => go({ view: 'mine', id })} />}
     </Shell>
   )
@@ -447,6 +456,14 @@ export function NewApproval({ onClose, onCreated, preset }: { onClose: () => voi
   )
   const route = extra.routes.find(r => r.kind === kind)?.approver_id
   const auto = route && route !== me.id && profiles.some(p => p.id === route && p.active) ? route : null
+
+  // 회의록을 고르면 기본 양식 채우기
+  useEffect(() => {
+    if (kind !== '회의록' || content.trim()) return
+    setContent(`일시: ${date}\n장소:\n참석:\n안건:\n\n논의 내용:\n\n결정 사항:\n\n할 일 (담당 · 기한):\n`)
+    if (!title.trim()) setTitle(`${date} 회의록`)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kind])
 
   // 일일 보고를 고르면 오늘 숫자로 초안 채우기
   useEffect(() => {

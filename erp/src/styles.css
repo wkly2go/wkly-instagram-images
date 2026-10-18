@@ -1224,3 +1224,21 @@ html.detail-open .web-panel { max-width: 28vw; }
 .drive-link.guess { opacity: 0.45; }
 .drive-btn { display: inline-flex; align-items: center; gap: 4px; text-decoration: none; }
 .proj-group.g-done summary { color: var(--green); }
+
+/* ---------- 업무·근태 통합 (2026-10-18) ---------- */
+.work-wrap { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+/* 할 일 · 메모장: 업무 기록 아래에서 위로 펼쳐짐 */
+.work-drawer { flex: 0 0 auto; max-height: 42%; overflow: auto; border-top: 2px solid var(--blue); background: var(--yellow-tint); padding: 10px 14px; animation: drawer-up .3s cubic-bezier(.2, .8, .2, 1) both; }
+.work-drawer > .memo-pad { width: auto; border: 0; padding: 0; background: none; position: static; overflow: visible; }
+@keyframes drawer-up { from { transform: translateY(40px); opacity: 0; clip-path: inset(100% 0 0 0); } to { transform: none; opacity: 1; clip-path: inset(0 0 0 0); } }
+@media (prefers-reduced-motion: reduce) { .work-drawer { animation: none; } }
+/* 왼쪽 팀 구성원 목록: 더 작게 */
+.team-side { width: 168px; padding: 8px; gap: 4px; }
+.team-side .team-person { padding: 4px 6px; gap: 4px; font-size: 12px; }
+.team-side .team-person .t-smallb { font-size: 12px; }
+.team-side .team-person .t-cap, .team-side .team-person .t-meta, .team-side .team-person .badge { font-size: 10px; }
+.team-side .chips .chip { padding: 0 8px; font-size: 11px; }
+.team-side .input, .team-side .select, .team-side .search { font-size: 12px; }
+.team-side .team-tabs { margin-bottom: 4px; }
+@media (max-width: 1300px) { .team-side { width: 156px; } }
+.pane-list .item { padding-top: 6px; padding-bottom: 6px; }

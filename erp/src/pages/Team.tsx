@@ -7,14 +7,16 @@ import { presenceOf, useAccessLog, useAttendance, useDesktopOnly, type Presence 
 import { SOURCE_LABEL } from '../lib/desktop'
 import type { Attendance, AttendanceCheckin, LeaveRecord, Profile, Project, ResearchItem, Task, WorkLog, WorkPlan } from '../lib/types'
 import { Shell } from '../components/Shell'
+import { WorkPane } from './WorkLog'
 import { usePanelWide, useRightPanel } from '../components/RightPanel'
 import { PersonName } from '../components/Person'
 import { LeaveSection } from '../components/Leave'
 import { Badge, Button, Chip, Field, KindBadge, SectionHead, StatusBadge, TodayBadge } from '../components/ui'
 import { AssignTaskButton } from '../components/AssignTask'
 
-type Tab = 'attendance' | 'leave' | 'me'
+type Tab = 'work' | 'attendance' | 'leave' | 'me'
 const TABS: [Tab, string][] = [
+  ['work', '업무'],
   ['attendance', '근태'],
   ['leave', '휴가'],
   ['me', '내 정보'],
@@ -25,13 +27,29 @@ export default function Team() {
   const { me, profiles } = useApp()
   const today = todayKey()
   const { query, path, navigate } = useRouter()
-  const tab = (TABS.some(([k]) => k === query.get('tab')) ? query.get('tab') : 'attendance') as Tab
+  const tab = (TABS.some(([k]) => k === query.get('tab')) ? query.get('tab') : 'work') as Tab
   const personId = query.get('user')
   const person = personId ? profiles.find(p => p.id === personId) ?? null : null
   const goPerson = (id: string | null) => navigate(withQuery(path, query, { user: id }), { replace: true })
   // 넓은 화면: 사람 목록과 근태는 가운데 한 단, 누른 사람의 허브는 오른쪽 칸
   const wide = usePanelWide()
   useRightPanel(wide && tab === 'attendance' && person ? `person:${person.id}` : null, '팀원 상세', person && <PersonHub key={person.id} p={person} onBack={() => goPerson(null)} />)
+  const tabChips = (
+    <div className="chips team-tabs" role="tablist" aria-label="업무·근태 메뉴">
+      {TABS.map(([k, l]) => (
+        <Chip key={k} active={tab === k} onClick={() => navigate(withQuery('/team', query, { tab: k === 'work' ? null : k, user: null }))}>
+          {l}
+        </Chip>
+      ))}
+    </div>
+  )
+  // 업무 · 근태 통합: 근태와 같은 배치(왼쪽 사람 목록 + 가운데)에 업무 기능
+  if (tab === 'work')
+    return (
+      <Shell active="team" flush>
+        <WorkPane tabs={tabChips} />
+      </Shell>
+    )
   return (
     <Shell active="team" flush={tab === 'attendance'}>
       {tab === 'attendance' ? (
@@ -40,7 +58,7 @@ export default function Team() {
             <div className="pane-head">
               <div className="chips" role="tablist" aria-label="팀 메뉴">
                 {TABS.map(([k, l]) => (
-                  <Chip key={k} active={tab === k} onClick={() => navigate(withQuery(path, query, { tab: k === 'attendance' ? null : k, user: null }))}>
+                  <Chip key={k} active={tab === k} onClick={() => navigate(withQuery(path, query, { tab: k === 'work' ? null : k, user: null }))}>
                     {l}
                   </Chip>
                 ))}
@@ -69,7 +87,7 @@ export default function Team() {
         <>
           <div className="chips" role="tablist" aria-label="팀 메뉴">
             {TABS.map(([k, l]) => (
-              <Chip key={k} active={tab === k} onClick={() => navigate(withQuery(path, query, { tab: k === 'attendance' ? null : k, user: null }))}>
+              <Chip key={k} active={tab === k} onClick={() => navigate(withQuery(path, query, { tab: k === 'work' ? null : k, user: null }))}>
                 {l}
               </Chip>
             ))}
