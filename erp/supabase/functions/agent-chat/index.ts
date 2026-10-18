@@ -9,7 +9,9 @@ import Anthropic from 'npm:@anthropic-ai/sdk@0.134.0'
 import { createClient } from 'npm:@supabase/supabase-js@2.45.4'
 
 const sb = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } })
-const MODEL = 'claude-opus-5-5'
+// 모델: 채팅 답변은 Sonnet(비용 1/2), '지시' 처리는 Opus (2026-10-18 대표 승인 · API 크레딧 배분)
+const MODEL_CHAT = 'claude-sonnet-5-5'
+const MODEL_INSTRUCTION = 'claude-opus-5-5'
 const MAX_STEPS = 10
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
 
@@ -265,9 +267,9 @@ async function notify(userId: string, title: string, body: string, link: string)
 // ---------------------------------------------------------------------
 // Claude 호출 (도구 반복)
 // ---------------------------------------------------------------------
-function systemPrompt(ctx: Ctx, where: string) {
+/** 고정 부분(캐시 대상): 역할 · 일하는 방식 · 규칙. 시각 · 요청자 · 위치는 contextPrompt 로 따로 넣는다 */
+function systemPrompt(ctx: Ctx) {
   return `너는 더위클리(THE WKLY, 팝업 매거진 · 공간 디자인 회사)의 AI 팀원 '${ctx.agent.name}'이다. 회사 인트라넷(ERP) 안에서 팀원 요청을 바로 처리한다.
-지금: ${nowLabel()}. 요청한 사람: ${ctx.requester.name}${ctx.requester.title ? ` (${ctx.requester.title})` : ''}${ctx.requester.role === 'admin' ? ', 관리자' : ''}. 대화 위치: ${where}.
 
 일하는 방식
 - 요청은 바로 도구로 처리하고, 끝나면 무엇을 했는지 짧게 알린다. 되묻기보다 합리적으로 정해서 처리하고, 정한 내용을 답에 밝힌다. 정말 정할 수 없을 때만 한 가지를 묻는다.
@@ -283,15 +285,25 @@ function systemPrompt(ctx: Ctx, where: string) {
 - 답은 한국어, 존댓말, 짧고 건조하게. 목록은 '· ' 로 시작하는 줄. 마크다운 표 · 제목은 쓰지 않는다.`
 }
 
-async function ask(ctx: Ctx, where: string, messages: Anthropic.MessageParam[]): Promise<string> {
+/** 호출마다 바뀌는 부분(캐시 제외) */
+function contextPrompt(ctx: Ctx, where: string) {
+  return `지금: ${nowLabel()}. 요청한 사람: ${ctx.requester.name}${ctx.requester.title ? ` (${ctx.requester.title})` : ''}${ctx.requester.role === 'admin' ? ', 관리자' : ''}. 대화 위치: ${where}.`
+}
+
+async function ask(ctx: Ctx, where: string, messages: Anthropic.MessageParam[], model: string = MODEL_CHAT): Promise<string> {
   const apiKey = Deno.env.get('ANTHROPIC_API_KEY')
   if (!apiKey) return 'AI 연결 키 미설정 — 접수했습니다. 실시간 답변이 아직 연결되지 않아 다음 정기 실행(매일 07:57 메일 확인 · 평일 17:54 일일 보고)에서 처리합니다.'
   const client = new Anthropic({ apiKey })
-  const system = systemPrompt(ctx, where)
+  // 프롬프트 캐시: 시스템 프롬프트(고정 규칙) · 도구 정의는 호출마다 같으므로 캐시 → 입력비 10%
+  const system: Anthropic.TextBlockParam[] = [
+    { type: 'text', text: systemPrompt(ctx), cache_control: { type: 'ephemeral' } },
+    { type: 'text', text: contextPrompt(ctx, where) },
+  ]
+  const tools = TOOLS.map((t, i) => (i === TOOLS.length - 1 ? { ...t, cache_control: { type: 'ephemeral' as const } } : t))
   let useFallback = true
   for (let step = 0; step < MAX_STEPS; step++) {
     let res: Anthropic.Message
-    const params = { model: MODEL, max_tokens: 16000, system, tools: TOOLS, messages, output_config: { effort: 'medium' } }
+    const params = { model, max_tokens: 16000, system, tools, messages, output_config: { effort: 'medium' } }
     try {
       res = useFallback
         ? // 안전 분류로 거절되면 서버가 다른 모델로 이어서 답함
@@ -370,7 +382,7 @@ async function handleInstruction(id: string) {
   let reply: string
   let status = '완료'
   try {
-    reply = await ask(ctx, "인트라넷 'AI 팀원에게 지시' 패널 (팀원 모두가 봄)", [{ role: 'user', content: `${requester.name}님의 지시: ${ins.instruction}` }])
+    reply = await ask(ctx, "인트라넷 'AI 팀원에게 지시' 패널 (팀원 모두가 봄)", [{ role: 'user', content: `${requester.name}님의 지시: ${ins.instruction}` }], MODEL_INSTRUCTION)
     if (reply.startsWith('AI 연결 키')) status = '대기'
   } catch (e) {
     reply = `처리 중 오류가 났습니다: ${(e as Error).message ?? e}`.slice(0, 500)
