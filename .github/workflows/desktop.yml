@@ -2,6 +2,7 @@
 #  - erp/desktop 이 바뀌어 main 에 들어오면 자동 실행 (또는 Actions 탭에서 직접 실행)
 #  - 새 버전을 내려면 erp/desktop/package.json 의 version 을 올리면 됨 (릴리스 이름: v버전)
 #  - 인트라넷 '/download' 페이지는 항상 최신 릴리스의 파일로 연결됨
+#  - 윈도우 · 맥 파일을 모두 올린 뒤에야 릴리스를 공개 (그 전에는 초안이라 '최신'이 바뀌지 않음 → 내려받기 404 방지)
 name: desktop-app
 
 on:
@@ -51,3 +52,13 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+  publish:
+    needs: [windows, mac]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: 윈도우 · 맥 파일이 다 올라간 초안 릴리스를 공개
+        run: gh release edit "v$(node -p "require('./erp/desktop/package.json').version")" --draft=false --latest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
