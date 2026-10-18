@@ -42,6 +42,31 @@ export function useRightPanel(key: string | null, title: string, node: ReactNode
   }, [key])
 }
 
+/** 넓은 작업(현장 작업일지 등)이 열려 있는 동안 결과 칸을 잠시 접음 (닫으면 다시 보임) */
+let suppress = 0
+const suppressListeners = new Set<() => void>()
+export function useSuppressDetail(active: boolean) {
+  useEffect(() => {
+    if (!active) return
+    suppress++
+    for (const l of suppressListeners) l()
+    return () => {
+      suppress--
+      for (const l of suppressListeners) l()
+    }
+  }, [active])
+}
+const useSuppressed = () =>
+  useSyncExternalStore(
+    cb => {
+      suppressListeners.add(cb)
+      return () => {
+        suppressListeners.delete(cb)
+      }
+    },
+    () => suppress > 0,
+  )
+
 /** 오른쪽 칸이 화면에 늘 보이는 폭인지 (좁은 화면은 가운데에서 그대로 보여 줌) */
 const WIDE = '(min-width: 900px)'
 const wideNow = () => typeof window !== 'undefined' && !!window.matchMedia?.(WIDE).matches
@@ -66,7 +91,8 @@ export function DetailColumnHost() {
   const d = usePanelDetail()
   const wide = usePanelWide()
   const [closed, setClosed] = useState<string | null>(null)
-  const show = !!d && wide && closed !== d.key
+  const suppressed = useSuppressed()
+  const show = !!d && wide && closed !== d.key && !suppressed
   // 닫은 뒤 같은 항목(목록 줄 · 보고 · 사람 등)을 다시 누르면 다시 열림
   useEffect(() => {
     if (!closed) return

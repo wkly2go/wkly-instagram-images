@@ -776,3 +776,80 @@ export interface AdReport {
   created_at: string
   updated_at: string
 }
+
+// ---------- 인테리어 현장 작업일지 (엑셀 '작업일지' 양식) ----------
+/** 가. 용역비 지급 현황 한 줄: 공종 묶음 · 세부 공종 · 계약 · 주간/야간 인원 · 단가 · 협력사 */
+export interface SiteLabor {
+  group: string
+  trade: string
+  contract: string
+  day: number
+  night: number
+  unit_price: number
+  vendor: string
+}
+/** 나. 자재 반출입 / 인건비 지급 한 줄 */
+export interface SiteMaterial {
+  item: string
+  spec: string
+  qty: number
+  amount: number
+  vendor: string
+}
+export interface SitePhoto {
+  label: string
+  url: string
+}
+export const SITE_SIGNERS = ['현장소장', '현장감리', '대표'] as const
+export type SiteSigner = (typeof SITE_SIGNERS)[number]
+export interface SiteLog {
+  id: string
+  project_id: string
+  log_date: string
+  weather: string | null
+  site_manager: string | null
+  staff: string | null
+  labor: SiteLabor[]
+  materials: SiteMaterial[]
+  today_work: string | null
+  next_work: string | null
+  photos: SitePhoto[]
+  signs: Partial<Record<SiteSigner, { by: string; at: string }>>
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+/** 양식 기본 공종 (엑셀 템플릿 그대로) */
+export const SITE_TRADES: [group: string, trade: string, contract: string][] = [
+  ['철거 · 가설', '가설 칸막이', '용역비'],
+  ['철거 · 가설', 'H빔 보강', '용역비'],
+  ['철거 · 가설', '철거', '용역비'],
+  ['철거 · 가설', '벽 샌딩 작업', '용역비'],
+  ['기계 · 설비 · 전기', '전기', '용역비'],
+  ['기계 · 설비 · 전기', '통신 / 네트워크', ''],
+  ['기계 · 설비 · 전기', '공조', '도급계약'],
+  ['기계 · 설비 · 전기', '에어컨', '도급계약'],
+  ['기계 · 설비 · 전기', '소방', ''],
+  ['기계 · 설비 · 전기', '설비', '도급계약'],
+  ['건축공사', '경량', ''],
+  ['건축공사', '목공', '용역비'],
+  ['건축공사', '금속', ''],
+  ['건축공사', '자동문', ''],
+  ['건축공사', '유리', ''],
+  ['건축공사', '바닥', ''],
+  ['마감공사', '수성페인트', ''],
+  ['마감공사', '조형물', ''],
+  ['마감공사', '스페셜 페인트', ''],
+  ['마감공사', '조명기구', ''],
+  ['마감공사', '가구공사', ''],
+  ['마감공사', '인테리어 필름', ''],
+  ['마감공사', 'AV SYSTEM', ''],
+  ['마감공사', '사인물', ''],
+  ['마감공사', '준공청소', ''],
+  ['기타', '현장정리공', '용역비'],
+  ['기타', '장비', ''],
+  ['기타', '자재양중', ''],
+  ['기타', '현장관리', ''],
+  ['기타', '현장소장', ''],
+]
+export const SITE_MATERIAL_ITEMS = ['운영비', '목공 노무비', '전기 노무비', '용역', '현장소장비', '전기공사']

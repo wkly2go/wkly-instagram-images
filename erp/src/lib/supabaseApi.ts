@@ -47,6 +47,7 @@ import type {
   ResearchItem,
   Task,
   WorkLog,
+  SiteLog,
 } from './types'
 
 function must<T>(res: { data: T | null; error: { message: string } | null }): T {
@@ -323,6 +324,18 @@ export function createSupabaseApi(url: string, key: string): Api {
     },
     saveSubscription: s => save('subscriptions', s) as Promise<Subscription>,
     deleteSubscription: id => remove('subscriptions', id),
+    async listSiteLogs(projectId) {
+      return must(await sb.from('site_logs').select('*').eq('project_id', projectId).order('log_date', { ascending: false })) as SiteLog[]
+    },
+    async saveSiteLog(l) {
+      try {
+        return (await save('site_logs', { ...l, updated_at: new Date().toISOString() })) as SiteLog
+      } catch (e) {
+        if (String((e as Error)?.message ?? e).includes('duplicate')) throw new ApiError('그 날짜의 작업일지가 이미 있습니다.')
+        throw e
+      }
+    },
+    deleteSiteLog: id => remove('site_logs', id),
     async listPayments(filter = {}) {
       return pageAll<Payment>(() => {
         let q = sb.from('payments').select('*')

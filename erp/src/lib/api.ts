@@ -2,6 +2,7 @@ import type { AccessSource } from './desktop'
 import type {
   Subscription,
   ExchangeFile,
+  SiteLog,
   ProjectContact,
   AccessInfo,
   AccessLog,
@@ -203,6 +204,10 @@ export interface Api {
   listSubscriptions(): Promise<Subscription[]>
   saveSubscription(s: Draft<Subscription>): Promise<Subscription>
   deleteSubscription(id: string): Promise<void>
+  /** 인테리어 현장 작업일지 (프로젝트별 · 날짜별 한 장) */
+  listSiteLogs(projectId: string): Promise<SiteLog[]>
+  saveSiteLog(l: Draft<SiteLog>): Promise<SiteLog>
+  deleteSiteLog(id: string): Promise<void>
   listPayments(filter?: { projectId?: string; clientId?: string }): Promise<Payment[]>
   savePayment(p: Draft<Payment>): Promise<Payment>
   deletePayment(id: string): Promise<void>

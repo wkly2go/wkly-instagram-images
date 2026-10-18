@@ -493,7 +493,7 @@ function AgentOrg() {
                     <td>
                       <select
                         className="select"
-                        style={{ padding: '2px 6px', fontSize: 9, width: 130 }}
+                        style={{ padding: '2px 6px', fontSize: 'var(--fs-cap)', width: 130 }}
                         value={a.manager_id ?? ''}
                         disabled={busy}
                         onChange={e => run(() => api.updateProfile(a.id, { manager_id: e.target.value || null }), e.target.value ? `${a.name} 관리자를 ${profileName(e.target.value)} 님으로 정했습니다.` : `${a.name} 관리자를 비웠습니다.`)}
