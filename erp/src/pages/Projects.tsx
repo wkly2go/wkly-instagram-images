@@ -138,6 +138,7 @@ export default function Projects() {
           <TaskList tasks={data.tasks} projects={data.projects} mineOnly={view === 'mine'} />
         </div>
       ) : view === 'list' ? (
+        <div className="proj-list-wrap">
         <div className="row top gap-12" style={{ flex: 1, minHeight: 0, flexWrap: 'wrap' }}>
           <div className="col grow" style={{ flexBasis: 320 }}>
             <div className="row wrap" style={{ gap: 6, paddingBottom: 4 }}>
@@ -167,7 +168,28 @@ export default function Projects() {
                 ))}
               </div>
             </div>
-            <ProjectBoard list={sorted(shown.filter(p => OPEN.includes(p.status) && (status === 'all' || p.status === status)))} data={data} loading={loading} onOpen={id => go({ id })} />
+            {/* 회사별로 나눠 보기: 아트리어(AR) · 더위클리(TW) — 회사 칩을 고르면 그 회사만 */}
+            {(
+              [
+                ['AR', '아트리어 프로젝트'],
+                ['TW', '더위클리 프로젝트'],
+                [null, '연번 없는 프로젝트'],
+              ] as [string | null, string][]
+            )
+              .filter(([k]) => !brand || brand === k)
+              .map(([k, label]) => {
+                const rows = sorted(shown.filter(p => projectBrand(p) === k && OPEN.includes(p.status) && (status === 'all' || p.status === status)))
+                if (!rows.length && k === null) return null
+                return (
+                  <div key={label} className={`col gap-4 brand-block brand-${k ?? 'none'}`}>
+                    <div className="brand-head">
+                      <span className="t-bodyb">{label}</span>
+                      <span className="board-count">{rows.length}</span>
+                    </div>
+                    <ProjectBoard list={rows} data={data} loading={loading} onOpen={id => go({ id })} />
+                  </div>
+                )
+              })}
             {/* 드라이브 폴더 구성과 같게: 완료 · 대기 / NIC 는 펼쳐 보기 */}
             {([
               ['done', '완료 · 대기 프로젝트', ['완료', '보류']],
@@ -187,6 +209,7 @@ export default function Projects() {
             })}
           </div>
           <MiniCalendar data={data} />
+        </div>
         </div>
       ) : (
         <ProjectDashboard projects={data.projects} tasks={data.tasks} clients={data.clients} />
@@ -268,7 +291,7 @@ function MiniCalendar({ data }: { data: Data }) {
   const [ws, we] = weekRange(today)
   const listDays = sel ? [sel] : [...events.keys()].filter(d => d >= ws && d <= we).sort()
   return (
-    <aside className="box col gap-6" style={{ width: 250, flexShrink: 0 }} aria-label="일정 달력">
+    <aside className="box col gap-6 proj-mini-cal" aria-label="일정 달력">
       <div className="row">
         <button type="button" className="icon-btn sm" onClick={() => setMonth(addMonths(month, -1))} aria-label="이전 달">
           <ChevronLeft size={14} />
@@ -309,8 +332,8 @@ function MiniCalendar({ data }: { data: Data }) {
       <span className="t-smallb">{sel ? dateLabel(sel) : '이번 주 일정'}</span>
       {listDays.flatMap(d =>
         (events.get(d) ?? []).map((e, j) => (
-          <Link key={`${d}-${j}`} to={e.to} className="row t-cap" title={e.label}>
-            <span className={`t-meta ${e.red ? 't-red' : ''}`}>
+          <Link key={`${d}-${j}`} to={e.to} className="row t-cap mini-cal-ev" title={e.label}>
+            <span className={`t-meta nowrap ${e.red ? 't-red' : ''}`}>
               {shortDate(d)} {weekday(d)}
             </span>
             <span className="truncate">{e.label}</span>
@@ -599,7 +622,7 @@ function ProjectDetail({ project: p, data, onEdit, onBack }: { project: Project;
       </div>
       {/* 인테리어(아트리어 · AR) 프로젝트는 현장 작업일지, 다른 프로젝트는 작업일지가 있을 때만 */}
       <SiteLogsSection project={p} always={projectBrand(p) === 'AR'} />
-      {me.role === 'admin' && <FinancePanel project={p} clients={data.clients} projects={data.projects} />}
+      <FinancePanel project={p} clients={data.clients} projects={data.projects} />
       {editingTask && <TaskAssignModal key={editingTask.id} task={editingTask} projects={data.projects} tasks={data.tasks} onClose={() => setEditingTask(null)} />}
       {approving && <NewApproval preset={{ kind: '프로젝트', target_id: p.id, title: `프로젝트: ${p.name}` }} onClose={() => setApproving(false)} onCreated={id => navigate(`/approvals?view=mine&id=${id}`)} />}
     </>

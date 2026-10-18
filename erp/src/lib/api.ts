@@ -208,6 +208,10 @@ export interface Api {
   listSiteLogs(projectId: string): Promise<SiteLog[]>
   saveSiteLog(l: Draft<SiteLog>): Promise<SiteLog>
   deleteSiteLog(id: string): Promise<void>
+  /** 현장 사진 올리기 (휴대폰 카메라 · 앨범). url 은 드라이브 저장 작업용 30일 서명 링크 */
+  uploadSitePhoto(projectId: string, file: File): Promise<{ path: string; url: string }>
+  /** 화면에 보일 사진 링크 (1시간) */
+  sitePhotoUrl(path: string): Promise<string>
   listPayments(filter?: { projectId?: string; clientId?: string }): Promise<Payment[]>
   savePayment(p: Draft<Payment>): Promise<Payment>
   deletePayment(id: string): Promise<void>

@@ -20,7 +20,9 @@ interface Data {
 
 /** 프로젝트 상세의 재무 칸 (관리자만) */
 export function FinancePanel({ project, clients, projects }: { project: Project; clients: Client[]; projects: Project[] }) {
-  const { api, version } = useApp()
+  const { api, version, me } = useApp()
+  // 재무는 구성원 모두 열람 (대표 지시 2026-10-18), 입력 · 수정은 관리자만
+  const admin = me.role === 'admin'
   const { busy, run } = useAction()
   const today = todayKey()
   const { data } = useAsync<Data>(
@@ -72,11 +74,13 @@ export function FinancePanel({ project, clients, projects }: { project: Project;
   return (
     <section className="section" aria-label="재무">
       <div className="section-h">
-        <span className="t-bodyb">재무 (관리자만 보임)</span>
-        <span className="cap">공급가액 · VAT 별도</span>
-        <Button kind="outline" size="sm" onClick={() => setEditFin(true)}>
-          계약·목표
-        </Button>
+        <span className="t-bodyb">재무</span>
+        <span className="cap">공급가액 · VAT 별도{admin ? '' : ' · 입력은 관리자'}</span>
+        {admin && (
+          <Button kind="outline" size="sm" onClick={() => setEditFin(true)}>
+            계약·목표
+          </Button>
+        )}
       </div>
       <div className="kpis" style={{ gridTemplateColumns: 'repeat(4, minmax(0, 1fr))' }}>
         <div className="kpi">
@@ -145,7 +149,7 @@ export function FinancePanel({ project, clients, projects }: { project: Project;
                   </td>
                   <td className={`num ${r.over ? 'red' : ''}`}>{r.over ? `+${manwon(r.over)}` : '–'}</td>
                   <td className="nowrap">
-                    {r.lines.length === 1 && (
+                    {admin && r.lines.length === 1 && (
                       <>
                         <button
                           type="button"
@@ -171,7 +175,7 @@ export function FinancePanel({ project, clients, projects }: { project: Project;
           </table>
         </div>
       )}
-      <div className="row wrap">
+      <div className="row wrap" style={admin ? undefined : { display: 'none' }}>
         <input className="input" style={{ flex: '1 1 120px' }} placeholder="공사 구분" value={line.category} onChange={e => setLine({ ...line, category: e.target.value })} aria-label="새 예산 공사 구분" />
         <input className="input" style={{ flex: '1 1 120px' }} placeholder="업체 (선택)" value={line.payee} onChange={e => setLine({ ...line, payee: e.target.value })} aria-label="새 예산 업체" />
         <input className="input" style={{ flex: '1 1 110px' }} inputMode="numeric" placeholder="예산 (원)" value={line.budget} onChange={e => setLine({ ...line, budget: e.target.value })} aria-label="새 예산 금액" />
@@ -207,7 +211,7 @@ export function FinancePanel({ project, clients, projects }: { project: Project;
               {data.payments.map(p => {
                 const late = isOverdue(p, today)
                 return (
-                  <tr key={p.id} className={`click ${p.status === '취소' ? 'muted' : ''}`} onClick={() => setForm(p)} title="눌러서 수정">
+                  <tr key={p.id} className={`${admin ? 'click' : ''} ${p.status === '취소' ? 'muted' : ''}`} onClick={() => admin && setForm(p)} title={admin ? '눌러서 수정' : undefined}>
                     <td>
                       <Badge tone={p.direction === '수금' ? 'blue' : 'gray'}>{p.direction}</Badge>
                     </td>
@@ -233,7 +237,7 @@ export function FinancePanel({ project, clients, projects }: { project: Project;
           </table>
         </div>
       )}
-      <div className="row wrap">
+      <div className="row wrap" style={admin ? undefined : { display: 'none' }}>
         <select className="select" style={{ width: 84 }} value={quick.direction} onChange={e => setQuick({ ...quick, direction: e.target.value as Payment['direction'] })} aria-label="구분">
           <option>지급</option>
           <option>수금</option>

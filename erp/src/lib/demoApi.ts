@@ -1043,7 +1043,21 @@ export function createDemoApi(): Api {
       const self = requireMe()
       store.site_logs ??= []
       if (!l.id && store.site_logs.some(x => x.project_id === l.project_id && x.log_date === l.log_date)) throw new ApiError('그 날짜의 작업일지가 이미 있습니다.')
-      return upsert<'site_logs', SiteLog>('site_logs', l, () => ({ id: '', project_id: '', log_date: todayKey(), weather: null, site_manager: null, staff: null, labor: [], materials: [], today_work: null, next_work: null, photos: [], signs: {}, created_by: self, created_at: now(), updated_at: now() }))
+      return upsert<'site_logs', SiteLog>('site_logs', l, () => ({ id: '', project_id: '', log_date: todayKey(), weather: null, site_manager: null, staff: null, labor: [], materials: [], today_work: null, next_work: null, photos: [], events: null, signs: {}, drive_file_id: null, drive_url: null, synced_at: null, created_by: self, created_at: now(), updated_at: now() }))
+    },
+    async uploadSitePhoto(_projectId, file) {
+      requireMe()
+      // 체험용: 이 브라우저 안에서만 보이는 미리보기 주소
+      const url = await new Promise<string>((ok, fail) => {
+        const r = new FileReader()
+        r.onload = () => ok(String(r.result))
+        r.onerror = () => fail(new ApiError('사진을 읽지 못했습니다.'))
+        r.readAsDataURL(file)
+      })
+      return { path: url, url }
+    },
+    async sitePhotoUrl(path) {
+      return path
     },
     async deleteSiteLog(id) {
       const self = requireMe()

@@ -16,12 +16,12 @@ interface FinData {
 const pct = (n: number | null | undefined, digits = 1) => (n == null || !isFinite(n) ? '–' : `${n.toFixed(digits)}%`)
 
 export function ProjectDashboard({ projects, tasks, clients }: { projects: Project[]; tasks: Task[]; clients: Client[] }) {
-  const { api, me, version } = useApp()
-  const admin = me.role === 'admin'
+  const { api, version } = useApp()
+  // 재무는 구성원 모두 열람 (대표 지시 2026-10-18): 예전 관리자 전용 칸도 모두에게 보임
+  const admin = true
   const today = todayKey()
   const { data: fin } = useAsync<FinData>(
     async () => {
-      if (!admin) return { finances: [], payments: [], lines: [] }
       const [finances, payments, lines] = await Promise.all([api.listFinances(), api.listPayments(), api.listBudgetLines()])
       return { finances, payments, lines }
     },
@@ -276,8 +276,8 @@ function ProgressBoard({ projects, tasks, today }: { projects: Project[]; tasks:
 }
 
 function OwnerProgress({ projects, tasks, money, today }: { projects: Project[]; tasks: Task[]; money: Map<string, ReturnType<typeof projectMoney>>; today: string }) {
-  const { me, profiles } = useApp()
-  const admin = me.role === 'admin'
+  const { profiles } = useApp()
+  const admin = true // 재무 전체 공개
   const rows = profiles
     .filter(p => p.active)
     .map(p => {
