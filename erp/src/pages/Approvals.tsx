@@ -21,7 +21,45 @@ export function DecideButtons({ approval, compact }: { approval: Approval; compa
   const [rejecting, setRejecting] = useState(false)
   const [comment, setComment] = useState('')
   const [commenting, setCommenting] = useState(false)
-  if (approval.status !== '대기' || !approval.can_decide) return null
+  if (!approval.can_decide) return null
+  // 승인된 보고서도 나중에 반려 (대표 지시 2026-10-18). 지출은 결제 대장에 등록돼 있어 제외
+  if (approval.status === '승인') {
+    if (approval.kind === '지출') return null
+    return (
+      <>
+        <Button kind="outline" size={compact ? 'sm' : undefined} disabled={busy} onClick={() => setRejecting(true)} title="승인한 보고서를 반려로 바꿈 (요청자에게 알림)">
+          반려
+        </Button>
+        {rejecting && (
+          <Modal
+            title="승인한 보고서 반려"
+            onClose={() => setRejecting(false)}
+            actions={
+              <>
+                <Button kind="ghost" onClick={() => setRejecting(false)}>
+                  취소
+                </Button>
+                <Button
+                  disabled={busy || !comment.trim()}
+                  onClick={async () => {
+                    if (await run(() => api.decideApproval(approval.id, '반려', comment.trim()), '반려로 바꿨습니다.')) setRejecting(false)
+                  }}
+                >
+                  반려하기
+                </Button>
+              </>
+            }
+          >
+            <p className="t-small" style={{ margin: 0 }}>
+              <b className="t-blue">{approval.title}</b> — 이미 {approval.kind === '일일 보고' ? '확인' : '승인'}한 보고서입니다. 반려하면 요청자에게 알림이 가고, 업무 보고는 다시 미승인으로 할 일에 남습니다.
+            </p>
+            <textarea className="textarea" autoFocus rows={3} placeholder="반려 사유 (필수)" value={comment} onChange={e => setComment(e.target.value)} />
+          </Modal>
+        )}
+      </>
+    )
+  }
+  if (approval.status !== '대기') return null
   if (approval.kind === '일일 보고') {
     return (
       <>
@@ -194,7 +232,7 @@ function ApprovalBoards({ list, byKind, loading, view, selectedId, onOpen }: { l
             { key: 'who', label: '요청자', width: 90, cell: a => profileName(a.requested_by) },
             { key: 'when', label: '요청일', width: 110, hideNarrow: true, cell: a => dateTimeLabel(a.created_at) },
             { key: 'status', label: '상태', width: 70, cell: a => <StatusBadge status={a.status} /> },
-              { key: 'act', label: '처리', width: 150, kind: 'center', cell: a => (a.status === '대기' && a.can_decide ? <span onClick={e => e.stopPropagation()}><DecideButtons approval={a} compact /></span> : '-') },
+              { key: 'act', label: '처리', width: 150, kind: 'center', cell: a => ((a.status === '대기' || (a.status === '승인' && a.kind !== '지출')) && a.can_decide ? <span onClick={e => e.stopPropagation()}><DecideButtons approval={a} compact /></span> : '-') },
             ]}
           />
         </div>

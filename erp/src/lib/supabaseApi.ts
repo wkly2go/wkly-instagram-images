@@ -291,7 +291,8 @@ export function createSupabaseApi(url: string, key: string): Api {
       return must(await sb.from('approvals').insert(strip(a, READONLY)).select('*, can_decide').single()) as Approval
     },
     async decideApproval(id, status, comment) {
-      mustAffect(await sb.from('approvals').update({ status, decision_comment: comment || null }).eq('id', id).eq('status', '대기').select('id'))
+      // 반려는 대기 · 승인(나중에 반려) 모두 가능, 승인은 대기만
+      mustAffect(await sb.from('approvals').update({ status, decision_comment: comment || null }).eq('id', id).in('status', status === '반려' ? ['대기', '승인'] : ['대기']).select('id'))
     },
     async cancelApproval(id) {
       mustAffect(await sb.from('approvals').update({ status: '취소' }).eq('id', id).eq('status', '대기').select('id'))

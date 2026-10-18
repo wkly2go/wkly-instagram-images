@@ -956,7 +956,9 @@ export function createDemoApi(): Api {
     async decideApproval(id, status, comment) {
       const self = requireMe()
       const a = store.approvals.find(x => x.id === id)
-      if (!a || a.status !== '대기') throw new ApiError('권한이 없거나 이미 처리된 항목입니다.')
+      const revoke = a?.status === '승인' && status === '반려'
+      if (!a || (a.status !== '대기' && !revoke)) throw new ApiError('권한이 없거나 이미 처리된 항목입니다.')
+      if (revoke && a.kind === '지출') throw new ApiError('승인된 지출은 반려할 수 없습니다. 결제 대장에서 지급을 취소하세요.')
       if (!withCanDecide(a).can_decide) throw new ApiError('권한이 없습니다.')
       if (a.requested_by === self && !isAdmin()) throw new ApiError('본인 요청은 처리할 수 없습니다.')
       Object.assign(a, { status, decision_comment: comment || null, decided_by: self, decided_at: now(), updated_at: now() })

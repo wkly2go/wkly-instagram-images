@@ -25,7 +25,7 @@ export type TabKey = 'home' | 'approvals' | 'chat' | 'work' | 'projects' | 'clie
 
 export const TABS: { key: TabKey; label: string; path: string; admin?: boolean }[] = [
   { key: 'home', label: '홈', path: '/' },
-  { key: 'approvals', label: '승인', path: '/approvals' },
+  { key: 'approvals', label: '보고서 결제', path: '/approvals' },
   { key: 'chat', label: '채팅', path: '/chat' },
   { key: 'projects', label: '프로젝트', path: '/projects' },
   { key: 'clients', label: '거래처', path: '/clients' },
@@ -183,7 +183,7 @@ function ProfilePanel({ summary }: { summary: Summary }) {
           · 내 할 일 <span className="n">{summary.myOpenTasks}</span>
         </Link>
         <Link to="/approvals">
-          · 승인 대기 <span className="n">{summary.pendingToDecide}</span>
+          · 결제 대기 <span className="n">{summary.pendingToDecide}</span>
         </Link>
         <Link to="/chat">
           · 안 읽은 채팅 <span className="n">{summary.unread}</span>
