@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
-import { AlarmClock, ArrowLeft, CheckCircle2, ChevronLeft, ChevronRight, CircleSlash, FolderOpen, Pencil, Trash2 } from 'lucide-react'
+import { AlarmClock, ArrowLeft, CheckCircle2, ChevronLeft, ChevronRight, CircleSlash, FolderOpen, Pencil, Search, Trash2 } from 'lucide-react'
 import { ProjectMaterials } from '../components/ProjectMaterials'
+import { SiteLogsSection } from '../components/SiteLogs'
 import { useRightPanel } from '../components/RightPanel'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { addMonths, dateLabel, monthGrid, shortDate, timeLabel, toDateKey, todayKey, weekRange, weekday, periodLabel } from '../lib/date'
@@ -28,7 +29,7 @@ interface Data {
 export default function Projects() {
   const { api, version } = useApp()
   const { query, path, navigate } = useRouter()
-  const { me } = useApp()
+  const { me, profileName } = useApp()
   const admin = me.role === 'admin'
   const view = query.get('view') // null(대시보드) | 'schedule' | 'week' | 'calendar' | 'list' | 'mine' | 'tasks' | 'payments'
   const status = (query.get('status') as ProjectStatus | 'all' | null) ?? '진행'
@@ -68,6 +69,13 @@ export default function Projects() {
           ? (b.start_date ?? b.created_at).localeCompare(a.start_date ?? a.created_at)
           : (b.code ?? '').localeCompare(a.code ?? '') || a.name.localeCompare(b.name, 'ko'),
     )
+  // 프로젝트 검색: 연번 · 이름 · 장소 · 설명 · 거래처 · 담당 + 할 일 제목 (상태 · 회사 상관없이 전부)
+  const q = query.get('q') ?? ''
+  const words = q.trim().toLowerCase().split(/\s+/).filter(Boolean)
+  const clientName = (id: string | null) => data.clients.find(c => c.id === id)?.name ?? ''
+  const hit = (text: string) => words.every(w => text.toLowerCase().includes(w))
+  const foundProjects = words.length ? data.projects.filter(p => hit([p.code, p.name, p.location, p.description, p.category, p.status, clientName(p.client_id), profileName(p.owner_id)].filter(Boolean).join(' '))) : []
+  const foundTasks = words.length ? data.tasks.filter(t => hit([t.title, t.memo, data.projects.find(p => p.id === t.project_id)?.name, profileName(t.assignee_id)].filter(Boolean).join(' '))) : []
   const tabs: [string | null, string][] = [
     [null, '대시보드'],
     ['schedule', '일정표'],
@@ -91,6 +99,7 @@ export default function Projects() {
           ))}
         </div>
         <span className="grow" />
+        <ProjectSearch value={q} onChange={v => go({ q: v || null })} />
         {!view && admin && <span className="t-cap">{todayKey().slice(0, 4)}년 · 공급가액(VAT 별도)</span>}
         {view !== 'payments' && view !== 'schedule' && view !== 'subs' && (
           <Button kind="outline" onClick={() => setAssigning(true)}>
@@ -103,7 +112,14 @@ export default function Projects() {
           </Button>
         )}
       </div>
-      {view === 'payments' && admin ? (
+      {words.length ? (
+        <div className="col gap-10">
+          <SectionHead title={`‘${q}’ 프로젝트`} count={String(foundProjects.length)} right={<button type="button" className="link-btn t-cap" onClick={() => go({ q: null })}>검색 지우기</button>} />
+          <ProjectBoard list={sorted(foundProjects)} data={data} loading={loading} onOpen={id => go({ id })} />
+          <SectionHead title={`‘${q}’ 할 일`} count={String(foundTasks.length)} />
+          <TaskBoard list={foundTasks} projects={data.projects} onStatus={() => undefined} onEdit={t => t.project_id && go({ id: t.project_id })} />
+        </div>
+      ) : view === 'payments' && admin ? (
         <Payments projects={data.projects} clients={data.clients} />
       ) : view === 'org' ? (
         <OrgSection />
@@ -581,10 +597,29 @@ function ProjectDetail({ project: p, data, onEdit, onBack }: { project: Project;
           <ContactTimeline logs={extra.logs} projects={[]} showContact contacts={extra.contacts} />
         </div>
       </div>
+      {/* 인테리어(아트리어 · AR) 프로젝트는 현장 작업일지, 다른 프로젝트는 작업일지가 있을 때만 */}
+      <SiteLogsSection project={p} always={projectBrand(p) === 'AR'} />
       {me.role === 'admin' && <FinancePanel project={p} clients={data.clients} projects={data.projects} />}
       {editingTask && <TaskAssignModal key={editingTask.id} task={editingTask} projects={data.projects} tasks={data.tasks} onClose={() => setEditingTask(null)} />}
       {approving && <NewApproval preset={{ kind: '프로젝트', target_id: p.id, title: `프로젝트: ${p.name}` }} onClose={() => setApproving(false)} onCreated={id => navigate(`/approvals?view=mine&id=${id}`)} />}
     </>
+  )
+}
+
+/** 프로젝트 탭 맨 위 검색창 (Enter 또는 입력을 멈추면 검색) */
+function ProjectSearch({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [text, setText] = useState(value)
+  return (
+    <form
+      className="search proj-search"
+      onSubmit={e => {
+        e.preventDefault()
+        onChange(text.trim())
+      }}
+    >
+      <Search size={13} />
+      <input className="input" value={text} onChange={e => setText(e.target.value)} onBlur={() => text.trim() !== value && onChange(text.trim())} placeholder="프로젝트 · 연번 · 거래처 · 할 일 검색" aria-label="프로젝트 검색" />
+    </form>
   )
 }
 

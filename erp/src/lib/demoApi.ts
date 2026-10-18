@@ -46,6 +46,7 @@ import type {
   ResearchItem,
   Task,
   WorkLog,
+  SiteLog,
 } from './types'
 
 // Supabase 연결 전 체험용. 데이터는 이 브라우저(localStorage)에만 저장된다.
@@ -66,6 +67,7 @@ interface Store {
   finances: ProjectFinance[]
   payments: Payment[]
   subscriptions?: Subscription[]
+  site_logs?: SiteLog[]
   budget_lines: BudgetLine[]
   research_items: ResearchItem[]
   brand_contacts: BrandContact[]
@@ -1032,6 +1034,20 @@ export function createDemoApi(): Api {
       if (!(s.name ?? '').trim() && !s.id) throw new ApiError('이름을 적어 주세요.')
       store.subscriptions ??= []
       return upsert<'subscriptions', Subscription>('subscriptions', s, () => ({ id: '', name: '', category: '기타', plan: null, amount: 0, currency: 'KRW', cycle: '월', next_billing: null, pay_method: null, account_email: null, owner_id: null, seats: null, url: null, status: '사용 중', memo: null, created_by: requireMe(), created_at: now(), updated_at: now() }))
+    },
+    async listSiteLogs(projectId) {
+      requireMe()
+      return clone((store.site_logs ?? []).filter(x => x.project_id === projectId).sort((a, b) => b.log_date.localeCompare(a.log_date)))
+    },
+    async saveSiteLog(l) {
+      const self = requireMe()
+      store.site_logs ??= []
+      if (!l.id && store.site_logs.some(x => x.project_id === l.project_id && x.log_date === l.log_date)) throw new ApiError('그 날짜의 작업일지가 이미 있습니다.')
+      return upsert<'site_logs', SiteLog>('site_logs', l, () => ({ id: '', project_id: '', log_date: todayKey(), weather: null, site_manager: null, staff: null, labor: [], materials: [], today_work: null, next_work: null, photos: [], signs: {}, created_by: self, created_at: now(), updated_at: now() }))
+    },
+    async deleteSiteLog(id) {
+      const self = requireMe()
+      del('site_logs', id, () => (store.site_logs ?? []).some(x => x.id === id && (x.created_by === self || isAdmin())))
     },
     async deleteSubscription(id) {
       requireAdmin()
