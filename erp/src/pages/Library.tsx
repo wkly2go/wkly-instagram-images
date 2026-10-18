@@ -936,7 +936,7 @@ function Templates({ tabs }: { tabs: ReactNode }) {
 
 function Code({ children }: { children: string }) {
   return (
-    <pre className="box" style={{ margin: 0, fontFamily: 'var(--mono)', fontSize: 11.5, whiteSpace: 'pre-wrap', wordBreak: 'break-all', color: 'var(--blue)', background: 'var(--white)' }}>
+    <pre className="box" style={{ margin: 0, fontFamily: 'var(--mono)', fontSize: 10.5, whiteSpace: 'pre-wrap', wordBreak: 'break-all', color: 'var(--blue)', background: 'var(--white)' }}>
       {children}
     </pre>
   )
