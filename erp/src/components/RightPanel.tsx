@@ -83,14 +83,15 @@ export function DetailColumnHost() {
   }, [show])
   if (!show || !detailSlot) return null
   return createPortal(
-    <aside className="detail-col" aria-label={d.title}>
+    // key 가 바뀌면 새로 그려 결과 칸 맨 뒤(=맨 위)에 붙음 → 수정 칸 등이 열려 있어도 새로 누른 자료가 그 위에 보임
+    <aside key={d.key} className="detail-col" aria-label={d.title}>
       <div className="detail-head">
         <span className="grow truncate">{d.title}</span>
         <button type="button" className="icon-btn sm" onClick={() => setClosed(d.key)} aria-label="결과 칸 닫기" title="닫기">
           <X size={14} />
         </button>
       </div>
-      <div className="detail-body" key={d.key}>
+      <div className="detail-body">
         {d.node}
       </div>
     </aside>,
