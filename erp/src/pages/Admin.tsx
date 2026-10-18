@@ -222,7 +222,7 @@ function Members() {
                   <td>
                     <select
                       className="select"
-                      style={{ padding: '2px 6px', fontSize: 10, width: 110 }}
+                      style={{ padding: '2px 6px', fontSize: 9, width: 110 }}
                       value={deptOf(p.id)?.id ?? ''}
                       disabled={busy || !depts.length}
                       onChange={e => run(() => moveTo(p.id, e.target.value), e.target.value ? `${p.name} 님을 ${depts.find(d => d.id === e.target.value)?.name ?? ''} 부서로 옮겼습니다.` : `${p.name} 님을 부서에서 뺐습니다.`)}
@@ -239,7 +239,7 @@ function Members() {
                   </td>
                   <td className="max truncate">{p.title ?? '–'}</td>
                   <td>
-                    <select className="select" style={{ padding: '2px 6px', fontSize: 10, width: 84 }} value={p.role} disabled={busy || self} onChange={e => update(p, { role: e.target.value as Profile['role'] }, '권한을 바꿨습니다.')} aria-label={`${p.name} 권한`}>
+                    <select className="select" style={{ padding: '2px 6px', fontSize: 9, width: 84 }} value={p.role} disabled={busy || self} onChange={e => update(p, { role: e.target.value as Profile['role'] }, '권한을 바꿨습니다.')} aria-label={`${p.name} 권한`}>
                       <option value="member">멤버</option>
                       <option value="admin">관리자</option>
                     </select>
@@ -395,7 +395,7 @@ function Routes({ routes }: { routes: ApprovalRoute[] }) {
             <label key={k} className="row" style={{ gap: 6, border: '1px solid var(--line)', padding: '3px 8px', borderRadius: 6, background: 'var(--white)' }}>
               <Badge>{k}</Badge>
               <span className="t-blue">→</span>
-              <select className="select" style={{ padding: '2px 4px', fontSize: 10, width: 'auto', border: 0, fontWeight: 700 }} value={r?.approver_id ?? ''} disabled={busy} onChange={e => run(() => api.saveApprovalRoute(k as ApprovalKind, e.target.value || null), `${k} 승인 담당을 바꿨습니다.`)} aria-label={`${k} 승인 담당`}>
+              <select className="select" style={{ padding: '2px 4px', fontSize: 9, width: 'auto', border: 0, fontWeight: 700 }} value={r?.approver_id ?? ''} disabled={busy} onChange={e => run(() => api.saveApprovalRoute(k as ApprovalKind, e.target.value || null), `${k} 승인 담당을 바꿨습니다.`)} aria-label={`${k} 승인 담당`}>
                 <option value="">관리자 누구나</option>
                 {active.map(p => (
                   <option key={p.id} value={p.id}>
@@ -577,7 +577,7 @@ function TokenReveal({ token }: { token: string }) {
             {secret ? ' · 비밀' : ' · 공개 값'}
           </span>
           <div className="row">
-            <input className="input grow" readOnly value={v} onFocus={e => e.target.select()} aria-label={k} style={{ fontFamily: 'var(--mono)', fontSize: 10 }} />
+            <input className="input grow" readOnly value={v} onFocus={e => e.target.select()} aria-label={k} style={{ fontFamily: 'var(--mono)', fontSize: 9 }} />
             <Button kind="outline" size="sm" onClick={() => copy(v, k)}>
               복사
             </Button>
