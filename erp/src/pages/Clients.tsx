@@ -456,12 +456,16 @@ function ClientForm({ client, onClose, onSaved }: { client: Client | null; onClo
 /** 거래처 담당자를 사람 기준으로 모아 보기 · 검색 (이름 · 회사 · 직함 · 전화 · 이메일 · 메모) — 거래처 목록과 같은 구성 */
 function PeopleList({ contacts, clients, selectedId, onSelect }: { contacts: Contact[]; clients: Client[]; selectedId: string | null; onSelect: (id: string) => void }) {
   const [q, setQ] = useState('')
+  const [cat, setCat] = useState<ClientCategory | null>(null)
   const [adding, setAdding] = useState(false)
   const byId = useMemo(() => new Map(clients.map(c => [c.id, c])), [clients])
+  // 거래처와 같은 구분: 사람이 속한 회사(거래처)의 구분을 따름
+  const catOf = (x: Contact): ClientCategory => byId.get(x.client_id)?.category ?? '기타'
   const words = q.trim().toLowerCase().split(/\s+/).filter(Boolean)
   const digits = q.replace(/\D/g, '')
   const list = contacts
     .filter(x => {
+      if (cat && catOf(x) !== cat) return false
       if (!words.length) return true
       const hay = [x.name, x.title, x.email, x.phone, x.memo, byId.get(x.client_id)?.name].filter(Boolean).join(' ').toLowerCase()
       return words.every(w => hay.includes(w)) || (digits.length >= 3 && (x.phone ?? '').replace(/\D/g, '').includes(digits))
@@ -480,6 +484,16 @@ function PeopleList({ contacts, clients, selectedId, onSelect }: { contacts: Con
           <Search size={14} />
           <input className="input" placeholder="이름 · 회사 · 직함 · 전화 · 이메일 검색" value={q} onChange={e => setQ(e.target.value)} aria-label="연락처 검색" />
         </div>
+        <div className="chips">
+          <Chip active={!cat} onClick={() => setCat(null)}>
+            전체
+          </Chip>
+          {CLIENT_CATEGORIES.map(c => (
+            <Chip key={c} active={cat === c} onClick={() => setCat(c)}>
+              {clientCatLabel(c)} {contacts.filter(x => catOf(x) === c).length}
+            </Chip>
+          ))}
+        </div>
       </div>
       <div className="pane-body">
         {list.map(x => (
@@ -490,7 +504,8 @@ function PeopleList({ contacts, clients, selectedId, onSelect }: { contacts: Con
                 {x.title ? ` ${x.title}` : ''}
               </span>
               <span className="t-cap truncate">
-                {byId.get(x.client_id)?.name ?? ''}
+                {clientCatLabel(catOf(x))}
+                {byId.get(x.client_id)?.name ? ` · ${byId.get(x.client_id)!.name}` : ''}
                 {x.phone ? ` · ${x.phone}` : ''}
               </span>
             </span>
