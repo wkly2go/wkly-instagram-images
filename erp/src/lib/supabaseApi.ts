@@ -336,13 +336,31 @@ export function createSupabaseApi(url: string, key: string): Api {
       }
     },
     deleteSiteLog: id => remove('site_logs', id),
+    async uploadSitePhoto(projectId, file) {
+      if (file.size > 15 * 1024 * 1024) throw new ApiError('사진은 15MB 까지 올릴 수 있습니다.')
+      const ext = (file.name.match(/\.[A-Za-z0-9]{1,5}$/)?.[0] ?? '.jpg').toLowerCase()
+      const path = `${projectId}/${crypto.randomUUID()}${ext}`
+      const up = await sb.storage.from('site-photos').upload(path, file, { contentType: file.type || 'image/jpeg', upsert: false })
+      if (up.error) throw new ApiError(`사진을 올리지 못했습니다: ${up.error.message}`)
+      const signed = await sb.storage.from('site-photos').createSignedUrl(path, 60 * 60 * 24 * 30)
+      return { path, url: signed.data?.signedUrl ?? '' }
+    },
+    async sitePhotoUrl(path) {
+      const r = await sb.storage.from('site-photos').createSignedUrl(path, 60 * 60)
+      if (r.error || !r.data) throw new ApiError('사진을 열 수 없습니다.')
+      return r.data.signedUrl
+    },
     async listPayments(filter = {}) {
-      return pageAll<Payment>(() => {
-        let q = sb.from('payments').select('*')
-        if (filter.projectId) q = q.eq('project_id', filter.projectId)
-        if (filter.clientId) q = q.eq('client_id', filter.clientId)
-        return q.order('due_date', { nullsFirst: false }).order('created_at').order('id')
-      })
+      const read = (table: string) =>
+        pageAll<Payment>(() => {
+          let q = sb.from(table).select('*')
+          if (filter.projectId) q = q.eq('project_id', filter.projectId)
+          if (filter.clientId) q = q.eq('client_id', filter.clientId)
+          return q.order('due_date', { nullsFirst: false }).order('created_at').order('id')
+        })
+      // 관리자는 원본(계좌 포함), 구성원은 계좌 · 예금주를 비운 공개 보기
+      const rows = await read('payments')
+      return rows.length ? rows : read('payments_shared')
     },
     savePayment: p => save('payments', p) as Promise<Payment>,
     deletePayment: id => remove('payments', id),

@@ -1368,3 +1368,25 @@ html.detail-open .web-panel { max-width: 28vw; }
 .site-table col.c-del { width: 26px; }
 .sitelog-panel { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; background: var(--white); border: 1.5px solid var(--blue); border-radius: var(--r-panel); animation: drawer-up .3s cubic-bezier(.2, .8, .2, 1) both; }
 .sitelog-bar { display: flex; align-items: center; gap: 6px; color: var(--blue); font-size: var(--fs-body); }
+.site-table col.c-work { width: auto; }
+.site-table col.c-vendor { width: 96px; }
+.site-photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; }
+.site-photo-card { position: relative; margin: 0; display: flex; flex-direction: column; gap: 2px; border: 1px solid var(--blue-tint); border-radius: 6px; overflow: hidden; background: var(--white); }
+.site-photo-img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; background: var(--paper); }
+.site-photo-x { position: absolute; top: 4px; right: 4px; background: var(--white); }
+.site-photo-add { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 110px; border: 1.5px dashed var(--blue); border-radius: 6px; background: var(--blue-tint); color: var(--blue); font: inherit; font-size: var(--fs-sm); font-weight: 700; cursor: pointer; }
+.drive-frame { width: 100%; height: min(78vh, 900px); border: 1px solid var(--line); border-radius: 6px; background: var(--white); }
+@media print { .site-photo-grid { grid-template-columns: repeat(3, 1fr); } }
+/* 프로젝트 목록: 회사별 묶음 · 달력은 넓을 땐 오른쪽 250px, 좁아서 아래로 내려가면 전체 폭 */
+.brand-block { margin-bottom: 8px; }
+.brand-head { display: flex; align-items: center; gap: 6px; padding: 6px 2px 2px; border-bottom: 2px solid var(--blue); }
+.brand-AR .brand-head { border-bottom-color: var(--green); }
+.brand-AR .brand-head .t-bodyb { color: var(--green); font-size: var(--fs-sub); }
+.brand-TW .brand-head .t-bodyb { font-size: var(--fs-sub); }
+.proj-mini-cal { flex: 1 1 250px; max-width: 280px; min-width: 0; }
+@media (max-width: 900px) { .proj-mini-cal { max-width: none; flex-basis: 100%; } }
+.mini-cal-ev { gap: 6px; align-items: baseline; min-width: 0; }
+.mini-cal-ev .truncate { flex: 1 1 auto; min-width: 0; }
+.nowrap { white-space: nowrap; }
+.proj-list-wrap { container-type: inline-size; flex: 1; min-height: 0; }
+@container (max-width: 640px) { .proj-mini-cal { max-width: none; flex-basis: 100%; } }

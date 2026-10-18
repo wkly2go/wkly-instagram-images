@@ -778,15 +778,18 @@ export interface AdReport {
 }
 
 // ---------- 인테리어 현장 작업일지 (엑셀 '작업일지' 양식) ----------
-/** 가. 용역비 지급 현황 한 줄: 공종 묶음 · 세부 공종 · 계약 · 주간/야간 인원 · 단가 · 협력사 */
+/** 가. 공종별 투입 인원 한 줄: 공종 묶음 · 세부 공종 · 계약 · 주간/야간 인원 · 작업 내용 · 협력사 */
 export interface SiteLabor {
   group: string
   trade: string
   contract: string
   day: number
   night: number
-  unit_price: number
+  /** 예전 일지 호환용 (화면에는 비용을 보이지 않음) */
+  unit_price?: number
   vendor: string
+  /** 공종별 금일 작업 내용 */
+  note?: string
 }
 /** 나. 자재 반출입 / 인건비 지급 한 줄 */
 export interface SiteMaterial {
@@ -798,7 +801,10 @@ export interface SiteMaterial {
 }
 export interface SitePhoto {
   label: string
+  /** 링크 사진(드라이브 등) 또는 업로드 사진의 서명 링크 (드라이브 저장 작업이 내려받음) */
   url: string
+  /** 휴대폰으로 올린 사진의 저장 위치 (site-photos 저장소) */
+  path?: string
 }
 export const SITE_SIGNERS = ['현장소장', '현장감리', '대표'] as const
 export type SiteSigner = (typeof SITE_SIGNERS)[number]
@@ -814,7 +820,13 @@ export interface SiteLog {
   today_work: string | null
   next_work: string | null
   photos: SitePhoto[]
+  /** 이벤트 · 특이사항 (안전 · 민원 · 검측 · 방문 등) */
+  events: string | null
   signs: Partial<Record<SiteSigner, { by: string; at: string }>>
+  /** 구글 드라이브에 저장된 일지 (예약 작업이 채움) */
+  drive_file_id: string | null
+  drive_url: string | null
+  synced_at: string | null
   created_by: string | null
   created_at: string
   updated_at: string
