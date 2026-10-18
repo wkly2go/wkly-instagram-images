@@ -3,8 +3,8 @@
 //  - 컴퓨터를 켜면 자동 실행 · 로그인 전에는 창을 닫을 수 없고 맨 위에 고정
 //  - 로그인 후 X 를 누르면 트레이(작업 표시줄 오른쪽 아래 / 맥 메뉴 막대)로 숨김 · 알림은 계속
 //  - 컴퓨터를 30분 안 쓰거나 화면 잠금 · 절전이면 인트라넷 화면도 잠금
-//  - 윈도우는 새 버전을 자동으로 받아 로그인 화면일 때 조용히 설치 (맥은 내려받기 안내)
-const { app, BrowserWindow, Tray, Menu, ipcMain, powerMonitor, shell, nativeImage, dialog, WebContentsView, nativeTheme } = require('electron')
+//  - 새 버전을 자동으로 받아 로그인 화면에서 쉬거나 끌 때 설치 (윈도우: electron-updater · 맥: 직접 받아 .app 교체)
+const { app, BrowserWindow, Tray, Menu, ipcMain, powerMonitor, shell, nativeImage, dialog, WebContentsView, nativeTheme, net } = require('electron')
 const path = require('path')
 const fs = require('fs')
 const crypto = require('crypto')
@@ -217,6 +217,11 @@ function updateTrayMenu() {
       { type: 'separator' },
       { label: `버전 ${app.getVersion()}`, enabled: false },
       {
+        label: updateReady ? `새 버전 ${updateVersion || ''} 설치하고 다시 시작` : '새 버전 확인',
+        enabled: app.isPackaged,
+        click: () => (updateReady ? installUpdate() : isMac ? checkMacUpdate() : autoUpdater.checkForUpdates().catch(() => undefined)),
+      },
+      {
         label: loggedIn ? '종료' : '종료 (로그인 후 가능)',
         enabled: loggedIn,
         click: () => {
@@ -244,7 +249,7 @@ function watchIdle() {
 /**
  * 자동 업데이트 (GitHub 릴리스)
  *  - 윈도우: 새 버전을 저절로 받아 둠 (electron-updater)
- *  - 맥: 서명이 없어 기본 방식은 안 되므로, 새 버전 zip 을 직접 받아 풀어 둠
+ *  - 맥: 서명이 없어 기본 방식은 안 되므로, 30분마다 latest-mac.yml 을 직접 확인해 새 버전 zip 을 받아 풀어 둠
  *  - 받아 둔 새 버전은 ① 로그인 · 잠금 화면에서 1분 넘게 손대지 않을 때 ② 프로그램을 끌 때 ③ 인트라넷 위 '지금 다시 시작'을 누를 때 설치
  */
 let macUpdateApp = null // 맥: 풀어 둔 새 .app 경로
@@ -252,6 +257,7 @@ let updateVersion = null
 const RELEASE_BASE = 'https://github.com/wkly2go/wkly-instagram-images/releases/download'
 
 function sendUpdateState() {
+  updateTrayMenu()
   for (const w of BrowserWindow.getAllWindows()) w.webContents.send('update-state', { ready: updateReady, version: updateVersion })
 }
 
@@ -261,11 +267,16 @@ function setupUpdates() {
     e.returnValue = { ready: updateReady, version: updateVersion }
   })
   if (!app.isPackaged) return
-  autoUpdater.autoDownload = !isMac
-  autoUpdater.autoInstallOnAppQuit = !isMac
-  autoUpdater.on('update-available', info => {
-    if (isMac) prepareMacUpdate(info.version).catch(() => undefined)
-  })
+  if (isMac) {
+    // 맥: electron-updater 를 쓰지 않고 직접 확인 (서명 없는 앱 · 회사망 프록시에서도 동작하게 Chromium 네트워크 사용)
+    ensureInApplications()
+    setTimeout(checkMacUpdate, 10_000)
+    setInterval(checkMacUpdate, 30 * 60_000)
+    powerMonitor.on('resume', () => setTimeout(checkMacUpdate, 15_000))
+    return
+  }
+  autoUpdater.autoDownload = true
+  autoUpdater.autoInstallOnAppQuit = true
   autoUpdater.on('update-downloaded', info => {
     updateVersion = info.version
     updateReady = true
@@ -280,24 +291,70 @@ function setupUpdates() {
   setInterval(check, 60 * 60_000)
 }
 
-/** 맥: 새 버전 zip 을 받아 임시 폴더에 풀어 둠 */
-async function prepareMacUpdate(version) {
-  if (macUpdateApp || !/^\d+\.\d+\.\d+$/.test(version)) return
-  const { execFile } = require('child_process')
-  const run = (cmd, args) => new Promise((ok, fail) => execFile(cmd, args, err => (err ? fail(err) : ok())))
-  const dir = fs.mkdtempSync(path.join(app.getPath('temp'), `wkly-update-${version}-`))
-  const zip = path.join(dir, 'update.zip')
-  const res = await fetch(`${RELEASE_BASE}/v${version}/WKLY-Intranet.zip`, { redirect: 'follow' })
-  if (!res.ok) throw new Error(`download ${res.status}`)
-  fs.writeFileSync(zip, Buffer.from(await res.arrayBuffer()))
-  await run('/usr/bin/ditto', ['-x', '-k', zip, dir])
-  const name = fs.readdirSync(dir).find(f => f.endsWith('.app'))
-  if (!name) throw new Error('no app in zip')
-  macUpdateApp = path.join(dir, name)
-  updateVersion = version
-  updateReady = true
-  sendUpdateState()
-  maybeInstallUpdate()
+/** 맥 업데이트 기록 (문제 확인용): ~/Library/Application Support/WKLY Intranet/update.log */
+function updateLog(msg) {
+  try {
+    const f = path.join(app.getPath('userData'), 'update.log')
+    if (fs.existsSync(f) && fs.statSync(f).size > 200_000) fs.renameSync(f, f + '.1')
+    fs.appendFileSync(f, `${new Date().toISOString()} ${msg}\n`)
+  } catch {
+    /* 기록 실패는 무시 */
+  }
+}
+
+/** 맥: 다운로드 폴더 · 설치 디스크(dmg)에서 바로 실행하면 macOS 가 읽기 전용 위치로 옮겨 실행해 업데이트를 못 함 → 응용 프로그램 폴더로 옮김 */
+function ensureInApplications() {
+  try {
+    if (app.isInApplicationsFolder()) return
+    updateLog(`not in Applications: ${process.execPath}`)
+    const r = dialog.showMessageBoxSync({
+      type: 'info',
+      buttons: ['응용 프로그램 폴더로 옮기기', '나중에'],
+      defaultId: 0,
+      cancelId: 1,
+      message: 'WKLY 인트라넷을 응용 프로그램 폴더로 옮길까요?',
+      detail: '지금 위치에서는 새 버전이 자동으로 설치되지 않습니다. 옮기면 다시 실행되고, 이후로는 자동 업데이트됩니다.',
+    })
+    if (r === 0) {
+      allowQuit = true
+      app.moveToApplicationsFolder({ conflictHandler: () => true })
+    }
+  } catch (e) {
+    updateLog(`move failed: ${e && e.message}`)
+  }
+}
+
+const newer = (a, b) => {
+  const x = String(a).split('.').map(Number)
+  const y = String(b).split('.').map(Number)
+  for (let i = 0; i < 3; i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0)
+  return false
+}
+
+let macChecking = false
+let macFallbackShown = false
+async function checkMacUpdate() {
+  // 받아 둔 새 버전이 임시 폴더 정리로 사라졌으면 다시 받음
+  if (macUpdateApp && !fs.existsSync(macUpdateApp)) {
+    macUpdateApp = null
+    updateReady = false
+  }
+  if (macChecking || macUpdateApp) return
+  macChecking = true
+  try {
+    const res = await net.fetch(`https://github.com/wkly2go/wkly-instagram-images/releases/latest/download/latest-mac.yml?t=${Date.now()}`, { cache: 'no-store' })
+    if (!res.ok) throw new Error(`latest-mac.yml ${res.status}`)
+    const m = /^version:\s*['"]?([\d.]+)/m.exec(await res.text())
+    const latest = m && m[1]
+    if (latest && newer(latest, app.getVersion())) {
+      updateLog(`found ${latest} (now ${app.getVersion()})`)
+      await prepareMacUpdate(latest)
+    }
+  } catch (e) {
+    updateLog(`check failed: ${e && e.message}`)
+  } finally {
+    macChecking = false
+  }
 }
 
 /** 받아 둔 새 버전은 로그인 · 잠금 화면에서 1분 넘게 손대지 않을 때 설치 (입력 중에 끊지 않음) */
@@ -312,7 +369,14 @@ function installUpdate() {
   allowQuit = true
   if (!isMac) return autoUpdater.quitAndInstall(true, true)
   if (spawnMacSwap(true)) app.quit()
-  else shell.openExternal(DOWNLOAD_PAGE)
+  else {
+    // 바꿔 끼울 수 없는 위치 · 권한: 내려받기 페이지를 한 번만 열어 줌 (30초마다 다시 열지 않게)
+    allowQuit = false
+    if (macFallbackShown) return
+    macFallbackShown = true
+    updateLog(`swap not possible: ${process.execPath}`)
+    shell.openExternal(DOWNLOAD_PAGE)
+  }
 }
 
 /** 맥: 프로그램이 끝나면 지금 .app 을 새 것으로 바꾸고 다시 실행하는 작업을 띄움 (한 번만) */
@@ -320,7 +384,7 @@ let macSwapStarted = false
 function spawnMacSwap(relaunch) {
   if (macSwapStarted) return true
   const target = path.resolve(process.execPath, '..', '..', '..')
-  if (!macUpdateApp || !target.endsWith('.app')) return false
+  if (!macUpdateApp || !fs.existsSync(macUpdateApp) || !target.endsWith('.app')) return false
   try {
     fs.accessSync(path.dirname(target), fs.constants.W_OK)
   } catch {

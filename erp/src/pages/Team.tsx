@@ -55,19 +55,11 @@ export default function Team() {
       {tab === 'attendance' ? (
         <div className={`split ${person && !wide ? 'has-detail' : ''}${wide ? ' team-one' : ''}`}>
           <div className="pane-list">
-            <div className="pane-head">
-              <div className="chips" role="tablist" aria-label="팀 메뉴">
-                {TABS.map(([k, l]) => (
-                  <Chip key={k} active={tab === k} onClick={() => navigate(withQuery(path, query, { tab: k === 'work' ? null : k, user: null }))}>
-                    {l}
-                  </Chip>
-                ))}
-              </div>
-            </div>
+            <div className="row wrap work-head">{tabChips}</div>
             <PeopleList selectedId={personId} onSelect={goPerson} />
           </div>
           <div className="pane-detail" style={{ overflow: 'auto' }}>
-            <div className="col gap-10" style={{ padding: '14px 16px' }}>
+            <div className="col gap-10 team-detail">
               {person && !wide ? (
                 <PersonHub key={person.id} p={person} onBack={() => goPerson(null)} />
               ) : (
@@ -85,13 +77,7 @@ export default function Team() {
         </div>
       ) : (
         <>
-          <div className="chips" role="tablist" aria-label="팀 메뉴">
-            {TABS.map(([k, l]) => (
-              <Chip key={k} active={tab === k} onClick={() => navigate(withQuery(path, query, { tab: k === 'work' ? null : k, user: null }))}>
-                {l}
-              </Chip>
-            ))}
-          </div>
+          {tabChips}
           {tab === 'leave' && <LeaveSection />}
           {tab === 'me' && <MySettings />}
         </>

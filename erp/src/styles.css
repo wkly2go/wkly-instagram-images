@@ -1242,3 +1242,31 @@ html.detail-open .web-panel { max-width: 28vw; }
 .team-side .team-tabs { margin-bottom: 4px; }
 @media (max-width: 1300px) { .team-side { width: 156px; } }
 .pane-list .item { padding-top: 6px; padding-bottom: 6px; }
+
+/* ---------- 업무·근태 크기 최적화 (2026-10-18) ---------- */
+/* 맨 위 한 줄: 업무 · 근태 · 휴가 · 내 정보 탭이 어느 탭에서나 같은 자리 */
+.work-head { gap: 6px 8px; padding: 6px 12px; border-bottom: 1px solid var(--line); background: var(--white); flex: none; }
+.work-head .team-tabs { margin: 0 6px 0 0; padding-right: 10px; border-right: 1px solid var(--line); flex-wrap: nowrap; }
+.work-head .team-tabs .chip { padding: 1px 10px; }
+.work-head .icon-btn { width: 26px; height: 26px; }
+/* 팀 목록은 위아래 끝까지, 할 일 · 메모장은 가운데 칸 아래에서 펼쳐짐 */
+.team-side .chips { flex-wrap: nowrap; }
+.team-side .chips .chip { flex: 1 1 0; justify-content: center; padding: 0 4px; }
+.work-main { container-type: inline-size; }
+.work-main .chat-body { padding: 8px 10px; }
+.work-main .work-drawer { max-height: 46%; padding: 8px 12px; }
+.work-main .chips .chip { padding: 0 9px; font-size: 11px; }
+@container (max-width: 640px) { .board .hide-narrow { display: none; } }
+/* 근태: 사람 목록은 넓은 화면에서 카드 격자로 (세로로 길게 늘어지지 않게) */
+.split.team-one > .pane-list .pane-head { padding: 8px 12px 4px; }
+.split.team-one > .pane-list .pane-body { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; padding: 4px 12px 10px; }
+.split.team-one > .pane-list .pane-body .item { border: 1px solid var(--line); border-radius: var(--r-panel); padding: 6px 8px; }
+.split.team-one > .pane-list .pane-body .item.active { border-color: var(--blue); }
+.team-detail { padding: 10px 12px; }
+.team-detail > * { max-width: 1100px; }
+.team-side .team-person .t-meta { white-space: nowrap; }
+.work-main .chips { gap: 4px; }
+@container (max-width: 560px) {
+  .work-main .composer-meta .pick { flex-basis: 96px; }
+  .work-main .composer-meta .input[type="number"], .work-main .composer-meta input[placeholder="분"] { width: 56px; }
+}

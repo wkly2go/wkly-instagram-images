@@ -179,7 +179,8 @@ export function WorkPane({ tabs }: { tabs?: ReactNode }) {
 
   return (
     <div className="work-wrap">
-      <div className="row wrap" style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)" }}>
+      <div className="row wrap work-head">
+        {tabs}
         <button type="button" className="icon-btn" onClick={() => shift(-1)} aria-label="이전">
           <ChevronLeft size={18} />
         </button>
@@ -215,7 +216,7 @@ export function WorkPane({ tabs }: { tabs?: ReactNode }) {
         )}
       </div>
       <div className="work-body">
-        <TeamSide tabs={tabs} period={period} date={date} q={q} viewUser={viewUser} team={team} logs={data.periodLogs} reports={reports} from={from} to={to} go={go} profiles={profiles.filter((p) => p.active && !p.is_agent)} />
+        <TeamSide period={period} date={date} q={q} viewUser={viewUser} team={team} logs={data.periodLogs} reports={reports} from={from} to={to} go={go} profiles={profiles.filter((p) => p.active && !p.is_agent)} />
         <div className="work-main">
           {other?.status_message && period === "day" && (
             <div className="t-small" style={{ padding: "6px 14px", background: "var(--white)", borderBottom: "1px dashed var(--line)" }}>
@@ -247,13 +248,13 @@ export function WorkPane({ tabs }: { tabs?: ReactNode }) {
             )}
           </div>
           {!other && !team && period === "day" && !q && <LogComposer key={date} date={date} initialClientId={query.get("client") ?? ""} />}
+          {side !== "none" && (
+            <div className="work-drawer" key={side}>
+              {side === "memo" ? memoPad : todoPad}
+            </div>
+          )}
         </div>
       </div>
-      {side !== "none" && (
-        <div className="work-drawer" key={side}>
-          {side === "memo" ? memoPad : todoPad}
-        </div>
-      )}
       {reporting && (
         <NewApproval preset={{ kind: "업무 보고", payload: { date } }} onClose={() => setReporting(false)} onCreated={(id) => navigate(`/approvals?view=mine&id=${id}`)} />
       )}
@@ -283,7 +284,6 @@ function ReportStrip({ reports, period }: { reports: Approval[]; period: Period 
 
 /** 왼쪽: 기간 · 검색 · 팀원별 업무 보고 */
 function TeamSide({
-  tabs,
   period,
   date,
   q,
@@ -296,7 +296,6 @@ function TeamSide({
   go,
   profiles,
 }: {
-  tabs?: ReactNode;
   period: Period;
   date: string;
   q: string;
@@ -323,7 +322,6 @@ function TeamSide({
   const years = Array.from({ length: 4 }, (_, i) => String(Number(today.slice(0, 4)) - i));
   return (
     <aside className="team-side" aria-label="팀원별 업무 보고">
-      {tabs}
       <div className="chips">
         {(
           [
@@ -360,8 +358,7 @@ function TeamSide({
         <Search size={14} />
         <input className="input" value={text} onChange={(e) => setText(e.target.value)} onBlur={() => text.trim() !== q && go({ q: text.trim() || null })} placeholder="업무 내용 검색" aria-label="업무 내용 검색" />
       </form>
-      <span className="t-cap">팀원별 업무 보고 · ✈ 눌러 바로 업무 지시</span>
-      <button type="button" className={`team-person${team ? " active" : ""}`} onClick={() => go({ user: null, team: "1" })}>
+      <button type="button" className={`team-person${team ? " active" : ""}`} title="팀원별 업무 보고 · ✈ 눌러 바로 업무 지시" onClick={() => go({ user: null, team: "1" })}>
         <span className="grow">팀 전체</span>
         <span className="t-meta">{logs.length}건</span>
       </button>
@@ -372,19 +369,21 @@ function TeamSide({
           <div key={p.id} className="team-row">
           <button type="button" className={`team-person${active ? " active" : ""}`} onClick={() => go({ user: p.id === me.id ? null : p.id, team: null })}>
             <span className="col grow" style={{ minWidth: 0 }}>
-              <span className="t-smallb truncate">
-                {p.name}
-                {p.id === me.id ? " (나)" : ""}
+              <span className="row" style={{ gap: 4, minWidth: 0 }}>
+                <span className="t-smallb truncate">
+                  {p.name}
+                  {p.id === me.id ? " (나)" : ""}
+                </span>
+                {pend > 0 && (
+                  <Badge tone="red" title="승인 대기 업무 보고">
+                    미승인 {pend}
+                  </Badge>
+                )}
               </span>
               <span className="t-meta">
-                기록 {count(p.id)} · 보고 승인 {approved(p.id)}
+                기록 {count(p.id)} · 승인 {approved(p.id)}
               </span>
             </span>
-            {pend > 0 && (
-              <Badge tone="red" title="승인 대기 업무 보고">
-                미승인 {pend}
-              </Badge>
-            )}
           </button>
           <AssignTaskButton assignee={p.id} className="icon-btn team-assign" title={`${p.name}님에게 업무 지시`} />
           </div>
