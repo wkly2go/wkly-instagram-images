@@ -361,7 +361,7 @@ export function Gantt({ projects, tasks }: { projects: Project[]; tasks: Task[] 
           ))}
         </span>
       )}
-      {editing && <TaskAssignModal task={editing === 'new' ? undefined : editing} projects={projects} tasks={tasks} presetProject={project?.id} onClose={() => setEditing(null)} />}
+      {editing && <TaskAssignModal key={editing === 'new' ? 'new' : editing.id} task={editing === 'new' ? undefined : editing} projects={projects} tasks={tasks} presetProject={project?.id} onClose={() => setEditing(null)} />}
     </div>
   )
 }
@@ -517,7 +517,7 @@ export function MonthCalendar({ projects, tasks }: { projects: Project[]; tasks:
           </div>
         </Modal>
       )}
-      {editing && <TaskAssignModal task={editing} projects={projects} tasks={tasks} onClose={() => setEditing(null)} />}
+      {editing && <TaskAssignModal key={editing.id} task={editing} projects={projects} tasks={tasks} onClose={() => setEditing(null)} />}
       {gcal && <GoogleCalendarModal onClose={() => setGcal(false)} />}
     </div>
   )
@@ -556,7 +556,7 @@ export function SentTasks({ projects, tasks }: { projects: Project[]; tasks: Tas
           </button>
         )
       })}
-      {editing && <TaskAssignModal task={editing} projects={projects} tasks={tasks} onClose={() => setEditing(null)} />}
+      {editing && <TaskAssignModal key={editing.id} task={editing} projects={projects} tasks={tasks} onClose={() => setEditing(null)} />}
     </div>
   )
 }
@@ -719,7 +719,7 @@ export function WeekView({ projects, tasks }: { projects: Project[]; tasks: Task
         </span>
         <span className="t-cap">업무를 누르면 내용 · 메모를 보고 고칠 수 있어요</span>
       </div>
-      {editing && <TaskAssignModal task={editing} projects={projects} tasks={tasks} onClose={() => setEditing(null)} />}
+      {editing && <TaskAssignModal key={editing.id} task={editing} projects={projects} tasks={tasks} onClose={() => setEditing(null)} />}
     </div>
   )
 }

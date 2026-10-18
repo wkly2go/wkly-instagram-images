@@ -319,6 +319,7 @@ function Register({ data, projects, clients }: { data: PayData; projects: Projec
       )}
       {(form || opened) && (
         <PaymentForm
+          key={form === 'new' ? 'new' : (form ?? opened)?.id ?? 'new'}
           payment={form === 'new' ? null : (form ?? opened ?? null)}
           preset={{ project_id: projectId && projectId !== 'none' ? projectId : null, direction: (dir as Payment['direction']) || '지급' }}
           projects={projects}

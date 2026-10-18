@@ -131,7 +131,7 @@ export default function Clients() {
         </div>
         )}
       </div>
-      {editing && <ClientForm client={editing === 'new' ? null : editing} onClose={() => setEditing(null)} onSaved={id => go(id)} />}
+      {editing && <ClientForm key={editing === 'new' ? 'new' : editing.id} client={editing === 'new' ? null : editing} onClose={() => setEditing(null)} onSaved={id => go(id)} />}
     </Shell>
   )
 }
@@ -269,8 +269,8 @@ function ClientDetail({ client: c, clients, onEdit, onBack }: { client: Client; 
           <ExchangeFilesSection clientId={c.id} contacts={data.contacts} projects={data.allProjects} />
         </div>
       </div>
-      {reportForm && <ReportForm item={reportForm === 'new' ? null : reportForm} clients={clients} presetClient={c.id} onClose={() => setReportForm(null)} />}
-      {contactForm && <ContactForm clientId={c.id} contact={contactForm === 'new' ? null : contactForm} others={data.contacts} onClose={() => setContactForm(null)} />}
+      {reportForm && <ReportForm key={reportForm === 'new' ? 'new' : reportForm.id} item={reportForm === 'new' ? null : reportForm} clients={clients} presetClient={c.id} onClose={() => setReportForm(null)} />}
+      {contactForm && <ContactForm key={contactForm === 'new' ? 'new' : contactForm.id} clientId={c.id} contact={contactForm === 'new' ? null : contactForm} others={data.contacts} onClose={() => setContactForm(null)} />}
     </div>
   )
 }
