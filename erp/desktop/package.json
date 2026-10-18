@@ -79,7 +79,7 @@
         "provider": "github",
         "owner": "wkly2go",
         "repo": "wkly-instagram-images",
-        "releaseType": "release"
+        "releaseType": "draft"
       }
     ]
   }
