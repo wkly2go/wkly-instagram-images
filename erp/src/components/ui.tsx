@@ -89,6 +89,7 @@ export function SectionHead({ title, count, right }: { title: string; count?: nu
 const KIND_TONE: Record<string, Tone> = {
   '업무 보고': 'blue',
   '일일 보고': 'acid',
+  회의록: 'green' as Tone,
   '메일 발송': 'yellow',
   프로젝트: 'green' as Tone,
   거래처: 'paper',

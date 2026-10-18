@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { ChevronLeft, ChevronRight, ListTodo, Search, Trash2 } from "lucide-react";
 import { useAction, useApp, useAsync } from "../lib/app";
 import {
@@ -14,7 +14,6 @@ import {
 import { Link, useRouter, withQuery } from "../lib/router";
 import { presenceOf, useAttendance } from "../lib/attendance";
 import type { Approval, Client, Project, Task, WorkLog as Log } from "../lib/types";
-import { Shell } from "../components/Shell";
 import { Board, BoardHead, type BoardCol } from "../components/Board";
 import { LogComposer, isMail } from "../components/LogForm";
 import {
@@ -28,7 +27,6 @@ import {
 import { NewApproval } from "./Approvals";
 import { AssignTaskButton } from "../components/AssignTask";
 import { MemoPad } from "../components/MemoPad";
-import { usePanelWide, useRightPanel } from "../components/RightPanel";
 import { PendingReports, ReportCheck, WorkTodo, reportDate, useWorkReports } from "../components/WorkReports";
 
 const SIDE_KEY = "wkly-work-side";
@@ -42,7 +40,8 @@ function rangeOf(period: Period, date: string): [string, string] {
   return [`${date.slice(0, 4)}-01-01`, `${date.slice(0, 4)}-12-31`];
 }
 
-export default function WorkLog() {
+/** 업무 (업무·근태 탭에 통합, 대표 지시 2026-10-18): 왼쪽 사람 목록 + 업무 기록, 할 일 · 메모장은 아래에서 펼침 */
+export function WorkPane({ tabs }: { tabs?: ReactNode }) {
   const { api, me, version, profileOf, profileName, profiles } = useApp();
   const { query, path, navigate } = useRouter();
   const today = todayKey();
@@ -166,22 +165,20 @@ export default function WorkLog() {
     },
   ];
 
-  // 업무 화면은 2단 (팀원 · 업무 기록). 할 일 · 메모는 오른쪽 칸에
-  const wide = usePanelWide();
+  // 할 일 · 메모장: 업무 기록 아래에서 위로 펼쳐짐
   const todoWho = !viewUser ? "팀 전체" : viewUser === me.id ? "내" : `${profileName(viewUser)}`;
   const todoPad = (
-    <aside className="memo-pad todo-pad" aria-label="할 일">
+    <div className="col gap-6" aria-label="할 일">
       <span className="t-bodyb">✅ {todoWho} 할 일</span>
       <span className="t-cap">왼쪽에서 고른 사람의 할 일입니다. 프로젝트 이름을 쓰면 자동 연결되고, 승인 안 된 업무 보고는 승인될 때까지 여기에 남습니다.</span>
       <PendingReports reports={reports} userId={viewUser ?? null} />
       <WorkTodo projects={data.projects} clients={data.clients} tasks={data.tasks} userId={viewUser ?? null} />
-    </aside>
+    </div>
   );
   const memoPad = <MemoPad onClose={() => setSide("none")} />;
-  useRightPanel(wide && side !== "none" ? `work:${side}` : null, side === "memo" ? "메모" : `${todoWho} 할 일`, side === "memo" ? memoPad : todoPad);
 
   return (
-    <Shell active="work" flush>
+    <div className="work-wrap">
       <div className="row wrap" style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)" }}>
         <button type="button" className="icon-btn" onClick={() => shift(-1)} aria-label="이전">
           <ChevronLeft size={18} />
@@ -218,7 +215,7 @@ export default function WorkLog() {
         )}
       </div>
       <div className="work-body">
-        <TeamSide period={period} date={date} q={q} viewUser={viewUser} team={team} logs={data.periodLogs} reports={reports} from={from} to={to} go={go} profiles={profiles.filter((p) => p.active && !p.is_agent)} />
+        <TeamSide tabs={tabs} period={period} date={date} q={q} viewUser={viewUser} team={team} logs={data.periodLogs} reports={reports} from={from} to={to} go={go} profiles={profiles.filter((p) => p.active && !p.is_agent)} />
         <div className="work-main">
           {other?.status_message && period === "day" && (
             <div className="t-small" style={{ padding: "6px 14px", background: "var(--white)", borderBottom: "1px dashed var(--line)" }}>
@@ -251,13 +248,16 @@ export default function WorkLog() {
           </div>
           {!other && !team && period === "day" && !q && <LogComposer key={date} date={date} initialClientId={query.get("client") ?? ""} />}
         </div>
-        {!wide && side === "todo" && todoPad}
-        {!wide && side === "memo" && memoPad}
       </div>
+      {side !== "none" && (
+        <div className="work-drawer" key={side}>
+          {side === "memo" ? memoPad : todoPad}
+        </div>
+      )}
       {reporting && (
         <NewApproval preset={{ kind: "업무 보고", payload: { date } }} onClose={() => setReporting(false)} onCreated={(id) => navigate(`/approvals?view=mine&id=${id}`)} />
       )}
-    </Shell>
+    </div>
   );
 }
 
@@ -283,6 +283,7 @@ function ReportStrip({ reports, period }: { reports: Approval[]; period: Period 
 
 /** 왼쪽: 기간 · 검색 · 팀원별 업무 보고 */
 function TeamSide({
+  tabs,
   period,
   date,
   q,
@@ -295,6 +296,7 @@ function TeamSide({
   go,
   profiles,
 }: {
+  tabs?: ReactNode;
   period: Period;
   date: string;
   q: string;
@@ -321,6 +323,7 @@ function TeamSide({
   const years = Array.from({ length: 4 }, (_, i) => String(Number(today.slice(0, 4)) - i));
   return (
     <aside className="team-side" aria-label="팀원별 업무 보고">
+      {tabs}
       <div className="chips">
         {(
           [
