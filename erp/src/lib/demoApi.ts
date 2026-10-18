@@ -1531,6 +1531,10 @@ export function createDemoApi(): Api {
       persist()
       emit('agent_instructions')
     },
+    async listAgentActions() {
+      requireMe()
+      return []
+    },
     async listDepartments() {
       requireMe()
       if (!store.departments) {

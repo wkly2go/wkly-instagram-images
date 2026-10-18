@@ -1,9 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { ChevronDown, ChevronLeft, ChevronRight, Search } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { addDays, dateTimeLabel, relativeLabel, shortDate, todayKey, weekday } from '../lib/date'
 import { useRouter, withQuery } from '../lib/router'
-import { AGENT_VERDICTS, type AgentAction, type AgentJob, type AgentJobRequest, type AgentReport, type Department } from '../lib/types'
+import { AGENT_VERDICTS, type AgentAction, type AgentJob, type AgentActionLog, type AgentJobRequest, type AgentReport, type Department } from '../lib/types'
 import { Shell } from '../components/Shell'
 import { usePanelWide, useRightPanel } from '../components/RightPanel'
 import { Badge, Button, Chip, Empty, Field, Modal, SectionHead, type Tone } from '../components/ui'
@@ -12,7 +12,7 @@ const V_TONE: Record<string, Tone> = { 완료: 'acid', '변동 없음': 'outline
 const R_TONE: Record<string, Tone> = { 대기: 'yellow', '처리 중': 'blue', 완료: 'acid', '수동 필요': 'red', 거절: 'gray' }
 const MANAGER = 'WKLY 총괄 에이전트 관리'
 
-type Tab = 'jobs' | 'org' | 'reports' | 'requests'
+type Tab = 'jobs' | 'org' | 'reports' | 'requests' | 'actions'
 
 /** Claude AI 에이전트(예약 작업) 관리 · 일일 보고 (관리자) */
 export default function Agents() {
@@ -37,6 +37,7 @@ export default function Agents() {
               ['org', '조직도 · 관리자'],
               ['reports', '일일 보고'],
               ['requests', '관리 요청'],
+              ['actions', 'AI 처리 기록'],
             ] as [Tab, string][]
           ).map(([k, l]) => (
             <Chip key={k} active={tab === k} onClick={() => go(k)}>
@@ -48,7 +49,7 @@ export default function Agents() {
         <span className="t-cap">Claude 예약 작업을 WKLY 총괄이 2시간마다 점검해 이곳에 기록합니다.</span>
       </div>
       <FailureBanner />
-      {tab === 'jobs' ? <Jobs /> : tab === 'org' ? <AgentOrg /> : tab === 'reports' ? <Reports /> : <Requests />}
+      {tab === 'jobs' ? <Jobs /> : tab === 'org' ? <AgentOrg /> : tab === 'reports' ? <Reports /> : tab === 'actions' ? <Actions /> : <Requests />}
     </Shell>
   )
 }
@@ -365,6 +366,52 @@ function Requests() {
               취소
             </Button>
           )}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+const TOOL_LABEL: Record<string, string> = {
+  create_task: '할 일 등록',
+  update_task: '할 일 수정',
+  notify_person: '알림',
+  queue_mail_work: '메일 확인 예약',
+  request_approval: '결재 요청',
+  handoff: '다른 팀 전달',
+  add_directive: '팀원 AI 지시',
+  end_directive: '지시 종료',
+}
+
+/** AI 처리 기록: 총괄 · 팀장 AI 가 채팅 · 지시로 한 일 (누가 요청했고 무엇을 했는지) */
+function Actions() {
+  const { api, version, profileName } = useApp()
+  const { data, reload } = useAsync(() => api.listAgentActions(), [version], [] as AgentActionLog[])
+  useEffect(() => api.subscribeChanges(['agent_actions'], reload), [api, reload])
+  const summary = (a: AgentActionLog) => {
+    const i = a.input ?? {}
+    const v = (k: string) => (typeof i[k] === 'string' ? (i[k] as string) : '')
+    return v('title') || v('directive') || v('summary') || v('instruction') || v('status') || ''
+  }
+  return (
+    <div className="col gap-6">
+      <span className="t-cap">팀장 AI 는 채팅방 · 1:1 대화에서 '@마케팅팀장' '@콘텐츠팀장' '@인테리어팀장' '@리서치팀장' 으로 부르면 답하고 처리합니다. AI 가 바꾼 일은 모두 여기에 남습니다.</span>
+      {data.length === 0 && <Empty>아직 기록이 없습니다.</Empty>}
+      {data.map(a => (
+        <div key={a.id} className="item-row">
+          <span className="col gap-2 grow">
+            <span className="row" style={{ gap: 6 }}>
+              <Badge tone={a.ok ? 'acid' : 'red'}>{a.ok ? '처리' : '실패'}</Badge>
+              <span className="t-smallb">
+                {profileName(a.agent_id ?? '')} · {TOOL_LABEL[a.tool] ?? a.tool}
+              </span>
+              <span className="t-cap">{summary(a)}</span>
+            </span>
+            {!a.ok && a.result && <span className="t-cap pre">{a.result}</span>}
+            <span className="t-meta">
+              {profileName(a.requester_id ?? '')} 요청 · {a.source === 'chat' ? '채팅' : '지시'} · {dateTimeLabel(a.created_at)}
+            </span>
+          </span>
         </div>
       ))}
     </div>

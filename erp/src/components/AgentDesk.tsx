@@ -13,7 +13,8 @@ export function AgentDesk() {
   const { api, me, profiles, version, profileName } = useApp()
   const { busy, run } = useAction()
   const { query, navigate } = useRouter()
-  const agents = profiles.filter(p => p.is_agent && p.active)
+  // 총괄이 기본, 팀장 AI 는 그 다음 (선택해서 지시 가능)
+  const agents = profiles.filter(p => p.is_agent && p.active).sort((a, b) => Number(a.name.endsWith('팀장')) - Number(b.name.endsWith('팀장')))
   const [agentId, setAgentId] = useState('')
   const [text, setText] = useState('')
   const ref = useRef<HTMLElement>(null)
@@ -75,7 +76,7 @@ export function AgentDesk() {
             onKeyDown={e => {
               if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) send()
             }}
-            placeholder={`${agents[0].name}에게 지시 (예: 다음 주 수금 예정 건 거래처별로 정리해 줘) · Ctrl+Enter 보내기`}
+            placeholder={`${profileName(target)}에게 지시 (예: 다음 주 수금 예정 건 거래처별로 정리해 줘) · Ctrl+Enter 보내기`}
             maxLength={2000}
             aria-label="지시 내용"
           />
