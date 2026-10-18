@@ -45,6 +45,7 @@ import type {
   HrRecord,
   LeaveRecord,
   AgentInstruction,
+  AgentActionLog,
   ChatMessage,
   ChatRead,
   ChatRoom,
@@ -336,6 +337,8 @@ export interface Api {
   listAgentInstructions(): Promise<AgentInstruction[]>
   instructAgent(agentId: string, instruction: string): Promise<void>
   deleteAgentInstruction(id: string): Promise<void>
+  /** AI 처리 기록 (관리자 · 사람 팀장 · 요청 본인) */
+  listAgentActions(): Promise<AgentActionLog[]>
 }
 
 /** PC 프로그램 접속 기록 → IP 별 사람 수 · 날 수 (회사 IP 찾기) */

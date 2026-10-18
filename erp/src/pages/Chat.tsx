@@ -264,7 +264,7 @@ function DmPicker({ onClose, onPick }: { onClose: () => void; onPick: (id: strin
             onClick={() => onPick(p.id)}
           >
             <span className="t-smallb grow">{p.name}</span>
-            {p.is_agent ? <Badge tone="acid">AI 팀원 · 바로 답함</Badge> : p.title && <span className="t-cap">{p.title}</span>}
+            {p.is_agent ? <Badge tone="acid">{p.title ? `${p.title} · 바로 답함` : 'AI 팀원 · 바로 답함'}</Badge> : p.title && <span className="t-cap">{p.title}</span>}
             {!p.is_agent && <span className="t-meta">{p.today_status}</span>}
           </button>
         ))}

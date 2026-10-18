@@ -71,6 +71,22 @@ export interface AgentInstruction {
   responded_at: string | null
 }
 
+/** AI 처리 기록 (채팅 · 지시로 AI 가 한 쓰기 작업 — 책임 추적) */
+export interface AgentActionLog {
+  id: number
+  created_at: string
+  agent_id: string | null
+  lead_code: string | null
+  team: string | null
+  requester_id: string | null
+  source: 'chat' | 'instruction'
+  room_id: string | null
+  tool: string
+  input: Record<string, unknown> | null
+  ok: boolean
+  result: string | null
+}
+
 /** 근태: 하루 첫 접속(출근) · 마지막 접속 */
 export interface Attendance {
   user_id: string

@@ -24,6 +24,7 @@ import type {
   HrRecord,
   LeaveRecord,
   AgentInstruction,
+  AgentActionLog,
   ChatMessage,
   ChatRead,
   ChatRoom,
@@ -619,6 +620,11 @@ export function createSupabaseApi(url: string, key: string): Api {
       must(await sb.from('agent_instructions').insert({ agent_id: agentId, instruction, created_by: data.session?.user.id }).select('id'))
     },
     deleteAgentInstruction: id => remove('agent_instructions', id),
+    async listAgentActions() {
+      const { data, error } = await sb.from('agent_actions').select('*').order('created_at', { ascending: false }).limit(100)
+      if (error) return [] // 0042 미적용
+      return data as AgentActionLog[]
+    },
     async listAttendanceFor(userId, fromDay) {
       return must(await sb.from('attendance').select('*').eq('user_id', userId).gte('day', fromDay).order('day', { ascending: false })) as Attendance[]
     },

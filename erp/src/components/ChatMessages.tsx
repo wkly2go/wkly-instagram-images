@@ -259,7 +259,8 @@ export function AgentTyping({ messages, members }: { messages: ChatMessage[]; me
   const agents = profiles.filter(p => p.is_agent && p.active)
   const last = messages[messages.length - 1]
   const lastIsHuman = !!last && !agents.some(a => a.id === last.user_id)
-  const agent = last && lastIsHuman ? agents.find(a => (members ?? []).includes(a.id) || last.content.includes(`@${a.name}`)) : undefined
+  const compact = last?.content.replace(/\s+/g, '') ?? ''
+  const agent = last && lastIsHuman ? agents.find(a => (members ?? []).includes(a.id) || compact.includes(`@${a.name.replace(/\s+/g, '')}`)) : undefined
   const age = last ? Date.now() - new Date(last.created_at).getTime() : Infinity
   const waiting = !!agent && age < 3 * 60_000
   useEffect(() => {
