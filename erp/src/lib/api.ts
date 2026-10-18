@@ -2,6 +2,7 @@ import type { AccessSource } from './desktop'
 import type {
   Subscription,
   ExchangeFile,
+  MeetingRecording,
   SiteLog,
   ProjectContact,
   AccessInfo,
@@ -204,6 +205,9 @@ export interface Api {
   listSubscriptions(): Promise<Subscription[]>
   saveSubscription(s: Draft<Subscription>): Promise<Subscription>
   deleteSubscription(id: string): Promise<void>
+  /** 회의록 AI: 녹음을 올리고 AI 정리를 시작, 진행 상태는 getMeetingRecording 으로 확인 */
+  startMeetingMinutes(audio: Blob, meta: { title?: string; attendees?: string; duration_sec?: number; filename?: string }): Promise<MeetingRecording>
+  getMeetingRecording(id: string): Promise<MeetingRecording | null>
   /** 인테리어 현장 작업일지 (프로젝트별 · 날짜별 한 장) */
   listSiteLogs(projectId: string): Promise<SiteLog[]>
   saveSiteLog(l: Draft<SiteLog>): Promise<SiteLog>

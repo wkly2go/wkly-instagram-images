@@ -48,6 +48,7 @@ import type {
   Task,
   WorkLog,
   SiteLog,
+  MeetingRecording,
 } from './types'
 
 function must<T>(res: { data: T | null; error: { message: string } | null }): T {
@@ -325,6 +326,23 @@ export function createSupabaseApi(url: string, key: string): Api {
     },
     saveSubscription: s => save('subscriptions', s) as Promise<Subscription>,
     deleteSubscription: id => remove('subscriptions', id),
+    async startMeetingMinutes(audio, meta) {
+      const { data: u } = await sb.auth.getUser()
+      if (!u.user) throw new ApiError('로그인이 필요합니다.')
+      if (audio.size > 200 * 1024 * 1024) throw new ApiError('녹음은 200MB 까지 올릴 수 있습니다.')
+      const mime = (audio.type || 'audio/webm').split(';')[0]
+      const ext = meta.filename?.match(/\.[A-Za-z0-9]{2,5}$/)?.[0]?.toLowerCase() ?? (mime.includes('mp4') || mime.includes('m4a') ? '.m4a' : mime.includes('mpeg') ? '.mp3' : mime.includes('wav') ? '.wav' : '.webm')
+      const path = `${u.user.id}/${crypto.randomUUID()}${ext}`
+      const up = await sb.storage.from('meeting-audio').upload(path, audio, { contentType: mime, upsert: false })
+      if (up.error) throw new ApiError(`녹음을 올리지 못했습니다: ${up.error.message}`)
+      const rec = must(await sb.from('meeting_recordings').insert({ title: meta.title || null, attendees: meta.attendees || null, duration_sec: meta.duration_sec ?? null, audio_path: path, mime }).select('*').single()) as MeetingRecording
+      const r = await sb.functions.invoke('meeting-minutes', { body: { id: rec.id } })
+      if (r.error) throw new ApiError('AI 정리를 시작하지 못했습니다. 잠시 뒤 다시 시도해 주세요.')
+      return { ...rec, status: '처리 중' }
+    },
+    async getMeetingRecording(id) {
+      return (must(await sb.from('meeting_recordings').select('*').eq('id', id).maybeSingle()) as MeetingRecording | null) ?? null
+    },
     async listSiteLogs(projectId) {
       return must(await sb.from('site_logs').select('*').eq('project_id', projectId).order('log_date', { ascending: false })) as SiteLog[]
     },

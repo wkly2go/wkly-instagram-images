@@ -1390,3 +1390,12 @@ html.detail-open .web-panel { max-width: 28vw; }
 .nowrap { white-space: nowrap; }
 .proj-list-wrap { container-type: inline-size; flex: 1; min-height: 0; }
 @container (max-width: 640px) { .proj-mini-cal { max-width: none; flex-basis: 100%; } }
+
+/* 회의록 AI */
+.meet-rec { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border: 1.5px solid var(--blue); border-radius: var(--r-panel); background: var(--blue-tint); color: var(--blue); }
+.meet-rec-head { display: flex; flex-direction: column; gap: 2px; font-size: var(--fs-body); }
+.meet-rec-live { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px; background: var(--white); }
+.meet-rec-live .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--gray); }
+.meet-rec-live .dot.on { background: var(--red); animation: rec-blink 1s steps(2) infinite; }
+@keyframes rec-blink { 50% { opacity: .25; } }
+.meet-rec-text { margin: 0; max-height: 240px; overflow: auto; padding: 8px 10px; background: var(--white); border: 1px solid var(--line); border-radius: 6px; white-space: pre-wrap; font: inherit; font-size: var(--fs-sm); color: var(--gray); }

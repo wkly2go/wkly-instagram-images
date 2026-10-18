@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { ArrowLeft } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { dateLabel, dateTimeLabel, minutesLabel, timeLabel, toDateKey, todayKey, won } from '../lib/date'
@@ -11,6 +11,7 @@ import { Shell } from '../components/Shell'
 import { Board, BoardHead } from '../components/Board'
 import { usePanelWide, useRightPanel } from '../components/RightPanel'
 import { Button, Chip, Field, KindBadge, KindTag, Modal, StatusBadge } from '../components/ui'
+import { MeetingRecorder } from '../components/MeetingRecorder'
 
 type View = 'todo' | 'mine' | 'all'
 
@@ -495,6 +496,10 @@ export function NewApproval({ onClose, onCreated, preset }: { onClose: () => voi
   const route = extra.routes.find(r => r.kind === kind)?.approver_id
   const auto = route && route !== me.id && profiles.some(p => p.id === route && p.active) ? route : null
 
+  // 회의록 AI 결과: 초안 + 받아쓰기 원문을 내용 칸에 채움 (사람이 고쳐서 올림)
+  const onMinutes = useCallback((minutes: string, transcript: string) => {
+    setContent([minutes.trim(), transcript.trim() ? `\n──── 받아쓰기 원문 (AI) ────\n${transcript.trim()}` : ''].filter(Boolean).join('\n'))
+  }, [])
   // 회의록을 고르면 기본 양식 채우기
   useEffect(() => {
     if (kind !== '회의록' || content.trim()) return
@@ -613,6 +618,11 @@ export function NewApproval({ onClose, onCreated, preset }: { onClose: () => voi
           <Field label="제목" className="full">
             <input className="input" value={title} onChange={e => setTitle(e.target.value)} placeholder={kind === '지출' ? '예) 촬영 소품 구매' : ''} />
           </Field>
+        )}
+        {kind === '회의록' && (
+          <div className="full">
+            <MeetingRecorder title={title} onResult={onMinutes} />
+          </div>
         )}
         {kind === '지출' && (
           <>
