@@ -114,9 +114,9 @@ function Research({ tabs }: { tabs: ReactNode }) {
           <ResearchDetail r={selected} projects={data.projects} rooms={data.rooms} clients={data.clients} onBack={() => go({ id: null })} onEdit={() => setEditing(selected)} />
         </div>
         {editing === 'report' || (editing && editing !== 'new' && editing.kind === REPORT_KIND) ? (
-          <ReportForm item={editing === 'report' ? null : (editing as ResearchItem)} clients={data.clients} onClose={() => setEditing(null)} onSaved={id => go({ id })} />
+          <ReportForm key={editing === 'report' ? 'new' : (editing as ResearchItem).id} item={editing === 'report' ? null : (editing as ResearchItem)} clients={data.clients} onClose={() => setEditing(null)} onSaved={id => go({ id })} />
         ) : (
-          editing && <ResearchForm item={editing === 'new' ? null : editing} projects={data.projects} onClose={() => setEditing(null)} onSaved={id => go({ id })} />
+          editing && <ResearchForm key={editing === 'new' ? 'new' : editing.id} item={editing === 'new' ? null : editing} projects={data.projects} onClose={() => setEditing(null)} onSaved={id => go({ id })} />
         )}
       </div>
     )
@@ -187,9 +187,9 @@ function Research({ tabs }: { tabs: ReactNode }) {
         </div>
       </div>
       {editing === 'report' || (editing && editing !== 'new' && editing.kind === REPORT_KIND) ? (
-        <ReportForm item={editing === 'report' ? null : (editing as ResearchItem)} clients={data.clients} onClose={() => setEditing(null)} onSaved={id => go({ id })} />
+        <ReportForm key={editing === 'report' ? 'new' : (editing as ResearchItem).id} item={editing === 'report' ? null : (editing as ResearchItem)} clients={data.clients} onClose={() => setEditing(null)} onSaved={id => go({ id })} />
       ) : (
-        editing && <ResearchForm item={editing === 'new' ? null : editing} projects={data.projects} onClose={() => setEditing(null)} onSaved={id => go({ id })} />
+        editing && <ResearchForm key={editing === 'new' ? 'new' : editing.id} item={editing === 'new' ? null : editing} projects={data.projects} onClose={() => setEditing(null)} onSaved={id => go({ id })} />
       )}
     </div>
   )
@@ -683,7 +683,7 @@ function Contacts({ tabs }: { tabs: ReactNode }) {
           <span className="t-cap">· 광고성 메일은 제목 (광고) 표기 · 수신거부 안내 자동 포함</span>
         </div>
       </div>
-      {editing && <ContactForm contact={editing === 'new' ? null : editing} onClose={() => setEditing(null)} />}
+      {editing && <ContactForm key={editing === 'new' ? 'new' : editing.id} contact={editing === 'new' ? null : editing} onClose={() => setEditing(null)} />}
     </>
   )
 }

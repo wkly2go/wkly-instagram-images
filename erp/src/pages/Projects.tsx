@@ -50,7 +50,7 @@ export default function Projects() {
     return (
       <Shell active="projects">
         {selected ? <ProjectDetail project={selected} data={data} onEdit={() => setEditing(selected)} onBack={() => go({ id: null })} /> : <Empty>{loading ? '불러오는 중…' : '프로젝트를 찾을 수 없습니다.'}</Empty>}
-        {editing && <ProjectForm project={editing === 'new' ? null : editing} clients={data.clients} onClose={() => setEditing(null)} onSaved={id => go({ id })} />}
+        {editing && <ProjectForm key={editing === 'new' ? 'new' : editing.id} project={editing === 'new' ? null : editing} clients={data.clients} onClose={() => setEditing(null)} onSaved={id => go({ id })} />}
       </Shell>
     )
   }
@@ -175,7 +175,7 @@ export default function Projects() {
       ) : (
         <ProjectDashboard projects={data.projects} tasks={data.tasks} clients={data.clients} />
       )}
-      {editing && <ProjectForm project={editing === 'new' ? null : editing} clients={data.clients} onClose={() => setEditing(null)} onSaved={id => go({ id })} />}
+      {editing && <ProjectForm key={editing === 'new' ? 'new' : editing.id} project={editing === 'new' ? null : editing} clients={data.clients} onClose={() => setEditing(null)} onSaved={id => go({ id })} />}
       {assigning && <TaskAssignModal projects={data.projects} tasks={data.tasks} onClose={() => setAssigning(false)} />}
     </Shell>
   )
@@ -395,7 +395,7 @@ function TaskList({ tasks, projects, mineOnly }: { tasks: Task[]; projects: Proj
         ) : null,
       )}
       {rows.length === 0 && <Empty>{mineOnly ? '나에게 배정된 할 일이 없습니다.' : '할 일이 없습니다.'}</Empty>}
-      {editing && <TaskAssignModal task={editing} projects={projects} tasks={tasks} onClose={() => setEditing(null)} />}
+      {editing && <TaskAssignModal key={editing.id} task={editing} projects={projects} tasks={tasks} onClose={() => setEditing(null)} />}
     </div>
   )
 }
@@ -582,7 +582,7 @@ function ProjectDetail({ project: p, data, onEdit, onBack }: { project: Project;
         </div>
       </div>
       {me.role === 'admin' && <FinancePanel project={p} clients={data.clients} projects={data.projects} />}
-      {editingTask && <TaskAssignModal task={editingTask} projects={data.projects} tasks={data.tasks} onClose={() => setEditingTask(null)} />}
+      {editingTask && <TaskAssignModal key={editingTask.id} task={editingTask} projects={data.projects} tasks={data.tasks} onClose={() => setEditingTask(null)} />}
       {approving && <NewApproval preset={{ kind: '프로젝트', target_id: p.id, title: `프로젝트: ${p.name}` }} onClose={() => setApproving(false)} onCreated={id => navigate(`/approvals?view=mine&id=${id}`)} />}
     </>
   )
