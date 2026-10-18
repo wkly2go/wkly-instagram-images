@@ -49,6 +49,8 @@ import type {
   WorkLog,
   SiteLog,
   MeetingRecording,
+  ApprovalAttachment,
+  ApprovalLink,
 } from './types'
 
 function must<T>(res: { data: T | null; error: { message: string } | null }): T {
@@ -75,6 +77,14 @@ export function createSupabaseApi(url: string, key: string): Api {
   const sb: SupabaseClient = createClient(url, key, {
     auth: { persistSession: true, autoRefreshToken: true },
   })
+
+  /** 승인 요청 payload 일부 갱신 (요청자 대기 중 · 승인자 · 관리자만 — RLS 가 막히면 0건) */
+  async function patchApprovalPayload(id: string, fn: (pl: Record<string, unknown>) => Record<string, unknown>) {
+    const cur = must(await sb.from('approvals').select('payload').eq('id', id).single()) as { payload: Record<string, unknown> | null }
+    const next = fn(cur.payload ?? {})
+    mustAffect(await sb.from('approvals').update({ payload: next }).eq('id', id).select('id'))
+  }
+
 
   async function save<T extends { id?: string }>(table: string, row: T): Promise<T> {
     const body = strip(row, READONLY) as Record<string, unknown>
@@ -297,6 +307,32 @@ export function createSupabaseApi(url: string, key: string): Api {
     },
     async cancelApproval(id) {
       mustAffect(await sb.from('approvals').update({ status: '취소' }).eq('id', id).eq('status', '대기').select('id'))
+    },
+    async addApprovalFile(id, file) {
+      if (file.size > EXCHANGE_FILE_MAX) throw new ApiError('파일은 50MB 까지 올릴 수 있습니다.')
+      // 저장소 경로는 영문만: 원래 이름은 payload 에 남김
+      const ext = (file.name.match(/\.[A-Za-z0-9]{1,8}$/)?.[0] ?? '').toLowerCase()
+      const path = `approvals/${id}/${crypto.randomUUID()}/file${ext}`
+      const type = file.type || 'application/octet-stream'
+      const up = await sb.storage.from('exchange-files').upload(path, file, { contentType: type, upsert: false })
+      if (up.error) throw new ApiError(`파일을 올리지 못했습니다: ${up.error.message}`)
+      const att: ApprovalAttachment = { path, name: file.name, size: file.size, type }
+      try {
+        await patchApprovalPayload(id, pl => ({ ...pl, attachments: [...((pl.attachments as ApprovalAttachment[] | undefined) ?? []), att] }))
+      } catch (e) {
+        await sb.storage.from('exchange-files').remove([path])
+        throw e
+      }
+    },
+    async addApprovalLink(id, link) {
+      const url = link.url.trim()
+      if (!/^https?:\/\//.test(url)) throw new ApiError('링크는 http(s):// 로 시작해야 합니다.')
+      await patchApprovalPayload(id, pl => ({ ...pl, links: [...((pl.links as ApprovalLink[] | undefined) ?? []), { label: link.label.trim() || url, url }] }))
+    },
+    async approvalFileUrl(att) {
+      const r = await sb.storage.from('exchange-files').createSignedUrl(att.path, 60 * 60, { download: att.name })
+      if (r.error || !r.data) throw new ApiError('파일을 열 수 없습니다.')
+      return r.data.signedUrl
     },
     async listApprovalRoutes() {
       return must(await sb.from('approval_routes').select('*')) as ApprovalRoute[]

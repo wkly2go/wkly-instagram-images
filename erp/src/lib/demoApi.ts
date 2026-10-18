@@ -48,6 +48,8 @@ import type {
   WorkLog,
   SiteLog,
   MeetingRecording,
+  ApprovalAttachment,
+  ApprovalLink,
 } from './types'
 
 // Supabase 연결 전 체험용. 데이터는 이 브라우저(localStorage)에만 저장된다.
@@ -990,6 +992,31 @@ export function createDemoApi(): Api {
       a.updated_at = now()
       persist()
       emit('approvals')
+    },
+    async addApprovalFile(id, file) {
+      const self = requireMe()
+      const a = store.approvals.find(x => x.id === id)
+      if (!a || !(isAdmin() || a.approver_id === self || (a.requested_by === self && a.status === '대기'))) throw new ApiError('권한이 없거나 이미 처리된 항목입니다.')
+      const atts = ((a.payload.attachments as ApprovalAttachment[] | undefined) ?? []).slice()
+      atts.push({ path: `approvals/${id}/${uid()}/file`, name: file.name, size: file.size, type: file.type || 'application/octet-stream' })
+      a.payload = { ...a.payload, attachments: atts }
+      a.updated_at = now()
+      persist()
+      emit('approvals')
+    },
+    async addApprovalLink(id, link) {
+      const self = requireMe()
+      const a = store.approvals.find(x => x.id === id)
+      if (!a || !(isAdmin() || a.approver_id === self || (a.requested_by === self && a.status === '대기'))) throw new ApiError('권한이 없거나 이미 처리된 항목입니다.')
+      const links = ((a.payload.links as ApprovalLink[] | undefined) ?? []).slice()
+      links.push({ label: link.label.trim() || link.url, url: link.url.trim() })
+      a.payload = { ...a.payload, links }
+      a.updated_at = now()
+      persist()
+      emit('approvals')
+    },
+    async approvalFileUrl() {
+      throw new ApiError('체험 모드에서는 파일을 열 수 없습니다.')
     },
     async listApprovalRoutes() {
       return clone(store.approval_routes)
