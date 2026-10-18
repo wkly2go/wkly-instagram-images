@@ -316,6 +316,13 @@ export function WebSearchBox() {
 
 function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine; onSearch: (q: string, e: Engine) => void; onClose: () => void }) {
   const [lastGroup, setLastGroup] = useState<SiteGroup | null>(() => groupOf(engine) ?? 'popup')
+  // 세 번째 줄(상세 사이트)은 두 번째 줄 · 언론 칸을 눌렀을 때만 펼치고, 사이트로 이동하면 접음
+  const [sitesOpen, setSitesOpen] = useState<SiteGroup | null>(null)
+  const pickGroup = (k: SiteGroup) => {
+    setSitesOpen(sitesOpen === k ? null : k)
+    if (q) onSearch(q, k)
+    else setLastGroup(k)
+  }
   // 프로젝트를 열면 오른쪽 칸에 그 프로젝트 자료를 먼저 보여 줌 (인터넷 ↔ 프로젝트 자료 전환)
   useEffect(() => {
     const g = groupOf(engine)
@@ -473,8 +480,8 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
               {l}
             </button>
           ))}
-          {/* 언론은 첫 줄 맨 위로 (누르면 세 번째 줄에 언론사 목록) */}
-          <button type="button" role="tab" aria-selected={engine === 'press'} className={`web-tab${shownGroup === 'press' ? ' on' : ''}`} onClick={() => (q ? onSearch(q, 'press') : setLastGroup('press'))} title={`언론사만: ${SITE_GROUPS.press.sites.map(x => x.label).join(' · ')}`}>
+          {/* 언론은 첫 줄 맨 위로 (누르면 세 번째 줄에 언론사 목록이 펼쳐짐) */}
+          <button type="button" role="tab" aria-selected={engine === 'press'} className={`web-tab${shownGroup === 'press' ? ' on' : ''}${sitesOpen === 'press' ? ' open' : ''}`} onClick={() => pickGroup('press')} aria-expanded={sitesOpen === 'press'} title={`언론사만: ${SITE_GROUPS.press.sites.map(x => x.label).join(' · ')}`}>
             {SITE_GROUPS.press.label}
           </button>
         </div>
@@ -488,17 +495,20 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
       <div className="web-sites" role="group" aria-label="업무 사이트만 검색">
         <div className="web-tabs" role="tablist">
           {(Object.keys(SITE_GROUPS) as SiteGroup[]).filter(k => k !== 'press').map(k => (
-            <button key={k} type="button" role="tab" aria-selected={engine === k} className={`web-tab${shownGroup === k ? ' on' : ''}`} onClick={() => (q ? onSearch(q, k) : setLastGroup(k))} title={`업무 사이트만: ${SITE_GROUPS[k].sites.map(x => x.label).join(' · ')}`}>
+            <button key={k} type="button" role="tab" aria-selected={engine === k} className={`web-tab${shownGroup === k ? ' on' : ''}${sitesOpen === k ? ' open' : ''}`} onClick={() => pickGroup(k)} aria-expanded={sitesOpen === k} title={`업무 사이트만: ${SITE_GROUPS[k].sites.map(x => x.label).join(' · ')}`}>
               {SITE_GROUPS[k].label}
             </button>
           ))}
         </div>
       </div>
-      {shownGroup && (
-        <div className="web-sites web-shops" role="tablist" aria-label={`${SITE_GROUPS[shownGroup].label} 사이트에서 바로 검색`}>
+      {sitesOpen && (
+        <div className="web-sites web-shops" role="tablist" aria-label={`${SITE_GROUPS[sitesOpen].label} 사이트에서 바로 검색`}>
           <div className="web-tabs">
-            {SITE_GROUPS[shownGroup].sites.map(st => (
-              <button key={st.host} type="button" role="tab" aria-selected={engine === `site:${st.host}`} className={`web-tab${engine === `site:${st.host}` ? ' on' : ''}`} onClick={() => onSearch(q, `site:${st.host}`)} title={st.search ? `${st.label}에서 바로 검색` : `구글로 ${st.host} 안에서만 검색`}>
+            {SITE_GROUPS[sitesOpen].sites.map(st => (
+              <button key={st.host} type="button" role="tab" aria-selected={engine === `site:${st.host}`} className={`web-tab${engine === `site:${st.host}` ? ' on' : ''}`} onClick={() => {
+                  onSearch(q, `site:${st.host}`)
+                  setSitesOpen(null)
+                }} title={st.search ? `${st.label}에서 바로 검색` : `구글로 ${st.host} 안에서만 검색`}>
                 {st.label}
               </button>
             ))}

@@ -42,6 +42,7 @@ export function ExchangeFilesSection({ clientId, contactId, projectId, contacts,
   const { api, me, version, profileName } = useApp()
   const { busy, run } = useAction()
   const [adding, setAdding] = useState(false)
+  const [editing, setEditing] = useState<ExchangeFile | null>(null)
   const { data: files } = useAsync(() => api.listExchangeFiles({ clientId: contactId || projectId ? undefined : clientId ?? undefined, contactId: contactId ?? undefined, projectId: projectId ?? undefined }), [version, clientId, contactId, projectId], [] as ExchangeFile[])
   const open = async (f: ExchangeFile) => {
     const url = await api.exchangeFileUrl(f)
@@ -60,6 +61,7 @@ export function ExchangeFilesSection({ clientId, contactId, projectId, contacts,
           </button>
         }
       />
+      {editing && <ExchangeFileEdit key={editing.id} f={editing} projects={projects} onDone={() => setEditing(null)} />}
       {adding && <ExchangeFileForm clientId={clientId} contactId={contactId ?? null} projectId={projectId ?? null} contacts={contacts} projects={projects} onDone={() => setAdding(false)} />}
       <Board<ExchangeFile>
         rows={files}
@@ -89,17 +91,74 @@ export function ExchangeFilesSection({ clientId, contactId, projectId, contacts,
           {
             key: 'act',
             label: '',
-            width: 48,
+            width: 84,
             kind: 'center',
             cell: f =>
               f.created_by === me.id || me.role === 'admin' ? (
-                <button type="button" className="link-btn t-meta" disabled={busy} onClick={() => window.confirm(`'${f.name}' 자료 기록을 지울까요?`) && run(() => api.deleteExchangeFile(f.id), '지웠습니다.')}>
-                  지우기
-                </button>
+                <span className="row" style={{ gap: 6, justifyContent: 'center' }}>
+                  <button type="button" className="link-btn t-meta" disabled={busy} onClick={() => setEditing(f)}>
+                    수정
+                  </button>
+                  <button type="button" className="link-btn t-meta" disabled={busy} onClick={() => window.confirm(`'${f.name}' 자료 기록을 지울까요?`) && run(() => api.deleteExchangeFile(f.id), '지웠습니다.')}>
+                    지우기
+                  </button>
+                </span>
               ) : null,
           },
         ]}
       />
+    </div>
+  )
+}
+
+/** 주고받은 자료 고치기 (올린 사람 · 관리자) */
+function ExchangeFileEdit({ f, projects, onDone }: { f: ExchangeFile; projects: Project[]; onDone: () => void }) {
+  const { api } = useApp()
+  const { busy, run } = useAction()
+  const [d, setD] = useState({ name: f.name, note: f.note ?? '', direction: f.direction, date: f.file_date, project: f.project_id ?? '' })
+  const save = async () => {
+    if (!d.name.trim()) return
+    const ok = await run(() => api.updateExchangeFile(f.id, { name: d.name.trim(), note: d.note.trim() || null, direction: d.direction, file_date: d.date, project_id: d.project || null }), '고쳤습니다.')
+    if (ok) onDone()
+  }
+  return (
+    <div className="box col gap-8" style={{ background: 'var(--white)' }}>
+      <div className="chips">
+        {(['받음', '보냄'] as const).map(k => (
+          <Chip key={k} active={d.direction === k} onClick={() => setD({ ...d, direction: k })}>
+            {k}
+          </Chip>
+        ))}
+      </div>
+      <Field label="자료 이름">
+        <input className="input" value={d.name} onChange={e => setD({ ...d, name: e.target.value })} />
+      </Field>
+      <Field label="메모">
+        <input className="input" value={d.note} onChange={e => setD({ ...d, note: e.target.value })} />
+      </Field>
+      <div className="row gap-8">
+        <Field label="날짜" className="grow">
+          <input className="input" type="date" value={d.date} onChange={e => e.target.value && setD({ ...d, date: e.target.value })} />
+        </Field>
+        <Field label="프로젝트" className="grow">
+          <select className="select" value={d.project} onChange={e => setD({ ...d, project: e.target.value })}>
+            <option value="">없음</option>
+            {projects.map(p => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </Field>
+      </div>
+      <div className="row gap-6" style={{ justifyContent: 'flex-end' }}>
+        <Button kind="ghost" size="sm" onClick={onDone}>
+          취소
+        </Button>
+        <Button size="sm" disabled={busy || !d.name.trim()} onClick={save}>
+          저장
+        </Button>
+      </div>
     </div>
   )
 }

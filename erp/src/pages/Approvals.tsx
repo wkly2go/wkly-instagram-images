@@ -228,7 +228,7 @@ function ApprovalDetail({ a, onBack }: { a: Approval; onBack: () => void }) {
       {a.amount != null && (
         <div className="panel">
           <span className="t-cap">금액 </span>
-          <span className="t-num" style={{ fontSize: 18 }}>
+          <span className="t-num" style={{ fontSize: 17 }}>
             {won(a.amount)}
           </span>
         </div>

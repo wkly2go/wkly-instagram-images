@@ -655,6 +655,10 @@ export function createSupabaseApi(url: string, key: string): Api {
         throw new ApiError(res.error.message)
       }
     },
+    async updateExchangeFile(id, patch) {
+      const row = must(await sb.from('exchange_files').update(patch).eq('id', id).select('id')) as { id: string }[]
+      if (!row.length) throw new ApiError('고칠 수 없습니다 (올린 사람 · 관리자만).')
+    },
     async deleteExchangeFile(id) {
       const row = must(await sb.from('exchange_files').delete().eq('id', id).select('storage_path')) as { storage_path: string | null }[]
       if (!row.length) throw new ApiError('지울 수 없습니다 (올린 사람 · 관리자만).')
