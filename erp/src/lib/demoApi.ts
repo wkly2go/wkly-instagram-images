@@ -47,6 +47,7 @@ import type {
   Task,
   WorkLog,
   SiteLog,
+  MeetingRecording,
 } from './types'
 
 // Supabase 연결 전 체험용. 데이터는 이 브라우저(localStorage)에만 저장된다.
@@ -68,6 +69,7 @@ interface Store {
   payments: Payment[]
   subscriptions?: Subscription[]
   site_logs?: SiteLog[]
+  meeting_recordings?: MeetingRecording[]
   budget_lines: BudgetLine[]
   research_items: ResearchItem[]
   brand_contacts: BrandContact[]
@@ -1036,6 +1038,28 @@ export function createDemoApi(): Api {
       if (!(s.name ?? '').trim() && !s.id) throw new ApiError('이름을 적어 주세요.')
       store.subscriptions ??= []
       return upsert<'subscriptions', Subscription>('subscriptions', s, () => ({ id: '', name: '', category: '기타', plan: null, amount: 0, currency: 'KRW', cycle: '월', next_billing: null, pay_method: null, account_email: null, owner_id: null, seats: null, url: null, status: '사용 중', memo: null, created_by: requireMe(), created_at: now(), updated_at: now() }))
+    },
+    async startMeetingMinutes(audio, meta) {
+      const self = requireMe()
+      // 체험용: 실제 AI 대신 몇 초 뒤 예시 회의록을 채움
+      const rec: MeetingRecording = { id: uid(), created_by: self, title: meta.title ?? null, attendees: meta.attendees ?? null, audio_path: null, mime: audio.type || null, duration_sec: meta.duration_sec ?? null, status: '처리 중', transcript: null, minutes: null, error: null, created_at: now(), updated_at: now() }
+      ;(store.meeting_recordings ??= []).push(rec)
+      persist()
+      setTimeout(() => {
+        Object.assign(rec, {
+          status: '완료',
+          transcript: '관리자: 이번 주 성수 팝업 철수 일정부터 볼게요.\n김하늘: 금요일 22시 철수, 토요일 오전 원상복구로 잡았습니다.\n관리자: 좋아요. 사진 촬영은 목요일까지 끝내 주세요.',
+          minutes: `일시: ${todayKey()}\n장소: 회의실\n참석: ${meta.attendees || '관리자, 김하늘'}\n\n[안건]\n- 성수 팝업 철수 일정\n\n[논의 내용]\n- 금요일 22시 철수, 토요일 오전 원상복구로 진행한다.\n\n[결정 사항]\n- 철수 일정 확정\n\n[할 일]\n- 현장 사진 촬영 · 담당 김하늘 · 기한 ${todayKey()}`,
+          updated_at: now(),
+        })
+        persist()
+      }, 1500)
+      return clone(rec)
+    },
+    async getMeetingRecording(id) {
+      requireMe()
+      const r = (store.meeting_recordings ?? []).find(x => x.id === id)
+      return r ? clone(r) : null
     },
     async listSiteLogs(projectId) {
       requireMe()

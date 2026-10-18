@@ -1,7 +1,7 @@
 {
   "name": "wkly-intranet",
   "productName": "WKLY Intranet",
-  "version": "1.21.0",
+  "version": "1.22.0",
   "description": "THE WKLY 사내 인트라넷 PC 프로그램",
   "author": "THE WKLY <info@thewklyn.com>",
   "homepage": "https://wkly-erp.pages.dev",
@@ -39,7 +39,9 @@
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "icon": "build/icon.png",
@@ -57,11 +59,15 @@
       "target": [
         {
           "target": "dmg",
-          "arch": ["universal"]
+          "arch": [
+            "universal"
+          ]
         },
         {
           "target": "zip",
-          "arch": ["universal"]
+          "arch": [
+            "universal"
+          ]
         }
       ],
       "icon": "build/icon.png",
@@ -69,7 +75,10 @@
       "identity": "-",
       "hardenedRuntime": false,
       "gatekeeperAssess": false,
-      "artifactName": "WKLY-Intranet.${ext}"
+      "artifactName": "WKLY-Intranet.${ext}",
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "회의록 AI가 회의를 녹음할 때 마이크를 사용합니다."
+      }
     },
     "dmg": {
       "title": "WKLY Intranet"
