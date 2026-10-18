@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from "react";
-import { ChevronLeft, ChevronRight, ListTodo, Search, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, ListTodo, Pencil, Search, Trash2 } from "lucide-react";
 import { useAction, useApp, useAsync } from "../lib/app";
 import {
   addDays,
@@ -21,7 +21,9 @@ import {
   Button,
   Chip,
   Empty,
+  Field,
   KindBadge,
+  Modal,
   TodayBadge,
 } from "../components/ui";
 import { NewApproval } from "./Approvals";
@@ -54,6 +56,7 @@ export function WorkPane({ tabs }: { tabs?: ReactNode }) {
   const other = userParam && userParam !== me.id ? profileOf(userParam) : undefined;
   const attendance = useAttendance();
   const [reporting, setReporting] = useState(false);
+  const [editLog, setEditLog] = useState<Log | null>(null);
   const [side, setSideState] = useState<Side>(() => {
     try {
       return (localStorage.getItem(SIDE_KEY) as Side | null) ?? "todo";
@@ -146,13 +149,18 @@ export function WorkPane({ tabs }: { tabs?: ReactNode }) {
     {
       key: 'act',
       label: "",
-      width: 58,
+      width: 84,
       kind: 'center',
       cell: l => (
         <>
           {l.user_id === me.id && (
             <button type="button" className="icon-btn sm" aria-label="할 일로 만들기" title="이 기록으로 할 일 만들기 (같은 프로젝트에 연결)" onClick={() => toTask(l)}>
               <ListTodo size={13} />
+            </button>
+          )}
+          {(l.user_id === me.id || me.role === "admin") && (
+            <button type="button" className="icon-btn sm" aria-label="기록 수정" title="수정" onClick={e => { e.stopPropagation(); setEditLog(l); }}>
+              <Pencil size={13} />
             </button>
           )}
           {(l.user_id === me.id || me.role === "admin") && (
@@ -255,6 +263,7 @@ export function WorkPane({ tabs }: { tabs?: ReactNode }) {
           )}
         </div>
       </div>
+      {editLog && <LogEdit key={editLog.id} l={editLog} onClose={() => setEditLog(null)} />}
       {reporting && (
         <NewApproval preset={{ kind: "업무 보고", payload: { date } }} onClose={() => setReporting(false)} onCreated={(id) => navigate(`/approvals?view=mine&id=${id}`)} />
       )}
@@ -390,5 +399,41 @@ function TeamSide({
         );
       })}
     </aside>
+  );
+}
+
+/** 업무 기록 고치기 (쓴 사람 · 관리자) */
+function LogEdit({ l, onClose }: { l: Log; onClose: () => void }) {
+  const { api } = useApp();
+  const { busy, run } = useAction();
+  const [content, setContent] = useState(l.content);
+  const [minutes, setMinutes] = useState(l.minutes ? String(l.minutes) : "");
+  const save = async () => {
+    if (!content.trim()) return;
+    const ok = await run(() => api.saveWorkLog({ id: l.id, content: content.trim(), minutes: minutes ? Number(minutes) : null }), "고쳤습니다.");
+    if (ok) onClose();
+  };
+  return (
+    <Modal
+      title="업무 기록 수정"
+      onClose={onClose}
+      actions={
+        <>
+          <Button kind="ghost" onClick={onClose}>
+            취소
+          </Button>
+          <Button disabled={busy || !content.trim()} onClick={save}>
+            저장
+          </Button>
+        </>
+      }
+    >
+      <Field label="내용">
+        <textarea className="textarea" rows={5} value={content} onChange={(e) => setContent(e.target.value)} />
+      </Field>
+      <Field label="걸린 시간 (분)">
+        <input className="input" type="number" min={0} value={minutes} onChange={(e) => setMinutes(e.target.value)} />
+      </Field>
+    </Modal>
   );
 }

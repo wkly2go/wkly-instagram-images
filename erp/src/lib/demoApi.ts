@@ -749,6 +749,14 @@ export function createDemoApi(): Api {
       persist()
       emit('clients')
     },
+    async updateExchangeFile(id, patch) {
+      const self = requireMe()
+      const row = (store.exchange_files ?? []).find(x => x.id === id)
+      if (!row || (row.created_by !== self && !isAdmin())) throw new ApiError('고칠 수 없습니다 (올린 사람 · 관리자만).')
+      Object.assign(row, patch)
+      persist()
+      emit('clients')
+    },
     async deleteExchangeFile(id) {
       const self = requireMe()
       const row = (store.exchange_files ?? []).find(x => x.id === id)
