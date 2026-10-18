@@ -4,6 +4,8 @@
 //   - {type:'instruction', id}: 'AI 팀원에게 지시' 패널 → 바로 처리하고 결과를 지시에 기록
 //   Claude 가 ERP 도구(사람 · 할 일 · 프로젝트 · 휴가 · 근태 · 알림)로 바로 처리한다.
 //   메일 확인이 필요한 일은 아침 정기 실행(08:24)으로 넘긴다. 금액 · 마진은 다루지 않는다.
+//   팀장 AI (2026-10-18 조직 v3): 채팅에서 '@마케팅팀장' '@콘텐츠팀장' '@인테리어팀장' '@리서치팀장' 언급 →
+//   그 팀 팀장으로 답하고, 사람 팀장 · 관리자의 지시는 agent_directives(팀원 AI 동적 지침)에 기록한다.
 // 필요한 비밀값: ANTHROPIC_API_KEY (Supabase › Edge Functions › Secrets)
 import Anthropic from 'npm:@anthropic-ai/sdk@0.134.0'
 import { createClient } from 'npm:@supabase/supabase-js@2.45.4'
@@ -133,7 +135,41 @@ const TOOLS: Anthropic.Tool[] = [
   },
 ]
 
-interface Ctx { agent: Person; requester: Person; people: Person[] }
+interface Lead { code: string; name: string; group_name: string; owner_id: string | null; mention: string; report_prefix: string }
+interface Ctx { agent: Person; requester: Person; people: Person[]; lead?: Lead }
+
+// 팀장 AI 전용 도구 (ctx.lead 가 있을 때만)
+const LEAD_TOOLS: Anthropic.Tool[] = [
+  {
+    name: 'team_status',
+    description: '내 팀 현황: 팀원 AI 목록(코드 · 이름 · 일정), 최근 2일 AI 보고(판정 · 요약 · 링크), 활성 팀장 지시.',
+    input_schema: { type: 'object', properties: {}, additionalProperties: false },
+  },
+  {
+    name: 'add_directive',
+    description: '팀원 AI 에게 지시 등록 (다음 실행부터 반영). agent_code 는 팀원 코드 또는 팀 전체 "*". 사람 팀장 · 관리자의 요청만.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        agent_code: { type: 'string', description: "팀원 코드 (team_status 로 확인) 또는 '*'" },
+        directive: { type: 'string', description: '지시 내용 (2000자 이내)' },
+        priority: { type: 'integer', description: '1 높음 … 9 낮음, 기본 5' },
+        days: { type: 'integer', description: '유효 기간(일), 기본 7, 최대 60' },
+      },
+      required: ['agent_code', 'directive'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'end_directive',
+    description: '팀장 지시 종료 (active=false). team_status 의 지시 id 사용.',
+    input_schema: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'], additionalProperties: false },
+  },
+]
+
+// 승인 · 발송 · 게시 · 야간 · 결제 · API 키 규칙을 바꾸려는 지시는 막는다 (팀원 AI 쪽에서도 무시함)
+const PROTECTED = /(승인\s*없이|결재\s*없이|바로\s*(발송|게시|보내)|자동\s*(좋아요|댓글)|야간.*(발송|게시)|결제|API\s*키|api key|without approval)/i
+const canDirect = (ctx: Ctx) => !!ctx.lead && (ctx.requester.role === 'admin' || ctx.requester.id === ctx.lead.owner_id)
 
 const nameOf = (ctx: Ctx, id: string | null) => (id ? ctx.people.find(p => p.id === id)?.name ?? '알 수 없음' : '미정')
 const activePerson = (ctx: Ctx, id: string | undefined) => !!id && ctx.people.some(p => p.id === id && p.active && !p.is_agent)
@@ -251,6 +287,51 @@ async function runTool(ctx: Ctx, name: string, input: Record<string, unknown>): 
       return data
     }
 
+    case 'team_status': {
+      const lead = ctx.lead
+      if (!lead) throw new Error('팀장 대화에서만 씁니다.')
+      const since = new Date(Date.now() - 2 * 86400_000).toISOString().slice(0, 10)
+      const [{ data: members }, { data: reports }, { data: dirs }] = await Promise.all([
+        sb.from('agent_roster').select('code, name, schedule, active').eq('group_name', lead.group_name).eq('is_lead', false).order('sort'),
+        sb.from('agent_reports').select('job_name, report_date, verdict, title, summary, link').ilike('job_name', `${lead.report_prefix}%`).gte('report_date', since).order('run_at', { ascending: false }).limit(40),
+        sb.from('agent_directives').select('id, agent_code, directive, priority, expires_at, set_by, reason').eq('team', lead.group_name).eq('active', true).order('priority'),
+      ])
+      return { team: lead.group_name, members, reports, directives: dirs }
+    }
+
+    case 'add_directive': {
+      const lead = ctx.lead
+      if (!lead) throw new Error('팀장 대화에서만 씁니다.')
+      if (!canDirect(ctx)) throw new Error(`지시 등록은 사람 팀장(${nameOf(ctx, lead.owner_id)})이나 관리자만 할 수 있습니다. 내용은 팀장에게 전달해 주세요.`)
+      const code = s('agent_code')
+      const text = s('directive')
+      if (!code || !text) throw new Error('agent_code · directive 가 필요합니다.')
+      if (code !== '*') {
+        const { data: m } = await sb.from('agent_roster').select('code').eq('group_name', lead.group_name).eq('code', code).maybeSingle()
+        if (!m) throw new Error(`${code} 는 이 팀 팀원 코드가 아닙니다. team_status 로 확인하세요.`)
+      }
+      if (PROTECTED.test(text)) throw new Error('승인 · 발송 · 게시 · 야간 · 결제 · API 키 규칙을 바꾸는 지시는 등록할 수 없습니다.')
+      const days = Math.min(Math.max(Number(input.days ?? 7) || 7, 1), 60)
+      const priority = Math.min(Math.max(Number(input.priority ?? 5) || 5, 1), 9)
+      const { data, error } = await sb
+        .from('agent_directives')
+        .insert({ agent_code: code, team: lead.group_name, directive: text.slice(0, 2000), priority, expires_at: new Date(Date.now() + days * 86400_000).toISOString(), set_by: lead.code, reason: `${ctx.requester.name}님 채팅 지시` })
+        .select('id, agent_code, expires_at')
+        .single()
+      if (error) throw error
+      return { ok: true, directive: data, note: '팀원 AI 의 다음 실행부터 반영됩니다.' }
+    }
+
+    case 'end_directive': {
+      const lead = ctx.lead
+      if (!lead) throw new Error('팀장 대화에서만 씁니다.')
+      if (!canDirect(ctx)) throw new Error('지시 종료는 사람 팀장이나 관리자만 할 수 있습니다.')
+      const { data, error } = await sb.from('agent_directives').update({ active: false, updated_at: new Date().toISOString() }).eq('id', s('id')!).eq('team', lead.group_name).select('id').maybeSingle()
+      if (error) throw error
+      if (!data) throw new Error('이 팀의 그 지시를 찾지 못했습니다.')
+      return { ok: true }
+    }
+
     case 'queue_mail_work': {
       const { error } = await sb.from('agent_instructions').insert({ agent_id: ctx.agent.id, instruction: `[메일 확인 필요] ${s('instruction')}`.slice(0, 2000), created_by: ctx.requester.id })
       if (error) throw error
@@ -269,6 +350,21 @@ async function notify(userId: string, title: string, body: string, link: string)
 // ---------------------------------------------------------------------
 /** 고정 부분(캐시 대상): 역할 · 일하는 방식 · 규칙. 시각 · 요청자 · 위치는 contextPrompt 로 따로 넣는다 */
 function systemPrompt(ctx: Ctx) {
+  return ctx.lead ? basePrompt(ctx) + leadPrompt(ctx.lead) : basePrompt(ctx)
+}
+
+function leadPrompt(lead: Lead) {
+  return `
+
+이번 대화에서 너는 '${lead.name}'(코드 ${lead.code}, 팀 '${lead.group_name}')이다. 사람 팀원은 개별 AI 대신 너와 업무를 협의한다.
+- 팀 현황 질문은 team_status 로 확인해 팀원별 한 줄로 답한다.
+- 사람 팀장 · 관리자가 팀원 AI 에게 시킬 일을 말하면 add_directive 로 등록하고, 대상 · 유효 기간 · 언제 반영되는지(팀원 AI 다음 실행) 알린다. 다른 사람의 요청은 등록하지 말고 팀장에게 전달하라고 답한다.
+- 지시로 승인 · 발송 · 게시 · 야간 · 결제 · 개인정보 · 금액 · API 키 규칙은 바꿀 수 없다.
+- 팀원 AI 의 예약 작업 지침(프롬프트) 자체는 여기서 고치지 않는다. 필요하면 평일 10:07 팀장 정기 실행이 처리한다고 안내한다.
+- 대표 보고는 총괄이 18:00 에 한 번 한다. 팀 종합은 평일 17:07.`
+}
+
+function basePrompt(ctx: Ctx) {
   return `너는 더위클리(THE WKLY, 팝업 매거진 · 공간 디자인 회사)의 AI 팀원 '${ctx.agent.name}'이다. 회사 인트라넷(ERP) 안에서 팀원 요청을 바로 처리한다.
 
 일하는 방식
@@ -299,7 +395,8 @@ async function ask(ctx: Ctx, where: string, messages: Anthropic.MessageParam[], 
     { type: 'text', text: systemPrompt(ctx), cache_control: { type: 'ephemeral' } },
     { type: 'text', text: contextPrompt(ctx, where) },
   ]
-  const tools = TOOLS.map((t, i) => (i === TOOLS.length - 1 ? { ...t, cache_control: { type: 'ephemeral' as const } } : t))
+  const all = ctx.lead ? [...TOOLS, ...LEAD_TOOLS] : TOOLS
+  const tools = all.map((t, i) => (i === all.length - 1 ? { ...t, cache_control: { type: 'ephemeral' as const } } : t))
   let useFallback = true
   for (let step = 0; step < MAX_STEPS; step++) {
     let res: Anthropic.Message
@@ -347,6 +444,17 @@ async function loadPeople(): Promise<Person[]> {
   return data as Person[]
 }
 
+async function loadLeads(): Promise<Lead[]> {
+  const { data, error } = await sb.from('agent_roster').select('code, name, group_name, owner_id, home').eq('is_lead', true).eq('active', true).like('code', 'LEAD-%')
+  if (error) throw error
+  return (data ?? [])
+    .map(r => {
+      const home = (r.home ?? {}) as Record<string, string>
+      return { code: r.code, name: r.name, group_name: r.group_name, owner_id: r.owner_id, mention: home.mention ?? '', report_prefix: home.report_prefix ?? r.group_name }
+    })
+    .filter(l => l.mention)
+}
+
 async function handleChat(messageId: number) {
   const { data: msg } = await sb.from('chat_messages').select('id, room_id, user_id, content, created_at').eq('id', messageId).maybeSingle()
   if (!msg) return
@@ -356,9 +464,13 @@ async function handleChat(messageId: number) {
   if (!requester || requester.is_agent || !requester.active) return
   const agents = people.filter(p => p.is_agent && p.active)
   const members = (room.members as string[] | null) ?? null
-  const agent = (members && agents.find(a => members.includes(a.id))) || agents.find(a => msg.content.includes(`@${a.name}`))
+  // '@마케팅팀장' · '@마케팅 팀장' 모두 인식 (띄어쓰기 무시)
+  const compact = msg.content.replace(/\s+/g, '')
+  const lead = (await loadLeads()).find(l => compact.includes(`@${l.mention}`))
+  // 팀장 AI 는 별도 계정이 없어 AI 팀원 계정(WKLY 총괄)이 '[팀장 이름]' 머리말로 답한다
+  const agent = (members && agents.find(a => members.includes(a.id))) || agents.find(a => msg.content.includes(`@${a.name}`)) || (lead ? agents[0] : undefined)
   if (!agent) return
-  const ctx: Ctx = { agent, requester, people }
+  const ctx: Ctx = { agent, requester, people, lead }
 
   // 최근 대화 (오래된 것부터, 최대 20개)
   const { data: recent } = await sb.from('chat_messages').select('user_id, content, created_at').eq('room_id', room.id).lte('id', msg.id).order('id', { ascending: false }).limit(20)
@@ -367,7 +479,8 @@ async function handleChat(messageId: number) {
   const where = members ? `${requester.name}님과의 1:1 대화` : `채팅방 # ${room.name} (여러 사람이 봄)`
   const prompt = `최근 대화:\n${lines}\n\n위 대화의 마지막 메시지(${requester.name})에 답하고, 요청이 있으면 처리해.`
   const reply = await ask(ctx, where, [{ role: 'user', content: prompt }])
-  await sb.from('chat_messages').insert({ room_id: room.id, user_id: agent.id, content: reply.slice(0, 4000) })
+  const content = lead ? `[${lead.name}] ${reply}` : reply
+  await sb.from('chat_messages').insert({ room_id: room.id, user_id: agent.id, content: content.slice(0, 4000) })
 }
 
 async function handleInstruction(id: string) {

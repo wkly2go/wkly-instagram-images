@@ -1149,6 +1149,11 @@ button.kpi:hover, a.kpi:hover { border-color: var(--blue); }
 .aorg-node b { font: 700 var(--fs-cap)/16px var(--mono); padding: 0 5px; border-radius: 4px; background: var(--blue-tint); color: var(--blue); }
 .aorg-node.ai { border-color: var(--blue); }
 .aorg-node.job b { background: var(--yellow-tint); color: var(--gray); }
+/* 팀장 AI (조직 v3) */
+.aorg-team { display: contents; }
+.aorg-node.lead { border-color: var(--ink, #000); border-width: 2px; }
+.aorg-node.lead b { background: var(--yellow, #ffee08); color: var(--ink, #000); }
+.agent-job.lead { border-left: 4px solid var(--yellow, #ffee08); }
 .aorg-node.head { padding: 6px 14px; border: 1.5px solid var(--blue); background: var(--white); font-size: var(--fs-sm); }
 
 /* 가운데 창 뒤로 · 앞으로 */
