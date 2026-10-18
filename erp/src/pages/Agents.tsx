@@ -53,6 +53,9 @@ export default function Agents() {
   )
 }
 
+/** 팀장 AI 예약 작업 (조직 v3 · 2026-10-18): 이름에 ' 팀장 · ' 가 들어감 */
+const isLeadJob = (j: AgentJob) => j.name.includes(' 팀장 · ')
+
 function duration(j: AgentJob) {
   if (!j.last_fired_at || !j.last_finished_at) return null
   const m = Math.round((Date.parse(j.last_finished_at) - Date.parse(j.last_fired_at)) / 60000)
@@ -78,7 +81,8 @@ function Jobs() {
   const groups = useMemo(() => {
     const m = new Map<string, AgentJob[]>()
     for (const j of list) m.set(j.group_name, [...(m.get(j.group_name) ?? []), j])
-    return [...m.entries()].sort(([a], [b]) => a.localeCompare(b))
+    // 팀장 AI 를 팀 맨 위에
+    return [...m.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([g, js]) => [g, [...js].sort((a, b) => Number(isLeadJob(b)) - Number(isLeadJob(a)))] as [string, AgentJob[]])
   }, [list])
   const pending = (id: string) => data.requests.filter(r => r.trigger_id === id && (r.status === '대기' || r.status === '처리 중'))
   const ranToday = data.jobs.filter(j => j.last_fired_at && j.last_fired_at.slice(0, 10) >= addDays(today, -1) && new Date(j.last_fired_at).toLocaleDateString('sv-SE', { timeZone: 'Asia/Seoul' }) === today).length
@@ -128,11 +132,18 @@ function Jobs() {
       {data.jobs.length === 0 && <Empty>{loading ? '불러오는 중…' : '아직 동기화된 에이전트가 없습니다. WKLY 총괄의 첫 점검 후 나타납니다.'}</Empty>}
       {groups.map(([g, jobs]) => (
         <div key={g} className="col gap-6">
-          <SectionHead title={g} count={jobs.length} />
+          <SectionHead
+            title={g}
+            count={jobs.length}
+            right={(() => {
+              const lead = jobs.find(isLeadJob)
+              return lead ? <span className="t-cap">팀장 AI · {lead.name} — 팀원 {jobs.length - 1}개 관리 · 17:07 팀 종합</span> : null
+            })()}
+          />
           {jobs.map(j => {
             const pend = pending(j.trigger_id)
             return (
-              <div key={j.trigger_id} className={`agent-job${j.enabled ? '' : ' off'}`}>
+              <div key={j.trigger_id} className={`agent-job${j.enabled ? '' : ' off'}${isLeadJob(j) ? ' lead' : ''}`}>
                 <div className="row wrap" style={{ gap: 6 }}>
                   <Badge tone={j.enabled ? (j.last_verdict ? V_TONE[j.last_verdict] ?? 'outline' : 'outline') : 'gray'}>{j.enabled ? j.last_verdict ?? j.last_status ?? '기록 없음' : '꺼짐'}</Badge>
                   <span className="t-smallb grow">{j.name}</span>
@@ -442,11 +453,23 @@ function AgentOrg() {
                       <i>관리 {p.manager_id ? profileName(p.manager_id) : '미지정'}</i>
                     </span>
                   ))}
-                  {jobGroups.map(g => (
-                    <span key={g} className="aorg-node job" title={data.jobs.filter(j => j.group_name === g).map(j => j.name).join('\n')}>
-                      <b>예약</b> {g} <i>{data.jobs.filter(j => j.group_name === g).length}개 · 관리 {d.lead_id ? profileName(d.lead_id) : '미지정'}</i>
-                    </span>
-                  ))}
+                  {jobGroups.map(g => {
+                    const gj = data.jobs.filter(j => j.group_name === g)
+                    const leads = gj.filter(isLeadJob)
+                    const members = gj.filter(j => !isLeadJob(j))
+                    return (
+                      <span key={g} className="aorg-team">
+                        {leads.map(l => (
+                          <span key={l.trigger_id} className="aorg-node lead" title="팀원 AI 지시 · 지침 수정 · 평일 17:07 팀 종합 → 사람 팀장 검토 → 총괄 18:00 보고">
+                            <b>팀장 AI</b> {l.name.split(' · ')[0]}
+                          </span>
+                        ))}
+                        <span className="aorg-node job" title={members.map(j => j.name).join('\n')}>
+                          <b>예약</b> {g} <i>팀원 {members.length}개 · 관리 {leads.length ? '팀장 AI' : d.lead_id ? profileName(d.lead_id) : '미지정'}</i>
+                        </span>
+                      </span>
+                    )
+                  })}
                   {ppl.length === 0 && jobGroups.length === 0 && <span className="t-cap">구성원 없음</span>}
                 </div>
               </section>

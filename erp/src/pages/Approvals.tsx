@@ -1,12 +1,12 @@
-import { useCallback, useEffect, useState } from 'react'
-import { ArrowLeft } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { ArrowLeft, ExternalLink, Paperclip } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { dateLabel, dateTimeLabel, minutesLabel, timeLabel, toDateKey, todayKey, won } from '../lib/date'
 import { openGmail } from '../lib/links'
 import { maskAccount } from '../lib/finance'
 import { Meter } from '../components/charts'
 import { Link, useRouter, withQuery } from '../lib/router'
-import { APPROVAL_KINDS, CONTRACT_TYPES, type Approval, type ApprovalKind, type ApprovalRoute, type Project, type WorkLog } from '../lib/types'
+import { APPROVAL_KINDS, CONTRACT_TYPES, type Approval, type ApprovalAttachment, type ApprovalKind, type ApprovalRoute, type Project, type WorkLog } from '../lib/types'
 import { Shell } from '../components/Shell'
 import { Board, BoardHead } from '../components/Board'
 import { usePanelWide, useRightPanel } from '../components/RightPanel'
@@ -286,6 +286,7 @@ function ApprovalDetail({ a, onBack }: { a: Approval; onBack: () => void }) {
       )}
       {a.kind === '업무 보고' && a.payload.user_id && a.payload.date && <ReportLogs userId={a.payload.user_id} date={a.payload.date} />}
       {a.content && a.kind !== '일일 보고' && <div className="panel t-small pre">{a.content}</div>}
+      <Attachments a={a} />
       {target && a.target_id && (
         <Link to={target} className="t-small">
           관련 {a.kind} 보기 ›
@@ -391,6 +392,82 @@ export function DailyReport({ a }: { a: Approval }) {
   )
 }
 
+function sizeLabel(n: number) {
+  return n >= 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)}MB` : `${Math.max(1, Math.round(n / 1024))}KB`
+}
+
+/** 붙인 링크 · 파일 (회의록 슬라이드 · 드라이브 폴더 · PDF 등). 요청자(대기 중) · 승인자 · 관리자는 더 붙일 수 있다 */
+function Attachments({ a }: { a: Approval }) {
+  const { api, me } = useApp()
+  const { busy, run } = useAction()
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [linking, setLinking] = useState(false)
+  const [label, setLabel] = useState('')
+  const [url, setUrl] = useState('')
+  const links = a.payload.links ?? []
+  const atts = a.payload.attachments ?? []
+  const canEdit = me.role === 'admin' || a.approver_id === me.id || (a.requested_by === me.id && a.status === '대기')
+  if (!links.length && !atts.length && !canEdit) return null
+  const open = (att: ApprovalAttachment) =>
+    run(async () => {
+      const href = await api.approvalFileUrl(att)
+      window.open(href, '_blank', 'noopener')
+    })
+  const addFiles = (files: FileList | null) => {
+    if (!files?.length) return
+    const list = Array.from(files)
+    void run(async () => {
+      for (const f of list) await api.addApprovalFile(a.id, f)
+    }, list.length === 1 ? '파일을 붙였습니다.' : `파일 ${list.length}개를 붙였습니다.`)
+  }
+  const addLink = () =>
+    run(async () => {
+      await api.addApprovalLink(a.id, { label, url })
+      setLabel('')
+      setUrl('')
+      setLinking(false)
+    }, '링크를 붙였습니다.')
+  return (
+    <div className="panel col gap-6">
+      <div className="row">
+        <span className="t-cap">첨부 {links.length + atts.length ? links.length + atts.length : ''}</span>
+        <span className="grow" />
+        {canEdit && (
+          <>
+            <Button kind="ghost" size="sm" onClick={() => fileRef.current?.click()} disabled={busy}>
+              <Paperclip size={14} /> 파일
+            </Button>
+            <Button kind="ghost" size="sm" onClick={() => setLinking(v => !v)} disabled={busy}>
+              <ExternalLink size={14} /> 링크
+            </Button>
+            <input ref={fileRef} type="file" multiple hidden onChange={e => { addFiles(e.target.files); e.target.value = '' }} />
+          </>
+        )}
+      </div>
+      {links.map((l, i) => (
+        <a key={`l${i}`} href={l.url} target="_blank" rel="noopener noreferrer" className="t-small row" style={{ gap: 6 }}>
+          <ExternalLink size={14} /> {l.label || l.url}
+        </a>
+      ))}
+      {atts.map((f, i) => (
+        <button key={`f${i}`} type="button" className="t-small row link-btn" style={{ gap: 6, textAlign: 'left' }} onClick={() => open(f)} disabled={busy}>
+          <Paperclip size={14} /> {f.name} <span className="t-cap">{sizeLabel(f.size)}</span>
+        </button>
+      ))}
+      {linking && (
+        <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
+          <input className="input" style={{ width: 160 }} placeholder="이름" value={label} onChange={e => setLabel(e.target.value)} />
+          <input className="input grow" placeholder="https://…" value={url} onChange={e => setUrl(e.target.value)} />
+          <Button size="sm" onClick={addLink} disabled={busy || !url.trim()}>
+            붙이기
+          </Button>
+        </div>
+      )}
+      {!links.length && !atts.length && canEdit && <span className="t-cap">슬라이드 · PDF · 드라이브 폴더 링크를 붙일 수 있습니다.</span>}
+    </div>
+  )
+}
+
 function ExpenseInfo({ a }: { a: Approval }) {
   const pl = a.payload as Record<string, unknown>
   const str = (k: string) => (typeof pl[k] === 'string' && pl[k] ? String(pl[k]) : null)
@@ -478,6 +555,8 @@ export function NewApproval({ onClose, onCreated, preset }: { onClose: () => voi
   const [kind, setKind] = useState<ApprovalKind>(preset?.kind ?? '지출')
   const [title, setTitle] = useState(preset?.title ?? '')
   const [content, setContent] = useState(preset?.content ?? (preset?.payload?.body as string | undefined) ?? '')
+  const [files, setFiles] = useState<File[]>([])
+  const fileRef = useRef<HTMLInputElement>(null)
   const [amount, setAmount] = useState(preset?.amount ? String(preset.amount) : '')
   const [approver, setApprover] = useState(preset?.approver_id ?? '')
   const [to, setTo] = useState((preset?.payload?.to as string | undefined) ?? '')
@@ -557,6 +636,7 @@ export function NewApproval({ onClose, onCreated, preset }: { onClose: () => voi
         target_id: preset?.target_id ?? (kind === '지출' && pay.project_id ? pay.project_id : null),
         payload,
       })
+      for (const f of files) await api.addApprovalFile(created.id, f)
     }, kind === '일일 보고' ? '일일 보고를 제출했습니다.' : '승인을 요청했습니다.')
     if (ok) {
       onClose()
@@ -623,6 +703,22 @@ export function NewApproval({ onClose, onCreated, preset }: { onClose: () => voi
           <div className="full">
             <MeetingRecorder title={title} onResult={onMinutes} />
           </div>
+        )}
+        {(kind === '회의록' || kind === '기타') && (
+          <Field label="첨부 파일 (슬라이드 PDF · 자료, 50MB 까지)" className="full">
+            <span className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
+              <Button kind="ghost" size="sm" onClick={() => fileRef.current?.click()}>
+                <Paperclip size={14} /> 파일 고르기
+              </Button>
+              {files.map((f, i) => (
+                <span key={i} className="t-small">
+                  {f.name} <span className="t-cap">{sizeLabel(f.size)}</span>{' '}
+                  <button type="button" className="link-btn t-cap" onClick={() => setFiles(files.filter((_, j) => j !== i))} aria-label="빼기">×</button>
+                </span>
+              ))}
+              <input ref={fileRef} type="file" multiple hidden onChange={e => { setFiles([...files, ...Array.from(e.target.files ?? [])]); e.target.value = '' }} />
+            </span>
+          </Field>
         )}
         {kind === '지출' && (
           <>

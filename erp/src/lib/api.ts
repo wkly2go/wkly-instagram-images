@@ -1,5 +1,7 @@
 import type { AccessSource } from './desktop'
 import type {
+  ApprovalAttachment,
+  ApprovalLink,
   Subscription,
   ExchangeFile,
   MeetingRecording,
@@ -194,6 +196,12 @@ export interface Api {
   createApproval(a: Draft<Approval>): Promise<Approval>
   decideApproval(id: string, status: Extract<ApprovalStatus, '승인' | '반려'>, comment?: string): Promise<void>
   cancelApproval(id: string): Promise<void>
+  /** 승인 요청(회의록 등)에 파일 붙이기 — 요청자(대기 중) · 승인자 · 관리자. exchange-files 저장소 approvals/<id>/… */
+  addApprovalFile(id: string, file: File): Promise<void>
+  /** 승인 요청에 링크 붙이기 */
+  addApprovalLink(id: string, link: ApprovalLink): Promise<void>
+  /** 붙인 파일을 여는 주소 (1시간 서명 URL) */
+  approvalFileUrl(att: ApprovalAttachment): Promise<string>
   listApprovalRoutes(): Promise<ApprovalRoute[]>
   saveApprovalRoute(kind: ApprovalKind, approverId: string | null): Promise<void>
   subscribeChanges(tables: string[], cb: () => void): () => void
