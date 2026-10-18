@@ -389,12 +389,31 @@ export interface ReportPayload {
   user_id?: string
 }
 
+/** 승인 요청(회의록 등)에 붙인 파일: exchange-files 저장소의 approvals/<id>/… */
+export interface ApprovalAttachment {
+  path: string
+  name: string
+  size: number
+  type: string
+}
+
+/** 승인 요청에 붙인 링크 (슬라이드 · 문서 · 드라이브 폴더 등) */
+export interface ApprovalLink {
+  label: string
+  url: string
+}
+
+export interface AttachmentPayload {
+  links?: ApprovalLink[]
+  attachments?: ApprovalAttachment[]
+}
+
 export interface Approval {
   id: string
   kind: ApprovalKind
   title: string
   content: string | null
-  payload: MailPayload & ReportPayload & Record<string, unknown>
+  payload: MailPayload & ReportPayload & AttachmentPayload & Record<string, unknown>
   target_id: string | null
   amount: number | null
   requested_by: string | null
