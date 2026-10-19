@@ -19,8 +19,10 @@ export function InstallCard() {
   const [evt, setEvt] = useState<InstallEvent | null>(null)
   const [hidden, setHidden] = useState(read())
   const standalone = window.matchMedia?.('(display-mode: standalone)').matches || (navigator as unknown as { standalone?: boolean }).standalone === true
-  const mobile = /Android|iPhone|iPad/i.test(navigator.userAgent)
-  const ios = /iPhone|iPad/i.test(navigator.userAgent)
+  // iPadOS 는 맥으로 보고하므로 터치 지점 수로 구분
+  const ipad = /Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1
+  const mobile = ipad || /Android|iPhone|iPad/i.test(navigator.userAgent)
+  const ios = ipad || /iPhone|iPad/i.test(navigator.userAgent)
   useEffect(() => {
     const on = (e: Event) => {
       e.preventDefault()
@@ -43,10 +45,10 @@ export function InstallCard() {
       <span className="grow t-small">
         {ios ? (
           <>
-            휴대폰 홈 화면에 인트라넷 앱을 추가하세요: Safari 아래 <b>공유</b> 버튼 › <b>홈 화면에 추가</b>. 출근 체크 · 알림을 앱처럼 씁니다.
+            휴대폰 · 태블릿 홈 화면에 인트라넷 앱을 추가하세요: Safari <b>공유</b> 버튼 › <b>홈 화면에 추가</b>. 출근 체크 · 알림을 앱처럼 씁니다.
           </>
         ) : (
-          '휴대폰 홈 화면에 인트라넷 앱을 추가하면 출근 체크 · 알림을 앱처럼 쓸 수 있습니다.'
+          '휴대폰 · 태블릿 홈 화면에 인트라넷 앱을 추가하면 출근 체크 · 알림을 앱처럼 쓸 수 있습니다.'
         )}
       </span>
       {evt && (

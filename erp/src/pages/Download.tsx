@@ -60,6 +60,19 @@ export default function Download() {
               </ul>
             </div>
 
+            <div className="col gap-6">
+              <span className="t-bodyb">휴대폰 · 태블릿</span>
+              <ul className="guide-steps">
+                <li>
+                  휴대폰 · 태블릿 브라우저로 <b>{window.location.host}</b> 에 접속해 로그인합니다. 아래쪽 메뉴(홈 · 결제 · 채팅 · 프로젝트 · 더보기)로 씁니다.
+                </li>
+                <li>
+                  <b>아이폰 · 아이패드</b>: Safari <b>공유</b> 버튼 › <b>홈 화면에 추가</b>. <b>안드로이드 · 갤럭시 탭</b>: Chrome 메뉴(⋮) › <b>앱 설치</b>.
+                </li>
+                <li>홈 화면 아이콘으로 열면 앱처럼 전체 화면으로 열리고 알림을 받을 수 있습니다.</li>
+              </ul>
+            </div>
+
             <Link to="/" className="btn btn-ghost btn-sm" style={{ alignSelf: 'center' }}>
               인트라넷으로 돌아가기
             </Link>

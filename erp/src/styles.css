@@ -1399,3 +1399,82 @@ html.detail-open .web-panel { max-width: 28vw; }
 .meet-rec-live .dot.on { background: var(--red); animation: rec-blink 1s steps(2) infinite; }
 @keyframes rec-blink { 50% { opacity: .25; } }
 .meet-rec-text { margin: 0; max-height: 240px; overflow: auto; padding: 8px 10px; background: var(--white); border: 1px solid var(--line); border-radius: 6px; white-space: pre-wrap; font: inherit; font-size: var(--fs-sm); color: var(--gray); }
+
+/* =====================================================================
+   휴대폰 · 태블릿 버전 (터치 화면: pointer coarse)
+   - 아래 고정 메뉴(홈 · 결제 · 채팅 · 프로젝트 · 더보기), 손가락 크기 버튼, 글자 한 단계 크게
+   - PC 전용(뒤로/앞으로 · 검색 칸 글자 크기 · 세로 탭)은 숨김, 프로필 · 달력은 홈에서만
+   ===================================================================== */
+.m-nav, .m-more-scrim { display: none; }
+@media (pointer: coarse) {
+  :root { --fs-cap: 11px; --fs-sm: 12px; --fs-body: 13px; --fs-sub: 14.5px; --fs-title: 17px; --fs-num: 22px; }
+  /* 아이폰 입력 확대 방지 */
+  input, select, textarea, .input, .select, .textarea { font-size: 16px; }
+  .main-nav, .web-zoom, .app-page .tabs { display: none !important; }
+  .app-page { padding-bottom: calc(66px + env(safe-area-inset-bottom)); }
+  .m-nav {
+    display: flex; gap: 4px; position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
+    padding: 6px 8px calc(6px + env(safe-area-inset-bottom)); background: var(--blue);
+  }
+  .m-nav > a, .m-nav > button {
+    position: relative; flex: 1 1 0; min-width: 0; height: 52px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+    border: 0; border-radius: 12px; background: none; color: var(--white); font: 700 var(--fs-cap)/1 var(--font); text-decoration: none; cursor: pointer;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; -webkit-tap-highlight-color: transparent;
+  }
+  .m-nav > .on { background: var(--yellow); color: var(--blue); }
+  .m-dot { position: absolute; top: 4px; left: calc(50% + 6px); min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--red); color: var(--white); font: 700 10px/18px var(--mono); }
+  .m-more-scrim { display: block; position: fixed; inset: 0; z-index: 39; background: var(--scrim); }
+  .m-more {
+    position: absolute; left: 8px; right: 8px; bottom: calc(72px + env(safe-area-inset-bottom));
+    max-width: 560px; margin: 0 auto; padding: 14px; background: var(--white); border: 2px solid var(--blue); border-radius: 16px;
+  }
+  .m-more-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+  .m-more-grid > a {
+    height: 72px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+    border-radius: 12px; background: var(--paper); color: var(--blue); font: 700 var(--fs-sm)/1.2 var(--font); text-decoration: none; text-align: center;
+  }
+  .m-more-grid > a.on { background: var(--yellow); }
+  /* 손가락으로 누르기 쉬운 크기 */
+  .btn { min-height: 40px; }
+  .btn-sm { min-height: 34px; }
+  .icon-btn { min-width: 36px; min-height: 36px; }
+  .chip { min-height: 34px; }
+  /* 프로필 · 작은 달력은 홈에서만 */
+  .app-page:not(.tab-home) .body > .profile { display: none; }
+  .pc-only { display: none !important; }
+  /* 검색 결과 창: 검색어를 넣었을 때만 화면 전체로 */
+  .web-panel { display: none; }
+  .web-panel.has-q { display: flex; position: fixed; inset: 0; width: 100vw; max-width: 100vw; z-index: 60; border-radius: 0; padding-bottom: env(safe-area-inset-bottom); }
+  .web-panel.has-q .web-close { display: inline-flex !important; }
+  .web-resize { display: none; }
+  html.web-open .inner, html.web-open .main { --web-w: 0px; }
+  /* 위쪽 줄 고정 */
+  .app-page .topbar { position: sticky; top: 0; z-index: 20; background: var(--paper); }
+  .notif-panel { max-height: 70dvh; }
+}
+/* 휴대폰: 홈의 프로필을 한 줄 요약으로 (달력은 프로젝트 › 캘린더에서) */
+@media (pointer: coarse) and (max-width: 640px) {
+  .app-page.tab-home .profile .mini-cal, .app-page.tab-home .profile .side-tools { display: none; }
+  .app-page.tab-home .profile { gap: 8px; padding: 12px; }
+  .topbar .web-search { flex: 1 1 auto; min-width: 0; }
+  .m-more-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+/* 태블릿: 책 모양 테두리 없이 화면 가득, 프로필 칸은 홈에서 왼쪽 열 */
+@media (pointer: coarse) and (min-width: 641px) {
+  .page { padding: 0; }
+  .mini { width: 100%; }
+  .book { border-radius: 0; border: 0; padding: 0; height: auto; min-height: 100dvh; }
+  .inner { border-radius: 0; border: 0; }
+  .app-page .main { min-height: calc(100dvh - 150px); }
+  .dialog { max-width: min(720px, calc(100vw - 32px)); }
+  .m-nav { justify-content: center; }
+  .m-nav > a, .m-nav > button { max-width: 150px; }
+}
+/* 태블릿 세로: 홈 프로필은 왼쪽 정보 · 오른쪽 작은 달력 */
+@media (pointer: coarse) and (min-width: 641px) and (max-width: 1000px) {
+  .app-page.tab-home .body > .profile { display: grid; grid-template-columns: 64px minmax(0, 1fr) 280px; column-gap: 14px; row-gap: 6px; align-items: start; }
+  .app-page.tab-home .body > .profile > * { grid-column: 2; }
+  .app-page.tab-home .body > .profile > .photo-wrap { grid-column: 1; grid-row: 1 / span 4; }
+  .app-page.tab-home .body > .profile > .mini-cal { grid-column: 3; grid-row: 1 / span 6; }
+  .app-page.tab-home .photo { width: 64px; height: 64px; }
+}

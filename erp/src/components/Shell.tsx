@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState, type ChangeEvent, type ReactNode } from 'react'
-import { ChevronLeft, ChevronRight, CircleHelp } from 'lucide-react'
+import { Bot, Briefcase, ChevronLeft, ChevronRight, CircleHelp, ClipboardCheck, FolderKanban, Home, Library, Megaphone, MessageCircle, MoreHorizontal, Settings, Users, type LucideIcon } from 'lucide-react'
 import { isDesktopApp } from '../lib/desktop'
 import { NotificationBell } from './Notifications'
 import { WebSearchBox, webSlot } from './WebSearch'
@@ -35,6 +35,23 @@ export const TABS: { key: TabKey; label: string; path: string; admin?: boolean }
   { key: 'ads', label: '광고', path: '/ads', admin: true },
   { key: 'admin', label: '관리', path: '/admin', admin: true },
 ]
+
+/** 휴대폰 · 태블릿 아래 메뉴: 자주 쓰는 4개 + 더보기 */
+const ICONS: Record<TabKey, LucideIcon> = {
+  home: Home,
+  approvals: ClipboardCheck,
+  chat: MessageCircle,
+  work: Briefcase,
+  projects: FolderKanban,
+  clients: Briefcase,
+  library: Library,
+  team: Users,
+  agents: Bot,
+  ads: Megaphone,
+  admin: Settings,
+}
+const MAIN_TABS: TabKey[] = ['home', 'approvals', 'chat', 'projects']
+const SHORT: Partial<Record<TabKey, string>> = { approvals: '결제' }
 
 export interface Summary {
   myOpenTasks: number
@@ -342,6 +359,7 @@ export function Shell({ active, flush, children }: { active: TabKey; flush?: boo
             </div>
           </div>
         </div>
+        <MobileNav active={active} summary={summary} />
         <nav className="tabs" aria-label="메뉴">
           {TABS.filter(t => !t.admin || me.role === 'admin').map(t => {
             const dot = t.key === 'approvals' ? summary.pendingToDecide : t.key === 'chat' ? summary.unread : 0
@@ -355,5 +373,59 @@ export function Shell({ active, flush, children }: { active: TabKey; flush?: boo
         </nav>
       </div>
     </div>
+  )
+}
+
+/** 휴대폰 · 태블릿(터치 화면) 아래 고정 메뉴: 홈 · 결제 · 채팅 · 프로젝트 · 더보기 (나머지 메뉴는 더보기 시트) */
+function MobileNav({ active, summary }: { active: TabKey; summary: Summary }) {
+  const { me } = useApp()
+  const [more, setMore] = useState(false)
+  const tabs = TABS.filter(t => !t.admin || me.role === 'admin')
+  const rest = tabs.filter(t => !MAIN_TABS.includes(t.key))
+  const dotOf = (k: TabKey) => (k === 'approvals' ? summary.pendingToDecide : k === 'chat' ? summary.unread : 0)
+  const restActive = rest.some(t => t.key === active)
+  return (
+    <>
+      <nav className="m-nav" aria-label="메뉴">
+        {tabs
+          .filter(t => MAIN_TABS.includes(t.key))
+          .map(t => {
+            const Icon = ICONS[t.key]
+            const dot = dotOf(t.key)
+            return (
+              <Link key={t.key} to={t.path} className={t.key === active ? 'on' : ''} aria-current={t.key === active ? 'page' : undefined}>
+                <Icon size={20} aria-hidden="true" />
+                {SHORT[t.key] ?? t.label}
+                {dot > 0 && <span className="m-dot">{dot > 99 ? '99+' : dot}</span>}
+              </Link>
+            )
+          })}
+        <button type="button" className={restActive || more ? 'on' : ''} onClick={() => setMore(v => !v)} aria-expanded={more}>
+          <MoreHorizontal size={20} aria-hidden="true" />
+          {restActive ? (SHORT[active] ?? TABS.find(t => t.key === active)?.label) : '더보기'}
+        </button>
+      </nav>
+      {more && (
+        <div className="m-more-scrim" onClick={() => setMore(false)}>
+          <div className="m-more" role="dialog" aria-label="전체 메뉴" onClick={e => e.stopPropagation()}>
+            <div className="m-more-grid">
+              {rest.map(t => {
+                const Icon = ICONS[t.key]
+                return (
+                  <Link key={t.key} to={t.path} className={t.key === active ? 'on' : ''} onNavigate={() => setMore(false)}>
+                    <Icon size={22} aria-hidden="true" />
+                    {t.label}
+                  </Link>
+                )
+              })}
+              <Link to="/help" onNavigate={() => setMore(false)}>
+                <CircleHelp size={22} aria-hidden="true" />
+                사용법
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   )
 }
