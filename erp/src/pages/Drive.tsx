@@ -282,14 +282,7 @@ function WebDrive({ folders }: { folders: DriveFolder[] }) {
         onSearch={s => pick({ kind: 'search', name: s })}
       />
       {!token ? (
-        <div className="drive-login">
-          <LogIn size={22} />
-          <b>회사 구글 계정으로 로그인하세요</b>
-          <span className="t-small">로그인하면 내 드라이브 · 공유 문서함 · 회사 폴더가 이 화면 아래에 나옵니다. (보기 전용 · 파일은 오른쪽 창에서 열림)</span>
-          <Button onClick={login}>
-            <LogIn size={14} /> 구글 계정으로 로그인
-          </Button>
-        </div>
+        <span className="t-cap drive-hint">위 제목 옆 '구글 로그인'을 누르면 내 드라이브 · 공유 문서함 · 회사 폴더가 이 아래에 나옵니다. (보기 전용 · 파일은 편집 화면으로 열림)</span>
       ) : (
         <div className="drive-list">
           <div className="drive-trail">
@@ -347,17 +340,18 @@ function DriveHead({
     <div className="col gap-6">
       <div className="row wrap gap-6">
         <span className="t-title">구글 드라이브</span>
-        <span className="grow" />
+        {/* 구글 로그인은 제목 옆에 작게 */}
         {onLogin && (
-          <button type="button" className={`drive-chip${active === '구글 로그인' ? ' on' : ''}`} onClick={onLogin}>
-            <LogIn size={14} /> 구글 로그인
+          <button type="button" className={`drive-login-sm${active === '구글 로그인' ? ' on' : ''}`} onClick={onLogin} title="회사 구글 계정으로 로그인">
+            <LogIn size={12} /> 구글 로그인
           </button>
         )}
         {onLogout && (
-          <button type="button" className="drive-chip" onClick={onLogout} title="이 화면의 구글 로그인 해제">
-            <LogOut size={14} /> 로그아웃
+          <button type="button" className="drive-login-sm" onClick={onLogout} title="이 화면의 구글 로그인 해제">
+            <LogOut size={12} /> 로그아웃
           </button>
         )}
+        <span className="grow" />
         <form
           className="drive-search"
           role="search"

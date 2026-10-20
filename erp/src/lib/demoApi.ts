@@ -193,7 +193,10 @@ function seed(): Store {
   const yeouido = pj('여의도 팝업 리뷰 콘텐츠', green, '콘텐츠', '완료', U.haneul, -20, -7)
   const hannam = pj('한남 플래그십 인테리어', objet, '팝업', '진행', U.admin, -35, 120, '서울 용산구 한남동', '브랜드 플래그십 매장 설계 · 시공 (협력사 협업)')
   const projects = [objetWeek, autumn, weekly, paper, yeouido, hannam]
-  projects.forEach(p => (p.code = p.start_date ? `AR${p.start_date.slice(2, 4)}${p.start_date.slice(5, 7)}` : 'AR0000'))
+  projects.forEach((p, i) => {
+    p.division = p.category === '콘텐츠' || p.category === '캠페인' ? 'TW' : 'AR'
+    p.code = p.start_date ? `${p.division}${p.start_date.slice(2, 4)}${p.start_date.slice(5, 7)}-${String(i + 1).padStart(2, '0')}` : 'AR0000'
+  })
 
   const plant: ResearchItem = {
     id: uid(), kind: '팝업', title: "성수 '플랜트 하우스' 팝업 오픈", summary: '식물 공방 클래스 + 굿즈 판매 체험형 팝업. 주말 예약제, 사전 예약 30분 만에 마감.',
@@ -680,10 +683,14 @@ export function createDemoApi(): Api {
       return clone([...store.projects].sort((a, b) => (b.start_date ?? '').localeCompare(a.start_date ?? '')))
     },
     async saveProject(p) {
-      if (!p.id && !p.code) {
-        // 드라이브 ARTERIOR 폴더 규칙: AR + 시작 연월 (중복 가능)
-        const d = p.start_date ?? todayKey()
-        p = { ...p, code: `AR${d.slice(2, 4)}${d.slice(5, 7)}` }
+      // 연번 (0046): 구분 + 시작 연월 + '-' + 그달 일련번호, 구분을 바꾸면 새 번호
+      const prev = p.id ? store.projects.find(x => x.id === p.id) : undefined
+      const div = p.division ?? prev?.division ?? 'AR'
+      if (!p.code || (prev && prev.division !== div && p.code === prev.code && /^(AR|TW|RS)\d{4}-\d+$/.test(p.code))) {
+        const d = p.start_date ?? prev?.start_date ?? todayKey()
+        const base = `${div}${d.slice(2, 4)}${d.slice(5, 7)}-`
+        const n = Math.max(0, ...store.projects.filter(x => x.code?.startsWith(base)).map(x => Number(x.code!.slice(base.length)) || 0)) + 1
+        p = { ...p, division: div, code: `${base}${String(n).padStart(2, '0')}` }
       }
       if (p.start_date && p.end_date && p.end_date < p.start_date) throw new ApiError('종료일이 시작일보다 빠릅니다.')
       return upsert<'projects', Project>('projects', p, () => ({ ...base(), name: '', client_id: null, category: '팝업', status: '기획', owner_id: null, start_date: null, end_date: null, location: null, description: null }) as Project)

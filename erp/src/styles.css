@@ -1565,3 +1565,14 @@ html.detail-open .web-panel { max-width: 28vw; }
 
 .wk-add { align-self: flex-start; display: inline-flex; align-items: center; gap: 3px; margin-top: 2px; padding: 2px 8px; border: 1px dashed var(--blue-tint); border-radius: 999px; background: none; color: var(--blue); font: 700 var(--fs-cap)/1.4 var(--font); cursor: pointer; opacity: 0.55; }
 .wk-add:hover, .wk-add:focus-visible { opacity: 1; border-color: var(--blue); background: var(--yellow-tint); }
+
+/* ---------- 프로젝트 구분 카드 (조직 · 진행 현황 모양) · 대표 색상 ---------- */
+.div-cards { display: flex; flex-direction: column; gap: 12px; }
+.div-card { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; background: var(--white); border: 1px solid var(--line); border-top: 4px solid var(--blue); border-radius: var(--r-panel); min-width: 0; }
+.div-card .t-bodyb { font-size: var(--fs-sub); }
+.div-dot { display: inline-block; width: 8px; height: 8px; border-radius: 4px; flex-shrink: 0; }
+.proj-code[style] { color: var(--white); }
+
+.drive-login-sm { display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 10px; border: 1px solid var(--blue); border-radius: 999px; background: var(--white); color: var(--blue); font: 700 var(--fs-cap)/1 var(--font); cursor: pointer; white-space: nowrap; }
+.drive-login-sm:hover, .drive-login-sm.on { background: var(--yellow); }
+.drive-hint { padding: 10px 2px; }

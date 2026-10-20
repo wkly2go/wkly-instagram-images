@@ -1,6 +1,7 @@
 import { useApp, useAsync } from '../lib/app'
 import { shortDate } from '../lib/date'
 import { Link } from '../lib/router'
+import { DIVISIONS, projectBrand } from '../lib/types'
 import type { Approval, ChatRoomSummary, Client, Contact, Payment, Project, WorkLog } from '../lib/types'
 import { Badge, Empty, SectionHead } from './ui'
 import { ContactTimeline, ExchangeFilesSection, ProjectContactsSection } from './ContactHistory'
@@ -32,7 +33,7 @@ export function ProjectMaterials({ projectId }: { projectId: string }) {
   return (
     <div className="col gap-8 proj-materials">
       <div className="row wrap gap-6">
-        {p.code && <span className="proj-code">{p.code}</span>}
+        {p.code && <span className="proj-code" style={{ background: DIVISIONS[projectBrand(p)].color }} title={DIVISIONS[projectBrand(p)].full}>{p.code}</span>}
         <span className="t-bodyb truncate">{p.name}</span>
         <span className="grow" />
         {data.room ? <Link to={`/chat?room=${data.room.id}`}>채팅방 ›</Link> : <span className="t-cap">채팅방 없음</span>}

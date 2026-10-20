@@ -7,7 +7,7 @@ import { useRightPanel } from '../components/RightPanel'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { addMonths, dateLabel, monthGrid, shortDate, timeLabel, toDateKey, todayKey, weekRange, weekday, periodLabel } from '../lib/date'
 import { Link, useRouter, withQuery } from '../lib/router'
-import { PROJECT_CATEGORIES, PROJECT_STATUSES, type ChatRoomSummary, type Client, type Contact, type Project, type ProjectStatus, type Task, type TaskStatus, type WorkLog, projectBrand, projectDriveUrl } from '../lib/types'
+import { PROJECT_CATEGORIES, PROJECT_STATUSES, type ChatRoomSummary, type Client, type Contact, type Project, type ProjectStatus, type Task, type TaskStatus, type WorkLog, projectBrand, projectDriveUrl, DIVISIONS, DIVISION_KEYS, type Division } from '../lib/types'
 import { ContactTimeline, ExchangeFilesSection, ProjectContactsSection } from '../components/ContactHistory'
 import { OrgSection } from '../components/Org'
 import { Board, type BoardCol } from '../components/Board'
@@ -155,8 +155,9 @@ export default function Projects() {
               </div>
               <span className="grow" />
               <div className="chips" aria-label="회사">
-                {([[null, '전체'], ['AR', '아트리어'], ['TW', '더위클리']] as [string | null, string][]).map(([k, l]) => (
+                {([[null, '전체'], ...DIVISION_KEYS.map(k => [k, DIVISIONS[k].label])] as [string | null, string][]).map(([k, l]) => (
                   <Chip key={l} active={brand === k} onClick={() => go({ brand: k })}>
+                    {k && <i className="div-dot" style={{ background: DIVISIONS[k as Division].color }} />}
                     {l}
                   </Chip>
                 ))}
@@ -170,27 +171,23 @@ export default function Projects() {
               </div>
             </div>
             {/* 회사별로 나눠 보기: 아트리어(AR) · 더위클리(TW) — 회사 칩을 고르면 그 회사만 */}
-            {(
-              [
-                ['AR', '아트리어 프로젝트'],
-                ['TW', '더위클리 프로젝트'],
-                [null, '연번 없는 프로젝트'],
-              ] as [string | null, string][]
-            )
-              .filter(([k]) => !brand || brand === k)
-              .map(([k, label]) => {
+            {/* 구분별 카드 (조직 · 진행 현황과 같은 모양): 아트리어 · 더위클리 · 내부 리서치 — 위쪽 색 띠 = 대표 색상 */}
+            <div className="div-cards">
+              {DIVISION_KEYS.filter(k => !brand || brand === k).map(k => {
                 const rows = sorted(shown.filter(p => projectBrand(p) === k && OPEN.includes(p.status) && (status === 'all' || p.status === status)))
-                if (!rows.length && k === null) return null
                 return (
-                  <div key={label} className={`col gap-4 brand-block brand-${k ?? 'none'}`}>
-                    <div className="brand-head">
-                      <span className="t-bodyb">{label}</span>
+                  <section key={k} className="div-card" style={{ borderTopColor: DIVISIONS[k].color }}>
+                    <div className="row">
+                      <span className="t-bodyb grow" style={{ color: DIVISIONS[k].color }}>
+                        {DIVISIONS[k].full}
+                      </span>
                       <span className="board-count">{rows.length}</span>
                     </div>
                     <ProjectBoard list={rows} data={data} loading={loading} onOpen={id => go({ id })} />
-                  </div>
+                  </section>
                 )
               })}
+            </div>
             {/* 드라이브 폴더 구성과 같게: 완료 · 대기 / NIC 는 펼쳐 보기 */}
             {([
               ['done', '완료 · 대기 프로젝트', ['완료', '보류']],
@@ -226,7 +223,12 @@ function ProjectBoard({ list, data, loading, onOpen }: { list: Project[]; data: 
   const { profileName } = useApp()
   const today = todayKey()
   const cols: BoardCol<Project>[] = [
-    { key: 'code', label: '연번', width: 72, cell: p => <span className="t-mono">{p.code ?? '-'}</span> },
+    { key: 'code', label: '연번', width: 92, cell: p => (
+        <span className="t-mono row" style={{ gap: 4 }} title={DIVISIONS[projectBrand(p)].full}>
+          <i className="div-dot" style={{ background: DIVISIONS[projectBrand(p)].color }} />
+          {p.code ?? '-'}
+        </span>
+      ) },
     {
       key: 'drive',
       label: '드라이브',
@@ -549,7 +551,7 @@ function ProjectDetail({ project: p, data, onEdit, onBack }: { project: Project;
         <button type="button" className="icon-btn" onClick={onBack} aria-label="목록으로">
           <ArrowLeft size={18} />
         </button>
-        {p.code && <span className="proj-code">{p.code}</span>}
+        {p.code && <span className="proj-code" style={{ background: DIVISIONS[projectBrand(p)].color }} title={DIVISIONS[projectBrand(p)].full}>{p.code}</span>}
         <h2 className="t-title truncate">{p.name}</h2>
         <StatusBadge status={p.status} />
         <Badge>{p.category}</Badge>
@@ -652,7 +654,7 @@ function ProjectSearch({ value, onChange }: { value: string; onChange: (v: strin
 export function ProjectForm({ project, clients, onClose, onSaved }: { project: Project | null; clients: Client[]; onClose: () => void; onSaved: (id: string) => void }) {
   const { api, me, profiles } = useApp()
   const { busy, run } = useAction()
-  const [f, setF] = useState<Partial<Project>>(() => project ?? { name: '', category: '팝업', status: '기획', owner_id: me.id, client_id: null, start_date: null, end_date: null, location: null, description: null })
+  const [f, setF] = useState<Partial<Project>>(() => project ?? { name: '', division: 'AR', category: '팝업', status: '기획', owner_id: me.id, client_id: null, start_date: null, end_date: null, location: null, description: null })
   const set = (p: Partial<Project>) => setF(prev => ({ ...prev, ...p }))
   const submit = async () => {
     let id = ''
@@ -680,8 +682,19 @@ export function ProjectForm({ project, clients, onClose, onSaved }: { project: P
       }
     >
       <div className="form-grid">
+        {/* label 로 감싸면 칩 클릭이 첫 칩으로 넘어가므로 div 로 */}
+        <div className="label full">
+          <span>구분</span>
+          <div className="chips" role="radiogroup" aria-label="구분">
+            {DIVISION_KEYS.map(k => (
+              <Chip key={k} active={(f.division ?? 'AR') === k} onClick={() => set({ division: k })}>
+                <i className="div-dot" style={{ background: DIVISIONS[k].color }} /> {DIVISIONS[k].label} ({k})
+              </Chip>
+            ))}
+          </div>
+        </div>
         {project && (
-          <Field label="연번 (관리자만 변경 · 드라이브 폴더 규칙 AR+시작 연월, 관리 폴더는 AR0000)">
+          <Field label="연번 (자동: 구분 + 시작 연월 + 번호 · 구분을 바꾸면 새 번호 · 관리자만 직접 변경)">
             <input className="input" value={f.code ?? ''} onChange={e => set({ code: e.target.value.trim().toUpperCase() || null })} disabled={me.role !== 'admin'} maxLength={12} />
           </Field>
         )}
