@@ -1478,3 +1478,9 @@ html.detail-open .web-panel { max-width: 28vw; }
   .app-page.tab-home .body > .profile > .mini-cal { grid-column: 3; grid-row: 1 / span 6; }
   .app-page.tab-home .photo { width: 64px; height: 64px; }
 }
+
+/* 인터넷 창 숨기기 / 다시 보이기 */
+.web-toggle { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.web-toggle[aria-pressed='true'] { background: var(--yellow); }
+.web-bar > .web-hide { border: 1px solid var(--blue); border-radius: 999px; width: 20px; height: 20px; flex-shrink: 0; color: var(--blue); }
+@media (pointer: coarse) { .web-hide { display: none !important; } }

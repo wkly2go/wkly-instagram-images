@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { createPortal } from 'react-dom'
-import { ChevronLeft, ChevronRight, ExternalLink, Search, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ExternalLink, PanelRightClose, PanelRightOpen, Search, X } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { desktop } from '../lib/desktop'
 
@@ -74,7 +74,7 @@ const SITE_GROUPS: Record<SiteGroup, { label: string; sites: Site[] }> = {
 /** 세 번째 줄에서 고른 사이트: 'site:' + 주소 */
 type SiteKey = `site:${string}`
 /** 'url' = 인트라넷에서 누른 링크를 오른쪽 창에 그대로 엶 */
-type Engine = 'google' | 'images' | 'naver' | 'chatgpt' | 'perplexity' | 'url' | SiteGroup | SiteKey
+type Engine = 'google' | 'images' | 'naver' | 'drive' | 'chatgpt' | 'perplexity' | 'url' | SiteGroup | SiteKey
 const isGroup = (e: Engine): e is SiteGroup => e in SITE_GROUPS
 const isSite = (e: Engine): e is SiteKey => e.startsWith('site:')
 const siteOf = (e: SiteKey): Site | undefined => {
@@ -95,6 +95,7 @@ const ENGINES: [Engine, string][] = [
   ['google', '구글'],
   ['images', '이미지'],
   ['naver', '네이버'],
+  ['drive', '드라이브'],
   ['chatgpt', 'ChatGPT'],
   ['perplexity', 'Perplexity'],
 ]
@@ -107,6 +108,8 @@ const urlFor = (e: Engine, q: string) => {
     return st?.search ? st.search(s) : `https://www.google.com/search?q=${encodeURIComponent(`${q} site:${e.slice(5)}`)}`
   }
   if (e === 'images') return `https://www.google.com/search?tbm=isch&q=${s}`
+  // 구글 드라이브 (대표 지시 2026-10-20): 회사 계정 드라이브에서 파일 찾기
+  if (e === 'drive') return `https://drive.google.com/drive/search?q=${s}`
   if (e === 'naver') return `https://m.search.naver.com/search.naver?query=${s}`
   // AI 검색: 검색어를 바로 질문으로 넘김
   if (e === 'chatgpt') return `https://chatgpt.com/?q=${s}`
@@ -203,9 +206,19 @@ const cseReady = (cx: string) =>
 /** 검색 창 상태는 화면(탭)을 옮겨도 그대로: 모듈 전역 + 이 창(sessionStorage)에 기억 */
 type OpenState = { q: string; engine: Engine } | null
 const OPEN_KEY = 'wkly-web-open'
-/** 검색 창은 항상 오른쪽에 붙어 있음 (닫기는 내용만 비움) */
+/** 검색 창은 오른쪽에 붙어 있음 (닫기는 내용만 비움). '인터넷 창 숨기기'를 누르면 null — 이 PC에 기억, 검색 · 링크를 누르면 다시 보임 */
 const DOCKED: OpenState = { q: '', engine: 'google' }
+const HIDE_KEY = 'wkly-web-hidden'
+const DRIVE_HOME = 'https://drive.google.com/drive/my-drive'
+const readHidden = () => {
+  try {
+    return localStorage.getItem(HIDE_KEY) === '1'
+  } catch {
+    return false
+  }
+}
 let openState: OpenState = (() => {
+  if (readHidden()) return null
   try {
     return (JSON.parse(sessionStorage.getItem(OPEN_KEY) ?? 'null') as OpenState) ?? DOCKED
   } catch {
@@ -216,6 +229,7 @@ const openListeners = new Set<() => void>()
 function setOpenState(v: OpenState) {
   openState = v
   try {
+    if (v) localStorage.removeItem(HIDE_KEY)
     if (v) sessionStorage.setItem(OPEN_KEY, JSON.stringify(v))
     else sessionStorage.removeItem(OPEN_KEY)
   } catch {
@@ -228,6 +242,17 @@ const useOpenState = () =>
     openListeners.add(cb)
     return () => openListeners.delete(cb)
   }, () => openState)
+/** 인터넷 창 숨기기 (본 화면을 넓게) / 다시 보이기 */
+function hidePanel() {
+  setOpenState(null)
+  try {
+    localStorage.setItem(HIDE_KEY, '1')
+  } catch {
+    /* 저장 불가: 이번만 숨김 */
+  }
+}
+const showPanel = () => setOpenState(DOCKED)
+
 /** 오른쪽 창을 쓸 수 있는 화면: 마우스로 쓰는 넓은 화면 (휴대폰 · 태블릿은 새 탭으로) */
 const panelUsable = () => typeof window !== 'undefined' && window.innerWidth >= 900 && !window.matchMedia?.('(pointer: coarse)').matches
 const isWebUrl = (u: string) => /^https?:\/\//i.test(u)
@@ -335,6 +360,10 @@ export function WebSearchBox() {
           </button>
         </span>
       )}
+      <button type="button" className="quick-btn pc-only web-toggle" onClick={open ? hidePanel : showPanel} aria-pressed={!open} title={open ? '오른쪽 인터넷 창을 숨기고 본 화면을 넓게' : '오른쪽 인터넷 창 다시 보이기'}>
+        {open ? <PanelRightClose size={13} /> : <PanelRightOpen size={13} />}
+        {open ? '창 숨기기' : '인터넷 창'}
+      </button>
       <span className="web-zoom" role="group" aria-label="검색 창 글자 크기" title={`검색 창 글자 크기 ${Math.round(zoom * 100)}% (PC 프로그램에서 적용)`}>
         <button type="button" className="icon-btn sm" onClick={() => stepZoom(-0.1)} aria-label="글자 작게">
           가−
@@ -511,13 +540,16 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
       <div className="web-bar">
         <div className="web-tabs grow" role="tablist" aria-label="검색 종류">
           {ENGINES.map(([k, l]) => (
-            <button key={k} type="button" role="tab" aria-selected={engine === k} className={`web-tab${engine === k ? ' on' : ''}`} onClick={() => onSearch(engine === 'url' ? '' : q, k)}>
+            <button key={k} type="button" role="tab" aria-selected={engine === k} className={`web-tab${engine === k ? ' on' : ''}`} onClick={() => (k === 'drive' && !term ? onSearch(DRIVE_HOME, 'url') : onSearch(term, k))}>
               {l}
             </button>
           ))}
         </div>
         <button type="button" className="icon-btn sm" onClick={() => (native ? app!.searchNav?.('external') : window.open(urlFor(engine, q), '_blank', 'noopener'))} aria-label="브라우저로 열기" title="브라우저로 열기">
           <ExternalLink size={13} />
+        </button>
+        <button type="button" className="icon-btn sm web-hide" onClick={hidePanel} aria-label="인터넷 창 숨기기" title="인터넷 창 숨기기 (본 화면 넓게) · 위쪽 '인터넷 창'으로 다시 열기">
+          <PanelRightClose size={13} />
         </button>
         <button type="button" className="icon-btn sm web-close" onClick={onClose} aria-label="검색 창 닫기" title="닫기">
           <X size={14} />
