@@ -1484,3 +1484,7 @@ html.detail-open .web-panel { max-width: 28vw; }
 .web-toggle[aria-pressed='true'] { background: var(--yellow); }
 .web-bar > .web-hide { border: 1px solid var(--blue); border-radius: 999px; width: 20px; height: 20px; flex-shrink: 0; color: var(--blue); }
 @media (pointer: coarse) { .web-hide { display: none !important; } }
+
+/* 새 버전 · PC 프로그램 안내 띠: 화면 왼쪽 아래 (위쪽 검색창 · 버튼을 가리지 않게) */
+.update-bar { top: auto; bottom: 16px; left: 16px; transform: none; border-radius: 14px; max-width: min(460px, calc(100% - 32px)); flex-wrap: wrap; }
+@media (pointer: coarse) { .update-bar { bottom: calc(76px + env(safe-area-inset-bottom)); left: 8px; max-width: calc(100% - 16px); } }
