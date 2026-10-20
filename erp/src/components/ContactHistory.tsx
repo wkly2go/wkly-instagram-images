@@ -5,6 +5,7 @@ import { Link } from '../lib/router'
 import type { Client, Contact, ExchangeFile, Project, ProjectContact, WorkLog } from '../lib/types'
 import { Badge, Button, Chip, Field, KindBadge, SectionHead } from './ui'
 import { Board, type BoardCol } from './Board'
+import { openLink } from './WebSearch'
 
 const fmtSize = (n: number | null) => (n == null ? '' : n > 1048576 ? `${(n / 1048576).toFixed(1)}MB` : `${Math.max(1, Math.round(n / 1024))}KB`)
 
@@ -46,7 +47,7 @@ export function ExchangeFilesSection({ clientId, contactId, projectId, contacts,
   const { data: files } = useAsync(() => api.listExchangeFiles({ clientId: contactId || projectId ? undefined : clientId ?? undefined, contactId: contactId ?? undefined, projectId: projectId ?? undefined }), [version, clientId, contactId, projectId], [] as ExchangeFile[])
   const open = async (f: ExchangeFile) => {
     const url = await api.exchangeFileUrl(f)
-    if (url) window.open(url, '_blank', 'noopener')
+    if (url) openLink(url)
   }
   const byProject = (id: string | null) => (id ? projects.find(p => p.id === id)?.name : undefined)
   const byContact = (id: string | null) => (id ? contacts.find(c => c.id === id)?.name : undefined)
