@@ -24,6 +24,7 @@ import { LockScreen, useSessionPolicy } from './lib/session'
 import Download from './pages/Download'
 import Agents from './pages/Agents'
 import Ads from './pages/Ads'
+import Drive from './pages/Drive'
 
 const PAGES: Record<string, () => JSX.Element> = {
   '/': Home,
@@ -33,6 +34,7 @@ const PAGES: Record<string, () => JSX.Element> = {
   '/projects': Projects,
   '/clients': Clients,
   '/library': Library,
+  '/drive': Drive,
   '/team': Team,
   '/admin': Admin,
   '/agents': Agents,

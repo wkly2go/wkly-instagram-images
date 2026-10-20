@@ -1,5 +1,5 @@
 import { desktop } from './desktop'
-import { ApiError, groupIps, type Api, type ImportResult, type MessageEvent } from './api'
+import { ApiError, groupIps, type Api, type DriveFolder, type ImportResult, type MessageEvent } from './api'
 import { addDays, nextMonday, toDateKey, todayKey } from './date'
 import { DEFAULT_REPORT_BODY } from './reports'
 import type {
@@ -92,6 +92,7 @@ interface Store {
   checkins?: AttendanceCheckin[]
   rules?: AttendanceRules
   search_cx?: string | null
+  drive_folders?: DriveFolder[]
   ad_reports?: AdReport[]
   seo_checks?: SeoCheck[]
   desktop_only?: boolean
@@ -1664,6 +1665,17 @@ export function createDemoApi(): Api {
       store.devices = (store.devices ?? []).filter(d => !(d.user_id === userId && d.device_id === deviceId))
       persist()
       emit('attendance')
+    },
+    async getDriveFolders() {
+      requireMe()
+      return clone(store.drive_folders ?? [])
+    },
+    async setDriveFolders(list) {
+      requireAdmin()
+      if (list.some(f => !f.name.trim() || !/^https:\/\/(drive|docs)\.google\.com\//.test(f.url))) throw new ApiError('폴더 이름과 구글 드라이브 주소(https://drive.google.com/…)를 확인해 주세요.')
+      store.drive_folders = list
+      persist()
+      emit('app_settings')
     },
     async getSearchCx() {
       return store.search_cx ?? null

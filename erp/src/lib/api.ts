@@ -60,6 +60,12 @@ import type {
   WorkLog,
 } from './types'
 
+/** 구글 드라이브 탭에 거는 회사 공용 폴더 */
+export interface DriveFolder {
+  name: string
+  url: string
+}
+
 export type ProfilePatch = Partial<Pick<Profile, 'name' | 'title' | 'today_status' | 'status_message' | 'photo' | 'role' | 'active' | 'is_agent' | 'manager_id'>>
 
 export interface NewMember {
@@ -325,6 +331,9 @@ export interface Api {
   /** 인트라넷 구글 검색: Google 프로그래머블 검색 ID (없으면 null) */
   getSearchCx(): Promise<string | null>
   setSearchCx(cx: string | null): Promise<void>
+  /** 구글 드라이브 탭: 회사 공용 폴더 (관리자 등록) */
+  getDriveFolders(): Promise<DriveFolder[]>
+  setDriveFolders(list: DriveFolder[]): Promise<void>
 
   // 휴가
   listLeave(): Promise<LeaveRecord[]>

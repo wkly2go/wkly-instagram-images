@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState, type ChangeEvent, type ReactNode } from 'react'
-import { Bot, Briefcase, ChevronLeft, ChevronRight, CircleHelp, ClipboardCheck, FolderKanban, Home, Library, Megaphone, MessageCircle, MoreHorizontal, Settings, Users, type LucideIcon } from 'lucide-react'
+import { Bot, Briefcase, HardDrive, ChevronLeft, ChevronRight, CircleHelp, ClipboardCheck, FolderKanban, Home, Library, Megaphone, MessageCircle, MoreHorizontal, Settings, Users, type LucideIcon } from 'lucide-react'
 import { isDesktopApp } from '../lib/desktop'
 import { NotificationBell } from './Notifications'
 import { WebSearchBox, webSlot } from './WebSearch'
@@ -21,7 +21,7 @@ import { Link, useRouter } from '../lib/router'
 import { TODAY_STATUSES, type TodayStatus } from '../lib/types'
 import { toneOf } from './ui'
 
-export type TabKey = 'home' | 'approvals' | 'chat' | 'work' | 'projects' | 'clients' | 'library' | 'team' | 'agents' | 'ads' | 'admin'
+export type TabKey = 'home' | 'approvals' | 'chat' | 'work' | 'projects' | 'clients' | 'library' | 'drive' | 'team' | 'agents' | 'ads' | 'admin'
 
 export const TABS: { key: TabKey; label: string; path: string; admin?: boolean }[] = [
   { key: 'home', label: '홈', path: '/' },
@@ -30,6 +30,7 @@ export const TABS: { key: TabKey; label: string; path: string; admin?: boolean }
   { key: 'projects', label: '프로젝트', path: '/projects' },
   { key: 'clients', label: '거래처', path: '/clients' },
   { key: 'library', label: '자료실', path: '/library' },
+  { key: 'drive', label: '드라이브', path: '/drive' },
   { key: 'team', label: '업무·근태', path: '/team' },
   { key: 'agents', label: 'AI팀', path: '/agents', admin: true },
   { key: 'ads', label: '광고', path: '/ads', admin: true },
@@ -45,6 +46,7 @@ const ICONS: Record<TabKey, LucideIcon> = {
   projects: FolderKanban,
   clients: Briefcase,
   library: Library,
+  drive: HardDrive,
   team: Users,
   agents: Bot,
   ads: Megaphone,
