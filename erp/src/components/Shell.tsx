@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState, type ChangeEvent, type ReactNode } from 'react'
-import { Bot, Briefcase, HardDrive, ChevronLeft, ChevronRight, CircleHelp, ClipboardCheck, FolderKanban, Home, Library, Megaphone, MessageCircle, MoreHorizontal, Settings, Users, type LucideIcon } from 'lucide-react'
+import { Bot, Briefcase, HardDrive, MonitorDown, ChevronLeft, ChevronRight, CircleHelp, ClipboardCheck, FolderKanban, Home, Library, Megaphone, MessageCircle, MoreHorizontal, Settings, Users, type LucideIcon } from 'lucide-react'
 import { isDesktopApp } from '../lib/desktop'
 import { NotificationBell } from './Notifications'
 import { WebSearchBox, webSlot } from './WebSearch'
@@ -337,8 +337,8 @@ export function Shell({ active, flush, children }: { active: TabKey; flush?: boo
               {api.mode === 'demo' && <span className="mode-badge" title="Supabase 연결 전 체험 모드. 데이터는 이 브라우저에만 저장됩니다.">DEMO</span>}
               <NotificationBell />
               {!isDesktopApp() && (
-                <Link to="/download" className="quick-btn pc-only" title="회사 컴퓨터용 PC 프로그램 (출근 기록)" style={{ textDecoration: 'none' }}>
-                  PC 프로그램
+                <Link to="/download" className="quick-btn pc-only" title="PC 프로그램 내려받기 (회사 컴퓨터 · 출근 기록)" style={{ textDecoration: 'none' }}>
+                  <MonitorDown size={15} aria-label="PC 프로그램 내려받기" />
                 </Link>
               )}
               {/* 검색창만 오른쪽 끝, 나머지(알림 · 창 숨기기 · 글자 크기 등)는 왼쪽 — 순서는 styles.css 의 order */}

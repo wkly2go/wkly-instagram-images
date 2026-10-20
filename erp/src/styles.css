@@ -1515,3 +1515,33 @@ html.detail-open .web-panel { max-width: 28vw; }
 .topbar .bell .quick-btn { width: 32px; padding: 0; }
 .topbar .web-zoom .icon-btn.sm { width: 32px; height: 32px; padding: 0; font-size: var(--fs-cap); }
 .topbar .web-nav .icon-btn.sm { width: 28px; height: 28px; }
+
+/* ---------- 위쪽 줄 아이콘: 모두 32×32 같은 크기 · 회색 (대표 지시 2026-10-20) ---------- */
+.topbar .quick-btn, .topbar .web-zoom .icon-btn.sm, .topbar .web-nav .icon-btn.sm {
+  width: 32px; height: 32px; min-width: 32px; padding: 0; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--line); border-radius: 999px; background: var(--white); color: var(--gray);
+  font: 700 var(--fs-cap)/1 var(--font); box-shadow: none;
+}
+.topbar .quick-btn:hover, .topbar .web-zoom .icon-btn.sm:hover, .topbar .web-nav .icon-btn.sm:hover { border-color: var(--gray); background: var(--paper); color: var(--gray); }
+.topbar .web-toggle[aria-pressed='true'] { background: var(--paper); border-color: var(--gray); }
+.topbar .web-nav { border: 0; background: none; padding: 0; gap: 4px; }
+.topbar .web-search { border-color: var(--line); color: var(--gray); }
+.topbar .web-search:focus-within { border-color: var(--gray); box-shadow: 0 0 0 3px var(--paper); }
+.topbar .mode-badge { background: var(--white); color: var(--gray); border: 1px solid var(--line); }
+.topbar .bell .count { top: -5px; right: -5px; }
+
+/* ---------- 드라이브 탭 ---------- */
+.drive-quick { display: flex; flex-wrap: wrap; gap: 6px; }
+.drive-chip { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border: 1px solid var(--blue); border-radius: 999px; background: var(--white); color: var(--blue); font: 700 var(--fs-sm)/1 var(--font); cursor: pointer; white-space: nowrap; }
+.drive-chip:hover:not(:disabled) { background: var(--yellow-tint); }
+.drive-chip.on { background: var(--yellow); }
+.drive-chip.folder { border-color: var(--green); color: var(--green); }
+.drive-chip:disabled { opacity: 0.45; cursor: default; }
+.drive-native { height: calc(100dvh - 260px); min-height: 420px; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); }
+.drive-login { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 40px 16px; border: 1px dashed var(--blue); border-radius: 10px; background: var(--white); color: var(--blue); text-align: center; }
+.drive-list { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 8px; background: var(--white); overflow: hidden; }
+.drive-trail { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; padding: 8px 12px; background: var(--paper); border-bottom: 1px solid var(--line); font-size: var(--fs-sm); }
+.drive-trail .link-btn:disabled { color: var(--blue); font-weight: 700; cursor: default; text-decoration: none; }
+.drive-row { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 12px; border: 0; border-bottom: 1px solid var(--line); background: none; color: var(--blue); text-align: left; cursor: pointer; font: inherit; }
+.drive-row:hover { background: var(--yellow-tint); }
+.drive-name { font-weight: 700; font-size: var(--fs-sm); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

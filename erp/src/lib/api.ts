@@ -334,6 +334,9 @@ export interface Api {
   /** 구글 드라이브 탭: 회사 공용 폴더 (관리자 등록) */
   getDriveFolders(): Promise<DriveFolder[]>
   setDriveFolders(list: DriveFolder[]): Promise<void>
+  /** 웹 브라우저 드라이브 목록용 구글 OAuth 클라이언트 ID (공개 값, 관리자 등록) */
+  getGoogleClientId(): Promise<string | null>
+  setGoogleClientId(id: string | null): Promise<void>
 
   // 휴가
   listLeave(): Promise<LeaveRecord[]>

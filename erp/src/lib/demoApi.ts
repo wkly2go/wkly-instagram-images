@@ -93,6 +93,7 @@ interface Store {
   rules?: AttendanceRules
   search_cx?: string | null
   drive_folders?: DriveFolder[]
+  google_client_id?: string | null
   ad_reports?: AdReport[]
   seo_checks?: SeoCheck[]
   desktop_only?: boolean
@@ -1669,6 +1670,15 @@ export function createDemoApi(): Api {
     async getDriveFolders() {
       requireMe()
       return clone(store.drive_folders ?? [])
+    },
+    async getGoogleClientId() {
+      return store.google_client_id ?? null
+    },
+    async setGoogleClientId(id) {
+      requireAdmin()
+      store.google_client_id = id
+      persist()
+      emit('app_settings')
     },
     async setDriveFolders(list) {
       requireAdmin()
