@@ -331,10 +331,8 @@ export function Shell({ active, flush, children }: { active: TabKey; flush?: boo
                 <img src="/wkly-logo-blue.svg" alt="WKLY" width={76} height={24} />
               </Link>
               <span className="site-title">사내 인트라넷</span>
-              {/* 검색창은 왼쪽 끝 (로고 · 이름 바로 옆) */}
-              <WebSearchBox />
-              <span className="grow" />
               <span className="site-url t-meta">{window.location.host}</span>
+              <span className="grow" />
               {api.mode === 'demo' && <span className="mode-badge" title="Supabase 연결 전 체험 모드. 데이터는 이 브라우저에만 저장됩니다.">DEMO</span>}
               <NotificationBell />
               {!isDesktopApp() && (
@@ -342,6 +340,8 @@ export function Shell({ active, flush, children }: { active: TabKey; flush?: boo
                   PC 프로그램
                 </Link>
               )}
+              {/* 검색창은 오른쪽 끝 (오른쪽 인터넷 창 위) */}
+              <WebSearchBox />
             </header>
             <div className="body" ref={mountWebSlot}>
               <ProfilePanel summary={summary} />
