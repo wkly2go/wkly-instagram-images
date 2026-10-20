@@ -4,6 +4,7 @@ import { desktop } from './desktop'
 import type {
   Subscription,
   ExchangeFile,
+  ProjectDriveFile,
   ProjectContact,
   AttendanceDevice,
   AccessLog,
@@ -715,6 +716,21 @@ export function createSupabaseApi(url: string, key: string): Api {
       const row = must(await sb.from('exchange_files').update(patch).eq('id', id).select('id')) as { id: string }[]
       if (!row.length) throw new ApiError('고칠 수 없습니다 (올린 사람 · 관리자만).')
     },
+    async listProjectDriveFiles(projectId) {
+      const { data, error } = await sb.from('project_drive_files').select('*').eq('project_id', projectId).order('created_at', { ascending: false })
+      if (error) return [] // 0045 미적용
+      return data as ProjectDriveFile[]
+    },
+    async addProjectDriveFiles(projectId, files) {
+      if (!files.length) return
+      const { data } = await sb.auth.getSession()
+      const rows = files.map(f => ({ ...f, project_id: projectId, added_by: data.session?.user.id }))
+      must(await sb.from('project_drive_files').upsert(rows, { onConflict: 'project_id,drive_id', ignoreDuplicates: true }).select('id'))
+    },
+    async renameProjectDriveFile(id, patch) {
+      mustAffect(await sb.from('project_drive_files').update(patch).eq('id', id).select('id'))
+    },
+    removeProjectDriveFile: id => remove('project_drive_files', id),
     async deleteExchangeFile(id) {
       const row = must(await sb.from('exchange_files').delete().eq('id', id).select('storage_path')) as { storage_path: string | null }[]
       if (!row.length) throw new ApiError('지울 수 없습니다 (올린 사람 · 관리자만).')

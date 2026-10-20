@@ -259,6 +259,20 @@ export interface Project {
   updated_at: string
 }
 
+/** 프로젝트에 첨부한 구글 드라이브 자료 (0045) — 파일을 복사하지 않고 드라이브 파일을 가리킴 */
+export interface ProjectDriveFile {
+  id: string
+  project_id: string
+  drive_id: string
+  name: string
+  mime_type: string | null
+  url: string
+  icon_url: string | null
+  note: string | null
+  added_by: string | null
+  created_at: string
+}
+
 /** 프로젝트 드라이브 폴더: 저장된 주소 → 설명 속 드라이브 주소 → 연번 · 이름으로 드라이브 검색 */
 export function projectDriveUrl(p: Pick<Project, 'drive_url' | 'description' | 'code' | 'name'>): { url: string; exact: boolean } {
   if (p.drive_url) return { url: p.drive_url, exact: true }

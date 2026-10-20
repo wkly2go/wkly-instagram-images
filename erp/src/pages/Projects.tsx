@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { AlarmClock, ArrowLeft, CheckCircle2, ChevronLeft, ChevronRight, CircleSlash, FolderOpen, Pencil, Search, Trash2 } from 'lucide-react'
 import { ProjectMaterials } from '../components/ProjectMaterials'
 import { SiteLogsSection } from '../components/SiteLogs'
+import { ProjectDriveSection } from '../components/DriveFiles'
 import { useRightPanel } from '../components/RightPanel'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { addMonths, dateLabel, monthGrid, shortDate, timeLabel, toDateKey, todayKey, weekRange, weekday, periodLabel } from '../lib/date'
@@ -620,6 +621,8 @@ function ProjectDetail({ project: p, data, onEdit, onBack }: { project: Project;
           <ContactTimeline logs={extra.logs} projects={[]} showContact contacts={extra.contacts} />
         </div>
       </div>
+      {/* 구글 드라이브 자료: 드라이브 파일을 가리켜 늘 최신 · 구글 문서는 편집 화면으로 */}
+      <ProjectDriveSection project={p} />
       {/* 인테리어(아트리어 · AR) 프로젝트는 현장 작업일지, 다른 프로젝트는 작업일지가 있을 때만 */}
       <SiteLogsSection project={p} always={projectBrand(p) === 'AR'} />
       <FinancePanel project={p} clients={data.clients} projects={data.projects} />
