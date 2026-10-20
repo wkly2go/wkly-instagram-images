@@ -208,7 +208,7 @@ const OPEN_KEY = 'wkly-web-open'
 /** 검색 창은 오른쪽에 붙어 있음 (닫기는 내용만 비움). '인터넷 창 숨기기'를 누르면 null — 이 PC에 기억, 검색 · 링크를 누르면 다시 보임 */
 const DOCKED: OpenState = { q: '', engine: 'google' }
 const HIDE_KEY = 'wkly-web-hidden'
-/** 검색어 없이 검색 종류를 누르면 그 사이트 첫 화면을 열어 거기서 바로 검색 (대표 지시 2026-10-20 "구글 탭은 일반 검색용") */
+/** 첫 줄 사이트를 누르면 검색어와 상관없이 그 사이트 첫 화면으로 바로 이동 (대표 지시 2026-10-20) */
 const HOME: Partial<Record<Engine, string>> = {
   google: 'https://www.google.com/',
   images: 'https://images.google.com/',
@@ -583,7 +583,7 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
       <div className="web-bar">
         <div className="web-tabs grow" role="tablist" aria-label="검색 종류">
           {ENGINES.map(([k, l]) => (
-            <button key={k} type="button" role="tab" aria-selected={engine === k || homeOf === k} className={`web-tab${engine === k || homeOf === k ? ' on' : ''}`} title={term ? `'${term}' ${l} 검색` : `${l} 열기 · 거기서 바로 검색`} onClick={() => (!term && HOME[k] ? onSearch(HOME[k]!, 'url') : onSearch(term, k))}>
+            <button key={k} type="button" role="tab" aria-selected={engine === k || homeOf === k} className={`web-tab${engine === k || homeOf === k ? ' on' : ''}`} title={`${l} 바로 가기`} onClick={() => onSearch(HOME[k]!, 'url')}>
               {l}
             </button>
           ))}

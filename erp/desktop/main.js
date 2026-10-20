@@ -268,7 +268,8 @@ function watchIdle() {
  * 자동 업데이트 (GitHub 릴리스)
  *  - 윈도우: 새 버전을 저절로 받아 둠 (electron-updater)
  *  - 맥: 서명이 없어 기본 방식은 안 되므로, 30분마다 latest-mac.yml 을 직접 확인해 새 버전 zip 을 받아 풀어 둠
- *  - 받아 둔 새 버전은 ① 로그인 · 잠금 화면에서 1분 넘게 손대지 않을 때 ② 프로그램을 끌 때 ③ 인트라넷 위 '지금 다시 시작'을 누를 때 설치
+ *  - 30분마다 · 컴퓨터를 깨울 때 확인, 받아 둔 새 버전은 손대지 않을 때(로그인 화면 1분 · 사용 중 5분 · 3시간 지나면 1분) · 끌 때 ·
+ *    인트라넷 위 '지금 다시 시작'을 누를 때 저절로 설치
  */
 let macUpdateApp = null // 맥: 풀어 둔 새 .app 경로
 let updateVersion = null
@@ -306,7 +307,8 @@ function setupUpdates() {
   })
   const check = () => autoUpdater.checkForUpdates().catch(() => undefined)
   setTimeout(check, 10_000)
-  setInterval(check, 60 * 60_000)
+  setInterval(check, 30 * 60_000)
+  powerMonitor.on('resume', () => setTimeout(check, 15_000))
 }
 
 /** 맥 업데이트 기록 (문제 확인용): ~/Library/Application Support/WKLY Intranet/update.log */
@@ -375,12 +377,18 @@ async function checkMacUpdate() {
   }
 }
 
-/** 받아 둔 새 버전은 로그인 · 잠금 화면에서 1분 넘게 손대지 않을 때 설치 (입력 중에 끊지 않음) */
+/**
+ * 받아 둔 새 버전 자동 설치 (1.23 · 대표 지시 2026-10-21 "자동 설치 되도록"): 입력 중에는 끊지 않음
+ *  ① 로그인 · 잠금 화면에서 1분 ② 로그인 중이라도 5분 넘게 손대지 않을 때
+ *  ③ 받아 두고 3시간이 지났으면 1분만 손을 떼도 설치 (계속 미뤄지지 않게)
+ */
+let updateReadyAt = 0
 function maybeInstallUpdate() {
   if (!updateReady) return
+  if (!updateReadyAt) updateReadyAt = Date.now()
   const idle = powerMonitor.getSystemIdleTime()
-  // 로그인 · 잠금 화면에서 1분, 로그인 중이라도 10분 넘게 손대지 않으면 설치 (작업 중에는 끊지 않음)
-  if ((!loggedIn && idle >= 60) || idle >= 10 * 60) installUpdate()
+  const overdue = Date.now() - updateReadyAt > 3 * 3600_000
+  if ((!loggedIn && idle >= 60) || idle >= 5 * 60 || (overdue && idle >= 60)) installUpdate()
 }
 
 function installUpdate() {
