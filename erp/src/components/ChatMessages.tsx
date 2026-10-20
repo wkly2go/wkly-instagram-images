@@ -5,6 +5,7 @@ import { dateLabel, timeLabel, toDateKey } from '../lib/date'
 import type { ChatAttachment, ChatMessage, ChatRead } from '../lib/types'
 import { CHAT_FILE_MAX, friendlyError } from '../lib/api'
 import { Empty } from './ui'
+import { openLink } from './WebSearch'
 
 /** 말풍선 목록 (날짜 구분 · 3분 안 연속 메시지 묶음 · 읽음 표시 · 내 메시지/관리자 삭제) */
 export function MessageList({ messages, reads = [], members, onRemove, onEdit }: { messages: ChatMessage[]; reads?: ChatRead[]; members?: string[] | null; onRemove: (id: number) => void; onEdit?: (id: number, content: string) => Promise<boolean> }) {
@@ -159,7 +160,7 @@ function AttachmentView({ att }: { att: ChatAttachment }) {
         document.body.appendChild(a)
         a.click()
         a.remove()
-      } else window.open(url, '_blank', 'noopener')
+      } else openLink(url)
     } catch (e) {
       toast(friendlyError(e))
     }

@@ -73,7 +73,8 @@ const SITE_GROUPS: Record<SiteGroup, { label: string; sites: Site[] }> = {
 }
 /** 세 번째 줄에서 고른 사이트: 'site:' + 주소 */
 type SiteKey = `site:${string}`
-type Engine = 'google' | 'images' | 'naver' | 'chatgpt' | 'perplexity' | SiteGroup | SiteKey
+/** 'url' = 인트라넷에서 누른 링크를 오른쪽 창에 그대로 엶 */
+type Engine = 'google' | 'images' | 'naver' | 'chatgpt' | 'perplexity' | 'url' | SiteGroup | SiteKey
 const isGroup = (e: Engine): e is SiteGroup => e in SITE_GROUPS
 const isSite = (e: Engine): e is SiteKey => e.startsWith('site:')
 const siteOf = (e: SiteKey): Site | undefined => {
@@ -98,6 +99,7 @@ const ENGINES: [Engine, string][] = [
   ['perplexity', 'Perplexity'],
 ]
 const urlFor = (e: Engine, q: string) => {
+  if (e === 'url') return q
   if (isGroup(e)) return `https://www.google.com/search?q=${encodeURIComponent(`${q} (${SITE_GROUPS[e].sites.map(x => `site:${x.host}`).join(' OR ')})`)}`
   const s = encodeURIComponent(q)
   if (isSite(e)) {
@@ -110,6 +112,14 @@ const urlFor = (e: Engine, q: string) => {
   if (e === 'chatgpt') return `https://chatgpt.com/?q=${s}`
   if (e === 'perplexity') return `https://www.perplexity.ai/search?q=${s}`
   return `https://www.google.com/search?q=${s}`
+}
+
+const hostOf = (u: string) => {
+  try {
+    return new URL(u).host
+  } catch {
+    return u
+  }
 }
 
 const RECENT = 'wkly-web-recent'
@@ -218,6 +228,25 @@ const useOpenState = () =>
     openListeners.add(cb)
     return () => openListeners.delete(cb)
   }, () => openState)
+/** 오른쪽 창을 쓸 수 있는 화면: 마우스로 쓰는 넓은 화면 (휴대폰 · 태블릿은 새 탭으로) */
+const panelUsable = () => typeof window !== 'undefined' && window.innerWidth >= 900 && !window.matchMedia?.('(pointer: coarse)').matches
+const isWebUrl = (u: string) => /^https?:\/\//i.test(u)
+/** 링크를 오른쪽 창에서 엶 (대표 지시 2026-10-20 "링크를 클릭하면 오른쪽 창에서 열리게") · 못 쓰는 화면이면 새 탭 */
+export function openLink(url: string) {
+  if (isWebUrl(url) && panelUsable()) setOpenState({ q: url, engine: 'url' })
+  else window.open(url, '_blank', 'noopener')
+}
+/** 인트라넷 안의 바깥 링크(<a href="https://…">) 클릭을 가로채 오른쪽 창으로. Ctrl · ⌘ · Shift 클릭은 원래대로 새 탭 */
+function onLinkClick(e: MouseEvent) {
+  if (e.defaultPrevented || e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return
+  const a = (e.target as Element | null)?.closest?.('a[href]') as HTMLAnchorElement | null
+  if (!a || a.hasAttribute('download') || a.dataset.external !== undefined || a.closest('.web-panel')) return
+  if (!isWebUrl(a.href) || new URL(a.href).origin === window.location.origin) return
+  if (!panelUsable()) return
+  e.preventDefault()
+  setOpenState({ q: a.href, engine: 'url' })
+}
+
 /** 검색 칸 글자 크기 (PC 프로그램): 기본 60%, 가− / 가+ 로 조절 · 이 PC에 기억 */
 const ZOOM_KEY = 'wkly-web-zoom'
 let zoomState = (() => {
@@ -259,6 +288,10 @@ if (webSlot) {
 /** 앱 맨 위에서 한 번만 그리는 검색 창 (페이지가 바뀌어도 다시 만들지 않음) */
 export function WebPanelHost() {
   const open = useOpenState()
+  useEffect(() => {
+    document.addEventListener('click', onLinkClick, true)
+    return () => document.removeEventListener('click', onLinkClick, true)
+  }, [])
   if (!open) return null
   return <WebPanel q={open.q} engine={open.engine} onSearch={(v, e) => setOpenState({ q: v, engine: e })} onClose={() => setOpenState({ q: '', engine: open.engine })} />
 }
@@ -266,12 +299,12 @@ export function WebPanelHost() {
 /** 상단 검색창: Enter 를 누르면 본 화면 오른쪽에 검색 창이 열리고, 다른 탭으로 가도 그대로 남음 */
 export function WebSearchBox() {
   const open = useOpenState()
-  const [q, setQ] = useState(open?.q ?? '')
+  const [q, setQ] = useState(open?.engine === 'url' ? '' : open?.q ?? '')
   useEffect(() => {
-    if (open?.q) setQ(open.q)
-  }, [open?.q])
+    if (open?.q && open.engine !== 'url') setQ(open.q)
+  }, [open?.q, open?.engine])
   const setOpen = setOpenState
-  const submit = (engine: Engine = open?.engine ?? 'google') => {
+  const submit = (engine: Engine = open?.engine && open.engine !== 'url' ? open.engine : 'google') => {
     const v = q.trim()
     if (!v) return
     saveRecent([v, ...readRecent().filter(x => x !== v)])
@@ -290,7 +323,7 @@ export function WebSearchBox() {
         }}
       >
         <Search size={14} />
-        <input value={q} onChange={e => setQ(e.target.value)} placeholder={open?.engine === 'chatgpt' ? 'ChatGPT 에 질문 (Enter)' : open?.engine === 'perplexity' ? 'Perplexity 에 질문 (Enter)' : '구글 · 인터넷 검색'} aria-label="구글 · 인터넷 검색" enterKeyHint="search" title="검색어를 넣고 Enter · 결과는 오른쪽 검색 창에" />
+        <input value={q} onChange={e => setQ(e.target.value)} placeholder={open?.engine === 'url' ? '구글 · 인터넷 검색 (오른쪽은 누른 링크)' : open?.engine === 'chatgpt' ? 'ChatGPT 에 질문 (Enter)' : open?.engine === 'perplexity' ? 'Perplexity 에 질문 (Enter)' : '구글 · 인터넷 검색'} aria-label="구글 · 인터넷 검색" enterKeyHint="search" title="검색어를 넣고 Enter · 결과는 오른쪽 검색 창에" />
       </form>
       {app?.searchNav && (
         <span className="web-nav" role="group" aria-label="인터넷 창 이동">
@@ -318,9 +351,11 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
   const [lastGroup, setLastGroup] = useState<SiteGroup | null>(() => groupOf(engine) ?? 'popup')
   // 세 번째 줄(상세 사이트)은 두 번째 줄 · 언론 칸을 눌렀을 때만 펼치고, 사이트로 이동하면 접음
   const [sitesOpen, setSitesOpen] = useState<SiteGroup | null>(null)
+  // 링크를 열어 둔 상태면 검색어가 없는 것으로 봄
+  const term = engine === 'url' ? '' : q
   const pickGroup = (k: SiteGroup) => {
     setSitesOpen(sitesOpen === k ? null : k)
-    if (q) onSearch(q, k)
+    if (term) onSearch(term, k)
     else setLastGroup(k)
   }
   // 프로젝트를 열면 오른쪽 칸에 그 프로젝트 자료를 먼저 보여 줌 (인터넷 ↔ 프로젝트 자료 전환)
@@ -476,7 +511,7 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
       <div className="web-bar">
         <div className="web-tabs grow" role="tablist" aria-label="검색 종류">
           {ENGINES.map(([k, l]) => (
-            <button key={k} type="button" role="tab" aria-selected={engine === k} className={`web-tab${engine === k ? ' on' : ''}`} onClick={() => onSearch(q, k)}>
+            <button key={k} type="button" role="tab" aria-selected={engine === k} className={`web-tab${engine === k ? ' on' : ''}`} onClick={() => onSearch(engine === 'url' ? '' : q, k)}>
               {l}
             </button>
           ))}
@@ -502,7 +537,7 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
           <div className="web-tabs">
             {SITE_GROUPS[sitesOpen].sites.map(st => (
               <button key={st.host} type="button" role="tab" aria-selected={engine === `site:${st.host}`} className={`web-tab${engine === `site:${st.host}` ? ' on' : ''}`} onClick={() => {
-                  onSearch(q, `site:${st.host}`)
+                  onSearch(term, `site:${st.host}`)
                   setSitesOpen(null)
                 }} title={st.search ? `${st.label}에서 바로 검색` : `구글로 ${st.host} 안에서만 검색`}>
                 {st.label}
@@ -528,7 +563,15 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
             <span className="t-small t-red">브라우저가 새 창을 막았습니다. 주소창 오른쪽의 팝업 차단 아이콘에서 이 사이트를 허용하거나 아래 버튼을 눌러 주세요.</span>
           ) : (
             <span className="t-small">
+              {engine === 'url' ? (
+                <>
+                  <b>{hostOf(q)}</b> 링크를 이 자리에 맞춰 별도 창으로 열었습니다.
+                </>
+              ) : (
+                <>
               <b>‘{q}’</b> {isGroup(engine) ? `${SITE_GROUPS[engine].label} 사이트` : isSite(engine) ? (siteOf(engine)?.label ?? engine.slice(5)) : ENGINES.find(e => e[0] === engine)?.[1]} 검색 결과를 이 자리에 맞춰 별도 창으로 열었습니다.
+                </>
+              )}
             </span>
           )}
           <button type="button" className="btn btn-blue btn-sm" style={{ alignSelf: 'flex-start' }} onClick={() => setBlocked(!openDocked(urlFor(engine, q)))}>
