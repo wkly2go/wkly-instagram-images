@@ -74,7 +74,7 @@ const SITE_GROUPS: Record<SiteGroup, { label: string; sites: Site[] }> = {
 /** 세 번째 줄에서 고른 사이트: 'site:' + 주소 */
 type SiteKey = `site:${string}`
 /** 'url' = 인트라넷에서 누른 링크를 오른쪽 창에 그대로 엶 */
-type Engine = 'google' | 'images' | 'naver' | 'drive' | 'chatgpt' | 'perplexity' | 'url' | SiteGroup | SiteKey
+type Engine = 'google' | 'images' | 'naver' | 'chatgpt' | 'perplexity' | 'url' | SiteGroup | SiteKey
 const isGroup = (e: Engine): e is SiteGroup => e in SITE_GROUPS
 const isSite = (e: Engine): e is SiteKey => e.startsWith('site:')
 const siteOf = (e: SiteKey): Site | undefined => {
@@ -95,7 +95,6 @@ const ENGINES: [Engine, string][] = [
   ['google', '구글'],
   ['images', '이미지'],
   ['naver', '네이버'],
-  ['drive', '드라이브'],
   ['chatgpt', 'ChatGPT'],
   ['perplexity', 'Perplexity'],
 ]
@@ -108,8 +107,6 @@ const urlFor = (e: Engine, q: string) => {
     return st?.search ? st.search(s) : `https://www.google.com/search?q=${encodeURIComponent(`${q} site:${e.slice(5)}`)}`
   }
   if (e === 'images') return `https://www.google.com/search?tbm=isch&q=${s}`
-  // 구글 드라이브 (대표 지시 2026-10-20): 회사 계정 드라이브에서 파일 찾기
-  if (e === 'drive') return `https://drive.google.com/drive/search?q=${s}`
   if (e === 'naver') return `https://m.search.naver.com/search.naver?query=${s}`
   // AI 검색: 검색어를 바로 질문으로 넘김
   if (e === 'chatgpt') return `https://chatgpt.com/?q=${s}`
@@ -209,13 +206,11 @@ const OPEN_KEY = 'wkly-web-open'
 /** 검색 창은 오른쪽에 붙어 있음 (닫기는 내용만 비움). '인터넷 창 숨기기'를 누르면 null — 이 PC에 기억, 검색 · 링크를 누르면 다시 보임 */
 const DOCKED: OpenState = { q: '', engine: 'google' }
 const HIDE_KEY = 'wkly-web-hidden'
-const DRIVE_HOME = 'https://drive.google.com/drive/my-drive'
 /** 검색어 없이 검색 종류를 누르면 그 사이트 첫 화면을 열어 거기서 바로 검색 (대표 지시 2026-10-20 "구글 탭은 일반 검색용") */
 const HOME: Partial<Record<Engine, string>> = {
   google: 'https://www.google.com/',
   images: 'https://images.google.com/',
   naver: 'https://m.naver.com/',
-  drive: DRIVE_HOME,
   chatgpt: 'https://chatgpt.com/',
   perplexity: 'https://www.perplexity.ai/',
 }
@@ -308,6 +303,40 @@ const useZoom = () =>
   }, () => zoomState)
 /** PC 프로그램: 검색 칸(WebContentsView)이 이미 떠 있으면 화면을 옮겨도 다시 불러오지 않음 */
 let nativeShowing: string | null = null
+/**
+ * PC 프로그램의 웹 칸(하나뿐)을 드라이브 탭이 잠시 빌려 씀 (대표 지시 2026-10-20 "내 드라이브를 누르면 아래에").
+ * 드라이브 탭이 쓰는 동안 인터넷 창은 칸을 건드리지 않고, 돌려받으면 열려 있던 페이지를 다시 띄움
+ */
+let nativeOwner: 'panel' | 'drive' = 'panel'
+let nativeEpoch = 0
+const epochListeners = new Set<() => void>()
+const useNativeEpoch = () =>
+  useSyncExternalStore(cb => {
+    epochListeners.add(cb)
+    return () => epochListeners.delete(cb)
+  }, () => nativeEpoch)
+type Rect = { x: number; y: number; width: number; height: number }
+/** 드라이브 탭: 웹 칸을 이 자리(rect)에 이 주소로 */
+export function claimNative(url: string, rect: Rect) {
+  const app = desktop()
+  if (!app?.searchOpen) return false
+  nativeOwner = 'drive'
+  nativeShowing = url
+  app.searchOpen(url, rect)
+  return true
+}
+export function moveNative(rect: Rect) {
+  if (nativeOwner === 'drive') desktop()?.searchBounds?.(rect)
+}
+/** 드라이브 탭을 떠날 때: 칸을 닫고 인터넷 창에 돌려줌 */
+export function releaseNative() {
+  if (nativeOwner !== 'drive') return
+  nativeOwner = 'panel'
+  nativeShowing = null
+  desktop()?.searchClose?.()
+  nativeEpoch++
+  for (const l of epochListeners) l()
+}
 
 /**
  * 검색 창이 들어갈 자리(DOM 한 개를 계속 재사용). 화면(탭)이 바뀌어 Shell 이 다시 그려져도
@@ -369,9 +398,8 @@ export function WebSearchBox() {
           </button>
         </span>
       )}
-      <button type="button" className="quick-btn pc-only web-toggle" onClick={open ? hidePanel : showPanel} aria-pressed={!open} title={open ? '오른쪽 인터넷 창을 숨기고 본 화면을 넓게' : '오른쪽 인터넷 창 다시 보이기'}>
-        {open ? <PanelRightClose size={13} /> : <PanelRightOpen size={13} />}
-        {open ? '창 숨기기' : '인터넷 창'}
+      <button type="button" className="quick-btn pc-only web-toggle" onClick={open ? hidePanel : showPanel} aria-pressed={!open} title={open ? '인터넷 창 숨기기 (본 화면 넓게)' : '인터넷 창 보이기'} aria-label={open ? '인터넷 창 숨기기' : '인터넷 창 보이기'}>
+        {open ? <PanelRightClose size={15} /> : <PanelRightOpen size={15} />}
       </button>
       <span className="web-zoom" role="group" aria-label="검색 창 글자 크기" title={`검색 창 글자 크기 ${Math.round(zoom * 100)}% (PC 프로그램에서 적용)`}>
         <button type="button" className="icon-btn sm" onClick={() => stepZoom(-0.1)} aria-label="글자 작게">
@@ -464,8 +492,9 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
   }
 
   // PC 프로그램: 검색 결과를 패널 안 칸에 띄우고, 크기가 바뀌면 따라감 · 패널을 닫으면 함께 닫힘
+  const epoch = useNativeEpoch()
   useEffect(() => {
-    if (!native) return
+    if (!native || nativeOwner !== 'panel') return
     app!.searchZoom?.(zoom)
     if (!q) {
       if (nativeShowing) {
@@ -480,13 +509,13 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
       nativeShowing = url
       app!.searchOpen!(url, rectOf())
     }
-  }, [native, q, engine])
+  }, [native, q, engine, epoch])
   // 검색 칸 글자 크기 (PC 프로그램 1.5+): 기본 70%, 가− / 가+ 로 조절 · 이 PC에 기억
   const zoom = useZoom()
   // 결과 칸은 검색어가 있을 때만 그려지므로, 검색어가 생길 때마다 감시를 다시 건다 (창 크기 · 배치 변화를 계속 따라감)
   useEffect(() => {
     if (!native || !q || !nativeBox.current) return
-    const send = () => app!.searchBounds?.(rectOf())
+    const send = () => nativeOwner === 'panel' && app!.searchBounds?.(rectOf())
     const ro = new ResizeObserver(send)
     ro.observe(nativeBox.current)
     const panel = nativeBox.current.closest('.web-panel')
@@ -502,7 +531,7 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
       window.removeEventListener('resize', send)
       window.clearInterval(t)
       // 화면을 옮기느라 잠시 사라지는 경우는 닫지 않음 (닫기 버튼 · Esc 로 닫을 때만)
-      if (!openState?.q) {
+      if (!openState?.q && nativeOwner === 'panel') {
         nativeShowing = null
         app!.searchClose?.()
       }

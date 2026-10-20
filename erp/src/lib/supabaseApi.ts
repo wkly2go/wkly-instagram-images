@@ -759,6 +759,13 @@ export function createSupabaseApi(url: string, key: string): Api {
       const { data } = await sb.from('app_settings').select('value').eq('key', 'drive_folders').maybeSingle()
       return Array.isArray(data?.value) ? (data.value as DriveFolder[]) : []
     },
+    async getGoogleClientId() {
+      const { data } = await sb.from('app_settings').select('value').eq('key', 'google_oauth_client_id').maybeSingle()
+      return typeof data?.value === 'string' ? data.value : null
+    },
+    async setGoogleClientId(id) {
+      must(await sb.rpc('set_app_setting', { p_key: 'google_oauth_client_id', p_value: id }))
+    },
     async setDriveFolders(list) {
       must(await sb.rpc('set_app_setting', { p_key: 'drive_folders', p_value: list }))
     },
