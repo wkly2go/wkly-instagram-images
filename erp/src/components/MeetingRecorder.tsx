@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { Mic, Pause, Play, Square, Upload } from 'lucide-react'
+import { MonitorSpeaker, Mic, Pause, Play, Square, Upload, Video } from 'lucide-react'
 import { useApp } from '../lib/app'
 import type { MeetingRecording } from '../lib/types'
+import { desktop } from '../lib/desktop'
 
 /**
  * 회의록 AI (대표 지시 2026-10-18 · 방법 B)
@@ -9,7 +10,23 @@ import type { MeetingRecording } from '../lib/types'
  *    서버(meeting-minutes)가 Gemini 로 화자를 나눠 받아쓰고 회의록 양식으로 정리한다.
  *  - 녹음 시작 때 참석자에게 기록됨을 알리는 안내를 띄운다. 원본은 30일 뒤 자동 삭제.
  *  - AI 는 초안만: 결과를 회의록 내용 칸에 채우면 사람이 고쳐서 올린다.
+ *  - 구글 Meet (대표 지시 2026-10-20 · 방법 A): 'Meet 회의 열기' + '마이크 + Meet 소리' 녹음.
+ *    크롬 · 엣지는 Meet 탭 소리를, 윈도우 PC 프로그램(1.23+)은 컴퓨터 소리를 마이크와 섞어 녹음한다.
  */
+type Source = 'mic' | 'meet'
+
+/** Meet 소리를 함께 녹음할 수 있는 곳: PC 크롬 · 엣지(탭 소리) · 윈도우 PC 프로그램 1.23+(컴퓨터 소리) */
+function meetSupport(): { ok: boolean; why?: string } {
+  const app = desktop()
+  if (app) {
+    if (app.platform !== 'win32') return { ok: false, why: '맥 PC 프로그램은 컴퓨터 소리를 녹음할 수 없습니다. 크롬에서 인트라넷을 열어 녹음해 주세요.' }
+    const [maj, min] = app.version.split('.').map(Number)
+    if (maj < 1 || (maj === 1 && min < 23)) return { ok: false, why: 'PC 프로그램을 1.23 이상으로 업데이트하면 쓸 수 있습니다.' }
+    return { ok: true }
+  }
+  if (!navigator.mediaDevices?.getDisplayMedia || window.matchMedia?.('(pointer: coarse)').matches) return { ok: false, why: '휴대폰 · 태블릿에서는 상대방 소리를 녹음할 수 없습니다. PC 크롬에서 열어 주세요.' }
+  return { ok: true }
+}
 type Phase = 'idle' | 'recording' | 'paused' | 'uploading' | 'processing' | 'done' | 'error'
 
 const pickMime = () => {
@@ -28,7 +45,17 @@ export function MeetingRecorder({ title, onResult }: { title: string; onResult: 
   const [showText, setShowText] = useState(false)
   const media = useRef<MediaRecorder | null>(null)
   const chunks = useRef<Blob[]>([])
-  const stream = useRef<MediaStream | null>(null)
+  const streams = useRef<MediaStream[]>([])
+  const audioCtx = useRef<AudioContext | null>(null)
+  const [source, setSource] = useState<Source>('mic')
+  const [note, setNote] = useState('')
+  const meet = meetSupport()
+  const release = () => {
+    streams.current.forEach(s => s.getTracks().forEach(t => t.stop()))
+    streams.current = []
+    void audioCtx.current?.close().catch(() => undefined)
+    audioCtx.current = null
+  }
   const fileRef = useRef<HTMLInputElement>(null)
 
   // 녹음 시간
@@ -38,7 +65,7 @@ export function MeetingRecorder({ title, onResult }: { title: string; onResult: 
     return () => window.clearInterval(t)
   }, [phase])
   // 화면을 떠나면 마이크 끄기
-  useEffect(() => () => stream.current?.getTracks().forEach(t => t.stop()), [])
+  useEffect(() => release, [])
   // AI 정리 진행 확인 (5초마다, 최대 20분)
   useEffect(() => {
     if (phase !== 'processing' || !rec) return
@@ -68,11 +95,48 @@ export function MeetingRecorder({ title, onResult }: { title: string; onResult: 
 
   const start = async () => {
     setMsg('')
+    setNote('')
+    let s: MediaStream
     try {
-      const s = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } })
-      stream.current = s
+      const mic = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } })
+      streams.current = [mic]
+      s = mic
+    } catch {
+      setPhase('error')
+      setMsg('마이크를 쓸 수 없습니다. 브라우저 · 컴퓨터 설정에서 마이크 권한을 허용해 주세요. 휴대폰 녹음 파일을 올려도 됩니다.')
+      return
+    }
+    if (source === 'meet') {
+      // Meet 소리: 크롬은 공유 창에서 Meet 탭 + '탭 오디오 공유', 윈도우 PC 프로그램은 컴퓨터 소리
+      let disp: MediaStream
+      try {
+        disp = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } } as DisplayMediaStreamOptions)
+      } catch {
+        release()
+        setPhase('error')
+        setMsg('Meet 소리 공유를 취소했습니다. 다시 누르고 공유 창에서 Meet 탭을 골라 주세요.')
+        return
+      }
+      streams.current.push(disp)
+      const meetAudio = disp.getAudioTracks()
+      if (!meetAudio.length) {
+        release()
+        setPhase('error')
+        setMsg("Meet 소리가 들어오지 않았습니다. 공유 창에서 'Chrome 탭' › Meet 탭을 고르고 아래 '탭 오디오도 공유'를 켜 주세요.")
+        return
+      }
+      // 마이크 + Meet 소리를 한 줄로 섞어 녹음 (영상은 쓰지 않음)
+      const ctx = new AudioContext()
+      audioCtx.current = ctx
+      const dest = ctx.createMediaStreamDestination()
+      ctx.createMediaStreamSource(s).connect(dest)
+      ctx.createMediaStreamSource(new MediaStream(meetAudio)).connect(dest)
+      meetAudio[0].addEventListener('ended', () => setNote('Meet 소리 공유가 끝났습니다. 마이크 소리만 계속 녹음합니다.'))
+      s = dest.stream
+    }
+    try {
       const mime = pickMime()
-      const r = new MediaRecorder(s, { ...(mime ? { mimeType: mime } : {}), audioBitsPerSecond: 32000 })
+      const r = new MediaRecorder(s, { ...(mime ? { mimeType: mime } : {}), audioBitsPerSecond: source === 'meet' ? 48000 : 32000 })
       chunks.current = []
       r.ondataavailable = e => e.data.size && chunks.current.push(e.data)
       r.start(10_000)
@@ -80,8 +144,9 @@ export function MeetingRecorder({ title, onResult }: { title: string; onResult: 
       setSec(0)
       setPhase('recording')
     } catch {
+      release()
       setPhase('error')
-      setMsg('마이크를 쓸 수 없습니다. 브라우저 · 컴퓨터 설정에서 마이크 권한을 허용해 주세요. 휴대폰 녹음 파일을 올려도 됩니다.')
+      setMsg('녹음을 시작하지 못했습니다. 다시 시도하거나 녹음 파일을 올려 주세요.')
     }
   }
   const pause = () => {
@@ -108,7 +173,7 @@ export function MeetingRecorder({ title, onResult }: { title: string; onResult: 
     const r = media.current
     if (!r) return
     r.onstop = () => {
-      stream.current?.getTracks().forEach(t => t.stop())
+      release()
       const blob = new Blob(chunks.current, { type: r.mimeType || 'audio/webm' })
       void send(blob, undefined, sec)
     }
@@ -123,6 +188,26 @@ export function MeetingRecorder({ title, onResult }: { title: string; onResult: 
       </div>
       {(phase === 'idle' || phase === 'error') && (
         <>
+          <div className="row gap-6" style={{ flexWrap: 'wrap' }}>
+            <a className="btn btn-outline btn-sm" href="https://meet.google.com/new" target="_blank" rel="noreferrer" data-external title="새 구글 Meet 회의를 새 창으로 엽니다. 링크를 참석자에게 보내세요.">
+              <Video size={13} /> Meet 회의 열기
+            </a>
+            <div className="seg" role="radiogroup" aria-label="녹음할 소리">
+              <button type="button" role="radio" aria-checked={source === 'mic'} className={source === 'mic' ? 'on' : ''} onClick={() => setSource('mic')}>
+                <Mic size={12} /> 마이크만
+              </button>
+              <button type="button" role="radio" aria-checked={source === 'meet'} className={source === 'meet' ? 'on' : ''} disabled={!meet.ok} onClick={() => setSource('meet')} title={meet.why ?? 'Meet 상대방 목소리까지 함께 녹음'}>
+                <MonitorSpeaker size={12} /> 마이크 + Meet 소리
+              </button>
+            </div>
+          </div>
+          {source === 'meet' ? (
+            <span className="t-cap">
+              {desktop() ? '녹음 시작을 누르면 컴퓨터에서 나는 소리(크롬의 Meet 상대방 목소리)와 내 마이크를 함께 녹음합니다. 다른 소리(음악 · 영상)는 꺼 두세요.' : "녹음 시작 › 공유 창에서 'Chrome 탭' › Meet 탭을 고르고 '탭 오디오도 공유'를 켠 뒤 공유를 누르세요. 화면은 녹화하지 않고 소리만 씁니다."}
+            </span>
+          ) : (
+            !meet.ok && <span className="t-cap">{meet.why}</span>
+          )}
           <input className="input" value={attendees} onChange={e => setAttendees(e.target.value)} placeholder="참석자 (선택 · 이름을 적으면 말한 사람을 더 정확히 구분)" aria-label="참석자" />
           <div className="row gap-6" style={{ flexWrap: 'wrap' }}>
             <button type="button" className="btn btn-blue btn-sm" onClick={start}>
@@ -151,8 +236,9 @@ export function MeetingRecorder({ title, onResult }: { title: string; onResult: 
             <span className={`dot${phase === 'recording' ? ' on' : ''}`} />
             <b>{phase === 'recording' ? '녹음 중' : '일시 정지'}</b>
             <span className="t-meta">{clock(sec)}</span>
-            <span className="t-cap grow">참석자에게 이 회의가 기록된다는 것을 알려 주세요.</span>
+            <span className="t-cap grow">참석자에게 이 회의가 기록된다는 것을 알려 주세요.{source === 'meet' ? ' (마이크 + Meet 소리)' : ''}</span>
           </div>
+          {note && <span className="t-cap t-red">{note}</span>}
           <div className="row gap-6">
             {phase === 'recording' ? (
               <button type="button" className="btn btn-outline btn-sm" onClick={pause}>

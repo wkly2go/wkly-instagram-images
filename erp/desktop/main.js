@@ -4,7 +4,7 @@
 //  - 로그인 후 X 를 누르면 트레이(작업 표시줄 오른쪽 아래 / 맥 메뉴 막대)로 숨김 · 알림은 계속
 //  - 컴퓨터를 30분 안 쓰거나 화면 잠금 · 절전이면 인트라넷 화면도 잠금
 //  - 새 버전을 자동으로 받아 로그인 화면에서 쉬거나 끌 때 설치 (윈도우: electron-updater · 맥: 직접 받아 .app 교체)
-const { app, BrowserWindow, Tray, Menu, ipcMain, powerMonitor, shell, nativeImage, dialog, WebContentsView, nativeTheme, net } = require('electron')
+const { app, BrowserWindow, Tray, Menu, ipcMain, powerMonitor, shell, nativeImage, dialog, WebContentsView, nativeTheme, net, session, desktopCapturer } = require('electron')
 const path = require('path')
 const fs = require('fs')
 const crypto = require('crypto')
@@ -33,6 +33,23 @@ if (!app.requestSingleInstanceLock()) {
   start()
 }
 
+/**
+ * 회의록 AI · 'Meet 소리 함께 녹음' (1.23): 인트라넷이 화면 공유(getDisplayMedia)를 요청하면 화면 1개 + 컴퓨터 소리를 넘김.
+ * 윈도우는 컴퓨터에서 나는 소리 전체(loopback = 크롬에서 연 Meet 상대방 목소리 포함), 맥은 Electron 이 컴퓨터 소리를 지원하지 않아 화면만.
+ * 영상은 녹음하지 않음 (인트라넷이 소리만 씀).
+ */
+function allowMeetingAudio() {
+  session.defaultSession.setDisplayMediaRequestHandler((_req, callback) => {
+    desktopCapturer
+      .getSources({ types: ['screen'] })
+      .then(sources => {
+        if (!sources.length) return callback({})
+        callback(process.platform === 'win32' ? { video: sources[0], audio: 'loopback' } : { video: sources[0] })
+      })
+      .catch(() => callback({}))
+  })
+}
+
 function start() {
   app.setAppUserModelId('com.thewkly.intranet')
   // 알림음은 클릭 없이도 울리게 · 숨겨져 있어도 실시간 알림이 늦지 않게
@@ -40,6 +57,7 @@ function start() {
 
   app.whenReady().then(() => {
     if (app.isPackaged) app.setLoginItemSettings({ openAtLogin: true })
+    allowMeetingAudio()
     createWindow()
     createTray()
     watchIdle()
