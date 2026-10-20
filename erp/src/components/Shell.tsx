@@ -332,7 +332,6 @@ export function Shell({ active, flush, children }: { active: TabKey; flush?: boo
               </Link>
               <span className="site-title">사내 인트라넷</span>
               <span className="site-url t-meta">{window.location.host}</span>
-              <span className="grow" />
               {api.mode === 'demo' && <span className="mode-badge" title="Supabase 연결 전 체험 모드. 데이터는 이 브라우저에만 저장됩니다.">DEMO</span>}
               <NotificationBell />
               {!isDesktopApp() && (
@@ -340,8 +339,9 @@ export function Shell({ active, flush, children }: { active: TabKey; flush?: boo
                   PC 프로그램
                 </Link>
               )}
-              {/* 검색창은 오른쪽 끝 (오른쪽 인터넷 창 위) */}
+              {/* 검색창만 오른쪽 끝, 나머지(알림 · 창 숨기기 · 글자 크기 등)는 왼쪽 — 순서는 styles.css 의 order */}
               <WebSearchBox />
+              <span className="grow" />
             </header>
             <div className="body" ref={mountWebSlot}>
               <ProfilePanel summary={summary} />
