@@ -241,7 +241,7 @@ export type ProjectStatus = (typeof PROJECT_STATUSES)[number]
 
 export interface Project {
   id: string
-  /** 연번 AR+시작 연월 (드라이브 ARTERIOR 폴더 규칙 · 관리 폴더 AR0000 · 중복 가능, 0030+) */
+  /** 연번: 구분 + 시작 연월 + '-' + 일련번호 (예: AR2610-01, 0046) · 관리 폴더 AR0000 */
   code?: string | null
   name: string
   client_id: string | null
@@ -254,6 +254,8 @@ export interface Project {
   description: string | null
   /** 구글 드라이브 프로젝트 폴더 주소 (0035) */
   drive_url?: string | null
+  /** 구분 (0046): AR 아트리어 · TW 더위클리 · RS 내부 리서치 */
+  division?: Division
   created_by: string | null
   created_at: string
   updated_at: string
@@ -278,11 +280,23 @@ export function projectDriveUrl(p: Pick<Project, 'drive_url' | 'description' | '
   if (p.drive_url) return { url: p.drive_url, exact: true }
   const m = p.description?.match(/https:\/\/drive\.google\.com\/[^\s)]+/)
   if (m) return { url: m[0], exact: true }
-  return { url: `https://drive.google.com/drive/search?q=${encodeURIComponent(p.code ? `${p.code} ${p.name}` : p.name)}`, exact: false }
+  // 드라이브 폴더 이름은 연번 앞부분(AR2610)을 씀
+  return { url: `https://drive.google.com/drive/search?q=${encodeURIComponent(p.code ? `${p.code.split('-')[0]} ${p.name}` : p.name)}`, exact: false }
 }
 
-/** 브랜드: 연번 앞자리 AR = 아트리어디자인스튜디오, TW = 더위클리 */
-export const projectBrand = (p: Pick<Project, 'code'>): 'AR' | 'TW' | null => (p.code?.startsWith('TW') ? 'TW' : p.code?.startsWith('AR') ? 'AR' : null)
+/**
+ * 프로젝트 구분 · 대표 색상 (대표 지시 2026-10-21): AR 아트리어(그린) · TW 더위클리(블루) · RS 내부 리서치(핑크)
+ * 연번 = 구분 + 시작 연월 + '-' + 그달 일련번호 (예: AR2610-01) — 프로젝트마다 다름 (0046)
+ */
+export type Division = 'AR' | 'TW' | 'RS'
+export const DIVISIONS: Record<Division, { label: string; full: string; color: string }> = {
+  AR: { label: '아트리어', full: '아트리어 프로젝트', color: 'var(--green)' },
+  TW: { label: '더위클리', full: '더위클리 프로젝트', color: 'var(--blue)' },
+  RS: { label: '내부 리서치', full: '내부 리서치 프로젝트', color: 'var(--pink)' },
+}
+export const DIVISION_KEYS = Object.keys(DIVISIONS) as Division[]
+/** 구분 (division 이 없으면 연번 앞자리로) */
+export const projectBrand = (p: Pick<Project, 'code' | 'division'>): Division => p.division ?? (p.code?.startsWith('TW') ? 'TW' : p.code?.startsWith('RS') ? 'RS' : 'AR')
 
 export const TASK_STATUSES = ['할 일', '진행 중', '완료'] as const
 export type TaskStatus = (typeof TASK_STATUSES)[number]

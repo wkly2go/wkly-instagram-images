@@ -74,7 +74,7 @@ const SITE_GROUPS: Record<SiteGroup, { label: string; sites: Site[] }> = {
 /** 세 번째 줄에서 고른 사이트: 'site:' + 주소 */
 type SiteKey = `site:${string}`
 /** 'url' = 인트라넷에서 누른 링크를 오른쪽 창에 그대로 엶 */
-type Engine = 'google' | 'images' | 'naver' | 'chatgpt' | 'perplexity' | 'url' | SiteGroup | SiteKey
+type Engine = 'google' | 'images' | 'youtube' | 'naver' | 'chatgpt' | 'perplexity' | 'url' | SiteGroup | SiteKey
 const isGroup = (e: Engine): e is SiteGroup => e in SITE_GROUPS
 const isSite = (e: Engine): e is SiteKey => e.startsWith('site:')
 const siteOf = (e: SiteKey): Site | undefined => {
@@ -94,6 +94,7 @@ const groupOf = (e: Engine): SiteGroup | null => {
 const ENGINES: [Engine, string][] = [
   ['google', '구글'],
   ['images', '이미지'],
+  ['youtube', '유튜브'],
   ['naver', '네이버'],
   ['chatgpt', 'ChatGPT'],
   ['perplexity', 'Perplexity'],
@@ -107,6 +108,7 @@ const urlFor = (e: Engine, q: string) => {
     return st?.search ? st.search(s) : `https://www.google.com/search?q=${encodeURIComponent(`${q} site:${e.slice(5)}`)}`
   }
   if (e === 'images') return `https://www.google.com/search?tbm=isch&q=${s}`
+  if (e === 'youtube') return `https://www.youtube.com/results?search_query=${s}`
   if (e === 'naver') return `https://m.search.naver.com/search.naver?query=${s}`
   // AI 검색: 검색어를 바로 질문으로 넘김
   if (e === 'chatgpt') return `https://chatgpt.com/?q=${s}`
@@ -210,6 +212,7 @@ const HIDE_KEY = 'wkly-web-hidden'
 const HOME: Partial<Record<Engine, string>> = {
   google: 'https://www.google.com/',
   images: 'https://images.google.com/',
+  youtube: 'https://www.youtube.com/',
   naver: 'https://m.naver.com/',
   chatgpt: 'https://chatgpt.com/',
   perplexity: 'https://www.perplexity.ai/',
