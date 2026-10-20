@@ -210,6 +210,15 @@ const OPEN_KEY = 'wkly-web-open'
 const DOCKED: OpenState = { q: '', engine: 'google' }
 const HIDE_KEY = 'wkly-web-hidden'
 const DRIVE_HOME = 'https://drive.google.com/drive/my-drive'
+/** 검색어 없이 검색 종류를 누르면 그 사이트 첫 화면을 열어 거기서 바로 검색 (대표 지시 2026-10-20 "구글 탭은 일반 검색용") */
+const HOME: Partial<Record<Engine, string>> = {
+  google: 'https://www.google.com/',
+  images: 'https://images.google.com/',
+  naver: 'https://m.naver.com/',
+  drive: DRIVE_HOME,
+  chatgpt: 'https://chatgpt.com/',
+  perplexity: 'https://www.perplexity.ai/',
+}
 const readHidden = () => {
   try {
     return localStorage.getItem(HIDE_KEY) === '1'
@@ -382,6 +391,8 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
   const [sitesOpen, setSitesOpen] = useState<SiteGroup | null>(null)
   // 링크를 열어 둔 상태면 검색어가 없는 것으로 봄
   const term = engine === 'url' ? '' : q
+  // 첫 화면을 열어 둔 검색 종류는 켜진 것으로 표시
+  const homeOf = engine === 'url' ? (Object.keys(HOME) as Engine[]).find(k => HOME[k] === q) : undefined
   const pickGroup = (k: SiteGroup) => {
     setSitesOpen(sitesOpen === k ? null : k)
     if (term) onSearch(term, k)
@@ -540,7 +551,7 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
       <div className="web-bar">
         <div className="web-tabs grow" role="tablist" aria-label="검색 종류">
           {ENGINES.map(([k, l]) => (
-            <button key={k} type="button" role="tab" aria-selected={engine === k} className={`web-tab${engine === k ? ' on' : ''}`} onClick={() => (k === 'drive' && !term ? onSearch(DRIVE_HOME, 'url') : onSearch(term, k))}>
+            <button key={k} type="button" role="tab" aria-selected={engine === k || homeOf === k} className={`web-tab${engine === k || homeOf === k ? ' on' : ''}`} title={term ? `'${term}' ${l} 검색` : `${l} 열기 · 거기서 바로 검색`} onClick={() => (!term && HOME[k] ? onSearch(HOME[k]!, 'url') : onSearch(term, k))}>
               {l}
             </button>
           ))}
