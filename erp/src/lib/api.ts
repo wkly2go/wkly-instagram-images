@@ -2,6 +2,7 @@ import type { AccessSource } from './desktop'
 import type {
   Subscription,
   ExchangeFile,
+  ProjectDriveFile,
   MeetingRecording,
   SiteLog,
   ProjectContact,
@@ -151,6 +152,11 @@ export interface Api {
   /** 올린 사람 · 관리자만: 이름 · 메모 · 구분 · 날짜 · 프로젝트 고치기 */
   updateExchangeFile(id: string, patch: Partial<Pick<ExchangeFile, 'name' | 'note' | 'direction' | 'file_date' | 'project_id' | 'contact_id'>>): Promise<void>
   deleteExchangeFile(id: string): Promise<void>
+  /** 프로젝트 · 구글 드라이브 자료 (0045) */
+  listProjectDriveFiles(projectId: string): Promise<ProjectDriveFile[]>
+  addProjectDriveFiles(projectId: string, files: Pick<ProjectDriveFile, 'drive_id' | 'name' | 'mime_type' | 'url' | 'icon_url'>[]): Promise<void>
+  renameProjectDriveFile(id: string, patch: Partial<Pick<ProjectDriveFile, 'name' | 'note' | 'mime_type' | 'icon_url'>>): Promise<void>
+  removeProjectDriveFile(id: string): Promise<void>
   exchangeFileUrl(f: ExchangeFile): Promise<string>
 
   // 프로젝트·할 일

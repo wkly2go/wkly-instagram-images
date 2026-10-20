@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ChevronRight, Clock, ExternalLink, Folder, HardDrive, LogIn, LogOut, Search, Star, Trash2, Users } from 'lucide-react'
+import { ChevronRight, Clock, ExternalLink, FilePlus, Folder, HardDrive, LogIn, LogOut, Search, Star, Trash2, Users } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import type { DriveFolder } from '../lib/api'
 import { desktop } from '../lib/desktop'
+import { driveApi, DriveAuthError, editUrl, FOLDER_MIME as FOLDER, googleLogin, googleLogout, type GFile } from '../lib/gdrive'
+import { useDriveToken } from '../components/DriveFiles'
+import { useRouter } from '../lib/router'
 import { Shell } from '../components/Shell'
 import { claimNative, moveNative, openLink, releaseNative } from '../components/WebSearch'
 import { Button, Empty, SectionHead } from '../components/ui'
@@ -24,6 +27,12 @@ const QUICK: { key: ViewKey; label: string; url: string; icon: typeof HardDrive 
   { key: 'starred', label: '중요 문서함', url: `${DRIVE}/starred`, icon: Star },
   { key: 'drives', label: '공유 드라이브', url: `${DRIVE}/shared-drives`, icon: Folder },
 ]
+/** 새 구글 문서 · 시트 · 슬라이드 (만들어서 바로 편집) */
+const NEW_DOCS = [
+  { label: '새 문서', url: 'https://docs.google.com/document/create' },
+  { label: '새 시트', url: 'https://docs.google.com/spreadsheets/create' },
+  { label: '새 슬라이드', url: 'https://docs.google.com/presentation/create' },
+] as const
 /** 폴더 주소에서 폴더 id (…/folders/<id>) */
 const folderId = (url: string) => url.match(/\/folders\/([A-Za-z0-9_-]{10,})/)?.[1] ?? null
 
@@ -92,9 +101,17 @@ export default function Drive() {
 /* ------------------------------------------------------------------ */
 function NativeDrive({ folders }: { folders: DriveFolder[] }) {
   const box = useRef<HTMLDivElement>(null)
-  // 처음은 구글 로그인 (이미 로그인돼 있으면 구글이 바로 내 드라이브로 넘김)
-  const [url, setUrl] = useState(LOGIN_URL)
-  const [label, setLabel] = useState('구글 로그인')
+  const { query } = useRouter()
+  const doc = query.get('doc')
+  // 처음은 구글 로그인 (이미 로그인돼 있으면 구글이 바로 내 드라이브로 넘김) · 문서 편집으로 들어오면 그 문서
+  const [url, setUrl] = useState(() => (doc && /^https:\/\/(docs|drive)\.google\.com\//.test(doc) ? doc : LOGIN_URL))
+  const [label, setLabel] = useState(doc ? '문서 편집' : '구글 로그인')
+  useEffect(() => {
+    if (doc && /^https:\/\/(docs|drive)\.google\.com\//.test(doc)) {
+      setUrl(doc)
+      setLabel('문서 편집')
+    }
+  }, [doc])
   const rect = () => {
     const r = box.current?.getBoundingClientRect()
     if (!r || document.querySelector('.scrim, .lock-screen, .notif-panel, .m-more-scrim')) return { x: 0, y: 0, width: 0, height: 0 }
@@ -136,6 +153,7 @@ function NativeDrive({ folders }: { folders: DriveFolder[] }) {
         onQuick={qk => go(qk.url, qk.label)}
         onFolder={f => go(f.url, f.name)}
         onSearch={s => go(`${DRIVE}/search?q=${encodeURIComponent(s)}`, `검색: ${s}`)}
+        onNew={n => go(n.url, n.label)}
       />
       <div className="drive-native" ref={box} aria-label={`구글 드라이브 · ${label}`} />
     </>
@@ -145,90 +163,30 @@ function NativeDrive({ folders }: { folders: DriveFolder[] }) {
 /* ------------------------------------------------------------------ */
 /* 웹 브라우저: 구글 로그인 → 드라이브 API 로 목록                          */
 /* ------------------------------------------------------------------ */
-interface GFile {
-  id: string
-  name: string
-  mimeType: string
-  iconLink?: string
-  webViewLink?: string
-  modifiedTime?: string
-  owners?: { displayName?: string }[]
-  shortcutDetails?: { targetId?: string; targetMimeType?: string }
-}
-const FOLDER = 'application/vnd.google-apps.folder'
-const TOKEN_KEY = 'wkly-gdrive-token'
-interface TokenClient {
-  requestAccessToken: (o?: { prompt?: string }) => void
-}
-interface Gis {
-  accounts: { oauth2: { initTokenClient: (o: object) => TokenClient; revoke: (t: string, cb?: () => void) => void } }
-}
-const gisReady = () =>
-  new Promise<Gis>((resolve, reject) => {
-    const g = (window as unknown as { google?: Gis }).google
-    if (g?.accounts?.oauth2) return resolve(g)
-    const s = document.createElement('script')
-    s.src = 'https://accounts.google.com/gsi/client'
-    s.async = true
-    s.onload = () => resolve((window as unknown as { google: Gis }).google)
-    s.onerror = () => reject(new Error('구글 로그인을 불러오지 못했습니다.'))
-    document.head.appendChild(s)
-  })
-const readToken = (): string | null => {
-  try {
-    const v = JSON.parse(sessionStorage.getItem(TOKEN_KEY) ?? 'null') as { t: string; exp: number } | null
-    return v && v.exp > Date.now() + 30_000 ? v.t : null
-  } catch {
-    return null
-  }
-}
 const esc = (s: string) => s.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
 type Loc = { kind: ViewKey | 'folder' | 'search'; id?: string; name: string; driveId?: string }
 
 function WebDrive({ folders }: { folders: DriveFolder[] }) {
   const { api, me, version } = useApp()
   const { data: clientId, loading: idLoading } = useAsync(() => api.getGoogleClientId(), [version], null as string | null)
-  const [token, setToken] = useState<string | null>(readToken)
+  const token = useDriveToken()
   const [trail, setTrail] = useState<Loc[]>([])
   const [files, setFiles] = useState<GFile[]>([])
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState('')
-  const client = useRef<TokenClient | null>(null)
   const here = trail[trail.length - 1]
 
   const login = async () => {
     setErr('')
     try {
-      const g = await gisReady()
-      client.current ??= g.accounts.oauth2.initTokenClient({
-        client_id: clientId,
-        scope: 'https://www.googleapis.com/auth/drive.readonly',
-        hint: me.email ?? undefined,
-        hd: 'thewklyn.com',
-        callback: (r: { access_token?: string; expires_in?: number; error?: string }) => {
-          if (!r.access_token) return setErr('구글 로그인을 마치지 못했습니다.')
-          try {
-            sessionStorage.setItem(TOKEN_KEY, JSON.stringify({ t: r.access_token, exp: Date.now() + (r.expires_in ?? 3600) * 1000 }))
-          } catch {
-            /* 저장 못 해도 이번 화면에서는 씀 */
-          }
-          setToken(r.access_token)
-          setTrail(t => (t.length ? t : [{ kind: 'my', name: '내 드라이브' }]))
-        },
-      })
-      client.current.requestAccessToken({ prompt: '' })
+      await googleLogin(clientId!, me.email)
+      setTrail(t => (t.length ? t : [{ kind: 'my', name: '내 드라이브' }]))
     } catch (e) {
       setErr(e instanceof Error ? e.message : '구글 로그인을 불러오지 못했습니다.')
     }
   }
   const logout = () => {
-    if (token) (window as unknown as { google?: Gis }).google?.accounts.oauth2.revoke(token)
-    try {
-      sessionStorage.removeItem(TOKEN_KEY)
-    } catch {
-      /* 무시 */
-    }
-    setToken(null)
+    googleLogout()
     setTrail([])
     setFiles([])
   }
@@ -271,16 +229,10 @@ function WebDrive({ folders }: { folders: DriveFolder[] }) {
             p.set('driveId', loc.driveId)
           } else p.set('corpora', 'allDrives')
         }
-        const r = await fetch(`https://www.googleapis.com/drive/v3/${path}?${p}`, { headers: { Authorization: `Bearer ${token}` } })
-        if (r.status === 401) {
-          logout()
-          setErr('구글 로그인이 만료됐습니다. 다시 로그인해 주세요.')
-          return
-        }
-        if (!r.ok) throw new Error(r.status === 403 ? '이 폴더를 볼 권한이 없습니다.' : `드라이브를 불러오지 못했습니다 (${r.status})`)
-        const body = await r.json()
+        const body = await driveApi<{ files?: GFile[]; drives?: { id: string; name: string }[] }>(token, `${path}?${p}`)
         setFiles(loc.kind === 'drives' ? (body.drives ?? []).map((d: { id: string; name: string }) => ({ id: d.id, name: d.name, mimeType: 'drive' })) : body.files ?? [])
       } catch (e) {
+        if (e instanceof DriveAuthError) setTrail([])
         setErr(e instanceof Error ? e.message : '드라이브를 불러오지 못했습니다.')
       } finally {
         setLoading(false)
@@ -297,7 +249,7 @@ function WebDrive({ folders }: { folders: DriveFolder[] }) {
     if (f.mimeType === 'drive') return setTrail(t => [...t, { kind: 'folder', id: f.id, name: f.name, driveId: f.id }])
     const isFolder = f.mimeType === FOLDER || f.shortcutDetails?.targetMimeType === FOLDER
     if (isFolder) return setTrail(t => [...t, { kind: 'folder', id: f.shortcutDetails?.targetId ?? f.id, name: f.name, driveId: t[t.length - 1]?.driveId }])
-    if (f.webViewLink) openLink(f.webViewLink)
+    if (f.webViewLink) openLink(editUrl(f.webViewLink))
   }
 
   if (idLoading) return null
@@ -378,6 +330,7 @@ function DriveHead({
   onQuick,
   onFolder,
   onSearch,
+  onNew,
 }: {
   active: string
   folders: DriveFolder[]
@@ -387,6 +340,7 @@ function DriveHead({
   onQuick: (q: (typeof QUICK)[number]) => void
   onFolder: (f: DriveFolder) => void
   onSearch: (s: string) => void
+  onNew?: (n: (typeof NEW_DOCS)[number]) => void
 }) {
   const [q, setQ] = useState('')
   return (
@@ -420,6 +374,11 @@ function DriveHead({
         {QUICK.map(qk => (
           <button key={qk.key} type="button" className={`drive-chip${active === qk.label ? ' on' : ''}`} disabled={disabled} onClick={() => onQuick(qk)}>
             <qk.icon size={14} aria-hidden="true" /> {qk.label}
+          </button>
+        ))}
+        {NEW_DOCS.map(n => (
+          <button key={n.label} type="button" className={`drive-chip new${active === n.label ? ' on' : ''}`} onClick={() => (onNew ? onNew(n) : openLink(n.url))} title={`${n.label} 만들어 바로 편집`}>
+            <FilePlus size={14} aria-hidden="true" /> {n.label}
           </button>
         ))}
         {folders.map((f, i) => (

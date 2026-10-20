@@ -5,6 +5,7 @@ import { DEFAULT_REPORT_BODY } from './reports'
 import type {
   Subscription,
   ExchangeFile,
+  ProjectDriveFile,
   ProjectContact,
   AttendanceDevice,
   AccessLog,
@@ -101,6 +102,7 @@ interface Store {
   devices?: AttendanceDevice[]
   project_contacts?: ProjectContact[]
   exchange_files?: ExchangeFile[]
+  project_drive_files?: ProjectDriveFile[]
   hr_records?: HrRecord[]
   leave_records?: LeaveRecord[]
   agent_instructions?: AgentInstruction[]
@@ -762,6 +764,37 @@ export function createDemoApi(): Api {
       Object.assign(row, patch)
       persist()
       emit('clients')
+    },
+    async listProjectDriveFiles(projectId) {
+      requireMe()
+      return clone((store.project_drive_files ?? []).filter(f => f.project_id === projectId).sort((a, b) => b.created_at.localeCompare(a.created_at)))
+    },
+    async addProjectDriveFiles(projectId, files) {
+      const self = requireMe()
+      const list = (store.project_drive_files ??= [])
+      for (const f of files) {
+        if (!/^https:\/\/(drive|docs)\.google\.com\//.test(f.url)) throw new ApiError('구글 드라이브 주소가 아닙니다.')
+        if (list.some(x => x.project_id === projectId && x.drive_id === f.drive_id)) continue
+        list.push({ ...f, id: uid(), project_id: projectId, note: null, added_by: self, created_at: now() })
+      }
+      persist()
+      emit('projects')
+    },
+    async renameProjectDriveFile(id, patch) {
+      const self = requireMe()
+      const row = (store.project_drive_files ?? []).find(x => x.id === id)
+      if (!row || (row.added_by !== self && !isAdmin())) throw new ApiError('고칠 수 없습니다 (첨부한 사람 · 관리자만).')
+      Object.assign(row, patch)
+      persist()
+      emit('projects')
+    },
+    async removeProjectDriveFile(id) {
+      const self = requireMe()
+      const row = (store.project_drive_files ?? []).find(x => x.id === id)
+      if (!row || (row.added_by !== self && !isAdmin())) throw new ApiError('뺄 수 없습니다 (첨부한 사람 · 관리자만).')
+      store.project_drive_files = (store.project_drive_files ?? []).filter(x => x.id !== id)
+      persist()
+      emit('projects')
     },
     async deleteExchangeFile(id) {
       const self = requireMe()

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { addDays, addMonths, monthGrid, shortDate, todayKey, weekday, periodLabel } from '../lib/date'
 import { Link, useRouter, withQuery } from '../lib/router'
@@ -29,7 +29,7 @@ const PHASE_ORDER = ['디자인 기획', '디자인 개발', '디자인 보고',
 // 업무 지시 (새 업무 · 고치기)
 // ---------------------------------------------------------------------
 
-export function TaskAssignModal({ task, projects, tasks, presetProject, presetAssignee, onClose }: { task?: Task; projects: Project[]; tasks: Task[]; presetProject?: string | null; presetAssignee?: string | null; onClose: () => void }) {
+export function TaskAssignModal({ task, projects, tasks, presetProject, presetAssignee, presetDate, onClose }: { task?: Task; projects: Project[]; tasks: Task[]; presetProject?: string | null; presetAssignee?: string | null; /** 캘린더에서 날짜를 눌러 만들 때 그 날 */ presetDate?: string | null; onClose: () => void }) {
   const { api, me, profiles } = useApp()
   const { busy, run } = useAction()
   const [f, setF] = useState({
@@ -37,8 +37,8 @@ export function TaskAssignModal({ task, projects, tasks, presetProject, presetAs
     assignee_id: task?.assignee_id ?? presetAssignee ?? '',
     project_id: task?.project_id ?? presetProject ?? '',
     phase: task?.phase ?? '',
-    start_date: task?.start_date ?? '',
-    due_date: task?.due_date ?? '',
+    start_date: task?.start_date ?? presetDate ?? '',
+    due_date: task?.due_date ?? presetDate ?? '',
     status: task?.status ?? ('할 일' as TaskStatus),
     memo: task?.memo ?? '',
   })
@@ -385,6 +385,8 @@ export function MonthCalendar({ projects, tasks }: { projects: Project[]; tasks:
   const [mine, setMine] = useState(false)
   const [editing, setEditing] = useState<Task | null>(null)
   const [openDay, setOpenDay] = useState<string | null>(null)
+  // 캘린더에서 바로 새 일정 (대표 지시 2026-10-20): 날짜 칸의 빈 곳 · '+' 를 누르면 그 날로 새 일정
+  const [creating, setCreating] = useState<string | null>(null)
   const [gcal, setGcal] = useState(false)
   const { data: leaves } = useAsync(() => api.listLeave(), [version], [] as LeaveRecord[])
 
@@ -469,10 +471,18 @@ export function MonthCalendar({ projects, tasks }: { projects: Project[]; tasks:
           if (!d) return <span key={`e${i}`} className="day empty" />
           const list = byDay.get(d) ?? []
           return (
-            <div key={d} className={`day ${d === today ? 'today' : ''}`}>
+            <div
+              key={d}
+              className={`day can-add ${d === today ? 'today' : ''}`}
+              onClick={e => e.target === e.currentTarget && setCreating(d)}
+              title="빈 곳을 누르면 이 날 새 일정"
+            >
               <span className="n">
                 {Number(d.slice(8))}
                 {d === today && <Badge tone="yellow">오늘</Badge>}
+                <button type="button" className="day-add" onClick={() => setCreating(d)} aria-label={`${shortDate(d)} 새 일정`} title="이 날 새 일정">
+                  <Plus size={12} />
+                </button>
               </span>
               {list.slice(0, 3).map(item)}
               {list.length > 3 && (
@@ -514,9 +524,20 @@ export function MonthCalendar({ projects, tasks }: { projects: Project[]; tasks:
         <Modal title={`${shortDate(openDay)} (${weekday(openDay)}) 일정`} onClose={() => setOpenDay(null)}>
           <div className="col gap-6">
             {(byDay.get(openDay) ?? []).map(item)}
+            <Button
+              kind="outline"
+              size="sm"
+              onClick={() => {
+                setCreating(openDay)
+                setOpenDay(null)
+              }}
+            >
+              <Plus size={13} /> 이 날 새 일정
+            </Button>
           </div>
         </Modal>
       )}
+      {creating && <TaskAssignModal key={`new-${creating}`} projects={projects} tasks={tasks} presetDate={creating} presetAssignee={me.id} onClose={() => setCreating(null)} />}
       {editing && <TaskAssignModal key={editing.id} task={editing} projects={projects} tasks={tasks} onClose={() => setEditing(null)} />}
       {gcal && <GoogleCalendarModal onClose={() => setGcal(false)} />}
     </div>
@@ -578,6 +599,7 @@ export function WeekView({ projects, tasks }: { projects: Project[]; tasks: Task
   const [mine, setMine] = useState(false)
   const [allSpans, setAllSpans] = useState(false)
   const [editing, setEditing] = useState<Task | null>(null)
+  const [creating, setCreating] = useState<string | null>(null)
   const { data: leaves } = useAsync(() => api.listLeave(), [version], [] as LeaveRecord[])
   const go = (d: string) => navigate(withQuery(path, query, { date: d }), { replace: true })
   const projectName = (id: string | null) => projects.find(p => p.id === id)?.name ?? null
@@ -700,6 +722,9 @@ export function WeekView({ projects, tasks }: { projects: Project[]; tasks: Task
                 )
               })}
               {v.tasks.length === 0 && v.events.length === 0 && <span className="wk-empty">–</span>}
+              <button type="button" className="wk-add" onClick={() => setCreating(d)} title="이 날 새 일정">
+                <Plus size={12} /> 일정
+              </button>
             </div>
           )
         })}
@@ -719,6 +744,7 @@ export function WeekView({ projects, tasks }: { projects: Project[]; tasks: Task
         </span>
         <span className="t-cap">업무를 누르면 내용 · 메모를 보고 고칠 수 있어요</span>
       </div>
+      {creating && <TaskAssignModal key={`new-${creating}`} projects={projects} tasks={tasks} presetDate={creating} presetAssignee={me.id} onClose={() => setCreating(null)} />}
       {editing && <TaskAssignModal key={editing.id} task={editing} projects={projects} tasks={tasks} onClose={() => setEditing(null)} />}
     </div>
   )
