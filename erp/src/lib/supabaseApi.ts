@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import { ApiError, CHAT_FILE_MAX, EXCHANGE_FILE_MAX, groupIps, type Api, type ImportResult } from './api'
+import { ApiError, CHAT_FILE_MAX, EXCHANGE_FILE_MAX, groupIps, type Api, type DriveFolder, type ImportResult } from './api'
 import { desktop } from './desktop'
 import type {
   Subscription,
@@ -754,6 +754,13 @@ export function createSupabaseApi(url: string, key: string): Api {
     },
     async setSearchCx(cx) {
       must(await sb.rpc('set_app_setting', { p_key: 'google_cse_cx', p_value: cx }))
+    },
+    async getDriveFolders() {
+      const { data } = await sb.from('app_settings').select('value').eq('key', 'drive_folders').maybeSingle()
+      return Array.isArray(data?.value) ? (data.value as DriveFolder[]) : []
+    },
+    async setDriveFolders(list) {
+      must(await sb.rpc('set_app_setting', { p_key: 'drive_folders', p_value: list }))
     },
     async attendanceMonthSummary(month) {
       const { data, error } = await sb.rpc('attendance_month_summary', { p_month: `${month}-01` })
