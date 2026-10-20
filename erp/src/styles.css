@@ -1494,3 +1494,4 @@ html.detail-open .web-panel { max-width: 28vw; }
 .topbar > .web-toggle, .topbar > .web-zoom { order: 2; }
 .topbar > .web-nav { order: 3; } /* 인터넷 창 앞뒤로 가기는 검색창 바로 옆 */
 .topbar > .web-search { order: 4; }
+.topbar > .bell { order: 5; } /* 알림은 맨 오른쪽 */
