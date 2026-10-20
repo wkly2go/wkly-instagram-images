@@ -1,16 +1,13 @@
 # WKLY 인트라넷 PC 프로그램: 윈도우(.exe) · 맥(.dmg) 설치 파일을 만들어 GitHub 릴리스에 올림
-#  - erp/desktop 이 바뀌어 main 에 들어오면 자동 실행 (또는 Actions 탭에서 직접 실행)
+#  - 지금은 자동 실행 꺼 둠: Actions 탭에서 직접 실행할 때만 만듦 (2026-10-20 대표 지시)
 #  - 새 버전을 내려면 erp/desktop/package.json 의 version 을 올리면 됨 (릴리스 이름: v버전)
 #  - 인트라넷 '/download' 페이지는 항상 최신 릴리스의 파일로 연결됨
 #  - 윈도우 · 맥 파일을 모두 올린 뒤에야 릴리스를 공개 (그 전에는 초안이라 '최신'이 바뀌지 않음 → 내려받기 404 방지)
 name: desktop-app
 
+# 대표 지시 2026-10-20: 당분간 새 PC 프로그램을 자동으로 만들지 않음 (변경은 웹 인트라넷에서 먼저 검토).
+# 새 버전을 낼 때만 Actions 탭 › desktop-app › Run workflow 로 직접 실행
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'erp/desktop/**'
-      - '.github/workflows/desktop.yml'
   workflow_dispatch:
 
 permissions:

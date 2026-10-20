@@ -21,7 +21,7 @@ function meetSupport(): { ok: boolean; why?: string } {
   if (app) {
     if (app.platform !== 'win32') return { ok: false, why: '맥 PC 프로그램은 컴퓨터 소리를 녹음할 수 없습니다. 크롬에서 인트라넷을 열어 녹음해 주세요.' }
     const [maj, min] = app.version.split('.').map(Number)
-    if (maj < 1 || (maj === 1 && min < 23)) return { ok: false, why: 'PC 프로그램을 1.23 이상으로 업데이트하면 쓸 수 있습니다.' }
+    if (maj < 1 || (maj === 1 && min < 23)) return { ok: false, why: '지금 PC 프로그램에서는 Meet 소리를 녹음할 수 없습니다. 크롬에서 인트라넷을 열어 녹음해 주세요.' }
     return { ok: true }
   }
   if (!navigator.mediaDevices?.getDisplayMedia || window.matchMedia?.('(pointer: coarse)').matches) return { ok: false, why: '휴대폰 · 태블릿에서는 상대방 소리를 녹음할 수 없습니다. PC 크롬에서 열어 주세요.' }
