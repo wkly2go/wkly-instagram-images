@@ -1489,7 +1489,8 @@ html.detail-open .web-panel { max-width: 28vw; }
 .update-bar { top: auto; bottom: 16px; left: 16px; transform: none; border-radius: 14px; max-width: min(460px, calc(100% - 32px)); flex-wrap: wrap; }
 @media (pointer: coarse) { .update-bar { bottom: calc(76px + env(safe-area-inset-bottom)); left: 8px; max-width: calc(100% - 16px); } }
 
-/* 위쪽 줄: 오른쪽 끝에 [인터넷 창 앞뒤 · 창 숨기기 · 가−/가+ · 검색창], 나머지는 왼쪽 */
+/* 위쪽 줄: 오른쪽 끝에 [창 숨기기 · 가−/가+ · 인터넷 창 앞뒤 · 검색창], 나머지는 왼쪽 */
 .topbar > .grow { order: 1; }
-.topbar > .web-nav, .topbar > .web-toggle, .topbar > .web-zoom { order: 2; }
-.topbar > .web-search { order: 3; }
+.topbar > .web-toggle, .topbar > .web-zoom { order: 2; }
+.topbar > .web-nav { order: 3; } /* 인터넷 창 앞뒤로 가기는 검색창 바로 옆 */
+.topbar > .web-search { order: 4; }
