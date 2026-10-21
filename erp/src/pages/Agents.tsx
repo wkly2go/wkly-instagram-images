@@ -5,6 +5,7 @@ import { addDays, dateTimeLabel, relativeLabel, shortDate, todayKey, weekday } f
 import { useRouter, withQuery } from '../lib/router'
 import { AGENT_VERDICTS, type AgentAction, type AgentJob, type AgentActionLog, type AgentJobRequest, type AgentReport, type Department } from '../lib/types'
 import { Shell } from '../components/Shell'
+import { DocFullText } from '../components/DocFullText'
 import { usePanelWide, useRightPanel } from '../components/RightPanel'
 import { Badge, Button, Chip, Empty, Field, Modal, SectionHead, type Tone } from '../components/ui'
 
@@ -320,6 +321,7 @@ function AgentReportDetail({ r, head }: { r: AgentReport; head?: boolean }) {
       {r.job_name !== MANAGER && r.title !== r.job_name && <span className="t-cap">{r.title}</span>}
       {r.summary && <div className="note pre">{r.summary}</div>}
       {r.body && <div className="t-small pre agent-body">{r.body}</div>}
+      <DocFullText texts={[r.link, r.body, r.summary]} />
       {r.link && /^https?:\/\//.test(r.link) && (
         <a href={r.link} target="_blank" rel="noreferrer" className="t-cap">
           원본 보기 ›

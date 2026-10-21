@@ -140,6 +140,14 @@ export function editUrl(url: string): string {
   const m = url.match(/^(https:\/\/docs\.google\.com\/(?:document|spreadsheets|presentation)\/d\/[A-Za-z0-9_-]+)/)
   return m ? `${m[1]}/edit` : url
 }
+/** 구글 문서 · 시트 · 슬라이드 · 설문 편집 주소인지 (인트라넷 안 편집 대상) */
+export const isGoogleEditor = (url: string) => /^https:\/\/docs\.google\.com\/(document|spreadsheets|presentation|forms)\//.test(url)
+/** 인트라넷 안 편집 칸(iframe)에 넣을 주소: 편집기는 그대로, 그 밖의 드라이브 파일은 미리 보기 */
+export function embedUrl(url: string): string | null {
+  if (/^https:\/\/docs\.google\.com\/(document|spreadsheets|presentation)\/create/.test(url)) return url
+  if (isGoogleEditor(url)) return editUrl(url)
+  return previewUrl(url)
+}
 /** 인트라넷 안에서 미리 보기 가능한 주소 (구글이 다른 화면 안에 넣는 것을 허용하는 preview) */
 export function previewUrl(url: string): string | null {
   const m = url.match(/^(https:\/\/docs\.google\.com\/(?:document|spreadsheets|presentation)\/d\/[A-Za-z0-9_-]+)/)

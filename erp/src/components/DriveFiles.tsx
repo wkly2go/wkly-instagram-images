@@ -4,19 +4,19 @@ import { useAction, useApp, useAsync } from '../lib/app'
 import { useRouter } from '../lib/router'
 import { dateLabel } from '../lib/date'
 import { projectDriveUrl, type Project, type ProjectDriveFile } from '../lib/types'
-import { driveApi, driveIdOf, editUrl, FILE_FIELDS, fileMeta, FOLDER_MIME, googleLogin, kindOfUrl, nativeGoogle, onTokenChange, previewUrl, readToken, uploadToDrive, type GFile } from '../lib/gdrive'
+import { driveApi, driveIdOf, editUrl, embedUrl, FILE_FIELDS, fileMeta, FOLDER_MIME, googleLogin, kindOfUrl, nativeGoogle, onTokenChange, previewUrl, readToken, uploadToDrive, type GFile } from '../lib/gdrive'
 import { openLink } from './WebSearch'
 import { Button, Empty, Modal, SectionHead } from './ui'
 
 /**
  * 구글 문서 편집 열기 (대표 지시 2026-10-20 "인트라넷 내에서 구글 문서의 편집이 가능하게")
  *  - PC 프로그램: 드라이브 탭의 큰 칸에서 구글 문서 · 시트 · 슬라이드를 그대로 편집
- *  - 웹 브라우저: 구글이 다른 화면 안 편집을 막아 두어, 오른쪽 칸 자리에 겹친 창으로 편집 (미리 보기는 인트라넷 안)
+ *  - 웹 브라우저: 드라이브 탭의 편집 칸(구글 편집기를 화면 안에)에서 편집 · 안 보이면 새 창 버튼 (대표 지시 2026-10-20 "구글 드라이브 앱내에서 편집 가능하도록")
  */
 export function useOpenDoc() {
   const { navigate } = useRouter()
   return (url: string) => {
-    if (nativeGoogle()) navigate(`/drive?doc=${encodeURIComponent(editUrl(url))}`)
+    if (nativeGoogle() || embedUrl(url)) navigate(`/drive?doc=${encodeURIComponent(editUrl(url))}`)
     else openLink(editUrl(url))
   }
 }
