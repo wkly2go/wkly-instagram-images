@@ -222,7 +222,8 @@ function Room({ room }: { room: ChatRoomSummary }) {
         </div>
         <textarea
           className="textarea"
-          placeholder="메시지 입력 (Enter 전송, Shift+Enter 줄바꿈) · 사진은 붙여넣기(Ctrl+V)나 끌어다 놓기도 돼요"
+          placeholder="메시지 입력 · Enter 전송"
+          title="Enter 전송 · Shift+Enter 줄바꿈 · 사진은 붙여넣기(Ctrl+V)나 끌어다 놓기도 됩니다"
           value={text}
           onChange={e => setText(e.target.value)}
           onKeyDown={onKey}

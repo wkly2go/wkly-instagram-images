@@ -279,23 +279,37 @@ function onLinkClick(e: MouseEvent) {
   setOpenState({ q: a.href, engine: 'url' })
 }
 
-/** 검색 칸 글자 크기 (PC 프로그램): 기본 60%, 가− / 가+ 로 조절 · 이 PC에 기억 */
-const ZOOM_KEY = 'wkly-web-zoom'
-let zoomState = (() => {
+/**
+ * 글자 크기 (대표 지시 2026-10-21 "상부 폰트 크기 조절이 모든 폰트 크기를 조절, 기본은 10")
+ *  - 가− / 가+ 가 인트라넷 모든 글자(--fs-k)와 PC 프로그램 검색 칸 배율을 함께 바꿈 · 기본 10 (8~16) · 이 PC에 기억
+ */
+const FONT_KEY = 'wkly-font-size'
+const FONT_BASE = 10
+const NATIVE_BASE = 0.6
+let fontSize = (() => {
   try {
-    return Number(localStorage.getItem(ZOOM_KEY)) || 0.6
+    const v = Number(localStorage.getItem(FONT_KEY))
+    return v >= 8 && v <= 16 ? v : FONT_BASE
   } catch {
-    return 0.6
+    return FONT_BASE
   }
 })()
+const nativeZoom = () => Math.min(1.5, Math.max(0.5, Math.round(NATIVE_BASE * (fontSize / FONT_BASE) * 100) / 100))
+const applyFont = () => {
+  if (typeof document !== 'undefined') document.documentElement.style.setProperty('--fs-k', String(fontSize / FONT_BASE))
+}
+applyFont()
+let zoomState = nativeZoom()
 const zoomListeners = new Set<() => void>()
 function stepZoom(d: number) {
-  zoomState = Math.round(Math.min(1.2, Math.max(0.4, zoomState + d)) * 100) / 100
+  fontSize = Math.min(16, Math.max(8, fontSize + d))
   try {
-    localStorage.setItem(ZOOM_KEY, String(zoomState))
+    localStorage.setItem(FONT_KEY, String(fontSize))
   } catch {
     /* 저장 불가 */
   }
+  applyFont()
+  zoomState = nativeZoom()
   desktop()?.searchZoom?.(zoomState)
   for (const l of zoomListeners) l()
 }
@@ -303,7 +317,7 @@ const useZoom = () =>
   useSyncExternalStore(cb => {
     zoomListeners.add(cb)
     return () => zoomListeners.delete(cb)
-  }, () => zoomState)
+  }, () => fontSize)
 /** PC 프로그램: 검색 칸(WebContentsView)이 이미 떠 있으면 화면을 옮겨도 다시 불러오지 않음 */
 let nativeShowing: string | null = null
 /**
@@ -404,11 +418,11 @@ export function WebSearchBox() {
       <button type="button" className="quick-btn pc-only web-toggle" onClick={open ? hidePanel : showPanel} aria-pressed={!open} title={open ? '인터넷 창 숨기기 (본 화면 넓게)' : '인터넷 창 보이기'} aria-label={open ? '인터넷 창 숨기기' : '인터넷 창 보이기'}>
         {open ? <PanelRightClose size={15} /> : <PanelRightOpen size={15} />}
       </button>
-      <span className="web-zoom" role="group" aria-label="검색 창 글자 크기" title={`검색 창 글자 크기 ${Math.round(zoom * 100)}% (PC 프로그램에서 적용)`}>
-        <button type="button" className="icon-btn sm" onClick={() => stepZoom(-0.1)} aria-label="글자 작게">
+      <span className="web-zoom" role="group" aria-label="글자 크기" title={`글자 크기 ${zoom} (기본 10) · 인트라넷 모든 글자와 검색 창에 적용`}>
+        <button type="button" className="icon-btn sm" onClick={() => stepZoom(-1)} aria-label="글자 작게">
           가−
         </button>
-        <button type="button" className="icon-btn sm" onClick={() => stepZoom(0.1)} aria-label="글자 크게">
+        <button type="button" className="icon-btn sm" onClick={() => stepZoom(1)} aria-label="글자 크게">
           가+
         </button>
       </span>
@@ -498,7 +512,7 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
   const epoch = useNativeEpoch()
   useEffect(() => {
     if (!native || nativeOwner !== 'panel') return
-    app!.searchZoom?.(zoom)
+    app!.searchZoom?.(nativeZoom())
     if (!q) {
       if (nativeShowing) {
         nativeShowing = null
@@ -513,8 +527,6 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
       app!.searchOpen!(url, rectOf())
     }
   }, [native, q, engine, epoch])
-  // 검색 칸 글자 크기 (PC 프로그램 1.5+): 기본 70%, 가− / 가+ 로 조절 · 이 PC에 기억
-  const zoom = useZoom()
   // 결과 칸은 검색어가 있을 때만 그려지므로, 검색어가 생길 때마다 감시를 다시 건다 (창 크기 · 배치 변화를 계속 따라감)
   useEffect(() => {
     if (!native || !q || !nativeBox.current) return
