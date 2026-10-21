@@ -1584,4 +1584,6 @@ html.detail-open .web-panel { max-width: 28vw; }
 /* 보고 · 결재 속 구글 문서 전문 */
 .doc-full { border: 1px solid var(--line); border-radius: 8px; background: var(--white); overflow: hidden; }
 .doc-full-bar { display: flex; align-items: center; gap: 4px; padding: 4px 8px; border-bottom: 1px solid var(--line); color: var(--blue); }
-.doc-full-frame { width: 100%; height: 60vh; min-height: 320px; border: 0; background: var(--white); }
+.doc-full-view { height: 70vh; min-height: 360px; overflow: hidden; }
+.doc-full-frame { display: block; width: 100%; height: 100%; border: 0; background: var(--white); }
+.doc-full-bar .icon-btn { font-size: 11px; font-weight: 700; }
