@@ -1635,3 +1635,5 @@ svg text[font-size="12"] { font-size: var(--fs-sm); }
 .drive-acts { display: flex; gap: 2px; padding-right: 8px; opacity: 0.35; transition: opacity 0.15s; }
 .drive-row-wrap:hover .drive-acts, .drive-acts:focus-within { opacity: 1; }
 @media (pointer: coarse) { .drive-acts { opacity: 1; } }
+/* 프로젝트 목록: 그룹(구분) 바꾸기 */
+.div-select { width: auto; min-width: 72px; padding: 1px 4px; border: 1px solid var(--line); border-radius: 999px; background: var(--white); font: 700 var(--fs-cap)/1.5 var(--font); cursor: pointer; }
