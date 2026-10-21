@@ -494,7 +494,7 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
     window.addEventListener('pointerup', up)
   }
   // 팝업 창(.scrim) · 잠금 화면이 떠 있으면 구글 칸을 숨김 (PC 프로그램의 구글 칸은 항상 화면 맨 위에 그려지므로)
-  const covered = () => !!document.querySelector('.scrim, .lock-screen, .notif-panel')
+  const covered = () => !!document.querySelector('.scrim, .lock-screen, .notif-panel, .img-viewer')
   const rectOf = () => {
     const box = nativeBox.current
     const r = box?.getBoundingClientRect()

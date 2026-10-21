@@ -5,6 +5,7 @@ import { dateLabel, timeLabel, toDateKey } from '../lib/date'
 import type { ChatAttachment, ChatMessage, ChatRead } from '../lib/types'
 import { CHAT_FILE_MAX, friendlyError } from '../lib/api'
 import { Empty } from './ui'
+import { ImageViewer } from './ImageViewer'
 import { openLink } from './WebSearch'
 
 /** 말풍선 목록 (날짜 구분 · 3분 안 연속 메시지 묶음 · 읽음 표시 · 내 메시지/관리자 삭제) */
@@ -138,6 +139,7 @@ function AttachmentView({ att }: { att: ChatAttachment }) {
   const { api, toast } = useApp()
   const isImage = att.type.startsWith('image/')
   const [src, setSrc] = useState<string | null>(null)
+  const [viewing, setViewing] = useState(false)
   useEffect(() => {
     if (!isImage) return
     let alive = true
@@ -167,9 +169,12 @@ function AttachmentView({ att }: { att: ChatAttachment }) {
   }
   if (isImage)
     return (
-      <button type="button" className="att-img" onClick={() => open(false)} title={`${att.name} · 눌러서 크게 보기`}>
-        {src ? <img src={src} alt={att.name} loading="lazy" /> : <span className="t-cap">사진 불러오는 중…</span>}
-      </button>
+      <>
+        <button type="button" className="att-img" onClick={() => (src ? setViewing(true) : open(false))} title={`${att.name} · 눌러서 크게 보기 (확대 한도 없음)`}>
+          {src ? <img src={src} alt={att.name} loading="lazy" /> : <span className="t-cap">사진 불러오는 중…</span>}
+        </button>
+        {viewing && src && <ImageViewer src={src} name={att.name} onClose={() => setViewing(false)} onDownload={() => open(true)} />}
+      </>
     )
   return (
     <button type="button" className="att-file" onClick={() => open(true)} title="내려받기">
