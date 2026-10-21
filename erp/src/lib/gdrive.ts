@@ -171,3 +171,101 @@ export function previewUrl(url: string): string | null {
   if (id && /drive\.google\.com\/(file|open)/.test(url)) return `https://drive.google.com/file/d/${id}/preview`
   return null
 }
+
+/* ------------------------------------------------------------------ */
+/* 프로젝트 폴더 연동 (대표 지시 2026-10-21)                              */
+/*  - 회사 구글 계정 하나를 모두 같이 씀 → 그 계정 드라이브에 정리          */
+/*  - "현재 구글 드라이브에 있는 자료는 절대 수정 · 삭제하면 안 되고, #2026 을 만들어서 저장"   */
+/*    → 인트라넷은 최상위에 새로 만든 '#연도' 폴더 안에서만 만들고 고침. 그 밖의 폴더 · 파일은 읽기만 */
+/*  - 구조: #2026 / #ARTERIOR_2026 (아트리어) · #WKLY_2026 (더위클리 · 내부 리서치) / 연번_프로젝트 이름 */
+/*    연도가 바뀌면 #2027 … 을 새로 만듦 (프로젝트 시작일 기준, 없으면 만든 날)                   */
+/* ------------------------------------------------------------------ */
+export const YEAR_RE = /^#\d{4}$/
+export const ROOT_RE = /^#(ARTERIOR|WKLY)_\d{4}$/
+
+const yearOf = (p: { start_date?: string | null; created_at?: string }) => (p.start_date ?? p.created_at ?? new Date().toISOString()).slice(0, 4)
+export function projectRootName(p: { division?: string | null; code?: string | null; start_date?: string | null; created_at?: string }): string {
+  const div = p.division ?? p.code?.slice(0, 2) ?? 'AR'
+  return `#${div === 'AR' ? 'ARTERIOR' : 'WKLY'}_${yearOf(p)}`
+}
+export const projectFolderName = (p: { code?: string | null; name: string }) => (p.code ? `${p.code}_${p.name}` : p.name).replace(/[\\/]/g, '·').trim()
+export const folderUrl = (id: string) => `https://drive.google.com/drive/folders/${id}`
+
+const q = (s: string) => s.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
+interface FolderMeta { id: string; name: string; parents?: string[]; trashed?: boolean }
+
+async function findFolder(token: string, name: string, parent: string): Promise<FolderMeta | null> {
+  const cond = [`name = '${q(name)}'`, `mimeType = '${FOLDER_MIME}'`, 'trashed = false', `'${parent}' in parents`].join(' and ')
+  const p = new URLSearchParams({ q: cond, fields: 'files(id,name,parents)', pageSize: '5' })
+  const r = await driveApi<{ files?: FolderMeta[] }>(token, `files?${p}`)
+  return r.files?.[0] ?? null
+}
+async function createFolder(token: string, name: string, parent: string): Promise<FolderMeta> {
+  return driveApi<FolderMeta>(token, 'files?fields=id,name,parents', {
+    method: 'POST',
+    body: JSON.stringify({ name, mimeType: FOLDER_MIME, parents: [parent] }),
+    headers: { 'Content-Type': 'application/json' },
+  })
+}
+const folderCache = new Map<string, string>()
+/** 있으면 찾고 없으면 만듦 (만들기만 · 기존 폴더는 그대로) */
+async function ensureFolder(token: string, name: string, parent: string): Promise<string> {
+  const key = `${parent}/${name}`
+  const hit = folderCache.get(key)
+  if (hit) return hit
+  const f = (await findFolder(token, name, parent)) ?? (await createFolder(token, name, parent))
+  folderCache.set(key, f.id)
+  return f.id
+}
+/** #2026 / #ARTERIOR_2026 처럼 인트라넷 전용 연도 · 그룹 폴더 */
+async function ensureGroupFolder(token: string, p: Parameters<typeof projectRootName>[0]): Promise<string> {
+  const year = await ensureFolder(token, `#${yearOf(p)}`, 'root')
+  return ensureFolder(token, projectRootName(p), year)
+}
+const meta = (token: string, id: string) => driveApi<FolderMeta>(token, `files/${encodeURIComponent(id)}?supportsAllDrives=true&fields=id,name,parents,trashed`)
+/** 인트라넷이 만든 폴더인지: 부모가 #ARTERIOR_연도 · #WKLY_연도 이고 그 부모가 내 드라이브 최상위의 #연도 */
+async function isManaged(token: string, f: FolderMeta): Promise<FolderMeta | null> {
+  const parentId = f.parents?.[0]
+  if (!parentId) return null
+  const parent = await meta(token, parentId).catch(() => null)
+  if (!parent || !ROOT_RE.test(parent.name) || !parent.parents?.[0]) return null
+  const top = await meta(token, parent.parents[0]).catch(() => null)
+  return top && YEAR_RE.test(top.name) ? parent : null
+}
+
+/**
+ * 프로젝트 폴더를 맞춤
+ *  - 연결된 폴더가 없으면: #연도 / #그룹_연도 아래 '연번_이름' 폴더를 새로 만듦 (같은 연번 폴더가 이미 그 안에 있으면 연결만)
+ *  - 연결된 폴더가 인트라넷이 만든 것(#연도 안)이면: 이름 · 그룹 폴더를 맞춤
+ *  - 그 밖의 기존 폴더(사람이 정리한 드라이브)는 절대 건드리지 않음
+ */
+export async function ensureProjectFolder(
+  token: string,
+  p: { name: string; code?: string | null; division?: string | null; start_date?: string | null; created_at?: string; drive_url?: string | null },
+): Promise<{ url: string; action: 'created' | 'linked' | 'renamed' | 'moved' | 'ok' }> {
+  const want = projectFolderName(p)
+  const existingId = p.drive_url ? driveIdOf(p.drive_url) : null
+  if (existingId) {
+    const f = await meta(token, existingId).catch(() => null)
+    if (f && !f.trashed) {
+      const parent = await isManaged(token, f)
+      if (!parent) return { url: p.drive_url!, action: 'ok' } // 기존 드라이브 자료: 읽기만
+      const groupId = await ensureGroupFolder(token, p)
+      const moving = parent.id !== groupId
+      if (!moving && f.name === want) return { url: folderUrl(f.id), action: 'ok' }
+      const qs = new URLSearchParams({ fields: 'id', ...(moving ? { addParents: groupId, removeParents: parent.id } : {}) })
+      await driveApi(token, `files/${encodeURIComponent(f.id)}?${qs}`, { method: 'PATCH', body: JSON.stringify(f.name !== want ? { name: want } : {}), headers: { 'Content-Type': 'application/json' } })
+      return { url: folderUrl(f.id), action: moving ? 'moved' : 'renamed' }
+    }
+    return { url: p.drive_url!, action: 'ok' } // 휴지통에 있거나 볼 수 없는 폴더(다른 계정 · 공유 드라이브)도 그대로 둠
+  }
+  const groupId = await ensureGroupFolder(token, p)
+  if (p.code) {
+    const cond = [`name contains '${q(p.code)}'`, `mimeType = '${FOLDER_MIME}'`, 'trashed = false', `'${groupId}' in parents`].join(' and ')
+    const r = await driveApi<{ files?: FolderMeta[] }>(token, `files?${new URLSearchParams({ q: cond, fields: 'files(id,name)', pageSize: '5' })}`)
+    const same = r.files?.find(f => f.name.startsWith(`${p.code!}_`))
+    if (same) return { url: folderUrl(same.id), action: 'linked' }
+  }
+  const made = await createFolder(token, want, groupId)
+  return { url: folderUrl(made.id), action: 'created' }
+}

@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import { ChevronRight, ExternalLink, Eye, FileText, Folder, FolderOpen, Link2, LogIn, Pencil, Trash2, Upload, X } from 'lucide-react'
+import { ChevronRight, ExternalLink, Eye, FileText, Folder, FolderOpen, Link2, LogIn, Pencil, Trash2, Upload, X, FolderPlus } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { useRouter } from '../lib/router'
 import { dateLabel } from '../lib/date'
 import { projectDriveUrl, type Project, type ProjectDriveFile } from '../lib/types'
-import { driveApi, driveIdOf, editUrl, embedUrl, FILE_FIELDS, fileMeta, FOLDER_MIME, googleLogin, kindOfUrl, nativeGoogle, onTokenChange, previewUrl, readToken, uploadToDrive, type GFile } from '../lib/gdrive'
+import { driveApi, driveIdOf, editUrl, embedUrl, ensureProjectFolder, FILE_FIELDS, fileMeta, FOLDER_MIME, googleLogin, kindOfUrl, nativeGoogle, onTokenChange, previewUrl, readToken, uploadToDrive, type GFile } from '../lib/gdrive'
 import { openLink } from './WebSearch'
 import { Button, Empty, Modal, SectionHead } from './ui'
 
@@ -18,6 +18,22 @@ export function useOpenDoc() {
   return (url: string) => {
     if (nativeGoogle() || embedUrl(url)) navigate(`/drive?doc=${encodeURIComponent(editUrl(url))}`)
     else openLink(editUrl(url))
+  }
+}
+
+/**
+ * 프로젝트 ↔ 드라이브 폴더 맞추기 (대표 지시 2026-10-21): 회사 구글 계정에 로그인돼 있으면
+ * #ARTERIOR_연도 / #WKLY_연도 아래 '연번_이름' 폴더를 만들거나 이름 · 위치를 맞추고 주소를 저장.
+ * 로그인 전이면 아무것도 하지 않음 (null) — 다음에 프로젝트를 열 때 '폴더 만들기'로
+ */
+export function useProjectFolderSync() {
+  const { api } = useApp()
+  return async (p: Project): Promise<string | null> => {
+    const token = readToken()
+    if (!token) return null
+    const r = await ensureProjectFolder(token, p)
+    if (r.url !== p.drive_url) await api.saveProject({ id: p.id, drive_url: r.url })
+    return r.action === 'created' ? '드라이브 폴더를 만들었습니다.' : r.action === 'linked' ? '같은 연번의 드라이브 폴더를 연결했습니다.' : r.action === 'renamed' ? '드라이브 폴더 이름을 맞췄습니다.' : r.action === 'moved' ? '드라이브 폴더를 새 그룹 연도 폴더로 옮겼습니다.' : null
   }
 }
 
@@ -50,7 +66,7 @@ const typeLabel = (m: string | null) => (m ? TYPE_LABEL[m] ?? (m.startsWith('ima
  *  - 열기: 구글 문서 · 시트 · 슬라이드는 편집 화면으로, 웹에서는 인트라넷 안 미리 보기도
  */
 export function ProjectDriveSection({ project }: { project: Project }) {
-  const { api, me, version } = useApp()
+  const { api, me, version, toast } = useApp()
   const { busy, run } = useAction()
   const openDoc = useOpenDoc()
   const token = useDriveToken()
@@ -65,6 +81,21 @@ export function ProjectDriveSection({ project }: { project: Project }) {
   const folder = projectDriveUrl(project)
   const folderId = folder.exact ? driveIdOf(folder.url) : null
   const canEdit = (f: ProjectDriveFile) => me.role === 'admin' || f.added_by === me.id
+  const syncFolder = useProjectFolderSync()
+  const makeFolder = async () => {
+    setErr('')
+    try {
+      if (!readToken()) await login()
+      if (!readToken()) return
+      let msg: string | null = null
+      const ok = await run(async () => {
+        msg = await syncFolder(project)
+      })
+      if (ok) toast(msg ?? '드라이브 폴더가 이미 맞게 정리돼 있습니다.')
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : '드라이브 폴더를 만들지 못했습니다.')
+    }
+  }
 
   // 연동: 구글에 로그인돼 있으면 열 때마다 드라이브의 최신 이름 · 종류로 맞춤
   useEffect(() => {
@@ -131,6 +162,11 @@ export function ProjectDriveSection({ project }: { project: Project }) {
             <Button kind="outline" size="sm" onClick={() => (native ? openDoc(folder.url) : openLink(folder.url))} title={folder.exact ? '프로젝트 드라이브 폴더' : '연번 · 이름으로 드라이브 검색 (프로젝트 수정에서 폴더 주소를 넣을 수 있음)'}>
               <FolderOpen size={13} /> {folder.exact ? '프로젝트 폴더' : '폴더 찾기'}
             </Button>
+            {!native && (
+              <Button kind={folder.exact ? 'outline' : 'blue'} size="sm" onClick={makeFolder} disabled={busy} title="회사 구글 계정 드라이브 #연도 / #ARTERIOR_연도 · #WKLY_연도 아래 '연번_이름' 폴더를 만듦 (기존 드라이브 폴더는 건드리지 않음)">
+                <FolderPlus size={13} /> {folder.exact ? '폴더 맞추기' : '드라이브 폴더 만들기'}
+              </Button>
+            )}
             {!native &&
               (token ? (
                 <>
