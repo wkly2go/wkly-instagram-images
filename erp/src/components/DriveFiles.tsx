@@ -29,10 +29,15 @@ export function useOpenDoc() {
 export function useProjectFolderSync() {
   const { api } = useApp()
   return async (p: Project): Promise<string | null> => {
-    const token = readToken()
-    if (!token) return null
-    const r = await ensureProjectFolder(token, p)
-    if (r.url !== p.drive_url) await api.saveProject({ id: p.id, drive_url: r.url })
+    // 1) 회사 구글 계정이 서버에 연결돼 있으면 서버가 처리 (PC 프로그램 · 웹 모두, 로그인 필요 없음)
+    let r = await api.driveEnsure(p.id)
+    // 2) 아니면 이 브라우저의 회사 계정 구글 로그인으로
+    if (!r) {
+      const token = readToken()
+      if (!token) return null
+      r = await ensureProjectFolder(token, p)
+      if (r.url !== p.drive_url) await api.saveProject({ id: p.id, drive_url: r.url })
+    }
     return r.action === 'created' ? '드라이브 폴더를 만들었습니다.' : r.action === 'linked' ? '같은 연번의 드라이브 폴더를 연결했습니다.' : r.action === 'renamed' ? '드라이브 폴더 이름을 맞췄습니다.' : r.action === 'moved' ? '드라이브 폴더를 새 그룹 연도 폴더로 옮겼습니다.' : null
   }
 }
@@ -85,8 +90,9 @@ export function ProjectDriveSection({ project }: { project: Project }) {
   const makeFolder = async () => {
     setErr('')
     try {
-      if (!readToken()) await login()
-      if (!readToken()) return
+      const server = (await api.driveStatus()).connected
+      if (!server && !readToken()) await login()
+      if (!server && !readToken()) return
       let msg: string | null = null
       const ok = await run(async () => {
         msg = await syncFolder(project)
@@ -162,7 +168,7 @@ export function ProjectDriveSection({ project }: { project: Project }) {
             <Button kind="outline" size="sm" onClick={() => (native ? openDoc(folder.url) : openLink(folder.url))} title={folder.exact ? '프로젝트 드라이브 폴더' : '연번 · 이름으로 드라이브 검색 (프로젝트 수정에서 폴더 주소를 넣을 수 있음)'}>
               <FolderOpen size={13} /> {folder.exact ? '프로젝트 폴더' : '폴더 찾기'}
             </Button>
-            {!native && (
+            {(
               <Button kind={folder.exact ? 'outline' : 'blue'} size="sm" onClick={makeFolder} disabled={busy} title="회사 구글 계정 드라이브 #연도 / #ARTERIOR_연도 · #WKLY_연도 아래 '연번_이름' 폴더를 만듦 (기존 드라이브 폴더는 건드리지 않음)">
                 <FolderPlus size={13} /> {folder.exact ? '폴더 맞추기' : '드라이브 폴더 만들기'}
               </Button>

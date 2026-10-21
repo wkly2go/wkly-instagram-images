@@ -1732,6 +1732,19 @@ export function createDemoApi(): Api {
       requireMe()
       return clone(store.drive_folders ?? [])
     },
+    // 데모: 회사 구글 계정 연결 없음 (브라우저 로그인 방식으로만 동작)
+    async driveStatus() {
+      return { clientId: !!store.google_client_id, secret: false, connected: false, account: null }
+    },
+    async driveConnect() {
+      throw new ApiError('데모에서는 회사 구글 계정을 연결할 수 없습니다.')
+    },
+    async driveEnsure() {
+      return null
+    },
+    async driveEnsureAll() {
+      throw new ApiError('데모에서는 회사 구글 계정을 연결할 수 없습니다.')
+    },
     async getGoogleClientId() {
       return store.google_client_id ?? null
     },

@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import { ApiError, CHAT_FILE_MAX, EXCHANGE_FILE_MAX, groupIps, type Api, type DriveFolder, type ImportResult } from './api'
+import { ApiError, CHAT_FILE_MAX, EXCHANGE_FILE_MAX, groupIps, type Api, type DriveEnsureResult, type DriveFolder, type DriveStatus, type ImportResult } from './api'
 import { desktop } from './desktop'
 import type {
   Subscription,
@@ -101,6 +101,23 @@ export function createSupabaseApi(url: string, key: string): Api {
       out.push(...rows)
       if (rows.length < size) return out
     }
+  }
+
+  /** 회사 구글 드라이브 함수 호출: 연결 안 됨(409)은 null */
+  const invokeDrive = async <T,>(payload: object): Promise<T | null> => {
+    const { data, error } = await sb.functions.invoke('gdrive', { body: payload })
+    if (error) {
+      const ctx = (error as { context?: Response }).context
+      let body: { error?: string; not_connected?: boolean } = {}
+      try {
+        body = ctx ? await ctx.json() : {}
+      } catch {
+        /* 본문 없음 */
+      }
+      if (body.not_connected || ctx?.status === 404) return null
+      throw new ApiError(body.error || error.message)
+    }
+    return data as T
   }
 
   /** 관리자 Edge Function 호출 (팀원 추가 · 비밀번호 재설정) */
@@ -791,6 +808,20 @@ export function createSupabaseApi(url: string, key: string): Api {
     async getGoogleClientId() {
       const { data } = await sb.from('app_settings').select('value').eq('key', 'google_oauth_client_id').maybeSingle()
       return typeof data?.value === 'string' ? data.value : null
+    },
+    async driveStatus() {
+      return (await invokeDrive<DriveStatus>({ action: 'status' })) ?? { clientId: false, secret: false, connected: false, account: null }
+    },
+    async driveConnect(code) {
+      const r = await invokeDrive<{ account: string | null }>({ action: 'connect', code })
+      if (!r) throw new ApiError('연결하지 못했습니다.')
+      return r
+    },
+    driveEnsure: projectId => invokeDrive<DriveEnsureResult>({ action: 'ensure', project_id: projectId }),
+    async driveEnsureAll() {
+      const r = await invokeDrive<{ made: number; fixed: number; fail: string[] }>({ action: 'ensure_all' })
+      if (!r) throw new ApiError('회사 구글 계정이 아직 연결되지 않았습니다.')
+      return r
     },
     async setGoogleClientId(id) {
       must(await sb.rpc('set_app_setting', { p_key: 'google_oauth_client_id', p_value: id }))

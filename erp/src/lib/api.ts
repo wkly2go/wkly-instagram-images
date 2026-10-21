@@ -89,6 +89,17 @@ export interface ImportResult {
 export const EXPORT_TABLES = ['work_logs', 'projects', 'tasks', 'clients', 'contacts', 'payments', 'project_finances', 'project_budget_lines', 'approvals', 'research_items', 'brand_contacts', 'chat_messages', 'profiles'] as const
 export type ExportTable = (typeof EXPORT_TABLES)[number]
 
+export interface DriveStatus {
+  clientId: boolean
+  secret: boolean
+  connected: boolean
+  account: string | null
+}
+export interface DriveEnsureResult {
+  url: string
+  action: 'created' | 'linked' | 'renamed' | 'moved' | 'ok'
+}
+
 export interface WorkLogFilter {
   date?: string
   /** 기간 (log_date 포함) */
@@ -347,6 +358,12 @@ export interface Api {
   /** 웹 브라우저 드라이브 목록용 구글 OAuth 클라이언트 ID (공개 값, 관리자 등록) */
   getGoogleClientId(): Promise<string | null>
   setGoogleClientId(id: string | null): Promise<void>
+  /** 회사 구글 계정 드라이브 연동 (gdrive 함수) */
+  driveStatus(): Promise<DriveStatus>
+  driveConnect(code: string): Promise<{ account: string | null }>
+  /** 프로젝트 폴더 만들기 · 맞추기. 회사 계정이 연결 안 됐으면 null */
+  driveEnsure(projectId: string): Promise<DriveEnsureResult | null>
+  driveEnsureAll(): Promise<{ made: number; fixed: number; fail: string[] }>
 
   // 휴가
   listLeave(): Promise<LeaveRecord[]>

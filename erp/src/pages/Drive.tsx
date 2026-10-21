@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ChevronRight, Clock, Copy, ExternalLink, FilePen, Pencil, RotateCw, X, FilePlus, Folder, HardDrive, LogIn, LogOut, Search, Star, Trash2, Users } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
-import type { DriveFolder } from '../lib/api'
+import type { DriveFolder, DriveStatus } from '../lib/api'
 import { desktop } from '../lib/desktop'
-import { copyFile, driveApi, DriveAuthError, editUrl, embedUrl, ensureProjectFolder, YEAR_RE, FOLDER_MIME as FOLDER, renameFile, trashFile, googleLogin, googleLogout, type GFile } from '../lib/gdrive'
+import { copyFile, driveApi, DriveAuthError, editUrl, embedUrl, ensureProjectFolder, googleConnectCode, YEAR_RE, FOLDER_MIME as FOLDER, renameFile, trashFile, googleLogin, googleLogout, type GFile } from '../lib/gdrive'
 import { useDriveToken } from '../components/DriveFiles'
 import { useRouter, withQuery } from '../lib/router'
 import { Shell } from '../components/Shell'
 import { claimNative, moveNative, openLink, releaseNative } from '../components/WebSearch'
-import { Button, Empty, SectionHead } from '../components/ui'
+import { Badge, Button, Empty, SectionHead } from '../components/ui'
 
 /**
  * 구글 드라이브 탭 (대표 지시 2026-10-20)
@@ -90,7 +90,7 @@ export default function Drive() {
             <span className="t-cap">드라이브에서 폴더를 열고 주소창의 주소를 그대로 붙여 넣으세요. 팀원에게 그 폴더 공유 권한이 있어야 열립니다.</span>
           </div>
         )}
-        {admin && !native && <ProjectFoldersSync />}
+        {admin && <ProjectFoldersSync />}
         {admin && !native && <ClientIdSetting />}
       </div>
     </Shell>
@@ -488,14 +488,47 @@ function DriveHead({
 }
 
 /** 관리자: 웹 브라우저 드라이브 목록용 구글 OAuth 클라이언트 ID */
-/** 관리자: 모든 프로젝트를 드라이브 폴더와 한 번에 맞춤 (폴더 없는 프로젝트 → 만들기 · 같은 연번 폴더 연결 / 연도 폴더 안 폴더 → 이름 · 위치 맞춤) */
+/**
+ * 관리자: 회사 구글 계정 연결 + 프로젝트 폴더 정리
+ *  - 연결하면 서버(gdrive 함수)가 회사 계정으로 폴더를 만듦 → PC 프로그램 · 웹 어디서 프로젝트를 만들어도 자동
+ *  - #2026 / #ARTERIOR_2026 · #WKLY_2026 / 연번_이름 (기존 드라이브 자료는 건드리지 않음)
+ */
 function ProjectFoldersSync() {
-  const { api, toast, bump } = useApp()
+  const { api, version, toast, bump } = useApp()
+  const { busy, run } = useAction()
   const token = useDriveToken()
+  const native = !!desktop()?.searchOpen
+  const { data: st, reload } = useAsync(() => api.driveStatus(), [version], null as DriveStatus | null)
   const [state, setState] = useState<{ done: number; total: number; made: number; fixed: number; fail: string[] } | null>(null)
   const running = !!state && state.done < state.total
+  const connect = async () => {
+    const id = await api.getGoogleClientId()
+    if (!id) return toast("먼저 아래 '구글 로그인 연결'에 OAuth 클라이언트 ID를 등록해 주세요.")
+    try {
+      const code = await googleConnectCode(id)
+      await run(async () => {
+        const r = await api.driveConnect(code)
+        toast(`회사 구글 계정을 연결했습니다${r.account ? ` (${r.account})` : ''}.`)
+      })
+      reload()
+    } catch (e) {
+      toast(e instanceof Error ? e.message : '구글 연결 실패')
+    }
+  }
   const runAll = async () => {
-    if (!token) return toast("먼저 위쪽 '구글 로그인'으로 회사 구글 계정에 로그인해 주세요.")
+    if (st?.connected) {
+      setState({ done: 0, total: 1, made: 0, fixed: 0, fail: [] })
+      try {
+        const r = await api.driveEnsureAll()
+        setState({ done: 1, total: 1, ...r })
+        bump()
+      } catch (e) {
+        setState(null)
+        toast(e instanceof Error ? e.message : '정리하지 못했습니다.')
+      }
+      return
+    }
+    if (!token) return toast("회사 구글 계정을 연결하거나, 위쪽 '구글 로그인'으로 회사 계정에 로그인해 주세요.")
     const list = (await api.listProjects()).sort((a, b) => (a.code ?? '').localeCompare(b.code ?? ''))
     let made = 0
     let fixed = 0
@@ -519,11 +552,29 @@ function ProjectFoldersSync() {
     <div className="web-setting col gap-4">
       <div className="row wrap" style={{ gap: 6 }}>
         <span className="t-cap grow">
-          프로젝트 폴더 정리 (관리자) · 회사 구글 계정 드라이브에 새로 만든 <b>#2026</b> 안의 <b>#ARTERIOR_2026</b> / <b>#WKLY_2026</b>(더위클리 · 내부 리서치) 아래 '연번_이름' 폴더를 만들어 연결합니다. 이미 폴더가 연결된 프로젝트와 기존 드라이브 자료는 건드리지 않습니다. 연도가 바뀌면 #2027 을 새로 만듭니다.
+          프로젝트 폴더 정리 (관리자) · 회사 구글 계정 드라이브에 새로 만든 <b>#2026</b> 안의 <b>#ARTERIOR_2026</b> / <b>#WKLY_2026</b>(더위클리 · 내부 리서치) 아래 '연번_이름' 폴더를 만들어 연결합니다. 이미 폴더가 연결된
+          프로젝트와 기존 드라이브 자료는 건드리지 않습니다. 연도가 바뀌면 #2027 을 새로 만듭니다.
         </span>
-        <Button size="sm" kind="outline" disabled={running || !token} onClick={runAll} title={token ? '모든 프로젝트 폴더 맞추기' : '구글 로그인 후 사용'}>
-          {running ? `맞추는 중 ${state!.done}/${state!.total}` : '프로젝트 폴더 모두 맞추기'}
+      </div>
+      <div className="row wrap" style={{ gap: 6 }}>
+        {st?.connected ? (
+          <Badge tone="green">회사 계정 연결됨{st.account ? ` · ${st.account}` : ''}</Badge>
+        ) : (
+          <Badge tone="outline">회사 계정 연결 안 됨</Badge>
+        )}
+        {!native && (
+          <Button size="sm" kind={st?.connected ? 'ghost' : 'blue'} disabled={busy} onClick={connect} title="회사 구글 계정으로 로그인 · 허락 → 서버가 그 계정으로 폴더를 만듦">
+            {st?.connected ? '다시 연결' : '회사 구글 계정 연결'}
+          </Button>
+        )}
+        <Button size="sm" kind="outline" disabled={running || (!st?.connected && !token)} onClick={runAll}>
+          {running ? (state!.total > 1 ? `맞추는 중 ${state!.done}/${state!.total}` : '맞추는 중…') : '프로젝트 폴더 모두 맞추기'}
         </Button>
+        {st && !st.connected && (
+          <span className="t-cap">
+            준비: ① 아래 '구글 로그인 연결'에 클라이언트 ID {st.clientId ? '✓' : '등록'} ② Supabase › Vault 에 GOOGLE_CLIENT_SECRET {st.secret ? '✓' : '등록'} ③ '회사 구글 계정 연결'
+          </span>
+        )}
       </div>
       {state && !running && (
         <span className="t-cap">
