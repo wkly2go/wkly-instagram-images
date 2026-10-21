@@ -220,8 +220,16 @@ export default function Projects() {
 
 /** 프로젝트 목록 게시판: 번호 · 상태 · 프로젝트 · 거래처 · 구분 · 담당 · 기간 · 할 일 */
 function ProjectBoard({ list, data, loading, onOpen }: { list: Project[]; data: Data; loading: boolean; onOpen: (id: string) => void }) {
-  const { profileName } = useApp()
+  const { api, profileName } = useApp()
+  const { busy, run } = useAction()
   const today = todayKey()
+  // 그룹(구분) 바꾸기 (대표 지시 2026-10-21 "프로젝트 목록에서 프로젝트가 포함된 그룹을 수정할 수 있게")
+  const moveTo = (p: Project, div: Division) => {
+    if (div === projectBrand(p)) return
+    const auto = /^(AR|TW|RS)\d{4}-\d+$/.test(p.code ?? '')
+    if (!window.confirm(`'${p.name}'을(를) ${DIVISIONS[div].full}(으)로 옮길까요?${auto ? `\n연번이 ${div}로 새로 매겨집니다.` : ''}`)) return
+    run(() => api.saveProject({ id: p.id, division: div }), `${DIVISIONS[div].label}(으)로 옮겼습니다.`)
+  }
   const cols: BoardCol<Project>[] = [
     { key: 'code', label: '연번', width: 92, cell: p => (
         <span className="t-mono row" style={{ gap: 4 }} title={DIVISIONS[projectBrand(p)].full}>
@@ -229,6 +237,29 @@ function ProjectBoard({ list, data, loading, onOpen }: { list: Project[]; data: 
           {p.code ?? '-'}
         </span>
       ) },
+    {
+      key: 'group',
+      label: '그룹',
+      width: 104,
+      cell: p => (
+        <select
+          className="div-select"
+          value={projectBrand(p)}
+          disabled={busy}
+          style={{ borderColor: DIVISIONS[projectBrand(p)].color, color: DIVISIONS[projectBrand(p)].color }}
+          onClick={e => e.stopPropagation()}
+          onChange={e => moveTo(p, e.target.value as Division)}
+          aria-label={`${p.name} 그룹`}
+          title="그룹 바꾸기"
+        >
+          {DIVISION_KEYS.map(k => (
+            <option key={k} value={k}>
+              {DIVISIONS[k].label}
+            </option>
+          ))}
+        </select>
+      ),
+    },
     {
       key: 'drive',
       label: '드라이브',
@@ -242,7 +273,28 @@ function ProjectBoard({ list, data, loading, onOpen }: { list: Project[]; data: 
         )
       },
     },
-    { key: 'status', label: '상태', width: 64, cell: p => <StatusBadge status={p.status} /> },
+    {
+      key: 'status',
+      label: '상태',
+      width: 76,
+      cell: p => (
+        <select
+          className="div-select"
+          value={p.status}
+          disabled={busy}
+          onClick={e => e.stopPropagation()}
+          onChange={e => run(() => api.saveProject({ id: p.id, status: e.target.value as ProjectStatus }), `${e.target.value}(으)로 바꿨습니다.`)}
+          aria-label={`${p.name} 상태`}
+          title="상태 바꾸기 (완료 · 보류 · NIC 는 아래 묶음으로 옮겨짐)"
+        >
+          {PROJECT_STATUSES.map(st => (
+            <option key={st} value={st}>
+              {st}
+            </option>
+          ))}
+        </select>
+      ),
+    },
     {
       key: 'name',
       label: '프로젝트',
