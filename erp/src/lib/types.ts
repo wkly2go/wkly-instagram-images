@@ -339,6 +339,8 @@ export interface WorkLog {
   /** 상대방 (거래처 담당자). 메일 상대 주소가 등록된 담당자면 자동 연결 (0028+) */
   contact_id?: string | null
   minutes: number | null
+  /** 기록에 덧붙인 메모 (0051+) */
+  memo?: string | null
   created_at: string
   updated_at: string
 }
