@@ -7,13 +7,15 @@
    ===================================================================== */
 :root {
   /* 글자 크기 단계 (전체 공통 위계): 캡션 < 작게 < 본문 < 소제목 < 제목 < 숫자 < 대형 */
-  --fs-cap: 9.5px;
-  --fs-sm: 10px;
-  --fs-body: 11px;
-  --fs-sub: 12.5px;
-  --fs-title: 15px;
-  --fs-num: 19px;
-  --fs-hero: 40px;
+  /* 글자 크기: 본문 10 기준, 위쪽 가−/가+ 가 --fs-k 로 모든 글자를 함께 조절 (대표 지시 2026-10-21) */
+  --fs-k: 1;
+  --fs-cap: calc(8.6px * var(--fs-k));
+  --fs-sm: calc(9.1px * var(--fs-k));
+  --fs-body: calc(10px * var(--fs-k));
+  --fs-sub: calc(11.4px * var(--fs-k));
+  --fs-title: calc(13.6px * var(--fs-k));
+  --fs-num: calc(17.3px * var(--fs-k));
+  --fs-hero: calc(36px * var(--fs-k));
   --yellow: #ffff00;
   --white: #ffffff;
   --paper: #f4f4ef;
@@ -151,7 +153,7 @@ a:hover { text-decoration: underline; }
 /* 세로 탭 */
 .tabs { display: flex; flex-direction: column; gap: 3px; padding-top: 48px; flex-shrink: 0; }
 .tab {
-  width: 56px; height: 28px;
+  min-width: 56px; height: calc(28px * var(--fs-k)); padding: 0 6px; box-sizing: border-box;
   display: flex; align-items: center; justify-content: center; gap: 3px;
   background: var(--blue); color: var(--white);
   border: 2px solid var(--blue); border-left: none;
@@ -316,7 +318,7 @@ a:hover { text-decoration: underline; }
 
 /* ---------- 채팅 ---------- */
 .chat-head { padding: 10px 14px; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 8px; }
-.chat-body { flex: 1; overflow: auto; background: var(--paper); padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+.chat-body { flex: 1; overflow-x: hidden; overflow-y: auto; background: var(--paper); padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
 .chat-day { align-self: center; background: var(--white); border-radius: 999px; padding: 2px 10px; font-size: var(--fs-cap); color: var(--gray); margin: 4px 0; }
 .msg { display: flex; gap: 8px; align-items: flex-start; }
 .msg .stack { display: flex; flex-direction: column; gap: 3px; min-width: 0; max-width: 100%; }
@@ -837,7 +839,7 @@ button.kpi:hover, a.kpi:hover { border-color: var(--blue); }
 .team-row .team-person { flex: 1 1 auto; min-width: 0; }
 .team-assign { flex: none; color: var(--blue); }
 .team-assign:hover { background: var(--yellow-tint); }
-.composer-tools { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; flex: none; }
+.composer-tools { display: flex; align-items: center; gap: 6px; flex: none; }
 .assign-chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border: 1px solid var(--blue); border-radius: 999px; background: var(--white); color: var(--blue); font: inherit; font-size: var(--fs-cap); font-weight: 700; cursor: pointer; white-space: nowrap; }
 .assign-chip:hover { background: var(--yellow-tint); }
 /* 광고 탭 확장 */
@@ -1407,7 +1409,7 @@ html.detail-open .web-panel { max-width: 28vw; }
    ===================================================================== */
 .m-nav, .m-more-scrim { display: none; }
 @media (pointer: coarse) {
-  :root { --fs-cap: 11px; --fs-sm: 12px; --fs-body: 13px; --fs-sub: 14.5px; --fs-title: 17px; --fs-num: 22px; }
+  :root { --fs-cap: calc(11px * var(--fs-k)); --fs-sm: calc(12px * var(--fs-k)); --fs-body: calc(13px * var(--fs-k)); --fs-sub: calc(14.5px * var(--fs-k)); --fs-title: calc(17px * var(--fs-k)); --fs-num: calc(22px * var(--fs-k)); }
   /* 아이폰 입력 확대 방지 */
   input, select, textarea, .input, .select, .textarea { font-size: 16px; }
   .main-nav, .web-zoom, .app-page .tabs { display: none !important; }
@@ -1586,4 +1588,25 @@ html.detail-open .web-panel { max-width: 28vw; }
 .doc-full-bar { display: flex; align-items: center; gap: 4px; padding: 4px 8px; border-bottom: 1px solid var(--line); color: var(--blue); }
 .doc-full-view { height: 70vh; min-height: 360px; overflow: hidden; }
 .doc-full-frame { display: block; width: 100%; height: 100%; border: 0; background: var(--white); }
-.doc-full-bar .icon-btn { font-size: 11px; font-weight: 700; }
+.doc-full-bar .icon-btn { font-size: var(--fs-body); font-weight: 700; }
+
+/* =====================================================================
+   시스템 구성 디자인 다듬기 (대표 지시 2026-10-21 "시스템 구성 디자인을 개선해")
+   - 스크롤바: 얇고 연한 둥근 막대 (굵은 회색 막대 · 가로 스크롤 정리)
+   - 입력 칸(채팅 · 빠른 창): 한 줄 정렬, 둥근 모서리, 같은 높이
+   ===================================================================== */
+* { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--gray) 35%, transparent) transparent; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--gray) 30%, transparent); border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background-color: color-mix(in srgb, var(--blue) 45%, transparent); }
+::-webkit-scrollbar-corner { background: transparent; }
+.composer { align-items: center; padding: 8px 10px; gap: 8px; }
+.composer .textarea, .quick-composer .textarea { border-radius: 10px; padding: 8px 12px; line-height: 1.45; overflow-y: auto; scrollbar-width: none; }
+.composer .textarea::-webkit-scrollbar, .quick-composer .textarea::-webkit-scrollbar { display: none; }
+.composer .textarea:focus, .quick-composer .textarea:focus { border-color: var(--blue); outline: none; }
+.attach-btn, .send-btn { border-radius: 10px; }
+.attach-btn { border-color: var(--line); }
+.composer .assign-chip { height: 28px; }
+/* 입력 칸은 글 길이만큼 자동으로 늘어남 (최대 높이까지) */
+.composer .textarea, .quick-composer .textarea { field-sizing: content; height: auto; }
