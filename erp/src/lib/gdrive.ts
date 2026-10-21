@@ -26,7 +26,13 @@ interface TokenClient {
   callback: (r: { access_token?: string; expires_in?: number; error?: string }) => void
 }
 interface Gis {
-  accounts: { oauth2: { initTokenClient: (o: object) => TokenClient; revoke: (t: string, cb?: () => void) => void } }
+  accounts: {
+    oauth2: {
+      initTokenClient: (o: object) => TokenClient
+      initCodeClient: (o: object) => { requestCode: () => void }
+      revoke: (t: string, cb?: () => void) => void
+    }
+  }
 }
 
 /** PC 프로그램(웹 칸으로 구글 화면을 그대로 띄움)인지 */
@@ -78,6 +84,23 @@ export async function googleLogin(clientId: string, email?: string | null): Prom
       resolve(r.access_token)
     }
     client.requestAccessToken({ prompt: '' })
+  })
+}
+
+/** 관리자: 회사 구글 계정을 서버에 연결할 때 쓰는 1회용 코드 (팝업 · 오프라인 접근 허락) */
+export async function googleConnectCode(clientId: string): Promise<string> {
+  const g = await gisReady()
+  return new Promise((resolve, reject) => {
+    const c = g.accounts.oauth2.initCodeClient({
+      client_id: clientId,
+      scope: DRIVE_SCOPES,
+      ux_mode: 'popup',
+      access_type: 'offline',
+      prompt: 'consent',
+      callback: (r: { code?: string; error?: string }) => (r.code ? resolve(r.code) : reject(new Error('구글 연결을 마치지 못했습니다.'))),
+      error_callback: () => reject(new Error('구글 연결 창이 닫혔습니다.')),
+    })
+    c.requestCode()
   })
 }
 
