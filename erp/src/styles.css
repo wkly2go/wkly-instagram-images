@@ -1624,3 +1624,5 @@ svg text[font-size="12"] { font-size: var(--fs-sm); }
   .board th, .board td { padding: 6px 6px; }
   .board td .btn-sm { padding: 2px 6px; }
 }
+/* 업무 기록 메모 */
+.log-memo { display: block; margin-top: 3px; padding: 3px 8px; border-left: 3px solid var(--yellow); background: var(--yellow-tint); color: var(--gray); font-size: var(--fs-cap); border-radius: 0 4px 4px 0; }

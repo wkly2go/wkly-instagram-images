@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from "react";
-import { ChevronLeft, ChevronRight, ListTodo, Pencil, Search, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, ListTodo, Pencil, Search, Trash2, StickyNote } from "lucide-react";
 import { useAction, useApp, useAsync } from "../lib/app";
 import {
   addDays,
@@ -57,6 +57,7 @@ export function WorkPane({ tabs }: { tabs?: ReactNode }) {
   const attendance = useAttendance();
   const [reporting, setReporting] = useState(false);
   const [editLog, setEditLog] = useState<Log | null>(null);
+  const [memoLog, setMemoLog] = useState<Log | null>(null);
   const [side, setSideState] = useState<Side>(() => {
     try {
       return (localStorage.getItem(SIDE_KEY) as Side | null) ?? "todo";
@@ -133,6 +134,11 @@ export function WorkPane({ tabs }: { tabs?: ReactNode }) {
       cell: l => (
         <>
           <span className="cell-pre t-small t-blue">{l.content}</span>
+          {l.memo && (
+            <span className="log-memo cell-pre" title="메모">
+              📝 {l.memo}
+            </span>
+          )}
           {isMail(l.kind) && (l.email_counterpart || l.email_subject) && (
             <span className="cell-sub">
               {l.kind === "메일 발신" ? "받는 사람" : "보낸 사람"} {l.email_counterpart || "-"}
@@ -149,10 +155,15 @@ export function WorkPane({ tabs }: { tabs?: ReactNode }) {
     {
       key: 'act',
       label: "",
-      width: 84,
+      width: 108,
       kind: 'center',
       cell: l => (
         <>
+          {(l.user_id === me.id || me.role === "admin") && (
+            <button type="button" className={`icon-btn sm${l.memo ? " on" : ""}`} aria-label="메모" title={l.memo ? "메모 고치기" : "메모 추가"} onClick={e => { e.stopPropagation(); setMemoLog(l); }}>
+              <StickyNote size={13} />
+            </button>
+          )}
           {l.user_id === me.id && (
             <button type="button" className="icon-btn sm" aria-label="할 일로 만들기" title="이 기록으로 할 일 만들기 (같은 프로젝트에 연결)" onClick={() => toTask(l)}>
               <ListTodo size={13} />
@@ -264,6 +275,7 @@ export function WorkPane({ tabs }: { tabs?: ReactNode }) {
         </div>
       </div>
       {editLog && <LogEdit key={editLog.id} l={editLog} onClose={() => setEditLog(null)} />}
+      {memoLog && <LogMemo key={memoLog.id} l={memoLog} onClose={() => setMemoLog(null)} />}
       {reporting && (
         <NewApproval preset={{ kind: "업무 보고", payload: { date } }} onClose={() => setReporting(false)} onCreated={(id) => navigate(`/approvals?view=mine&id=${id}`)} />
       )}
@@ -403,6 +415,53 @@ function TeamSide({
 }
 
 /** 업무 기록 고치기 (쓴 사람 · 관리자) */
+/** 업무 기록에 메모 붙이기 (대표 지시 2026-10-21 "업무에서 메모를 추가할 수 있게") */
+function LogMemo({ l, onClose }: { l: Log; onClose: () => void }) {
+  const { api } = useApp();
+  const { busy, run } = useAction();
+  const [memo, setMemo] = useState(l.memo ?? "");
+  const save = async (v: string | null) => {
+    const ok = await run(() => api.saveWorkLog({ id: l.id, memo: v }), v ? "메모를 저장했습니다." : "메모를 지웠습니다.");
+    if (ok) onClose();
+  };
+  return (
+    <Modal
+      title={l.memo ? "메모 고치기" : "메모 추가"}
+      onClose={onClose}
+      actions={
+        <>
+          {l.memo && (
+            <Button kind="ghost" disabled={busy} onClick={() => save(null)}>
+              메모 지우기
+            </Button>
+          )}
+          <span className="grow" />
+          <Button kind="ghost" onClick={onClose}>
+            취소
+          </Button>
+          <Button disabled={busy || !memo.trim()} onClick={() => save(memo.trim())}>
+            저장
+          </Button>
+        </>
+      }
+    >
+      <div className="note pre t-small">{l.content}</div>
+      <Field label="메모">
+        <textarea
+          className="textarea"
+          rows={4}
+          autoFocus
+          value={memo}
+          onChange={(e) => setMemo(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && (e.metaKey || e.ctrlKey) && memo.trim() && save(memo.trim())}
+          placeholder="후속 조치 · 참고 사항 (Ctrl+Enter 저장)"
+          maxLength={2000}
+        />
+      </Field>
+    </Modal>
+  );
+}
+
 function LogEdit({ l, onClose }: { l: Log; onClose: () => void }) {
   const { api } = useApp();
   const { busy, run } = useAction();
