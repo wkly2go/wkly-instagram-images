@@ -7,6 +7,7 @@ import { maskAccount } from '../lib/finance'
 import { Meter } from '../components/charts'
 import { Link, useRouter, withQuery } from '../lib/router'
 import { APPROVAL_KINDS, CONTRACT_TYPES, type Approval, type ApprovalKind, type ApprovalRoute, type Project, type WorkLog } from '../lib/types'
+import { DocFullText } from '../components/DocFullText'
 import { Shell } from '../components/Shell'
 import { Board, BoardHead } from '../components/Board'
 import { usePanelWide, useRightPanel } from '../components/RightPanel'
@@ -286,6 +287,7 @@ function ApprovalDetail({ a, onBack }: { a: Approval; onBack: () => void }) {
       )}
       {a.kind === '업무 보고' && a.payload.user_id && a.payload.date && <ReportLogs userId={a.payload.user_id} date={a.payload.date} />}
       {a.content && a.kind !== '일일 보고' && <div className="panel t-small pre">{a.content}</div>}
+      <DocFullText texts={[a.content, typeof a.payload?.body === 'string' ? a.payload.body : null]} />
       {target && a.target_id && (
         <Link to={target} className="t-small">
           관련 {a.kind} 보기 ›

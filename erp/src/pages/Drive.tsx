@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ChevronRight, Clock, ExternalLink, FilePlus, Folder, HardDrive, LogIn, LogOut, Search, Star, Trash2, Users } from 'lucide-react'
+import { ChevronRight, Clock, ExternalLink, RotateCw, X, FilePlus, Folder, HardDrive, LogIn, LogOut, Search, Star, Trash2, Users } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import type { DriveFolder } from '../lib/api'
 import { desktop } from '../lib/desktop'
-import { driveApi, DriveAuthError, editUrl, FOLDER_MIME as FOLDER, googleLogin, googleLogout, type GFile } from '../lib/gdrive'
+import { driveApi, DriveAuthError, editUrl, embedUrl, FOLDER_MIME as FOLDER, googleLogin, googleLogout, type GFile } from '../lib/gdrive'
 import { useDriveToken } from '../components/DriveFiles'
-import { useRouter } from '../lib/router'
+import { useRouter, withQuery } from '../lib/router'
 import { Shell } from '../components/Shell'
 import { claimNative, moveNative, openLink, releaseNative } from '../components/WebSearch'
 import { Button, Empty, SectionHead } from '../components/ui'
@@ -166,7 +166,49 @@ function NativeDrive({ folders }: { folders: DriveFolder[] }) {
 const esc = (s: string) => s.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
 type Loc = { kind: ViewKey | 'folder' | 'search'; id?: string; name: string; driveId?: string }
 
+/** 웹 브라우저: 문서 편집 칸 + 드라이브 목록 (대표 지시 2026-10-20 "구글 드라이브 앱내에서 편집 가능하도록") */
 function WebDrive({ folders }: { folders: DriveFolder[] }) {
+  const { query, navigate } = useRouter()
+  const doc = query.get('doc')
+  const src = doc && /^https:\/\/(docs|drive)\.google\.com\//.test(doc) ? embedUrl(doc) : null
+  const setDoc = (u: string | null) => navigate(withQuery('/drive', query, { doc: u }))
+  const openDoc = (u: string) => (embedUrl(u) ? setDoc(u) : openLink(u))
+  return (
+    <>
+      {src && <WebDocEditor key={src} src={src} url={doc!} onClose={() => setDoc(null)} />}
+      <WebDriveList folders={folders} onOpenDoc={openDoc} />
+    </>
+  )
+}
+
+/** 구글 편집기를 인트라넷 화면 안에 (이 브라우저에 구글 로그인이 돼 있어야 편집됨) */
+function WebDocEditor({ src, url, onClose }: { src: string; url: string; onClose: () => void }) {
+  const [n, setN] = useState(0)
+  const external = src.includes('/create') ? src : editUrl(url)
+  return (
+    <div className="drive-editor">
+      <div className="drive-editor-bar">
+        <b className="t-small">문서 편집</b>
+        <span className="t-cap grow">편집 화면이 비어 있거나 로그인 화면이 막히면 '구글 로그인' 후 '다시 불러오기'를 누르세요.</span>
+        <Button kind="outline" size="sm" onClick={() => window.open(LOGIN_URL, '_blank', 'noopener')}>
+          <LogIn size={13} /> 구글 로그인
+        </Button>
+        <button type="button" className="icon-btn sm" onClick={() => setN(v => v + 1)} aria-label="다시 불러오기" title="다시 불러오기">
+          <RotateCw size={14} />
+        </button>
+        <button type="button" className="icon-btn sm" onClick={() => window.open(external, '_blank', 'noopener')} aria-label="새 창에서 열기" title="새 창에서 열기">
+          <ExternalLink size={14} />
+        </button>
+        <button type="button" className="icon-btn sm" onClick={onClose} aria-label="편집 닫기" title="편집 닫기">
+          <X size={14} />
+        </button>
+      </div>
+      <iframe key={n} className="drive-editor-frame" src={src} title="구글 문서 편집" allow="clipboard-read; clipboard-write; fullscreen" />
+    </div>
+  )
+}
+
+function WebDriveList({ folders, onOpenDoc }: { folders: DriveFolder[]; onOpenDoc: (url: string) => void }) {
   const { api, me, version } = useApp()
   const { data: clientId, loading: idLoading } = useAsync(() => api.getGoogleClientId(), [version], null as string | null)
   const token = useDriveToken()
@@ -249,14 +291,14 @@ function WebDrive({ folders }: { folders: DriveFolder[] }) {
     if (f.mimeType === 'drive') return setTrail(t => [...t, { kind: 'folder', id: f.id, name: f.name, driveId: f.id }])
     const isFolder = f.mimeType === FOLDER || f.shortcutDetails?.targetMimeType === FOLDER
     if (isFolder) return setTrail(t => [...t, { kind: 'folder', id: f.shortcutDetails?.targetId ?? f.id, name: f.name, driveId: t[t.length - 1]?.driveId }])
-    if (f.webViewLink) openLink(editUrl(f.webViewLink))
+    if (f.webViewLink) onOpenDoc(editUrl(f.webViewLink))
   }
 
   if (idLoading) return null
   if (!clientId) {
     return (
       <>
-        <DriveHead active="" folders={folders} onQuick={qk => openLink(qk.url)} onFolder={f => openLink(f.url)} onSearch={s => openLink(`${DRIVE}/search?q=${encodeURIComponent(s)}`)} />
+        <DriveHead active="" folders={folders} onQuick={qk => openLink(qk.url)} onFolder={f => openLink(f.url)} onSearch={s => openLink(`${DRIVE}/search?q=${encodeURIComponent(s)}`)} onNew={n => onOpenDoc(n.url)} />
         <div className="drive-login">
           <LogIn size={22} />
           <b>웹 브라우저에서 드라이브를 이 화면에 보려면 구글 로그인 연결이 필요합니다.</b>
@@ -280,9 +322,10 @@ function WebDrive({ folders }: { folders: DriveFolder[] }) {
           else openLink(f.url)
         }}
         onSearch={s => pick({ kind: 'search', name: s })}
+        onNew={n => onOpenDoc(n.url)}
       />
       {!token ? (
-        <span className="t-cap drive-hint">위 제목 옆 '구글 로그인'을 누르면 내 드라이브 · 공유 문서함 · 회사 폴더가 이 아래에 나옵니다. (보기 전용 · 파일은 편집 화면으로 열림)</span>
+        <span className="t-cap drive-hint">위 제목 옆 '구글 로그인'을 누르면 내 드라이브 · 공유 문서함 · 회사 폴더가 이 아래에 나옵니다. (구글 문서 · 시트 · 슬라이드는 이 화면 위 편집 칸에서 바로 편집)</span>
       ) : (
         <div className="drive-list">
           <div className="drive-trail">

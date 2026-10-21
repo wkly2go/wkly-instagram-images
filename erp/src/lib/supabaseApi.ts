@@ -561,6 +561,7 @@ export function createSupabaseApi(url: string, key: string): Api {
       must(await q.select('id'))
     },
     async runReminders() {
+      if (!(await sb.auth.getSession()).data.session) return 0 // 로그인 만료 · 잠금 화면: 서버 예약 작업에 맡김
       const { data, error } = await sb.rpc('notify_due_tasks')
       if (error) return 0 // 0004 미적용 등: 알람은 서버 예약 작업에 맡김
       return Number(data) || 0
@@ -568,6 +569,7 @@ export function createSupabaseApi(url: string, key: string): Api {
 
     async touchAttendance(source) {
       // 회사 인터넷 + 등록된 회사 PC 에서만 출근 (0027). PC 프로그램 1.2+ 는 기기 ID 를 함께 보냄
+      if (!(await sb.auth.getSession()).data.session) return // 로그인 만료면 보내지 않음 (서버 401 방지)
       const { error } = await sb.rpc('touch_attendance_v3', { p_source: source, p_device: desktop()?.deviceId ?? null })
       if (!error) return
       const { error: e2 } = await sb.rpc('touch_attendance_v2', { p_source: source })
