@@ -6,6 +6,7 @@ import type {
   ExchangeFile,
   ProjectDriveFile,
   ProjectContact,
+  ProjectMember,
   AttendanceDevice,
   AccessLog,
   AttendanceCheckin,
@@ -683,6 +684,16 @@ export function createSupabaseApi(url: string, key: string): Api {
     },
     async unlinkProjectContact(projectId, contactId) {
       must(await sb.from('project_contacts').delete().eq('project_id', projectId).eq('contact_id', contactId).select('project_id'))
+    },
+    async listProjectMembers(projectId) {
+      const { data, error } = await sb.from('project_members').select('*').eq('project_id', projectId).order('created_at')
+      return error ? [] : (data as ProjectMember[]) // 0050 미적용
+    },
+    async addProjectMember(projectId, profileId, role) {
+      must(await sb.from('project_members').upsert({ project_id: projectId, profile_id: profileId, role: role?.trim() || null }).select('project_id'))
+    },
+    async removeProjectMember(projectId, profileId) {
+      must(await sb.from('project_members').delete().eq('project_id', projectId).eq('profile_id', profileId).select('project_id'))
     },
     async listExchangeFiles(f) {
       const ors = [f.clientId && `client_id.eq.${f.clientId}`, f.contactId && `contact_id.eq.${f.contactId}`, f.projectId && `project_id.eq.${f.projectId}`].filter(Boolean)

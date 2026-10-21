@@ -6,6 +6,7 @@ import type {
   MeetingRecording,
   SiteLog,
   ProjectContact,
+  ProjectMember,
   AccessInfo,
   AccessLog,
   AttendanceDevice,
@@ -146,6 +147,9 @@ export interface Api {
   listProjectContacts(f: { projectId?: string; contactId?: string }): Promise<ProjectContact[]>
   linkProjectContact(projectId: string, contactId: string, role?: string | null): Promise<void>
   unlinkProjectContact(projectId: string, contactId: string): Promise<void>
+  listProjectMembers(projectId: string): Promise<ProjectMember[]>
+  addProjectMember(projectId: string, profileId: string, role?: string | null): Promise<void>
+  removeProjectMember(projectId: string, profileId: string): Promise<void>
   /** 주고받은 자료 (거래처 · 담당자 · 프로젝트 중 하나 이상으로 찾음) */
   listExchangeFiles(f: { clientId?: string; contactId?: string; projectId?: string }): Promise<ExchangeFile[]>
   addExchangeFile(f: { client_id: string | null; contact_id?: string | null; project_id?: string | null; direction: '받음' | '보냄'; note?: string | null; file_date?: string; file?: File; url?: string; name?: string }): Promise<void>
