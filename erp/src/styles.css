@@ -1628,3 +1628,10 @@ svg text[font-size="12"] { font-size: var(--fs-sm); }
 .log-memo { display: block; margin-top: 3px; padding: 3px 8px; border-left: 3px solid var(--yellow); background: var(--yellow-tint); color: var(--gray); font-size: var(--fs-cap); border-radius: 0 4px 4px 0; }
 /* 주간: 이번 주에 하루만 걸친 기간 업무 (그날 칸 안에, 점선 테두리로 구분) */
 .wk-task.ranged { box-shadow: inset 0 0 0 1px var(--line); border-left-style: dashed; }
+/* 드라이브 목록: 줄 오른쪽 편집 · 이름 바꾸기 · 복사 · 삭제 */
+.drive-row-wrap { display: flex; align-items: center; border-bottom: 1px solid var(--line); }
+.drive-row-wrap .drive-row { border-bottom: 0; flex: 1; min-width: 0; }
+.drive-row-wrap:hover { background: var(--yellow-tint); }
+.drive-acts { display: flex; gap: 2px; padding-right: 8px; opacity: 0.35; transition: opacity 0.15s; }
+.drive-row-wrap:hover .drive-acts, .drive-acts:focus-within { opacity: 1; }
+@media (pointer: coarse) { .drive-acts { opacity: 1; } }

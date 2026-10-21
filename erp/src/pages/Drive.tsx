@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ChevronRight, Clock, ExternalLink, RotateCw, X, FilePlus, Folder, HardDrive, LogIn, LogOut, Search, Star, Trash2, Users } from 'lucide-react'
+import { ChevronRight, Clock, Copy, ExternalLink, FilePen, Pencil, RotateCw, X, FilePlus, Folder, HardDrive, LogIn, LogOut, Search, Star, Trash2, Users } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import type { DriveFolder } from '../lib/api'
 import { desktop } from '../lib/desktop'
-import { driveApi, DriveAuthError, editUrl, embedUrl, FOLDER_MIME as FOLDER, googleLogin, googleLogout, type GFile } from '../lib/gdrive'
+import { copyFile, driveApi, DriveAuthError, editUrl, embedUrl, FOLDER_MIME as FOLDER, renameFile, trashFile, googleLogin, googleLogout, type GFile } from '../lib/gdrive'
 import { useDriveToken } from '../components/DriveFiles'
 import { useRouter, withQuery } from '../lib/router'
 import { Shell } from '../components/Shell'
@@ -287,6 +287,35 @@ function WebDriveList({ folders, onOpenDoc }: { folders: DriveFolder[]; onOpenDo
   }, [here, token, load])
 
   const pick = (loc: Loc) => setTrail([loc])
+  // 수정 · 복사 · 삭제 (대표 지시 2026-10-21 "드라이브에 있는 자료 수정 · 복사 · 삭제 가능하도록")
+  const { toast } = useApp()
+  const [acting, setActing] = useState(false)
+  const act = async (f: GFile, kind: 'rename' | 'copy' | 'trash') => {
+    if (!token) return
+    let name = f.name
+    if (kind === 'rename') {
+      const v = window.prompt('새 이름', f.name)?.trim()
+      if (!v || v === f.name) return
+      name = v
+    } else if (kind === 'copy') {
+      const v = window.prompt('사본 이름', `${f.name} 사본`)?.trim()
+      if (!v) return
+      name = v
+    } else if (!window.confirm(`'${f.name}'을(를) 삭제할까요?\n구글 드라이브 휴지통으로 옮겨지며 30일 안에 되살릴 수 있습니다.`)) return
+    setActing(true)
+    setErr('')
+    try {
+      if (kind === 'rename') await renameFile(token, f.id, name)
+      else if (kind === 'copy') await copyFile(token, f.id, name)
+      else await trashFile(token, f.id)
+      toast(kind === 'rename' ? '이름을 바꿨습니다.' : kind === 'copy' ? '사본을 만들었습니다.' : '휴지통으로 옮겼습니다.')
+      if (here) await load(here)
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : '드라이브 작업을 하지 못했습니다.')
+    } finally {
+      setActing(false)
+    }
+  }
   const openItem = (f: GFile) => {
     if (f.mimeType === 'drive') return setTrail(t => [...t, { kind: 'folder', id: f.id, name: f.name, driveId: f.id }])
     const isFolder = f.mimeType === FOLDER || f.shortcutDetails?.targetMimeType === FOLDER
@@ -325,7 +354,7 @@ function WebDriveList({ folders, onOpenDoc }: { folders: DriveFolder[]; onOpenDo
         onNew={n => onOpenDoc(n.url)}
       />
       {!token ? (
-        <span className="t-cap drive-hint">위 제목 옆 '구글 로그인'을 누르면 내 드라이브 · 공유 문서함 · 회사 폴더가 이 아래에 나옵니다. (구글 문서 · 시트 · 슬라이드는 이 화면 위 편집 칸에서 바로 편집)</span>
+        <span className="t-cap drive-hint">위 제목 옆 '구글 로그인'을 누르면 내 드라이브 · 공유 문서함 · 회사 폴더가 이 아래에 나옵니다. (파일마다 편집 · 이름 바꾸기 · 복사 · 삭제 가능)</span>
       ) : (
         <div className="drive-list">
           <div className="drive-trail">
@@ -342,12 +371,34 @@ function WebDriveList({ folders, onOpenDoc }: { folders: DriveFolder[]; onOpenDo
           </div>
           {!loading && !files.length && <Empty>{here ? '파일이 없습니다.' : '위에서 내 드라이브를 눌러 보세요.'}</Empty>}
           {files.map(f => (
-            <button key={f.id} type="button" className="drive-row" onClick={() => openItem(f)}>
-              {f.mimeType === 'drive' ? <Folder size={16} /> : f.iconLink ? <img src={f.iconLink} alt="" width={16} height={16} /> : <Folder size={16} />}
-              <span className="grow drive-name">{f.name}</span>
-              <span className="t-cap hide-narrow">{f.owners?.[0]?.displayName ?? ''}</span>
-              <span className="t-meta">{f.modifiedTime ? f.modifiedTime.slice(0, 10) : ''}</span>
-            </button>
+            <div key={f.id} className="drive-row-wrap">
+              <button type="button" className="drive-row" onClick={() => openItem(f)}>
+                {f.mimeType === 'drive' ? <Folder size={16} /> : f.iconLink ? <img src={f.iconLink} alt="" width={16} height={16} /> : <Folder size={16} />}
+                <span className="grow drive-name">{f.name}</span>
+                <span className="t-cap hide-narrow">{f.owners?.[0]?.displayName ?? ''}</span>
+                <span className="t-meta">{f.modifiedTime ? f.modifiedTime.slice(0, 10) : ''}</span>
+              </button>
+              {f.mimeType !== 'drive' && (
+                <span className="drive-acts">
+                  {f.webViewLink && f.mimeType !== FOLDER && (
+                    <button type="button" className="icon-btn sm" onClick={() => onOpenDoc(editUrl(f.webViewLink!))} aria-label="편집" title="열어서 편집">
+                      <FilePen size={13} />
+                    </button>
+                  )}
+                  <button type="button" className="icon-btn sm" disabled={acting} onClick={() => act(f, 'rename')} aria-label="이름 바꾸기" title="이름 바꾸기">
+                    <Pencil size={13} />
+                  </button>
+                  {f.mimeType !== FOLDER && (
+                    <button type="button" className="icon-btn sm" disabled={acting} onClick={() => act(f, 'copy')} aria-label="복사" title="사본 만들기 (같은 폴더)">
+                      <Copy size={13} />
+                    </button>
+                  )}
+                  <button type="button" className="icon-btn sm del" disabled={acting} onClick={() => act(f, 'trash')} aria-label="삭제" title="삭제 (구글 드라이브 휴지통으로 · 30일 안에 되살리기 가능)">
+                    <Trash2 size={13} />
+                  </button>
+                </span>
+              )}
+            </div>
           ))}
         </div>
       )}

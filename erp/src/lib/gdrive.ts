@@ -1,12 +1,12 @@
 /**
  * 구글 드라이브 연동 (웹 브라우저): 구글 로그인 토큰 · 드라이브 API · 문서 편집 열기
  *  - 로그인은 Google Identity Services 토큰(관리자가 등록한 OAuth 클라이언트 ID). 토큰은 이 창(sessionStorage)에만, 1시간
- *  - 권한: 보기(drive.readonly) + 인트라넷에서 올린 파일(drive.file)
+ *  - 권한: 드라이브 전체(drive) — 보기 · 이름 바꾸기 · 복사 · 휴지통 (대표 지시 2026-10-21 "드라이브 자료 수정 · 복사 · 삭제 가능하도록")
  *  - PC 프로그램은 프로그램 안 웹 칸에서 구글 드라이브 · 문서를 그대로 쓰므로 이 토큰이 필요 없음
  */
 import { desktop } from './desktop'
 
-export const DRIVE_SCOPES = 'https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/drive.file'
+export const DRIVE_SCOPES = 'https://www.googleapis.com/auth/drive'
 export const FOLDER_MIME = 'application/vnd.google-apps.folder'
 const TOKEN_KEY = 'wkly-gdrive-token'
 
@@ -53,8 +53,9 @@ const announce = (t: string | null) => listeners.forEach(l => l(t))
 
 export function readToken(): string | null {
   try {
-    const v = JSON.parse(sessionStorage.getItem(TOKEN_KEY) ?? 'null') as { t: string; exp: number } | null
-    return v && v.exp > Date.now() + 30_000 ? v.t : null
+    const v = JSON.parse(sessionStorage.getItem(TOKEN_KEY) ?? 'null') as { t: string; exp: number; s?: string } | null
+    // 예전(보기 전용) 권한으로 받은 토큰은 다시 로그인
+    return v && v.s === DRIVE_SCOPES && v.exp > Date.now() + 30_000 ? v.t : null
   } catch {
     return null
   }
@@ -69,7 +70,7 @@ export async function googleLogin(clientId: string, email?: string | null): Prom
     client.callback = r => {
       if (!r.access_token) return reject(new Error('구글 로그인을 마치지 못했습니다.'))
       try {
-        sessionStorage.setItem(TOKEN_KEY, JSON.stringify({ t: r.access_token, exp: Date.now() + (r.expires_in ?? 3600) * 1000 }))
+        sessionStorage.setItem(TOKEN_KEY, JSON.stringify({ t: r.access_token, exp: Date.now() + (r.expires_in ?? 3600) * 1000, s: DRIVE_SCOPES }))
       } catch {
         /* 저장 못 해도 이번 화면에서는 씀 */
       }
@@ -100,7 +101,7 @@ export async function driveApi<T>(token: string, path: string, init?: RequestIni
     googleLogout()
     throw new DriveAuthError('구글 로그인이 만료됐습니다. 다시 로그인해 주세요.')
   }
-  if (!r.ok) throw new Error(r.status === 403 ? '이 파일 · 폴더를 볼 권한이 없습니다.' : r.status === 404 ? '드라이브에서 찾지 못했습니다 (지워졌거나 권한 없음).' : `드라이브 오류 (${r.status})`)
+  if (!r.ok) throw new Error(r.status === 403 ? '이 파일 · 폴더에 대한 권한이 없습니다 (소유자 · 편집자만 고치거나 지울 수 있음).' : r.status === 404 ? '드라이브에서 찾지 못했습니다 (지워졌거나 권한 없음).' : `드라이브 오류 (${r.status})`)
   return (await r.json()) as T
 }
 
@@ -110,7 +111,21 @@ export function fileMeta(token: string, id: string) {
   return driveApi<GFile>(token, `files/${encodeURIComponent(id)}?supportsAllDrives=true&fields=${FILE_FIELDS}`)
 }
 
-/** 드라이브 폴더에 파일 올리기 (drive.file 권한) */
+const json = (body: unknown): RequestInit => ({ body: JSON.stringify(body), headers: { 'Content-Type': 'application/json' } })
+/** 이름 바꾸기 */
+export function renameFile(token: string, id: string, name: string) {
+  return driveApi<GFile>(token, `files/${encodeURIComponent(id)}?supportsAllDrives=true&fields=${FILE_FIELDS}`, { method: 'PATCH', ...json({ name }) })
+}
+/** 같은 폴더에 사본 만들기 */
+export function copyFile(token: string, id: string, name: string) {
+  return driveApi<GFile>(token, `files/${encodeURIComponent(id)}/copy?supportsAllDrives=true&fields=${FILE_FIELDS}`, { method: 'POST', ...json({ name }) })
+}
+/** 휴지통으로 (구글 드라이브 휴지통에서 30일 안에 되살릴 수 있음) */
+export function trashFile(token: string, id: string) {
+  return driveApi<GFile>(token, `files/${encodeURIComponent(id)}?supportsAllDrives=true&fields=id`, { method: 'PATCH', ...json({ trashed: true }) })
+}
+
+/** 드라이브 폴더에 파일 올리기 */
 export async function uploadToDrive(token: string, file: File, folderId: string | null): Promise<GFile> {
   const meta = { name: file.name, ...(folderId ? { parents: [folderId] } : {}) }
   const body = new FormData()
