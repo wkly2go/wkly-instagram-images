@@ -3,7 +3,7 @@ import { ChevronRight, Clock, Copy, ExternalLink, FilePen, Pencil, RotateCw, X, 
 import { useAction, useApp, useAsync } from '../lib/app'
 import type { DriveFolder } from '../lib/api'
 import { desktop } from '../lib/desktop'
-import { copyFile, driveApi, DriveAuthError, editUrl, embedUrl, FOLDER_MIME as FOLDER, renameFile, trashFile, googleLogin, googleLogout, type GFile } from '../lib/gdrive'
+import { copyFile, driveApi, DriveAuthError, editUrl, embedUrl, ensureProjectFolder, YEAR_RE, FOLDER_MIME as FOLDER, renameFile, trashFile, googleLogin, googleLogout, type GFile } from '../lib/gdrive'
 import { useDriveToken } from '../components/DriveFiles'
 import { useRouter, withQuery } from '../lib/router'
 import { Shell } from '../components/Shell'
@@ -90,6 +90,7 @@ export default function Drive() {
             <span className="t-cap">드라이브에서 폴더를 열고 주소창의 주소를 그대로 붙여 넣으세요. 팀원에게 그 폴더 공유 권한이 있어야 열립니다.</span>
           </div>
         )}
+        {admin && !native && <ProjectFoldersSync />}
         {admin && !native && <ClientIdSetting />}
       </div>
     </Shell>
@@ -287,11 +288,14 @@ function WebDriveList({ folders, onOpenDoc }: { folders: DriveFolder[]; onOpenDo
   }, [here, token, load])
 
   const pick = (loc: Loc) => setTrail([loc])
+  // 기존 드라이브 자료는 절대 수정 · 삭제 금지 (대표 지시 2026-10-21) → 이름 바꾸기 · 삭제는 인트라넷 전용 '#연도' 폴더 안에서만
+  const inIntranetTree = trail.some(t => t.kind === 'folder' && YEAR_RE.test(t.name))
   // 수정 · 복사 · 삭제 (대표 지시 2026-10-21 "드라이브에 있는 자료 수정 · 복사 · 삭제 가능하도록")
   const { toast } = useApp()
   const [acting, setActing] = useState(false)
   const act = async (f: GFile, kind: 'rename' | 'copy' | 'trash') => {
     if (!token) return
+    if (kind !== 'copy' && !inIntranetTree) return toast('기존 드라이브 자료는 고치거나 지울 수 없습니다. (인트라넷 #연도 폴더 안에서만)')
     let name = f.name
     if (kind === 'rename') {
       const v = window.prompt('새 이름', f.name)?.trim()
@@ -354,7 +358,7 @@ function WebDriveList({ folders, onOpenDoc }: { folders: DriveFolder[]; onOpenDo
         onNew={n => onOpenDoc(n.url)}
       />
       {!token ? (
-        <span className="t-cap drive-hint">위 제목 옆 '구글 로그인'을 누르면 내 드라이브 · 공유 문서함 · 회사 폴더가 이 아래에 나옵니다. (파일마다 편집 · 이름 바꾸기 · 복사 · 삭제 가능)</span>
+        <span className="t-cap drive-hint">위 제목 옆 '구글 로그인'을 누르면 내 드라이브 · 공유 문서함 · 회사 폴더가 이 아래에 나옵니다. (기존 자료는 열기 · 복사만, 이름 바꾸기 · 삭제는 인트라넷 #연도 폴더 안에서만)</span>
       ) : (
         <div className="drive-list">
           <div className="drive-trail">
@@ -385,17 +389,21 @@ function WebDriveList({ folders, onOpenDoc }: { folders: DriveFolder[]; onOpenDo
                       <FilePen size={13} />
                     </button>
                   )}
-                  <button type="button" className="icon-btn sm" disabled={acting} onClick={() => act(f, 'rename')} aria-label="이름 바꾸기" title="이름 바꾸기">
-                    <Pencil size={13} />
-                  </button>
+                  {inIntranetTree && (
+                    <button type="button" className="icon-btn sm" disabled={acting} onClick={() => act(f, 'rename')} aria-label="이름 바꾸기" title="이름 바꾸기">
+                      <Pencil size={13} />
+                    </button>
+                  )}
                   {f.mimeType !== FOLDER && (
                     <button type="button" className="icon-btn sm" disabled={acting} onClick={() => act(f, 'copy')} aria-label="복사" title="사본 만들기 (같은 폴더)">
                       <Copy size={13} />
                     </button>
                   )}
-                  <button type="button" className="icon-btn sm del" disabled={acting} onClick={() => act(f, 'trash')} aria-label="삭제" title="삭제 (구글 드라이브 휴지통으로 · 30일 안에 되살리기 가능)">
-                    <Trash2 size={13} />
-                  </button>
+                  {inIntranetTree && (
+                    <button type="button" className="icon-btn sm del" disabled={acting} onClick={() => act(f, 'trash')} aria-label="삭제" title="삭제 (구글 드라이브 휴지통으로 · 30일 안에 되살리기 가능)">
+                      <Trash2 size={13} />
+                    </button>
+                  )}
                 </span>
               )}
             </div>
@@ -480,6 +488,53 @@ function DriveHead({
 }
 
 /** 관리자: 웹 브라우저 드라이브 목록용 구글 OAuth 클라이언트 ID */
+/** 관리자: 모든 프로젝트를 드라이브 폴더와 한 번에 맞춤 (폴더 없는 프로젝트 → 만들기 · 같은 연번 폴더 연결 / 연도 폴더 안 폴더 → 이름 · 위치 맞춤) */
+function ProjectFoldersSync() {
+  const { api, toast, bump } = useApp()
+  const token = useDriveToken()
+  const [state, setState] = useState<{ done: number; total: number; made: number; fixed: number; fail: string[] } | null>(null)
+  const running = !!state && state.done < state.total
+  const runAll = async () => {
+    if (!token) return toast("먼저 위쪽 '구글 로그인'으로 회사 구글 계정에 로그인해 주세요.")
+    const list = (await api.listProjects()).sort((a, b) => (a.code ?? '').localeCompare(b.code ?? ''))
+    let made = 0
+    let fixed = 0
+    const fail: string[] = []
+    setState({ done: 0, total: list.length, made, fixed, fail })
+    for (let i = 0; i < list.length; i++) {
+      const p = list[i]
+      try {
+        const r = await ensureProjectFolder(token, p)
+        if (r.url !== p.drive_url) await api.saveProject({ id: p.id, drive_url: r.url })
+        if (r.action === 'created' || r.action === 'linked') made++
+        else if (r.action !== 'ok') fixed++
+      } catch (e) {
+        fail.push(`${p.code ?? ''} ${p.name}: ${e instanceof Error ? e.message : '오류'}`)
+      }
+      setState({ done: i + 1, total: list.length, made, fixed, fail: [...fail] })
+    }
+    bump()
+  }
+  return (
+    <div className="web-setting col gap-4">
+      <div className="row wrap" style={{ gap: 6 }}>
+        <span className="t-cap grow">
+          프로젝트 폴더 정리 (관리자) · 회사 구글 계정 드라이브에 새로 만든 <b>#2026</b> 안의 <b>#ARTERIOR_2026</b> / <b>#WKLY_2026</b>(더위클리 · 내부 리서치) 아래 '연번_이름' 폴더를 만들어 연결합니다. 이미 폴더가 연결된 프로젝트와 기존 드라이브 자료는 건드리지 않습니다. 연도가 바뀌면 #2027 을 새로 만듭니다.
+        </span>
+        <Button size="sm" kind="outline" disabled={running || !token} onClick={runAll} title={token ? '모든 프로젝트 폴더 맞추기' : '구글 로그인 후 사용'}>
+          {running ? `맞추는 중 ${state!.done}/${state!.total}` : '프로젝트 폴더 모두 맞추기'}
+        </Button>
+      </div>
+      {state && !running && (
+        <span className="t-cap">
+          끝 · 새로 만들거나 연결 {state.made} · 이름 · 위치 맞춤 {state.fixed}
+          {state.fail.length ? ` · 실패 ${state.fail.length}: ${state.fail.slice(0, 3).join(' / ')}` : ''}
+        </span>
+      )}
+    </div>
+  )
+}
+
 function ClientIdSetting() {
   const { api, version } = useApp()
   const { busy, run } = useAction()

@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { AlarmClock, ArrowLeft, CheckCircle2, ChevronLeft, ChevronRight, CircleSlash, FolderOpen, Pencil, Search, Trash2 } from 'lucide-react'
 import { ProjectMaterials } from '../components/ProjectMaterials'
 import { SiteLogsSection } from '../components/SiteLogs'
-import { ProjectDriveSection } from '../components/DriveFiles'
+import { ProjectDriveSection, useProjectFolderSync } from '../components/DriveFiles'
 import { useRightPanel } from '../components/RightPanel'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { addMonths, dateLabel, monthGrid, shortDate, timeLabel, toDateKey, todayKey, weekRange, weekday, periodLabel } from '../lib/date'
@@ -220,15 +220,22 @@ export default function Projects() {
 
 /** 프로젝트 목록 게시판: 번호 · 상태 · 프로젝트 · 거래처 · 구분 · 담당 · 기간 · 할 일 */
 function ProjectBoard({ list, data, loading, onOpen }: { list: Project[]; data: Data; loading: boolean; onOpen: (id: string) => void }) {
-  const { api, profileName } = useApp()
+  const { api, profileName, toast } = useApp()
   const { busy, run } = useAction()
+  const syncFolder = useProjectFolderSync()
   const today = todayKey()
   // 그룹(구분) 바꾸기 (대표 지시 2026-10-21 "프로젝트 목록에서 프로젝트가 포함된 그룹을 수정할 수 있게")
   const moveTo = (p: Project, div: Division) => {
     if (div === projectBrand(p)) return
     const auto = /^(AR|TW|RS)\d{4}-\d+$/.test(p.code ?? '')
     if (!window.confirm(`'${p.name}'을(를) ${DIVISIONS[div].full}(으)로 옮길까요?${auto ? `\n연번이 ${div}로 새로 매겨집니다.` : ''}`)) return
-    run(() => api.saveProject({ id: p.id, division: div }), `${DIVISIONS[div].label}(으)로 옮겼습니다.`)
+    void (async () => {
+      let saved: Project | null = null
+      const ok = await run(async () => {
+        saved = await api.saveProject({ id: p.id, division: div })
+      }, `${DIVISIONS[div].label}(으)로 옮겼습니다.`)
+      if (ok && saved) syncFolder(saved).then(m => m && toast(m)).catch(() => undefined)
+    })()
   }
   const cols: BoardCol<Project>[] = [
     {
@@ -704,18 +711,22 @@ function ProjectSearch({ value, onChange }: { value: string; onChange: (v: strin
 }
 
 export function ProjectForm({ project, clients, onClose, onSaved }: { project: Project | null; clients: Client[]; onClose: () => void; onSaved: (id: string) => void }) {
-  const { api, me, profiles } = useApp()
+  const { api, me, profiles, toast } = useApp()
   const { busy, run } = useAction()
+  const syncFolder = useProjectFolderSync()
   const [f, setF] = useState<Partial<Project>>(() => project ?? { name: '', division: 'AR', category: '팝업', status: '기획', owner_id: me.id, client_id: null, start_date: null, end_date: null, location: null, description: null })
   const set = (p: Partial<Project>) => setF(prev => ({ ...prev, ...p }))
   const submit = async () => {
-    let id = ''
+    let saved: Project | null = null
     const ok = await run(async () => {
-      id = (await api.saveProject({ ...f, name: (f.name ?? '').trim() })).id
+      saved = await api.saveProject({ ...f, name: (f.name ?? '').trim() })
     }, project ? '저장했습니다.' : '프로젝트를 만들었습니다.')
-    if (ok) {
+    if (ok && saved) {
+      const p: Project = saved
       onClose()
-      onSaved(id)
+      onSaved(p.id)
+      // 드라이브 폴더 자동 생성 · 이름 맞춤 (회사 구글 계정에 로그인돼 있을 때)
+      syncFolder(p).then(m => m && toast(m)).catch(e => toast(`드라이브 폴더: ${e instanceof Error ? e.message : '맞추지 못했습니다'}`))
     }
   }
   return (
