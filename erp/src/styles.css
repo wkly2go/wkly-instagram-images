@@ -1610,3 +1610,17 @@ html.detail-open .web-panel { max-width: 28vw; }
 .composer .assign-chip { height: 28px; }
 /* 입력 칸은 글 길이만큼 자동으로 늘어남 (최대 높이까지) */
 .composer .textarea, .quick-composer .textarea { field-sizing: content; height: auto; }
+/* 오른쪽 세로 탭: 같은 폭(가장 긴 이름 기준)으로 가지런히 */
+.tabs { align-items: stretch; }
+.tabs .tab { width: auto; }
+/* 그래프 글자도 위쪽 글자 크기(가−/가+)를 따름 (CSS 가 SVG 속성보다 우선) */
+svg text[font-size="11"] { font-size: var(--fs-cap); }
+svg text[font-size="12"] { font-size: var(--fs-sm); }
+/* 좁은 화면 · 휴대폰: 업무 탭 팀원 목록은 위로 쌓기 (뒤쪽 168px 규칙이 덮어쓰던 것 정리) · 게시판 표는 칸을 줄여 잘리지 않게 */
+@media (max-width: 900px) {
+  .work-body { flex-direction: column; }
+  .team-side { width: auto; max-height: 200px; border-right: 0; border-bottom: 1px solid var(--line); }
+  .board th.title, .board td.title { min-width: 110px; }
+  .board th, .board td { padding: 6px 6px; }
+  .board td .btn-sm { padding: 2px 6px; }
+}
