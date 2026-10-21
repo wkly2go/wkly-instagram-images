@@ -115,7 +115,7 @@ function NativeDrive({ folders }: { folders: DriveFolder[] }) {
   }, [doc])
   const rect = () => {
     const r = box.current?.getBoundingClientRect()
-    if (!r || document.querySelector('.scrim, .lock-screen, .notif-panel, .m-more-scrim')) return { x: 0, y: 0, width: 0, height: 0 }
+    if (!r || document.querySelector('.scrim, .lock-screen, .notif-panel, .m-more-scrim, .img-viewer')) return { x: 0, y: 0, width: 0, height: 0 }
     const top = Math.max(r.top, 0)
     const bottom = Math.min(r.bottom, window.innerHeight)
     return { x: Math.round(r.left), y: Math.round(top), width: Math.round(r.width), height: Math.max(0, Math.round(bottom - top)) }
