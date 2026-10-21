@@ -231,6 +231,17 @@ function ProjectBoard({ list, data, loading, onOpen }: { list: Project[]; data: 
     run(() => api.saveProject({ id: p.id, division: div }), `${DIVISIONS[div].label}(으)로 옮겼습니다.`)
   }
   const cols: BoardCol<Project>[] = [
+    {
+      key: 'name',
+      label: '프로젝트',
+      kind: 'title',
+      cell: p => (
+        <>
+          <span className="t-smallb">{p.name}</span>
+          {p.location && <span className="cell-sub">{p.location}</span>}
+        </>
+      ),
+    },
     { key: 'code', label: '연번', width: 92, cell: p => (
         <span className="t-mono row" style={{ gap: 4 }} title={DIVISIONS[projectBrand(p)].full}>
           <i className="div-dot" style={{ background: DIVISIONS[projectBrand(p)].color }} />
@@ -295,17 +306,6 @@ function ProjectBoard({ list, data, loading, onOpen }: { list: Project[]; data: 
         </select>
       ),
     },
-    {
-      key: 'name',
-      label: '프로젝트',
-      kind: 'title',
-      cell: p => (
-        <>
-          <span className="t-smallb">{p.name}</span>
-          {p.location && <span className="cell-sub">{p.location}</span>}
-        </>
-      ),
-    },
     { key: 'client', label: '거래처', width: 140, hideNarrow: true, cell: p => data.clients.find(c => c.id === p.client_id)?.name ?? '자체' },
     { key: 'cat', label: '구분', width: 70, hideNarrow: true, cell: p => p.category },
     { key: 'owner', label: '담당', width: 80, cell: p => (p.owner_id ? profileName(p.owner_id) : '-') },
@@ -329,7 +329,7 @@ function ProjectBoard({ list, data, loading, onOpen }: { list: Project[]; data: 
       },
     },
   ]
-  return <Board rows={list} cols={cols} rowKey={p => p.id} onRow={p => onOpen(p.id)} empty={loading ? '불러오는 중…' : '프로젝트가 없습니다.'} />
+  return <Board rows={list} cols={cols} rowKey={p => p.id} onRow={p => onOpen(p.id)} numbered={false} empty={loading ? '불러오는 중…' : '프로젝트가 없습니다.'} />
 }
 
 function MiniCalendar({ data }: { data: Data }) {
