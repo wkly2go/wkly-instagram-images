@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from 'react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { shortDate, timeLabel, todayKey } from '../lib/date'
 import { Link } from '../lib/router'
-import type { Client, Contact, ExchangeFile, Project, ProjectContact, WorkLog } from '../lib/types'
+import type { Client, Contact, ExchangeFile, Project, ProjectContact, ProjectMember, WorkLog } from '../lib/types'
 import { Badge, Button, Chip, Field, KindBadge, SectionHead } from './ui'
 import { Board, type BoardCol } from './Board'
 import { openLink } from './WebSearch'
@@ -236,55 +236,85 @@ function ExchangeFileForm({ clientId, contactId, projectId, contacts, projects, 
   )
 }
 
-/** 프로젝트 상세: 참여 담당자(거래처 사람) 연결 · 역할 */
+/**
+ * 프로젝트 상세: 참여 담당자 (대표 지시 2026-10-21 "담당자 추가는 우리 팀원 중에서만")
+ *  - 추가는 우리 팀원(활성 · 사람)만, 역할 메모 · 빼기
+ *  - 이미 연결된 거래처 사람은 아래에 '거래처 연락처'로 보여 줌 (연결은 거래처 › 연락처 화면에서)
+ */
 export function ProjectContactsSection({ project, clients, contacts }: { project: Project; clients: Client[]; contacts: Contact[] }) {
-  const { api, version } = useApp()
+  const { api, version, profiles, profileName } = useApp()
   const { busy, run } = useAction()
+  const { data: members } = useAsync(() => api.listProjectMembers(project.id), [version, project.id], [] as ProjectMember[])
   const { data: links } = useAsync(() => api.listProjectContacts({ projectId: project.id }), [version, project.id], [] as ProjectContact[])
   const [pick, setPick] = useState('')
   const [role, setRole] = useState('')
-  const linked = new Set(links.map(l => l.contact_id))
-  const candidates = useMemo(() => {
-    const own = contacts.filter(c => c.client_id === project.client_id && !linked.has(c.id))
-    const rest = contacts.filter(c => c.client_id !== project.client_id && !linked.has(c.id))
-    return [...own, ...rest]
-  }, [contacts, project.client_id, links])
+  const joined = new Set(members.map(m => m.profile_id))
+  const team = profiles.filter(p => p.active && !p.is_agent)
+  const candidates = team.filter(p => !joined.has(p.id))
+  const owner = project.owner_id ? team.find(p => p.id === project.owner_id) : undefined
   const clientName = (id: string) => clients.find(c => c.id === id)?.name ?? ''
+  const count = members.length + (owner && !joined.has(owner.id) ? 1 : 0)
   return (
     <div className="col gap-6">
-      <SectionHead title="참여 담당자 (거래처)" count={links.length ? String(links.length) : undefined} />
-      {links.map(l => {
-        const c = contacts.find(x => x.id === l.contact_id)
-        if (!c) return null
-        return (
-          <div key={l.contact_id} className="row wrap dashed" style={{ padding: '5px 0', gap: 6 }}>
-            <Link to={`/clients?view=people&pid=${c.id}`} className="t-smallb">
-              {c.name} {c.title ?? ''}
-            </Link>
-            <span className="t-cap">{clientName(c.client_id)}</span>
-            {l.role && <Badge tone="outline">{l.role}</Badge>}
-            <span className="grow" />
-            <span className="t-cap">{[c.phone, c.email].filter(Boolean).join(' · ')}</span>
-            <button type="button" className="link-btn t-meta" disabled={busy} onClick={() => run(() => api.unlinkProjectContact(project.id, c.id))}>
-              빼기
-            </button>
-          </div>
-        )
-      })}
+      <SectionHead title="참여 담당자 (우리 팀)" count={count ? String(count) : undefined} />
+      {owner && !joined.has(owner.id) && (
+        <div className="row wrap dashed" style={{ padding: '5px 0', gap: 6 }}>
+          <span className="t-smallb">{owner.name}</span>
+          {owner.title && <span className="t-cap">{owner.title}</span>}
+          <Badge tone="blue">프로젝트 담당</Badge>
+        </div>
+      )}
+      {members.map(m => (
+        <div key={m.profile_id} className="row wrap dashed" style={{ padding: '5px 0', gap: 6 }}>
+          <span className="t-smallb">{profileName(m.profile_id)}</span>
+          {m.profile_id === project.owner_id && <Badge tone="blue">프로젝트 담당</Badge>}
+          {m.role && <Badge tone="outline">{m.role}</Badge>}
+          <span className="grow" />
+          <button type="button" className="link-btn t-meta" disabled={busy} onClick={() => run(() => api.removeProjectMember(project.id, m.profile_id))}>
+            빼기
+          </button>
+        </div>
+      ))}
       <div className="row wrap" style={{ gap: 6 }}>
-        <select className="input" style={{ width: 220 }} value={pick} onChange={e => setPick(e.target.value)} aria-label="담당자 선택">
-          <option value="">담당자 추가…</option>
-          {candidates.map(c => (
-            <option key={c.id} value={c.id}>
-              {c.name} {c.title ?? ''} · {clientName(c.client_id)}
+        <select className="input" style={{ width: 220 }} value={pick} onChange={e => setPick(e.target.value)} aria-label="팀원 선택">
+          <option value="">팀원 추가…</option>
+          {candidates.map(p => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+              {p.title ? ` · ${p.title}` : ''}
             </option>
           ))}
         </select>
-        <input className="input" style={{ width: 140 }} value={role} onChange={e => setRole(e.target.value)} placeholder="역할 (예: 발주 담당)" maxLength={60} aria-label="역할" />
-        <Button size="sm" kind="outline" disabled={busy || !pick} onClick={async () => (await run(() => api.linkProjectContact(project.id, pick, role), '연결했습니다.')) && (setPick(''), setRole(''))}>
-          연결
+        <input className="input" style={{ width: 140 }} value={role} onChange={e => setRole(e.target.value)} placeholder="역할 (예: 디자인)" maxLength={60} aria-label="역할" />
+        <Button size="sm" kind="outline" disabled={busy || !pick} onClick={async () => (await run(() => api.addProjectMember(project.id, pick, role), '추가했습니다.')) && (setPick(''), setRole(''))}>
+          추가
         </Button>
       </div>
+      {links.length > 0 && (
+        <>
+          <span className="t-cap" style={{ marginTop: 4 }}>
+            거래처 연락처 · 연결은 거래처 › 연락처 화면에서
+          </span>
+          {links.map(l => {
+            const c = contacts.find(x => x.id === l.contact_id)
+            if (!c) return null
+            return (
+              <div key={l.contact_id} className="row wrap dashed" style={{ padding: '5px 0', gap: 6 }}>
+                <Link to={`/clients?view=people&pid=${c.id}`} className="t-smallb">
+                  {c.name} {c.title ?? ''}
+                </Link>
+                <span className="t-cap">{clientName(c.client_id)}</span>
+                {l.role && <Badge tone="outline">{l.role}</Badge>}
+                <span className="grow" />
+                <span className="t-cap">{[c.phone, c.email].filter(Boolean).join(' · ')}</span>
+                <button type="button" className="link-btn t-meta" disabled={busy} onClick={() => run(() => api.unlinkProjectContact(project.id, c.id))}>
+                  빼기
+                </button>
+              </div>
+            )
+          })}
+        </>
+      )}
     </div>
   )
 }

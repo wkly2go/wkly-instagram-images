@@ -7,6 +7,7 @@ import type {
   ExchangeFile,
   ProjectDriveFile,
   ProjectContact,
+  ProjectMember,
   AttendanceDevice,
   AccessLog,
   AttendanceCheckin,
@@ -101,6 +102,7 @@ interface Store {
   office_ips?: string[]
   devices?: AttendanceDevice[]
   project_contacts?: ProjectContact[]
+  project_members?: ProjectMember[]
   exchange_files?: ExchangeFile[]
   project_drive_files?: ProjectDriveFile[]
   hr_records?: HrRecord[]
@@ -742,6 +744,25 @@ export function createDemoApi(): Api {
       const row = list.find(x => x.project_id === projectId && x.contact_id === contactId)
       if (row) row.role = role?.trim() || null
       else list.push({ project_id: projectId, contact_id: contactId, role: role?.trim() || null, created_at: now() })
+      persist()
+      emit('projects')
+    },
+    async listProjectMembers(projectId) {
+      requireMe()
+      return clone((store.project_members ?? []).filter(x => x.project_id === projectId))
+    },
+    async addProjectMember(projectId, profileId, role) {
+      requireMe()
+      const list = (store.project_members ??= [])
+      const row = list.find(x => x.project_id === projectId && x.profile_id === profileId)
+      if (row) row.role = role?.trim() || null
+      else list.push({ project_id: projectId, profile_id: profileId, role: role?.trim() || null, created_at: now() })
+      persist()
+      emit('projects')
+    },
+    async removeProjectMember(projectId, profileId) {
+      requireMe()
+      store.project_members = (store.project_members ?? []).filter(x => !(x.project_id === projectId && x.profile_id === profileId))
       persist()
       emit('projects')
     },

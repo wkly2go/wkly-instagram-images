@@ -351,6 +351,14 @@ export interface ProjectContact {
   created_at: string
 }
 
+/** 프로젝트에 참여하는 우리 팀원 (대표 지시 2026-10-21 "담당자 추가는 우리 팀원 중에서만") */
+export interface ProjectMember {
+  project_id: string
+  profile_id: string
+  role: string | null
+  created_at: string
+}
+
 /** 거래처 · 담당자 · 프로젝트와 주고받은 자료 (파일 또는 링크) */
 export interface ExchangeFile {
   id: string
