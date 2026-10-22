@@ -238,8 +238,11 @@ export function createSupabaseApi(url: string, key: string): Api {
       const rows = must(await sb.from('chat_messages').select('*').eq('room_id', roomId).order('created_at', { ascending: false }).limit(limit)) as ChatMessage[]
       return rows.reverse()
     },
-    async sendMessage(roomId, content) {
-      return must(await sb.from('chat_messages').insert({ room_id: roomId, content }).select().single()) as ChatMessage
+    async sendMessage(roomId, content, parentId) {
+      return must(await sb.from('chat_messages').insert({ room_id: roomId, content, ...(parentId ? { parent_id: parentId } : {}) }).select().single()) as ChatMessage
+    },
+    async reactMessage(id, emoji) {
+      return (must(await sb.rpc('chat_react', { p_message: id, p_emoji: emoji })) ?? {}) as Record<string, string[]>
     },
     async sendFile(roomId, file, caption) {
       if (file.size > CHAT_FILE_MAX) throw new ApiError('파일은 20MB 까지 보낼 수 있습니다.')

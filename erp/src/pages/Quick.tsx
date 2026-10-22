@@ -167,7 +167,7 @@ function QuickChat({ rooms }: { rooms: ChatRoomSummary[] }) {
   const { me, profileName, profiles } = useApp()
   const room = rooms.find(r => r.id === chosen) ?? rooms[0] ?? null
   const roomId = room?.id ?? null
-  const { messages, reads, send, sendFile, remove, edit } = useRoomMessages(roomId)
+  const { messages, reads, send, sendFile, remove, edit, react } = useRoomMessages(roomId)
   const sendFiles = async (files: File[]) => {
     stick.current = true
     for (const f of files) if (!(await sendFile(f))) break
@@ -230,7 +230,7 @@ function QuickChat({ rooms }: { rooms: ChatRoomSummary[] }) {
           stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 60
         }}
       >
-        <MessageList messages={messages} reads={reads} members={room?.members} onRemove={remove} onEdit={edit} />
+        <MessageList messages={messages} reads={reads} members={room?.members} onRemove={remove} onEdit={edit} onReply={(id, c) => send(c, id)} onReact={react} />
         <AgentTyping messages={messages} members={room?.members} />
       </div>
       <div className="quick-composer">

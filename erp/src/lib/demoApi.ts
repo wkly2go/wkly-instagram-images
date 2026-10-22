@@ -903,11 +903,16 @@ export function createDemoApi(): Api {
     async listMessages(roomId, limit = 150) {
       return clone(store.chat_messages.filter(m => m.room_id === roomId).sort((a, b) => a.created_at.localeCompare(b.created_at)).slice(-limit))
     },
-    async sendMessage(roomId, content) {
-      const msg: ChatMessage = { id: ++store.seq + 1000, room_id: roomId, user_id: requireMe(), content, created_at: now(), edited_at: null }
+    async sendMessage(roomId, content, parentId) {
+      const parent = parentId ? store.chat_messages.find(m => m.id === parentId && m.room_id === roomId) : undefined
+      if (parentId && !parent) throw new ApiError('원래 메시지를 찾을 수 없습니다.')
+      const root = parent?.parent_id ?? parent?.id ?? null
+      const msg: ChatMessage = { id: ++store.seq + 1000, room_id: roomId, user_id: requireMe(), content, created_at: now(), edited_at: null, parent_id: root }
       store.chat_messages.push(msg)
       const room = store.chat_rooms.find(r => r.id === roomId)
       for (const p of store.profiles) if (p.id !== msg.user_id && content.includes(`@${p.name}`) && (!room?.members || room.members.includes(p.id))) notify(p.id, '멘션', `${nameOf(msg.user_id)}님이 언급했어요 · ${room?.members ? '1:1 대화' : room?.name ?? '채팅'}`, content.slice(0, 80), `/chat?room=${roomId}`)
+      const rootMsg = root ? store.chat_messages.find(m => m.id === root) : undefined
+      if (rootMsg?.user_id && rootMsg.user_id !== msg.user_id) notify(rootMsg.user_id, '멘션', `${nameOf(msg.user_id)}님이 답글을 남겼어요`, content.slice(0, 80), `/chat?room=${roomId}&thread=${root}`)
       persist()
       emit('chat_messages', { type: 'INSERT', message: msg } satisfies MessageEvent)
       // 체험 모드: AI 팀원에게 말을 걸면 안내 답장 (실제 서비스는 Claude 가 바로 처리)
@@ -943,6 +948,19 @@ export function createDemoApi(): Api {
     async fileUrl(att) {
       if (!att.url) throw new ApiError('파일을 열 수 없습니다.')
       return att.url
+    },
+    async reactMessage(id, emoji) {
+      const self = requireMe()
+      const msg = store.chat_messages.find(m => m.id === id)
+      if (!msg) throw new ApiError('메시지를 찾을 수 없습니다.')
+      const r = { ...(msg.reactions ?? {}) }
+      const list = r[emoji] ?? []
+      r[emoji] = list.includes(self) ? list.filter(x => x !== self) : [...list, self]
+      if (!r[emoji].length) delete r[emoji]
+      msg.reactions = r
+      persist()
+      emit('chat_messages', { type: 'UPDATE', message: clone(msg) } satisfies MessageEvent)
+      return clone(r)
     },
     async editMessage(id, content) {
       const msg = store.chat_messages.find(m => m.id === id)

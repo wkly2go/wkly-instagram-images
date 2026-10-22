@@ -418,6 +418,10 @@ export interface ChatMessage {
   created_at: string
   edited_at: string | null
   attachment?: ChatAttachment | null
+  /** 스레드 답글이면 원래 메시지 id */
+  parent_id?: number | null
+  /** 이모지 반응: { '👍': [사용자 id, …] } */
+  reactions?: Record<string, string[]> | null
 }
 
 /** 채팅방별 마지막 읽은 시각 (읽음 표시용) */
