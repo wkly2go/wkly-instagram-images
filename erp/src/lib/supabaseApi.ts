@@ -6,6 +6,7 @@ import type {
   ExchangeFile,
   ProjectDriveFile,
   DriveIndexFile,
+  ApprovalActivity,
   ProjectContact,
   ProjectMember,
   AttendanceDevice,
@@ -310,7 +311,26 @@ export function createSupabaseApi(url: string, key: string): Api {
     },
 
     async listApprovals() {
-      return must(await sb.from('approvals').select('*, can_decide').order('created_at', { ascending: false }).limit(300)) as Approval[]
+      const rows = must(
+        await sb
+          .from('approvals')
+          .select('*, can_decide, approval_activity(count)')
+          .in('approval_activity.kind', ['댓글', '진행', '결과', 'AI 답변'])
+          .order('created_at', { ascending: false })
+          .limit(300),
+      ) as (Approval & { approval_activity?: { count: number }[] })[]
+      return rows.map(({ approval_activity, ...a }) => ({ ...a, activity_count: approval_activity?.[0]?.count ?? 0 }))
+    },
+    async listApprovalActivity(approvalId) {
+      return must(await sb.from('approval_activity').select('*').eq('approval_id', approvalId).order('created_at').order('id')) as ApprovalActivity[]
+    },
+    async addApprovalActivity(approvalId, kind, body) {
+      const text = body.trim()
+      if (!text) throw new ApiError('내용을 적어 주세요.')
+      return must(await sb.from('approval_activity').insert({ approval_id: approvalId, kind, body: text.slice(0, 4000) }).select().single()) as ApprovalActivity
+    },
+    removeApprovalActivity: async id => {
+      must(await sb.from('approval_activity').delete().eq('id', id))
     },
     async createApproval(a) {
       return must(await sb.from('approvals').insert(strip(a, READONLY)).select('*, can_decide').single()) as Approval
