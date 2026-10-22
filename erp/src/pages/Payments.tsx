@@ -9,6 +9,7 @@ import type { BudgetLine, Client, Payment, Project } from '../lib/types'
 import { PaymentForm } from '../components/PaymentForm'
 import { Badge, Button, Chip, Empty, Loading, type Tone } from '../components/ui'
 import { PaymentImport } from './PaymentImport'
+import { ask } from '../components/Ask'
 
 const PAY_TONE: Record<Payment['status'], Tone> = { 예정: 'outline', 청구: 'yellow', 대기: 'yellow', 완료: 'acid', 보류: 'paper', 취소: 'paper' }
 
@@ -302,7 +303,7 @@ function Register({ data, projects, clients }: { data: PayData; projects: Projec
             size="sm"
             disabled={busy}
             onClick={async () => {
-              if (!window.confirm(`선택한 ${sel.size}건을 삭제할까요?`)) return
+              if (!(await ask(`선택한 ${sel.size}건을 삭제할까요?`))) return
               const ids = [...sel]
               if (await run(async () => {
                 for (const id of ids) await api.deletePayment(id)
@@ -359,7 +360,7 @@ function Advances({ data, projects }: { data: PayData; projects: Project[] }) {
               <span className="cap">
                 정산할 금액 <b className="t-blue">{g.total.toLocaleString('ko-KR')}원</b>
               </span>
-              <Button size="sm" disabled={busy} onClick={() => window.confirm(`${g.by}님에게 ${g.total.toLocaleString('ko-KR')}원 정산 완료로 처리할까요?`) && run(() => api.updatePayments(g.items.map(p => p.id), { status: '완료', paid_date: today }), '정산 완료로 처리했습니다.')}>
+              <Button size="sm" disabled={busy} onClick={async () => (await ask(`${g.by}님에게 ${g.total.toLocaleString('ko-KR')}원 정산 완료로 처리할까요?`)) && run(() => api.updatePayments(g.items.map(p => p.id), { status: '완료', paid_date: today }), '정산 완료로 처리했습니다.')}>
                 정산 완료
               </Button>
             </div>
@@ -646,8 +647,8 @@ function Run({ data, projects }: { data: PayData; projects: Project[] }) {
         </Button>
         <Button
           disabled={busy || !count}
-          onClick={() =>
-            window.confirm(`${ready.length}곳 ${count}건 (${total.toLocaleString('ko-KR')}원)을 오늘 지급 완료로 처리할까요?`) &&
+          onClick={async () =>
+            (await ask(`${ready.length}곳 ${count}건 (${total.toLocaleString('ko-KR')}원)을 오늘 지급 완료로 처리할까요?`)) &&
             run(() => api.updatePayments(ready.flatMap(g => g.items.map(p => p.id)), { status: '완료', paid_date: today }), '지급 완료로 처리했습니다.')
           }
         >

@@ -4,6 +4,7 @@ import { manwon, nextMonday, shortDate, todayKey, weekday } from '../lib/date'
 import { maskAccount, sameName } from '../lib/finance'
 import { CONTRACT_TYPES, LABOR_TYPES, PAYMENT_STAGES, PAYMENT_STATUSES, TAX_INVOICE_STATES, type BudgetLine, type Client, type ContractType, type Payment, type Project } from '../lib/types'
 import { Button, Chip, Field, Modal } from './ui'
+import { ask } from './Ask'
 
 /** '1,200,000' · '-500000' → 숫자 */
 export function parseMoney(s: string): number {
@@ -84,7 +85,7 @@ export function PaymentForm({
     if (ok) onClose()
   }
   const remove = async () => {
-    if (payment && window.confirm('이 결제 내역을 삭제할까요?') && (await run(() => api.deletePayment(payment.id), '삭제했습니다.'))) onClose()
+    if (payment && (await ask('이 결제 내역을 삭제할까요?')) && (await run(() => api.deletePayment(payment.id), '삭제했습니다.'))) onClose()
   }
 
   return (

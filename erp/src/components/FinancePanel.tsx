@@ -8,6 +8,7 @@ import type { BudgetLine, Client, Payment, Project, ProjectFinance } from '../li
 import { Meter } from './charts'
 import { PaymentForm, parseMoney } from './PaymentForm'
 import { Badge, Button, Empty, Field, Modal, type Tone } from './ui'
+import { ask, askText } from './Ask'
 
 const PAY_TONE: Record<Payment['status'], Tone> = { 예정: 'outline', 청구: 'yellow', 대기: 'yellow', 완료: 'acid', 보류: 'paper', 취소: 'paper' }
 
@@ -155,14 +156,14 @@ export function FinancePanel({ project, clients, projects }: { project: Project;
                           type="button"
                           className="icon-btn sm"
                           aria-label="예산 수정"
-                          onClick={() => {
-                            const v = window.prompt(`'${r.category}' 예산 (원)`, String(r.budget))
+                          onClick={async () => {
+                            const v = (await askText(`'${r.category}' 예산 (원)`, String(r.budget)))
                             if (v !== null) run(() => api.saveBudgetLine({ id: r.lines[0].id, budget_amount: Math.max(0, parseMoney(v)) }))
                           }}
                         >
                           <Pencil size={12} />
                         </button>
-                        <button type="button" className="icon-btn sm" aria-label="예산 삭제" onClick={() => window.confirm(`'${r.category}' 예산 줄을 삭제할까요?`) && run(() => api.deleteBudgetLine(r.lines[0].id))}>
+                        <button type="button" className="icon-btn sm" aria-label="예산 삭제" onClick={async () => (await ask(`'${r.category}' 예산 줄을 삭제할까요?`)) && run(() => api.deleteBudgetLine(r.lines[0].id))}>
                           <Trash2 size={12} />
                         </button>
                       </>

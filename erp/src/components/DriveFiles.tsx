@@ -7,6 +7,7 @@ import { projectDriveUrl, type Project, type ProjectDriveFile } from '../lib/typ
 import { driveApi, driveIdOf, editUrl, embedUrl, ensureProjectFolder, FILE_FIELDS, fileMeta, FOLDER_MIME, googleLogin, kindOfUrl, nativeGoogle, onTokenChange, previewUrl, readToken, uploadToDrive, type GFile } from '../lib/gdrive'
 import { openLink } from './WebSearch'
 import { Button, Empty, Modal, SectionHead } from './ui'
+import { ask } from './Ask'
 
 /**
  * 구글 문서 편집 열기 (대표 지시 2026-10-20 "인트라넷 내에서 구글 문서의 편집이 가능하게")
@@ -225,7 +226,7 @@ export function ProjectDriveSection({ project }: { project: Project }) {
                 </button>
               )}
               {canEdit(f) && (
-                <button type="button" className="icon-btn sm" disabled={busy} onClick={() => window.confirm(`'${f.name}'를 프로젝트에서 뺄까요? (드라이브 파일은 그대로)`) && run(() => api.removeProjectDriveFile(f.id), '프로젝트에서 뺐습니다.')} aria-label="첨부 빼기" title="첨부 빼기 (드라이브 파일은 그대로)">
+                <button type="button" className="icon-btn sm" disabled={busy} onClick={async () => (await ask(`'${f.name}'를 프로젝트에서 뺄까요? (드라이브 파일은 그대로)`)) && run(() => api.removeProjectDriveFile(f.id), '프로젝트에서 뺐습니다.')} aria-label="첨부 빼기" title="첨부 빼기 (드라이브 파일은 그대로)">
                   <Trash2 size={13} />
                 </button>
               )}

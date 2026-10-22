@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type DependencyList, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type DependencyList, type ReactNode, useSyncExternalStore } from 'react'
 import { friendlyError, type Api } from './api'
 import { createDemoApi } from './demoApi'
 import { createSupabaseApi } from './supabaseApi'
@@ -64,6 +64,25 @@ export function initial(name: string | null | undefined): string {
 }
 
 /** 비동기 데이터 로딩. deps 또는 전역 version 이 바뀌면 다시 불러온다. */
+/**
+ * 처음 불러오는 중인 데이터 수 (2026-10-22 UI 개선): 불러오는 동안 '없습니다'가 먼저 보였다 바뀌는 깜빡임 대신 '불러오는 중'
+ *  - 화면마다 처음 한 번만 셉니다 (다시 불러올 때는 이전 내용을 그대로 보여 줌)
+ */
+let firstLoads = 0
+const firstLoadListeners = new Set<() => void>()
+const bumpFirst = (d: number) => {
+  firstLoads = Math.max(0, firstLoads + d)
+  firstLoadListeners.forEach(l => l())
+}
+export const useFirstLoading = () =>
+  useSyncExternalStore(
+    cb => {
+      firstLoadListeners.add(cb)
+      return () => firstLoadListeners.delete(cb)
+    },
+    () => firstLoads > 0,
+  )
+
 export function useAsync<T>(fn: () => Promise<T>, deps: DependencyList, initialValue: T): { data: T; loading: boolean; error: string | null; reload: () => void; setData: (v: T) => void } {
   const [data, setData] = useState<T>(initialValue)
   const [loading, setLoading] = useState(true)
@@ -71,8 +90,18 @@ export function useAsync<T>(fn: () => Promise<T>, deps: DependencyList, initialV
   const [tick, setTick] = useState(0)
   const fnRef = useRef(fn)
   fnRef.current = fn
+  const loaded = useRef(false)
   useEffect(() => {
     let alive = true
+    const first = !loaded.current
+    if (first) bumpFirst(1)
+    let counted = first
+    const done = () => {
+      if (counted) {
+        counted = false
+        bumpFirst(-1)
+      }
+    }
     setLoading(true)
     fnRef
       .current()
@@ -80,12 +109,17 @@ export function useAsync<T>(fn: () => Promise<T>, deps: DependencyList, initialV
         if (alive) {
           setData(v)
           setError(null)
+          loaded.current = true
         }
       })
       .catch(e => alive && setError(friendlyError(e)))
-      .finally(() => alive && setLoading(false))
+      .finally(() => {
+        done()
+        if (alive) setLoading(false)
+      })
     return () => {
       alive = false
+      done()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [...deps, tick])

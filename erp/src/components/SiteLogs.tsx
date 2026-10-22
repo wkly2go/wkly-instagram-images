@@ -6,6 +6,7 @@ import { SITE_MATERIAL_ITEMS, SITE_SIGNERS, SITE_TRADES, type Project, type Site
 import { Board } from './Board'
 import { Button, SectionHead } from './ui'
 import { useSuppressDetail } from './RightPanel'
+import { ask } from './Ask'
 
 /**
  * 인테리어 현장 작업일지 (대표 지시 2026-10-18 · 엑셀 '작업일지' 양식)
@@ -195,7 +196,7 @@ function SiteLogSheet({ log, all, project, onClose }: { log: SiteLog; all: SiteL
           작업일지 · {shortDate(d.log_date)} ({weekday(d.log_date)})
         </b>
         {canDelete && (
-          <Button kind="ghost" size="sm" disabled={busy} onClick={async () => window.confirm('이 작업일지를 삭제할까요?') && (await run(() => api.deleteSiteLog(d.id), '삭제했습니다.')) && onClose()}>
+          <Button kind="ghost" size="sm" disabled={busy} onClick={async () => (await ask('이 작업일지를 삭제할까요?')) && (await run(() => api.deleteSiteLog(d.id), '삭제했습니다.')) && onClose()}>
             <Trash2 size={12} /> 삭제
           </Button>
         )}

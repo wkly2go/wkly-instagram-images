@@ -5,6 +5,7 @@ import { dateLabel, timeLabel, toDateKey, todayKey } from '../lib/date'
 import { useRouter } from '../lib/router'
 import type { AgentInstruction, InstructionStatus } from '../lib/types'
 import { Badge, Button, SectionHead, type Tone } from './ui'
+import { ask } from './Ask'
 
 const TONE: Record<InstructionStatus, Tone> = { 대기: 'yellow', '진행 중': 'acid', 완료: 'blue', 보류: 'paper' }
 
@@ -96,7 +97,7 @@ export function AgentDesk() {
                     {profileName(i.created_by)} · {timeLabel(i.created_at)}
                   </span>
                   {(i.status === '대기' && (i.created_by === me.id || me.role === 'admin')) && (
-                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => window.confirm('이 지시를 취소할까요?') && run(() => api.deleteAgentInstruction(i.id), '지시를 취소했습니다.')}>
+                    <button type="button" className="btn btn-ghost btn-sm" onClick={async () => (await ask('이 지시를 취소할까요?')) && run(() => api.deleteAgentInstruction(i.id), '지시를 취소했습니다.')}>
                       취소
                     </button>
                   )}

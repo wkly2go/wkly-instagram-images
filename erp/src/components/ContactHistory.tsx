@@ -7,6 +7,7 @@ import { Badge, Button, Chip, Field, KindBadge, SectionHead } from './ui'
 import { Board, type BoardCol } from './Board'
 import { openLink } from './WebSearch'
 import { canView, FileViewer } from './FileViewer'
+import { ask } from './Ask'
 
 const fmtSize = (n: number | null) => (n == null ? '' : n > 1048576 ? `${(n / 1048576).toFixed(1)}MB` : `${Math.max(1, Math.round(n / 1024))}KB`)
 
@@ -118,7 +119,7 @@ export function ExchangeFilesSection({ clientId, contactId, projectId, contacts,
                   <button type="button" className="link-btn t-meta" disabled={busy} onClick={() => setEditing(f)}>
                     수정
                   </button>
-                  <button type="button" className="link-btn t-meta" disabled={busy} onClick={() => window.confirm(`'${f.name}' 자료 기록을 지울까요?`) && run(() => api.deleteExchangeFile(f.id), '지웠습니다.')}>
+                  <button type="button" className="link-btn t-meta" disabled={busy} onClick={async () => (await ask(`'${f.name}' 자료 기록을 지울까요?`)) && run(() => api.deleteExchangeFile(f.id), '지웠습니다.')}>
                     지우기
                   </button>
                 </span>

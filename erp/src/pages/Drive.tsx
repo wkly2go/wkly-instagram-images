@@ -9,6 +9,7 @@ import { useRouter, withQuery } from '../lib/router'
 import { Shell } from '../components/Shell'
 import { claimNative, moveNative, openLink, releaseNative } from '../components/WebSearch'
 import { Badge, Button, Empty, SectionHead } from '../components/ui'
+import { ask, askText } from '../components/Ask'
 
 /**
  * 구글 드라이브 탭 (대표 지시 2026-10-20)
@@ -82,7 +83,7 @@ export default function Drive() {
                 <div key={f.url + i} className="row gap-6">
                   <Folder size={14} />
                   <span className="t-small grow">{f.name}</span>
-                  <button type="button" className="icon-btn sm" disabled={busy} onClick={() => window.confirm(`'${f.name}' 폴더를 목록에서 뺄까요? (드라이브 파일은 그대로)`) && save(folders.filter((_, j) => j !== i), '목록에서 뺐습니다.')} aria-label={`${f.name} 빼기`}>
+                  <button type="button" className="icon-btn sm" disabled={busy} onClick={async () => (await ask(`'${f.name}' 폴더를 목록에서 뺄까요? (드라이브 파일은 그대로)`)) && save(folders.filter((_, j) => j !== i), '목록에서 뺐습니다.')} aria-label={`${f.name} 빼기`}>
                     <Trash2 size={13} />
                   </button>
                 </div>
@@ -298,14 +299,14 @@ function WebDriveList({ folders, onOpenDoc }: { folders: DriveFolder[]; onOpenDo
     if (kind !== 'copy' && !inIntranetTree) return toast('기존 드라이브 자료는 고치거나 지울 수 없습니다. (인트라넷 #연도 폴더 안에서만)')
     let name = f.name
     if (kind === 'rename') {
-      const v = window.prompt('새 이름', f.name)?.trim()
+      const v = (await askText('새 이름', f.name))?.trim()
       if (!v || v === f.name) return
       name = v
     } else if (kind === 'copy') {
-      const v = window.prompt('사본 이름', `${f.name} 사본`)?.trim()
+      const v = (await askText('사본 이름', `${f.name} 사본`))?.trim()
       if (!v) return
       name = v
-    } else if (!window.confirm(`'${f.name}'을(를) 삭제할까요?\n구글 드라이브 휴지통으로 옮겨지며 30일 안에 되살릴 수 있습니다.`)) return
+    } else if (!(await ask(`'${f.name}'을(를) 삭제할까요?\n구글 드라이브 휴지통으로 옮겨지며 30일 안에 되살릴 수 있습니다.`))) return
     setActing(true)
     setErr('')
     try {

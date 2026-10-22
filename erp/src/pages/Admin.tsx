@@ -11,6 +11,7 @@ import { Meter } from '../components/charts'
 import { Shell } from '../components/Shell'
 import { PersonName } from '../components/Person'
 import { Badge, Button, Empty, Field, Modal } from '../components/ui'
+import { ask } from '../components/Ask'
 
 export const SCOPE_LABEL: Record<AgentScope, string> = { read: '현황 조회', task: '할 일', daily_report: '일일 보고', notify: '알림', research: '리서치', contact: '브랜드 담당자', finance: '재무 요약(합계만)' }
 const FREE_DB = 500 * 1024 * 1024
@@ -255,7 +256,7 @@ function Members() {
                       className={`badge ${p.active ? 'acid' : 'paper'}`}
                       style={{ cursor: self ? 'default' : 'pointer' }}
                       disabled={busy || self}
-                      onClick={() => window.confirm(p.active ? `${p.name} 님을 비활성화할까요? 로그인해도 데이터를 볼 수 없게 됩니다.` : `${p.name} 님을 다시 활성화할까요?`) && update(p, { active: !p.active }, p.active ? '비활성화했습니다.' : '활성화했습니다.')}
+                      onClick={async () => (await ask(p.active ? `${p.name} 님을 비활성화할까요? 로그인해도 데이터를 볼 수 없게 됩니다.` : `${p.name} 님을 다시 활성화할까요?`)) && update(p, { active: !p.active }, p.active ? '비활성화했습니다.' : '활성화했습니다.')}
                       title={self ? '본인은 바꿀 수 없어요' : '눌러서 활성/비활성'}
                     >
                       {p.active ? '활성' : '비활성'}
@@ -275,8 +276,8 @@ function Members() {
                         className="btn btn-ghost btn-sm del-btn"
                         disabled={busy || p.role === 'admin'}
                         title={p.role === 'admin' ? '관리자는 먼저 멤버로 바꾼 뒤 삭제할 수 있습니다' : '계정 삭제'}
-                        onClick={() =>
-                          window.confirm(`${p.name} 님 계정을 삭제할까요?\n\n로그인할 수 없게 되고 되돌릴 수 없습니다. 업무 기록·결제 등은 남고 작성자는 '알 수 없음'으로 표시됩니다.\n잠시 쉬는 경우에는 '활성'을 눌러 비활성화하세요.`) &&
+                        onClick={async () =>
+                          (await ask(`${p.name} 님 계정을 삭제할까요?\n\n로그인할 수 없게 되고 되돌릴 수 없습니다. 업무 기록·결제 등은 남고 작성자는 '알 수 없음'으로 표시됩니다.\n잠시 쉬는 경우에는 '활성'을 눌러 비활성화하세요.`)) &&
                           run(() => api.deleteMember(p.id), `${p.name} 님 계정을 삭제했습니다.`)
                         }
                       >
@@ -447,7 +448,7 @@ function AgentKeys({ tokens }: { tokens: AgentToken[] }) {
                   <td>{t.scopes.map(s => SCOPE_LABEL[s] ?? s).join(' · ')}</td>
                   <td className="nowrap">{t.last_used_at ? relativeLabel(t.last_used_at) : '사용 전'}</td>
                   <td>
-                    <Button kind="ghost" size="sm" disabled={busy} onClick={() => window.confirm(`'${t.name}' 키를 끊을까요? 이 키를 쓰는 에이전트는 더 이상 기록할 수 없습니다.`) && run(() => api.revokeAgentToken(t.id), '키를 끊었습니다.')}>
+                    <Button kind="ghost" size="sm" disabled={busy} onClick={async () => (await ask(`'${t.name}' 키를 끊을까요? 이 키를 쓰는 에이전트는 더 이상 기록할 수 없습니다.`)) && run(() => api.revokeAgentToken(t.id), '키를 끊었습니다.')}>
                       끊기
                     </Button>
                   </td>

@@ -20,6 +20,7 @@ import { Payments } from './Payments'
 import { Subscriptions } from './Subscriptions'
 import { Gantt, MonthCalendar, SentTasks, TaskAssignModal, WeekView } from './Schedule'
 import { OverdueCleanup, PendingReports, useWorkReports } from '../components/WorkReports'
+import { ask } from '../components/Ask'
 
 interface Data {
   projects: Project[]
@@ -225,10 +226,10 @@ function ProjectBoard({ list, data, loading, onOpen }: { list: Project[]; data: 
   const syncFolder = useProjectFolderSync()
   const today = todayKey()
   // 그룹(구분) 바꾸기 (대표 지시 2026-10-21 "프로젝트 목록에서 프로젝트가 포함된 그룹을 수정할 수 있게")
-  const moveTo = (p: Project, div: Division) => {
+  const moveTo = async (p: Project, div: Division) => {
     if (div === projectBrand(p)) return
     const auto = /^(AR|TW|RS)\d{4}-\d+$/.test(p.code ?? '')
-    if (!window.confirm(`'${p.name}'을(를) ${DIVISIONS[div].full}(으)로 옮길까요?${auto ? `\n연번이 ${div}로 새로 매겨집니다.` : ''}`)) return
+    if (!(await ask(`'${p.name}'을(를) ${DIVISIONS[div].full}(으)로 옮길까요?${auto ? `\n연번이 ${div}로 새로 매겨집니다.` : ''}`))) return
     void (async () => {
       let saved: Project | null = null
       const ok = await run(async () => {
@@ -632,7 +633,7 @@ function ProjectDetail({ project: p, data, onEdit, onBack }: { project: Project;
             kind="ghost"
             size="sm"
             onClick={async () => {
-              if (window.confirm(`'${p.name}' 프로젝트와 할 일을 모두 삭제할까요?`) && (await run(() => api.deleteProject(p.id), '삭제했습니다.'))) onBack()
+              if ((await ask(`'${p.name}' 프로젝트와 할 일을 모두 삭제할까요?`)) && (await run(() => api.deleteProject(p.id), '삭제했습니다.'))) onBack()
             }}
           >
             삭제
@@ -670,7 +671,7 @@ function ProjectDetail({ project: p, data, onEdit, onBack }: { project: Project;
             list={tasks}
             projects={data.projects}
             onStatus={t => run(() => api.saveTask({ id: t.id, status: NEXT[t.status] }))}
-            onDelete={t => window.confirm('이 할 일을 삭제할까요?') && run(() => api.deleteTask(t.id))}
+            onDelete={async t => (await ask('이 할 일을 삭제할까요?')) && run(() => api.deleteTask(t.id))}
             onEdit={t => setEditingTask(t)}
           />
           <TaskAdder projectId={p.id} defaultAssignee={me.id} />

@@ -5,6 +5,7 @@ import { shortDate, todayKey } from '../lib/date'
 import { Link } from '../lib/router'
 import type { AgentJob, Department, Project, Task } from '../lib/types'
 import { Badge, Button, Chip, Empty, Field, Modal, SectionHead } from './ui'
+import { ask } from './Ask'
 
 const S_COLOR: Record<string, string> = { 진행: 'var(--blue)', 기획: 'var(--pink)', NIC: 'var(--green)', 보류: 'var(--gray)' }
 
@@ -196,7 +197,7 @@ function DeptModal({ dept, groups, profiles, onClose }: { dept: Department | nul
     if (await run(() => api.saveDepartment({ id: dept?.id, name: f.name.trim(), duties: f.duties.trim() || null, lead_id: f.lead_id || null, member_ids: f.member_ids, agent_groups: f.agent_groups, sort: Number(f.sort) || 0 }), '저장했습니다.')) onClose()
   }
   const remove = async () => {
-    if (dept && window.confirm(`'${dept.name}' 부서를 삭제할까요?`) && (await run(() => api.deleteDepartment(dept.id), '삭제했습니다.'))) onClose()
+    if (dept && (await ask(`'${dept.name}' 부서를 삭제할까요?`)) && (await run(() => api.deleteDepartment(dept.id), '삭제했습니다.'))) onClose()
   }
   return (
     <Modal
