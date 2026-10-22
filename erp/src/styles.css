@@ -1644,3 +1644,9 @@ svg text[font-size="12"] { font-size: var(--fs-sm); }
 .img-viewer-stage:active { cursor: grabbing; }
 .img-viewer-stage img { position: absolute; left: 0; top: 0; transform-origin: 0 0; max-width: none; max-height: none; will-change: transform; }
 .img-viewer-hint { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); padding: 4px 12px; border-radius: 999px; background: var(--white); color: var(--gray); pointer-events: none; }
+/* 위쪽 줄 AI 입력칸: 주소 옆 빈 공간을 채움 (검색창 · 버튼들은 오른쪽) */
+.top-ai { order: 0; flex: 1 1 240px; max-width: 560px; min-width: 0; display: flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; box-sizing: border-box; border: 1px solid var(--blue); border-radius: 999px; background: var(--white); color: var(--blue); }
+.top-ai:focus-within { box-shadow: 0 0 0 2px var(--blue-tint); }
+.top-ai input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; font: inherit; font-size: var(--fs-sm); color: var(--blue); }
+.top-ai input::placeholder { color: var(--gray); }
+@media (pointer: coarse) { .top-ai { order: 6; flex-basis: 100%; max-width: none; } }

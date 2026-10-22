@@ -31,8 +31,10 @@ export default function Library() {
   const { query, path, navigate } = useRouter()
   const tab = (query.get('tab') as Tab | null) ?? 'research'
   const go = (t: Tab) => navigate(withQuery(path, new URLSearchParams(), { tab: t === 'research' ? null : t }), { replace: true })
+  // 자료실은 '보고서 결제' 탭 안으로 (대표 지시 2026-10-22 "자료실을 보고서 결제에 포함")
   const tabs = (
     <div className="chips">
+      <Chip onClick={() => navigate('/approvals')}>← 보고서 결제</Chip>
       {(
         [
           ['research', '리서치'],
@@ -49,7 +51,7 @@ export default function Library() {
     </div>
   )
   return (
-    <Shell active="library" flush={tab === 'research'}>
+    <Shell active="approvals" flush={tab === 'research'}>
       {tab === 'research' ? <Research tabs={tabs} /> : tab === 'reports' ? <ReportTemplates tabs={tabs} /> : tab === 'contacts' ? <Contacts tabs={tabs} /> : tab === 'templates' ? <Templates tabs={tabs} /> : <AgentGuide tabs={tabs} />}
     </Shell>
   )

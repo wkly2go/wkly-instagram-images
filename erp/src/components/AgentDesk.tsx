@@ -115,3 +115,46 @@ export function AgentDesk() {
     </section>
   )
 }
+
+/**
+ * 위쪽 줄 AI 입력칸 (대표 지시 2026-10-22 "AI 검색창을 제일 상단으로") — 어느 화면에서나 WKLY 총괄에게 바로 묻기 · 지시
+ *  - Enter 보내기 → 홈 'AI 팀원에게 지시'로 이동해 답을 바로 확인
+ */
+export function TopAiBox() {
+  const { api, profiles, profileName, toast, bump } = useApp()
+  const { navigate } = useRouter()
+  const [text, setText] = useState('')
+  const [busy, setBusy] = useState(false)
+  const agent = profiles.filter(p => p.is_agent && p.active).sort((a, b) => Number(a.name.endsWith('팀장')) - Number(b.name.endsWith('팀장')))[0]
+  if (!agent) return null
+  const send = async () => {
+    const v = text.trim()
+    if (!v || busy) return
+    setBusy(true)
+    try {
+      await api.instructAgent(agent.id, v)
+      setText('')
+      bump()
+      toast(`${profileName(agent.id)}에게 보냈습니다. 답은 홈 'AI 팀원에게 지시'에 바로 남깁니다.`)
+      navigate('/?agent=1')
+    } catch (e) {
+      toast(e instanceof Error ? e.message : '보내지 못했습니다.')
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <form
+      className="top-ai"
+      role="search"
+      aria-label="AI 에게 묻기 · 지시"
+      onSubmit={e => {
+        e.preventDefault()
+        void send()
+      }}
+    >
+      <Bot size={15} aria-hidden="true" />
+      <input value={text} onChange={e => setText(e.target.value)} placeholder={`${agent.name}에게 묻기 · 지시 (Enter)`} aria-label="AI 에게 묻기 · 지시" maxLength={2000} disabled={busy} enterKeyHint="send" />
+    </form>
+  )
+}

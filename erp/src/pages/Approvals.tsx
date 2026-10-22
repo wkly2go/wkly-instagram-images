@@ -167,6 +167,8 @@ export default function Approvals() {
             전체
           </Chip>
         </div>
+        {/* 자료실 (대표 지시 2026-10-22 "자료실을 보고서 결제에 포함") */}
+        <Chip onClick={() => navigate('/library')}>📚 자료실</Chip>
         <span className="grow" />
         {/* 회의록 방: 회의록만 모아 보기 · 바로 쓰기 */}
         <Chip active={kind === '회의록'} onClick={() => go({ kind: kind === '회의록' ? null : '회의록', view: kind === '회의록' ? null : 'all' })}>

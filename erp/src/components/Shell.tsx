@@ -3,6 +3,7 @@ import { Bot, Briefcase, HardDrive, MonitorDown, ChevronLeft, ChevronRight, Circ
 import { isDesktopApp } from '../lib/desktop'
 import { NotificationBell } from './Notifications'
 import { WebSearchBox, webSlot } from './WebSearch'
+import { TopAiBox } from './AgentDesk'
 import { detailSlot } from './RightPanel'
 
 /** 검색 창 자리(한 개뿐인 DOM)를 이 화면의 .body 끝으로 옮김 */
@@ -29,7 +30,6 @@ export const TABS: { key: TabKey; label: string; path: string; admin?: boolean }
   { key: 'chat', label: '채팅', path: '/chat' },
   { key: 'projects', label: '프로젝트', path: '/projects' },
   { key: 'clients', label: '거래처', path: '/clients' },
-  { key: 'library', label: '자료실', path: '/library' },
   { key: 'drive', label: '드라이브', path: '/drive' },
   { key: 'team', label: '업무·근태', path: '/team' },
   { key: 'agents', label: 'AI팀', path: '/agents', admin: true },
@@ -335,6 +335,8 @@ export function Shell({ active, flush, children }: { active: TabKey; flush?: boo
               <span className="site-title">사내 인트라넷</span>
               <span className="site-url t-meta">{window.location.host}</span>
               {api.mode === 'demo' && <span className="mode-badge" title="Supabase 연결 전 체험 모드. 데이터는 이 브라우저에만 저장됩니다.">DEMO</span>}
+              {/* AI 입력칸: 위쪽 줄 가운데 (대표 지시 2026-10-22) */}
+              <TopAiBox />
               <NotificationBell />
               {!isDesktopApp() && (
                 <Link to="/download" className="quick-btn pc-only" title="PC 프로그램 내려받기 (회사 컴퓨터 · 출근 기록)" style={{ textDecoration: 'none' }}>
