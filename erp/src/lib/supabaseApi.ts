@@ -881,6 +881,7 @@ export function createSupabaseApi(url: string, key: string): Api {
       q = projectId ? q.eq('project_id', projectId).limit(2000) : q.limit(3000)
       return must(await q) as DriveIndexFile[]
     },
+    driveAccessToken: () => invokeDrive<{ token: string; expires_at: number }>({ action: 'token' }),
     async driveSync(full) {
       const r = await invokeDrive<{ mode: 'full' | 'changes'; files: number; changed: number }>({ action: 'sync', full: !!full })
       if (!r) throw new ApiError('회사 구글 계정이 아직 연결되지 않았습니다.')

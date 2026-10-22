@@ -1878,6 +1878,9 @@ export function createDemoApi(): Api {
       return store.google_client_id ?? null
     },
     // 데모: 서버 자동 동기화 없음
+    async driveAccessToken() {
+      return null
+    },
     async listDriveIndex() {
       return []
     },
