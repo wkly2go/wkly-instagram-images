@@ -1692,3 +1692,22 @@ svg text[font-size="12"] { font-size: var(--fs-sm); }
 .cmdk-foot { padding: 6px 12px; border-top: 1px solid var(--line); background: var(--paper); }
 .cmdk-btn { order: 0; gap: 6px; padding: 0 10px; width: auto; }
 .cmdk-btn kbd { font: 400 var(--fs-cap)/1 var(--mono); color: var(--gray); }
+
+/* 채팅 스레드 · 이모지 반응 */
+.msg-actions { display: inline-flex; gap: 2px; }
+.msg.mine .msg-actions { flex-direction: row-reverse; }
+.reacts { display: flex; flex-wrap: wrap; gap: 4px; }
+.react-chip { display: inline-flex; align-items: center; gap: 3px; padding: 1px 7px; border: 1px solid var(--line); border-radius: 999px; background: var(--white); font-size: var(--fs-cap); color: var(--gray); cursor: pointer; }
+.react-chip b { color: var(--blue); font-weight: 600; }
+.react-chip.on { border-color: var(--blue); background: var(--bg-soft, #eef3ff); }
+.react-pick { display: flex; gap: 2px; padding: 3px; background: var(--white); border: 1px solid var(--line); border-radius: 999px; box-shadow: 0 4px 14px rgba(28, 28, 30, .12); }
+.react-pick button { border: 0; background: none; font-size: calc(var(--fs-body) * 1.25); padding: 2px 5px; border-radius: 999px; cursor: pointer; }
+.react-pick button:hover { background: var(--line); }
+.thread-link { display: inline-flex; align-items: center; gap: 4px; border: 0; background: none; padding: 1px 2px; color: var(--blue); font-size: var(--fs-cap); font-weight: 600; cursor: pointer; }
+.thread-link:hover { text-decoration: underline; }
+.thread { display: flex; flex-direction: column; gap: 8px; margin: 0 0 4px 22px; padding: 8px 10px; border-left: 2px solid var(--blue); background: rgba(0, 0, 0, .015); border-radius: 0 8px 8px 0; }
+.thread-head { display: flex; align-items: center; justify-content: space-between; }
+.thread-composer { display: flex; gap: 6px; align-items: flex-end; }
+.thread-composer .textarea { min-height: 36px; height: 36px; flex: 1; resize: vertical; }
+.pane-back { display: inline-block; padding: 8px 12px 0; color: var(--blue); font-weight: 600; text-decoration: none; }
+.pane-back:hover { text-decoration: underline; }

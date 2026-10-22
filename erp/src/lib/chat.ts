@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useApp } from './app'
 import { friendlyError } from './api'
+import { ask } from '../components/Ask'
 import type { ChatMessage, ChatRead, ChatRoom } from './types'
 
 /** 채팅방 메시지: 불러오기 · 실시간 반영 · 읽음 처리 · 보내기 · 삭제 (채팅 탭과 빠른 기록 창이 함께 씀) */
@@ -36,10 +37,10 @@ export function useRoomMessages(roomId: string | null) {
   }, [roomId])
 
   /** 성공하면 true */
-  const send = async (content: string) => {
+  const send = async (content: string, parentId?: number | null) => {
     if (!roomId) return false
     try {
-      const m = await api.sendMessage(roomId, content)
+      const m = await api.sendMessage(roomId, content, parentId)
       setMessages(prev => (prev.some(x => x.id === m.id) ? prev : [...prev, m]))
       return true
     } catch (e) {
@@ -48,7 +49,7 @@ export function useRoomMessages(roomId: string | null) {
     }
   }
   const remove = async (id: number) => {
-    if (!window.confirm('이 메시지를 삭제할까요?')) return
+    if (!(await ask('이 메시지를 삭제할까요?'))) return
     try {
       await api.deleteMessage(id)
       setMessages(prev => prev.filter(m => m.id !== id))
@@ -79,7 +80,16 @@ export function useRoomMessages(roomId: string | null) {
       return false
     }
   }
-  return { messages, reads, send, sendFile, remove, edit }
+  /** 이모지 반응 넣기/빼기 */
+  const react = async (id: number, emoji: string) => {
+    try {
+      const reactions = await api.reactMessage(id, emoji)
+      setMessages(prev => prev.map(x => (x.id === id ? { ...x, reactions } : x)))
+    } catch (e) {
+      toast(friendlyError(e))
+    }
+  }
+  return { messages, reads, send, sendFile, remove, edit, react }
 }
 
 /** 방 이름: 1:1 대화는 상대 이름, 나머지는 '# 방이름' */

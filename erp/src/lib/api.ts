@@ -197,7 +197,10 @@ export interface Api {
   /** 팀원과 1:1 대화방 열기 (없으면 만듦) → 방 id */
   openDm(otherId: string): Promise<string>
   listMessages(roomId: string, limit?: number): Promise<ChatMessage[]>
-  sendMessage(roomId: string, content: string): Promise<ChatMessage>
+  /** parentId 가 있으면 그 메시지의 스레드 답글 */
+  sendMessage(roomId: string, content: string, parentId?: number | null): Promise<ChatMessage>
+  /** 이모지 반응 넣기/빼기 (한 번 더 누르면 취소) → 바뀐 반응 */
+  reactMessage(id: number, emoji: string): Promise<Record<string, string[]>>
   /** 사진 · 파일 보내기 (한 파일 20MB 까지). caption 이 없으면 '📎 파일 이름' */
   sendFile(roomId: string, file: File, caption?: string): Promise<ChatMessage>
   /** 첨부 파일을 열 수 있는 주소 (1시간 유효). download 면 원래 이름으로 내려받기 */

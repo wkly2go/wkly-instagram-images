@@ -120,7 +120,9 @@ export default function Chat() {
 function Room({ room }: { room: ChatRoomSummary }) {
   const { api, me, version, profileName, profiles } = useApp()
   const { navigate } = useRouter()
-  const { messages, reads, send: sendMessage, sendFile, remove, edit } = useRoomMessages(room.id)
+  const { messages, reads, send: sendMessage, sendFile, remove, edit, react } = useRoomMessages(room.id)
+  const { query } = useRouter()
+  const threadId = Number(query.get('thread')) || null
   // 여러 파일은 차례로 보냄 (실패한 파일에서 멈춤)
   const sendFiles = async (files: File[]) => {
     stick.current = true
@@ -212,7 +214,7 @@ function Room({ room }: { room: ChatRoomSummary }) {
           stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 60
         }}
       >
-        <MessageList messages={messages} reads={reads} members={room.members} onRemove={remove} onEdit={edit} />
+        <MessageList messages={messages} reads={reads} members={room.members} onRemove={remove} onEdit={edit} onReply={(id, c) => sendMessage(c, id)} onReact={react} thread={threadId} />
         <AgentTyping messages={messages} members={room.members} />
       </div>
       <div className="composer">

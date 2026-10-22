@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type DragEvent } from 'react'
-import { Check, Download, FileText, Loader2, Paperclip, Pencil, Trash2, X } from 'lucide-react'
+import { Check, Download, FileText, Loader2, MessageSquare, Paperclip, Pencil, Send, SmilePlus, Trash2, X } from 'lucide-react'
 import { useApp } from '../lib/app'
 import { dateLabel, timeLabel, toDateKey } from '../lib/date'
 import type { ChatAttachment, ChatMessage, ChatRead } from '../lib/types'
@@ -9,16 +9,58 @@ import { ImageViewer } from './ImageViewer'
 import { canView, FileViewer } from './FileViewer'
 import { openLink } from './WebSearch'
 
-/** 말풍선 목록 (날짜 구분 · 3분 안 연속 메시지 묶음 · 읽음 표시 · 내 메시지/관리자 삭제) */
-export function MessageList({ messages, reads = [], members, onRemove, onEdit }: { messages: ChatMessage[]; reads?: ChatRead[]; members?: string[] | null; onRemove: (id: number) => void; onEdit?: (id: number, content: string) => Promise<boolean> }) {
+export const REACTION_EMOJIS = ['👍', '✅', '👀', '🙏', '😂', '🎉']
+
+type ListProps = {
+  messages: ChatMessage[]
+  reads?: ChatRead[]
+  members?: string[] | null
+  onRemove: (id: number) => void
+  onEdit?: (id: number, content: string) => Promise<boolean>
+  /** 스레드 답글 보내기 (없으면 답글 기능 숨김) */
+  onReply?: (parentId: number, content: string) => Promise<boolean>
+  onReact?: (id: number, emoji: string) => void
+  /** 처음부터 펼쳐 둘 스레드 (알림에서 들어온 경우) */
+  thread?: number | null
+}
+
+/** 말풍선 목록 (날짜 구분 · 3분 안 연속 메시지 묶음 · 읽음 표시 · 스레드 답글 · 이모지 반응 · 내 메시지/관리자 삭제) */
+export function MessageList({ messages, reads = [], members, onRemove, onEdit, onReply, onReact, thread = null }: ListProps) {
   const { me, profiles, profileName } = useApp()
   const [openId, setOpenId] = useState<number | null>(null)
   const [editId, setEditId] = useState<number | null>(null)
   const [draft, setDraft] = useState('')
+  const [pickId, setPickId] = useState<number | null>(null)
+  const [threads, setThreads] = useState<Set<number>>(() => new Set(thread ? [thread] : []))
+  const [replyText, setReplyText] = useState<Record<number, string>>({})
+  const [replying, setReplying] = useState<number | null>(null)
+  // 알림에서 스레드로 들어오면 펼치고 그 메시지로 스크롤
+  const scrolled = useRef<number | null>(null)
+  useEffect(() => {
+    if (!thread) return
+    setThreads(prev => (prev.has(thread) ? prev : new Set(prev).add(thread)))
+    if (scrolled.current === thread || !messages.some(m => m.id === thread)) return
+    scrolled.current = thread
+    window.setTimeout(() => document.getElementById(`msg-${thread}`)?.scrollIntoView({ block: 'center' }), 80)
+  }, [thread, messages])
   const saveEdit = async (m: ChatMessage) => {
     const v = draft.trim()
     if (!v || v === m.content) return setEditId(null)
     if (onEdit && (await onEdit(m.id, v))) setEditId(null)
+  }
+  const toggleThread = (id: number) =>
+    setThreads(prev => {
+      const n = new Set(prev)
+      if (n.has(id)) n.delete(id)
+      else n.add(id)
+      return n
+    })
+  const sendReply = async (id: number) => {
+    const v = (replyText[id] ?? '').trim()
+    if (!v || !onReply || replying) return
+    setReplying(id)
+    if (await onReply(id, v)) setReplyText(prev => ({ ...prev, [id]: '' }))
+    setReplying(null)
   }
   // 읽을 사람: 활성 팀원 (AI 팀원 제외). 1:1 대화는 그 방 사람만
   const people = profiles.filter(p => p.active && !p.is_agent && (!members || members.includes(p.id)))
@@ -29,72 +71,89 @@ export function MessageList({ messages, reads = [], members, onRemove, onEdit }:
     const read = others.filter(p => (readAt.get(p.id) ?? 0) >= at)
     return { read, unread: others.filter(p => !read.includes(p)) }
   }
-  return (
-    <>
-      {messages.length === 0 && <Empty>첫 메시지를 남겨 보세요.</Empty>}
-      {messages.map((m, i) => {
-        const prev = messages[i - 1]
-        const day = toDateKey(m.created_at)
-        const newDay = !prev || toDateKey(prev.created_at) !== day
-        const mine = m.user_id === me.id
-        const cont = !newDay && prev && prev.user_id === m.user_id && new Date(m.created_at).getTime() - new Date(prev.created_at).getTime() < 3 * 60 * 1000
-        const { read, unread } = whoRead(m)
-        const open = openId === m.id
-        const names = (list: typeof read) => list.map(p => p.name).join(', ') || '없음'
-        return (
-          <div key={m.id} style={{ display: 'contents' }}>
-            {newDay && <div className="chat-day">{dateLabel(day)}</div>}
-            <div className={`msg ${mine ? 'mine' : ''} ${cont ? 'cont' : ''}`}>
-              <div className="stack" style={{ alignItems: mine ? 'flex-end' : 'flex-start' }}>
-                {!mine && !cont && <span className="t-cap">{profileName(m.user_id)}</span>}
-                <div className="line">
-                  {editId === m.id ? (
-                    <div className="bubble-edit">
-                      <textarea
-                        className="textarea"
-                        autoFocus
-                        value={draft}
-                        maxLength={4000}
-                        onChange={e => setDraft(e.target.value)}
-                        onKeyDown={e => {
-                          if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
-                            e.preventDefault()
-                            saveEdit(m)
-                          } else if (e.key === 'Escape') setEditId(null)
-                        }}
-                        aria-label="메시지 고치기"
-                      />
-                      <div className="row" style={{ justifyContent: 'flex-end', gap: 4 }}>
-                        <button type="button" className="icon-btn sm" onClick={() => setEditId(null)} aria-label="취소" title="취소 (Esc)">
-                          <X size={13} />
-                        </button>
-                        <button type="button" className="icon-btn sm" onClick={() => saveEdit(m)} aria-label="저장" title="저장 (Enter)">
-                          <Check size={13} />
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className={`bubble ${mine ? 'mine' : 'other'} ${m.attachment ? 'has-file' : ''}`}>
-                      {m.attachment && <AttachmentView att={m.attachment} />}
-                      {(!m.attachment || m.content !== `📎 ${m.attachment.name}`) && <span>{m.content}</span>}
-                    </div>
-                  )}
-                  <span className="meta">
-                    <button
-                      type="button"
-                      className={`read-mark ${unread.length ? 'unread' : 'all'}`}
-                      onClick={() => setOpenId(open ? null : m.id)}
-                      aria-expanded={open}
-                      title={`읽음: ${names(read)}\n안 읽음: ${names(unread)}`}
-                    >
-                      {unread.length ? unread.length : '읽음'}
+  // 스레드: 원래 메시지가 목록에 없으면(오래돼서 안 불러옴) 답글을 그냥 본문에 보여 줌
+  const ids = new Set(messages.map(m => m.id))
+  const replies = new Map<number, ChatMessage[]>()
+  for (const m of messages) if (m.parent_id && ids.has(m.parent_id)) replies.set(m.parent_id, [...(replies.get(m.parent_id) ?? []), m])
+  const top = messages.filter(m => !m.parent_id || !ids.has(m.parent_id))
+
+  const row = (m: ChatMessage, prev: ChatMessage | undefined, inThread: boolean) => {
+    const day = toDateKey(m.created_at)
+    const newDay = !inThread && (!prev || toDateKey(prev.created_at) !== day)
+    const mine = m.user_id === me.id
+    const cont = !newDay && prev && prev.user_id === m.user_id && new Date(m.created_at).getTime() - new Date(prev.created_at).getTime() < 3 * 60 * 1000
+    const { read, unread } = whoRead(m)
+    const open = openId === m.id
+    const names = (list: typeof read) => list.map(p => p.name).join(', ') || '없음'
+    const reacts = Object.entries(m.reactions ?? {}).filter(([, who]) => who.length)
+    const sub = replies.get(m.id) ?? []
+    const threadOpen = !inThread && threads.has(m.id)
+    return (
+      <div key={m.id} style={{ display: 'contents' }}>
+        {newDay && <div className="chat-day">{dateLabel(day)}</div>}
+        <div id={`msg-${m.id}`} className={`msg ${mine ? 'mine' : ''} ${cont ? 'cont' : ''}`}>
+          <div className="stack" style={{ alignItems: mine ? 'flex-end' : 'flex-start' }}>
+            {!mine && !cont && <span className="t-cap">{profileName(m.user_id)}</span>}
+            <div className="line">
+              {editId === m.id ? (
+                <div className="bubble-edit">
+                  <textarea
+                    className="textarea"
+                    autoFocus
+                    value={draft}
+                    maxLength={4000}
+                    onChange={e => setDraft(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+                        e.preventDefault()
+                        saveEdit(m)
+                      } else if (e.key === 'Escape') setEditId(null)
+                    }}
+                    aria-label="메시지 고치기"
+                  />
+                  <div className="row" style={{ justifyContent: 'flex-end', gap: 4 }}>
+                    <button type="button" className="icon-btn sm" onClick={() => setEditId(null)} aria-label="취소" title="취소 (Esc)">
+                      <X size={13} />
                     </button>
-                    <span className="time">
-                      {m.edited_at && <span title={`수정 ${timeLabel(m.edited_at)}`}>수정됨 · </span>}
-                      {timeLabel(m.created_at)}
-                    </span>
-                  </span>
-                  {mine && onEdit && editId !== m.id && (
+                    <button type="button" className="icon-btn sm" onClick={() => saveEdit(m)} aria-label="저장" title="저장 (Enter)">
+                      <Check size={13} />
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className={`bubble ${mine ? 'mine' : 'other'} ${m.attachment ? 'has-file' : ''}`}>
+                  {m.attachment && <AttachmentView att={m.attachment} />}
+                  {(!m.attachment || m.content !== `📎 ${m.attachment.name}`) && <span>{m.content}</span>}
+                </div>
+              )}
+              <span className="meta">
+                <button
+                  type="button"
+                  className={`read-mark ${unread.length ? 'unread' : 'all'}`}
+                  onClick={() => setOpenId(open ? null : m.id)}
+                  aria-expanded={open}
+                  title={`읽음: ${names(read)}\n안 읽음: ${names(unread)}`}
+                >
+                  {unread.length ? unread.length : '읽음'}
+                </button>
+                <span className="time">
+                  {m.edited_at && <span title={`수정 ${timeLabel(m.edited_at)}`}>수정됨 · </span>}
+                  {timeLabel(m.created_at)}
+                </span>
+              </span>
+              {editId !== m.id && (
+                <span className="msg-actions">
+                  {onReact && (
+                    <button type="button" className="icon-btn sm del" onClick={() => setPickId(pickId === m.id ? null : m.id)} aria-label="반응 남기기" title="반응 남기기">
+                      <SmilePlus size={13} />
+                    </button>
+                  )}
+                  {onReply && !inThread && (
+                    <button type="button" className="icon-btn sm del" onClick={() => toggleThread(m.id)} aria-label="답글 달기" title="스레드로 답글 달기">
+                      <MessageSquare size={13} />
+                    </button>
+                  )}
+                  {mine && onEdit && (
                     <button
                       type="button"
                       className="icon-btn sm del"
@@ -108,27 +167,96 @@ export function MessageList({ messages, reads = [], members, onRemove, onEdit }:
                       <Pencil size={13} />
                     </button>
                   )}
-                  {(mine || me.role === 'admin') && editId !== m.id && (
+                  {(mine || me.role === 'admin') && (
                     <button type="button" className="icon-btn sm del" onClick={() => onRemove(m.id)} aria-label="메시지 삭제" title="삭제">
                       <Trash2 size={13} />
                     </button>
                   )}
-                </div>
-                {open && (
-                  <div className="read-list">
-                    <span>
-                      <b>읽음 {read.length}</b> {names(read)}
-                    </span>
-                    <span>
-                      <b>안 읽음 {unread.length}</b> {names(unread)}
-                    </span>
-                  </div>
-                )}
+                </span>
+              )}
+            </div>
+            {pickId === m.id && onReact && (
+              <div className="react-pick" role="menu">
+                {REACTION_EMOJIS.map(e => (
+                  <button
+                    key={e}
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setPickId(null)
+                      onReact(m.id, e)
+                    }}
+                  >
+                    {e}
+                  </button>
+                ))}
               </div>
+            )}
+            {reacts.length > 0 && (
+              <div className="reacts">
+                {reacts.map(([e, who]) => (
+                  <button key={e} type="button" className={`react-chip ${who.includes(me.id) ? 'on' : ''}`} onClick={() => onReact?.(m.id, e)} disabled={!onReact} title={who.map(profileName).join(', ')}>
+                    {e} <b>{who.length}</b>
+                  </button>
+                ))}
+              </div>
+            )}
+            {!inThread && onReply && sub.length > 0 && !threadOpen && (
+              <button type="button" className="thread-link" onClick={() => toggleThread(m.id)}>
+                <MessageSquare size={12} /> 답글 {sub.length}개 · 마지막 {timeLabel(sub[sub.length - 1].created_at)}
+              </button>
+            )}
+            {open && (
+              <div className="read-list">
+                <span>
+                  <b>읽음 {read.length}</b> {names(read)}
+                </span>
+                <span>
+                  <b>안 읽음 {unread.length}</b> {names(unread)}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+        {threadOpen && onReply && (
+          <div className="thread">
+            <div className="thread-head">
+              <span className="t-cap">스레드 · 답글 {sub.length}</span>
+              <button type="button" className="icon-btn sm" onClick={() => toggleThread(m.id)} aria-label="스레드 접기" title="접기">
+                <X size={13} />
+              </button>
+            </div>
+            {sub.map((r, j) => row(r, sub[j - 1], true))}
+            <div className="thread-composer">
+              <textarea
+                className="textarea"
+                autoFocus={thread !== m.id}
+                placeholder="답글 입력 · Enter 전송"
+                value={replyText[m.id] ?? ''}
+                maxLength={4000}
+                onChange={e => setReplyText(prev => ({ ...prev, [m.id]: e.target.value }))}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+                    e.preventDefault()
+                    void sendReply(m.id)
+                  } else if (e.key === 'Escape') toggleThread(m.id)
+                }}
+                aria-label="답글"
+              />
+              <button type="button" className="send-btn" onClick={() => void sendReply(m.id)} disabled={!(replyText[m.id] ?? '').trim() || replying === m.id} aria-label="답글 보내기">
+                <Send size={14} />
+              </button>
             </div>
           </div>
-        )
-      })}
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <>
+      {messages.length === 0 && <Empty>첫 메시지를 남겨 보세요.</Empty>}
+      {top.map((m, i) => row(m, top[i - 1], false))}
     </>
   )
 }
@@ -283,7 +411,7 @@ export function AgentTyping({ messages, members }: { messages: ChatMessage[]; me
   const { profiles } = useApp()
   const [, tick] = useState(0)
   const agents = profiles.filter(p => p.is_agent && p.active)
-  const last = messages[messages.length - 1]
+  const last = messages.filter(m => !m.parent_id).at(-1)
   const lastIsHuman = !!last && !agents.some(a => a.id === last.user_id)
   const compact = last?.content.replace(/\s+/g, '') ?? ''
   const agent = last && lastIsHuman ? agents.find(a => (members ?? []).includes(a.id) || compact.includes(`@${a.name.replace(/\s+/g, '')}`)) : undefined

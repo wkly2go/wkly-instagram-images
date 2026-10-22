@@ -100,6 +100,8 @@ export default function Projects() {
             </Chip>
           ))}
         </div>
+        {/* 거래처 · 연락처 (대표 지시 2026-10-22 "거래처 프로젝트에 통합") */}
+        <Chip onClick={() => navigate('/clients')}>🏢 거래처 · 연락처</Chip>
         <span className="grow" />
         <ProjectSearch value={q} onChange={v => go({ q: v || null })} />
         {!view && admin && <span className="t-cap">{todayKey().slice(0, 4)}년 · 공급가액(VAT 별도)</span>}
