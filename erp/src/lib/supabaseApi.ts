@@ -769,9 +769,9 @@ export function createSupabaseApi(url: string, key: string): Api {
       if (!row.length) throw new ApiError('지울 수 없습니다 (올린 사람 · 관리자만).')
       if (row[0].storage_path) await sb.storage.from('exchange-files').remove([row[0].storage_path])
     },
-    async exchangeFileUrl(f) {
+    async exchangeFileUrl(f, download) {
       if (!f.storage_path) return f.url ?? ''
-      const r = await sb.storage.from('exchange-files').createSignedUrl(f.storage_path, 60 * 60, { download: f.name })
+      const r = await sb.storage.from('exchange-files').createSignedUrl(f.storage_path, 60 * 60, download ? { download: f.name } : undefined)
       if (r.error || !r.data) throw new ApiError('파일을 열 수 없습니다.')
       return r.data.signedUrl
     },

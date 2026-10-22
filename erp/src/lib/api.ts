@@ -172,7 +172,8 @@ export interface Api {
   addProjectDriveFiles(projectId: string, files: Pick<ProjectDriveFile, 'drive_id' | 'name' | 'mime_type' | 'url' | 'icon_url'>[]): Promise<void>
   renameProjectDriveFile(id: string, patch: Partial<Pick<ProjectDriveFile, 'name' | 'note' | 'mime_type' | 'icon_url'>>): Promise<void>
   removeProjectDriveFile(id: string): Promise<void>
-  exchangeFileUrl(f: ExchangeFile): Promise<string>
+  /** download=true 면 내려받기 주소, 아니면 인트라넷 안에서 보는 주소 */
+  exchangeFileUrl(f: ExchangeFile, download?: boolean): Promise<string>
 
   // 프로젝트·할 일
   listProjects(): Promise<Project[]>
