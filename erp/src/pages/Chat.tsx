@@ -1,11 +1,11 @@
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react'
-import { ArrowLeft, Plus, Send, Trash2 } from 'lucide-react'
+import { ArrowLeft, AtSign, Plus, Send, Trash2 } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { friendlyError } from '../lib/api'
 import { roomTitle, useRoomMessages } from '../lib/chat'
 import { relativeLabel } from '../lib/date'
-import { Link, useRouter, withQuery } from '../lib/router'
-import type { ChatRoomSummary, Project } from '../lib/types'
+import { Link, normalizePath, useRouter, withQuery } from '../lib/router'
+import type { AppNotification, ChatRoomSummary, Project } from '../lib/types'
 import { Shell } from '../components/Shell'
 import { Badge, Button, Empty, Field, Modal } from '../components/ui'
 import { AssignTaskButton } from '../components/AssignTask'
@@ -19,6 +19,11 @@ export default function Chat() {
   const { data: rooms, loading } = useAsync(() => api.listRooms(), [version], [] as ChatRoomSummary[])
   const roomId = query.get('room')
   const room = rooms.find(r => r.id === roomId) ?? null
+  // 멘션 · 답글 모아 보기 (슬랙의 '활동')
+  const activity = query.get('view') === 'activity'
+  const { data: notes } = useAsync(() => api.listNotifications(100), [version], [] as AppNotification[])
+  const mentions = notes.filter(n => n.kind === '멘션')
+  const unreadMentions = mentions.filter(n => !n.read_at).length
 
   // 팀·근태에서 '1:1 대화'로 들어온 경우: /chat?dm=팀원id → 그 사람과의 방
   const dm = query.get('dm')
@@ -39,12 +44,12 @@ export default function Chat() {
   // 방을 고르지 않았으면 PC 에서는 첫 방을 자동으로 연다
   useEffect(() => {
     if (dm) return
-    if (!roomId && rooms.length && window.matchMedia('(min-width: 641px)').matches) navigate(withQuery(path, query, { room: rooms[0].id }), { replace: true })
-  }, [dm, roomId, rooms, path, query, navigate])
+    if (!roomId && !activity && rooms.length && window.matchMedia('(min-width: 641px)').matches) navigate(withQuery(path, query, { room: rooms[0].id }), { replace: true })
+  }, [dm, roomId, activity, rooms, path, query, navigate])
 
   return (
     <Shell active="chat" flush>
-      <div className={`split ${room ? 'has-detail' : ''}`}>
+      <div className={`split ${room || activity ? 'has-detail' : ''}`}>
         <div className="pane-list chat-list">
           <div className="pane-head">
             <div className="row">
@@ -55,6 +60,13 @@ export default function Chat() {
             </div>
           </div>
           <div className="pane-body">
+            <Link to="/chat?view=activity" className={`item activity-item ${activity ? 'active' : ''}`}>
+              <div className="row">
+                <AtSign size={14} />
+                <span className="t-smallb grow">멘션 · 답글</span>
+                {unreadMentions > 0 && <Badge tone="red">{unreadMentions}</Badge>}
+              </div>
+            </Link>
             {[
               ['채팅방', rooms.filter(r => !r.members)],
               ['1:1 대화', rooms.filter(r => r.members)],
@@ -95,7 +107,7 @@ export default function Chat() {
           </div>
         </div>
         {/* 채팅은 한 칸: 방 목록 옆에서 대화가 왼쪽→오른쪽으로 펼쳐짐 */}
-        <div className="pane-detail expand-in" key={room?.id ?? 'none'}>{room ? <Room room={room} /> : <Empty>채팅방을 고르세요.</Empty>}</div>
+        <div className="pane-detail expand-in" key={activity ? 'activity' : room?.id ?? 'none'}>{activity ? <Activity list={mentions} /> : room ? <Room room={room} /> : <Empty>채팅방을 고르세요.</Empty>}</div>
       </div>
       {dmPicking && (
         <DmPicker
@@ -114,6 +126,47 @@ export default function Chat() {
       )}
       {creating && <NewRoom onClose={() => setCreating(false)} onCreated={id => navigate(withQuery(path, query, { room: id }))} />}
     </Shell>
+  )
+}
+
+/** 나를 부른 메시지 · 내 글에 달린 답글 모아 보기. 누르면 그 방(스레드)으로 */
+function Activity({ list }: { list: AppNotification[] }) {
+  const { api, bump } = useApp()
+  const { navigate } = useRouter()
+  const open = async (n: AppNotification) => {
+    if (!n.read_at) await api.markNotificationsRead([n.id]).catch(() => undefined)
+    bump()
+    if (n.link) navigate(normalizePath(n.link))
+  }
+  const unread = list.filter(n => !n.read_at)
+  return (
+    <div className="chat-room">
+      <div className="chat-head">
+        <button type="button" className="icon-btn back-btn" onClick={() => navigate('/chat')} aria-label="채팅방 목록">
+          <ArrowLeft size={18} />
+        </button>
+        <span className="t-bodyb">멘션 · 답글</span>
+        <span className="t-cap">나를 부른 메시지와 내 글에 달린 답글</span>
+        <span className="grow" />
+        {unread.length > 0 && (
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => api.markNotificationsRead(unread.map(n => n.id)).then(bump).catch(() => undefined)}>
+            모두 읽음
+          </button>
+        )}
+      </div>
+      <div className="chat-body">
+        {list.length === 0 && <Empty>아직 나를 부른 메시지가 없습니다. 다른 사람이 @이름 으로 부르거나 내 글에 답글을 달면 여기에 모입니다.</Empty>}
+        {list.map(n => (
+          <button key={n.id} type="button" className={`activity-row ${n.read_at ? '' : 'unread'}`} onClick={() => void open(n)}>
+            <span className="col gap-2 grow" style={{ minWidth: 0 }}>
+              <span className="t-smallb">{n.title}</span>
+              {n.body && <span className="t-small activity-body">{n.body}</span>}
+            </span>
+            <span className="t-meta nowrap">{relativeLabel(n.created_at)}</span>
+          </button>
+        ))}
+      </div>
+    </div>
   )
 }
 

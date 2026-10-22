@@ -38,6 +38,14 @@ export function NotificationBell() {
   const box = useRef<HTMLDivElement>(null)
   const { data: list } = useAsync<AppNotification[]>(() => api.listNotifications(40), [version, tick, me.id], [])
   const unread = list.filter(n => !n.read_at)
+  // 알림함 거르기: 전체 · 멘션·답글 · 승인 · 할 일
+  const [filter, setFilter] = useState<string | null>(null)
+  const FILTERS: [string, string, (n: AppNotification) => boolean][] = [
+    ['mention', '멘션 · 답글', n => n.kind === '멘션'],
+    ['approval', '승인 · 보고', n => n.kind === '승인' || n.kind === '일일 보고' || n.kind === '결제'],
+    ['task', '할 일', n => n.kind === '할 일' || n.kind === '알람'],
+  ]
+  const shown = filter ? list.filter(FILTERS.find(f => f[0] === filter)![2]) : list
 
   // 1분마다 알림함 새로 고침 (알람 확인은 App 에서 한 번만 돌림)
   useEffect(() => {
@@ -112,8 +120,22 @@ export function NotificationBell() {
               모두 읽음
             </button>
           </div>
-          {list.length === 0 && <div className="empty">알림이 없습니다.</div>}
-          {list.map(n => (
+          <div className="chips notif-filter">
+            <button type="button" className={`chip ${!filter ? 'active' : ''}`} onClick={() => setFilter(null)}>
+              전체
+            </button>
+            {FILTERS.map(([k, label, test]) => {
+              const n = list.filter(x => test(x) && !x.read_at).length
+              return (
+                <button key={k} type="button" className={`chip ${filter === k ? 'active' : ''}`} onClick={() => setFilter(filter === k ? null : k)}>
+                  {label}
+                  {n > 0 ? ` ${n}` : ''}
+                </button>
+              )
+            })}
+          </div>
+          {shown.length === 0 && <div className="empty">알림이 없습니다.</div>}
+          {shown.map(n => (
             <button key={n.id} type="button" className={`notif ${n.read_at ? '' : 'unread'}`} onClick={() => go(n)}>
               <span className="t-meta nowrap notif-kind">{n.kind}</span>
               <span className="col gap-2 grow">

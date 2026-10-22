@@ -1471,8 +1471,8 @@ export function createDemoApi(): Api {
         const due = store.payments.filter(x => x.direction === '지급' && !x.is_estimate && (x.status === '예정' || x.status === '대기') && x.due_date && x.due_date <= today)
         const late = store.payments.filter(x => x.direction === '수금' && !x.is_estimate && x.status !== '완료' && x.status !== '취소' && x.due_date && x.due_date < today)
         for (const a of adminsExcept(null)) {
-          if (due.length) notify(a.id, '결제', `지급 예정 ${due.length}건 · ${due.reduce((n, x) => n + x.amount, 0).toLocaleString('ko-KR')}원`, '지급예정일이 오늘이거나 지났어요', '/projects?view=payments')
-          if (late.length) notify(a.id, '결제', `미수금 ${late.length}건 · ${late.reduce((n, x) => n + x.amount, 0).toLocaleString('ko-KR')}원`, '입금 예정일이 지났어요', '/projects?view=payments&dir=수금')
+          if (due.length) notify(a.id, '결제', `지급 예정 ${due.length}건`, `합계 ${due.reduce((n, x) => n + x.amount, 0).toLocaleString('ko-KR')}원 · 지급예정일이 오늘이거나 지났어요`, '/projects?view=payments')
+          if (late.length) notify(a.id, '결제', `미수금 ${late.length}건`, `합계 ${late.reduce((n, x) => n + x.amount, 0).toLocaleString('ko-KR')}원 · 입금 예정일이 지났어요`, '/projects?view=payments&dir=수금')
         }
         persist()
       }
