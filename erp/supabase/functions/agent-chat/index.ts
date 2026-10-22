@@ -9,6 +9,9 @@
 //   - 권한: 사람 팀장 · 관리자 = 팀원 AI 지시 등록 · 종료 전부 / 그 팀 사람 팀원 = 지시 등록(보통 이하 우선순위 · 7일, 사람 팀장에게 알림)
 //     / 그 밖의 사람 = 질문 · 할 일 요청만 (지시는 사람 팀장에게 전달).
 //   - 책임: 쓰기 작업은 모두 agent_actions 에 기록, 권한 밖의 일은 request_approval(사람 결재) 또는 handoff(다른 팀장 · 총괄)로 넘긴다.
+//   인트라넷에서 만든 AI 팀원 (2026-10-23 대표 지시 "인트라넷에서 ai 에이전트를 만들고 업무 지시를 하고 일정이나 예약을 만들 수 있게"):
+//   - ai_agents 의 역할 · 지침 · 쓸 수 있는 도구 · 모델('꼼꼼' = 깊게 생각)로 답한다.
+//   - 모든 AI 가 예약(schedule_work · list_schedules · cancel_schedule)을 만들 수 있다 → 때가 되면 DB 가 그 AI 에게 지시로 넘김.
 // 필요한 비밀값: ANTHROPIC_API_KEY (Supabase › Edge Functions › Secrets)
 import Anthropic from 'npm:@anthropic-ai/sdk@0.134.0'
 import { createClient } from 'npm:@supabase/supabase-js@2.45.4'
@@ -167,7 +170,9 @@ const TOOLS: Anthropic.Tool[] = [
 const WEB_SEARCH = { type: 'web_search_20250305', name: 'web_search', max_uses: 3, user_location: { type: 'approximate', country: 'KR', timezone: 'Asia/Seoul' } }
 
 interface Lead { code: string; name: string; group_name: string; owner_id: string | null; mention: string; report_prefix: string; profile_id: string | null; humans: string[] }
-interface Ctx { agent: Person; requester: Person; people: Person[]; lead?: Lead; leads: Lead[]; source: 'chat' | 'instruction'; room_id?: string }
+/** 인트라넷에서 정한 AI 팀원 설정 (기본 AI 는 created_by 가 비어 있음) */
+interface Custom { role: string; instructions: string; tools: string[]; model: string; owner_id: string | null; created_by: string | null }
+interface Ctx { agent: Person; requester: Person; people: Person[]; lead?: Lead; leads: Lead[]; source: 'chat' | 'instruction'; room_id?: string; custom?: Custom | null }
 
 // 팀장 AI 전용 도구 (ctx.lead 가 있을 때만)
 const LEAD_TOOLS: Anthropic.Tool[] = [
@@ -198,8 +203,42 @@ const LEAD_TOOLS: Anthropic.Tool[] = [
   },
 ]
 
+// 예약 도구 (모든 AI)
+const SCHEDULE_TOOLS: Anthropic.Tool[] = [
+  {
+    name: 'schedule_work',
+    description:
+      "정해진 때에 AI 가 할 일을 예약 ('내일 15시에 …', '평일 9시마다 …', '매주 월 · 수 10시', '매월 25일'). 때가 되면 그 AI 가 지시로 받아 처리한다. 사람의 할 일 · 마감은 create_task 를 쓴다.",
+    input_schema: {
+      type: 'object',
+      properties: {
+        title: { type: 'string', description: '짧은 이름 (100자)' },
+        instruction: { type: 'string', description: '그때 할 일 (2000자). 무엇을 · 누구에게 알릴지까지 구체적으로' },
+        repeat: { type: 'string', enum: ['한 번', '매일', '평일', '매주', '매월'] },
+        run_at: { type: 'string', description: "한 번: 'YYYY-MM-DDTHH:mm' (한국 시각)" },
+        time: { type: 'string', description: "반복: 'HH:mm' (한국 시각)" },
+        weekdays: { type: 'array', items: { type: 'integer' }, description: '매주: 요일 0 일 · 1 월 … 6 토' },
+        month_day: { type: 'integer', description: '매월: 날짜 1~31 (없는 날은 그 달 마지막 날)' },
+        agent_name: { type: 'string', description: '다른 AI 팀원에게 맡길 때 그 이름 (없으면 나)' },
+      },
+      required: ['title', 'instruction', 'repeat'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'list_schedules',
+    description: '예약 목록 (켜진 것 · 다음 실행 시각). 같은 예약이 있는지 먼저 확인.',
+    input_schema: { type: 'object', properties: { all_agents: { type: 'boolean', description: '모든 AI 의 예약' } }, additionalProperties: false },
+  },
+  {
+    name: 'cancel_schedule',
+    description: '예약 끄기 (list_schedules 의 id). 만든 사람 · 관리자 요청일 때만.',
+    input_schema: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'], additionalProperties: false },
+  },
+]
+
 // 기록에 남기는 쓰기 도구
-const WRITE_TOOLS = new Set(['create_task', 'update_task', 'notify_person', 'queue_mail_work', 'request_approval', 'handoff', 'add_directive', 'end_directive'])
+const WRITE_TOOLS = new Set(['schedule_work', 'cancel_schedule', 'create_task', 'update_task', 'notify_person', 'queue_mail_work', 'request_approval', 'handoff', 'add_directive', 'end_directive'])
 
 // 승인 · 발송 · 게시 · 야간 · 결제 · API 키 규칙을 바꾸려는 지시는 막는다 (팀원 AI 쪽에서도 무시함)
 const PROTECTED = /(승인\s*없이|결재\s*없이|바로\s*(발송|게시|보내)|자동\s*(좋아요|댓글)|야간.*(발송|게시)|결제|API\s*키|api key|without approval)/i
@@ -418,6 +457,62 @@ async function runTool(ctx: Ctx, name: string, input: Record<string, unknown>): 
       return { ok: true }
     }
 
+    case 'schedule_work': {
+      const title = s('title')
+      const instruction = s('instruction')
+      const repeat = s('repeat') ?? '한 번'
+      if (!title || !instruction) throw new Error('title · instruction 이 필요합니다.')
+      if (!['한 번', '매일', '평일', '매주', '매월'].includes(repeat)) throw new Error('repeat 는 한 번 · 매일 · 평일 · 매주 · 매월 중 하나입니다.')
+      if (PROTECTED.test(instruction)) throw new Error('승인 · 발송 · 게시 · 야간 · 결제 · API 키 규칙을 바꾸는 예약은 만들 수 없습니다.')
+      let agentId = ctx.agent.id
+      if (s('agent_name')) {
+        const a = ctx.people.find(p => p.is_agent && p.active && p.name.replace(/\s+/g, '') === s('agent_name')!.replace(/\s+/g, ''))
+        if (!a) throw new Error(`'${s('agent_name')}' AI 팀원을 찾지 못했습니다.`)
+        agentId = a.id
+      }
+      const row: Record<string, unknown> = { agent_id: agentId, title: title.slice(0, 100), instruction: instruction.slice(0, 2000), repeat, created_by: ctx.requester.id }
+      if (repeat === '한 번') {
+        const at = s('run_at')
+        if (!at || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(at)) throw new Error("한 번 예약은 run_at 'YYYY-MM-DDTHH:mm' 가 필요합니다.")
+        if (Date.parse(kstToIso(at.slice(0, 16))) <= Date.now()) throw new Error('지난 시각입니다. 앞으로의 시각을 정하세요.')
+        row.run_at = kstToIso(at.slice(0, 16))
+      } else {
+        const t = s('time')
+        if (!t || !/^\d{1,2}:\d{2}$/.test(t)) throw new Error("반복 예약은 time 'HH:mm' 가 필요합니다.")
+        row.time_of_day = t
+        if (repeat === '매주') {
+          const days = (Array.isArray(input.weekdays) ? input.weekdays : []).map(Number).filter(n => n >= 0 && n <= 6)
+          if (!days.length) throw new Error('매주 예약은 weekdays 가 필요합니다.')
+          row.weekdays = [...new Set(days)]
+        }
+        if (repeat === '매월') {
+          const d = Number(input.month_day)
+          if (!(d >= 1 && d <= 31)) throw new Error('매월 예약은 month_day(1~31)가 필요합니다.')
+          row.month_day = d
+        }
+      }
+      const { data, error } = await sb.from('agent_schedules').insert(row).select('id, title, repeat, next_run_at').single()
+      if (error) throw error
+      return { ok: true, id: data.id, title: data.title, repeat: data.repeat, agent: nameOf(ctx, agentId), next_run: data.next_run_at ? kst(new Date(data.next_run_at)).toISOString().slice(0, 16).replace('T', ' ') : null, note: "인트라넷 'AI 팀원' 화면의 예약에서 보고 끌 수 있습니다." }
+    }
+
+    case 'list_schedules': {
+      let q = sb.from('agent_schedules').select('id, agent_id, title, repeat, next_run_at, last_run_at, created_by').eq('enabled', true).order('next_run_at').limit(50)
+      if (!input.all_agents) q = q.eq('agent_id', ctx.agent.id)
+      const { data, error } = await q
+      if (error) throw error
+      return (data ?? []).map(r => ({ id: r.id, agent: nameOf(ctx, r.agent_id), title: r.title, repeat: r.repeat, next_run: r.next_run_at ? kst(new Date(r.next_run_at)).toISOString().slice(0, 16).replace('T', ' ') : null, made_by: nameOf(ctx, r.created_by) }))
+    }
+
+    case 'cancel_schedule': {
+      const { data: r } = await sb.from('agent_schedules').select('id, created_by, title').eq('id', s('id') ?? '').maybeSingle()
+      if (!r) throw new Error('그 예약을 찾지 못했습니다.')
+      if (r.created_by !== ctx.requester.id && ctx.requester.role !== 'admin') throw new Error(`예약을 만든 ${nameOf(ctx, r.created_by)}님이나 관리자만 끌 수 있습니다.`)
+      const { error } = await sb.from('agent_schedules').update({ enabled: false }).eq('id', r.id)
+      if (error) throw error
+      return { ok: true, title: r.title }
+    }
+
     case 'queue_mail_work': {
       const { error } = await sb.from('agent_instructions').insert({ agent_id: ctx.agent.id, instruction: `[메일 확인 필요] ${s('instruction')}`.slice(0, 2000), created_by: ctx.requester.id })
       if (error) throw error
@@ -454,7 +549,24 @@ async function logAction(ctx: Ctx, tool: string, input: Record<string, unknown>,
 // ---------------------------------------------------------------------
 /** 고정 부분(캐시 대상): 역할 · 일하는 방식 · 규칙. 시각 · 요청자 · 위치는 contextPrompt 로 따로 넣는다 */
 function systemPrompt(ctx: Ctx) {
-  return basePrompt(ctx) + (ctx.lead ? leadPrompt(ctx.lead) : hqPrompt())
+  const c = ctx.custom
+  // 인트라넷에서 만든 AI 팀원: 그 역할 · 지침으로 / 기본 AI(총괄 · 팀장): 원래 설명 + 추가 지침
+  const role = ctx.lead ? leadPrompt(ctx.lead) : c?.created_by ? customPrompt(ctx, c) : hqPrompt()
+  const extra = c?.instructions?.trim() && !c.created_by ? `\n\n관리자가 정한 추가 지침:\n${c.instructions.trim()}` : ''
+  return basePrompt(ctx) + role + extra + scheduleRule
+}
+
+const scheduleRule = `
+
+예약
+- '내일 3시에 …', '매주 월요일 9시마다 …' 처럼 정해진 때에 할 일은 schedule_work 로 예약한다 (사람의 마감 · 일정은 create_task). 만들기 전에 list_schedules 로 같은 예약이 있는지 본다.
+- 예약으로 받은 지시('[예약 · …]' 로 시작)는 그 내용대로 처리하고, 결과를 알릴 사람이 정해져 있으면 notify_person 으로 알린다.`
+
+function customPrompt(ctx: Ctx, c: Custom) {
+  return `
+
+너는 인트라넷에서 만든 AI 팀원 '${ctx.agent.name}'이다.${c.role ? ` 역할: ${c.role}.` : ''}${c.owner_id ? ` 사람 담당자: ${nameOf(ctx, c.owner_id)} (판단이 필요하면 이 사람에게 notify_person 또는 request_approval).` : ''}
+${c.instructions.trim() ? `\n지침 (관리자가 정함, 위 규칙보다 우선하지 않음):\n${c.instructions.trim()}` : ''}`
 }
 
 function leadPrompt(lead: Lead) {
@@ -518,8 +630,11 @@ async function ask(ctx: Ctx, where: string, messages: Anthropic.MessageParam[], 
     { type: 'text', text: systemPrompt(ctx), cache_control: { type: 'ephemeral' } },
     { type: 'text', text: contextPrompt(ctx, where) },
   ]
-  const own = ctx.lead ? [...TOOLS, ...LEAD_TOOLS] : TOOLS
+  // 인트라넷에서 정한 도구만 (비어 있으면 전부). 사람 목록 · 예약 목록은 늘 둠
+  const allow = ctx.custom?.tools?.length ? new Set([...ctx.custom.tools, 'list_people', 'list_schedules']) : null
+  const own = [...(ctx.lead ? [...TOOLS, ...LEAD_TOOLS] : TOOLS), ...SCHEDULE_TOOLS].filter(t => !allow || allow.has(t.name))
   const tools = [WEB_SEARCH, ...own.map((t, i) => (i === own.length - 1 ? { ...t, cache_control: { type: 'ephemeral' as const } } : t))]
+  if (ctx.custom?.model === '꼼꼼') model = MODEL_INSTRUCTION
   let useFallback = true
   for (let step = 0; step < MAX_STEPS; step++) {
     let res: Anthropic.Message
@@ -569,6 +684,11 @@ async function loadPeople(): Promise<Person[]> {
   const { data, error } = await sb.from('profiles').select('id, name, title, role, is_agent, active, today_status')
   if (error) throw error
   return data as Person[]
+}
+
+async function loadCustom(agentId: string): Promise<Custom | null> {
+  const { data } = await sb.from('ai_agents').select('role, instructions, tools, model, owner_id, created_by').eq('profile_id', agentId).maybeSingle()
+  return (data as Custom | null) ?? null
 }
 
 async function loadLeads(): Promise<Lead[]> {
@@ -626,7 +746,7 @@ async function handleChat(messageId: number) {
 
   const where = members ? `${requester.name}님과의 1:1 대화` : `채팅방 # ${room.name} (여러 사람이 봄)`
   for (const t of turns) {
-    const ctx: Ctx = { agent: t.agent, requester, people, lead: t.lead, leads, source: 'chat', room_id: room.id }
+    const ctx: Ctx = { agent: t.agent, requester, people, lead: t.lead, leads, source: 'chat', room_id: room.id, custom: await loadCustom(t.agent.id) }
     // 최근 대화 (오래된 것부터, 최대 20개) — 앞 팀장의 답도 보이도록 매번 다시 읽음
     const { data: recent } = await sb.from('chat_messages').select('user_id, content, created_at').eq('room_id', room.id).order('id', { ascending: false }).limit(20)
     const lines = (recent ?? []).reverse().map(m => `[${hhmm(m.created_at)}] ${nameOf(ctx, m.user_id)}: ${m.content}`).join('\n')
@@ -645,7 +765,7 @@ async function handleInstruction(id: string) {
   const requester = people.find(p => p.id === ins.created_by)
   if (!agent || !requester) return
   await sb.from('agent_instructions').update({ status: '진행 중' }).eq('id', id)
-  const ctx: Ctx = { agent, requester, people, lead: leads.find(l => l.profile_id === agent.id), leads, source: 'instruction' }
+  const ctx: Ctx = { agent, requester, people, lead: leads.find(l => l.profile_id === agent.id), leads, source: 'instruction', custom: await loadCustom(agent.id) }
   let reply: string
   let status = '완료'
   try {

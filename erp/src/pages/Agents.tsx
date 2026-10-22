@@ -5,6 +5,7 @@ import { addDays, dateTimeLabel, relativeLabel, shortDate, todayKey, weekday } f
 import { useRouter, withQuery } from '../lib/router'
 import { AGENT_VERDICTS, type AgentAction, type AgentJob, type AgentActionLog, type AgentJobRequest, type AgentReport, type Department } from '../lib/types'
 import { Shell } from '../components/Shell'
+import { AiTeam } from '../components/AiTeam'
 import { DocFullText } from '../components/DocFullText'
 import { usePanelWide, useRightPanel } from '../components/RightPanel'
 import { Badge, Button, Chip, Empty, Field, Modal, SectionHead, type Tone } from '../components/ui'
@@ -13,28 +14,42 @@ const V_TONE: Record<string, Tone> = { 완료: 'acid', '변동 없음': 'outline
 const R_TONE: Record<string, Tone> = { 대기: 'yellow', '처리 중': 'blue', 완료: 'acid', '수동 필요': 'red', 거절: 'gray' }
 const MANAGER = 'WKLY 총괄 에이전트 관리'
 
-type Tab = 'jobs' | 'org' | 'reports' | 'requests' | 'actions'
+type Tab = 'team' | 'jobs' | 'org' | 'reports' | 'requests' | 'actions'
 
 /** Claude AI 에이전트(예약 작업) 관리 · 일일 보고 (관리자) */
 export default function Agents() {
   const { me } = useApp()
   const { query, path, navigate } = useRouter()
-  const tab = (query.get('tab') as Tab | null) ?? (query.get('date') ? 'reports' : 'jobs')
-  const go = (t: Tab) => navigate(withQuery(path, query, { tab: t === 'jobs' ? null : t }), { replace: true })
-  if (me.role !== 'admin') {
+  const admin = me.role === 'admin'
+  const asked = (query.get('tab') as Tab | null) ?? (query.get('date') ? 'reports' : 'team')
+  // AI 팀원(지시 · 예약)은 누구나, 나머지(예약 작업 점검 · 보고 · 기록)는 관리자만
+  const tab: Tab = admin ? asked : 'team'
+  const go = (t: Tab) => navigate(withQuery(path, query, { tab: t === 'team' ? null : t }), { replace: true })
+  if (!admin || tab === 'team') {
     return (
       <Shell active="agents">
-        <Empty>관리자만 볼 수 있습니다.</Empty>
+        {admin && <AgentTabs tab={tab} go={go} />}
+        <AiTeam />
       </Shell>
     )
   }
   return (
     <Shell active="agents">
+      <AgentTabs tab={tab} go={go} />
+      <FailureBanner />
+      {tab === 'jobs' ? <Jobs /> : tab === 'org' ? <AgentOrg /> : tab === 'reports' ? <Reports /> : tab === 'actions' ? <Actions /> : <Requests />}
+    </Shell>
+  )
+}
+
+function AgentTabs({ tab, go }: { tab: Tab; go: (t: Tab) => void }) {
+  return (
       <div className="row wrap">
         <div className="chips">
           {(
             [
-              ['jobs', '에이전트'],
+              ['team', 'AI 팀원 · 지시 · 예약'],
+              ['jobs', '예약 작업 점검'],
               ['org', '조직도 · 관리자'],
               ['reports', '일일 보고'],
               ['requests', '관리 요청'],
@@ -47,11 +62,8 @@ export default function Agents() {
           ))}
         </div>
         <span className="grow" />
-        <span className="t-cap">Claude 예약 작업을 WKLY 총괄이 2시간마다 점검해 이곳에 기록합니다.</span>
+        {tab !== 'team' && <span className="t-cap">Claude 예약 작업을 WKLY 총괄이 2시간마다 점검해 이곳에 기록합니다.</span>}
       </div>
-      <FailureBanner />
-      {tab === 'jobs' ? <Jobs /> : tab === 'org' ? <AgentOrg /> : tab === 'reports' ? <Reports /> : tab === 'actions' ? <Actions /> : <Requests />}
-    </Shell>
   )
 }
 

@@ -1740,3 +1740,22 @@ svg text[font-size="12"] { font-size: var(--fs-sm); }
 .appr-compose .textarea { min-height: 54px; }
 .appr-count { margin-left: 6px; font-weight: 500; color: var(--blue); font-size: var(--fs-cap); white-space: nowrap; }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
+
+/* AI 팀원 · 지시 · 예약 */
+.ai-team { display: grid; grid-template-columns: 280px 1fr; gap: 14px; align-items: start; }
+@media (max-width: 900px) { .ai-team { grid-template-columns: 1fr; } }
+.ai-list { display: flex; flex-direction: column; gap: 6px; position: sticky; top: 0; }
+.ai-card { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; padding: 8px 10px; background: var(--white); border: 1px solid var(--line); border-radius: 10px; cursor: pointer; color: var(--gray); }
+.ai-card:hover { border-color: var(--blue); }
+.ai-card.on { border-color: var(--blue); background: var(--yellow); }
+.ai-card.off { opacity: .55; }
+.ai-ava { flex: none; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: var(--blue); color: var(--white); }
+.ai-ava.lg { width: 40px; height: 40px; }
+.ai-detail { min-width: 0; }
+.ai-instr { background: var(--white); border: 1px dashed var(--line); border-radius: 8px; padding: 8px 10px; max-height: 160px; overflow: auto; }
+.ai-ins { background: var(--white); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; }
+.ai-resp { border-left: 3px solid var(--blue); padding-left: 8px; word-break: break-word; }
+.ai-sched { display: flex; align-items: center; gap: 8px; background: var(--white); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+.ai-sched.off { opacity: .55; }
+.ai-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+@media (max-width: 640px) { .ai-grid2 { grid-template-columns: 1fr; } }

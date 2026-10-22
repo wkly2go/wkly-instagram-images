@@ -60,6 +60,59 @@ export interface LeaveRecord {
 export type InstructionStatus = '대기' | '진행 중' | '완료' | '보류'
 
 /** ERP 에서 AI 팀원에게 직접 지시 → 에이전트가 처리하고 답을 남김 */
+/** 인트라넷에서 만든 AI 팀원 설정 (계정은 profiles 의 is_agent) */
+export interface AiAgent {
+  profile_id: string
+  role: string
+  instructions: string
+  /** 비어 있으면 기본 도구 전부 */
+  tools: string[]
+  owner_id: string | null
+  model: '기본' | '꼼꼼'
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+/** AI 가 쓸 수 있는 도구 (agent-chat 함수의 이름과 같음) */
+export const AI_TOOLS: [string, string][] = [
+  ['list_tasks', '할 일 보기'],
+  ['create_task', '할 일 · 일정 만들기'],
+  ['update_task', '할 일 고치기'],
+  ['list_projects', '프로젝트 보기'],
+  ['list_leave', '휴가 보기'],
+  ['attendance', '근태 보기'],
+  ['notify_person', '팀원에게 알림'],
+  ['search_clients', '거래처 찾기'],
+  ['request_approval', '결재 올리기'],
+  ['handoff', '다른 팀에 넘기기'],
+  ['queue_mail_work', '메일 확인 넘기기'],
+  ['schedule_work', '예약 만들기'],
+  ['cancel_schedule', '예약 끄기'],
+]
+export const SCHEDULE_REPEATS = ['한 번', '매일', '평일', '매주', '매월'] as const
+export type ScheduleRepeat = (typeof SCHEDULE_REPEATS)[number]
+/** AI 예약: 때가 되면 그 AI 에게 지시로 넘어감 */
+export interface AgentSchedule {
+  id: string
+  agent_id: string
+  title: string
+  instruction: string
+  repeat: ScheduleRepeat
+  run_at: string | null
+  /** 'HH:MM:SS' 한국 시각 */
+  time_of_day: string | null
+  weekdays: number[]
+  month_day: number | null
+  enabled: boolean
+  next_run_at: string | null
+  last_run_at: string | null
+  last_instruction_id: string | null
+  runs: number
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
 export interface AgentInstruction {
   id: string
   agent_id: string

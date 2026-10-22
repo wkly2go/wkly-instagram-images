@@ -6,6 +6,8 @@ import type {
   ExchangeFile,
   ProjectDriveFile,
   DriveIndexFile,
+  AiAgent,
+  AgentSchedule,
   ApprovalActivity,
   ProjectContact,
   ProjectMember,
@@ -123,7 +125,7 @@ export function createSupabaseApi(url: string, key: string): Api {
   }
 
   /** 관리자 Edge Function 호출 (팀원 추가 · 비밀번호 재설정) */
-  const invokeAdminFn = async (payload: object) => {
+  const invokeAdminFn = async (payload: object): Promise<{ id?: string } | null> => {
     const { data, error } = await sb.functions.invoke('admin-create-user', { body: payload })
     if (error) {
       const ctx = (error as { context?: Response }).context
@@ -137,6 +139,7 @@ export function createSupabaseApi(url: string, key: string): Api {
       throw new ApiError(detail || error.message)
     }
     if ((data as { error?: string })?.error) throw new ApiError((data as { error: string }).error)
+    return (data as { id?: string } | null) ?? null
   }
 
   return {
@@ -469,6 +472,29 @@ export function createSupabaseApi(url: string, key: string): Api {
     async createMember(m) {
       await invokeAdminFn(m)
     },
+    async listAiAgents() {
+      return must(await sb.from('ai_agents').select('*')) as AiAgent[]
+    },
+    async createAiAgent(a) {
+      // 로그인하지 않는 AI 계정: 임의 주소 · 긴 임의 비밀번호 (어디에도 보이지 않음)
+      const rand = (n: number) => Array.from(crypto.getRandomValues(new Uint8Array(n)), b => b.toString(16).padStart(2, '0')).join('')
+      const r = await invokeAdminFn({ email: `ai-${rand(5)}@ai.thewklyn.com`, password: rand(24), name: a.name.trim(), title: a.title?.trim() || null, role: 'member', is_agent: true })
+      if (!r?.id) throw new ApiError('AI 팀원 계정을 만들지 못했습니다.')
+      must(await sb.from('ai_agents').upsert({ profile_id: r.id, role: a.role, instructions: a.instructions, tools: a.tools, owner_id: a.owner_id, model: a.model }))
+      return r.id
+    },
+    async saveAiAgent(profileId, patch) {
+      must(await sb.from('ai_agents').upsert({ profile_id: profileId, ...patch }))
+    },
+    async listAgentSchedules() {
+      return must(await sb.from('agent_schedules').select('*').order('enabled', { ascending: false }).order('next_run_at', { ascending: true, nullsFirst: false }).limit(300)) as AgentSchedule[]
+    },
+    async saveAgentSchedule(s) {
+      const body = strip(s as Record<string, unknown>, ['next_run_at', 'last_run_at', 'last_instruction_id', 'runs', 'created_at', 'updated_at', 'created_by'])
+      if (s.id) return must(await sb.from('agent_schedules').update(body).eq('id', s.id).select().single()) as AgentSchedule
+      return must(await sb.from('agent_schedules').insert(body).select().single()) as AgentSchedule
+    },
+    deleteAgentSchedule: id => remove('agent_schedules', id),
     async resetMemberPassword(userId, password) {
       await invokeAdminFn({ action: 'reset_password', user_id: userId, password })
     },
