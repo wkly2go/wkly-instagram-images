@@ -217,9 +217,13 @@ const HOME: Partial<Record<Engine, string>> = {
   chatgpt: 'https://chatgpt.com/',
   perplexity: 'https://www.perplexity.ai/',
 }
+/** 숨김 여부: 직접 고른 값이 없으면 1500px 미만 화면은 처음부터 숨김 (가운데 작업 공간 확보 · 2026-10-22 UI 개선) */
 const readHidden = () => {
   try {
-    return localStorage.getItem(HIDE_KEY) === '1'
+    const v = localStorage.getItem(HIDE_KEY)
+    if (v === '1') return true
+    if (v === '0') return false
+    return typeof window !== 'undefined' && window.innerWidth < 1500
   } catch {
     return false
   }
@@ -236,7 +240,7 @@ const openListeners = new Set<() => void>()
 function setOpenState(v: OpenState) {
   openState = v
   try {
-    if (v) localStorage.removeItem(HIDE_KEY)
+    if (v) localStorage.setItem(HIDE_KEY, '0')
     if (v) sessionStorage.setItem(OPEN_KEY, JSON.stringify(v))
     else sessionStorage.removeItem(OPEN_KEY)
   } catch {

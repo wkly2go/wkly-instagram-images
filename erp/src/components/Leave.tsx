@@ -6,6 +6,7 @@ import { useRouter } from '../lib/router'
 import { LEAVE_KINDS, type HrRecord, type LeaveKind, type LeaveRecord } from '../lib/types'
 import { Badge, Button, Field, SectionHead } from './ui'
 import { PersonName } from './Person'
+import { ask } from './Ask'
 
 const fullDate = (k: string) => k.replace(/-/g, '.')
 const days = (n: number) => `${Number.isInteger(n) ? n : n.toFixed(1)}일`
@@ -232,7 +233,7 @@ function LeaveRow({ l }: { l: LeaveRecord }) {
         </>
       )}
       {(admin || (mine && l.status === '신청')) && (
-        <Button size="sm" kind="ghost" disabled={busy} onClick={() => window.confirm('이 휴가 기록을 지울까요?') && run(() => api.deleteLeave(l.id), '지웠습니다.')}>
+        <Button size="sm" kind="ghost" disabled={busy} onClick={async () => (await ask('이 휴가 기록을 지울까요?')) && run(() => api.deleteLeave(l.id), '지웠습니다.')}>
           {mine && l.status === '신청' ? '취소' : '삭제'}
         </Button>
       )}

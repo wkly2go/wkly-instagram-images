@@ -11,6 +11,7 @@ import { ContactProjectsSection, ContactTimeline, ExchangeFilesSection } from '.
 import { Shell } from '../components/Shell'
 import { usePanelWide, useRightPanel } from '../components/RightPanel'
 import { Badge, Button, Chip, Empty, Field, Modal, SectionHead, StatusBadge } from '../components/ui'
+import { ask } from '../components/Ask'
 
 export default function Clients() {
   const { api, version } = useApp()
@@ -190,7 +191,7 @@ function ClientDetail({ client: c, clients, onEdit, onBack }: { client: Client; 
             aria-label="거래처 삭제"
             title="삭제 (관리자)"
             onClick={async () => {
-              if (window.confirm(`'${c.name}' 거래처와 담당자를 삭제할까요? 업무 기록은 남습니다.`) && (await run(() => api.deleteClient(c.id), '삭제했습니다.'))) onBack()
+              if ((await ask(`'${c.name}' 거래처와 담당자를 삭제할까요? 업무 기록은 남습니다.`)) && (await run(() => api.deleteClient(c.id), '삭제했습니다.'))) onBack()
             }}
           >
             <Trash2 size={15} />
@@ -624,7 +625,7 @@ function ContactForm({ clientId, contact, others, onClose, clients }: { clientId
       actions={
         <>
           {contact && (
-            <Button kind="ghost" onClick={async () => window.confirm('이 담당자를 삭제할까요?') && (await run(() => api.deleteContact(contact.id), '삭제했습니다.')) && onClose()}>
+            <Button kind="ghost" onClick={async () => (await ask('이 담당자를 삭제할까요?')) && (await run(() => api.deleteContact(contact.id), '삭제했습니다.')) && onClose()}>
               삭제
             </Button>
           )}

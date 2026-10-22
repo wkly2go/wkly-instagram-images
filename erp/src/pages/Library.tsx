@@ -24,6 +24,7 @@ import { Board } from '../components/Board'
 import { usePanelWide, useRightPanel } from '../components/RightPanel'
 import { REPORT_KIND, ReportBody, ReportForm, ReportTemplates, clientCatLabel } from '../components/Reports'
 import { Badge, Button, Chip, Empty, Field, KindTag, Modal, type Tone } from '../components/ui'
+import { ask } from '../components/Ask'
 
 type Tab = 'research' | 'reports' | 'contacts' | 'templates' | 'agents'
 
@@ -222,7 +223,7 @@ function ResearchDetail({ r, projects, rooms, clients, onBack, onEdit }: { r: Re
             <button type="button" className="icon-btn sm" onClick={onEdit} aria-label="자료 수정">
               <Pencil size={13} />
             </button>
-            <button type="button" className="icon-btn sm" aria-label="자료 삭제" onClick={async () => window.confirm('이 자료를 삭제할까요?') && (await run(() => api.deleteResearch(r.id), '삭제했습니다.')) && onBack()}>
+            <button type="button" className="icon-btn sm" aria-label="자료 삭제" onClick={async () => (await ask('이 자료를 삭제할까요?')) && (await run(() => api.deleteResearch(r.id), '삭제했습니다.')) && onBack()}>
               <Trash2 size={13} />
             </button>
           </>
@@ -795,7 +796,7 @@ function ContactForm({ contact, preset, onClose, onSaved }: { contact: BrandCont
       actions={
         <>
           {contact && me.role === 'admin' && (
-            <Button kind="ghost" style={{ marginRight: 'auto' }} disabled={busy} onClick={async () => window.confirm('이 담당자를 삭제할까요?') && (await run(() => api.deleteBrandContact(contact.id), '삭제했습니다.')) && onClose()}>
+            <Button kind="ghost" style={{ marginRight: 'auto' }} disabled={busy} onClick={async () => (await ask('이 담당자를 삭제할까요?')) && (await run(() => api.deleteBrandContact(contact.id), '삭제했습니다.')) && onClose()}>
               삭제
             </Button>
           )}
@@ -891,7 +892,7 @@ function Templates({ tabs }: { tabs: ReactNode }) {
             수정
           </Button>
           {(me.role === 'admin' || t.created_by === me.id) && (
-            <Button kind="ghost" size="sm" disabled={busy} onClick={() => window.confirm(`'${t.name}' 템플릿을 삭제할까요?`) && run(() => api.deleteTemplate(t.id), '삭제했습니다.')}>
+            <Button kind="ghost" size="sm" disabled={busy} onClick={async () => (await ask(`'${t.name}' 템플릿을 삭제할까요?`)) && run(() => api.deleteTemplate(t.id), '삭제했습니다.')}>
               삭제
             </Button>
           )}

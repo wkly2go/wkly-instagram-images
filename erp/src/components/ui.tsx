@@ -1,3 +1,4 @@
+import { useFirstLoading } from '../lib/app'
 import { useEffect, type ButtonHTMLAttributes, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
@@ -108,6 +109,15 @@ export function KindTag({ kind }: { kind: string }) {
 }
 
 export function Empty({ children }: { children: ReactNode }) {
+  // 처음 불러오는 동안에는 '없습니다' 대신 뼈대 줄 (내용이 오면 바로 바뀜)
+  if (useFirstLoading())
+    return (
+      <div className="empty loading" aria-busy="true" aria-label="불러오는 중">
+        <i />
+        <i />
+        <i />
+      </div>
+    )
   return <div className="empty">{children}</div>
 }
 

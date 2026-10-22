@@ -5,6 +5,7 @@ import { friendlyError } from '../lib/api'
 import { relativeLabel } from '../lib/date'
 import type { Note } from '../lib/types'
 import { Button, Empty } from './ui'
+import { ask } from './Ask'
 
 /** 메모 한 장: 고치면 잠시 뒤 자동 저장 */
 function NoteCard({ note, onChanged }: { note: Note; onChanged: () => void }) {
@@ -53,7 +54,7 @@ function NoteCard({ note, onChanged }: { note: Note; onChanged: () => void }) {
           title="삭제"
           aria-label="메모 삭제"
           onClick={async () => {
-            if (!window.confirm('이 메모를 삭제할까요?')) return
+            if (!(await ask('이 메모를 삭제할까요?'))) return
             try {
               await api.deleteNote(note.id)
               onChanged()

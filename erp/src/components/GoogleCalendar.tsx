@@ -5,6 +5,7 @@ import { friendlyError } from '../lib/api'
 import type { Task } from '../lib/types'
 import { addDays } from '../lib/date'
 import { Button, Modal } from './ui'
+import { ask, askText } from './Ask'
 
 const ADD_BY_URL = 'https://calendar.google.com/calendar/u/0/r/settings/addbyurl'
 
@@ -31,7 +32,7 @@ function FeedRow({ label, help, url }: { label: string; help: string; url: strin
       await navigator.clipboard.writeText(url)
       toast('주소를 복사했습니다. 구글 캘린더에 붙여 넣으세요.')
     } catch {
-      window.prompt('아래 주소를 복사하세요', url)
+      (await askText('아래 주소를 복사하세요', url))
     }
   }
   return (
@@ -63,7 +64,7 @@ export function GoogleCalendarModal({ onClose }: { onClose: () => void }) {
     })
   }, [api, toast])
   const reset = async () => {
-    if (!window.confirm('새 주소를 만들까요? 예전 주소로 연결한 캘린더는 더 이상 갱신되지 않습니다.')) return
+    if (!(await ask('새 주소를 만들까요? 예전 주소로 연결한 캘린더는 더 이상 갱신되지 않습니다.'))) return
     setBusy(true)
     try {
       setUrl(await api.calendarFeedUrl(true))

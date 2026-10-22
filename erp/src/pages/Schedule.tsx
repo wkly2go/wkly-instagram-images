@@ -6,6 +6,7 @@ import { Link, useRouter, withQuery } from '../lib/router'
 import { TASK_STATUSES, type LeaveRecord, type Project, type Task, type TaskStatus } from '../lib/types'
 import { Badge, Button, Chip, Empty, Field, Modal, StatusBadge } from '../components/ui'
 import { GoogleCalendarModal, googleEventLink } from '../components/GoogleCalendar'
+import { ask } from '../components/Ask'
 
 const DAY = 86_400_000
 const ms = (key: string) => Date.parse(`${key}T00:00:00Z`)
@@ -67,7 +68,7 @@ export function TaskAssignModal({ task, projects, tasks, presetProject, presetAs
     [projects.find(p => p.id === f.project_id)?.name, profiles.find(p => p.id === f.assignee_id)?.name && `담당: ${profiles.find(p => p.id === f.assignee_id)?.name}`].filter(Boolean).join(' · '),
   )
   const remove = async () => {
-    if (task && window.confirm(`'${task.title}' 업무를 삭제할까요?`) && (await run(() => api.deleteTask(task.id), '삭제했습니다.'))) onClose()
+    if (task && (await ask(`'${task.title}' 업무를 삭제할까요?`)) && (await run(() => api.deleteTask(task.id), '삭제했습니다.'))) onClose()
   }
   return (
     <Modal

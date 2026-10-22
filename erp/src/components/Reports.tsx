@@ -5,6 +5,7 @@ import { defaultTemplate, fillReport } from '../lib/reports'
 import { CLIENT_CATEGORIES, type Client, type Draft, type ReportTemplate, type ResearchItem } from '../lib/types'
 import { SearchPick } from './LogForm'
 import { Badge, Button, Empty, Field, Modal } from './ui'
+import { ask } from './Ask'
 
 export const REPORT_KIND = '거래처 리포트'
 const CAT_LABEL: Record<string, string> = { 클라이언트: '클라이언트 (발주처)', 협력사: '협력사', 기타: '기타' }
@@ -95,9 +96,9 @@ export function ReportForm({ item, clients, presetClient, onClose, onSaved }: { 
   )
   const set = (p: Draft<ResearchItem>) => setF(prev => ({ ...prev, ...p }))
   const client = clients.find(c => c.id === f.client_id) ?? null
-  const useTemplate = (t: ReportTemplate | null) => {
+  const useTemplate = async (t: ReportTemplate | null) => {
     if (!t) return
-    if (f.body?.trim() && !window.confirm('지금 본문을 양식으로 바꿀까요?')) return
+    if (f.body?.trim() && !(await ask('지금 본문을 양식으로 바꿀까요?'))) return
     set({ body: fillReport(t.body, client, me.name, todayKey()) })
   }
   const save = async () => {
@@ -217,7 +218,7 @@ export function ReportTemplates({ tabs }: { tabs: ReactNode }) {
             {canEdit(t) ? '수정' : '보기'}
           </Button>
           {canEdit(t) && !t.is_default && (
-            <Button kind="ghost" size="sm" disabled={busy} onClick={() => window.confirm(`'${t.name}' 양식을 삭제할까요?`) && run(() => api.deleteReportTemplate(t.id), '삭제했습니다.')}>
+            <Button kind="ghost" size="sm" disabled={busy} onClick={async () => (await ask(`'${t.name}' 양식을 삭제할까요?`)) && run(() => api.deleteReportTemplate(t.id), '삭제했습니다.')}>
               삭제
             </Button>
           )}

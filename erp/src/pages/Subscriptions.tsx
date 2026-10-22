@@ -4,6 +4,7 @@ import { shortDate, todayKey } from '../lib/date'
 import { SUB_CATEGORIES, SUB_CYCLES, SUB_STATUSES, type SubCategory, type SubStatus, type Subscription } from '../lib/types'
 import { Board, type BoardCol } from '../components/Board'
 import { Badge, Button, Chip, Field, Modal } from '../components/ui'
+import { ask } from '../components/Ask'
 
 const money = (n: number, cur: 'KRW' | 'USD') => (cur === 'USD' ? `$${n.toLocaleString('en-US')}` : `${n.toLocaleString('ko-KR')}원`)
 /** 월 환산액 (년은 ÷12, 1회는 0) */
@@ -113,7 +114,7 @@ export function Subscriptions() {
           onDelete={
             editing !== 'new'
               ? async () => {
-                  if (window.confirm(`'${editing.name}' 구독을 지울까요?`) && (await run(() => api.deleteSubscription(editing.id), '지웠습니다.'))) setEditing(null)
+                  if ((await ask(`'${editing.name}' 구독을 지울까요?`)) && (await run(() => api.deleteSubscription(editing.id), '지웠습니다.'))) setEditing(null)
                 }
               : undefined
           }

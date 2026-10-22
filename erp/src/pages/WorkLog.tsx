@@ -30,6 +30,7 @@ import { NewApproval } from "./Approvals";
 import { AssignTaskButton } from "../components/AssignTask";
 import { MemoPad } from "../components/MemoPad";
 import { PendingReports, ReportCheck, WorkTodo, reportDate, useWorkReports } from "../components/WorkReports";
+import { ask } from '../components/Ask'
 
 const SIDE_KEY = "wkly-work-side";
 type Period = "day" | "month" | "year";
@@ -175,7 +176,7 @@ export function WorkPane({ tabs }: { tabs?: ReactNode }) {
             </button>
           )}
           {(l.user_id === me.id || me.role === "admin") && (
-            <button type="button" className="icon-btn sm" aria-label="기록 삭제" title="삭제" onClick={() => window.confirm("이 기록을 삭제할까요?") && run(() => api.deleteWorkLog(l.id), "삭제했습니다.")}>
+            <button type="button" className="icon-btn sm" aria-label="기록 삭제" title="삭제" onClick={async () => (await ask("이 기록을 삭제할까요?")) && run(() => api.deleteWorkLog(l.id), "삭제했습니다.")}>
               <Trash2 size={13} />
             </button>
           )}

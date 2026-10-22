@@ -5,6 +5,7 @@ import { useAttendance } from '../lib/attendance'
 import { isDesktopApp } from '../lib/desktop'
 import { WORK_PLAN_KINDS, type AccessInfo, type AttendanceCheckin, type AttendanceDevice, type AttendanceMonthRow, type DecideStatus, type WorkPlan, type WorkPlanKind } from '../lib/types'
 import { Badge, Button, Chip, Empty, Field, SectionHead } from './ui'
+import { ask } from './Ask'
 
 const S_TONE: Record<DecideStatus, 'acid' | 'yellow' | 'red'> = { 승인: 'acid', 대기: 'yellow', 반려: 'red' }
 
@@ -408,7 +409,7 @@ export function OfficeNetworkPanel() {
       {!ips.length && <div className="office-warn t-small">회사 IP가 아직 없어 어디서든 PC 프로그램 접속이 출근으로 기록됩니다. 사무실에서 아래 IP를 등록하면 그때부터 회사 인터넷에서만 인정됩니다.</div>}
       <div className="chips">
         {ips.map(ip => (
-          <Chip key={ip} active onClick={() => window.confirm(`${ip} 를 회사 IP에서 뺄까요?`) && save(ips.filter(x => x !== ip), '회사 IP에서 뺐습니다.')}>
+          <Chip key={ip} active onClick={async () => (await ask(`${ip} 를 회사 IP에서 뺄까요?`)) && save(ips.filter(x => x !== ip), '회사 IP에서 뺐습니다.')}>
             {ip} ✕
           </Chip>
         ))}
@@ -447,7 +448,7 @@ export function OfficeNetworkPanel() {
             <span className="grow">
               {profileName(d.user_id)} · {d.label ?? '회사 PC'} · 마지막 {shortDate(d.last_seen.slice(0, 10))} {timeLabel(d.last_seen)}
             </span>
-            <Button size="sm" kind="outline" disabled={busy} onClick={() => window.confirm(`${profileName(d.user_id)} 님의 회사 PC 등록을 초기화할까요? 다음에 회사에서 켠 PC가 새로 등록됩니다.`) && run(() => api.deleteAttendanceDevice(d.user_id, d.device_id), '초기화했습니다.')}>
+            <Button size="sm" kind="outline" disabled={busy} onClick={async () => (await ask(`${profileName(d.user_id)} 님의 회사 PC 등록을 초기화할까요? 다음에 회사에서 켠 PC가 새로 등록됩니다.`)) && run(() => api.deleteAttendanceDevice(d.user_id, d.device_id), '초기화했습니다.')}>
               초기화
             </Button>
           </div>

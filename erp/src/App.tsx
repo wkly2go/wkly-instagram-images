@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { WebPanelHost } from './components/WebSearch'
 import { DetailColumnHost } from './components/RightPanel'
 import { ShellFrame } from './components/Shell'
+import { AskHost } from './components/Ask'
 import { api, AppProvider } from './lib/app'
 import { friendlyError } from './lib/api'
 import { openPipWindow, openQuickPopup, supportsPip } from './lib/pip'
@@ -179,6 +180,7 @@ export default function App() {
       {path !== '/quick' && <DetailColumnHost />}
       {path !== '/quick' && <WebPanelHost />}
       {pipWin && createPortal(<Quick onClose={() => pipWin.close()} />, pipWin.document.body)}
+      <AskHost />
       {toastMsg && (
         <div className="toast" role="status">
           {toastMsg}
