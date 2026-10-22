@@ -389,6 +389,8 @@ export interface Api {
   /** 프로젝트 폴더 만들기 · 맞추기. 회사 계정이 연결 안 됐으면 null */
   driveEnsure(projectId: string): Promise<DriveEnsureResult | null>
   driveEnsureAll(): Promise<{ made: number; fixed: number; fail: string[] }>
+  /** 회사 계정 드라이브 접근 토큰 (탐색기용 · 1시간). 연결 안 됐으면 null */
+  driveAccessToken(): Promise<{ token: string; expires_at: number } | null>
   /** 프로젝트 폴더 안 파일 (자동 동기화된 목록). projectId 가 없으면 전체 (최근 고친 순) */
   listDriveIndex(projectId?: string): Promise<DriveIndexFile[]>
   /** 관리자 · 지금 동기화 (full 이면 전체 다시 훑기) */

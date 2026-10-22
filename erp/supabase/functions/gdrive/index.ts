@@ -8,6 +8,8 @@
 //   - connect {code}    : 관리자 · 구글 로그인 코드(팝업, redirect 'postmessage') → 갱신 토큰을 Vault 에 보관
 //   - ensure {project_id}: 팀원 · 프로젝트 폴더 만들기 · 맞추기
 //   - ensure_all        : 관리자 · 모든 프로젝트
+//   - token             : 팀원 · 회사 계정 드라이브 접근 토큰(1시간) → 인트라넷 탐색기가 개인 구글 로그인 없이 회사 드라이브를 다룸
+//                         ("구글 계정은 회사 계정을 모두 공유" 결정에 따름 · 갱신 토큰 · 비밀번호는 서버에만)
 //   - sync              : 5분 예약(x-sync-key) · 관리자 · 프로젝트 폴더 안 파일 목록을 drive_index 에 맞춤 (드라이브는 읽기만)
 //                         처음 · 하루 한 번은 전체 훑기, 그 사이엔 changes API 로 바뀐 것만
 //  필요한 값: app_settings.google_oauth_client_id (관리자 등록) · Vault GOOGLE_CLIENT_SECRET (대표가 직접 등록)
@@ -342,6 +344,10 @@ Deno.serve(async req => {
       const { data: p } = await sb.from('projects').select(PROJ_COLS).eq('id', body.project_id).maybeSingle()
       if (!p) return json({ error: '프로젝트를 찾지 못했습니다.' }, 404)
       return json(await syncAndSave(p as Proj))
+    }
+    if (body.action === 'token') {
+      const token = await accessToken()
+      return json({ token, expires_at: cached?.exp ?? Date.now() + 50 * 60_000 })
     }
     if (body.action === 'sync') {
       if (admin !== true) return json({ error: '관리자만 할 수 있습니다.' }, 403)

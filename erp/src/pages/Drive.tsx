@@ -5,6 +5,7 @@ import type { DriveFolder, DriveStatus } from '../lib/api'
 import { desktop } from '../lib/desktop'
 import { copyFile, driveApi, DriveAuthError, editUrl, embedUrl, ensureProjectFolder, googleConnectCode, YEAR_RE, FOLDER_MIME as FOLDER, renameFile, trashFile, googleLogin, googleLogout, type GFile } from '../lib/gdrive'
 import { useDriveToken } from '../components/DriveFiles'
+import { DriveExplorer, useExplorerToken, type Loc as ExLoc } from '../components/DriveExplorer'
 import { useRouter, withQuery } from '../lib/router'
 import { relativeLabel } from '../lib/date'
 import { Shell } from '../components/Shell'
@@ -51,7 +52,7 @@ export default function Drive() {
   return (
     <Shell active="drive">
       <div className="col gap-10">
-        {native ? <NativeDrive folders={folders} /> : <WebDrive folders={folders} />}
+        {native ? <NativeDriveSwitch folders={folders} /> : <WebDrive folders={folders} />}
 
         <SectionHead
           title="회사 공용 폴더"
@@ -96,6 +97,39 @@ export default function Drive() {
         {admin && !native && <ClientIdSetting />}
       </div>
     </Shell>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/* PC 프로그램: 탐색기(회사 계정 연결 시 기본) ↔ 구글 드라이브 화면          */
+/* ------------------------------------------------------------------ */
+function NativeDriveSwitch({ folders }: { folders: DriveFolder[] }) {
+  const { query, navigate } = useRouter()
+  const ex = useExplorerToken(null)
+  const [mode, setMode] = useState<'explorer' | 'google' | null>(null)
+  const shown = query.get('doc') ? 'google' : mode ?? (ex.token ? 'explorer' : ex.checked ? 'google' : null)
+  if (!shown) return null
+  return (
+    <>
+      <div className="chips">
+        <button type="button" className={`chip ${shown === 'explorer' ? 'active' : ''}`} onClick={() => (navigate('/drive', { replace: true }), setMode('explorer'))} disabled={!ex.token} title={ex.token ? '윈도우 탐색기처럼 보기' : '관리자가 회사 구글 계정을 연결하면 쓸 수 있습니다'}>
+          탐색기
+        </button>
+        <button type="button" className={`chip ${shown === 'google' ? 'active' : ''}`} onClick={() => setMode('google')}>
+          구글 드라이브 화면
+        </button>
+      </div>
+      {shown === 'explorer' && ex.token ? (
+        <DriveExplorer
+          token={ex.token}
+          companyFolders={companyOf(folders)}
+          onOpenDoc={u => (setMode('google'), navigate(withQuery('/drive', query, { doc: u })))}
+          onAuthError={ex.refresh}
+        />
+      ) : (
+        <NativeDrive folders={folders} />
+      )}
+    </>
   )
 }
 
@@ -212,8 +246,46 @@ function WebDocEditor({ src, url, onClose }: { src: string; url: string; onClose
 }
 
 function WebDriveList({ folders, onOpenDoc }: { folders: DriveFolder[]; onOpenDoc: (url: string) => void }) {
-  const { api, me, version } = useApp()
+  const { api, version } = useApp()
   const { data: clientId, loading: idLoading } = useAsync(() => api.getGoogleClientId(), [version], null as string | null)
+  const browserToken = useDriveToken()
+  const ex = useExplorerToken(browserToken)
+  const [start, setStart] = useState<{ loc: ExLoc | null; n: number }>({ loc: null, n: 0 })
+  if (ex.token)
+    return (
+      <>
+        <DriveHead
+          active={start.loc?.name ?? ''}
+          folders={folders}
+          onLogout={browserToken ? googleLogout : undefined}
+          onQuick={qk => setStart(s => ({ loc: QUICK_LOC[qk.key] ?? null, n: s.n + 1 }))}
+          onFolder={f => {
+            const id = folderId(f.url)
+            if (id) setStart(s => ({ loc: { kind: 'folder', id, name: f.name }, n: s.n + 1 }))
+            else openLink(f.url)
+          }}
+          onSearch={q => setStart(s => ({ loc: { kind: 'search', name: q }, n: s.n + 1 }))}
+          onNew={n => onOpenDoc(n.url)}
+        />
+        {ex.server && <span className="t-cap">회사 구글 계정으로 연결된 드라이브입니다 (개인 로그인 필요 없음).</span>}
+        <DriveExplorer key={start.n} token={ex.token} start={start.loc} companyFolders={companyOf(folders)} onOpenDoc={onOpenDoc} onAuthError={ex.refresh} />
+      </>
+    )
+  return <WebDriveListOld folders={folders} onOpenDoc={onOpenDoc} clientId={clientId} idLoading={idLoading || !ex.checked} />
+}
+
+const QUICK_LOC: Record<string, ExLoc> = {
+  my: { kind: 'my', id: 'root', name: '내 드라이브' },
+  shared: { kind: 'shared', name: '공유 문서함' },
+  recent: { kind: 'recent', name: '최근 문서' },
+  starred: { kind: 'starred', name: '중요 문서함' },
+  drives: { kind: 'drives', name: '공유 드라이브' },
+}
+const companyOf = (folders: DriveFolder[]) => folders.map(f => ({ name: f.name, id: folderId(f.url) ?? '' })).filter(f => f.id)
+
+/** 구글 로그인 전 (로그인 안내 · 예전 목록) */
+function WebDriveListOld({ folders, onOpenDoc, clientId, idLoading }: { folders: DriveFolder[]; onOpenDoc: (url: string) => void; clientId: string | null; idLoading: boolean }) {
+  const { me } = useApp()
   const token = useDriveToken()
   const [trail, setTrail] = useState<Loc[]>([])
   const [files, setFiles] = useState<GFile[]>([])

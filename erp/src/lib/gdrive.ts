@@ -19,6 +19,8 @@ export interface GFile {
   modifiedTime?: string
   owners?: { displayName?: string }[]
   shortcutDetails?: { targetId?: string; targetMimeType?: string }
+  parents?: string[]
+  size?: string
 }
 
 interface TokenClient {
@@ -146,6 +148,44 @@ export function copyFile(token: string, id: string, name: string) {
 /** 휴지통으로 (구글 드라이브 휴지통에서 30일 안에 되살릴 수 있음) */
 export function trashFile(token: string, id: string) {
   return driveApi<GFile>(token, `files/${encodeURIComponent(id)}?supportsAllDrives=true&fields=id`, { method: 'PATCH', ...json({ trashed: true }) })
+}
+
+// ---------------------------------------------------------------- 탐색기 (2026-10-23 "윈도우 폴더와 똑같은 환경")
+export const LIST_FIELDS = 'id,name,mimeType,iconLink,webViewLink,modifiedTime,owners(displayName),shortcutDetails,parents,size'
+
+/** 폴더 안 전부 (페이지 넘겨 최대 1000개) */
+export async function listChildren(token: string, folderId: string, opts: { foldersOnly?: boolean; driveId?: string } = {}): Promise<GFile[]> {
+  const out: GFile[] = []
+  let pageToken: string | undefined
+  do {
+    const q = `'${folderId.replace(/'/g, "\\'")}' in parents and trashed = false${opts.foldersOnly ? ` and mimeType = '${FOLDER_MIME}'` : ''}`
+    const p = new URLSearchParams({ q, pageSize: '500', orderBy: 'folder,name', supportsAllDrives: 'true', includeItemsFromAllDrives: 'true', fields: `nextPageToken,files(${LIST_FIELDS})` })
+    if (opts.driveId) (p.set('corpora', 'drive'), p.set('driveId', opts.driveId))
+    else p.set('corpora', 'allDrives')
+    if (pageToken) p.set('pageToken', pageToken)
+    const r = await driveApi<{ files?: GFile[]; nextPageToken?: string }>(token, `files?${p}`)
+    out.push(...(r.files ?? []))
+    pageToken = r.nextPageToken
+  } while (pageToken && out.length < 1000)
+  return out
+}
+/** 새 폴더 */
+export function newFolder(token: string, name: string, parent: string) {
+  return driveApi<GFile>(token, `files?supportsAllDrives=true&fields=${LIST_FIELDS}`, { method: 'POST', ...json({ name, mimeType: FOLDER_MIME, parents: [parent] }) })
+}
+/** 옮기기 (잘라내기 → 붙여넣기 · 끌어다 놓기) */
+export function moveFile(token: string, id: string, from: string, to: string) {
+  return driveApi<GFile>(token, `files/${encodeURIComponent(id)}?supportsAllDrives=true&addParents=${encodeURIComponent(to)}&removeParents=${encodeURIComponent(from)}&fields=${LIST_FIELDS}`, { method: 'PATCH', ...json({}) })
+}
+/** 다른 폴더로 사본 (폴더는 안의 파일까지 차례로 · 최대 깊이 4) */
+export async function copyInto(token: string, f: GFile, parent: string, name = f.name, depth = 0): Promise<void> {
+  if (f.mimeType !== FOLDER_MIME) {
+    await driveApi<GFile>(token, `files/${encodeURIComponent(f.id)}/copy?supportsAllDrives=true&fields=id`, { method: 'POST', ...json({ name, parents: [parent] }) })
+    return
+  }
+  if (depth > 4) throw new Error('폴더가 너무 깊어 복사를 멈췄습니다 (4단계까지).')
+  const made = await newFolder(token, name, parent)
+  for (const c of await listChildren(token, f.id)) await copyInto(token, c, made.id, c.name, depth + 1)
 }
 
 /** 드라이브 폴더에 파일 올리기 */
