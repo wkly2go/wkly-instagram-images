@@ -1,5 +1,7 @@
 import type { AccessSource } from './desktop'
 import type {
+  ActivityInputKind,
+  ApprovalActivity,
   DriveIndexFile,
   Subscription,
   ExchangeFile,
@@ -230,6 +232,11 @@ export interface Api {
   createApproval(a: Draft<Approval>): Promise<Approval>
   decideApproval(id: string, status: Extract<ApprovalStatus, '승인' | '반려'>, comment?: string): Promise<void>
   cancelApproval(id: string): Promise<void>
+  /** 결재 · 보고 기록 (오래된 것부터) */
+  listApprovalActivity(approvalId: string): Promise<ApprovalActivity[]>
+  /** 답글 · 진행 상황 · 결과 보고 남기기 (AI 팀원이 올린 결재면 그 AI 에게도 전달돼 답이 붙음) */
+  addApprovalActivity(approvalId: string, kind: ActivityInputKind, body: string): Promise<ApprovalActivity>
+  removeApprovalActivity(id: number): Promise<void>
   listApprovalRoutes(): Promise<ApprovalRoute[]>
   saveApprovalRoute(kind: ApprovalKind, approverId: string | null): Promise<void>
   subscribeChanges(tables: string[], cb: () => void): () => void

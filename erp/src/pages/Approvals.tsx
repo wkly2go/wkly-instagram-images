@@ -9,6 +9,7 @@ import { Link, useRouter, withQuery } from '../lib/router'
 import { APPROVAL_KINDS, CONTRACT_TYPES, type Approval, type ApprovalKind, type ApprovalRoute, type Project, type WorkLog } from '../lib/types'
 import { DocFullText } from '../components/DocFullText'
 import { Shell } from '../components/Shell'
+import { ApprovalThread } from '../components/ApprovalThread'
 import { Board, BoardHead } from '../components/Board'
 import { usePanelWide, useRightPanel } from '../components/RightPanel'
 import { Button, Chip, Field, KindBadge, KindTag, Modal, StatusBadge } from '../components/ui'
@@ -232,7 +233,21 @@ function ApprovalBoards({ list, byKind, loading, view, selectedId, onOpen }: { l
             empty={empty}
             cols={[
               ...(k ? [] : [{ key: 'kind', label: '종류', width: 84, cell: (a: Approval) => <KindTag kind={a.kind} /> }]),
-            { key: 'title', label: '제목', kind: 'title', cell: a => <span className="t-smallb">{a.title}</span> },
+            {
+              key: 'title',
+              label: '제목',
+              kind: 'title',
+              cell: a => (
+                <span className="t-smallb">
+                  {a.title}
+                  {!!a.activity_count && (
+                    <span className="appr-count" title={`주고받은 글 ${a.activity_count}`}>
+                      💬 {a.activity_count}
+                    </span>
+                  )}
+                </span>
+              ),
+            },
             { key: 'who', label: '요청자', width: 90, cell: a => profileName(a.requested_by) },
             { key: 'when', label: '요청일', width: 110, hideNarrow: true, cell: a => dateTimeLabel(a.created_at) },
             { key: 'status', label: '상태', width: 70, cell: a => <StatusBadge status={a.status} /> },
@@ -304,7 +319,6 @@ function ApprovalDetail({ a, onBack }: { a: Approval; onBack: () => void }) {
           {a.decision_comment && <div className="pre" style={{ marginTop: 4 }}>{a.decision_comment}</div>}
         </div>
       )}
-      <span className="grow" />
       <div className="row" style={{ justifyContent: 'flex-end' }}>
         {a.kind === '메일 발송' && a.status === '승인' && a.requested_by === me.id && (
           <Button kind="yellow" onClick={() => openGmail({ to: a.payload.to, subject: a.payload.subject, body: a.payload.body })}>
@@ -319,6 +333,7 @@ function ApprovalDetail({ a, onBack }: { a: Approval; onBack: () => void }) {
         <DecideButtons approval={a} />
       </div>
       {a.kind === '메일 발송' && a.status === '대기' && <span className="t-cap">승인되면 요청자 화면에 "Gmail로 보내기" 버튼이 열립니다.</span>}
+      <ApprovalThread key={a.id} a={a} />
     </div>
   )
 }

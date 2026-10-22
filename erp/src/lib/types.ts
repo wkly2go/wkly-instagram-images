@@ -489,6 +489,22 @@ export interface Approval {
   created_at: string
   updated_at: string
   can_decide?: boolean
+  /** 주고받은 글 수 (답글 · 진행 · 결과 · AI 답변) */
+  activity_count?: number
+}
+
+/** 결재 · 보고 기록: 사람이 남기는 글(답글 · 진행 · 결과) + 저절로 남는 과정(요청 · 수정 · 승인 · 반려 · 취소 · AI 답변) */
+export const ACTIVITY_INPUT_KINDS = ['댓글', '진행', '결과'] as const
+export type ActivityInputKind = (typeof ACTIVITY_INPUT_KINDS)[number]
+export type ApprovalActivityKind = ActivityInputKind | '요청' | '수정' | '승인' | '반려' | '취소' | '다시 대기' | 'AI 답변'
+export interface ApprovalActivity {
+  id: number
+  approval_id: string
+  user_id: string | null
+  kind: ApprovalActivityKind
+  body: string | null
+  ref_id: string | null
+  created_at: string
 }
 
 export interface ApprovalRoute {

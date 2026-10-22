@@ -51,7 +51,7 @@ import type {
   SiteLog,
   MeetingRecording,
 } from './types'
-import { approvalKindOf } from './types'
+import { approvalKindOf, type ApprovalActivity } from './types'
 
 // Supabase 연결 전 체험용. 데이터는 이 브라우저(localStorage)에만 저장된다.
 // 권한 규칙과 알림 트리거는 DB(RLS·트리거)를 단순화해 흉내 낸다.
@@ -67,6 +67,8 @@ interface Store {
   chat_messages: ChatMessage[]
   chat_reads: { user_id: string; room_id: string; last_read_at: string }[]
   approvals: Approval[]
+  /** 결재 기록 (예전 체험 데이터에는 없을 수 있음) */
+  approval_activity?: ApprovalActivity[]
   approval_routes: ApprovalRoute[]
   finances: ProjectFinance[]
   payments: Payment[]
@@ -496,6 +498,13 @@ export function createDemoApi(): Api {
     emit('notifications')
   }
   const adminsExcept = (exclude: string | null) => store.profiles.filter(p => p.role === 'admin' && p.active && !p.is_agent && p.id !== exclude)
+  /** 결재 기록 한 줄 남기기 */
+  const ACT_TALK: string[] = ['댓글', '진행', '결과', 'AI 답변']
+  const logActivity = (approvalId: string, userId: string | null, kind: ApprovalActivity['kind'], body: string | null): ApprovalActivity => {
+    const row: ApprovalActivity = { id: ++store.seq + 1000, approval_id: approvalId, user_id: userId, kind, body, ref_id: null, created_at: now() }
+    ;(store.approval_activity ??= []).push(row)
+    return row
+  }
   /** 알람 시각이 지난 할 일 → 알림 (서버의 예약 작업 역할) */
   const runReminders = () => {
     const nowIso = now()
@@ -1013,12 +1022,53 @@ export function createDemoApi(): Api {
 
     async listApprovals() {
       const self = requireMe()
+      const talk = (id: string) => (store.approval_activity ?? []).filter(x => x.approval_id === id && ['댓글', '진행', '결과', 'AI 답변'].includes(x.kind)).length
       return clone(
         store.approvals
           .filter(a => isAdmin() || a.requested_by === self || a.approver_id === self)
           .sort((a, b) => b.created_at.localeCompare(a.created_at))
-          .map(withCanDecide),
+          .map(a => ({ ...withCanDecide(a), activity_count: talk(a.id) })),
       )
+    },
+    async listApprovalActivity(approvalId) {
+      const self = requireMe()
+      const a = store.approvals.find(x => x.id === approvalId)
+      if (!a || !(isAdmin() || a.requested_by === self || a.approver_id === self)) return []
+      const list = (store.approval_activity ?? []).filter(x => x.approval_id === approvalId)
+      // 예전 체험 데이터: 요청 · 처리 기록을 만들어 보여 줌
+      const base: ApprovalActivity[] = list.some(x => x.kind === '요청') ? [] : [{ id: -1, approval_id: a.id, user_id: a.requested_by, kind: '요청', body: null, ref_id: null, created_at: a.created_at }]
+      if (a.status !== '대기' && !list.some(x => x.kind === a.status)) base.push({ id: -2, approval_id: a.id, user_id: a.decided_by, kind: a.status, body: a.decision_comment, ref_id: null, created_at: a.decided_at ?? a.updated_at })
+      return clone([...base, ...list].sort((x, y) => x.created_at.localeCompare(y.created_at)))
+    },
+    async addApprovalActivity(approvalId, kind, body) {
+      const self = requireMe()
+      const a = store.approvals.find(x => x.id === approvalId)
+      if (!a || !(isAdmin() || a.requested_by === self || a.approver_id === self)) throw new ApiError('권한이 없습니다.')
+      if (!body.trim()) throw new ApiError('내용을 적어 주세요.')
+      const row = logActivity(a.id, self, kind, body.trim().slice(0, 4000))
+      const label = kind === '댓글' ? '답글' : kind === '진행' ? '진행 상황' : '결과 보고'
+      const others = new Set([a.requested_by, a.approver_id, ...(store.approval_activity ?? []).filter(x => x.approval_id === a.id && ACT_TALK.includes(x.kind)).map(x => x.user_id)])
+      if (!a.approver_id) for (const p of adminsExcept(self)) others.add(p.id)
+      for (const u of others) if (u && u !== self && !store.profiles.find(p => p.id === u)?.is_agent) notify(u, '승인', `${nameOf(self)}님이 ${label}을 남겼어요 · ${a.title.slice(0, 60)}`, row.body?.slice(0, 160) ?? '', `/approvals?view=all&id=${a.id}`)
+      // 체험 모드: AI 팀원이 올린 결재에 답글 → 안내 답 (실제 서비스는 AI 가 바로 처리하고 답함)
+      const agent = store.profiles.find(p => p.id === a.requested_by && p.is_agent)
+      if (agent && kind === '댓글')
+        window.setTimeout(() => {
+          logActivity(a.id, agent.id, 'AI 답변', '(체험 모드) 실제 인트라넷에서는 답글 내용을 반영해 바로 처리하고, 무엇을 했는지 여기에 답합니다.')
+          persist()
+          emit('approval_activity')
+        }, 2500)
+      persist()
+      emit('approval_activity')
+      return clone(row)
+    },
+    async removeApprovalActivity(id) {
+      const self = requireMe()
+      const x = (store.approval_activity ?? []).find(r => r.id === id)
+      if (!x || !(isAdmin() || (x.user_id === self && ACT_TALK.slice(0, 3).includes(x.kind)))) throw new ApiError('권한이 없습니다.')
+      store.approval_activity = (store.approval_activity ?? []).filter(r => r.id !== id)
+      persist()
+      emit('approval_activity')
     },
     async createApproval(a) {
       const self = requireMe()
@@ -1030,6 +1080,7 @@ export function createDemoApi(): Api {
       }
       const row: Approval = { id: uid(), kind: '기타', title: '', content: null, payload: {}, target_id: null, amount: null, decided_by: null, decided_at: null, decision_comment: null, created_at: now(), updated_at: now(), ...a, approver_id: approver, requested_by: self, status: '대기' } as Approval
       store.approvals.push(row)
+      logActivity(row.id, self, '요청', null)
       const kind: NotificationKind = row.kind === '일일 보고' ? '일일 보고' : '승인'
       const title = `${row.kind === '일일 보고' ? '일일 보고 도착' : '승인 요청'} · ${row.title}`
       if (approver) notify(approver, kind, title, nameOf(self), '/approvals')
@@ -1047,6 +1098,7 @@ export function createDemoApi(): Api {
       if (!withCanDecide(a).can_decide) throw new ApiError('권한이 없습니다.')
       if (a.requested_by === self && !isAdmin()) throw new ApiError('본인 요청은 처리할 수 없습니다.')
       Object.assign(a, { status, decision_comment: comment || null, decided_by: self, decided_at: now(), updated_at: now() })
+      logActivity(a.id, self, status, comment || null)
       if (status === '승인' && a.kind === '지출' && a.amount && !store.payments.some(x => x.approval_id === a.id)) {
         const pl = a.payload as Record<string, unknown>
         const str = (k: string) => (typeof pl[k] === 'string' && pl[k] ? (pl[k] as string) : null)
@@ -1071,6 +1123,7 @@ export function createDemoApi(): Api {
       if (!a || a.status !== '대기' || a.requested_by !== self) throw new ApiError('권한이 없거나 이미 처리된 항목입니다.')
       a.status = '취소'
       a.updated_at = now()
+      logActivity(a.id, self, '취소', null)
       persist()
       emit('approvals')
     },

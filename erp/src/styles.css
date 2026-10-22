@@ -1719,3 +1719,24 @@ svg text[font-size="12"] { font-size: var(--fs-sm); }
 .activity-row.unread { border-left: 3px solid var(--blue); }
 .activity-row .activity-body { white-space: pre-wrap; word-break: break-word; }
 .notif-filter { padding: 6px 10px; border-bottom: 1px solid var(--line); gap: 4px; }
+
+/* 결재 · 보고 주고받기 · 진행 기록 */
+.appr-thread { display: flex; flex-direction: column; gap: 8px; border-top: 1px dashed var(--line); padding-top: 10px; }
+.appr-timeline { list-style: none; margin: 0; padding: 0 0 0 4px; display: flex; flex-direction: column; }
+.appr-ev { position: relative; display: flex; gap: 10px; padding: 0 0 10px 0; }
+.appr-ev::before { content: ''; position: absolute; left: 10px; top: 22px; bottom: 0; width: 1px; background: var(--line); }
+.appr-ev:last-child::before { display: none; }
+.appr-ev .dot { flex: none; width: 21px; height: 21px; border-radius: 50%; display: grid; place-items: center; background: var(--white); border: 1px solid var(--line); color: var(--gray); }
+.appr-ev.ok .dot { background: var(--green); border-color: var(--green); color: var(--white); }
+.appr-ev.no .dot { background: var(--red); border-color: var(--red); color: var(--white); }
+.appr-ev.talk .dot, .appr-ev.progress .dot { border-color: var(--blue); color: var(--blue); }
+.appr-ev.result .dot { background: var(--blue); border-color: var(--blue); color: var(--white); }
+.appr-ev.ai .dot { background: var(--yellow); border-color: var(--blue); color: var(--blue); }
+.appr-ev.waiting .t-cap { animation: pulse 1.4s ease-in-out infinite; }
+.appr-body { background: var(--white); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; word-break: break-word; }
+.appr-ev.ai .appr-body { border-color: var(--blue); }
+.appr-ev.result .appr-body { border-left: 3px solid var(--blue); }
+.appr-compose { display: flex; flex-direction: column; gap: 6px; }
+.appr-compose .textarea { min-height: 54px; }
+.appr-count { margin-left: 6px; font-weight: 500; color: var(--blue); font-size: var(--fs-cap); white-space: nowrap; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
