@@ -1676,3 +1676,19 @@ svg text[font-size="12"] { font-size: var(--fs-sm); }
 .ask { width: min(400px, calc(100% - 32px)); display: flex; flex-direction: column; gap: 12px; padding: 18px 18px 14px; border-radius: 12px; background: var(--white); border: 1px solid var(--blue); box-shadow: 0 12px 36px rgba(98, 98, 92, 0.3); animation: view-in .14s ease-out both; }
 .ask-msg { margin: 0; white-space: pre-wrap; color: var(--blue); font: 700 var(--fs-body)/1.55 var(--font); }
 .ask-actions { display: flex; justify-content: flex-end; gap: 6px; }
+/* 전체 검색 (Ctrl+K) */
+.cmdk-scrim { z-index: 450; align-items: flex-start; padding-top: 12vh; }
+.cmdk { width: min(640px, calc(100% - 24px)); max-height: 70vh; display: flex; flex-direction: column; border-radius: 14px; background: var(--white); border: 1px solid var(--blue); box-shadow: 0 18px 48px rgba(98, 98, 92, 0.32); overflow: hidden; animation: view-in .14s ease-out both; }
+.cmdk-input { display: flex; align-items: center; gap: 8px; padding: 12px 14px; border-bottom: 1px solid var(--line); color: var(--blue); }
+.cmdk-input input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; font: 400 var(--fs-sub)/1.4 var(--font); color: var(--blue); }
+.cmdk-input kbd, .cmdk-foot { font: 400 var(--fs-cap)/1.4 var(--mono); color: var(--gray); }
+.cmdk-list { overflow: auto; padding: 6px; }
+.cmdk-item { width: 100%; display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 0; border-radius: 8px; background: none; color: var(--blue); font: inherit; text-align: left; cursor: pointer; }
+.cmdk-item.on { background: var(--yellow-tint); }
+.cmdk-label { font-weight: 700; font-size: var(--fs-sm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 55%; }
+.cmdk-sub { flex: 1; min-width: 0; color: var(--gray); font-size: var(--fs-cap); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cmdk-group { margin-left: auto; padding: 0 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--gray); font-size: var(--fs-cap); white-space: nowrap; }
+.cmdk-empty { padding: 18px; text-align: center; color: var(--gray); font-size: var(--fs-sm); }
+.cmdk-foot { padding: 6px 12px; border-top: 1px solid var(--line); background: var(--paper); }
+.cmdk-btn { order: 0; gap: 6px; padding: 0 10px; width: auto; }
+.cmdk-btn kbd { font: 400 var(--fs-cap)/1 var(--mono); color: var(--gray); }

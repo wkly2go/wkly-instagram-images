@@ -1,9 +1,10 @@
 import { createContext, useCallback, useContext, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from 'react'
-import { Bot, Briefcase, HardDrive, MonitorDown, ChevronLeft, ChevronRight, CircleHelp, ClipboardCheck, FolderKanban, Home, Library, Megaphone, MessageCircle, MoreHorizontal, Settings, Users, type LucideIcon } from 'lucide-react'
+import { Bot, Search, Briefcase, HardDrive, MonitorDown, ChevronLeft, ChevronRight, CircleHelp, ClipboardCheck, FolderKanban, Home, Library, Megaphone, MessageCircle, MoreHorizontal, Settings, Users, type LucideIcon } from 'lucide-react'
 import { isDesktopApp } from '../lib/desktop'
 import { NotificationBell } from './Notifications'
 import { WebSearchBox, webSlot } from './WebSearch'
 import { TopAiBox } from './AgentDesk'
+import { openCommandPalette } from './CommandPalette'
 import { detailSlot } from './RightPanel'
 
 /** 검색 창 자리(한 개뿐인 DOM)를 이 화면의 .body 끝으로 옮김 */
@@ -363,6 +364,9 @@ export function ShellFrame({ children, initial }: { children: ReactNode; initial
               {api.mode === 'demo' && <span className="mode-badge" title="Supabase 연결 전 체험 모드. 데이터는 이 브라우저에만 저장됩니다.">DEMO</span>}
               {/* AI 입력칸: 위쪽 줄 가운데 (대표 지시 2026-10-22) */}
               <TopAiBox />
+              <button type="button" className="quick-btn cmdk-btn pc-only" onClick={openCommandPalette} title="전체 검색 · 빠른 이동 (Ctrl+K)" aria-label="전체 검색 (Ctrl+K)">
+                <Search size={14} /> <kbd>Ctrl K</kbd>
+              </button>
               <NotificationBell />
               {!isDesktopApp() && (
                 <Link to="/download" className="quick-btn pc-only" title="PC 프로그램 내려받기 (회사 컴퓨터 · 출근 기록)" style={{ textDecoration: 'none' }}>
