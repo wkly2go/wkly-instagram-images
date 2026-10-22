@@ -6,6 +6,7 @@ import type { Client, Contact, ExchangeFile, Project, ProjectContact, ProjectMem
 import { Badge, Button, Chip, Field, KindBadge, SectionHead } from './ui'
 import { Board, type BoardCol } from './Board'
 import { openLink } from './WebSearch'
+import { canView, FileViewer } from './FileViewer'
 
 const fmtSize = (n: number | null) => (n == null ? '' : n > 1048576 ? `${(n / 1048576).toFixed(1)}MB` : `${Math.max(1, Math.round(n / 1024))}KB`)
 
@@ -45,9 +46,25 @@ export function ExchangeFilesSection({ clientId, contactId, projectId, contacts,
   const [adding, setAdding] = useState(false)
   const [editing, setEditing] = useState<ExchangeFile | null>(null)
   const { data: files } = useAsync(() => api.listExchangeFiles({ clientId: contactId || projectId ? undefined : clientId ?? undefined, contactId: contactId ?? undefined, projectId: projectId ?? undefined }), [version, clientId, contactId, projectId], [] as ExchangeFile[])
+  // 인트라넷 안에서 보기 (PDF · 오피스 · 사진 · 텍스트 · 구글 문서), 볼 수 없는 형식은 내려받기 · 링크는 오른쪽 창
+  const [viewing, setViewing] = useState<{ f: ExchangeFile; url: string } | null>(null)
+  const download = async (f: ExchangeFile) => {
+    const url = await api.exchangeFileUrl(f, true)
+    if (!url) return
+    const a = document.createElement('a')
+    a.href = url
+    a.download = f.name
+    a.rel = 'noopener'
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+  }
   const open = async (f: ExchangeFile) => {
     const url = await api.exchangeFileUrl(f)
-    if (url) openLink(url)
+    if (!url) return
+    if (canView(f.name, f.mime, f.storage_path ? null : url)) setViewing({ f, url })
+    else if (f.storage_path) void download(f)
+    else openLink(url)
   }
   const byProject = (id: string | null) => (id ? projects.find(p => p.id === id)?.name : undefined)
   const byContact = (id: string | null) => (id ? contacts.find(c => c.id === id)?.name : undefined)
@@ -62,6 +79,7 @@ export function ExchangeFilesSection({ clientId, contactId, projectId, contacts,
           </button>
         }
       />
+      {viewing && <FileViewer name={viewing.f.name} mime={viewing.f.mime} url={viewing.url} onClose={() => setViewing(null)} onDownload={viewing.f.storage_path ? () => void download(viewing.f) : undefined} />}
       {editing && <ExchangeFileEdit key={editing.id} f={editing} projects={projects} onDone={() => setEditing(null)} />}
       {adding && <ExchangeFileForm clientId={clientId} contactId={contactId ?? null} projectId={projectId ?? null} contacts={contacts} projects={projects} onDone={() => setAdding(false)} />}
       <Board<ExchangeFile>

@@ -6,6 +6,7 @@ import type { ChatAttachment, ChatMessage, ChatRead } from '../lib/types'
 import { CHAT_FILE_MAX, friendlyError } from '../lib/api'
 import { Empty } from './ui'
 import { ImageViewer } from './ImageViewer'
+import { canView, FileViewer } from './FileViewer'
 import { openLink } from './WebSearch'
 
 /** 말풍선 목록 (날짜 구분 · 3분 안 연속 메시지 묶음 · 읽음 표시 · 내 메시지/관리자 삭제) */
@@ -140,6 +141,7 @@ function AttachmentView({ att }: { att: ChatAttachment }) {
   const isImage = att.type.startsWith('image/')
   const [src, setSrc] = useState<string | null>(null)
   const [viewing, setViewing] = useState(false)
+  const [fileUrl, setFileUrl] = useState<string | null>(null)
   useEffect(() => {
     if (!isImage) return
     let alive = true
@@ -176,15 +178,33 @@ function AttachmentView({ att }: { att: ChatAttachment }) {
         {viewing && src && <ImageViewer src={src} name={att.name} onClose={() => setViewing(false)} onDownload={() => open(true)} />}
       </>
     )
+  const viewable = canView(att.name, att.type)
+  const view = async () => {
+    try {
+      setFileUrl(await api.fileUrl(att))
+    } catch (e) {
+      toast(friendlyError(e))
+    }
+  }
   return (
-    <button type="button" className="att-file" onClick={() => open(true)} title="내려받기">
-      <FileText size={18} />
-      <span className="col gap-2" style={{ minWidth: 0 }}>
-        <span className="t-smallb truncate">{att.name}</span>
-        <span className="t-cap">{sizeLabel(att.size)}</span>
+    <>
+      <span className="att-file">
+        <button type="button" className="att-file-main" onClick={() => (viewable ? void view() : void open(true))} title={viewable ? '인트라넷에서 보기' : '내려받기'}>
+          <FileText size={18} />
+          <span className="col gap-2" style={{ minWidth: 0 }}>
+            <span className="t-smallb truncate">{att.name}</span>
+            <span className="t-cap">
+              {sizeLabel(att.size)}
+              {viewable ? ' · 눌러서 보기' : ''}
+            </span>
+          </span>
+        </button>
+        <button type="button" className="icon-btn sm" onClick={() => void open(true)} aria-label="내려받기" title="내려받기">
+          <Download size={15} />
+        </button>
       </span>
-      <Download size={15} />
-    </button>
+      {fileUrl && <FileViewer name={att.name} mime={att.type} url={fileUrl} onClose={() => setFileUrl(null)} onDownload={() => void open(true)} />}
+    </>
   )
 }
 
