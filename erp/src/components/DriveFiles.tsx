@@ -3,7 +3,7 @@ import { ChevronRight, ExternalLink, Eye, FileText, Folder, FolderOpen, Link2, L
 import { useAction, useApp, useAsync } from '../lib/app'
 import { useRouter } from '../lib/router'
 import { dateLabel } from '../lib/date'
-import { projectDriveUrl, type Project, type ProjectDriveFile } from '../lib/types'
+import { projectDriveUrl, type DriveIndexFile, type Project, type ProjectDriveFile } from '../lib/types'
 import { driveApi, driveIdOf, editUrl, embedUrl, ensureProjectFolder, FILE_FIELDS, fileMeta, FOLDER_MIME, googleLogin, kindOfUrl, nativeGoogle, onTokenChange, previewUrl, readToken, uploadToDrive, type GFile } from '../lib/gdrive'
 import { openLink } from './WebSearch'
 import { Button, Empty, Modal, SectionHead } from './ui'
@@ -245,6 +245,7 @@ export function ProjectDriveSection({ project }: { project: Project }) {
           <iframe className="drive-preview" src={previewUrl(preview)!} title="드라이브 미리 보기" />
         </div>
       )}
+      <FolderFiles project={project} onOpen={openDoc} />
       {err && <span className="err">{err}</span>}
       {picking && token && (
         <DrivePicker
@@ -260,6 +261,55 @@ export function ProjectDriveSection({ project }: { project: Project }) {
         />
       )}
     </section>
+  )
+}
+
+/**
+ * 프로젝트 폴더 안 파일 — 서버가 5분마다 회사 계정 드라이브와 맞춘 목록 (구글 로그인 없이 누구나 봄 · 드라이브는 읽기만)
+ *  - 폴더 경로 · 고친 사람 · 고친 날 · 이름 찾기
+ */
+function FolderFiles({ project, onOpen }: { project: Project; onOpen: (url: string) => void }) {
+  const { api, version } = useApp()
+  const { data: rows } = useAsync(() => api.listDriveIndex(project.id), [version, project.id], [] as DriveIndexFile[])
+  const [q, setQ] = useState('')
+  const [all, setAll] = useState(false)
+  if (!rows.length) return null
+  const files = rows.filter(r => r.mime_type !== FOLDER_MIME)
+  const words = q.trim().toLowerCase()
+  const hit = words ? files.filter(r => `${r.path ?? ''} ${r.name} ${r.modified_by ?? ''}`.toLowerCase().includes(words)) : files
+  const shown = all || words ? hit : hit.slice(0, 30)
+  return (
+    <div className="col gap-4">
+      <div className="row gap-6">
+        <span className="t-smallb grow">
+          프로젝트 폴더 파일 {files.length}
+          <span className="t-cap"> · 드라이브와 자동으로 맞춤 (5분마다)</span>
+        </span>
+        {files.length > 10 && <input className="input" style={{ maxWidth: 220 }} value={q} onChange={e => setQ(e.target.value)} placeholder="파일 · 폴더 · 고친 사람 찾기" aria-label="폴더 파일 찾기" />}
+      </div>
+      <div className="drive-list">
+        {shown.map(f => (
+          <div key={f.id} className="drive-row as-div">
+            {f.icon_url ? <img src={f.icon_url} alt="" width={16} height={16} /> : <FileText size={16} />}
+            <button type="button" className="link-btn drive-name grow" onClick={() => f.url && onOpen(f.url)} title={f.path ? `${f.path}/${f.name}` : f.name}>
+              {f.path && <span className="t-cap">{f.path} / </span>}
+              {f.name}
+            </button>
+            <span className="badge outline">{typeLabel(f.mime_type)}</span>
+            <span className="t-cap hide-narrow">
+              {f.modified_by ? `${f.modified_by} · ` : ''}
+              {f.modified_at ? dateLabel(f.modified_at.slice(0, 10)) : ''}
+            </span>
+          </div>
+        ))}
+        {!shown.length && <Empty>찾는 파일이 없습니다.</Empty>}
+      </div>
+      {!all && !words && hit.length > 30 && (
+        <button type="button" className="link-btn t-cap" onClick={() => setAll(true)}>
+          {hit.length - 30}개 더 보기
+        </button>
+      )}
+    </div>
   )
 }
 

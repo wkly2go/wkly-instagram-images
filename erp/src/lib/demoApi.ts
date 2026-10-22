@@ -1768,6 +1768,13 @@ export function createDemoApi(): Api {
     async getGoogleClientId() {
       return store.google_client_id ?? null
     },
+    // 데모: 서버 자동 동기화 없음
+    async listDriveIndex() {
+      return []
+    },
+    async driveSync() {
+      throw new ApiError('데모에서는 회사 구글 계정을 연결할 수 없습니다.')
+    },
     async setGoogleClientId(id) {
       requireAdmin()
       store.google_client_id = id

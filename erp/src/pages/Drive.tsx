@@ -6,6 +6,7 @@ import { desktop } from '../lib/desktop'
 import { copyFile, driveApi, DriveAuthError, editUrl, embedUrl, ensureProjectFolder, googleConnectCode, YEAR_RE, FOLDER_MIME as FOLDER, renameFile, trashFile, googleLogin, googleLogout, type GFile } from '../lib/gdrive'
 import { useDriveToken } from '../components/DriveFiles'
 import { useRouter, withQuery } from '../lib/router'
+import { relativeLabel } from '../lib/date'
 import { Shell } from '../components/Shell'
 import { claimNative, moveNative, openLink, releaseNative } from '../components/WebSearch'
 import { Badge, Button, Empty, SectionHead } from '../components/ui'
@@ -582,6 +583,28 @@ function ProjectFoldersSync() {
           끝 · 새로 만들거나 연결 {state.made} · 이름 · 위치 맞춤 {state.fixed}
           {state.fail.length ? ` · 실패 ${state.fail.length}: ${state.fail.slice(0, 3).join(' / ')}` : ''}
         </span>
+      )}
+      {st?.connected && (
+        <div className="row wrap" style={{ gap: 6 }}>
+          <span className="t-cap grow">
+            파일 목록 자동 동기화 · 5분마다 프로젝트 폴더 안 파일을 읽어 프로젝트 화면 · Ctrl+K 검색에 보여 줍니다 (드라이브는 읽기만).
+            {st.syncedAt ? ` 마지막 ${relativeLabel(st.syncedAt)}` : ' 아직 한 번도 돌지 않았습니다.'}
+          </span>
+          <Button size="sm" kind="outline" disabled={busy} onClick={() => run(async () => {
+            const r = await api.driveSync(!st.fullAt)
+            toast(r.mode === 'full' ? `전체 훑기 끝 · 파일 ${r.files}개` : `바뀐 것 ${r.changed}건 반영`)
+            reload()
+          })}>
+            지금 동기화
+          </Button>
+          <Button size="sm" kind="ghost" disabled={busy} onClick={() => run(async () => {
+            const r = await api.driveSync(true)
+            toast(`전체 다시 훑기 끝 · 파일 ${r.files}개`)
+            reload()
+          })} title="목록이 이상할 때: 모든 프로젝트 폴더를 처음부터 다시 읽음">
+            전체 다시 읽기
+          </Button>
+        </div>
       )}
     </div>
   )
