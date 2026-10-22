@@ -1709,3 +1709,5 @@ svg text[font-size="12"] { font-size: var(--fs-sm); }
 .thread-head { display: flex; align-items: center; justify-content: space-between; }
 .thread-composer { display: flex; gap: 6px; align-items: flex-end; }
 .thread-composer .textarea { min-height: 36px; height: 36px; flex: 1; resize: vertical; }
+.pane-back { display: inline-block; padding: 8px 12px 0; color: var(--blue); font-weight: 600; text-decoration: none; }
+.pane-back:hover { text-decoration: underline; }

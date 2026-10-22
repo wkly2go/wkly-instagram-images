@@ -51,6 +51,7 @@ import type {
   SiteLog,
   MeetingRecording,
 } from './types'
+import { approvalKindOf } from './types'
 
 // Supabase 연결 전 체험용. 데이터는 이 브라우저(localStorage)에만 저장된다.
 // 권한 규칙과 알림 트리거는 DB(RLS·트리거)를 단순화해 흉내 낸다.
@@ -1021,6 +1022,7 @@ export function createDemoApi(): Api {
     },
     async createApproval(a) {
       const self = requireMe()
+      if (a.kind === '기타') a = { ...a, kind: approvalKindOf(a.title ?? '') }
       let approver = a.approver_id ?? null
       if (!approver) {
         const route = store.approval_routes.find(r => r.kind === a.kind)?.approver_id ?? null

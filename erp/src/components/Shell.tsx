@@ -30,7 +30,6 @@ export const TABS: { key: TabKey; label: string; path: string; admin?: boolean }
   { key: 'approvals', label: '보고서 결제', path: '/approvals' },
   { key: 'chat', label: '채팅', path: '/chat' },
   { key: 'projects', label: '프로젝트', path: '/projects' },
-  { key: 'clients', label: '거래처', path: '/clients' },
   { key: 'drive', label: '드라이브', path: '/drive' },
   { key: 'team', label: '업무·근태', path: '/team' },
   { key: 'agents', label: 'AI팀', path: '/agents', admin: true },

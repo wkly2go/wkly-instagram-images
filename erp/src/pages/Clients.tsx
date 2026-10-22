@@ -59,9 +59,13 @@ export default function Clients() {
   )
 
   return (
-    <Shell active="clients" flush>
+    <Shell active="projects" flush>
       <div className={`split ${(people ? person : selected) ? 'has-detail' : ''}${wide ? ' list-only' : ''}`}>
         <div className="pane-list">
+          {/* 거래처는 프로젝트 탭 안 (대표 지시 2026-10-22 "거래처 프로젝트에 통합") */}
+          <Link to="/projects" className="pane-back t-cap">
+            ← 프로젝트
+          </Link>
           <div className="seg" role="tablist" aria-label="보기">
             <button type="button" role="tab" aria-selected={!people} className={!people ? 'on' : ''} onClick={() => setView(null)}>
               거래처 {clients.length}

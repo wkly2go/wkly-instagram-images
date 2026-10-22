@@ -431,7 +431,16 @@ export interface ChatRead {
   last_read_at: string
 }
 
-export const APPROVAL_KINDS = ['업무 보고', '일일 보고', '회의록', '메일 발송', '프로젝트', '거래처', '할 일', '지출', '기타'] as const
+export const APPROVAL_KINDS = ['업무 보고', '일일 보고', '회의록', '메일 발송', '홍보 게시', '회의 결정', '제안', '구매 · 계약', '프로젝트', '거래처', '할 일', '지출', '기타'] as const
+
+/** '기타'로 올린 보고서를 제목으로 나눔 (DB 의 private.approval_kind_of 와 같은 규칙) */
+export function approvalKindOf(title: string): (typeof APPROVAL_KINDS)[number] {
+  if (/(홍보|블로그|게시|포스팅|인스타|SNS|카페)/.test(title)) return '홍보 게시'
+  if (/회의 ?결정/.test(title)) return '회의 결정'
+  if (/(제안|개선안|건의)/.test(title)) return '제안'
+  if (/(구매|계약|견적|발주)/.test(title)) return '구매 · 계약'
+  return '기타'
+}
 export type ApprovalKind = (typeof APPROVAL_KINDS)[number]
 export const APPROVAL_STATUSES = ['대기', '승인', '반려', '취소'] as const
 export type ApprovalStatus = (typeof APPROVAL_STATUSES)[number]

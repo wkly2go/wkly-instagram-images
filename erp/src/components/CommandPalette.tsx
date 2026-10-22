@@ -76,6 +76,9 @@ export function CommandPalette() {
       if (s > 0) out.push({ ...h, score: s })
     }
     TABS.filter(t => !t.admin || me.role === 'admin').forEach(t => add({ key: `m${t.key}`, group: '메뉴', icon: LayoutGrid, label: t.label, to: t.path }, t.label))
+    // 다른 탭 안으로 옮긴 메뉴
+    add({ key: 'm-clients', group: '메뉴', icon: LayoutGrid, label: '거래처 · 연락처', sub: '프로젝트', to: '/clients' }, '거래처', '연락처')
+    add({ key: 'm-library', group: '메뉴', icon: LayoutGrid, label: '자료실', sub: '보고서 결제', to: '/library' }, '자료실', '리서치')
     if (k) {
       profiles.filter(p => p.active && p.id !== me.id).forEach(p => add({ key: `u${p.id}`, group: '사람', icon: User, label: p.name, sub: [p.title, p.is_agent ? 'AI' : null].filter(Boolean).join(' · '), to: `/chat?dm=${p.id}` }, p.name, p.title))
       data?.rooms.filter(r => !r.members?.length).forEach(r => add({ key: `r${r.id}`, group: '채팅방', icon: Hash, label: r.name, to: `/chat?room=${r.id}` }, r.name))
