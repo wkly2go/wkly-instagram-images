@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Briefcase, Building2, FileText, FolderKanban, Hash, ListTodo, Search, User, LayoutGrid } from 'lucide-react'
+import { Briefcase, Building2, FileText, FolderKanban, Hash, HardDrive, ListTodo, Search, User, LayoutGrid } from 'lucide-react'
 import { useApp } from '../lib/app'
 import { useRouter } from '../lib/router'
-import type { ChatRoomSummary, Client, Contact, Project, ResearchItem, Task } from '../lib/types'
+import type { ChatRoomSummary, Client, Contact, DriveIndexFile, Project, ResearchItem, Task } from '../lib/types'
+import { useOpenDoc } from './DriveFiles'
 import { TABS } from './Shell'
 
 /**
@@ -11,7 +12,7 @@ import { TABS } from './Shell'
  *  - 사람 · 채팅방 · 프로젝트(연번) · 거래처 · 연락처 · 할 일 · 자료 · 메뉴를 한 칸에서 찾고 Enter 로 이동
  *  - 한글 초성으로도 찾음 (예: ㅎㄴ → 한남)
  */
-type Hit = { key: string; group: string; icon: typeof Search; label: string; sub?: string; to: string; score: number }
+type Hit = { key: string; group: string; icon: typeof Search; label: string; sub?: string; to: string; score: number; /** 주소 대신 할 일 (드라이브 파일 열기) */ run?: () => void }
 
 const CHO = 'ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ'
 const chosung = (s: string) =>
@@ -35,10 +36,11 @@ export const openCommandPalette = () => openSet?.(true)
 export function CommandPalette() {
   const { api, profiles, me } = useApp()
   const { navigate } = useRouter()
+  const openDoc = useOpenDoc()
   const [open, setOpen] = useState(false)
   const [q, setQ] = useState('')
   const [sel, setSel] = useState(0)
-  const [data, setData] = useState<{ projects: Project[]; clients: Client[]; contacts: Contact[]; rooms: ChatRoomSummary[]; tasks: Task[]; research: ResearchItem[] } | null>(null)
+  const [data, setData] = useState<{ projects: Project[]; clients: Client[]; contacts: Contact[]; rooms: ChatRoomSummary[]; tasks: Task[]; research: ResearchItem[]; drive: DriveIndexFile[] } | null>(null)
   const input = useRef<HTMLInputElement>(null)
   openSet = setOpen
 
@@ -65,7 +67,8 @@ export function CommandPalette() {
       api.listRooms().catch(() => []),
       api.listTasks().catch(() => []),
       api.listResearch().catch(() => []),
-    ]).then(([projects, clients, contacts, rooms, tasks, research]) => setData({ projects, clients, contacts, rooms, tasks, research }))
+      api.listDriveIndex().catch(() => []),
+    ]).then(([projects, clients, contacts, rooms, tasks, research, drive]) => setData({ projects, clients, contacts, rooms, tasks, research, drive }))
   }, [open, api])
 
   const hits = useMemo(() => {
@@ -86,9 +89,11 @@ export function CommandPalette() {
       data?.clients.forEach(c => add({ key: `c${c.id}`, group: '거래처', icon: Building2, label: c.name, sub: c.category, to: `/clients?id=${c.id}` }, c.name))
       data?.contacts.forEach(c => add({ key: `ct${c.id}`, group: '연락처', icon: Briefcase, label: c.name, sub: [c.title, data.clients.find(x => x.id === c.client_id)?.name, c.email].filter(Boolean).join(' · '), to: `/clients?view=people&pid=${c.id}` }, c.name, c.email, c.phone))
       data?.tasks.filter(t => t.status !== '완료').forEach(t => add({ key: `t${t.id}`, group: '할 일', icon: ListTodo, label: t.title, sub: [t.due_date, profiles.find(p => p.id === t.assignee_id)?.name].filter(Boolean).join(' · '), to: t.project_id ? `/projects?id=${t.project_id}` : '/projects?view=mine' }, t.title))
+      // 프로젝트 폴더 파일 (드라이브 자동 동기화 목록)
+      data?.drive.forEach(f => f.url && f.mime_type !== 'application/vnd.google-apps.folder' && add({ key: `g${f.id}`, group: '드라이브', icon: HardDrive, label: f.name, sub: [data.projects.find(p => p.id === f.project_id)?.name, f.path].filter(Boolean).join(' / '), to: `/projects?id=${f.project_id}`, run: () => openDoc(f.url!) }, f.name))
       data?.research.forEach(r => add({ key: `d${r.id}`, group: '자료', icon: FileText, label: r.title, sub: [r.kind, r.brand_name].filter(Boolean).join(' · '), to: `/library?id=${r.id}` }, r.title, r.brand_name))
     }
-    const order = ['메뉴', '사람', '채팅방', '프로젝트', '거래처', '연락처', '할 일', '자료']
+    const order = ['메뉴', '사람', '채팅방', '프로젝트', '거래처', '연락처', '할 일', '자료', '드라이브']
     return out.sort((a, b) => b.score - a.score || order.indexOf(a.group) - order.indexOf(b.group)).slice(0, k ? 40 : 12)
   }, [q, data, profiles, me])
 
@@ -97,7 +102,8 @@ export function CommandPalette() {
   const go = (h: Hit | undefined) => {
     if (!h) return
     setOpen(false)
-    navigate(h.to)
+    if (h.run) h.run()
+    else navigate(h.to)
   }
   return createPortal(
     <div className="scrim cmdk-scrim" onMouseDown={e => e.target === e.currentTarget && setOpen(false)}>
@@ -114,7 +120,7 @@ export function CommandPalette() {
               else if (e.key === 'Enter') go(hits[sel])
               else if (e.key === 'Escape') setOpen(false)
             }}
-            placeholder="사람 · 채팅방 · 프로젝트 · 거래처 · 연락처 · 할 일 · 자료 찾기 (초성도 됨)"
+            placeholder="사람 · 채팅방 · 프로젝트 · 거래처 · 연락처 · 할 일 · 자료 · 드라이브 파일 찾기 (초성도 됨)"
             aria-label="전체 검색"
           />
           <kbd>Esc</kbd>

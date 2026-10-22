@@ -8,6 +8,8 @@
 //   - connect {code}    : 관리자 · 구글 로그인 코드(팝업, redirect 'postmessage') → 갱신 토큰을 Vault 에 보관
 //   - ensure {project_id}: 팀원 · 프로젝트 폴더 만들기 · 맞추기
 //   - ensure_all        : 관리자 · 모든 프로젝트
+//   - sync              : 5분 예약(x-sync-key) · 관리자 · 프로젝트 폴더 안 파일 목록을 drive_index 에 맞춤 (드라이브는 읽기만)
+//                         처음 · 하루 한 번은 전체 훑기, 그 사이엔 changes API 로 바뀐 것만
 //  필요한 값: app_settings.google_oauth_client_id (관리자 등록) · Vault GOOGLE_CLIENT_SECRET (대표가 직접 등록)
 import { createClient } from 'npm:@supabase/supabase-js@2.117.3'
 
@@ -126,25 +128,192 @@ async function syncAndSave(p: Proj) {
 }
 const PROJ_COLS = 'id,name,code,division,start_date,created_at,drive_url'
 
+// ---------------------------------------------------------------- 파일 목록 동기화 (읽기만)
+interface DFile {
+  id: string
+  name: string
+  mimeType?: string
+  parents?: string[]
+  trashed?: boolean
+  webViewLink?: string
+  iconLink?: string
+  size?: string
+  modifiedTime?: string
+  lastModifyingUser?: { displayName?: string }
+}
+const F_FIELDS = 'id,name,mimeType,parents,trashed,webViewLink,iconLink,size,modifiedTime,lastModifyingUser(displayName)'
+interface Row { id: string; project_id: string; name: string; mime_type: string | null; parent_id: string | null; path: string | null; url: string | null; icon_url: string | null; size: number | null; modified_at: string | null; modified_by: string | null; synced_at: string }
+const toRow = (f: DFile, project: string, path: string, now: string): Row => ({
+  id: f.id,
+  project_id: project,
+  name: f.name,
+  mime_type: f.mimeType ?? null,
+  parent_id: f.parents?.[0] ?? null,
+  path: path || null,
+  url: f.webViewLink ?? null,
+  icon_url: f.iconLink ?? null,
+  size: f.size ? Number(f.size) : null,
+  modified_at: f.modifiedTime ?? null,
+  modified_by: f.lastModifyingUser?.displayName ?? null,
+  synced_at: now,
+})
+const MAX_PER_PROJECT = 2000
+const MAX_DEPTH = 5
+
+async function upsertRows(rows: Row[]) {
+  for (let i = 0; i < rows.length; i += 500) {
+    const { error } = await sb.from('drive_index').upsert(rows.slice(i, i + 500))
+    if (error) throw new Error(`목록 저장 실패: ${error.message}`)
+  }
+}
+
+/** 프로젝트 폴더 전체 훑기: 하위 폴더까지 (깊이 · 개수 제한) → 없어진 파일은 목록에서 뺌 */
+async function scanProject(projectId: string, folderId: string, now: string): Promise<number> {
+  const rows: Row[] = []
+  const queue: [string, string, number][] = [[folderId, '', 0]]
+  while (queue.length && rows.length < MAX_PER_PROJECT) {
+    const [dir, path, depth] = queue.shift()!
+    let pageToken: string | undefined
+    do {
+      const qs = new URLSearchParams({ q: `'${dir}' in parents and trashed = false`, fields: `nextPageToken,files(${F_FIELDS})`, pageSize: '1000', supportsAllDrives: 'true', includeItemsFromAllDrives: 'true', ...(pageToken ? { pageToken } : {}) })
+      const r = await drive<{ nextPageToken?: string; files?: DFile[] }>(`files?${qs}`)
+      for (const f of r.files ?? []) {
+        rows.push(toRow(f, projectId, path, now))
+        if (f.mimeType === FOLDER && depth + 1 < MAX_DEPTH) queue.push([f.id, path ? `${path}/${f.name}` : f.name, depth + 1])
+      }
+      pageToken = r.nextPageToken
+    } while (pageToken && rows.length < MAX_PER_PROJECT)
+  }
+  await upsertRows(rows)
+  // 이번에 못 본 파일 = 지워졌거나 밖으로 옮겨짐 → 목록에서만 뺌 (드라이브는 건드리지 않음)
+  if (rows.length < MAX_PER_PROJECT) await sb.from('drive_index').delete().eq('project_id', projectId).lt('synced_at', now)
+  return rows.length
+}
+
+interface SyncState { token?: string; full_at?: string; folders?: string[] }
+async function readState(): Promise<SyncState> {
+  const { data } = await sb.from('app_settings').select('value').eq('key', 'gdrive_sync').maybeSingle()
+  return (data?.value as SyncState | null) ?? {}
+}
+async function writeState(v: SyncState & { synced_at: string; files?: number; changed?: number }) {
+  await sb.from('app_settings').upsert({ key: 'gdrive_sync', value: v, updated_at: new Date().toISOString() })
+}
+
+async function syncAll(force: boolean): Promise<{ mode: 'full' | 'changes'; files: number; changed: number }> {
+  const now = new Date().toISOString()
+  const { data } = await sb.from('projects').select('id,drive_url').not('drive_url', 'is', null)
+  const folders = new Map<string, string>() // 드라이브 폴더 id → 프로젝트 id
+  for (const p of (data ?? []) as { id: string; drive_url: string }[]) {
+    const id = idOf(p.drive_url)
+    if (id) folders.set(id, p.id)
+  }
+  const state = await readState()
+  const fullDue = force || !state.token || !state.full_at || Date.now() - new Date(state.full_at).getTime() > 24 * 3600_000
+  if (fullDue) {
+    // 시작 표시를 먼저 받아 두면 훑는 동안 바뀐 것도 다음 번에 잡힘
+    const start = await drive<{ startPageToken: string }>('changes/startPageToken?supportsAllDrives=true')
+    let files = 0
+    for (const [folder, project] of folders) files += await scanProject(project, folder, now).catch(() => 0)
+    // 연결이 끊긴 프로젝트(폴더 주소가 바뀌거나 지워짐)의 예전 목록 정리
+    const keep = [...folders.values()]
+    if (keep.length) await sb.from('drive_index').delete().not('project_id', 'in', `(${keep.join(',')})`)
+    await writeState({ token: start.startPageToken, full_at: now, folders: [...folders.keys()], synced_at: now, files, changed: 0 })
+    return { mode: 'full', files, changed: 0 }
+  }
+
+  // 새로 연결된 프로젝트 폴더는 바로 전체 훑기
+  const seen = new Set(state.folders ?? [])
+  let added = 0
+  for (const [folder, project] of folders)
+    if (!seen.has(folder)) {
+      added += await scanProject(project, folder, now).catch(() => 0)
+      seen.add(folder)
+    }
+
+  // 바뀐 것만: 각 파일의 부모를 거슬러 올라가 어느 프로젝트 폴더 안인지 찾음
+  const where = new Map<string, { project: string; path: string } | null>()
+  for (const [f, p] of folders) where.set(f, { project: p, path: '' })
+  const locate = async (parent: string | undefined, depth = 0): Promise<{ project: string; path: string } | null> => {
+    if (!parent || depth > MAX_DEPTH) return null
+    if (where.has(parent)) return where.get(parent)!
+    const known = await sb.from('drive_index').select('project_id,path,name,mime_type').eq('id', parent).maybeSingle()
+    if (known.data && known.data.mime_type === FOLDER) {
+      const v = { project: known.data.project_id as string, path: [known.data.path, known.data.name].filter(Boolean).join('/') }
+      where.set(parent, v)
+      return v
+    }
+    const m = await drive<DFile>(`files/${encodeURIComponent(parent)}?supportsAllDrives=true&fields=id,name,parents`).catch(() => null)
+    const up = m ? await locate(m.parents?.[0], depth + 1) : null
+    const v = up && m ? { project: up.project, path: up.path ? `${up.path}/${m.name}` : m.name } : null
+    where.set(parent, v)
+    return v
+  }
+  let token = state.token!
+  let changed = 0
+  const rows: Row[] = []
+  const gone: string[] = []
+  for (let guard = 0; guard < 20; guard++) {
+    const qs = new URLSearchParams({ pageToken: token, fields: `nextPageToken,newStartPageToken,changes(fileId,removed,file(${F_FIELDS}))`, pageSize: '1000', includeRemoved: 'true', supportsAllDrives: 'true', includeItemsFromAllDrives: 'true' })
+    const r = await drive<{ nextPageToken?: string; newStartPageToken?: string; changes?: { fileId: string; removed?: boolean; file?: DFile }[] }>(`changes?${qs}`)
+    for (const c of r.changes ?? []) {
+      if (c.removed || !c.file || c.file.trashed) {
+        gone.push(c.fileId)
+        continue
+      }
+      const at = await locate(c.file.parents?.[0])
+      if (at) {
+        rows.push(toRow(c.file, at.project, at.path, now))
+        // 폴더가 새로 들어왔으면 그 안 파일 위치도 바로 알 수 있게
+        if (c.file.mimeType === FOLDER) where.set(c.file.id, { project: at.project, path: at.path ? `${at.path}/${c.file.name}` : c.file.name })
+      } else gone.push(c.fileId) // 프로젝트 폴더 밖으로 옮겨짐
+    }
+    changed += r.changes?.length ?? 0
+    if (r.newStartPageToken) {
+      token = r.newStartPageToken
+      break
+    }
+    if (!r.nextPageToken) break
+    token = r.nextPageToken
+  }
+  await upsertRows(rows)
+  for (let i = 0; i < gone.length; i += 200) await sb.from('drive_index').delete().in('id', gone.slice(i, i + 200))
+  await writeState({ ...state, token, folders: [...seen].filter(f => folders.has(f)), synced_at: now, changed })
+  return { mode: 'changes', files: rows.length + added, changed }
+}
+
 Deno.serve(async req => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
   if (req.method !== 'POST') return json({ error: 'POST 요청만 받습니다.' }, 405)
+  // 5분 예약 실행 (DB cron → x-sync-key)
+  const syncKey = req.headers.get('x-sync-key')
+  if (syncKey) {
+    const want = await secret('GDRIVE_SYNC_KEY')
+    if (!want || syncKey !== want) return json({ error: '열쇠가 맞지 않습니다.' }, 403)
+    try {
+      return json(await syncAll(false))
+    } catch (e) {
+      if (e instanceof NotConnected) return json({ error: e.message, not_connected: true }, 409)
+      return json({ error: e instanceof Error ? e.message : '동기화 실패' }, 500)
+    }
+  }
   const authorization = req.headers.get('Authorization') ?? ''
   if (!authorization.startsWith('Bearer ')) return json({ error: '로그인이 필요합니다.' }, 401)
   const caller = createClient(URL_, ANON, { global: { headers: { Authorization: authorization } }, auth: { persistSession: false } })
   const [{ data: member }, { data: admin }] = await Promise.all([caller.rpc('is_active_member'), caller.rpc('is_admin')])
   if (member !== true) return json({ error: '팀원만 쓸 수 있습니다.' }, 403)
-  const body = (await req.json().catch(() => ({}))) as { action?: string; code?: string; project_id?: string }
+  const body = (await req.json().catch(() => ({}))) as { action?: string; code?: string; project_id?: string; full?: boolean }
 
   try {
     if (body.action === 'status') {
-      const [id, sec, refresh, acct] = await Promise.all([
+      const [id, sec, refresh, acct, sync] = await Promise.all([
         clientId(),
         secret('GOOGLE_CLIENT_SECRET'),
         secret('GOOGLE_DRIVE_REFRESH_TOKEN'),
         sb.from('app_settings').select('value').eq('key', 'google_drive_account').maybeSingle(),
+        sb.from('app_settings').select('value').eq('key', 'gdrive_sync').maybeSingle(),
       ])
-      return json({ clientId: !!id, secret: !!sec, connected: !!refresh, account: (acct.data?.value as { email?: string } | null)?.email ?? null })
+      const st = (sync.data?.value ?? null) as { synced_at?: string; full_at?: string } | null
+      return json({ clientId: !!id, secret: !!sec, connected: !!refresh, account: (acct.data?.value as { email?: string } | null)?.email ?? null, syncedAt: st?.synced_at ?? null, fullAt: st?.full_at ?? null })
     }
     if (body.action === 'connect') {
       if (admin !== true) return json({ error: '관리자만 연결할 수 있습니다.' }, 403)
@@ -173,6 +342,10 @@ Deno.serve(async req => {
       const { data: p } = await sb.from('projects').select(PROJ_COLS).eq('id', body.project_id).maybeSingle()
       if (!p) return json({ error: '프로젝트를 찾지 못했습니다.' }, 404)
       return json(await syncAndSave(p as Proj))
+    }
+    if (body.action === 'sync') {
+      if (admin !== true) return json({ error: '관리자만 할 수 있습니다.' }, 403)
+      return json(await syncAll(body.full === true))
     }
     if (body.action === 'ensure_all') {
       if (admin !== true) return json({ error: '관리자만 할 수 있습니다.' }, 403)

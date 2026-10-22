@@ -1711,3 +1711,11 @@ svg text[font-size="12"] { font-size: var(--fs-sm); }
 .thread-composer .textarea { min-height: 36px; height: 36px; flex: 1; resize: vertical; }
 .pane-back { display: inline-block; padding: 8px 12px 0; color: var(--blue); font-weight: 600; text-decoration: none; }
 .pane-back:hover { text-decoration: underline; }
+
+/* 멘션 · 답글 모아 보기 */
+.activity-item { border-bottom: 1px solid var(--line); }
+.activity-row { display: flex; gap: 10px; align-items: flex-start; width: 100%; text-align: left; padding: 10px 12px; background: var(--white); border: 1px solid var(--line); border-radius: 8px; cursor: pointer; color: var(--gray); }
+.activity-row:hover { border-color: var(--blue); }
+.activity-row.unread { border-left: 3px solid var(--blue); }
+.activity-row .activity-body { white-space: pre-wrap; word-break: break-word; }
+.notif-filter { padding: 6px 10px; border-bottom: 1px solid var(--line); gap: 4px; }

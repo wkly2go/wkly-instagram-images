@@ -275,6 +275,22 @@ export interface ProjectDriveFile {
   created_at: string
 }
 
+/** 프로젝트 드라이브 폴더 안 파일 (5분마다 서버가 자동으로 맞춤 · 읽기만) */
+export interface DriveIndexFile {
+  id: string
+  project_id: string
+  name: string
+  mime_type: string | null
+  parent_id: string | null
+  /** 프로젝트 폴더 기준 경로 (예: '도면/1차'). 바로 아래면 null */
+  path: string | null
+  url: string | null
+  icon_url: string | null
+  size: number | null
+  modified_at: string | null
+  modified_by: string | null
+}
+
 /** 프로젝트 드라이브 폴더: 저장된 주소 → 설명 속 드라이브 주소 → 연번 · 이름으로 드라이브 검색 */
 export function projectDriveUrl(p: Pick<Project, 'drive_url' | 'description' | 'code' | 'name'>): { url: string; exact: boolean } {
   if (p.drive_url) return { url: p.drive_url, exact: true }

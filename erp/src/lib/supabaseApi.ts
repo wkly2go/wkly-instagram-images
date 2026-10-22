@@ -5,6 +5,7 @@ import type {
   Subscription,
   ExchangeFile,
   ProjectDriveFile,
+  DriveIndexFile,
   ProjectContact,
   ProjectMember,
   AttendanceDevice,
@@ -826,6 +827,16 @@ export function createSupabaseApi(url: string, key: string): Api {
     driveEnsure: projectId => invokeDrive<DriveEnsureResult>({ action: 'ensure', project_id: projectId }),
     async driveEnsureAll() {
       const r = await invokeDrive<{ made: number; fixed: number; fail: string[] }>({ action: 'ensure_all' })
+      if (!r) throw new ApiError('회사 구글 계정이 아직 연결되지 않았습니다.')
+      return r
+    },
+    async listDriveIndex(projectId) {
+      let q = sb.from('drive_index').select('id,project_id,name,mime_type,parent_id,path,url,icon_url,size,modified_at,modified_by').order('modified_at', { ascending: false, nullsFirst: false })
+      q = projectId ? q.eq('project_id', projectId).limit(2000) : q.limit(3000)
+      return must(await q) as DriveIndexFile[]
+    },
+    async driveSync(full) {
+      const r = await invokeDrive<{ mode: 'full' | 'changes'; files: number; changed: number }>({ action: 'sync', full: !!full })
       if (!r) throw new ApiError('회사 구글 계정이 아직 연결되지 않았습니다.')
       return r
     },

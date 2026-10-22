@@ -1,5 +1,6 @@
 import type { AccessSource } from './desktop'
 import type {
+  DriveIndexFile,
   Subscription,
   ExchangeFile,
   ProjectDriveFile,
@@ -94,6 +95,9 @@ export interface DriveStatus {
   secret: boolean
   connected: boolean
   account: string | null
+  /** 마지막 자동 동기화 시각 */
+  syncedAt?: string | null
+  fullAt?: string | null
 }
 export interface DriveEnsureResult {
   url: string
@@ -368,6 +372,10 @@ export interface Api {
   /** 프로젝트 폴더 만들기 · 맞추기. 회사 계정이 연결 안 됐으면 null */
   driveEnsure(projectId: string): Promise<DriveEnsureResult | null>
   driveEnsureAll(): Promise<{ made: number; fixed: number; fail: string[] }>
+  /** 프로젝트 폴더 안 파일 (자동 동기화된 목록). projectId 가 없으면 전체 (최근 고친 순) */
+  listDriveIndex(projectId?: string): Promise<DriveIndexFile[]>
+  /** 관리자 · 지금 동기화 (full 이면 전체 다시 훑기) */
+  driveSync(full?: boolean): Promise<{ mode: 'full' | 'changes'; files: number; changed: number }>
 
   // 휴가
   listLeave(): Promise<LeaveRecord[]>
