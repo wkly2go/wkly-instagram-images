@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type ChangeEvent, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from 'react'
 import { Bot, Briefcase, HardDrive, MonitorDown, ChevronLeft, ChevronRight, CircleHelp, ClipboardCheck, FolderKanban, Home, Library, Megaphone, MessageCircle, MoreHorizontal, Settings, Users, type LucideIcon } from 'lucide-react'
 import { isDesktopApp } from '../lib/desktop'
 import { NotificationBell } from './Notifications'
@@ -320,10 +320,36 @@ export function LogoTile() {
   )
 }
 
+/**
+ * 화면 틀 (위쪽 줄 · 프로필 · 오른쪽 탭 · 인터넷 칸)은 한 번만 만들고 계속 유지 (2026-10-22 "화면 전환 애니메이션이 부자연스러워")
+ *  - 예전: 화면마다 <Shell> 을 새로 만들어 이동할 때마다 틀 전체가 지워졌다 다시 그려짐 → 깜빡임 · 숫자 0 표시 · 인터넷 칸 다시 나타남
+ *  - 지금: App 이 <ShellFrame> 을 한 번 그리고, 각 화면의 <Shell> 은 탭 표시(active · flush)만 알려 줌. 가운데만 부드럽게 바뀜
+ */
+type ShellState = { active: TabKey; flush: boolean }
+const ShellCtx = createContext<((s: ShellState) => void) | null>(null)
+
 export function Shell({ active, flush, children }: { active: TabKey; flush?: boolean; children: ReactNode }) {
+  const set = useContext(ShellCtx)
+  useLayoutEffect(() => {
+    set?.({ active, flush: !!flush })
+  }, [set, active, flush])
+  if (!set) return <ShellFrame initial={{ active, flush: !!flush }}>{children}</ShellFrame>
+  return <>{children}</>
+}
+
+export function ShellFrame({ children, initial }: { children: ReactNode; initial?: ShellState }) {
   const { api, me } = useApp()
+  const { path } = useRouter()
   const summary = useSummary()
+  const [{ active, flush }, setState] = useState<ShellState>(initial ?? { active: 'home', flush: false })
+  const set = useCallback((s: ShellState) => setState(o => (o.active === s.active && o.flush === s.flush ? o : s)), [])
+  const mainRef = useRef<HTMLElement>(null)
+  // 화면을 옮기면 가운데 창은 맨 위부터
+  useLayoutEffect(() => {
+    mainRef.current?.scrollTo?.({ top: 0 })
+  }, [path])
   return (
+    <ShellCtx.Provider value={set}>
     <div className={`page app-page tab-${active}`}>
       <div className="mini">
         <div className="book">
@@ -349,7 +375,7 @@ export function Shell({ active, flush, children }: { active: TabKey; flush?: boo
             </header>
             <div className="body" ref={mountWebSlot}>
               <ProfilePanel summary={summary} />
-              <main className={`main ${flush ? 'flush' : ''}`}>
+              <main ref={mainRef} className={`main ${flush ? 'flush' : ''}`}>
                 {/* 가운데 창 뒤로 · 앞으로 (인트라넷 화면 이동 기록) */}
                 <div className="main-nav" role="group" aria-label="화면 이동">
                   <button type="button" className="main-nav-btn" onClick={() => window.history.back()} aria-label="이전 화면" title="이전 화면">
@@ -359,7 +385,10 @@ export function Shell({ active, flush, children }: { active: TabKey; flush?: boo
                     앞으로 <ChevronRight size={13} />
                   </button>
                 </div>
-                {children}
+                {/* 화면이 바뀔 때만 가운데 내용이 살짝 나타남 (같은 화면 안 탭 · 검색 이동은 그대로) */}
+                <div className="main-view" key={path}>
+                  {children}
+                </div>
               </main>
             </div>
           </div>
@@ -378,6 +407,7 @@ export function Shell({ active, flush, children }: { active: TabKey; flush?: boo
         </nav>
       </div>
     </div>
+    </ShellCtx.Provider>
   )
 }
 

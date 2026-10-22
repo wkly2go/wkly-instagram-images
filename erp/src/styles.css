@@ -1207,9 +1207,10 @@ button.kpi:hover, a.kpi:hover { border-color: var(--blue); }
 /* ---------- 전체 공통 4단: 프로필 │ 본 화면 │ 결과 │ 인터넷(고정) (2026-10-17) ---------- */
 .detail-slot { display: contents; }
 .detail-col { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; background: var(--white); border: 1px solid var(--line); border-radius: var(--r-panel); overflow: hidden; animation: detail-in .34s cubic-bezier(.2, .8, .2, 1) both; }
+/* 결과 칸 열기: 폭(flex-grow) · 잘라내기(clip-path)까지 움직이면 매 장면 레이아웃을 다시 계산해 덜컹거림 → 투명도 · 위치만 */
 @keyframes detail-in {
-  from { flex-grow: 0; opacity: 0; transform: translateX(-32px); clip-path: inset(0 100% 0 0); }
-  to { flex-grow: 1; opacity: 1; transform: none; clip-path: inset(0 0 0 0); }
+  from { opacity: 0; transform: translateX(-16px); }
+  to { opacity: 1; transform: none; }
 }
 @media (prefers-reduced-motion: reduce) { .detail-col { animation: none; } }
 .detail-head { display: flex; align-items: center; gap: 6px; padding: 6px 8px 6px 12px; background: var(--yellow); color: #1c1c1e; font: 700 var(--fs-cap)/1.3 var(--font); flex-shrink: 0; }
@@ -1227,7 +1228,7 @@ html.detail-open .web-panel { max-width: 28vw; }
 .modal-col .detail-head .icon-btn { color: var(--white); }
 .modal-col .dialog-actions { position: sticky; bottom: -10px; background: var(--white); padding: 8px 0; margin-top: auto; }
 .expand-in { animation: expand-in .34s cubic-bezier(.2, .8, .2, 1) both; }
-@keyframes expand-in { from { opacity: 0; transform: translateX(-32px); clip-path: inset(0 100% 0 0); } to { opacity: 1; transform: none; clip-path: inset(0 0 0 0); } }
+@keyframes expand-in { from { opacity: 0; transform: translateX(-16px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .expand-in { animation: none; } }
 .room-del-yes { background: var(--red); color: #fff; border-color: var(--red); }
 .drive-link { display: inline-flex; color: var(--blue); }
@@ -1240,7 +1241,7 @@ html.detail-open .web-panel { max-width: 28vw; }
 /* 할 일 · 메모장: 업무 기록 아래에서 위로 펼쳐짐 */
 .work-drawer { flex: 0 0 auto; max-height: 42%; overflow: auto; border-top: 2px solid var(--blue); background: var(--yellow-tint); padding: 10px 14px; animation: drawer-up .3s cubic-bezier(.2, .8, .2, 1) both; }
 .work-drawer > .memo-pad { width: auto; border: 0; padding: 0; background: none; position: static; overflow: visible; }
-@keyframes drawer-up { from { transform: translateY(40px); opacity: 0; clip-path: inset(100% 0 0 0); } to { transform: none; opacity: 1; clip-path: inset(0 0 0 0); } }
+@keyframes drawer-up { from { transform: translateY(16px); opacity: 0; } to { transform: none; opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .work-drawer { animation: none; } }
 /* 왼쪽 팀 구성원 목록: 더 작게 */
 .team-side { width: 168px; padding: 8px; gap: 4px; }
@@ -1658,3 +1659,8 @@ svg text[font-size="12"] { font-size: var(--fs-sm); }
 .file-view-none { margin: auto; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 28px; border-radius: 10px; background: var(--white); color: var(--blue); text-align: center; }
 .att-file { cursor: default; padding: 4px 6px 4px 10px; }
 .att-file-main { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; padding: 4px 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+/* 화면 전환: 틀은 그대로, 가운데 내용만 짧게 나타남 (깜빡임 · 튀는 움직임 없이) */
+.main-view { display: contents; }
+.main-view > * { animation: view-in .18s ease-out both; }
+@keyframes view-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .main-view > * { animation: none; } }
