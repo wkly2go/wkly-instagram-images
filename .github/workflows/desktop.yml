@@ -33,7 +33,9 @@ jobs:
         name: 이 번호의 릴리스가 이미 있는지
         run: |
           V="v$(node -p "require('./erp/desktop/package.json').version")"
-          if gh release view "$V" >/dev/null 2>&1; then echo "release=false" >> "$GITHUB_OUTPUT"; echo "$V 이미 있음 · 건너뜀"; else echo "release=true" >> "$GITHUB_OUTPUT"; echo "$V 새로 만듦"; fi
+          # 공개된 릴리스가 있으면 건너뜀 · 초안(지난번에 중간에 멈춤)이면 다시 만들어 마저 공개
+          DRAFT=$(gh release view "$V" --json isDraft -q .isDraft 2>/dev/null || echo none)
+          if [ "$DRAFT" = "false" ]; then echo "release=false" >> "$GITHUB_OUTPUT"; echo "$V 이미 공개됨 · 건너뜀"; else echo "release=true" >> "$GITHUB_OUTPUT"; echo "$V 만듦 (초안: $DRAFT)"; fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
