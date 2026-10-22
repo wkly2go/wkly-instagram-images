@@ -209,17 +209,20 @@ export function MeetingRecorder({ title, onResult }: { title: string; onResult: 
             !meet.ok && <span className="t-cap">{meet.why}</span>
           )}
           <input className="input" value={attendees} onChange={e => setAttendees(e.target.value)} placeholder="참석자 (선택 · 이름을 적으면 말한 사람을 더 정확히 구분)" aria-label="참석자" />
+          <span className="t-cap">
+            클로바노트 등에서 받아쓴 텍스트(.txt)를 올리면 AI가 회의록으로 정리합니다. (음성 파일 직접 받아쓰기는 현재 중지 — 클로바노트에서 받아쓴 뒤 .txt로 내보내 올려 주세요)
+          </span>
           <div className="row gap-6" style={{ flexWrap: 'wrap' }}>
             <button type="button" className="btn btn-blue btn-sm" onClick={start}>
               <Mic size={13} /> 녹음 시작
             </button>
             <button type="button" className="btn btn-outline btn-sm" onClick={() => fileRef.current?.click()}>
-              <Upload size={13} /> 녹음 파일 올리기
+              <Upload size={13} /> 받아쓰기(.txt) · 녹음 파일 올리기
             </button>
             <input
               ref={fileRef}
               type="file"
-              accept="audio/*,video/mp4,video/webm"
+              accept=".txt,.md,text/plain,text/markdown,audio/*,video/mp4,video/webm"
               hidden
               onChange={e => {
                 const f = e.target.files?.[0]
@@ -255,7 +258,7 @@ export function MeetingRecorder({ title, onResult }: { title: string; onResult: 
           </div>
         </>
       )}
-      {phase === 'uploading' && <span className="t-small">녹음을 올리는 중…</span>}
+      {phase === 'uploading' && <span className="t-small">파일을 올리는 중…</span>}
       {phase === 'processing' && <span className="t-small">AI가 받아쓰고 정리하는 중입니다… (1시간 회의 기준 몇 분, 이 창을 닫아도 계속 처리됩니다)</span>}
       {phase === 'done' && (
         <div className="col gap-4">
