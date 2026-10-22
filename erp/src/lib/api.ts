@@ -1,5 +1,7 @@
 import type { AccessSource } from './desktop'
 import type {
+  AiAgent,
+  AgentSchedule,
   ActivityInputKind,
   ApprovalActivity,
   DriveIndexFile,
@@ -274,6 +276,14 @@ export interface Api {
   adminOverview(): Promise<AdminOverview>
   /** 팀원(사람·AI) 계정 만들기: Supabase Edge Function 'admin-create-user' */
   createMember(m: NewMember): Promise<void>
+  /** AI 팀원: 설정 목록 · 만들기(관리자, 로그인하지 않는 계정을 만듦) · 고치기 */
+  listAiAgents(): Promise<AiAgent[]>
+  createAiAgent(a: { name: string; title: string | null; role: string; instructions: string; tools: string[]; owner_id: string | null; model: AiAgent['model'] }): Promise<string>
+  saveAiAgent(profileId: string, patch: Partial<Pick<AiAgent, 'role' | 'instructions' | 'tools' | 'owner_id' | 'model'>>): Promise<void>
+  /** AI 예약 */
+  listAgentSchedules(): Promise<AgentSchedule[]>
+  saveAgentSchedule(s: Partial<AgentSchedule> & Pick<AgentSchedule, 'agent_id' | 'title' | 'instruction' | 'repeat'>): Promise<AgentSchedule>
+  deleteAgentSchedule(id: string): Promise<void>
   /** 팀원 비밀번호를 관리자가 정한 임시 비밀번호로 바꿈 (같은 Edge Function) */
   resetMemberPassword(userId: string, password: string): Promise<void>
   /** 팀원 계정 삭제 (기록은 남고 작성자는 '알 수 없음'). 본인·관리자 계정은 삭제 불가 */

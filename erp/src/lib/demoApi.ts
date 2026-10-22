@@ -51,7 +51,8 @@ import type {
   SiteLog,
   MeetingRecording,
 } from './types'
-import { approvalKindOf, type ApprovalActivity } from './types'
+import { approvalKindOf, type AgentSchedule, type AiAgent, type ApprovalActivity } from './types'
+import { nextRun } from './schedule'
 
 // Supabase 연결 전 체험용. 데이터는 이 브라우저(localStorage)에만 저장된다.
 // 권한 규칙과 알림 트리거는 DB(RLS·트리거)를 단순화해 흉내 낸다.
@@ -69,6 +70,8 @@ interface Store {
   approvals: Approval[]
   /** 결재 기록 (예전 체험 데이터에는 없을 수 있음) */
   approval_activity?: ApprovalActivity[]
+  ai_agents?: AiAgent[]
+  agent_schedules?: AgentSchedule[]
   approval_routes: ApprovalRoute[]
   finances: ProjectFinance[]
   payments: Payment[]
@@ -1299,6 +1302,59 @@ export function createDemoApi(): Api {
         bytes = 0
       }
       return { db_size_bytes: 8_400_000 + bytes, active_members: store.profiles.filter(p => p.active).length, tables, generated_at: now() }
+    },
+    async listAiAgents() {
+      requireMe()
+      return clone(store.ai_agents ?? [])
+    },
+    async createAiAgent(a) {
+      requireAdmin()
+      if (!a.name.trim()) throw new ApiError('이름을 적어 주세요.')
+      const id = uid()
+      store.profiles.push({ id, email: `ai-${id.slice(0, 6)}@ai.thewklyn.com`, name: a.name.trim(), role: 'member', active: true, title: a.title?.trim() || null, today_status: '출근', status_message: null, status_updated_at: null, is_agent: true, created_at: now() })
+      ;(store.ai_agents ??= []).push({ profile_id: id, role: a.role, instructions: a.instructions, tools: a.tools, owner_id: a.owner_id, model: a.model, created_by: me, created_at: now(), updated_at: now() })
+      persist()
+      emit('profiles')
+      emit('ai_agents')
+      return id
+    },
+    async saveAiAgent(profileId, patch) {
+      requireAdmin()
+      const list = (store.ai_agents ??= [])
+      const cur = list.find(x => x.profile_id === profileId)
+      if (cur) Object.assign(cur, patch, { updated_at: now() })
+      else list.push({ profile_id: profileId, role: '', instructions: '', tools: [], owner_id: null, model: '기본', created_by: null, created_at: now(), updated_at: now(), ...patch })
+      persist()
+      emit('ai_agents')
+    },
+    async listAgentSchedules() {
+      requireMe()
+      return clone(store.agent_schedules ?? [])
+    },
+    async saveAgentSchedule(s) {
+      const self = requireMe()
+      const list = (store.agent_schedules ??= [])
+      const cur = s.id ? list.find(x => x.id === s.id) : undefined
+      if (cur && cur.created_by !== self && !isAdmin()) throw new ApiError('만든 사람이나 관리자만 고칠 수 있습니다.')
+      const row: AgentSchedule = cur
+        ? { ...cur, ...s, updated_at: now() }
+        : { id: uid(), run_at: null, time_of_day: null, weekdays: [], month_day: null, enabled: true, next_run_at: null, last_run_at: null, last_instruction_id: null, runs: 0, created_by: self, created_at: now(), updated_at: now(), ...s }
+      const next = nextRun(row)
+      row.next_run_at = row.enabled ? next?.toISOString() ?? null : row.next_run_at
+      if (row.repeat === '한 번' && !next) row.enabled = false
+      if (cur) Object.assign(cur, row)
+      else list.push(row)
+      persist()
+      emit('agent_schedules')
+      return clone(row)
+    },
+    async deleteAgentSchedule(id) {
+      const self = requireMe()
+      const cur = (store.agent_schedules ?? []).find(x => x.id === id)
+      if (!cur || (cur.created_by !== self && !isAdmin())) throw new ApiError('만든 사람이나 관리자만 지울 수 있습니다.')
+      store.agent_schedules = (store.agent_schedules ?? []).filter(x => x.id !== id)
+      persist()
+      emit('agent_schedules')
     },
     async createMember(m) {
       requireAdmin()
