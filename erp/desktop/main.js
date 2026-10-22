@@ -15,7 +15,8 @@ const APP_URL = (!app.isPackaged && process.env.WKLY_APP_URL) || 'https://wkly-e
 const ORIGIN = new URL(APP_URL).origin
 const DOWNLOAD_PAGE = `${APP_URL}/download`
 const IDLE_LOCK_SEC = (!app.isPackaged && Number(process.env.WKLY_IDLE_SEC)) || 30 * 60
-const ICON = path.join(__dirname, 'build', 'icon.png')
+// 창 아이콘: 윈도우는 여러 크기를 담은 .ico (작업 표시줄 · 제목 막대에서 선명하게)
+const ICON = path.join(__dirname, 'build', process.platform === 'win32' ? 'icon.ico' : 'icon.png')
 const isMac = process.platform === 'darwin'
 
 let win = null
@@ -218,8 +219,8 @@ function enforceLoginState() {
 }
 
 function createTray() {
-  let img = nativeImage.createFromPath(path.join(__dirname, 'build', 'tray.png'))
-  if (isMac) img = img.resize({ width: 18, height: 18 })
+  // 알림 영역 아이콘: 크기에 맞춘 파일(윈도우 16 · 맥 18, 고해상도 화면은 @2x 를 저절로 씀) → 크게 보이거나 흐려지지 않음
+  const img = nativeImage.createFromPath(path.join(__dirname, 'build', isMac ? 'tray-mac.png' : 'tray.png'))
   tray = new Tray(img)
   tray.setToolTip('WKLY 인트라넷')
   tray.on('click', () => showWindow())
@@ -294,6 +295,8 @@ function setupUpdates() {
     powerMonitor.on('resume', () => setTimeout(checkMacUpdate, 15_000))
     return
   }
+  // 최신 릴리스 파일 주소를 바로 봄 (GitHub 목록 · API 를 거치지 않아 회사망 · 요청 한도에도 안정적)
+  autoUpdater.setFeedURL({ provider: 'generic', url: `https://github.com/wkly2go/wkly-instagram-images/releases/latest/download` })
   autoUpdater.autoDownload = true
   autoUpdater.autoInstallOnAppQuit = true
   autoUpdater.on('update-downloaded', info => {

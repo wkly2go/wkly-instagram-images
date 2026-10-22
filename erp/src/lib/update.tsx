@@ -80,7 +80,7 @@ export function UpdateBanner() {
     return (
       <div className="update-bar" role="status">
         <span>
-          PC 프로그램이 예전 버전({outdated})입니다. 최신 {__DESKTOP_VERSION__}은 작업 표시줄 오른쪽 아래(맥은 위 메뉴 막대) 아이콘 → <b>종료</b> 뒤 다시 실행하면 설치됩니다.
+          PC 프로그램 새 버전 {__DESKTOP_VERSION__}을 자동으로 받는 중입니다 (지금 {outdated}). 다 받으면 잠시 손을 뗄 때 저절로 설치돼요 — 다시 설치하실 필요 없습니다.
         </span>
         <a href="/download" style={{ color: 'inherit' }}>
           안 되면 내려받기

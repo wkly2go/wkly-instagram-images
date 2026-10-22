@@ -1,7 +1,7 @@
 {
   "name": "wkly-intranet",
   "productName": "WKLY Intranet",
-  "version": "1.23.0",
+  "version": "1.24.0",
   "description": "THE WKLY 사내 인트라넷 PC 프로그램",
   "author": "THE WKLY <info@thewklyn.com>",
   "homepage": "https://wkly-erp.pages.dev",
@@ -32,8 +32,11 @@
       "preload.js",
       "offline.html",
       "build/icon.png",
+      "build/icon.ico",
       "build/tray.png",
-      "build/tray@2x.png"
+      "build/tray@2x.png",
+      "build/tray-mac.png",
+      "build/tray-mac@2x.png"
     ],
     "win": {
       "target": [
@@ -44,7 +47,7 @@
           ]
         }
       ],
-      "icon": "build/icon.png",
+      "icon": "build/icon.ico",
       "artifactName": "WKLY-Intranet-Setup.${ext}"
     },
     "nsis": {
@@ -70,7 +73,7 @@
           ]
         }
       ],
-      "icon": "build/icon.png",
+      "icon": "build/icon-mac.png",
       "category": "public.app-category.business",
       "identity": "-",
       "hardenedRuntime": false,
