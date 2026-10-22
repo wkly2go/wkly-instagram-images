@@ -350,7 +350,10 @@ export function createSupabaseApi(url: string, key: string): Api {
       const { data: u } = await sb.auth.getUser()
       if (!u.user) throw new ApiError('로그인이 필요합니다.')
       if (audio.size > 200 * 1024 * 1024) throw new ApiError('녹음은 200MB 까지 올릴 수 있습니다.')
-      const mime = (audio.type || 'audio/webm').split(';')[0]
+      // 받아쓰기 텍스트(.txt · .md)도 받음 (회의록 AI v3: 클로바노트 텍스트 → 회의록). 종류가 비어 있으면 이름으로 판단
+      const isText = /\.(txt|md)$/i.test(meta.filename ?? '') || audio.type.startsWith('text/')
+      if (isText && audio.size > 5 * 1024 * 1024) throw new ApiError('받아쓰기 텍스트는 5MB 까지 올릴 수 있습니다.')
+      const mime = isText ? (/\.md$/i.test(meta.filename ?? '') ? 'text/markdown' : 'text/plain') : (audio.type || 'audio/webm').split(';')[0]
       const ext = meta.filename?.match(/\.[A-Za-z0-9]{2,5}$/)?.[0]?.toLowerCase() ?? (mime.includes('mp4') || mime.includes('m4a') ? '.m4a' : mime.includes('mpeg') ? '.mp3' : mime.includes('wav') ? '.wav' : '.webm')
       const path = `${u.user.id}/${crypto.randomUUID()}${ext}`
       const up = await sb.storage.from('meeting-audio').upload(path, audio, { contentType: mime, upsert: false })
