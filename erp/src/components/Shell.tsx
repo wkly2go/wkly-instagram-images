@@ -232,8 +232,8 @@ function ProfilePanel({ summary, active }: { summary: Summary; active: TabKey })
   return (
     <aside className="profile" aria-label="내 프로필">
       <PhotoBox />
-      <SideNav active={active} summary={summary} />
       <MiniCalendar />
+      <SideNav active={active} summary={summary} />
       <div className="row" style={{ alignItems: 'baseline', gap: 6 }}>
         <span className="t-bodyb">{me.name}</span>
         {me.title && <span className="t-cap">{me.title}</span>}

@@ -1916,3 +1916,25 @@ svg text[font-size="12"] { font-size: var(--fs-sm); }
   .profile .side-item { padding: 4px 10px; border: 1px solid var(--blue-tint); }
   .profile .new-menu { flex-basis: 100%; }
 }
+
+/* 오른쪽 주간 일정표 (검색 안 할 때 · 2026-10-23) */
+.week-panel { display: flex; flex-direction: column; gap: 8px; min-height: 0; flex: 1; overflow: auto; }
+.week-panel-head { display: flex; align-items: center; gap: 6px; padding-bottom: 6px; border-bottom: 1px dashed var(--line); }
+.week-days { display: flex; flex-direction: column; gap: 6px; }
+.week-day { background: var(--white); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; display: flex; flex-direction: column; gap: 3px; }
+.week-day.today { border: 1.5px solid var(--blue); background: var(--yellow-tint); }
+.week-day-h { display: flex; align-items: center; gap: 6px; }
+.week-day-h .wd { font-weight: 900; color: var(--blue); font-size: var(--fs-sm); }
+.week-day.weekend .wd { color: var(--red); }
+.week-day-h .dd { font: 700 var(--fs-cap) var(--mono); color: var(--gray); }
+.week-day.today .week-day-h .dd { background: var(--blue); color: var(--white); border-radius: 999px; padding: 0 7px; }
+.week-empty { padding-left: 2px; opacity: .7; }
+.week-item { display: flex; align-items: baseline; gap: 6px; text-align: left; border: 0; border-left: 3px solid var(--blue); background: var(--blue-tint); border-radius: 4px; padding: 3px 7px; font: inherit; font-size: var(--fs-sm); color: var(--blue); cursor: pointer; min-width: 0; }
+.week-item > .truncate { flex: 1; min-width: 0; }
+.week-item .t-meta { flex-shrink: 0; max-width: 45%; }
+.week-item.late { border-left-color: var(--red); background: #ffe9ea; color: var(--red); }
+.week-item.done { border-left-color: var(--green); background: var(--paper); color: var(--gray); text-decoration: line-through; }
+.week-item.event { border-left-color: var(--pink); background: #ffeaf8; }
+.week-item.proj { border-left-color: var(--yellow); background: var(--yellow-tint); }
+.week-panel, .week-days, .week-day { flex: none; height: auto; min-height: 0; }
+.week-panel { flex: 1 1 auto; }

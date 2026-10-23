@@ -49,6 +49,11 @@ export default function Home() {
 
   return (
     <Shell active="home">
+      {/* 월별 일정표를 맨 위에 (대표 지시 2026-10-23) */}
+      <section className="section" aria-label="월별 일정표">
+        <SectionHead title="월별 일정표" right={<Link to="/projects?view=calendar">크게 보기 ›</Link>} />
+        <MonthCalendar projects={data.projects} tasks={data.tasks} />
+      </section>
       <CheckInCard />
       <InstallCard />
       <PushSetupCard />
@@ -141,10 +146,6 @@ export default function Home() {
 
       <TeamShout shouts={data.shouts} roomId={data.rooms.find(r => r.name === '전체')?.id} />
 
-      <section className="section" aria-label="월별 일정표">
-        <SectionHead title="월별 일정표" right={<Link to="/projects?view=calendar">크게 보기 ›</Link>} />
-        <MonthCalendar projects={data.projects} tasks={data.tasks} />
-      </section>
     </Shell>
   )
 }
