@@ -1,3 +1,4 @@
+import { WeekPanel } from './WeekPanel'
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { createPortal } from 'react-dom'
 import { ChevronLeft, ChevronRight, ExternalLink, PanelRightClose, PanelRightOpen, Search, X } from 'lucide-react'
@@ -228,14 +229,8 @@ const readHidden = () => {
     return false
   }
 }
-let openState: OpenState = (() => {
-  if (readHidden()) return null
-  try {
-    return (JSON.parse(sessionStorage.getItem(OPEN_KEY) ?? 'null') as OpenState) ?? DOCKED
-  } catch {
-    return DOCKED
-  }
-})()
+// 처음 열 때는 오른쪽에 주간 일정표 (예전 검색 화면은 되살리지 않음 · 2026-10-23)
+let openState: OpenState = readHidden() ? null : DOCKED
 const openListeners = new Set<() => void>()
 function setOpenState(v: OpenState) {
   openState = v
@@ -613,6 +608,11 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
             </button>
           ))}
         </div>
+        {q && (
+          <button type="button" className="chip week-back" onClick={onClose} title="검색을 닫고 주간 일정표로 (Esc)">
+            주간 일정표
+          </button>
+        )}
         <button type="button" className="icon-btn sm" onClick={() => (native ? app!.searchNav?.('external') : window.open(urlFor(engine, q), '_blank', 'noopener'))} aria-label="브라우저로 열기" title="브라우저로 열기">
           <ExternalLink size={13} />
         </button>
@@ -623,7 +623,7 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
           <X size={14} />
         </button>
       </div>
-      <div className="web-sites" role="group" aria-label="업무 사이트만 검색">
+      {q && <div className="web-sites" role="group" aria-label="업무 사이트만 검색">
         <div className="web-tabs" role="tablist">
           {(Object.keys(SITE_GROUPS) as SiteGroup[]).filter(k => k !== 'press').map(k => (
             <button key={k} type="button" role="tab" aria-selected={engine === k} className={`web-tab${shownGroup === k ? ' on' : ''}${sitesOpen === k ? ' open' : ''}`} onClick={() => pickGroup(k)} aria-expanded={sitesOpen === k} title={`업무 사이트만: ${SITE_GROUPS[k].sites.map(x => x.label).join(' · ')}`}>
@@ -631,8 +631,8 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
             </button>
           ))}
         </div>
-      </div>
-      {sitesOpen && (
+      </div>}
+      {q && sitesOpen && (
         <div className="web-sites web-shops" role="tablist" aria-label={`${SITE_GROUPS[sitesOpen].label} 사이트에서 바로 검색`}>
           <div className="web-tabs">
             {SITE_GROUPS[sitesOpen].sites.map(st => (
@@ -647,10 +647,7 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
         </div>
       )}
       {!q ? (
-        <div className="col gap-6 web-note">
-          <span className="t-small">위 검색창에 검색어를 넣고 Enter 를 누르면 이 자리에 결과가 나옵니다.</span>
-          <span className="t-cap">구글 · 이미지 · 네이버 · ChatGPT · Perplexity, 그리고 팝업 · 디자인 · 트렌드 등 업무 사이트만 골라 찾을 수 있습니다.</span>
-        </div>
+        <WeekPanel />
       ) : native ? (
         <>
           <div className="web-native" ref={nativeBox} />
@@ -682,7 +679,7 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
         </div>
       )}
       {err && <span className="t-small t-red">{err}</span>}
-      {(!native || !q) && recent.length > 0 && (
+      {q && !native && recent.length > 0 && (
         <div className="col gap-2">
           <span className="t-cap">최근 검색</span>
           <div className="chips">
@@ -694,7 +691,7 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
           </div>
         </div>
       )}
-      {!native && me.role === 'admin' && <CxSetting cx={cx} />}
+      {q && !native && me.role === 'admin' && <CxSetting cx={cx} />}
     </aside>,
     slot ?? document.body,
   )
