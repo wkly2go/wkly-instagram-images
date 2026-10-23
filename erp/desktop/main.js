@@ -171,10 +171,18 @@ function webPrefs() {
 function wireContents(contents) {
   contents.setWindowOpenHandler(({ url }) => {
     if (sameOrigin(url)) {
-      return { action: 'allow', overrideBrowserWindowOptions: { icon: ICON, autoHideMenuBar: true, webPreferences: webPrefs() } }
+      // 빠른 창(/quick)은 늘 다른 창 위에 (대표 지시 2026-10-23 "빠른 창이 항상 위에")
+      const quick = isQuick(url)
+      return { action: 'allow', overrideBrowserWindowOptions: { icon: ICON, autoHideMenuBar: true, alwaysOnTop: quick, webPreferences: webPrefs() } }
     }
     if (/^https?:|^mailto:|^webcal:/.test(url)) shell.openExternal(url)
     return { action: 'deny' }
+  })
+  contents.on('did-create-window', (w, { url }) => {
+    if (!isQuick(url)) return
+    w.setAlwaysOnTop(true, 'floating')
+    // 맥: 다른 데스크톱 · 전체 화면 앱 위에서도 보이게
+    if (isMac) w.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
   })
   contents.on('will-navigate', (e, url) => {
     if (!sameOrigin(url) && !url.startsWith('file:')) {
@@ -188,6 +196,14 @@ let creatingSearch = false // 검색 창은 외부 사이트를 그 안에서 �
 app.on('web-contents-created', (_e, contents) => {
   if (contents.getType() === 'window' && !creatingSearch) wireContents(contents)
 })
+
+function isQuick(url) {
+  try {
+    return sameOrigin(url) && new URL(url).pathname === '/quick'
+  } catch {
+    return false
+  }
+}
 
 function sameOrigin(url) {
   try {
