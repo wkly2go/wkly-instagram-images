@@ -395,7 +395,8 @@ function MiniCalendar({ data }: { data: Data }) {
       </div>
       <div className="dashed" />
       <span className="t-smallb">{sel ? dateLabel(sel) : '이번 주 일정'}</span>
-      {listDays.flatMap(d =>
+      {/* 최신 날짜가 위로 (대표 지시 2026-10-23) */}
+      {[...listDays].reverse().flatMap(d =>
         (events.get(d) ?? []).map((e, j) => (
           <Link key={`${d}-${j}`} to={e.to} className="row t-cap mini-cal-ev" title={e.label}>
             <span className={`t-meta nowrap ${e.red ? 't-red' : ''}`}>
