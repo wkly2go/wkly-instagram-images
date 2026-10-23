@@ -143,6 +143,12 @@ export default function Approvals() {
   const selectedId = query.get('id')
   const [creating, setCreating] = useState(false)
   const [minutes, setMinutes] = useState(false)
+  // 왼쪽 '+ 새로 만들기' 에서 들어오면 바로 쓰기 창
+  useEffect(() => {
+    if (query.get('new') !== '1') return
+    setCreating(true)
+    navigate(withQuery(path, query, { new: null }), { replace: true })
+  }, [query, path, navigate])
   const { data, loading } = useAsync(() => api.listApprovals(), [version], [] as Approval[])
 
   const todo = data.filter(a => a.status === '대기' && a.can_decide && (a.requested_by !== me.id || me.role === 'admin'))

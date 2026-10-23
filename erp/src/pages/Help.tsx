@@ -12,7 +12,7 @@ export default function Help() {
   return (
     <Shell active="team">
       <SectionHead title="사용법" right={<Link to="/team">‹ 팀으로</Link>} />
-      <div className="note">업무 기록 · 승인 · 프로젝트를 한곳에서 관리하는 사내 인트라넷입니다. 오른쪽 세로 탭이 메뉴이고, 휴대폰에서는 위쪽 가로 탭입니다.</div>
+      <div className="note">업무 기록 · 승인 · 프로젝트를 한곳에서 관리하는 사내 인트라넷입니다. 왼쪽 사진 아래가 메뉴(숫자 = 처리할 것)이고, 맨 위 '+ 새로 만들기'로 할 일 · 결재 · 프로젝트를 바로 만듭니다. 휴대폰은 아래 메뉴입니다.</div>
 
       <Part title="처음 로그인했을 때">
         <Step n={1}>관리자에게 받은 회사 이메일과 임시 비밀번호로 로그인합니다.</Step>

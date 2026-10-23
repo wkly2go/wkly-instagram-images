@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type KeyboardEvent, type MouseEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react'
 import { ArrowLeft, ArrowRight, ArrowUp, ChevronDown, ChevronRight, Clipboard, Copy, Download, ExternalLink, FileText, FolderPlus, Folder, FolderOpen, HardDrive, LayoutGrid, Link2, List, Pencil, RefreshCw, Scissors, Search, Star, Clock, Users, Trash2, Upload } from 'lucide-react'
 import { useApp } from '../lib/app'
 import { copyInto, driveApi, DriveAuthError, editUrl, FOLDER_MIME, LIST_FIELDS, listChildren, moveFile, newFolder, renameFile, trashFile, uploadToDrive, YEAR_RE, type GFile } from '../lib/gdrive'
+import type { DriveIndexFile } from '../lib/types'
 import { openLink } from './WebSearch'
 import { ask } from './Ask'
 
@@ -14,7 +15,7 @@ import { ask } from './Ask'
  *  - 20초마다 · 창으로 돌아올 때 저절로 새로 고침 (다른 사람이 바꾼 것도 바로 보임)
  *  - 안전 규칙 (대표 지시 2026-10-21): 기존 드라이브 자료는 열기 · 복사만. 만들기 · 이름 바꾸기 · 옮기기 · 삭제는 인트라넷 '#연도' 폴더 안에서만
  */
-type Kind = 'folder' | 'my' | 'shared' | 'recent' | 'starred' | 'drives' | 'search'
+type Kind = 'folder' | 'my' | 'shared' | 'recent' | 'starred' | 'drives' | 'search' | 'idx'
 export interface Loc {
   kind: Kind
   id?: string
@@ -77,6 +78,99 @@ export function useExplorerToken(browserToken: string | null): { token: string |
   return { token: browserToken ?? server?.token ?? null, server: !browserToken && !!server, refresh: () => setN(v => v + 1), checked }
 }
 
+/**
+ * 탐색기 자료 출처 (2026-10-23 "구글 드라이브는 윈도우 폴더처럼")
+ *  - google: 구글 드라이브 API (토큰 있을 때, 바로 고치기 · 복사 · 올리기)
+ *  - index: 구글 연결 전에도 보이게, 서버가 5분마다 모은 프로젝트 폴더 목록(drive_index) + 프로젝트 · 회사 폴더 주소 (열기 · 링크만)
+ */
+export interface ExSource {
+  readOnly: boolean
+  roots: { loc: Loc; icon: typeof HardDrive; expandable?: boolean }[]
+  list(loc: Loc): Promise<GFile[]>
+  folders(loc: Loc): Promise<GFile[]>
+  /** 비어 있을 때 안내 · 드라이브에서 열 주소 */
+  emptyHint?(loc: Loc): { text: string; url?: string | null } | null
+}
+
+export interface IndexData {
+  projects: { id: string; code: string | null; name: string; division: string; divisionName: string; url: string | null; status: string }[]
+  files: DriveIndexFile[]
+  company: { name: string; url: string }[]
+  year: string
+}
+
+const asG = (f: DriveIndexFile): GFile => ({
+  id: f.id,
+  name: f.name,
+  mimeType: f.mime_type ?? 'application/octet-stream',
+  webViewLink: f.url ?? undefined,
+  iconLink: f.icon_url ?? undefined,
+  modifiedTime: f.modified_at ?? undefined,
+  size: f.size != null ? String(f.size) : undefined,
+})
+const vfolder = (id: string, name: string, url?: string | null, modified?: string): GFile => ({ id, name, mimeType: FOLDER_MIME, webViewLink: url ?? undefined, modifiedTime: modified })
+
+export function indexSource(d: IndexData): ExSource {
+  const live = d.projects.filter(p => p.status !== '완료' && p.status !== '보류')
+  const divs = [...new Map(live.map(p => [p.division, p.divisionName])).entries()]
+  const latest = (pid: string) => d.files.filter(f => f.project_id === pid).reduce((m, f) => (f.modified_at && f.modified_at > m ? f.modified_at : m), '')
+  const list = async (loc: Loc): Promise<GFile[]> => {
+    const id = loc.id ?? ''
+    if (id === 'year') return divs.map(([k, n]) => vfolder(`div:${k}`, `#${k === 'TW' ? 'WKLY' : k === 'AR' ? 'ARTERIOR' : k}_${d.year} · ${n}`))
+    if (id.startsWith('div:')) return live.filter(p => p.division === id.slice(4)).map(p => vfolder(`proj:${p.id}`, `${p.code ? `${p.code}_` : ''}${p.name}`, p.url, latest(p.id) || undefined))
+    if (id.startsWith('proj:')) {
+      const pid = id.slice(5)
+      return d.files.filter(f => f.project_id === pid && (!f.parent_id || !d.files.some(x => x.id === f.parent_id))).map(asG)
+    }
+    if (id === 'company') return d.company.map((c, i) => vfolder(`co:${i}`, c.name, c.url))
+    if (id === 'recent') return d.files.filter(f => f.mime_type !== FOLDER_MIME).slice(0, 80).map(asG)
+    if (loc.kind === 'search') {
+      const k = loc.name.toLowerCase()
+      return [...d.projects.filter(p => `${p.code ?? ''} ${p.name}`.toLowerCase().includes(k)).map(p => vfolder(`proj:${p.id}`, `${p.code ? `${p.code}_` : ''}${p.name}`, p.url)), ...d.files.filter(f => f.name.toLowerCase().includes(k)).slice(0, 200).map(asG)]
+    }
+    return d.files.filter(f => f.parent_id === id).map(asG)
+  }
+  return {
+    readOnly: true,
+    roots: [
+      { loc: { kind: 'idx', id: 'year', name: `#${d.year} 프로젝트` }, icon: FolderOpen, expandable: true },
+      { loc: { kind: 'idx', id: 'recent', name: '최근 바뀐 파일' }, icon: Clock },
+      { loc: { kind: 'idx', id: 'company', name: '회사 공용 폴더' }, icon: Star, expandable: true },
+    ],
+    list,
+    folders: async loc => (await list(loc)).filter(f => f.mimeType === FOLDER_MIME),
+    emptyHint: loc => {
+      const id = loc.id ?? ''
+      const url = id.startsWith('proj:') ? d.projects.find(p => p.id === id.slice(5))?.url : id.startsWith('co:') ? d.company[Number(id.slice(3))]?.url : null
+      if (id.startsWith('proj:') || id.startsWith('co:'))
+        return { text: '아직 이 폴더 목록이 모이지 않았습니다. 회사 구글 계정을 연결하면 5분 안에 여기 보이고, 바로 고치기 · 복사 · 올리기가 됩니다.', url }
+      return null
+    },
+  }
+}
+
+function googleSource(token: string): ExSource {
+  return {
+    readOnly: false,
+    roots: ROOTS.map(r => ({ ...r, expandable: r.loc.kind === 'my' })),
+    list: async loc => {
+      if (loc.kind === 'folder' || loc.kind === 'my') return listChildren(token, loc.id ?? 'root', { driveId: loc.driveId })
+      if (loc.kind === 'drives') {
+        const r = await driveApi<{ drives?: { id: string; name: string }[] }>(token, 'drives?pageSize=100&fields=drives(id,name)')
+        return (r.drives ?? []).map(d => ({ id: d.id, name: d.name, mimeType: 'drive' }))
+      }
+      const p = new URLSearchParams({ pageSize: '300', supportsAllDrives: 'true', includeItemsFromAllDrives: 'true', corpora: 'allDrives', fields: `files(${LIST_FIELDS})` })
+      if (loc.kind === 'shared') (p.set('q', 'sharedWithMe and trashed = false'), p.delete('corpora'), p.delete('includeItemsFromAllDrives'))
+      else if (loc.kind === 'recent') (p.set('q', `trashed = false and mimeType != '${FOLDER_MIME}'`), p.set('orderBy', 'modifiedTime desc'), p.set('pageSize', '80'))
+      else if (loc.kind === 'starred') p.set('q', 'starred and trashed = false')
+      else p.set('q', `name contains '${esc(loc.name)}' and trashed = false`)
+      const r = await driveApi<{ files?: GFile[] }>(token, `files?${p}`)
+      return r.files ?? []
+    },
+    folders: loc => listChildren(token, loc.id ?? 'root', { foldersOnly: true, driveId: loc.driveId }),
+  }
+}
+
 // 클립보드는 화면을 옮겨도 남게 (윈도우처럼)
 let clip: { mode: 'copy' | 'cut'; items: GFile[]; from: string } | null = null
 
@@ -88,9 +182,11 @@ const ROOTS: { loc: Loc; icon: typeof HardDrive }[] = [
   { loc: { kind: 'drives', name: '공유 드라이브' }, icon: HardDrive },
 ]
 
-export function DriveExplorer({ token, companyFolders, start, onOpenDoc, onAuthError }: { token: string; companyFolders: { name: string; id: string }[]; start?: Loc | null; onOpenDoc: (url: string) => void; onAuthError?: () => void }) {
+export function DriveExplorer({ token, source, companyFolders, start, onOpenDoc, onAuthError, banner }: { token: string | null; source?: ExSource; companyFolders: { name: string; id: string }[]; start?: Loc | null; onOpenDoc: (url: string) => void; onAuthError?: () => void; banner?: ReactNode }) {
   const { toast } = useApp()
-  const [path, setPath] = useState<Loc[]>(() => [start ?? ROOTS[0].loc])
+  const tk = token ?? ''
+  const src = useMemo(() => source ?? googleSource(tk), [source, tk])
+  const [path, setPath] = useState<Loc[]>(() => [start ?? src.roots[0].loc])
   const [back, setBack] = useState<Loc[][]>([])
   const [fwd, setFwd] = useState<Loc[][]>([])
   const [items, setItems] = useState<GFile[]>([])
@@ -116,8 +212,8 @@ export function DriveExplorer({ token, companyFolders, start, onOpenDoc, onAuthE
   const box = useRef<HTMLDivElement>(null)
   const upload = useRef<HTMLInputElement>(null)
   // 인트라넷 '#연도' 폴더 안인지 (만들기 · 고치기 · 옮기기 · 삭제는 여기서만)
-  const editable = here.kind === 'folder' && path.some(l => l.kind === 'folder' && YEAR_RE.test(l.name))
-  const editableIn = (p: Loc[]) => p[p.length - 1]?.kind === 'folder' && p.some(l => l.kind === 'folder' && YEAR_RE.test(l.name))
+  const editable = !src.readOnly && here.kind === 'folder' && path.some(l => l.kind === 'folder' && YEAR_RE.test(l.name))
+  const editableIn = (p: Loc[]) => !src.readOnly && p[p.length - 1]?.kind === 'folder' && p.some(l => l.kind === 'folder' && YEAR_RE.test(l.name))
 
   const fail = useCallback(
     (e: unknown) => {
@@ -129,23 +225,7 @@ export function DriveExplorer({ token, companyFolders, start, onOpenDoc, onAuthE
     [onAuthError, toast],
   )
 
-  const fetchList = useCallback(
-    async (loc: Loc): Promise<GFile[]> => {
-      if (loc.kind === 'folder' || loc.kind === 'my') return listChildren(token, loc.id ?? 'root', { driveId: loc.driveId })
-      if (loc.kind === 'drives') {
-        const r = await driveApi<{ drives?: { id: string; name: string }[] }>(token, 'drives?pageSize=100&fields=drives(id,name)')
-        return (r.drives ?? []).map(d => ({ id: d.id, name: d.name, mimeType: 'drive' }))
-      }
-      const p = new URLSearchParams({ pageSize: '300', supportsAllDrives: 'true', includeItemsFromAllDrives: 'true', corpora: 'allDrives', fields: `files(${LIST_FIELDS})` })
-      if (loc.kind === 'shared') (p.set('q', 'sharedWithMe and trashed = false'), p.delete('corpora'), p.delete('includeItemsFromAllDrives'))
-      else if (loc.kind === 'recent') (p.set('q', `trashed = false and mimeType != '${FOLDER_MIME}'`), p.set('orderBy', 'modifiedTime desc'), p.set('pageSize', '80'))
-      else if (loc.kind === 'starred') p.set('q', 'starred and trashed = false')
-      else p.set('q', `name contains '${esc(loc.name)}' and trashed = false`)
-      const r = await driveApi<{ files?: GFile[] }>(token, `files?${p}`)
-      return r.files ?? []
-    },
-    [token],
-  )
+  const fetchList = useCallback((loc: Loc) => src.list(loc), [src])
   const load = useCallback(
     async (quiet = false) => {
       if (!quiet) setLoading(true)
@@ -197,6 +277,11 @@ export function DriveExplorer({ token, companyFolders, start, onOpenDoc, onAuthE
   const selected = sorted.filter(f => sel.has(f.id))
 
   const open = (f: GFile) => {
+    if (here.kind === 'idx' || (src.readOnly && here.kind === 'search')) {
+      if (isFolder(f)) return go([...(here.kind === 'idx' ? path : [here]), { kind: 'idx', id: f.id, name: f.name }])
+      if (f.webViewLink) onOpenDoc(isGoogleDoc(f.mimeType) ? editUrl(f.webViewLink) : f.webViewLink)
+      return
+    }
     if (f.mimeType === 'drive') return go([...path, { kind: 'folder', id: f.id, name: f.name, driveId: f.id }])
     if (isFolder(f)) return go([...(here.kind === 'folder' || here.kind === 'my' ? path : [here]), { kind: 'folder', id: targetId(f), name: f.name, driveId: here.driveId }])
     if (f.webViewLink) onOpenDoc(isGoogleDoc(f.mimeType) ? editUrl(f.webViewLink) : f.webViewLink)
@@ -257,10 +342,10 @@ export function DriveExplorer({ token, companyFolders, start, onOpenDoc, onAuthE
         for (const f of c.items) {
           if (c.mode === 'cut') {
             if (c.from === dest) continue
-            await moveFile(token, f.id, c.from, dest)
+            await moveFile(tk, f.id, c.from, dest)
           } else {
             const exists = items.some(x => x.name === f.name)
-            await copyInto(token, f, dest, exists ? `${f.name} - 복사본` : f.name)
+            await copyInto(tk, f, dest, exists ? `${f.name} - 복사본` : f.name)
           }
         }
         if (c.mode === 'cut') clip = null
@@ -273,7 +358,7 @@ export function DriveExplorer({ token, companyFolders, start, onOpenDoc, onAuthE
     if (!(await ask(`${selected.length === 1 ? `'${selected[0].name}'을(를)` : `${selected.length}개 항목을`} 삭제할까요?\n구글 드라이브 휴지통으로 옮겨지며 30일 안에 되살릴 수 있습니다.`))) return
     const list = selected
     void work('삭제하는 중', async () => {
-      for (const f of list) await trashFile(token, f.id)
+      for (const f of list) await trashFile(tk, f.id)
     }, '휴지통으로 옮겼습니다.')
   }
   const startRename = () => {
@@ -285,7 +370,7 @@ export function DriveExplorer({ token, companyFolders, start, onOpenDoc, onAuthE
     const v = name.trim()
     if (!v || v === f.name) return
     setItems(list => list.map(x => (x.id === f.id ? { ...x, name: v } : x)))
-    void work('이름 바꾸는 중', () => renameFile(token, f.id, v).then(() => undefined))
+    void work('이름 바꾸는 중', () => renameFile(tk, f.id, v).then(() => undefined))
   }
   const makeFolder = async () => {
     if (!guard('새 폴더')) return
@@ -293,7 +378,7 @@ export function DriveExplorer({ token, companyFolders, start, onOpenDoc, onAuthE
     for (let i = 2; items.some(x => x.name === name); i++) name = `새 폴더 (${i})`
     setBusy('폴더 만드는 중')
     try {
-      const f = await newFolder(token, name, here.id!)
+      const f = await newFolder(tk, name, here.id!)
       setItems(list => [...list, f])
       setSel(new Set([f.id]))
       setRenaming(f.id)
@@ -306,7 +391,7 @@ export function DriveExplorer({ token, companyFolders, start, onOpenDoc, onAuthE
   const uploadFiles = (files: File[]) => {
     if (!files.length || !guard('파일 올리기')) return
     void work(`${files.length}개 올리는 중`, async () => {
-      for (const file of files) await uploadToDrive(token, file, here.id!)
+      for (const file of files) await uploadToDrive(tk, file, here.id!)
     }, `${files.length}개를 올렸습니다.`)
   }
   const moveTo = (ids: string[], dest: GFile | Loc, destPath: Loc[]) => {
@@ -315,7 +400,7 @@ export function DriveExplorer({ token, companyFolders, start, onOpenDoc, onAuthE
     const list = items.filter(f => ids.includes(f.id) && f.id !== destId)
     if (!list.length) return
     void work('옮기는 중', async () => {
-      for (const f of list) await moveFile(token, f.id, here.id!, destId)
+      for (const f of list) await moveFile(tk, f.id, here.id!, destId)
     }, `${list.length}개를 '${dest.name}'(으)로 옮겼습니다.`)
   }
   const copyLink = (f: GFile) => {
@@ -471,23 +556,23 @@ export function DriveExplorer({ token, companyFolders, start, onOpenDoc, onAuthE
         <input ref={upload} type="file" multiple hidden onChange={e => (uploadFiles([...(e.target.files ?? [])]), (e.target.value = ''))} />
         <span className="ex-sep" />
         <button type="button" className="ex-tool" onClick={() => copySel('cut')} disabled={!selected.length || !editable} title="잘라내기 (Ctrl+X)">
-          <Scissors size={14} />
+          <Scissors size={14} /> 잘라내기
         </button>
         <button type="button" className="ex-tool" onClick={() => copySel('copy')} disabled={!selected.length} title="복사 (Ctrl+C)">
-          <Copy size={14} />
+          <Copy size={14} /> 복사
         </button>
         <button type="button" className="ex-tool" onClick={paste} disabled={!clip || !editable} title="붙여넣기 (Ctrl+V)">
-          <Clipboard size={14} />
+          <Clipboard size={14} /> 붙여넣기
         </button>
         <button type="button" className="ex-tool" onClick={startRename} disabled={selected.length !== 1 || !editable} title="이름 바꾸기 (F2)">
-          <Pencil size={14} />
+          <Pencil size={14} /> 이름 바꾸기
         </button>
         <button type="button" className="ex-tool" onClick={() => void remove()} disabled={!selected.length || !editable} title="삭제 (Delete)">
-          <Trash2 size={14} />
+          <Trash2 size={14} /> 삭제
         </button>
         <span className="grow" />
         {busy && <span className="t-cap">{busy}…</span>}
-        {!editable && here.kind === 'folder' && <span className="t-cap ex-ro">읽기 · 복사만 (기존 자료)</span>}
+        {src.readOnly ? <span className="t-cap ex-ro">보기 전용 · 열기 · 링크</span> : !editable && here.kind === 'folder' && <span className="t-cap ex-ro">읽기 · 복사만 (기존 자료)</span>}
         <button type="button" className={`icon-btn sm${view === 'grid' ? ' on' : ''}`} onClick={() => setV('grid')} aria-label="큰 아이콘" title="큰 아이콘">
           <LayoutGrid size={14} />
         </button>
@@ -495,16 +580,19 @@ export function DriveExplorer({ token, companyFolders, start, onOpenDoc, onAuthE
           <List size={14} />
         </button>
       </div>
+      {banner}
       <div className="ex-body">
         <nav className="ex-tree" aria-label="폴더">
-          {ROOTS.map(r => (
-            <TreeNode key={r.loc.name} token={token} loc={r.loc} icon={r.icon} path={[r.loc]} current={path} onPick={go} expandable={r.loc.kind === 'my'} onDropItems={(ids, p) => moveTo(ids, p[p.length - 1], p)} />
+          <div className="ex-tree-head">{src.readOnly ? '회사 드라이브' : '구글 드라이브'}</div>
+          {src.roots.map(r => (
+            <TreeNode key={r.loc.name} src={src} loc={r.loc} icon={r.icon} path={[r.loc]} current={path} onPick={go} expandable={!!r.expandable} onDropItems={(ids, p) => moveTo(ids, p[p.length - 1], p)} />
           ))}
-          {companyFolders.length > 0 && <div className="ex-tree-head">회사 폴더</div>}
-          {companyFolders.map(f => {
-            const loc: Loc = { kind: 'folder', id: f.id, name: f.name }
-            return <TreeNode key={f.id} token={token} loc={loc} icon={FolderOpen} path={[loc]} current={path} onPick={go} expandable onDropItems={(ids, p) => moveTo(ids, p[p.length - 1], p)} />
-          })}
+          {!src.readOnly && companyFolders.length > 0 && <div className="ex-tree-head">회사 폴더</div>}
+          {!src.readOnly &&
+            companyFolders.map(f => {
+              const loc: Loc = { kind: 'folder', id: f.id, name: f.name }
+              return <TreeNode key={f.id} src={src} loc={loc} icon={FolderOpen} path={[loc]} current={path} onPick={go} expandable onDropItems={(ids, p) => moveTo(ids, p[p.length - 1], p)} />
+            })}
         </nav>
         <div
           ref={box}
@@ -530,7 +618,18 @@ export function DriveExplorer({ token, companyFolders, start, onOpenDoc, onAuthE
               ))}
             </div>
           )}
-          {!loading && !sorted.length && <div className="ex-empty">{editable ? '비어 있습니다. 파일을 끌어다 놓으면 올라갑니다.' : '이 폴더는 비어 있습니다.'}</div>}
+          {!loading && !sorted.length && (
+            <div className="ex-empty">
+              {src.emptyHint?.(here)?.text ?? (editable ? '비어 있습니다. 파일을 끌어다 놓으면 올라갑니다.' : '이 폴더는 비어 있습니다.')}
+              {src.emptyHint?.(here)?.url && (
+                <div style={{ marginTop: 10 }}>
+                  <button type="button" className="btn btn-outline btn-sm" onClick={() => openLink(src.emptyHint!(here)!.url!)}>
+                    구글 드라이브에서 이 폴더 열기
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
           {sorted.map((f, i) => (
             <div
               key={f.id}
@@ -603,7 +702,7 @@ export function DriveExplorer({ token, companyFolders, start, onOpenDoc, onAuthE
         {clip && <span>{clip.mode === 'cut' ? '잘라낸' : '복사한'} 항목 {clip.items.length}개 · 붙여넣기 대기</span>}
         <span className="grow" />
         {err && <span className="t-red">{err}</span>}
-        <span>20초마다 저절로 새로 고침</span>
+        <span>{src.readOnly ? '5분마다 서버가 모은 목록' : '20초마다 저절로 새로 고침'}</span>
       </div>
     </div>
   )
@@ -620,7 +719,7 @@ function MenuItem({ icon: Icon, label, hint, disabled, onClick }: { icon: typeof
 }
 
 /** 왼쪽 폴더 트리 (펼칠 때 하위 폴더를 불러옴) */
-function TreeNode({ token, loc, icon: Icon, path, current, onPick, expandable, onDropItems, depth = 0 }: { token: string; loc: Loc; icon: typeof Folder; path: Loc[]; current: Loc[]; onPick: (p: Loc[]) => void; expandable?: boolean; onDropItems: (ids: string[], p: Loc[]) => void; depth?: number }) {
+function TreeNode({ src, loc, icon: Icon, path, current, onPick, expandable, onDropItems, depth = 0 }: { src: ExSource; loc: Loc; icon: typeof Folder; path: Loc[]; current: Loc[]; onPick: (p: Loc[]) => void; expandable?: boolean; onDropItems: (ids: string[], p: Loc[]) => void; depth?: number }) {
   const [open, setOpen] = useState(false)
   const [kids, setKids] = useState<GFile[] | null>(null)
   const [over, setOver] = useState(false)
@@ -632,10 +731,11 @@ function TreeNode({ token, loc, icon: Icon, path, current, onPick, expandable, o
   }, [onPath, expandable])
   useEffect(() => {
     if (!open || kids || !expandable) return
-    listChildren(token, loc.id ?? 'root', { foldersOnly: true, driveId: loc.driveId })
+    src
+      .folders(loc)
       .then(setKids)
       .catch(() => setKids([]))
-  }, [open, kids, expandable, token, loc])
+  }, [open, kids, expandable, src, loc])
   return (
     <div>
       <div
@@ -664,8 +764,8 @@ function TreeNode({ token, loc, icon: Icon, path, current, onPick, expandable, o
       </div>
       {open &&
         kids?.map(k => {
-          const child: Loc = { kind: 'folder', id: k.shortcutDetails?.targetId ?? k.id, name: k.name, driveId: loc.driveId }
-          return <TreeNode key={k.id} token={token} loc={child} icon={Folder} path={[...path, child]} current={current} onPick={onPick} expandable onDropItems={onDropItems} depth={depth + 1} />
+          const child: Loc = { kind: loc.kind === 'idx' ? 'idx' : 'folder', id: k.shortcutDetails?.targetId ?? k.id, name: k.name, driveId: loc.driveId }
+          return <TreeNode key={k.id} src={src} loc={child} icon={Folder} path={[...path, child]} current={current} onPick={onPick} expandable onDropItems={onDropItems} depth={depth + 1} />
         })}
       {open && kids && !kids.length && depth < 8 && <div className="ex-node empty" style={{ paddingLeft: 30 + depth * 12 }}>(하위 폴더 없음)</div>}
     </div>
