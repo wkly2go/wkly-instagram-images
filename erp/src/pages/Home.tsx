@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { countedUnread } from '../lib/chat'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { dateLabel, dateTimeLabel, relativeLabel, todayKey } from '../lib/date'
 import { Link, useRouter } from '../lib/router'
@@ -43,7 +44,7 @@ export default function Home() {
   const overdue = open.filter(t => t.due_date && t.due_date < today)
   const byKind = (k: string) => data.logs.filter(l => l.kind.startsWith(k)).length
   const count = (s: Project['status']) => data.projects.filter(p => p.status === s).length
-  const unreadRooms = data.rooms.filter(r => r.unread > 0)
+  const unreadRooms = data.rooms.filter(r => countedUnread(r) > 0)
   const report = data.approvals.filter(a => a.kind === '일일 보고').sort((a, b) => b.created_at.localeCompare(a.created_at))[0]
 
   return (
@@ -111,7 +112,7 @@ export default function Home() {
         </button>
         <button type="button" className="stat" style={{ textAlign: 'left', cursor: 'pointer' }} onClick={() => navigate('/chat')}>
           <span className="t-cap">안 읽은 채팅</span>
-          <span className="t-num">{data.rooms.reduce((s, r) => s + r.unread, 0)}</span>
+          <span className="t-num">{data.rooms.reduce((s, r) => s + countedUnread(r), 0)}</span>
           <span className="t-cap">{unreadRooms.length ? `채팅방 ${unreadRooms.length}곳` : '모두 읽음'}</span>
         </button>
       </div>

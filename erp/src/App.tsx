@@ -15,6 +15,7 @@ import Home from './pages/Home'
 import Login from './pages/Login'
 import Quick from './pages/Quick'
 import { playAlert } from './lib/sound'
+import { wantsAlert } from './lib/chat'
 import { accessSource, desktop } from './lib/desktop'
 import { LockScreen, useSessionPolicy } from './lib/session'
 import Download from './pages/Download'
@@ -97,7 +98,7 @@ export default function App() {
     if (!userId) return
     // 남이 보낸 새 메시지면 알림음 (1:1 대화는 내 방 것만 들어옴)
     const offMsg = api.subscribeMessages(null, e => {
-      if (e.type === 'INSERT' && e.message.user_id !== userId) playAlert('chat')
+      if (e.type === 'INSERT' && e.message.user_id !== userId && wantsAlert(e.message, profilesRef.current?.find(p => p.id === userId)?.name ?? '')) playAlert('chat')
       bump()
     })
     const offChanges = api.subscribeChanges(['approvals', 'profiles', 'notifications'], bump)

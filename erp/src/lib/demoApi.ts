@@ -28,6 +28,7 @@ import type {
   ChatMessage,
   ChatRoom,
   ChatRoomSummary,
+  RoomLevel,
   Client,
   Contact,
   EmailTemplate,
@@ -67,6 +68,8 @@ interface Store {
   chat_rooms: ChatRoom[]
   chat_messages: ChatMessage[]
   chat_reads: { user_id: string; room_id: string; last_read_at: string }[]
+  /** 방마다 알림 단계 */
+  chat_prefs?: { user_id: string; room_id: string; level: RoomLevel }[]
   approvals: Approval[]
   /** 결재 기록 (예전 체험 데이터에는 없을 수 있음) */
   approval_activity?: ApprovalActivity[]
@@ -741,6 +744,14 @@ export function createDemoApi(): Api {
         notify(saved.assignee_id, '할 일', `새 할 일 배정 · ${saved.title}`, `${nameOf(self)}님이 배정했어요`, '/projects?view=mine')
         persist()
       }
+      // 서버 tasks_card 와 같게: 프로젝트 할 일은 그 프로젝트 방에 카드로
+      const projRoom = !prev && saved.project_id ? store.chat_rooms.find(r => r.project_id === saved.project_id && !r.members && !r.is_archived) : undefined
+      if (projRoom) {
+        const msg: ChatMessage = { id: ++store.seq + 1000, room_id: projRoom.id, user_id: self, content: `할 일을 만들었어요${saved.assignee_id ? ` · 담당 ${nameOf(saved.assignee_id)}` : ''}`, created_at: now(), edited_at: null, attachment: { card: { kind: 'task', id: saved.id, title: saved.title }, name: saved.title, path: '', size: 0, type: 'card' } }
+        store.chat_messages.push(msg)
+        persist()
+        emit('chat_messages', { type: 'INSERT', message: msg } satisfies MessageEvent)
+      }
       return saved
     },
     async deleteTask(id) {
@@ -878,9 +889,36 @@ export function createDemoApi(): Api {
           const msgs = store.chat_messages.filter(m => m.room_id === r.id).sort((a, b) => a.created_at.localeCompare(b.created_at))
           const last = msgs[msgs.length - 1]
           const read = store.chat_reads.find(x => x.room_id === r.id && x.user_id === self)?.last_read_at ?? ''
-          return { ...r, last_content: last?.content ?? null, last_at: last?.created_at ?? null, last_user_id: last?.user_id ?? null, unread: msgs.filter(m => m.user_id !== self && m.created_at > read).length }
+          const unreadMsgs = msgs.filter(m => m.user_id !== self && m.created_at > read)
+          const myName = store.profiles.find(p => p.id === self)?.name ?? ''
+          const proj = r.project_id ? store.projects.find(p => p.id === r.project_id) : undefined
+          const level: RoomLevel =
+            store.chat_prefs?.find(x => x.room_id === r.id && x.user_id === self)?.level ?? (r.members || !proj ? 'all' : proj.owner_id === self ? 'all' : 'mention')
+          return {
+            ...r,
+            last_content: last?.content ?? null,
+            last_at: last?.created_at ?? null,
+            last_user_id: last?.user_id ?? null,
+            unread: unreadMsgs.length,
+            mentions: myName ? unreadMsgs.filter(m => m.content.includes(`@${myName}`)).length : 0,
+            level,
+            project_status: proj?.status ?? null,
+          }
         })
       return clone(rows.sort((a, b) => (b.last_at ?? b.created_at).localeCompare(a.last_at ?? a.created_at)))
+    },
+    async setRoomLevel(roomId, level) {
+      const self = requireMe()
+      store.chat_prefs = [...(store.chat_prefs ?? []).filter(x => !(x.room_id === roomId && x.user_id === self)), { user_id: self, room_id: roomId, level }]
+      persist()
+      emit('chat_rooms')
+    },
+    async sendCard(roomId, content, card) {
+      const msg: ChatMessage = { id: ++store.seq + 1000, room_id: roomId, user_id: requireMe(), content, created_at: now(), edited_at: null, attachment: { card, name: card.title, path: '', size: 0, type: 'card' } }
+      store.chat_messages.push(msg)
+      persist()
+      emit('chat_messages', { type: 'INSERT', message: msg } satisfies MessageEvent)
+      return clone(msg)
     },
     async createRoom(r) {
       if (store.chat_rooms.some(x => x.name === r.name)) throw new ApiError('이미 같은 이름이 있습니다.')
@@ -1088,6 +1126,14 @@ export function createDemoApi(): Api {
       const title = `${row.kind === '일일 보고' ? '일일 보고 도착' : '승인 요청'} · ${row.title}`
       if (approver) notify(approver, kind, title, nameOf(self), '/approvals')
       else for (const p of adminsExcept(self)) notify(p.id, kind, title, nameOf(self), '/approvals')
+      // 서버 approvals_card 와 같게: 프로젝트 결재는 그 프로젝트 방에 카드로
+      const projId = row.kind === '프로젝트' ? row.target_id : (row.payload?.project_id as string | undefined)
+      const projRoom = projId ? store.chat_rooms.find(r => r.project_id === projId && !r.members && !r.is_archived) : undefined
+      if (projRoom) {
+        const msg: ChatMessage = { id: ++store.seq + 1000, room_id: projRoom.id, user_id: self, content: `결재를 올렸어요 · ${row.kind}`, created_at: now(), edited_at: null, attachment: { card: { kind: 'approval', id: row.id, title: row.title }, name: row.title, path: '', size: 0, type: 'card' } }
+        store.chat_messages.push(msg)
+        emit('chat_messages', { type: 'INSERT', message: msg } satisfies MessageEvent)
+      }
       persist()
       emit('approvals')
       return clone(withCanDecide(row))
