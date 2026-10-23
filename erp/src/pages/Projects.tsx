@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { AlarmClock, ArrowLeft, CheckCircle2, ChevronLeft, ChevronRight, CircleSlash, FolderOpen, Pencil, Search, Trash2 } from 'lucide-react'
+import { AlarmClock, ArrowLeft, Plus, CheckCircle2, ChevronLeft, ChevronRight, CircleSlash, FolderOpen, Pencil, Search, Trash2 } from 'lucide-react'
 import { ProjectMaterials } from '../components/ProjectMaterials'
 import { SiteLogsSection } from '../components/SiteLogs'
 import { ProjectDriveSection, useProjectFolderSync } from '../components/DriveFiles'
@@ -37,6 +37,7 @@ export default function Projects() {
   const status = (query.get('status') as ProjectStatus | 'all' | null) ?? '진행'
   const selectedId = query.get('id')
   const [editing, setEditing] = useState<Project | 'new' | null>(null)
+  const [newDiv, setNewDiv] = useState<Division | null>(null)
   const [assigning, setAssigning] = useState(false)
   const { data, loading } = useAsync<Data>(
     async () => {
@@ -187,6 +188,8 @@ export default function Projects() {
                       <span className="board-count">{rows.length}</span>
                     </div>
                     <ProjectBoard list={rows} data={data} loading={loading} onOpen={id => go({ id })} />
+                    {/* 이 자리에서 바로 만들기 (대표 지시 2026-10-23 "프로젝트를 열어서 바로 생성") */}
+                    <QuickProject division={k} onCreated={id => go({ id })} onMore={() => setNewDiv(k)} />
                   </section>
                 )
               })}
@@ -216,6 +219,7 @@ export default function Projects() {
         <ProjectDashboard projects={data.projects} tasks={data.tasks} clients={data.clients} />
       )}
       {editing && <ProjectForm key={editing === 'new' ? 'new' : editing.id} project={editing === 'new' ? null : editing} clients={data.clients} onClose={() => setEditing(null)} onSaved={id => go({ id })} />}
+      {newDiv && <ProjectForm key={`new-${newDiv}`} project={null} division={newDiv} clients={data.clients} onClose={() => setNewDiv(null)} onSaved={id => go({ id })} />}
       {assigning && <TaskAssignModal projects={data.projects} tasks={data.tasks} onClose={() => setAssigning(false)} />}
     </Shell>
   )
@@ -408,6 +412,52 @@ function MiniCalendar({ data }: { data: Data }) {
       )}
       {listDays.every(d => !(events.get(d) ?? []).length) && <span className="t-cap">일정이 없습니다.</span>}
     </aside>
+  )
+}
+
+/** 그룹 아래 '+ 새 프로젝트' 줄: 이름만 쓰고 Enter → 바로 만들고 열기 (진행 · 담당 나 · 연번 자동) */
+function QuickProject({ division, onCreated, onMore }: { division: Division; onCreated: (id: string) => void; onMore: () => void }) {
+  const { api, me, toast, bump } = useApp()
+  const syncFolder = useProjectFolderSync()
+  const [name, setName] = useState('')
+  const [busy, setBusy] = useState(false)
+  const create = async () => {
+    const v = name.trim()
+    if (!v || busy) return
+    setBusy(true)
+    try {
+      const p = await api.saveProject({ name: v, division, category: division === 'AR' ? '팝업' : '콘텐츠', status: '진행', owner_id: me.id })
+      setName('')
+      bump()
+      toast(`'${v}' 프로젝트를 만들었습니다${p.code ? ` (${p.code})` : ''}.`)
+      onCreated(p.id)
+      syncFolder(p).then(m => m && toast(m)).catch(() => undefined)
+    } catch (e) {
+      toast(e instanceof Error ? e.message : '만들지 못했습니다.')
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <div className="quick-proj">
+      <Plus size={14} style={{ color: DIVISIONS[division].color }} />
+      <input
+        className="input"
+        value={name}
+        maxLength={120}
+        onChange={e => setName(e.target.value)}
+        onKeyDown={e => e.key === 'Enter' && !e.nativeEvent.isComposing && void create()}
+        placeholder={`새 ${DIVISIONS[division].label} 프로젝트 이름 · Enter 로 바로 만들기`}
+        disabled={busy}
+        aria-label={`새 ${DIVISIONS[division].label} 프로젝트`}
+      />
+      <button type="button" className="btn btn-sm" onClick={() => void create()} disabled={busy || !name.trim()}>
+        만들기
+      </button>
+      <button type="button" className="link-btn t-cap" onClick={onMore} title="거래처 · 기간 · 장소까지 정해서 만들기">
+        자세히
+      </button>
+    </div>
   )
 }
 
@@ -714,11 +764,11 @@ function ProjectSearch({ value, onChange }: { value: string; onChange: (v: strin
   )
 }
 
-export function ProjectForm({ project, clients, onClose, onSaved }: { project: Project | null; clients: Client[]; onClose: () => void; onSaved: (id: string) => void }) {
+export function ProjectForm({ project, clients, division, onClose, onSaved }: { project: Project | null; clients: Client[]; /** 새로 만들 때 구분 (그룹에서 바로 만들기) */ division?: Division; onClose: () => void; onSaved: (id: string) => void }) {
   const { api, me, profiles, toast } = useApp()
   const { busy, run } = useAction()
   const syncFolder = useProjectFolderSync()
-  const [f, setF] = useState<Partial<Project>>(() => project ?? { name: '', division: 'AR', category: '팝업', status: '기획', owner_id: me.id, client_id: null, start_date: null, end_date: null, location: null, description: null })
+  const [f, setF] = useState<Partial<Project>>(() => project ?? { name: '', division: division ?? 'AR', category: '팝업', status: '기획', owner_id: me.id, client_id: null, start_date: null, end_date: null, location: null, description: null })
   const set = (p: Partial<Project>) => setF(prev => ({ ...prev, ...p }))
   const submit = async () => {
     let saved: Project | null = null
