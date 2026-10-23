@@ -2,7 +2,7 @@
 //  - 인트라넷 웹(https://wkly-erp.pages.dev)을 그대로 띄움 → 화면 기능은 웹 배포 때 함께 바뀜
 //  - 컴퓨터를 켜면 자동 실행 · 로그인 전에는 창을 닫을 수 없고 맨 위에 고정
 //  - 로그인 후 X 를 누르면 트레이(작업 표시줄 오른쪽 아래 / 맥 메뉴 막대)로 숨김 · 알림은 계속
-//  - 컴퓨터를 30분 안 쓰거나 화면 잠금 · 절전이면 인트라넷 화면도 잠금
+//  - 컴퓨터를 1시간 안 쓰거나 화면 잠금 · 절전이면 인트라넷 화면도 잠금
 //  - 새 버전을 자동으로 받아 로그인 화면에서 쉬거나 끌 때 설치 (윈도우: electron-updater · 맥: 직접 받아 .app 교체)
 const { app, BrowserWindow, Tray, Menu, ipcMain, powerMonitor, shell, nativeImage, dialog, WebContentsView, nativeTheme, net, session, desktopCapturer } = require('electron')
 const path = require('path')
@@ -14,7 +14,7 @@ const { autoUpdater } = require('electron-updater')
 const APP_URL = (!app.isPackaged && process.env.WKLY_APP_URL) || 'https://wkly-erp.pages.dev'
 const ORIGIN = new URL(APP_URL).origin
 const DOWNLOAD_PAGE = `${APP_URL}/download`
-const IDLE_LOCK_SEC = (!app.isPackaged && Number(process.env.WKLY_IDLE_SEC)) || 30 * 60
+const IDLE_LOCK_SEC = (!app.isPackaged && Number(process.env.WKLY_IDLE_SEC)) || 60 * 60
 // 창 아이콘: 윈도우는 여러 크기를 담은 .ico (작업 표시줄 · 제목 막대에서 선명하게)
 const ICON = path.join(__dirname, 'build', process.platform === 'win32' ? 'icon.ico' : 'icon.png')
 const isMac = process.platform === 'darwin'
@@ -272,7 +272,7 @@ function updateTrayMenu() {
   )
 }
 
-/** 컴퓨터를 30분 안 쓰거나 화면 잠금 · 절전 → 인트라넷 잠금 */
+/** 컴퓨터를 1시간 안 쓰거나 화면 잠금 · 절전 → 인트라넷 잠금 */
 function sendLock() {
   for (const w of BrowserWindow.getAllWindows()) w.webContents.send('lock')
 }
