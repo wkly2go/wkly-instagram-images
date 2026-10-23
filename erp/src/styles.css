@@ -1815,3 +1815,6 @@ svg text[font-size="12"] { font-size: var(--fs-sm); }
 /* 프로젝트 그룹 아래 바로 만들기 줄 */
 .quick-proj { display: flex; align-items: center; gap: 6px; padding: 6px 4px 2px; border-top: 1px dashed var(--line); margin-top: 4px; }
 .quick-proj .input { flex: 1; min-width: 0; height: 30px; }
+
+/* 표 안 구분 머리줄 (프로젝트 진행 현황 등) */
+.table tr.group-row td { background: var(--bg-soft, #eef3ff); padding-top: 8px; padding-bottom: 8px; }

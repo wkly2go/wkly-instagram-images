@@ -37,6 +37,19 @@ interface Gis {
   }
 }
 
+// 회사 구글 계정이 서버에 연결돼 있으면 그 토큰(1시간)을 씀 → 개인 구글 로그인이 아예 필요 없음
+let serverCache: { token: string | null; exp: number } | null = null
+export async function serverDriveToken(get: () => Promise<{ token: string; expires_at: number } | null>): Promise<string | null> {
+  if (serverCache && serverCache.exp > Date.now() + 60_000) return serverCache.token
+  try {
+    const r = await get()
+    serverCache = r ? { token: r.token, exp: r.expires_at } : { token: null, exp: Date.now() + 5 * 60_000 }
+  } catch {
+    serverCache = { token: null, exp: Date.now() + 60_000 }
+  }
+  return serverCache.token
+}
+
 /** PC 프로그램(웹 칸으로 구글 화면을 그대로 띄움)인지 */
 export const nativeGoogle = () => !!desktop()?.searchOpen
 
@@ -59,9 +72,14 @@ export const onTokenChange = (cb: (t: string | null) => void) => {
 }
 const announce = (t: string | null) => listeners.forEach(l => l(t))
 
+// 구글 로그인은 한 번만 (대표 지시 2026-10-23): 토큰을 이 PC 브라우저에 보관(탭 · 재시작에도 유지)하고,
+// 만료되면 다음 클릭 때 저절로 다시 받음(이미 허락했으므로 창이 바로 닫힘). '로그아웃'을 누를 때만 잊음
+const REMEMBER_KEY = 'wkly-gdrive-remember'
+const store = () => localStorage
+
 export function readToken(): string | null {
   try {
-    const v = JSON.parse(sessionStorage.getItem(TOKEN_KEY) ?? 'null') as { t: string; exp: number; s?: string } | null
+    const v = JSON.parse(store().getItem(TOKEN_KEY) ?? sessionStorage.getItem(TOKEN_KEY) ?? 'null') as { t: string; exp: number; s?: string } | null
     // 예전(보기 전용) 권한으로 받은 토큰은 다시 로그인
     return v && v.s === DRIVE_SCOPES && v.exp > Date.now() + 30_000 ? v.t : null
   } catch {
@@ -78,7 +96,9 @@ export async function googleLogin(clientId: string, email?: string | null): Prom
     client.callback = r => {
       if (!r.access_token) return reject(new Error('구글 로그인을 마치지 못했습니다.'))
       try {
-        sessionStorage.setItem(TOKEN_KEY, JSON.stringify({ t: r.access_token, exp: Date.now() + (r.expires_in ?? 3600) * 1000, s: DRIVE_SCOPES }))
+        store().setItem(TOKEN_KEY, JSON.stringify({ t: r.access_token, exp: Date.now() + (r.expires_in ?? 3600) * 1000, s: DRIVE_SCOPES }))
+        store().setItem(REMEMBER_KEY, JSON.stringify({ clientId, email: email ?? null }))
+        scheduleRenew()
       } catch {
         /* 저장 못 해도 이번 화면에서는 씀 */
       }
@@ -106,10 +126,46 @@ export async function googleConnectCode(clientId: string): Promise<string> {
   })
 }
 
+/** 한 번 로그인한 PC: 토큰이 끝나면 다음 클릭(사용자 동작이라 창이 막히지 않음) 때 조용히 다시 받음 */
+let renewArmed = false
+export function scheduleRenew() {
+  if (typeof window === 'undefined' || renewArmed) return
+  let saved: { clientId: string; email: string | null } | null = null
+  try {
+    saved = JSON.parse(store().getItem(REMEMBER_KEY) ?? 'null')
+  } catch {
+    saved = null
+  }
+  if (!saved?.clientId) return
+  const v = (() => {
+    try {
+      return JSON.parse(store().getItem(TOKEN_KEY) ?? 'null') as { exp: number } | null
+    } catch {
+      return null
+    }
+  })()
+  const left = (v?.exp ?? 0) - Date.now() - 2 * 60_000
+  const arm = () => {
+    if (renewArmed) return
+    renewArmed = true
+    const once = () => {
+      window.removeEventListener('pointerdown', once, true)
+      renewArmed = false
+      googleLogin(saved!.clientId, saved!.email).catch(() => undefined)
+    }
+    window.addEventListener('pointerdown', once, true)
+  }
+  if (left <= 0) arm()
+  else window.setTimeout(arm, Math.min(left, 2 ** 31 - 1))
+}
+if (typeof window !== 'undefined') window.setTimeout(scheduleRenew, 1500)
+
 export function googleLogout() {
   const t = readToken()
   if (t) (window as unknown as { google?: Gis }).google?.accounts.oauth2.revoke(t)
   try {
+    store().removeItem(TOKEN_KEY)
+    store().removeItem(REMEMBER_KEY)
     sessionStorage.removeItem(TOKEN_KEY)
   } catch {
     /* 무시 */
@@ -123,7 +179,8 @@ export class DriveAuthError extends Error {}
 export async function driveApi<T>(token: string, path: string, init?: RequestInit, base = 'https://www.googleapis.com/drive/v3'): Promise<T> {
   const r = await fetch(`${base}/${path}`, { ...init, headers: { ...(init?.headers ?? {}), Authorization: `Bearer ${token}` } })
   if (r.status === 401) {
-    googleLogout()
+    if (token === readToken()) googleLogout()
+    else serverCache = null
     throw new DriveAuthError('구글 로그인이 만료됐습니다. 다시 로그인해 주세요.')
   }
   if (!r.ok) throw new Error(r.status === 403 ? '이 파일 · 폴더에 대한 권한이 없습니다 (소유자 · 편집자만 고치거나 지울 수 있음).' : r.status === 404 ? '드라이브에서 찾지 못했습니다 (지워졌거나 권한 없음).' : `드라이브 오류 (${r.status})`)

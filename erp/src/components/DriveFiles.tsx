@@ -4,7 +4,7 @@ import { useAction, useApp, useAsync } from '../lib/app'
 import { useRouter } from '../lib/router'
 import { dateLabel } from '../lib/date'
 import { projectDriveUrl, type DriveIndexFile, type Project, type ProjectDriveFile } from '../lib/types'
-import { driveApi, driveIdOf, editUrl, embedUrl, ensureProjectFolder, FILE_FIELDS, fileMeta, FOLDER_MIME, googleLogin, kindOfUrl, nativeGoogle, onTokenChange, previewUrl, readToken, uploadToDrive, type GFile } from '../lib/gdrive'
+import { serverDriveToken, driveApi, driveIdOf, editUrl, embedUrl, ensureProjectFolder, FILE_FIELDS, fileMeta, FOLDER_MIME, googleLogin, kindOfUrl, nativeGoogle, onTokenChange, previewUrl, readToken, uploadToDrive, type GFile } from '../lib/gdrive'
 import { openLink } from './WebSearch'
 import { Button, Empty, Modal, SectionHead } from './ui'
 import { ask } from './Ask'
@@ -45,14 +45,28 @@ export function useProjectFolderSync() {
 
 /** 구글 로그인 토큰 (웹 브라우저) — 바뀌면 다시 그림 */
 export function useDriveToken() {
+  const { api } = useApp()
   const [t, setT] = useState<string | null>(readToken)
+  const [srv, setSrv] = useState<string | null>(null)
   useEffect(() => {
     const off = onTokenChange(setT)
     return () => {
       off()
     }
   }, [])
-  return t
+  // 개인 로그인이 없으면 회사 계정(서버) 토큰으로 — 연결돼 있으면 로그인 없이 바로
+  useEffect(() => {
+    if (t) return
+    let alive = true
+    const load = () => serverDriveToken(() => api.driveAccessToken()).then(v => alive && setSrv(v))
+    void load()
+    const id = window.setInterval(load, 10 * 60_000)
+    return () => {
+      alive = false
+      window.clearInterval(id)
+    }
+  }, [api, t])
+  return t ?? srv
 }
 
 const TYPE_LABEL: Record<string, string> = {
