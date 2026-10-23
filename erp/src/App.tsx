@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { WebPanelHost } from './components/WebSearch'
 import { DetailColumnHost } from './components/RightPanel'
@@ -10,26 +10,28 @@ import { friendlyError } from './lib/api'
 import { openPipWindow, openQuickPopup, supportsPip } from './lib/pip'
 import { normalizePath, useRouter } from './lib/router'
 import type { Profile } from './lib/types'
-import Approvals from './pages/Approvals'
-import Chat from './pages/Chat'
-import Clients from './pages/Clients'
 import Home from './pages/Home'
 import Login from './pages/Login'
-import Projects from './pages/Projects'
 import Quick from './pages/Quick'
-import Admin from './pages/Admin'
-import Library from './pages/Library'
-import Help from './pages/Help'
-import Team from './pages/Team'
 import { playAlert } from './lib/sound'
 import { accessSource, desktop } from './lib/desktop'
 import { LockScreen, useSessionPolicy } from './lib/session'
 import Download from './pages/Download'
-import Agents from './pages/Agents'
-import Ads from './pages/Ads'
-import Drive from './pages/Drive'
 
-const PAGES: Record<string, () => JSX.Element> = {
+// 처음 화면(홈)만 바로 불러오고, 나머지 화면은 열 때 불러옴 (첫 로딩 단축)
+const Approvals = lazy(() => import('./pages/Approvals'))
+const Chat = lazy(() => import('./pages/Chat'))
+const Clients = lazy(() => import('./pages/Clients'))
+const Projects = lazy(() => import('./pages/Projects'))
+const Admin = lazy(() => import('./pages/Admin'))
+const Library = lazy(() => import('./pages/Library'))
+const Help = lazy(() => import('./pages/Help'))
+const Team = lazy(() => import('./pages/Team'))
+const Agents = lazy(() => import('./pages/Agents'))
+const Ads = lazy(() => import('./pages/Ads'))
+const Drive = lazy(() => import('./pages/Drive'))
+
+const PAGES: Record<string, React.ComponentType> = {
   '/': Home,
   '/approvals': Approvals,
   '/chat': Chat,
@@ -177,7 +179,9 @@ export default function App() {
         <Quick />
       ) : (
         <ShellFrame>
-          <Page />
+          <Suspense fallback={<div className="t-cap" style={{ padding: 24 }}>불러오는 중…</div>}>
+            <Page />
+          </Suspense>
         </ShellFrame>
       )}
       {path !== '/quick' && <DetailColumnHost />}
