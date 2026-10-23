@@ -1,14 +1,14 @@
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react'
-import { ArrowLeft, AtSign, BellOff, ChevronDown, ChevronRight, Plus, Send, Trash2 } from 'lucide-react'
+import { ArrowLeft, AtSign, BellOff, Bookmark, Check, ChevronDown, ChevronRight, Plus, Send, Trash2 } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { friendlyError } from '../lib/api'
 import { countedUnread, roomTitle, useRoomMessages } from '../lib/chat'
 import { parseSlash, parseTaskText, remindIso, slashMenu } from '../lib/slash'
 import { approvalKindOf, ROOM_LEVEL_LABEL, type RoomLevel } from '../lib/types'
 import { leadAgent } from '../components/AgentDesk'
-import { relativeLabel, todayKey } from '../lib/date'
+import { dateTimeLabel, relativeLabel, todayKey } from '../lib/date'
 import { Link, normalizePath, useRouter, withQuery } from '../lib/router'
-import type { AppNotification, ChatRoomSummary, NotificationKind, Project } from '../lib/types'
+import type { AppNotification, ChatRoomSummary, NotificationKind, Project, SavedItem } from '../lib/types'
 import { Shell } from '../components/Shell'
 import { Badge, Button, Empty, Field, Modal } from '../components/ui'
 import { AssignTaskButton } from '../components/AssignTask'
@@ -53,6 +53,8 @@ export default function Chat() {
   const room = rooms.find(r => r.id === roomId) ?? null
   // 멘션 · 답글 모아 보기 (슬랙의 '활동')
   const activity = query.get('view') === 'activity'
+  const savedView = query.get('view') === 'saved'
+  const { data: saved, reload: reloadSaved } = useAsync(() => api.listSaved().catch(() => [] as SavedItem[]), [version], [] as SavedItem[])
   const { data: notes } = useAsync(() => api.listNotifications(100), [version], [] as AppNotification[])
   // 활동: 멘션 · 답글 + 결재 · 할 일 알림 (2026-10-23)
   const mentions = notes.filter(n => ACTIVITY_KINDS.includes(n.kind))
@@ -110,12 +112,12 @@ export default function Chat() {
   // 방을 고르지 않았으면 PC 에서는 첫 방을 자동으로 연다
   useEffect(() => {
     if (dm) return
-    if (!roomId && !activity && rooms.length && window.matchMedia('(min-width: 641px)').matches) navigate(withQuery(path, query, { room: rooms[0].id }), { replace: true })
-  }, [dm, roomId, activity, rooms, path, query, navigate])
+    if (!roomId && !activity && !savedView && rooms.length && window.matchMedia('(min-width: 641px)').matches) navigate(withQuery(path, query, { room: rooms[0].id }), { replace: true })
+  }, [dm, roomId, activity, savedView, rooms, path, query, navigate])
 
   return (
     <Shell active="chat" flush>
-      <div className={`split ${room || activity ? 'has-detail' : ''}`}>
+      <div className={`split ${room || activity || savedView ? 'has-detail' : ''}`}>
         <div className="pane-list chat-list">
           <div className="pane-head">
             <div className="row">
@@ -131,6 +133,13 @@ export default function Chat() {
                 <AtSign size={14} />
                 <span className="t-smallb grow" title="멘션 · 답글 · 결재 · 할 일">활동</span>
                 {unreadMentions > 0 && <Badge tone="red">{unreadMentions}</Badge>}
+              </div>
+            </Link>
+            <Link to="/chat?view=saved" className={`item activity-item ${savedView ? 'active' : ''}`}>
+              <div className="row">
+                <Bookmark size={14} />
+                <span className="t-smallb grow">나중에 보기</span>
+                {saved.length > 0 && <span className="t-meta">{saved.length}</span>}
               </div>
             </Link>
             {groups.map(([label, list]) => (
@@ -180,7 +189,9 @@ export default function Chat() {
           </div>
         </div>
         {/* 채팅은 한 칸: 방 목록 옆에서 대화가 왼쪽→오른쪽으로 펼쳐짐 */}
-        <div className="pane-detail expand-in" key={activity ? 'activity' : room?.id ?? 'none'}>{activity ? <Activity list={mentions} /> : room ? <Room room={room} /> : <Empty>채팅방을 고르세요.</Empty>}</div>
+        <div className="pane-detail expand-in" key={activity ? 'activity' : savedView ? 'saved' : room?.id ?? 'none'}>
+          {activity ? <Activity list={mentions} /> : savedView ? <Saved list={saved} reload={reloadSaved} /> : room ? <Room room={room} /> : <Empty>채팅방을 고르세요.</Empty>}
+        </div>
       </div>
       {dmPicking && (
         <DmPicker
@@ -199,6 +210,48 @@ export default function Chat() {
       )}
       {creating && <NewRoom onClose={() => setCreating(false)} onCreated={id => navigate(withQuery(path, query, { room: id }))} />}
     </Shell>
+  )
+}
+
+/** 나중에 보기: 저장한 메시지 · 카드. 누르면 그 방으로, 체크하면 끝 */
+function Saved({ list, reload }: { list: SavedItem[]; reload: () => void }) {
+  const { api, bump, toast } = useApp()
+  const { navigate } = useRouter()
+  const finish = async (x: SavedItem) => {
+    try {
+      await api.finishSaved(x.id)
+      reload()
+      bump()
+    } catch (e) {
+      toast(friendlyError(e))
+    }
+  }
+  return (
+    <div className="chat-room">
+      <div className="chat-head">
+        <button type="button" className="icon-btn back-btn" onClick={() => navigate('/chat')} aria-label="채팅방 목록">
+          <ArrowLeft size={18} />
+        </button>
+        <span className="t-bodyb">나중에 보기</span>
+        <span className="t-cap">메시지 옆 책갈피로 저장 · 정한 시각에 다시 알려 줌</span>
+      </div>
+      <div className="chat-body">
+        {list.length === 0 && <Empty>저장한 것이 없습니다. 메시지에 마우스를 올리고 책갈피를 누르면 여기에 모입니다.</Empty>}
+        {list.map(x => (
+          <div key={x.id} className="activity-row saved-row">
+            <button type="button" className="col gap-2 grow saved-open" style={{ minWidth: 0 }} onClick={() => x.room_id && navigate(`/chat?room=${x.room_id}${x.message_id ? `&thread=${x.message_id}` : ''}`)}>
+              <span className="t-small activity-body">{x.preview}</span>
+              <span className="t-meta">
+                {relativeLabel(x.created_at)} 저장{x.remind_at ? ` · ${x.reminded_at ? '알림 보냄' : `${dateTimeLabel(x.remind_at)} 알림`}` : ''}
+              </span>
+            </button>
+            <button type="button" className="icon-btn sm" onClick={() => void finish(x)} aria-label="끝냄" title="끝냄 (목록에서 빼기)">
+              <Check size={14} />
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
   )
 }
 

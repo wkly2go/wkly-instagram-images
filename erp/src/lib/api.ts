@@ -59,6 +59,7 @@ import type {
   ChatRoomSummary,
   ChatAttachment,
   ChatCard,
+  SavedItem,
   RoomLevel,
   Client,
   Contact,
@@ -221,6 +222,10 @@ export interface Api {
   markRead(roomId: string): Promise<void>
   /** 이 방 알림 단계 (전체 · 멘션만 · 끄기) */
   setRoomLevel(roomId: string, level: RoomLevel): Promise<void>
+  /** 나중에 보기: 안 끝낸 것 (최근 순) */
+  listSaved(): Promise<SavedItem[]>
+  saveForLater(item: { message_id: number | null; room_id: string | null; preview: string; remind_at: string | null }): Promise<SavedItem>
+  finishSaved(id: number): Promise<void>
   /** 카드 메시지 보내기 (/할일 · /결재 · /일정 으로 만든 것) */
   sendCard(roomId: string, content: string, card: ChatCard): Promise<ChatMessage>
   /** 방 참여자들의 마지막 읽은 시각 (누가 읽었는지 표시) */

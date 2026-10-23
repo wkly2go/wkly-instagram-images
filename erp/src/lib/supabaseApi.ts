@@ -2,6 +2,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { ApiError, CHAT_FILE_MAX, EXCHANGE_FILE_MAX, groupIps, type Api, type DriveEnsureResult, type DriveFolder, type DriveStatus, type ImportResult } from './api'
 import { desktop } from './desktop'
 import type {
+  SavedItem,
   Subscription,
   ExchangeFile,
   ProjectDriveFile,
@@ -233,6 +234,15 @@ export function createSupabaseApi(url: string, key: string): Api {
       const v2 = await sb.rpc('chat_room_summaries_v2')
       if (!v2.error) return v2.data as ChatRoomSummary[]
       return must(await sb.rpc('chat_room_summaries')) as ChatRoomSummary[]
+    },
+    async listSaved() {
+      return must(await sb.from('saved_items').select('*').is('done_at', null).order('created_at', { ascending: false }).limit(200)) as SavedItem[]
+    },
+    async saveForLater(item) {
+      return must(await sb.from('saved_items').insert({ ...item, preview: item.preview.slice(0, 300) || '메시지' }).select().single()) as SavedItem
+    },
+    async finishSaved(id) {
+      must(await sb.from('saved_items').update({ done_at: new Date().toISOString() }).eq('id', id))
     },
     async setRoomLevel(roomId, level) {
       const { data } = await sb.auth.getUser()

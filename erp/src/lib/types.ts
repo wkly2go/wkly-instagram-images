@@ -478,6 +478,19 @@ export interface ChatRoomSummary extends ChatRoom {
   project_status?: string | null
 }
 
+/** 나중에 보기 (메시지 · 카드 저장 + 다시 알림) */
+export interface SavedItem {
+  id: number
+  user_id: string
+  message_id: number | null
+  room_id: string | null
+  preview: string
+  remind_at: string | null
+  reminded_at: string | null
+  done_at: string | null
+  created_at: string
+}
+
 /** 대화 속 카드: 할 일 · 결재 · 파일 (버튼으로 바로 처리) */
 export interface ChatCard {
   kind: 'task' | 'approval' | 'file'

@@ -1869,3 +1869,9 @@ svg text[font-size="12"] { font-size: var(--fs-sm); }
 .slash-menu code { font-family: var(--mono); color: var(--blue); font-weight: 700; font-size: var(--fs-sm); grid-row: span 2; align-self: center; }
 .slash-menu span { font-size: var(--fs-sm); }
 .slash-menu .t-meta { font-size: var(--fs-cap); }
+/* 4단계 · 나중에 보기 (2026-10-23) */
+.later-pick { display: flex; flex-wrap: wrap; gap: 4px; }
+.later-pick button { font-size: var(--fs-cap); padding: 2px 9px; border-radius: 999px; border: 1px solid var(--blue); background: var(--white); color: var(--blue); font-weight: 700; cursor: pointer; }
+.later-pick button:hover { background: var(--blue-tint); }
+.saved-row { display: flex; align-items: center; gap: 8px; }
+.saved-open { border: 0; background: none; text-align: left; cursor: pointer; padding: 0; font: inherit; color: inherit; }
