@@ -1811,3 +1811,7 @@ svg text[font-size="12"] { font-size: var(--fs-sm); }
 .ex-mi:disabled { color: var(--gray); opacity: .45; cursor: default; }
 .ex-hint { font-size: var(--fs-cap); color: var(--gray); }
 .ex-status { display: flex; gap: 14px; padding: 4px 10px; border-top: 1px solid var(--line); font-size: var(--fs-cap); color: var(--gray); }
+
+/* 프로젝트 그룹 아래 바로 만들기 줄 */
+.quick-proj { display: flex; align-items: center; gap: 6px; padding: 6px 4px 2px; border-top: 1px dashed var(--line); margin-top: 4px; }
+.quick-proj .input { flex: 1; min-width: 0; height: 30px; }
