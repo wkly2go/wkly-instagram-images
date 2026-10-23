@@ -59,6 +59,8 @@ export interface Summary {
   myOpenTasks: number
   pendingToDecide: number
   unread: number
+  /** 나중에 보기 (안 끝낸 것) */
+  saved?: number
 }
 
 /** 프로필 칸·탭·카운터에 쓰는 요약 숫자 */
@@ -66,16 +68,17 @@ export function useSummary(): Summary {
   const { api, me, version } = useApp()
   const { data } = useAsync<Summary>(
     async () => {
-      const [tasks, approvals, rooms] = await Promise.all([api.listTasks(), api.listApprovals(), api.listRooms()])
+      const [tasks, approvals, rooms, saved] = await Promise.all([api.listTasks(), api.listApprovals(), api.listRooms(), api.listSaved().catch(() => [])])
       return {
         myOpenTasks: tasks.filter(t => t.assignee_id === me.id && t.status !== '완료').length,
         pendingToDecide: approvals.filter(a => a.status === '대기' && a.can_decide && (a.requested_by !== me.id || me.role === 'admin')).length,
         // 방마다 알림 단계 반영: 멘션만인 방은 나를 부른 것만, 끈 방은 세지 않음
         unread: (rememberRoomLevels(rooms), rooms.reduce((s, r) => s + countedUnread(r), 0)),
+        saved: saved.length,
       }
     },
     [version, me.id],
-    { myOpenTasks: 0, pendingToDecide: 0, unread: 0 },
+    { myOpenTasks: 0, pendingToDecide: 0, unread: 0, saved: 0 },
   )
   return data
 }
@@ -209,6 +212,11 @@ function ProfilePanel({ summary }: { summary: Summary }) {
         <Link to="/chat">
           · 안 읽은 채팅 <span className="n">{summary.unread}</span>
         </Link>
+        {!!summary.saved && (
+          <Link to="/chat?view=saved">
+            · 나중에 보기 <span className="n">{summary.saved}</span>
+          </Link>
+        )}
       </nav>
       <div className="side-tools">
         <Link to="/help" className="quick-btn" title="사용법" style={{ textDecoration: 'none' }}>

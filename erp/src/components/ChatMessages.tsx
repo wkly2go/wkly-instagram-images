@@ -1,14 +1,47 @@
 import { CardView } from './ChatCards'
 import { useEffect, useRef, useState, type DragEvent } from 'react'
-import { Check, Download, FileText, Loader2, MessageSquare, Paperclip, Pencil, Send, SmilePlus, Trash2, X } from 'lucide-react'
+import { Bookmark, Check, Download, FileText, Loader2, MessageSquare, Paperclip, Pencil, Send, SmilePlus, Trash2, X } from 'lucide-react'
 import { useApp } from '../lib/app'
-import { dateLabel, timeLabel, toDateKey } from '../lib/date'
+import { addDays, dateLabel, timeLabel, toDateKey, todayKey } from '../lib/date'
 import type { ChatAttachment, ChatMessage, ChatRead } from '../lib/types'
 import { CHAT_FILE_MAX, friendlyError } from '../lib/api'
 import { Empty } from './ui'
 import { ImageViewer } from './ImageViewer'
 import { canView, FileViewer } from './FileViewer'
 import { openLink } from './WebSearch'
+
+/** 나중에 보기: 그냥 저장 · 1시간 뒤 · 내일 9시 · 다음 주 월 9시 (2026-10-23) */
+function LaterMenu({ m, onDone }: { m: ChatMessage; onDone: () => void }) {
+  const { api, toast, bump, profileName } = useApp()
+  const at9 = (day: string) => new Date(`${day}T09:00:00+09:00`).toISOString()
+  const dow = new Date(`${todayKey()}T00:00:00`).getDay()
+  const options: [string, string | null][] = [
+    ['그냥 저장', null],
+    ['1시간 뒤', new Date(Date.now() + 60 * 60 * 1000).toISOString()],
+    ['내일 9시', at9(addDays(todayKey(), 1))],
+    ['다음 주 월 9시', at9(addDays(todayKey(), dow === 0 ? 1 : 8 - dow))],
+  ]
+  const save = async (remind: string | null, label: string) => {
+    onDone()
+    const who = m.user_id ? `${profileName(m.user_id)}: ` : ''
+    try {
+      await api.saveForLater({ message_id: m.id, room_id: m.room_id, preview: `${who}${m.attachment?.card?.title ?? m.content}`.slice(0, 300), remind_at: remind })
+      bump()
+      toast(remind ? `나중에 보기에 저장 · ${label} 다시 알려 드려요.` : '나중에 보기에 저장했습니다.')
+    } catch (e) {
+      toast(friendlyError(e))
+    }
+  }
+  return (
+    <div className="react-pick later-pick" role="menu" aria-label="나중에 보기">
+      {options.map(([label, at]) => (
+        <button key={label} type="button" role="menuitem" onClick={() => void save(at, label)}>
+          {label}
+        </button>
+      ))}
+    </div>
+  )
+}
 
 export const REACTION_EMOJIS = ['👍', '✅', '👀', '🙏', '😂', '🎉']
 
@@ -32,6 +65,7 @@ export function MessageList({ messages, reads = [], members, onRemove, onEdit, o
   const [editId, setEditId] = useState<number | null>(null)
   const [draft, setDraft] = useState('')
   const [pickId, setPickId] = useState<number | null>(null)
+  const [laterId, setLaterId] = useState<number | null>(null)
   const [threads, setThreads] = useState<Set<number>>(() => new Set(thread ? [thread] : []))
   const [replyText, setReplyText] = useState<Record<number, string>>({})
   const [replying, setReplying] = useState<number | null>(null)
@@ -145,6 +179,9 @@ export function MessageList({ messages, reads = [], members, onRemove, onEdit, o
               </span>
               {editId !== m.id && (
                 <span className="msg-actions">
+                  <button type="button" className="icon-btn sm del" onClick={() => setLaterId(laterId === m.id ? null : m.id)} aria-label="나중에 보기" title="나중에 보기 (다시 알림)">
+                    <Bookmark size={13} />
+                  </button>
                   {onReact && (
                     <button type="button" className="icon-btn sm del" onClick={() => setPickId(pickId === m.id ? null : m.id)} aria-label="반응 남기기" title="반응 남기기">
                       <SmilePlus size={13} />
@@ -177,6 +214,7 @@ export function MessageList({ messages, reads = [], members, onRemove, onEdit, o
                 </span>
               )}
             </div>
+            {laterId === m.id && <LaterMenu m={m} onDone={() => setLaterId(null)} />}
             {pickId === m.id && onReact && (
               <div className="react-pick" role="menu">
                 {REACTION_EMOJIS.map(e => (

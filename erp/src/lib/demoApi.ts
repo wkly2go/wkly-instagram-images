@@ -29,6 +29,7 @@ import type {
   ChatRoom,
   ChatRoomSummary,
   RoomLevel,
+  SavedItem,
   Client,
   Contact,
   EmailTemplate,
@@ -70,6 +71,7 @@ interface Store {
   chat_reads: { user_id: string; room_id: string; last_read_at: string }[]
   /** 방마다 알림 단계 */
   chat_prefs?: { user_id: string; room_id: string; level: RoomLevel }[]
+  saved_items?: SavedItem[]
   approvals: Approval[]
   /** 결재 기록 (예전 체험 데이터에는 없을 수 있음) */
   approval_activity?: ApprovalActivity[]
@@ -906,6 +908,23 @@ export function createDemoApi(): Api {
           }
         })
       return clone(rows.sort((a, b) => (b.last_at ?? b.created_at).localeCompare(a.last_at ?? a.created_at)))
+    },
+    async listSaved() {
+      const self = requireMe()
+      return clone((store.saved_items ?? []).filter(x => x.user_id === self && !x.done_at).sort((a, b) => b.created_at.localeCompare(a.created_at)))
+    },
+    async saveForLater(item) {
+      const row: SavedItem = { id: ++store.seq + 5000, user_id: requireMe(), message_id: item.message_id, room_id: item.room_id, preview: item.preview.slice(0, 300) || '메시지', remind_at: item.remind_at, reminded_at: null, done_at: null, created_at: now() }
+      store.saved_items = [...(store.saved_items ?? []), row]
+      persist()
+      emit('saved_items')
+      return clone(row)
+    },
+    async finishSaved(id) {
+      const row = store.saved_items?.find(x => x.id === id && x.user_id === requireMe())
+      if (row) row.done_at = now()
+      persist()
+      emit('saved_items')
     },
     async setRoomLevel(roomId, level) {
       const self = requireMe()
@@ -1986,6 +2005,13 @@ export function createDemoApi(): Api {
     async runReminders() {
       const before = store.notifications.length
       runReminders()
+      // 나중에 보기: 시각이 되면 알람 (서버는 private.saved_reminders)
+      for (const x of store.saved_items ?? [])
+        if (!x.done_at && !x.reminded_at && x.remind_at && x.remind_at <= now()) {
+          notify(x.user_id, '알람', `나중에 보기 · ${x.preview.slice(0, 60)}`, x.preview, x.room_id ? `/chat?room=${x.room_id}` : '/chat?view=saved')
+          x.reminded_at = now()
+          persist()
+        }
       return store.notifications.length - before
     },
   }
