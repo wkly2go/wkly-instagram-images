@@ -3,7 +3,7 @@ import { Bot } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { dateLabel, timeLabel, toDateKey, todayKey } from '../lib/date'
 import { useRouter } from '../lib/router'
-import type { AgentInstruction, InstructionStatus } from '../lib/types'
+import type { AgentInstruction, InstructionStatus, Profile } from '../lib/types'
 import { Badge, Button, SectionHead, type Tone } from './ui'
 import { ask } from './Ask'
 
@@ -121,12 +121,17 @@ export function AgentDesk() {
  * 위쪽 줄 AI 입력칸 (대표 지시 2026-10-22 "AI 검색창을 제일 상단으로") — 어느 화면에서나 WKLY 총괄에게 바로 묻기 · 지시
  *  - Enter 보내기 → 홈 'AI 팀원에게 지시'로 이동해 답을 바로 확인
  */
+/** 대표 AI 팀원 (총괄) — 상단 통합 검색창에서 '묻기 · 지시' 대상 */
+export function leadAgent(profiles: Profile[]) {
+  return profiles.filter(p => p.is_agent && p.active).sort((a, b) => Number(a.name.endsWith('팀장')) - Number(b.name.endsWith('팀장')))[0]
+}
+
 export function TopAiBox() {
   const { api, profiles, profileName, toast, bump } = useApp()
   const { navigate } = useRouter()
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
-  const agent = profiles.filter(p => p.is_agent && p.active).sort((a, b) => Number(a.name.endsWith('팀장')) - Number(b.name.endsWith('팀장')))[0]
+  const agent = leadAgent(profiles)
   if (!agent) return null
   const send = async () => {
     const v = text.trim()

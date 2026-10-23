@@ -3,7 +3,6 @@ import { Bot, Search, Briefcase, HardDrive, MonitorDown, ChevronLeft, ChevronRig
 import { isDesktopApp } from '../lib/desktop'
 import { NotificationBell } from './Notifications'
 import { WebSearchBox, webSlot } from './WebSearch'
-import { TopAiBox } from './AgentDesk'
 import { openCommandPalette } from './CommandPalette'
 import { detailSlot } from './RightPanel'
 
@@ -21,7 +20,7 @@ import { squareThumb } from '../lib/image'
 import { inQuickWindow } from '../lib/pip'
 import { Link, useRouter } from '../lib/router'
 import { TODAY_STATUSES, type TodayStatus } from '../lib/types'
-import { toneOf } from './ui'
+import { Presence, toneOf } from './ui'
 
 export type TabKey = 'home' | 'approvals' | 'chat' | 'work' | 'projects' | 'clients' | 'library' | 'drive' | 'team' | 'agents' | 'ads' | 'admin'
 
@@ -117,6 +116,7 @@ function PhotoBox() {
         title={me.photo ? '사진 바꾸기' : '사진 올리기'}
       >
         {me.photo ? <img src={me.photo} alt="" /> : <span aria-hidden="true">{initial(me.name)}</span>}
+        <Presence status={me.today_status} className="on-photo" />
         <span className="photo-cta">
           {busy ? '올리는 중…' : me.photo ? '사진 바꾸기' : '사진 올리기'}
         </span>
@@ -337,6 +337,27 @@ export function Shell({ active, flush, children }: { active: TabKey; flush?: boo
   return <>{children}</>
 }
 
+function OneBox() {
+  return (
+    <div className="top-ai one-box" onClick={() => openCommandPalette()}>
+      <Search size={14} aria-hidden="true" />
+      <input
+        readOnly
+        value=""
+        placeholder="찾기 · WKLY 총괄에게 묻기 · 인터넷 검색"
+        aria-label="찾기 · AI 에게 묻기 · 인터넷 검색 (Ctrl K)"
+        title="사람 · 프로젝트 · 파일 찾기, AI 에게 묻기, 인터넷 검색"
+        // 한글 입력(IME)이 끊기지 않게, 칸에 들어오면 바로 찾기 창으로 옮겨 그곳에서 입력
+        onFocus={e => {
+          e.currentTarget.blur()
+          openCommandPalette()
+        }}
+      />
+      <kbd className="pc-only">Ctrl K</kbd>
+    </div>
+  )
+}
+
 export function ShellFrame({ children, initial }: { children: ReactNode; initial?: ShellState }) {
   const { api, me } = useApp()
   const { path } = useRouter()
@@ -361,11 +382,8 @@ export function ShellFrame({ children, initial }: { children: ReactNode; initial
               <span className="site-title">사내 인트라넷</span>
               <span className="site-url t-meta">{window.location.host}</span>
               {api.mode === 'demo' && <span className="mode-badge" title="Supabase 연결 전 체험 모드. 데이터는 이 브라우저에만 저장됩니다.">DEMO</span>}
-              {/* AI 입력칸: 위쪽 줄 가운데 (대표 지시 2026-10-22) */}
-              <TopAiBox />
-              <button type="button" className="quick-btn cmdk-btn pc-only" onClick={openCommandPalette} title="전체 검색 · 빠른 이동 (Ctrl+K)" aria-label="전체 검색 (Ctrl+K)">
-                <Search size={14} /> <kbd>Ctrl K</kbd>
-              </button>
+              {/* 입력칸 하나 (2026-10-23): 찾기 · AI 에게 묻기 · 인터넷 검색을 Ctrl K 한 칸으로 */}
+              <OneBox />
               <NotificationBell />
               {!isDesktopApp() && (
                 <Link to="/download" className="quick-btn pc-only" title="PC 프로그램 내려받기 (회사 컴퓨터 · 출근 기록)" style={{ textDecoration: 'none' }}>
@@ -373,7 +391,7 @@ export function ShellFrame({ children, initial }: { children: ReactNode; initial
                 </Link>
               )}
               {/* 검색창만 오른쪽 끝, 나머지(알림 · 창 숨기기 · 글자 크기 등)는 왼쪽 — 순서는 styles.css 의 order */}
-              <WebSearchBox />
+              <WebSearchBox inputHidden />
               <span className="grow" />
             </header>
             <div className="body" ref={mountWebSlot}>

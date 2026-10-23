@@ -287,7 +287,7 @@ function onLinkClick(e: MouseEvent) {
  * 글자 크기 (대표 지시 2026-10-21 "상부 폰트 크기 조절이 모든 폰트 크기를 조절, 기본은 10")
  *  - 가− / 가+ 가 인트라넷 모든 글자(--fs-k)와 PC 프로그램 검색 칸 배율을 함께 바꿈 · 기본 10 (8~16) · 이 PC에 기억
  */
-const FONT_KEY = 'wkly-font-size'
+const FONT_KEY = 'wkly-font-size-v2' // 2026-10-23 기본 글자를 키우며 새 키로 (예전 배율은 초기화)
 const FONT_BASE = 10
 const NATIVE_BASE = 0.6
 let fontSize = (() => {
@@ -381,7 +381,16 @@ export function WebPanelHost() {
 }
 
 /** 상단 검색창: Enter 를 누르면 본 화면 오른쪽에 검색 창이 열리고, 다른 탭으로 가도 그대로 남음 */
-export function WebSearchBox() {
+/** 통합 검색창(Ctrl K)에서 '구글 · 인터넷 검색' 을 고를 때 */
+export function runWebSearch(q: string) {
+  const v = q.trim()
+  if (!v) return
+  saveRecent([v, ...readRecent().filter(x => x !== v)])
+  setOpenState({ q: v, engine: 'google' })
+}
+
+/** 상단 바: 검색 입력칸은 통합 검색창으로 합치고, 인터넷 창 이동 · 숨기기 버튼만 (2026-10-23) */
+export function WebSearchBox({ inputHidden = false }: { inputHidden?: boolean } = {}) {
   const open = useOpenState()
   const [q, setQ] = useState(open?.engine === 'url' ? '' : open?.q ?? '')
   useEffect(() => {
@@ -398,7 +407,7 @@ export function WebSearchBox() {
   const zoom = useZoom()
   return (
     <>
-      <form
+      {!inputHidden && <form
         className="web-search"
         role="search"
         onSubmit={e => {
@@ -408,7 +417,7 @@ export function WebSearchBox() {
       >
         <Search size={14} />
         <input value={q} onChange={e => setQ(e.target.value)} placeholder={open?.engine === 'url' ? '구글 · 인터넷 검색 (오른쪽은 누른 링크)' : open?.engine === 'chatgpt' ? 'ChatGPT 에 질문 (Enter)' : open?.engine === 'perplexity' ? 'Perplexity 에 질문 (Enter)' : '구글 · 인터넷 검색'} aria-label="구글 · 인터넷 검색" enterKeyHint="search" title="검색어를 넣고 Enter · 결과는 오른쪽 검색 창에" />
-      </form>
+      </form>}
       {app?.searchNav && (
         <span className="web-nav" role="group" aria-label="인터넷 창 이동">
           <button type="button" className="icon-btn sm" onClick={() => app.searchNav?.('back')} aria-label="뒤로" title="인터넷 창 뒤로">

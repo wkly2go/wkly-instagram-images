@@ -180,3 +180,10 @@ export function Modal({ title, onClose, children, actions, wide }: { title: stri
 export function Loading() {
   return <div className="empty">불러오는 중…</div>
 }
+
+/** 근태 상태 점 (출근 · 외근 · 미팅 · 재택 · 휴가 · 퇴근) — 사진 · 이름 옆 */
+const PRESENCE: Record<string, string> = { 출근: 'in', 외근: 'out', 미팅: 'out', 재택: 'home', 휴가: 'off', 퇴근: 'off' }
+export function Presence({ status, className = '' }: { status?: string | null; className?: string }) {
+  if (!status) return null
+  return <span className={`presence ${PRESENCE[status] ?? 'off'} ${className}`} title={status} aria-label={status} role="img" />
+}

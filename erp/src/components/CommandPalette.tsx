@@ -1,16 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Briefcase, Building2, FileText, FolderKanban, Hash, HardDrive, ListTodo, Search, User, LayoutGrid } from 'lucide-react'
+import { Bot, Briefcase, Building2, FileText, FolderKanban, Globe, Hash, HardDrive, ListTodo, Search, User, LayoutGrid } from 'lucide-react'
 import { useApp } from '../lib/app'
 import { useRouter } from '../lib/router'
 import type { ChatRoomSummary, Client, Contact, DriveIndexFile, Project, ResearchItem, Task } from '../lib/types'
 import { useOpenDoc } from './DriveFiles'
 import { TABS } from './Shell'
+import { leadAgent } from './AgentDesk'
+import { runWebSearch } from './WebSearch'
 
 /**
  * 전체 검색 · 빠른 이동 (Ctrl+K · ⌘K) — 슬랙 '빠른 전환' 참고 (2026-10-22)
  *  - 사람 · 채팅방 · 프로젝트(연번) · 거래처 · 연락처 · 할 일 · 자료 · 메뉴를 한 칸에서 찾고 Enter 로 이동
  *  - 한글 초성으로도 찾음 (예: ㅎㄴ → 한남)
+ *  - 상단 입력칸 하나로 통합 (2026-10-23): 인트라넷 찾기 + 'AI 총괄에게 묻기' + '구글 · 인터넷 검색'
+ *    Enter = 맨 위 결과 · Ctrl+Enter = AI 에게 · Shift+Enter = 인터넷 검색
  */
 type Hit = { key: string; group: string; icon: typeof Search; label: string; sub?: string; to: string; score: number; /** 주소 대신 할 일 (드라이브 파일 열기) */ run?: () => void }
 
@@ -31,10 +35,14 @@ function score(text: string, q: string): number {
 }
 
 let openSet: ((v: boolean) => void) | null = null
-export const openCommandPalette = () => openSet?.(true)
+let initialQ = ''
+export const openCommandPalette = (q = '') => {
+  initialQ = q
+  openSet?.(true)
+}
 
 export function CommandPalette() {
-  const { api, profiles, me } = useApp()
+  const { api, profiles, me, toast, bump } = useApp()
   const { navigate } = useRouter()
   const openDoc = useOpenDoc()
   const [open, setOpen] = useState(false)
@@ -56,7 +64,8 @@ export function CommandPalette() {
   }, [])
   useEffect(() => {
     if (!open) return
-    setQ('')
+    setQ(initialQ)
+    initialQ = ''
     setSel(0)
     window.setTimeout(() => input.current?.focus(), 20)
     // 열 때마다 최신으로 (가벼운 목록만)
@@ -93,11 +102,29 @@ export function CommandPalette() {
       data?.drive.forEach(f => f.url && f.mime_type !== 'application/vnd.google-apps.folder' && add({ key: `g${f.id}`, group: '드라이브', icon: HardDrive, label: f.name, sub: [data.projects.find(p => p.id === f.project_id)?.name, f.path].filter(Boolean).join(' / '), to: `/projects?id=${f.project_id}`, run: () => openDoc(f.url!) }, f.name))
       data?.research.forEach(r => add({ key: `d${r.id}`, group: '자료', icon: FileText, label: r.title, sub: [r.kind, r.brand_name].filter(Boolean).join(' · '), to: `/library?id=${r.id}` }, r.title, r.brand_name))
     }
-    const order = ['메뉴', '사람', '채팅방', '프로젝트', '거래처', '연락처', '할 일', '자료', '드라이브']
-    return out.sort((a, b) => b.score - a.score || order.indexOf(a.group) - order.indexOf(b.group)).slice(0, k ? 40 : 12)
+    // 찾는 게 없어도 바로 할 수 있는 일: AI 에게 묻기 · 인터넷 검색 (맨 아래, 결과가 없으면 맨 위)
+    const raw = q.trim()
+    const agent = leadAgent(profiles)
+    const acts: Hit[] = []
+    if (raw && agent)
+      acts.push({ key: 'act-ai', group: 'AI', icon: Bot, label: `${agent.name}에게 묻기 · 지시`, sub: raw, to: '/?agent=1', score: 0.2, run: () => void askAi(agent.id, agent.name, raw) })
+    if (raw) acts.push({ key: 'act-web', group: '인터넷', icon: Globe, label: '구글 · 인터넷 검색', sub: raw, to: '', score: 0.1, run: () => runWebSearch(raw) })
+    const order = ['메뉴', '사람', '채팅방', '프로젝트', '거래처', '연락처', '할 일', '자료', '드라이브', 'AI', '인터넷']
+    return [...out.sort((a, b) => b.score - a.score || order.indexOf(a.group) - order.indexOf(b.group)).slice(0, k ? 40 : 12), ...acts]
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q, data, profiles, me])
 
   useEffect(() => setSel(0), [q])
+  async function askAi(id: string, name: string, text: string) {
+    try {
+      await api.instructAgent(id, text)
+      bump()
+      toast(`${name}에게 보냈습니다. 답은 홈 'AI 팀원에게 지시'에 남깁니다.`)
+      navigate('/?agent=1')
+    } catch (e) {
+      toast(e instanceof Error ? e.message : '보내지 못했습니다.')
+    }
+  }
   if (!open) return null
   const go = (h: Hit | undefined) => {
     if (!h) return
@@ -117,10 +144,15 @@ export function CommandPalette() {
             onKeyDown={e => {
               if (e.key === 'ArrowDown') (e.preventDefault(), setSel(s => Math.min(hits.length - 1, s + 1)))
               else if (e.key === 'ArrowUp') (e.preventDefault(), setSel(s => Math.max(0, s - 1)))
-              else if (e.key === 'Enter') go(hits[sel])
+              else if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+                e.preventDefault()
+                if (e.ctrlKey || e.metaKey) go(hits.find(h => h.key === 'act-ai'))
+                else if (e.shiftKey) go(hits.find(h => h.key === 'act-web'))
+                else go(hits[sel])
+              }
               else if (e.key === 'Escape') setOpen(false)
             }}
-            placeholder="사람 · 채팅방 · 프로젝트 · 거래처 · 연락처 · 할 일 · 자료 · 드라이브 파일 찾기 (초성도 됨)"
+            placeholder="사람 · 프로젝트 · 파일 찾기, AI 에게 묻기, 인터넷 검색 (초성도 됨)"
             aria-label="전체 검색"
           />
           <kbd>Esc</kbd>
@@ -136,7 +168,7 @@ export function CommandPalette() {
             </button>
           ))}
         </div>
-        <div className="cmdk-foot">↑↓ 고르기 · Enter 이동 · Ctrl+K 열고 닫기</div>
+        <div className="cmdk-foot">↑↓ 고르기 · Enter 이동 · Ctrl+Enter AI 에게 · Shift+Enter 인터넷 검색 · ? 단축키</div>
       </div>
     </div>,
     document.body,
