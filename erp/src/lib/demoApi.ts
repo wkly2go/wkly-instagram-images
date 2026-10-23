@@ -29,6 +29,7 @@ import type {
   ChatRoom,
   ChatRoomSummary,
   RoomLevel,
+  DriveIndexFile,
   SavedItem,
   Client,
   Contact,
@@ -1946,8 +1947,27 @@ export function createDemoApi(): Api {
     async driveAccessToken() {
       return null
     },
-    async listDriveIndex() {
-      return []
+    async listDriveIndex(projectId) {
+      // 체험 모드: 프로젝트마다 예시 폴더 · 파일 (실제는 서버가 5분마다 드라이브에서 모음)
+      const out: DriveIndexFile[] = []
+      const F = 'application/vnd.google-apps.folder'
+      const day = (n: number) => new Date(Date.now() - n * 86400000).toISOString()
+      for (const [i, p] of store.projects.filter(x => !projectId || x.id === projectId).entries()) {
+        const sub: [string, [string, string, number][]][] = [
+          ['01_도면', [['평면도_v3.pdf', 'application/pdf', 2400000], ['입면도.pdf', 'application/pdf', 1800000]]],
+          ['02_견적 · 계약', [['견적서_최종', 'application/vnd.google-apps.spreadsheet', 0], ['계약서.pdf', 'application/pdf', 900000]]],
+          ['03_현장 사진', [['현장_01.jpg', 'image/jpeg', 3100000], ['현장_02.jpg', 'image/jpeg', 2900000], ['현장_03.jpg', 'image/jpeg', 3300000]]],
+        ]
+        sub.forEach(([folder, files], j) => {
+          const fid = `demo-${p.id}-${j}`
+          out.push({ id: fid, project_id: p.id, name: folder, mime_type: F, parent_id: null, path: null, url: 'https://drive.google.com/drive/my-drive', icon_url: null, size: null, modified_at: day(i + j), modified_by: null })
+          files.forEach(([name, mime, size], k) =>
+            out.push({ id: `${fid}-${k}`, project_id: p.id, name, mime_type: mime, parent_id: fid, path: folder, url: 'https://drive.google.com/drive/my-drive', icon_url: null, size: size || null, modified_at: day(i + j + k * 0.3), modified_by: null }),
+          )
+        })
+        out.push({ id: `demo-${p.id}-brief`, project_id: p.id, name: `${p.name} 기획안`, mime_type: 'application/vnd.google-apps.document', parent_id: null, path: null, url: 'https://drive.google.com/drive/my-drive', icon_url: null, size: null, modified_at: day(i), modified_by: null })
+      }
+      return out.sort((a, b) => (b.modified_at ?? '').localeCompare(a.modified_at ?? ''))
     },
     async driveSync() {
       throw new ApiError('데모에서는 회사 구글 계정을 연결할 수 없습니다.')

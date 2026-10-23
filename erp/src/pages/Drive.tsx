@@ -1,17 +1,18 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { ChevronRight, Clock, Copy, ExternalLink, FilePen, Pencil, RotateCw, X, FilePlus, Folder, HardDrive, LogIn, LogOut, Search, Star, Trash2, Users } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Clock, ExternalLink, RotateCw, X, FilePlus, Folder, HardDrive, LogIn, LogOut, Search, Star, Trash2, Users } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import type { DriveFolder, DriveStatus } from '../lib/api'
 import { desktop } from '../lib/desktop'
-import { copyFile, driveApi, DriveAuthError, editUrl, embedUrl, ensureProjectFolder, googleConnectCode, YEAR_RE, FOLDER_MIME as FOLDER, renameFile, trashFile, googleLogin, googleLogout, type GFile } from '../lib/gdrive'
+import { editUrl, embedUrl, ensureProjectFolder, googleConnectCode, googleLogin, googleLogout } from '../lib/gdrive'
 import { useDriveToken } from '../components/DriveFiles'
-import { DriveExplorer, useExplorerToken, type Loc as ExLoc } from '../components/DriveExplorer'
+import { DriveExplorer, indexSource, useExplorerToken, type IndexData, type Loc as ExLoc } from '../components/DriveExplorer'
+import { DIVISIONS, projectBrand, projectDriveUrl, type Project } from '../lib/types'
 import { useRouter, withQuery } from '../lib/router'
 import { relativeLabel } from '../lib/date'
 import { Shell } from '../components/Shell'
 import { claimNative, moveNative, openLink, releaseNative } from '../components/WebSearch'
-import { Badge, Button, Empty, SectionHead } from '../components/ui'
-import { ask, askText } from '../components/Ask'
+import { Badge, Button, SectionHead } from '../components/ui'
+import { ask } from '../components/Ask'
 
 /**
  * 구글 드라이브 탭 (대표 지시 2026-10-20)
@@ -54,6 +55,9 @@ export default function Drive() {
       <div className="col gap-10">
         {native ? <NativeDriveSwitch folders={folders} /> : <WebDrive folders={folders} />}
 
+        {admin && (
+          <details className="drive-settings">
+            <summary>드라이브 설정 (관리자) · 회사 공용 폴더 · 프로젝트 폴더 · 구글 연결</summary>
         <SectionHead
           title="회사 공용 폴더"
           count={folders.length}
@@ -93,8 +97,10 @@ export default function Drive() {
             <span className="t-cap">드라이브에서 폴더를 열고 주소창의 주소를 그대로 붙여 넣으세요. 팀원에게 그 폴더 공유 권한이 있어야 열립니다.</span>
           </div>
         )}
-        {admin && <ProjectFoldersSync />}
-        {admin && !native && <ClientIdSetting />}
+        <ProjectFoldersSync />
+        {!native && <ClientIdSetting />}
+          </details>
+        )}
       </div>
     </Shell>
   )
@@ -107,12 +113,14 @@ function NativeDriveSwitch({ folders }: { folders: DriveFolder[] }) {
   const { query, navigate } = useRouter()
   const ex = useExplorerToken(null)
   const [mode, setMode] = useState<'explorer' | 'google' | null>(null)
-  const shown = query.get('doc') ? 'google' : mode ?? (ex.token ? 'explorer' : ex.checked ? 'google' : null)
+  const shown = query.get('doc') ? 'google' : mode ?? (ex.checked ? 'explorer' : null)
+  const data = useIndexData(folders)
+  const idx = useMemo(() => (data ? indexSource(data) : null), [data])
   if (!shown) return null
   return (
     <>
       <div className="chips">
-        <button type="button" className={`chip ${shown === 'explorer' ? 'active' : ''}`} onClick={() => (navigate('/drive', { replace: true }), setMode('explorer'))} disabled={!ex.token} title={ex.token ? '윈도우 탐색기처럼 보기' : '관리자가 회사 구글 계정을 연결하면 쓸 수 있습니다'}>
+        <button type="button" className={`chip ${shown === 'explorer' ? 'active' : ''}`} onClick={() => (navigate('/drive', { replace: true }), setMode('explorer'))} title="윈도우 탐색기처럼 보기">
           탐색기
         </button>
         <button type="button" className={`chip ${shown === 'google' ? 'active' : ''}`} onClick={() => setMode('google')}>
@@ -125,6 +133,14 @@ function NativeDriveSwitch({ folders }: { folders: DriveFolder[] }) {
           companyFolders={companyOf(folders)}
           onOpenDoc={u => (setMode('google'), navigate(withQuery('/drive', query, { doc: u })))}
           onAuthError={ex.refresh}
+        />
+      ) : shown === 'explorer' && idx ? (
+        <DriveExplorer
+          token={null}
+          source={idx}
+          companyFolders={[]}
+          onOpenDoc={u => (setMode('google'), navigate(withQuery('/drive', query, { doc: u })))}
+          banner={<div className="ex-banner"><b>보기 전용</b> · 바로 고치려면 '구글 드라이브 화면'에서 로그인하거나, 관리자가 회사 구글 계정을 연결하세요.</div>}
         />
       ) : (
         <NativeDrive folders={folders} />
@@ -200,8 +216,6 @@ function NativeDrive({ folders }: { folders: DriveFolder[] }) {
 /* ------------------------------------------------------------------ */
 /* 웹 브라우저: 구글 로그인 → 드라이브 API 로 목록                          */
 /* ------------------------------------------------------------------ */
-const esc = (s: string) => s.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
-type Loc = { kind: ViewKey | 'folder' | 'search'; id?: string; name: string; driveId?: string }
 
 /** 웹 브라우저: 문서 편집 칸 + 드라이브 목록 (대표 지시 2026-10-20 "구글 드라이브 앱내에서 편집 가능하도록") */
 function WebDrive({ folders }: { folders: DriveFolder[] }) {
@@ -271,7 +285,31 @@ function WebDriveList({ folders, onOpenDoc }: { folders: DriveFolder[]; onOpenDo
         <DriveExplorer key={start.n} token={ex.token} start={start.loc} companyFolders={companyOf(folders)} onOpenDoc={onOpenDoc} onAuthError={ex.refresh} />
       </>
     )
-  return <WebDriveListOld folders={folders} onOpenDoc={onOpenDoc} clientId={clientId} idLoading={idLoading || !ex.checked} />
+  return <IndexExplorer folders={folders} onOpenDoc={onOpenDoc} clientId={clientId} ready={!idLoading && ex.checked} />
+}
+
+/** 구글 연결 전: 같은 탐색기 모양으로 (보기 전용) + 위쪽에 연결 안내 */
+function IndexExplorer({ folders, onOpenDoc, clientId, ready }: { folders: DriveFolder[]; onOpenDoc: (url: string) => void; clientId: string | null; ready: boolean }) {
+  const { me, toast } = useApp()
+  const data = useIndexData(folders)
+  const src = useMemo(() => (data ? indexSource(data) : null), [data])
+  if (!src) return <div className="explorer ex-loading t-cap">드라이브 목록을 불러오는 중…</div>
+  const banner = (
+    <div className="ex-banner">
+      <LogIn size={14} />
+      <span className="grow">
+        <b>보기 전용</b> · 구글에 로그인하면 이 화면에서 바로 이름 바꾸기 · 복사 · 붙여넣기 · 올리기가 됩니다.
+      </span>
+      {clientId ? (
+        <Button size="sm" onClick={() => googleLogin(clientId, me.email).catch(e => toast(e instanceof Error ? e.message : '구글 로그인을 하지 못했습니다.'))}>
+          구글 로그인
+        </Button>
+      ) : (
+        ready && <span className="t-cap">관리자가 아래 '드라이브 설정'에서 구글 연결을 마치면 켜집니다.</span>
+      )}
+    </div>
+  )
+  return <DriveExplorer token={null} source={src} companyFolders={[]} onOpenDoc={onOpenDoc} banner={banner} />
 }
 
 const QUICK_LOC: Record<string, ExLoc> = {
@@ -281,213 +319,31 @@ const QUICK_LOC: Record<string, ExLoc> = {
   starred: { kind: 'starred', name: '중요 문서함' },
   drives: { kind: 'drives', name: '공유 드라이브' },
 }
-const companyOf = (folders: DriveFolder[]) => folders.map(f => ({ name: f.name, id: folderId(f.url) ?? '' })).filter(f => f.id)
-
-/** 구글 로그인 전 (로그인 안내 · 예전 목록) */
-function WebDriveListOld({ folders, onOpenDoc, clientId, idLoading }: { folders: DriveFolder[]; onOpenDoc: (url: string) => void; clientId: string | null; idLoading: boolean }) {
-  const { me } = useApp()
-  const token = useDriveToken()
-  const [trail, setTrail] = useState<Loc[]>([])
-  const [files, setFiles] = useState<GFile[]>([])
-  const [loading, setLoading] = useState(false)
-  const [err, setErr] = useState('')
-  const here = trail[trail.length - 1]
-
-  const login = async () => {
-    setErr('')
-    try {
-      await googleLogin(clientId!, me.email)
-      setTrail(t => (t.length ? t : [{ kind: 'my', name: '내 드라이브' }]))
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : '구글 로그인을 불러오지 못했습니다.')
-    }
-  }
-  const logout = () => {
-    googleLogout()
-    setTrail([])
-    setFiles([])
-  }
-
-  const load = useCallback(
-    async (loc: Loc) => {
-      if (!token) return
-      setLoading(true)
-      setErr('')
-      try {
-        const p = new URLSearchParams({ pageSize: '200', supportsAllDrives: 'true', includeItemsFromAllDrives: 'true', fields: 'files(id,name,mimeType,iconLink,webViewLink,modifiedTime,owners(displayName),shortcutDetails),nextPageToken' })
-        let path = 'files'
-        if (loc.kind === 'drives') {
-          path = 'drives'
-          p.delete('supportsAllDrives')
-          p.delete('includeItemsFromAllDrives')
-          p.set('fields', 'drives(id,name)')
-          p.set('pageSize', '100')
-        } else if (loc.kind === 'my') {
-          p.set('q', "'root' in parents and trashed = false")
-          p.set('orderBy', 'folder,name')
-        } else if (loc.kind === 'shared') {
-          p.set('q', 'sharedWithMe and trashed = false')
-          p.set('orderBy', 'modifiedTime desc')
-        } else if (loc.kind === 'recent') {
-          p.set('q', `trashed = false and mimeType != '${FOLDER}'`)
-          p.set('orderBy', 'viewedByMeTime desc')
-          p.set('pageSize', '60')
-        } else if (loc.kind === 'starred') {
-          p.set('q', 'starred and trashed = false')
-          p.set('orderBy', 'folder,name')
-        } else if (loc.kind === 'search') {
-          p.set('q', `name contains '${esc(loc.name)}' and trashed = false`)
-          p.set('corpora', 'allDrives')
-        } else {
-          p.set('q', `'${esc(loc.id!)}' in parents and trashed = false`)
-          p.set('orderBy', 'folder,name')
-          if (loc.driveId) {
-            p.set('corpora', 'drive')
-            p.set('driveId', loc.driveId)
-          } else p.set('corpora', 'allDrives')
-        }
-        const body = await driveApi<{ files?: GFile[]; drives?: { id: string; name: string }[] }>(token, `${path}?${p}`)
-        setFiles(loc.kind === 'drives' ? (body.drives ?? []).map((d: { id: string; name: string }) => ({ id: d.id, name: d.name, mimeType: 'drive' })) : body.files ?? [])
-      } catch (e) {
-        if (e instanceof DriveAuthError) setTrail([])
-        setErr(e instanceof Error ? e.message : '드라이브를 불러오지 못했습니다.')
-      } finally {
-        setLoading(false)
-      }
+/** 구글 연결 전에도 탐색기를 보여 줄 목록: 프로젝트 · 서버가 모은 드라이브 목록 · 회사 폴더 */
+function useIndexData(folders: DriveFolder[]): IndexData | null {
+  const { api, version } = useApp()
+  const { data } = useAsync(
+    async () => {
+      const [projects, files] = await Promise.all([api.listProjects().catch(() => [] as Project[]), api.listDriveIndex().catch(() => [])])
+      return { projects, files }
     },
-    [token],
+    [version],
+    null as { projects: Project[]; files: Awaited<ReturnType<typeof api.listDriveIndex>> } | null,
   )
-  useEffect(() => {
-    if (here && token) void load(here)
-  }, [here, token, load])
-
-  const pick = (loc: Loc) => setTrail([loc])
-  // 기존 드라이브 자료는 절대 수정 · 삭제 금지 (대표 지시 2026-10-21) → 이름 바꾸기 · 삭제는 인트라넷 전용 '#연도' 폴더 안에서만
-  const inIntranetTree = trail.some(t => t.kind === 'folder' && YEAR_RE.test(t.name))
-  // 수정 · 복사 · 삭제 (대표 지시 2026-10-21 "드라이브에 있는 자료 수정 · 복사 · 삭제 가능하도록")
-  const { toast } = useApp()
-  const [acting, setActing] = useState(false)
-  const act = async (f: GFile, kind: 'rename' | 'copy' | 'trash') => {
-    if (!token) return
-    if (kind !== 'copy' && !inIntranetTree) return toast('기존 드라이브 자료는 고치거나 지울 수 없습니다. (인트라넷 #연도 폴더 안에서만)')
-    let name = f.name
-    if (kind === 'rename') {
-      const v = (await askText('새 이름', f.name))?.trim()
-      if (!v || v === f.name) return
-      name = v
-    } else if (kind === 'copy') {
-      const v = (await askText('사본 이름', `${f.name} 사본`))?.trim()
-      if (!v) return
-      name = v
-    } else if (!(await ask(`'${f.name}'을(를) 삭제할까요?\n구글 드라이브 휴지통으로 옮겨지며 30일 안에 되살릴 수 있습니다.`))) return
-    setActing(true)
-    setErr('')
-    try {
-      if (kind === 'rename') await renameFile(token, f.id, name)
-      else if (kind === 'copy') await copyFile(token, f.id, name)
-      else await trashFile(token, f.id)
-      toast(kind === 'rename' ? '이름을 바꿨습니다.' : kind === 'copy' ? '사본을 만들었습니다.' : '휴지통으로 옮겼습니다.')
-      if (here) await load(here)
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : '드라이브 작업을 하지 못했습니다.')
-    } finally {
-      setActing(false)
-    }
+  if (!data) return null
+  return {
+    year: String(new Date().getFullYear()),
+    files: data.files,
+    company: folders,
+    projects: data.projects.map(p => {
+      const k = projectBrand(p)
+      const d = projectDriveUrl(p)
+      return { id: p.id, code: p.code ?? null, name: p.name, division: k, divisionName: DIVISIONS[k]?.label ?? k, url: d.exact ? d.url : null, status: p.status }
+    }),
   }
-  const openItem = (f: GFile) => {
-    if (f.mimeType === 'drive') return setTrail(t => [...t, { kind: 'folder', id: f.id, name: f.name, driveId: f.id }])
-    const isFolder = f.mimeType === FOLDER || f.shortcutDetails?.targetMimeType === FOLDER
-    if (isFolder) return setTrail(t => [...t, { kind: 'folder', id: f.shortcutDetails?.targetId ?? f.id, name: f.name, driveId: t[t.length - 1]?.driveId }])
-    if (f.webViewLink) onOpenDoc(editUrl(f.webViewLink))
-  }
-
-  if (idLoading) return null
-  if (!clientId) {
-    return (
-      <>
-        <DriveHead active="" folders={folders} onQuick={qk => openLink(qk.url)} onFolder={f => openLink(f.url)} onSearch={s => openLink(`${DRIVE}/search?q=${encodeURIComponent(s)}`)} onNew={n => onOpenDoc(n.url)} />
-        <div className="drive-login">
-          <LogIn size={22} />
-          <b>웹 브라우저에서 드라이브를 이 화면에 보려면 구글 로그인 연결이 필요합니다.</b>
-          <span className="t-small">관리자가 아래 '구글 로그인 연결'에 클라이언트 ID를 등록하면 됩니다. 그 전에는 위 버튼이 오른쪽 창으로 엽니다. PC 프로그램에서는 바로 이 화면 안에 나옵니다.</span>
-        </div>
-      </>
-    )
-  }
-  return (
-    <>
-      <DriveHead
-        active={here?.name ?? (token ? '' : '구글 로그인')}
-        folders={folders}
-        disabled={!token}
-        onLogin={token ? undefined : login}
-        onLogout={token ? logout : undefined}
-        onQuick={qk => pick({ kind: qk.key, name: qk.label })}
-        onFolder={f => {
-          const id = folderId(f.url)
-          if (id) pick({ kind: 'folder', id, name: f.name })
-          else openLink(f.url)
-        }}
-        onSearch={s => pick({ kind: 'search', name: s })}
-        onNew={n => onOpenDoc(n.url)}
-      />
-      {!token ? (
-        <span className="t-cap drive-hint">위 제목 옆 '구글 로그인'을 누르면 내 드라이브 · 공유 문서함 · 회사 폴더가 이 아래에 나옵니다. (기존 자료는 열기 · 복사만, 이름 바꾸기 · 삭제는 인트라넷 #연도 폴더 안에서만)</span>
-      ) : (
-        <div className="drive-list">
-          <div className="drive-trail">
-            {trail.map((t, i) => (
-              <span key={i} className="row" style={{ gap: 2 }}>
-                {i > 0 && <ChevronRight size={12} />}
-                <button type="button" className="link-btn" disabled={i === trail.length - 1} onClick={() => setTrail(trail.slice(0, i + 1))}>
-                  {t.kind === 'search' ? `검색: ${t.name}` : t.name}
-                </button>
-              </span>
-            ))}
-            <span className="grow" />
-            {loading && <span className="t-cap">불러오는 중…</span>}
-          </div>
-          {!loading && !files.length && <Empty>{here ? '파일이 없습니다.' : '위에서 내 드라이브를 눌러 보세요.'}</Empty>}
-          {files.map(f => (
-            <div key={f.id} className="drive-row-wrap">
-              <button type="button" className="drive-row" onClick={() => openItem(f)}>
-                {f.mimeType === 'drive' ? <Folder size={16} /> : f.iconLink ? <img src={f.iconLink} alt="" width={16} height={16} /> : <Folder size={16} />}
-                <span className="grow drive-name">{f.name}</span>
-                <span className="t-cap hide-narrow">{f.owners?.[0]?.displayName ?? ''}</span>
-                <span className="t-meta">{f.modifiedTime ? f.modifiedTime.slice(0, 10) : ''}</span>
-              </button>
-              {f.mimeType !== 'drive' && (
-                <span className="drive-acts">
-                  {f.webViewLink && f.mimeType !== FOLDER && (
-                    <button type="button" className="icon-btn sm" onClick={() => onOpenDoc(editUrl(f.webViewLink!))} aria-label="편집" title="열어서 편집">
-                      <FilePen size={13} />
-                    </button>
-                  )}
-                  {inIntranetTree && (
-                    <button type="button" className="icon-btn sm" disabled={acting} onClick={() => act(f, 'rename')} aria-label="이름 바꾸기" title="이름 바꾸기">
-                      <Pencil size={13} />
-                    </button>
-                  )}
-                  {f.mimeType !== FOLDER && (
-                    <button type="button" className="icon-btn sm" disabled={acting} onClick={() => act(f, 'copy')} aria-label="복사" title="사본 만들기 (같은 폴더)">
-                      <Copy size={13} />
-                    </button>
-                  )}
-                  {inIntranetTree && (
-                    <button type="button" className="icon-btn sm del" disabled={acting} onClick={() => act(f, 'trash')} aria-label="삭제" title="삭제 (구글 드라이브 휴지통으로 · 30일 안에 되살리기 가능)">
-                      <Trash2 size={13} />
-                    </button>
-                  )}
-                </span>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-      {err && <span className="err">{err}</span>}
-    </>
-  )
 }
+
+const companyOf = (folders: DriveFolder[]) => folders.map(f => ({ name: f.name, id: folderId(f.url) ?? '' })).filter(f => f.id)
 
 /** 위쪽: 로그인 · 바로가기 · 회사 폴더 · 드라이브 검색 */
 function DriveHead({

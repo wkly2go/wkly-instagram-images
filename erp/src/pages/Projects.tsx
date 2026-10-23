@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { AlarmClock, ArrowLeft, Plus, CheckCircle2, ChevronLeft, ChevronRight, CircleSlash, FolderOpen, Pencil, Search, Trash2 } from 'lucide-react'
 import { ProjectMaterials } from '../components/ProjectMaterials'
 import { SiteLogsSection } from '../components/SiteLogs'
@@ -38,6 +38,12 @@ export default function Projects() {
   const selectedId = query.get('id')
   const [editing, setEditing] = useState<Project | 'new' | null>(null)
   const [newDiv, setNewDiv] = useState<Division | null>(null)
+  // 왼쪽 '+ 새로 만들기' 에서 들어오면 바로 새 프로젝트 창
+  useEffect(() => {
+    if (query.get('new') !== '1') return
+    setEditing('new')
+    navigate(withQuery(path, query, { new: null }), { replace: true })
+  }, [query, path, navigate])
   const [assigning, setAssigning] = useState(false)
   const { data, loading } = useAsync<Data>(
     async () => {

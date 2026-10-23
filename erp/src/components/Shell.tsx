@@ -1,6 +1,7 @@
-import { createContext, useCallback, useContext, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from 'react'
-import { Bot, Search, Briefcase, HardDrive, MonitorDown, ChevronLeft, ChevronRight, CircleHelp, ClipboardCheck, FolderKanban, Home, Library, Megaphone, MessageCircle, MoreHorizontal, Settings, Users, type LucideIcon } from 'lucide-react'
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from 'react'
+import { Bookmark, Bot, ListTodo, Plus, Search, Briefcase, HardDrive, MonitorDown, ChevronLeft, ChevronRight, CircleHelp, ClipboardCheck, FolderKanban, Home, Library, Megaphone, MessageCircle, MoreHorizontal, Settings, Users, type LucideIcon } from 'lucide-react'
 import { isDesktopApp } from '../lib/desktop'
+import { AssignTaskModal } from './AssignTask'
 import { NotificationBell } from './Notifications'
 import { WebSearchBox, webSlot } from './WebSearch'
 import { openCommandPalette } from './CommandPalette'
@@ -136,7 +137,85 @@ function PhotoBox() {
   )
 }
 
-function ProfilePanel({ summary }: { summary: Summary }) {
+/**
+ * 왼쪽 메뉴 (2026-10-23 "오른쪽 탭은 삭제, 다른 방법"): 아이콘 · 이름 · 처리할 숫자를 한 줄씩
+ *  - 맨 위 '+ 새로 만들기' 하나로 할 일 · 결재 · 프로젝트 · 업무 일지 · 메시지 · AI 지시
+ */
+function SideNav({ active, summary }: { active: TabKey; summary: Summary }) {
+  const { me } = useApp()
+  const count = (k: TabKey) => (k === 'approvals' ? summary.pendingToDecide : k === 'chat' ? summary.unread : k === 'projects' ? summary.myOpenTasks : 0)
+  return (
+    <nav className="side-nav" aria-label="메뉴">
+      <NewMenu />
+      {TABS.filter(t => !t.admin || me.role === 'admin').map((t, i) => {
+        const Icon = ICONS[t.key]
+        const n = count(t.key)
+        return (
+          <Link key={t.key} to={t.path} className={`side-item ${t.key === active ? 'on' : ''} ${n && t.key !== 'projects' ? 'has-n' : ''}`} title={`${t.label} (Alt+${i + 1})`}>
+            <Icon size={15} aria-hidden="true" />
+            <span className="grow">{t.label}</span>
+            {n > 0 && <span className={`side-n ${t.key === 'projects' ? 'soft' : ''}`}>{n > 99 ? '99+' : n}</span>}
+          </Link>
+        )
+      })}
+      {!!summary.saved && (
+        <Link to="/chat?view=saved" className="side-item sub">
+          <Bookmark size={13} aria-hidden="true" />
+          <span className="grow">나중에 보기</span>
+          <span className="side-n soft">{summary.saved}</span>
+        </Link>
+      )}
+    </nav>
+  )
+}
+
+function NewMenu() {
+  const { navigate } = useRouter()
+  const [open, setOpen] = useState(false)
+  const [task, setTask] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const off = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && setOpen(false)
+    window.addEventListener('mousedown', off)
+    return () => window.removeEventListener('mousedown', off)
+  }, [open])
+  const items: [string, LucideIcon, () => void][] = [
+    ['할 일 · 업무 지시', ListTodo, () => setTask(true)],
+    ['보고서 결제 올리기', ClipboardCheck, () => navigate('/approvals?new=1')],
+    ['새 프로젝트', FolderKanban, () => navigate('/projects?new=1')],
+    ['업무 일지 쓰기', Briefcase, () => navigate('/work')],
+    ['메시지 · 1:1 대화', MessageCircle, () => navigate('/chat')],
+    ['AI 에게 시키기', Bot, () => openCommandPalette()],
+  ]
+  return (
+    <div className="new-menu" ref={ref}>
+      <button type="button" className="new-btn" onClick={() => setOpen(o => !o)} aria-expanded={open}>
+        <Plus size={15} /> 새로 만들기
+      </button>
+      {open && (
+        <div className="new-pop" role="menu">
+          {items.map(([label, Icon, run]) => (
+            <button
+              key={label}
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false)
+                run()
+              }}
+            >
+              <Icon size={14} /> {label}
+            </button>
+          ))}
+        </div>
+      )}
+      {task && <AssignTaskModal onClose={() => setTask(false)} />}
+    </div>
+  )
+}
+
+function ProfilePanel({ summary, active }: { summary: Summary; active: TabKey }) {
   const { api, me, bump, toast, openQuick } = useApp()
   const [editing, setEditing] = useState(false)
   const [msg, setMsg] = useState(me.status_message ?? '')
@@ -153,6 +232,7 @@ function ProfilePanel({ summary }: { summary: Summary }) {
   return (
     <aside className="profile" aria-label="내 프로필">
       <PhotoBox />
+      <SideNav active={active} summary={summary} />
       <MiniCalendar />
       <div className="row" style={{ alignItems: 'baseline', gap: 6 }}>
         <span className="t-bodyb">{me.name}</span>
@@ -202,22 +282,6 @@ function ProfilePanel({ summary }: { summary: Summary }) {
           {me.status_message || <span className="t-muted">오늘의 한마디를 남겨 보세요.</span>}
         </div>
       )}
-      <nav className="my-counts" aria-label="내 현황">
-        <Link to="/projects?view=mine">
-          · 내 할 일 <span className="n">{summary.myOpenTasks}</span>
-        </Link>
-        <Link to="/approvals">
-          · 결제 대기 <span className="n">{summary.pendingToDecide}</span>
-        </Link>
-        <Link to="/chat">
-          · 안 읽은 채팅 <span className="n">{summary.unread}</span>
-        </Link>
-        {!!summary.saved && (
-          <Link to="/chat?view=saved">
-            · 나중에 보기 <span className="n">{summary.saved}</span>
-          </Link>
-        )}
-      </nav>
       <div className="side-tools">
         <Link to="/help" className="quick-btn" title="사용법" style={{ textDecoration: 'none' }}>
           <CircleHelp size={14} /> 사용법
@@ -331,7 +395,7 @@ export function LogoTile() {
 }
 
 /**
- * 화면 틀 (위쪽 줄 · 프로필 · 오른쪽 탭 · 인터넷 칸)은 한 번만 만들고 계속 유지 (2026-10-22 "화면 전환 애니메이션이 부자연스러워")
+ * 화면 틀 (위쪽 줄 · 프로필 · 왼쪽 메뉴 · 인터넷 칸)은 한 번만 만들고 계속 유지 (2026-10-22 "화면 전환 애니메이션이 부자연스러워")
  *  - 예전: 화면마다 <Shell> 을 새로 만들어 이동할 때마다 틀 전체가 지워졌다 다시 그려짐 → 깜빡임 · 숫자 0 표시 · 인터넷 칸 다시 나타남
  *  - 지금: App 이 <ShellFrame> 을 한 번 그리고, 각 화면의 <Shell> 은 탭 표시(active · flush)만 알려 줌. 가운데만 부드럽게 바뀜
  */
@@ -369,7 +433,7 @@ function OneBox() {
 }
 
 export function ShellFrame({ children, initial }: { children: ReactNode; initial?: ShellState }) {
-  const { api, me } = useApp()
+  const { api } = useApp()
   const { path } = useRouter()
   const summary = useSummary()
   const [{ active, flush }, setState] = useState<ShellState>(initial ?? { active: 'home', flush: false })
@@ -405,7 +469,7 @@ export function ShellFrame({ children, initial }: { children: ReactNode; initial
               <span className="grow" />
             </header>
             <div className="body" ref={mountWebSlot}>
-              <ProfilePanel summary={summary} />
+              <ProfilePanel summary={summary} active={active} />
               <main ref={mainRef} className={`main ${flush ? 'flush' : ''}`}>
                 {/* 가운데 창 뒤로 · 앞으로 (인트라넷 화면 이동 기록) */}
                 <div className="main-nav" role="group" aria-label="화면 이동">
@@ -425,17 +489,6 @@ export function ShellFrame({ children, initial }: { children: ReactNode; initial
           </div>
         </div>
         <MobileNav active={active} summary={summary} />
-        <nav className="tabs" aria-label="메뉴">
-          {TABS.filter(t => !t.admin || me.role === 'admin').map(t => {
-            const dot = t.key === 'approvals' ? summary.pendingToDecide : t.key === 'chat' ? summary.unread : 0
-            return (
-              <Link key={t.key} to={t.path} className={`tab ${t.key === active ? 'active' : ''}`}>
-                {t.label}
-                {dot > 0 && t.key !== active && <span className="dot">{dot > 99 ? '99+' : dot}</span>}
-              </Link>
-            )
-          })}
-        </nav>
       </div>
     </div>
     </ShellCtx.Provider>
