@@ -1818,3 +1818,5 @@ svg text[font-size="12"] { font-size: var(--fs-sm); }
 
 /* 표 안 구분 머리줄 (프로젝트 진행 현황 등) */
 .table tr.group-row td { background: var(--bg-soft, #eef3ff); padding-top: 8px; padding-bottom: 8px; }
+.progress-cards { display: flex; flex-direction: column; gap: 12px; }
+.progress-table { table-layout: fixed; min-width: 760px; }
