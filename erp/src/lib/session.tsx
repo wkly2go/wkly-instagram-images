@@ -1,7 +1,7 @@
 /**
  * 로그인 규칙 (PC 프로그램 · 브라우저 · 휴대폰 모두 같음)
  *  - 로그인은 그날만 유지: 날짜가 바뀌면 다시 로그인
- *  - 30분 동안 조작이 없으면 화면 잠금 → 비밀번호를 다시 넣어야 열림
+ *  - 1시간 동안 조작이 없으면 화면 잠금 → 비밀번호를 다시 넣어야 열림
  *    (PC 프로그램은 컴퓨터 전체 사용 기준 · 화면 잠금 · 절전 때도 잠금)
  *  - 잠금 상태는 이 컴퓨터의 모든 인트라넷 창(빠른 창 포함)에 같이 적용
  */
@@ -13,7 +13,7 @@ import { todayKey } from './date'
 import { desktop } from './desktop'
 import type { Profile } from './types'
 
-export const IDLE_LOCK_MS = 30 * 60_000
+export const IDLE_LOCK_MS = 60 * 60_000
 const DAY_KEY = 'wkly-login-day'
 const LAST_KEY = 'wkly-last-active'
 const LOCK_KEY = 'wkly-locked'
@@ -69,7 +69,7 @@ export function useSessionPolicy(api: Api, userId: string | null | undefined): {
         api.signOut().catch(() => undefined)
       }
     }
-    // 30분 미사용 → 잠금 (PC 프로그램은 컴퓨터 전체 사용 시간을 기준으로 프로그램이 알려 줌)
+    // 1시간 미사용 → 잠금 (PC 프로그램은 컴퓨터 전체 사용 시간을 기준으로 프로그램이 알려 줌)
     const bridge = desktop()
     const checkIdle = () => {
       if (bridge) return
@@ -145,7 +145,7 @@ export function LockScreen({ api, me, onUnlock }: { api: Api; me: Profile; onUnl
             화면이 잠겼습니다
           </h1>
           <p className="t-small" style={{ textAlign: 'center', margin: 0 }}>
-            30분 동안 사용하지 않아 잠갔습니다. <b>{me.name}</b>님의 비밀번호를 넣으면 이어서 쓸 수 있습니다.
+            1시간 동안 사용하지 않아 잠갔습니다. <b>{me.name}</b>님의 비밀번호를 넣으면 이어서 쓸 수 있습니다.
           </p>
           <input
             className="input"
