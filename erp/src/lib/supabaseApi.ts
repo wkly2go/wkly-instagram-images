@@ -227,10 +227,19 @@ export function createSupabaseApi(url: string, key: string): Api {
     },
 
     async listRooms() {
-      // v2 는 1:1 대화 멤버(members)까지 돌려줌. 아직 없는 DB 면 예전 함수로
+      // v3 는 알림 단계 · 멘션 수까지, v2 는 1:1 대화 멤버(members)까지. 아직 없는 DB 면 예전 함수로
+      const v3 = await sb.rpc('chat_room_summaries_v3')
+      if (!v3.error) return v3.data as ChatRoomSummary[]
       const v2 = await sb.rpc('chat_room_summaries_v2')
       if (!v2.error) return v2.data as ChatRoomSummary[]
       return must(await sb.rpc('chat_room_summaries')) as ChatRoomSummary[]
+    },
+    async setRoomLevel(roomId, level) {
+      const { data } = await sb.auth.getUser()
+      must(await sb.from('chat_room_prefs').upsert({ user_id: data.user?.id, room_id: roomId, level, updated_at: new Date().toISOString() }))
+    },
+    async sendCard(roomId, content, card) {
+      return must(await sb.from('chat_messages').insert({ room_id: roomId, content, attachment: { card, name: card.title || '카드' } }).select().single()) as ChatMessage
     },
     async createRoom(r) {
       return must(await sb.from('chat_rooms').insert(r).select().single()) as ChatRoom

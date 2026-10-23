@@ -46,14 +46,15 @@ Deno.serve(async req => {
     let userIds: string[] = []
     let payload: Record<string, unknown>
     if (body.type === 'chat') {
-      const [{ data: people }, { data: sender }, { data: room }] = await Promise.all([
-        sb.from('profiles').select('id').eq('active', true).eq('is_agent', false).neq('id', body.user_id as string),
+      // 받을 사람: 방마다 알림 단계(전체 · 멘션만 · 끄기) 반영 (0059 chat_push_targets)
+      const [{ data: targets }, { data: sender }, { data: room }] = await Promise.all([
+        sb.rpc('chat_push_targets', { p_room: body.room_id, p_sender: body.user_id ?? null, p_content: body.content ?? '' }),
         sb.from('profiles').select('name').eq('id', body.user_id as string).maybeSingle(),
         sb.from('chat_rooms').select('name, members').eq('id', body.room_id as string).maybeSingle(),
       ])
-      // 1:1 방(members 있음)은 그 방 사람에게만
       const members = (room?.members as string[] | null) ?? null
-      userIds = (people ?? []).map(p => p.id as string).filter(id => !members || members.includes(id))
+      userIds = ((targets ?? []) as unknown[]).map(t => (typeof t === 'string' ? t : String((t as Record<string, unknown>).chat_push_targets ?? '')))
+        .filter(Boolean)
       payload = {
         kind: 'chat',
         room: body.room_id,

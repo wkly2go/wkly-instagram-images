@@ -462,11 +462,28 @@ export interface ChatRoom {
   members?: string[] | null
 }
 
+/** 방마다 알림 단계: 전체 · 멘션만 · 끄기 (2026-10-23) */
+export type RoomLevel = 'all' | 'mention' | 'mute'
+export const ROOM_LEVEL_LABEL: Record<RoomLevel, string> = { all: '전체', mention: '멘션만', mute: '끄기' }
+
 export interface ChatRoomSummary extends ChatRoom {
   last_content: string | null
   last_at: string | null
   last_user_id: string | null
   unread: number
+  /** 나를 부른(@이름) 안 읽은 메시지 수 */
+  mentions?: number
+  level?: RoomLevel
+  /** 프로젝트 방이면 그 프로젝트 상태 */
+  project_status?: string | null
+}
+
+/** 대화 속 카드: 할 일 · 결재 · 파일 (버튼으로 바로 처리) */
+export interface ChatCard {
+  kind: 'task' | 'approval' | 'file'
+  id: string
+  title: string
+  url?: string | null
 }
 
 /** 채팅 첨부 파일 (파일은 비공개 저장소, 방 사람만 열 수 있음) */
@@ -477,6 +494,8 @@ export interface ChatAttachment {
   type: string
   /** 체험 모드: 브라우저에 담아 둔 파일 */
   url?: string
+  /** 카드 메시지 (파일 없음) */
+  card?: ChatCard
 }
 
 export interface ChatMessage {

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useApp } from './app'
 import { friendlyError } from './api'
 import { ask } from '../components/Ask'
-import type { ChatMessage, ChatRead, ChatRoom } from './types'
+import type { ChatMessage, ChatRead, ChatRoom, ChatRoomSummary, RoomLevel } from './types'
 
 /** 채팅방 메시지: 불러오기 · 실시간 반영 · 읽음 처리 · 보내기 · 삭제 (채팅 탭과 빠른 기록 창이 함께 씀) */
 export function useRoomMessages(roomId: string | null) {
@@ -97,4 +97,23 @@ export function roomTitle(room: ChatRoom, meId: string, profileName: (id: string
   if (!room.members) return `# ${room.name}`
   const others = room.members.filter(id => id !== meId)
   return `@ ${others.map(profileName).join(', ') || '나'}`
+}
+
+/**
+ * 방마다 알림 단계 (2026-10-23): 방 목록을 불러올 때마다 기억해 두고, 새 메시지 소리 · 숫자에 씀
+ *  - 전체: 모든 새 메시지 · 멘션만: 나를 부를 때만 · 끄기: 소리 · 숫자 없음
+ */
+const roomLevels = new Map<string, RoomLevel>()
+export function rememberRoomLevels(rooms: ChatRoomSummary[]) {
+  for (const r of rooms) roomLevels.set(r.id, r.level ?? 'all')
+}
+export function wantsAlert(m: ChatMessage, myName: string) {
+  const level = roomLevels.get(m.room_id) ?? 'all'
+  if (level === 'all') return true
+  return level === 'mention' && !!myName && m.content.includes(`@${myName}`)
+}
+/** 탭 · 내 현황에 보일 안 읽은 수 */
+export function countedUnread(r: ChatRoomSummary) {
+  const level = r.level ?? 'all'
+  return level === 'all' ? r.unread : level === 'mention' ? r.mentions ?? 0 : 0
 }

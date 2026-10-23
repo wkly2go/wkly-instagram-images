@@ -58,6 +58,8 @@ import type {
   ChatRoom,
   ChatRoomSummary,
   ChatAttachment,
+  ChatCard,
+  RoomLevel,
   Client,
   Contact,
   Draft,
@@ -217,6 +219,10 @@ export interface Api {
   /** 내 메시지 고치기 (고친 시각 edited_at 이 남음) */
   editMessage(id: number, content: string): Promise<ChatMessage>
   markRead(roomId: string): Promise<void>
+  /** 이 방 알림 단계 (전체 · 멘션만 · 끄기) */
+  setRoomLevel(roomId: string, level: RoomLevel): Promise<void>
+  /** 카드 메시지 보내기 (/할일 · /결재 · /일정 으로 만든 것) */
+  sendCard(roomId: string, content: string, card: ChatCard): Promise<ChatMessage>
   /** 방 참여자들의 마지막 읽은 시각 (누가 읽었는지 표시) */
   listRoomReads(roomId: string): Promise<ChatRead[]>
 

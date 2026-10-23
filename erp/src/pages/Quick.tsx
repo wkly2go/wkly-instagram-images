@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react'
+import { countedUnread } from '../lib/chat'
 import { Pin, Send, X } from 'lucide-react'
 import { useApp, useAsync } from '../lib/app'
 import { friendlyError } from '../lib/api'
@@ -42,7 +43,7 @@ export default function Quick({ onClose }: { onClose?: () => void }) {
   const saved = load(MODE_KEY)
   const [mode, setMode] = useState<Mode>(saved === 'chat' || saved === 'menu' ? saved : 'log')
   const { data: rooms } = useAsync(() => api.listRooms(), [version], [] as ChatRoomSummary[])
-  const unread = rooms.reduce((s, r) => s + r.unread, 0)
+  const unread = rooms.reduce((s, r) => s + countedUnread(r), 0)
   const pick = (m: Mode) => {
     setMode(m)
     save(MODE_KEY, m)

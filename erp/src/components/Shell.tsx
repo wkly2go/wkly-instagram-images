@@ -21,6 +21,7 @@ import { inQuickWindow } from '../lib/pip'
 import { Link, useRouter } from '../lib/router'
 import { TODAY_STATUSES, type TodayStatus } from '../lib/types'
 import { Presence, toneOf } from './ui'
+import { countedUnread, rememberRoomLevels } from '../lib/chat'
 
 export type TabKey = 'home' | 'approvals' | 'chat' | 'work' | 'projects' | 'clients' | 'library' | 'drive' | 'team' | 'agents' | 'ads' | 'admin'
 
@@ -69,7 +70,8 @@ export function useSummary(): Summary {
       return {
         myOpenTasks: tasks.filter(t => t.assignee_id === me.id && t.status !== '완료').length,
         pendingToDecide: approvals.filter(a => a.status === '대기' && a.can_decide && (a.requested_by !== me.id || me.role === 'admin')).length,
-        unread: rooms.reduce((s, r) => s + r.unread, 0),
+        // 방마다 알림 단계 반영: 멘션만인 방은 나를 부른 것만, 끈 방은 세지 않음
+        unread: (rememberRoomLevels(rooms), rooms.reduce((s, r) => s + countedUnread(r), 0)),
       }
     },
     [version, me.id],
