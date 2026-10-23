@@ -3,7 +3,7 @@ import { useApp, useAsync } from '../lib/app'
 import { addMonths, manwon, shortDate, toDateKey, todayKey, weekRange, periodLabel } from '../lib/date'
 import { budgetByCategory, isOverdue, monthlyFlow, paymentChecks, paymentRun, projectMoney, runMonday, upcomingPayments, vendorSummary } from '../lib/finance'
 import { Link, useRouter } from '../lib/router'
-import type { BudgetLine, Client, Payment, Project, ProjectFinance, Task } from '../lib/types'
+import { DIVISIONS, DIVISION_KEYS, projectBrand, type BudgetLine, type Client, type Payment, type Project, type ProjectFinance, type Task } from '../lib/types'
 import { BarChart, FlowChart, HBarChart, Meter, StackBar, shortMan } from '../components/charts'
 import { Badge, Empty, type Tone } from '../components/ui'
 
@@ -219,6 +219,11 @@ function ProgressBoard({ projects, tasks, today }: { projects: Project[]; tasks:
       return { p, ts, done, late, elapsed, progress, next, behind }
     })
     .sort((a, b) => Number(b.behind) - Number(a.behind) || b.late - a.late || (a.p.end_date ?? '').localeCompare(b.p.end_date ?? ''))
+  // 프로젝트 목록과 같게 구분해서 보기 (대표 지시 2026-10-23): 아트리어 · 더위클리 · 내부 리서치, NIC 는 따로
+  const groups = [
+    ...DIVISION_KEYS.map(k => ({ key: k as string, title: DIVISIONS[k].full, color: DIVISIONS[k].color, list: rows.filter(r => r.p.status !== 'NIC' && projectBrand(r.p) === k) })),
+    { key: 'NIC', title: 'NIC 프로젝트', color: 'var(--gray)', list: rows.filter(r => r.p.status === 'NIC') },
+  ].filter(g => g.list.length)
   return (
     <section className="section" aria-label="프로젝트 진행 현황">
       <div className="section-h">
@@ -239,8 +244,18 @@ function ProgressBoard({ projects, tasks, today }: { projects: Project[]; tasks:
                 <th className="num">지연</th>
               </tr>
             </thead>
-            <tbody>
-              {rows.map(r => (
+            {groups.map(g => (
+            <tbody key={g.key}>
+              <tr className="group-row">
+                <td colSpan={5} style={{ borderLeft: `4px solid ${g.color}` }}>
+                  <b style={{ color: g.color }}>{g.title}</b>
+                  <span className="t-cap">
+                    {' '}
+                    {g.list.length}개 · 뒤처짐 {g.list.filter(r => r.behind).length} · 지연 할 일 {g.list.reduce((n, r) => n + r.late, 0)}
+                  </span>
+                </td>
+              </tr>
+              {g.list.map(r => (
                 <tr key={r.p.id}>
                   <td className="max">
                     <Link to={`/projects?view=schedule&project=${r.p.id}`} className="strong truncate" style={{ display: 'block' }} title={`${r.p.name} 일정표`}>
@@ -251,7 +266,7 @@ function ProgressBoard({ projects, tasks, today }: { projects: Project[]; tasks:
                       {r.p.status} · {periodLabel(r.p.start_date, r.p.end_date, '기간 미정')}
                     </span>
                   </td>
-                  <td className="nowrap">{profileName(r.p.owner_id)}</td>
+                  <td className="nowrap">{r.p.owner_id ? profileName(r.p.owner_id) : <span className="t-cap">미정</span>}</td>
                   <td>
                     <span className="row" style={{ gap: 8 }}>
                       <Meter value={r.progress ?? 0} target={r.elapsed} red={r.behind} label={`${r.p.name} 업무 완료율`} />
@@ -268,6 +283,7 @@ function ProgressBoard({ projects, tasks, today }: { projects: Project[]; tasks:
                 </tr>
               ))}
             </tbody>
+            ))}
           </table>
         </div>
       )}

@@ -63,10 +63,14 @@ function start() {
     createTray()
     watchIdle()
     setupUpdates()
+    // 로그인 정보를 10분마다 디스크에 저장 (강제 종료 · 전원 꺼짐에도 구글 로그인이 남게)
+    setInterval(() => session.defaultSession.cookies.flushStore().catch(() => undefined), 10 * 60_000)
   })
 
   app.on('activate', () => showWindow()) // 맥: 독 아이콘 클릭
   app.on('before-quit', e => {
+    // 구글 로그인 등 사이트 로그인을 디스크에 저장 (다음 실행 때 다시 로그인하지 않게)
+    session.defaultSession.cookies.flushStore().catch(() => undefined)
     if (allowQuit || loggedIn) {
       allowQuit = true
       if (isMac && updateReady) spawnMacSwap(false) // 맥: 끌 때 받아 둔 새 버전으로 바꿈 (다시 켜지는 않음)
@@ -383,17 +387,60 @@ async function checkMacUpdate() {
   try {
     const res = await net.fetch(`https://github.com/wkly2go/wkly-instagram-images/releases/latest/download/latest-mac.yml?t=${Date.now()}`, { cache: 'no-store' })
     if (!res.ok) throw new Error(`latest-mac.yml ${res.status}`)
-    const m = /^version:\s*['"]?([\d.]+)/m.exec(await res.text())
+    const yml = await res.text()
+    const m = /^version:\s*['"]?([\d.]+)/m.exec(yml)
     const latest = m && m[1]
     if (latest && newer(latest, app.getVersion())) {
       updateLog(`found ${latest} (now ${app.getVersion()})`)
-      await prepareMacUpdate(latest)
+      await prepareMacUpdate(latest, zipSha512(yml))
     }
   } catch (e) {
     updateLog(`check failed: ${e && e.message}`)
   } finally {
     macChecking = false
   }
+}
+
+/** latest-mac.yml 에서 zip 파일의 sha512 (받은 파일이 온전한지 확인용) */
+function zipSha512(yml) {
+  const m = /-\s*url:\s*\S+\.zip\s*\n\s*sha512:\s*(\S+)/.exec(yml)
+  return m ? m[1] : null
+}
+
+/**
+ * 맥: 새 버전 zip 을 받아 임시 폴더에 풀어 둠 → 손대지 않을 때 · 끌 때 .app 을 바꿔 끼움
+ * (1.21~1.25 에서 이 함수가 빠져 맥 자동 업데이트가 멈췄던 것을 되살림 · 2026-10-23 "자동 내려받기 오류 수정")
+ *  - Chromium 네트워크(net.fetch)로 받아 회사망 · 프록시에서도 동작, 받은 파일은 sha512 로 확인
+ */
+async function prepareMacUpdate(version, sha512) {
+  if (macUpdateApp || !/^\d+\.\d+\.\d+$/.test(version)) return
+  const { execFile } = require('child_process')
+  const crypto = require('crypto')
+  const run = (cmd, args) => new Promise((ok, fail) => execFile(cmd, args, err => (err ? fail(err) : ok())))
+  const dir = fs.mkdtempSync(path.join(app.getPath('temp'), `wkly-update-${version}-`))
+  const zip = path.join(dir, 'update.zip')
+  updateLog(`download ${version}`)
+  const res = await net.fetch(`${RELEASE_BASE}/v${version}/WKLY-Intranet.zip`, { cache: 'no-store' })
+  if (!res.ok) throw new Error(`download ${res.status}`)
+  const buf = Buffer.from(await res.arrayBuffer())
+  if (sha512) {
+    const got = crypto.createHash('sha512').update(buf).digest('base64')
+    if (got !== sha512) {
+      fs.rmSync(dir, { recursive: true, force: true })
+      throw new Error('downloaded zip checksum mismatch')
+    }
+  }
+  fs.writeFileSync(zip, buf)
+  await run('/usr/bin/ditto', ['-x', '-k', zip, dir])
+  fs.rmSync(zip, { force: true })
+  const name = fs.readdirSync(dir).find(f => f.endsWith('.app'))
+  if (!name) throw new Error('no app in zip')
+  macUpdateApp = path.join(dir, name)
+  updateVersion = version
+  updateReady = true
+  updateLog(`ready ${version} at ${macUpdateApp}`)
+  sendUpdateState()
+  maybeInstallUpdate()
 }
 
 /**
