@@ -22,7 +22,7 @@ import Library from './pages/Library'
 import Help from './pages/Help'
 import Team from './pages/Team'
 import { playAlert } from './lib/sound'
-import { accessSource } from './lib/desktop'
+import { accessSource, desktop } from './lib/desktop'
 import { LockScreen, useSessionPolicy } from './lib/session'
 import Download from './pages/Download'
 import Agents from './pages/Agents'
@@ -143,7 +143,9 @@ export default function App() {
   }, [userId])
 
   const openQuick = useCallback(async (kind: 'window' | 'pin' = 'window') => {
-    if (kind === 'pin' && supportsPip()) {
+    // 빠른 창은 항상 맨 위 (대표 지시 2026-10-23): PC 프로그램은 프로그램이 맨 위로 고정,
+    // 웹 브라우저는 맨 위에 떠 있는 작은 창(크롬 · 엣지 '항상 위' 창)으로
+    if ((kind === 'pin' || !desktop()) && supportsPip()) {
       try {
         const w = await openPipWindow()
         if (w) {
