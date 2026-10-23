@@ -5,6 +5,7 @@ import { DetailColumnHost } from './components/RightPanel'
 import { ShellFrame } from './components/Shell'
 import { AskHost } from './components/Ask'
 import { CommandPalette } from './components/CommandPalette'
+import { Shortcuts } from './components/Shortcuts'
 import { api, AppProvider } from './lib/app'
 import { friendlyError } from './lib/api'
 import { openPipWindow, openQuickPopup, supportsPip } from './lib/pip'
@@ -189,6 +190,7 @@ export default function App() {
       {pipWin && createPortal(<Quick onClose={() => pipWin.close()} />, pipWin.document.body)}
       <AskHost />
       {path !== '/quick' && <CommandPalette />}
+      {path !== '/quick' && <Shortcuts />}
       {toastMsg && (
         <div className="toast" role="status">
           {toastMsg}

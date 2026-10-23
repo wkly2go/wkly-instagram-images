@@ -9,12 +9,13 @@
   /* 글자 크기 단계 (전체 공통 위계): 캡션 < 작게 < 본문 < 소제목 < 제목 < 숫자 < 대형 */
   /* 글자 크기: 본문 10 기준, 위쪽 가−/가+ 가 --fs-k 로 모든 글자를 함께 조절 (대표 지시 2026-10-21) */
   --fs-k: 1;
-  --fs-cap: calc(8.6px * var(--fs-k));
-  --fs-sm: calc(9.1px * var(--fs-k));
-  --fs-body: calc(10px * var(--fs-k));
-  --fs-sub: calc(11.4px * var(--fs-k));
-  --fs-title: calc(13.6px * var(--fs-k));
-  --fs-num: calc(17.3px * var(--fs-k));
+  /* 읽기 편한 글자 (2026-10-23): 본문 10px → 13px */
+  --fs-cap: calc(11px * var(--fs-k));
+  --fs-sm: calc(12px * var(--fs-k));
+  --fs-body: calc(13px * var(--fs-k));
+  --fs-sub: calc(14px * var(--fs-k));
+  --fs-title: calc(16px * var(--fs-k));
+  --fs-num: calc(20px * var(--fs-k));
   --fs-hero: calc(36px * var(--fs-k));
   --yellow: #ffff00;
   --white: #ffffff;
@@ -1820,3 +1821,21 @@ svg text[font-size="12"] { font-size: var(--fs-sm); }
 .table tr.group-row td { background: var(--bg-soft, #eef3ff); padding-top: 8px; padding-bottom: 8px; }
 .progress-cards { display: flex; flex-direction: column; gap: 12px; }
 .progress-table { table-layout: fixed; min-width: 760px; }
+
+/* 통합 입력칸 (2026-10-23) */
+.one-box { cursor: text; }
+.one-box input { cursor: text; }
+.one-box kbd { font-family: var(--mono); font-size: var(--fs-cap); color: var(--gray); border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; white-space: nowrap; }
+.presence { display: inline-block; width: 9px; height: 9px; border-radius: 50%; flex: none; box-sizing: border-box; vertical-align: middle; }
+.presence.in { background: var(--green); }
+.presence.out { background: var(--yellow); border: 1.5px solid var(--blue); }
+.presence.home { background: var(--blue); }
+.presence.off { background: var(--white); border: 1.5px solid var(--gray); }
+.presence.on-photo { position: absolute; right: 7px; bottom: 7px; width: 16px; height: 16px; border: 3px solid var(--white); z-index: 1; }
+.presence.out.on-photo, .presence.off.on-photo { border-width: 3px; border-color: var(--white); box-shadow: 0 0 0 1.5px var(--blue); }
+.keys-help { max-width: 460px; }
+.keys-list { margin: 0; padding: 8px 14px 14px; display: flex; flex-direction: column; gap: 2px; }
+.keys-list div { display: grid; grid-template-columns: 150px 1fr; gap: 10px; align-items: center; padding: 5px 0; border-bottom: 1px dashed var(--line); }
+.keys-list dt { display: flex; gap: 3px; flex-wrap: wrap; }
+.keys-list dd { margin: 0; font-size: var(--fs-sm); }
+.keys-list kbd, .keys-help kbd { font-family: var(--mono); font-size: var(--fs-cap); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; background: var(--white); color: var(--blue); }
