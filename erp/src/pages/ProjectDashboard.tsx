@@ -233,28 +233,36 @@ function ProgressBoard({ projects, tasks, today }: { projects: Project[]; tasks:
       {rows.length === 0 ? (
         <Empty>진행 · 기획 중인 프로젝트가 없습니다.</Empty>
       ) : (
-        <div className="table-wrap">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>프로젝트</th>
-                <th>담당</th>
-                <th style={{ minWidth: 190 }}>업무 완료 · 일정 경과</th>
-                <th>다음 마감</th>
-                <th className="num">지연</th>
-              </tr>
-            </thead>
-            {groups.map(g => (
-            <tbody key={g.key}>
-              <tr className="group-row">
-                <td colSpan={5} style={{ borderLeft: `4px solid ${g.color}` }}>
-                  <b style={{ color: g.color }}>{g.title}</b>
-                  <span className="t-cap">
-                    {' '}
-                    {g.list.length}개 · 뒤처짐 {g.list.filter(r => r.behind).length} · 지연 할 일 {g.list.reduce((n, r) => n + r.late, 0)}
-                  </span>
-                </td>
-              </tr>
+        <div className="div-cards progress-cards">
+          {groups.map(g => (
+            <section key={g.key} className="div-card" style={{ borderTopColor: g.color }}>
+              <div className="row gap-6">
+                <span className="t-bodyb grow" style={{ color: g.color }}>
+                  {g.title}
+                </span>
+                <span className="board-count">{g.list.length}</span>
+                {g.list.some(r => r.behind) && <Badge tone="red">뒤처짐 {g.list.filter(r => r.behind).length}</Badge>}
+                {g.list.some(r => r.late) && <Badge tone="yellow">지연 할 일 {g.list.reduce((n, r) => n + r.late, 0)}</Badge>}
+              </div>
+              <div className="table-wrap">
+                <table className="table progress-table">
+                  <colgroup>
+                    <col style={{ width: '30%' }} />
+                    <col style={{ width: '10%' }} />
+                    <col style={{ width: '32%' }} />
+                    <col style={{ width: '20%' }} />
+                    <col style={{ width: '8%' }} />
+                  </colgroup>
+                  <thead>
+                    <tr>
+                      <th>프로젝트</th>
+                      <th>담당</th>
+                      <th style={{ minWidth: 190 }}>업무 완료 · 일정 경과</th>
+                      <th>다음 마감</th>
+                      <th className="num">지연</th>
+                    </tr>
+                  </thead>
+                  <tbody>
               {g.list.map(r => (
                 <tr key={r.p.id}>
                   <td className="max">
@@ -282,9 +290,11 @@ function ProgressBoard({ projects, tasks, today }: { projects: Project[]; tasks:
                   <td className="num">{r.late ? <Badge tone="red">{r.late}건</Badge> : '0'}</td>
                 </tr>
               ))}
-            </tbody>
-            ))}
-          </table>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          ))}
         </div>
       )}
     </section>
