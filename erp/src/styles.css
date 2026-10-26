@@ -1938,3 +1938,4 @@ svg text[font-size="12"] { font-size: var(--fs-sm); }
 .week-item.proj { border-left-color: var(--yellow); background: var(--yellow-tint); }
 .week-panel, .week-days, .week-day { flex: none; height: auto; min-height: 0; }
 .week-panel { flex: 1 1 auto; }
+.msg.pending .bubble { opacity: .65; }

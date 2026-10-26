@@ -1,12 +1,37 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useSyncExternalStore } from 'react'
 import { useApp } from './app'
 import { friendlyError } from './api'
 import { ask } from '../components/Ask'
 import type { ChatMessage, ChatRead, ChatRoom, ChatRoomSummary, RoomLevel } from './types'
 
+/**
+ * 채팅 신호 (2026-10-26 "채팅이 느리고 인터벌이 생긴다"):
+ *  새 메시지마다 앱 전체를 새로 고치던 것(bump)을 없애고, 채팅 숫자 · 방 목록만 이 신호로 가볍게 새로 고침
+ *  - 여러 메시지가 몰려도 0.4초에 한 번만
+ */
+let chatTick = 0
+let chatTimer: number | undefined
+const chatListeners = new Set<() => void>()
+export function pokeChat(delay = 400) {
+  window.clearTimeout(chatTimer)
+  chatTimer = window.setTimeout(() => {
+    chatTick++
+    for (const l of chatListeners) l()
+  }, delay)
+}
+export function useChatTick() {
+  return useSyncExternalStore(
+    cb => {
+      chatListeners.add(cb)
+      return () => chatListeners.delete(cb)
+    },
+    () => chatTick,
+  )
+}
+
 /** 채팅방 메시지: 불러오기 · 실시간 반영 · 읽음 처리 · 보내기 · 삭제 (채팅 탭과 빠른 기록 창이 함께 씀) */
 export function useRoomMessages(roomId: string | null) {
-  const { api, me, bump, toast } = useApp()
+  const { api, me, toast } = useApp()
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [reads, setReads] = useState<ChatRead[]>([])
 
@@ -17,19 +42,36 @@ export function useRoomMessages(roomId: string | null) {
     let alive = true
     // 읽음 표시: 누가 어디까지 읽었는지 (다른 사람이 읽으면 실시간으로 다시 불러옴)
     const loadReads = () => api.listRoomReads(roomId).then(r => alive && setReads(r)).catch(() => undefined)
+    // 읽음 표시 · 읽음 처리는 몰아서 (메시지가 연달아 와도 서버 요청이 쌓이지 않게)
+    let readsTimer: number | undefined
+    const loadReadsSoon = () => {
+      window.clearTimeout(readsTimer)
+      readsTimer = window.setTimeout(loadReads, 600)
+    }
+    let markTimer: number | undefined
+    const markSoon = () => {
+      window.clearTimeout(markTimer)
+      markTimer = window.setTimeout(() => api.markRead(roomId).catch(() => undefined), 800)
+    }
     api.listMessages(roomId).then(m => alive && setMessages(m)).catch(e => toast(friendlyError(e)))
-    api.markRead(roomId).then(bump).then(loadReads).catch(() => undefined)
-    const offReads = api.subscribeChanges(['chat_reads'], loadReads)
+    api.markRead(roomId).then(() => pokeChat(0)).then(loadReads).catch(() => undefined)
+    const offReads = api.subscribeChanges(['chat_reads'], loadReadsSoon)
     const off = api.subscribeMessages(roomId, ({ type, message }) => {
       setMessages(prev => {
         if (type === 'DELETE') return prev.filter(m => m.id !== message.id)
         if (type === 'UPDATE') return prev.map(m => (m.id === message.id ? message : m))
-        return prev.some(m => m.id === message.id) ? prev : [...prev, message]
+        if (prev.some(m => m.id === message.id)) return prev
+        // 내가 보낸 글이 먼저 화면에 떠 있으면(보내는 중) 그 자리를 진짜 글로 바꿈
+        const at = prev.findIndex(m => m.pending && m.user_id === message.user_id && m.content === message.content)
+        if (at >= 0) return prev.map((m, i) => (i === at ? message : m))
+        return [...prev, message]
       })
-      if (type === 'INSERT' && message.user_id !== me.id) api.markRead(roomId).catch(() => undefined)
+      if (type === 'INSERT' && message.user_id !== me.id) markSoon()
     })
     return () => {
       alive = false
+      window.clearTimeout(readsTimer)
+      window.clearTimeout(markTimer)
       off()
       offReads()
     }
@@ -39,11 +81,18 @@ export function useRoomMessages(roomId: string | null) {
   /** 성공하면 true */
   const send = async (content: string, parentId?: number | null) => {
     if (!roomId) return false
+    // 보내기 누르는 즉시 화면에 (서버 응답을 기다리지 않음)
+    const temp: ChatMessage = { id: -Date.now() - Math.random(), room_id: roomId, user_id: me.id, content, created_at: new Date().toISOString(), edited_at: null, parent_id: parentId ?? null, pending: true }
+    setMessages(prev => [...prev, temp])
     try {
       const m = await api.sendMessage(roomId, content, parentId)
-      setMessages(prev => (prev.some(x => x.id === m.id) ? prev : [...prev, m]))
+      setMessages(prev => {
+        const rest = prev.filter(x => x.id !== temp.id)
+        return rest.some(x => x.id === m.id) ? rest : prev.map(x => (x.id === temp.id ? m : x))
+      })
       return true
     } catch (e) {
+      setMessages(prev => prev.filter(x => x.id !== temp.id))
       toast(friendlyError(e))
       return false
     }
