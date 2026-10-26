@@ -15,7 +15,7 @@ import Home from './pages/Home'
 import Login from './pages/Login'
 import Quick from './pages/Quick'
 import { playAlert } from './lib/sound'
-import { wantsAlert } from './lib/chat'
+import { pokeChat, wantsAlert } from './lib/chat'
 import { accessSource, desktop } from './lib/desktop'
 import { LockScreen, useSessionPolicy } from './lib/session'
 import Download from './pages/Download'
@@ -99,7 +99,8 @@ export default function App() {
     // 남이 보낸 새 메시지면 알림음 (1:1 대화는 내 방 것만 들어옴)
     const offMsg = api.subscribeMessages(null, e => {
       if (e.type === 'INSERT' && e.message.user_id !== userId && wantsAlert(e.message, profilesRef.current?.find(p => p.id === userId)?.name ?? '')) playAlert('chat')
-      bump()
+      // 앱 전체를 새로 고치지 않고 채팅 숫자 · 방 목록만 (2026-10-26 채팅 속도)
+      pokeChat()
     })
     const offChanges = api.subscribeChanges(['approvals', 'profiles', 'notifications'], bump)
     return () => {

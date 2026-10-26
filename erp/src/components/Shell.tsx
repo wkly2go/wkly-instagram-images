@@ -22,7 +22,7 @@ import { inQuickWindow } from '../lib/pip'
 import { Link, useRouter } from '../lib/router'
 import { TODAY_STATUSES, type TodayStatus } from '../lib/types'
 import { Presence, toneOf } from './ui'
-import { countedUnread, rememberRoomLevels } from '../lib/chat'
+import { countedUnread, rememberRoomLevels, useChatTick } from '../lib/chat'
 
 export type TabKey = 'home' | 'approvals' | 'chat' | 'work' | 'projects' | 'clients' | 'library' | 'drive' | 'team' | 'agents' | 'ads' | 'admin'
 
@@ -69,19 +69,30 @@ export function useSummary(): Summary {
   const { api, me, version } = useApp()
   const { data } = useAsync<Summary>(
     async () => {
-      const [tasks, approvals, rooms, saved] = await Promise.all([api.listTasks(), api.listApprovals(), api.listRooms(), api.listSaved().catch(() => [])])
+      const [tasks, approvals, saved] = await Promise.all([api.listTasks(), api.listApprovals(), api.listSaved().catch(() => [])])
       return {
         myOpenTasks: tasks.filter(t => t.assignee_id === me.id && t.status !== '완료').length,
         pendingToDecide: approvals.filter(a => a.status === '대기' && a.can_decide && (a.requested_by !== me.id || me.role === 'admin')).length,
-        // 방마다 알림 단계 반영: 멘션만인 방은 나를 부른 것만, 끈 방은 세지 않음
-        unread: (rememberRoomLevels(rooms), rooms.reduce((s, r) => s + countedUnread(r), 0)),
+        unread: 0,
         saved: saved.length,
       }
     },
     [version, me.id],
     { myOpenTasks: 0, pendingToDecide: 0, unread: 0, saved: 0 },
   )
-  return data
+  // 안 읽은 채팅 수는 채팅 신호로만 (새 메시지마다 할 일 · 결재까지 다시 불러오지 않음)
+  const chatTick = useChatTick()
+  const { data: unread } = useAsync(
+    async () => {
+      const rooms = await api.listRooms()
+      // 방마다 알림 단계 반영: 멘션만인 방은 나를 부른 것만, 끈 방은 세지 않음
+      rememberRoomLevels(rooms)
+      return rooms.reduce((s, r) => s + countedUnread(r), 0)
+    },
+    [version, chatTick, me.id],
+    0,
+  )
+  return { ...data, unread }
 }
 
 /** 왼쪽 프로필 사진: 눌러서 올리기 · 바꾸기 (256px 로 줄여 저장) */

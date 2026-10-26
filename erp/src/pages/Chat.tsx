@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from
 import { ArrowLeft, AtSign, BellOff, Bookmark, Check, ChevronDown, ChevronRight, Plus, Send, Trash2 } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { friendlyError } from '../lib/api'
-import { countedUnread, roomTitle, useRoomMessages } from '../lib/chat'
+import { countedUnread, pokeChat, roomTitle, useChatTick, useRoomMessages } from '../lib/chat'
 import { parseSlash, parseTaskText, remindIso, slashMenu } from '../lib/slash'
 import { approvalKindOf, ROOM_LEVEL_LABEL, type RoomLevel } from '../lib/types'
 import { leadAgent } from '../components/AgentDesk'
@@ -48,7 +48,8 @@ export default function Chat() {
   const { query, path, navigate } = useRouter()
   const [creating, setCreating] = useState(false)
   const [dmPicking, setDmPicking] = useState(false)
-  const { data: rooms, loading } = useAsync(() => api.listRooms(), [version], [] as ChatRoomSummary[])
+  const chatTick = useChatTick()
+  const { data: rooms, loading } = useAsync(() => api.listRooms(), [version, chatTick], [] as ChatRoomSummary[])
   const roomId = query.get('room')
   const room = rooms.find(r => r.id === roomId) ?? null
   // 멘션 · 답글 모아 보기 (슬랙의 '활동')
@@ -331,10 +332,18 @@ function Room({ room }: { room: ChatRoomSummary }) {
 
   const send = async () => {
     const content = text.trim()
-    if (!content || sending) return
-    setSending(true)
+    if (!content) return
     const slash = parseSlash(content)
-    if (slash ? await runSlash(slash.cmd, slash.rest) : await sendMessage(content)) {
+    if (!slash) {
+      // 일반 메시지는 바로 비우고 화면에 먼저 띄움 (실패하면 글을 되돌림)
+      setText('')
+      stick.current = true
+      if (!(await sendMessage(content))) setText(t => t || content)
+      return
+    }
+    if (sending) return
+    setSending(true)
+    if (await runSlash(slash.cmd, slash.rest)) {
       setText('')
       stick.current = true
     }
@@ -399,7 +408,7 @@ function Room({ room }: { room: ChatRoomSummary }) {
     }
     if (e.key === 'Escape') {
       // Esc: 이 방 읽음 처리
-      api.markRead(room.id).then(bump).catch(() => undefined)
+      api.markRead(room.id).then(() => pokeChat(0)).catch(() => undefined)
       return
     }
     if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {

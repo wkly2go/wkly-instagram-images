@@ -126,7 +126,7 @@ export function MessageList({ messages, reads = [], members, onRemove, onEdit, o
     return (
       <div key={m.id} style={{ display: 'contents' }}>
         {newDay && <div className="chat-day">{dateLabel(day)}</div>}
-        <div id={`msg-${m.id}`} className={`msg ${mine ? 'mine' : ''} ${cont ? 'cont' : ''}`}>
+        <div id={`msg-${m.id}`} className={`msg ${mine ? 'mine' : ''} ${cont ? 'cont' : ''}${m.pending ? ' pending' : ''}`}>
           <div className="stack" style={{ alignItems: mine ? 'flex-end' : 'flex-start' }}>
             {!mine && !cont && <span className="t-cap">{profileName(m.user_id)}</span>}
             <div className="line">

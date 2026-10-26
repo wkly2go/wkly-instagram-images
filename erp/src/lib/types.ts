@@ -523,6 +523,8 @@ export interface ChatMessage {
   parent_id?: number | null
   /** 이모지 반응: { '👍': [사용자 id, …] } */
   reactions?: Record<string, string[]> | null
+  /** 화면에만 먼저 띄운 '보내는 중' 글 */
+  pending?: boolean
 }
 
 /** 채팅방별 마지막 읽은 시각 (읽음 표시용) */
