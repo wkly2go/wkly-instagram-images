@@ -2096,3 +2096,22 @@ header .main-nav { margin: 0; gap: 2px; }
 .seg > button:hover { background: var(--blue-tint); color: var(--blue); }
 .seg > button.on { background: var(--blue); color: #fff; }
 .seg > button b { font-weight: 900; }
+/* 미니멀 상단 (2026-10-28 "더 미니멀하게 · 사용성 높여") */
+.proj-tools { flex-wrap: nowrap; gap: 4px; }
+.proj-tools .proj-search { flex: 1 1 auto; width: auto; max-width: none; min-width: 120px; }
+.proj-tools .btn { flex: none; }
+.proj-filters { flex-wrap: wrap; gap: 4px 12px; padding: 0 0 4px; }
+.filter-label { font-weight: 600; font-size: var(--fs-cap); color: var(--gray); opacity: .8; }
+.seg { border: 0; background: none; gap: 2px; border-radius: 0; overflow: visible; }
+.seg > button { height: 26px; padding: 0 8px; border: 0; border-radius: 6px; font-weight: 600; color: var(--gray); }
+.seg > button.on { background: var(--blue-tint); color: var(--blue); font-weight: 800; }
+.seg > button b { font-weight: 700; opacity: .7; }
+.seg > button.on b { opacity: 1; }
+.sort-select { height: 26px; border: 0; background: none; color: var(--gray); font: inherit; font-size: var(--fs-cap); font-weight: 600; cursor: pointer; padding: 0 2px; }
+.sort-select:hover { color: var(--blue); }
+/* 팀원 사진 (2026-10-28) */
+.user-pic { border-radius: 50%; object-fit: cover; flex: none; display: inline-block; border: 1px solid var(--line); background: var(--white); }
+.user-pic-fallback { display: inline-flex; flex: none; }
+.user-pic-fallback .avatar { width: 100%; height: 100%; font-size: inherit; }
+.msg-who { gap: 6px; align-items: center; }
+.team-person, .team-item { display: flex; align-items: center; gap: 8px; }
