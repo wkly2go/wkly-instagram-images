@@ -110,6 +110,24 @@ export function SearchPick({ items, value, onChange, placeholder, label, groups 
     const order = groups ?? []
     return [...hit].sort((a, b) => order.indexOf(a.group ?? '') - order.indexOf(b.group ?? ''))
   }, [items, q, groups])
+  // 묶음 접기: 검색 중이 아니면 완료 · 보류 묶음은 접어 둠
+  const [userFold, setUserFold] = useState<Record<string, boolean>>({})
+  const folded = useMemo(() => {
+    const f = new Set<string>()
+    for (const g of groups ?? []) {
+      const def = !q.trim() && (g === '완료' || g === '보류')
+      if (userFold[g] ?? def) f.add(g)
+    }
+    return f
+  }, [groups, userFold, q])
+  const toggle = (g: string) => setUserFold(m => ({ ...m, [g]: !folded.has(g) }))
+  const groupCount = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const it of list) m.set(it.group ?? '', (m.get(it.group ?? '') ?? 0) + 1)
+    return m
+  }, [list])
+  // 접힌 묶음은 머리만 남김
+  const shown = useMemo(() => list.filter((it, i) => !folded.has(it.group ?? '') || i === 0 || list[i - 1].group !== it.group), [list, folded])
   const pick = (id: string) => {
     onChange(id)
     setQ('')
@@ -120,13 +138,13 @@ export function SearchPick({ items, value, onChange, placeholder, label, groups 
     if (e.key === 'ArrowDown') {
       e.preventDefault()
       setOpen(true)
-      setHi(h => Math.min(h + 1, list.length - 1))
+      setHi(h => Math.min(h + 1, shown.length - 1))
     } else if (e.key === 'ArrowUp') {
       e.preventDefault()
       setHi(h => Math.max(h - 1, 0))
-    } else if (e.key === 'Enter' && open && list[hi]) {
+    } else if (e.key === 'Enter' && open && shown[hi] && !folded.has(shown[hi].group ?? '')) {
       e.preventDefault()
-      pick(list[hi].id)
+      pick(shown[hi].id)
     } else if (e.key === 'Escape') setOpen(false)
   }
   return (
@@ -168,22 +186,32 @@ export function SearchPick({ items, value, onChange, placeholder, label, groups 
       {open && (
         <div className="pick-list" role="listbox" aria-label={label}>
           {list.length === 0 && <div className="pick-empty">'{q}' 검색 결과가 없습니다.</div>}
-          {list.slice(0, 60).map((it, i) => {
-            const head = it.group && (i === 0 || list[i - 1].group !== it.group)
+          {shown.slice(0, 80).map((it, i) => {
+            const head = it.group && (i === 0 || shown[i - 1].group !== it.group)
+            const g = it.group ?? ''
             return (
               <div key={it.id}>
-                {head && <div className="pick-group">{it.group}</div>}
-                <button
-                  type="button"
-                  role="option"
-                  aria-selected={it.id === value}
-                  className={`pick-item ${i === hi ? 'hi' : ''} ${it.id === value ? 'on' : ''}`}
-                  onMouseEnter={() => setHi(i)}
-                  onClick={() => pick(it.id)}
-                >
-                  <span className="truncate grow">{it.label}</span>
-                  {it.sub && <span className="t-cap truncate">{it.sub}</span>}
-                </button>
+                {head && (
+                  // 묶음 머리: 이름 · 개수 · 접기 (완료 · 보류는 처음에 접힘)
+                  <button type="button" className={`pick-group g${(groups ?? []).indexOf(g)}`} onMouseDown={e => e.preventDefault()} onClick={() => toggle(g)} aria-expanded={!folded.has(g)}>
+                    <span>{folded.has(g) ? '▸' : '▾'}</span>
+                    <span className="grow">{g}</span>
+                    <span className="pick-count">{groupCount.get(g) ?? 0}</span>
+                  </button>
+                )}
+                {!folded.has(g) && (
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={it.id === value}
+                    className={`pick-item ${i === hi ? 'hi' : ''} ${it.id === value ? 'on' : ''}`}
+                    onMouseEnter={() => setHi(i)}
+                    onClick={() => pick(it.id)}
+                  >
+                    <span className="truncate grow">{it.label}</span>
+                    {it.sub && <span className="t-cap truncate">{it.sub}</span>}
+                  </button>
+                )}
               </div>
             )
           })}
@@ -256,7 +284,7 @@ function Selects({ d, set, clients, projects }: { d: LogDraft; set: (p: Partial<
           // 프로젝트를 고르면 그 거래처도 함께
           set({ projectId: id, ...(p?.client_id && !d.clientId ? { clientId: p.client_id } : {}) })
         }}
-        items={projects.map(p => ({ id: p.id, label: p.name, sub: clientName(p.client_id) ?? undefined, group: projectGroup(p) }))}
+        items={projects.map(p => ({ id: p.id, label: p.name, sub: [p.code, clientName(p.client_id)].filter(Boolean).join(' · ') || undefined, group: projectGroup(p) }))}
       />
     </>
   )

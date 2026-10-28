@@ -335,7 +335,7 @@ function Activity({ list: all }: { list: AppNotification[] }) {
 function Room({ room }: { room: ChatRoomSummary }) {
   const { api, me, version, profileName, profiles, toast } = useApp()
   const { navigate } = useRouter()
-  const { messages, reads, send: sendMessage, sendFile, remove, edit, react } = useRoomMessages(room.id)
+  const { messages, reads, drafts, send: sendMessage, sendFile, remove, edit, react } = useRoomMessages(room.id)
   const { query } = useRouter()
   const threadId = Number(query.get('thread')) || null
   // 여러 파일은 차례로 보냄 (실패한 파일에서 멈춤)
@@ -517,7 +517,7 @@ function Room({ room }: { room: ChatRoomSummary }) {
         <CardDataProvider>
           <MessageList messages={messages} reads={reads} members={room.members} onRemove={remove} onEdit={edit} onReply={(id, c) => sendMessage(c, id)} onReact={react} thread={threadId} />
         </CardDataProvider>
-        <AgentTyping messages={messages} members={room.members} />
+        <AgentTyping drafts={drafts} messages={messages} members={room.members} />
       </div>
       <div className="composer">
         {menu.length > 0 && (

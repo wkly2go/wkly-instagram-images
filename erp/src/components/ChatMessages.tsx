@@ -5,7 +5,7 @@ import { Bookmark, Check, Download, FileText, Loader2, MessageSquare, Paperclip,
 import { useApp } from '../lib/app'
 import { addDays, dateLabel, timeLabel, toDateKey, todayKey } from '../lib/date'
 import type { ChatAttachment, ChatMessage, ChatRead } from '../lib/types'
-import { CHAT_FILE_MAX, friendlyError } from '../lib/api'
+import { CHAT_FILE_MAX, friendlyError, type AgentDraft } from '../lib/api'
 import { Empty } from './ui'
 import { ImageViewer } from './ImageViewer'
 import { canView, FileViewer } from './FileViewer'
@@ -448,8 +448,8 @@ export function DropHint() {
 }
 
 /** AI 팀원이 답을 쓰는 중 표시: AI 가 있는 방에서 사람이 AI 에게 말을 건 뒤 아직 답이 없을 때 (최대 3분) */
-export function AgentTyping({ messages, members }: { messages: ChatMessage[]; members?: string[] | null }) {
-  const { profiles } = useApp()
+export function AgentTyping({ messages, members, drafts }: { messages: ChatMessage[]; members?: string[] | null; drafts?: Record<string, AgentDraft & { at: number }> }) {
+  const { profiles, profileName } = useApp()
   const [, tick] = useState(0)
   const agents = profiles.filter(p => p.is_agent && p.active)
   const last = messages.filter(m => !m.parent_id).at(-1)
@@ -463,6 +463,41 @@ export function AgentTyping({ messages, members }: { messages: ChatMessage[]; me
     const id = window.setInterval(() => tick(t => t + 1), 5_000)
     return () => window.clearInterval(id)
   }, [waiting])
+  // 실시간: 서버가 쓰는 대로 보내 주는 답 (2분 넘게 소식이 없으면 숨김)
+  const live = Object.values(drafts ?? {}).filter(d => Date.now() - d.at < 120_000)
+  useEffect(() => {
+    if (!live.length) return
+    const id = window.setInterval(() => tick(t => t + 1), 15_000)
+    return () => window.clearInterval(id)
+  }, [live.length])
+  if (live.length)
+    return (
+      <>
+        {live.map(d => (
+          <div key={d.agent_id} className="msg agent-live" role="status" aria-live="polite">
+            <div className="stack" style={{ alignItems: 'flex-start' }}>
+              <span className="t-cap">{profileName(d.agent_id)}</span>
+              <div className="line">
+                <div className="bubble other">
+                  {d.text ? <span className="pre">{d.text}</span> : null}
+                  <span className="live-caret" aria-hidden="true" />
+                </div>
+              </div>
+              {d.status && (
+                <span className="agent-typing">
+                  <span className="dots" aria-hidden="true">
+                    <i />
+                    <i />
+                    <i />
+                  </span>
+                  {d.status}
+                </span>
+              )}
+            </div>
+          </div>
+        ))}
+      </>
+    )
   if (!waiting || !agent) return null
   return (
     <div className="agent-typing" role="status">

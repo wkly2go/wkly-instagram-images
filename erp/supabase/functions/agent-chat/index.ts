@@ -9,6 +9,9 @@
 //   - 권한: 사람 팀장 · 관리자 = 팀원 AI 지시 등록 · 종료 전부 / 그 팀 사람 팀원 = 지시 등록(보통 이하 우선순위 · 7일, 사람 팀장에게 알림)
 //     / 그 밖의 사람 = 질문 · 할 일 요청만 (지시는 사람 팀장에게 전달).
 //   - 책임: 쓰기 작업은 모두 agent_actions 에 기록, 권한 밖의 일은 request_approval(사람 결재) 또는 handoff(다른 팀장 · 총괄)로 넘긴다.
+//   실시간 채팅 (2026-10-28 대표 지시 "wkly 총괄은 실시간 채팅이 가능한 버전으로"):
+//   - 답을 스트리밍으로 받아 쓰는 대로 Realtime 방송(topic 'agent:<방 id>', 비공개)으로 보냄 → 화면에 글자 단위로 나타남
+//   - 도구를 쓰는 동안은 '할 일 확인 중' 같은 진행 상태를 보냄. 다 쓰면 지금처럼 chat_messages 에 한 번 저장(알림 · 안 읽음 그대로)
 //   인트라넷에서 만든 AI 팀원 (2026-10-23 대표 지시 "인트라넷에서 ai 에이전트를 만들고 업무 지시를 하고 일정이나 예약을 만들 수 있게"):
 //   - ai_agents 의 역할 · 지침 · 쓸 수 있는 도구 · 모델('꼼꼼' = 깊게 생각)로 답한다.
 //   - 모든 AI 가 예약(schedule_work · list_schedules · cancel_schedule)을 만들 수 있다 → 때가 되면 DB 가 그 AI 에게 지시로 넘김.
@@ -39,6 +42,69 @@ const nowLabel = () => {
 /** '2026-10-16T09:00' (한국 시간) → ISO */
 const kstToIso = (s: string) => new Date(`${s.length === 16 ? s + ':00' : s}+09:00`).toISOString()
 const hhmm = (iso: string | null) => (iso ? kst(new Date(iso)).toISOString().slice(11, 16) : null)
+
+// ---------------------------------------------------------------------
+// 실시간 방송: 쓰는 중인 답 (DB 에 쓰지 않음, 0.25초마다 최신 것만)
+// ---------------------------------------------------------------------
+type Draft = (text: string, status: string) => void
+function liveDraft(roomId: string, agentId: string): { push: Draft; done: () => Promise<void> } {
+  const url = `${Deno.env.get('SUPABASE_URL')}/realtime/v1/api/broadcast`
+  const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+  let seq = 0
+  let pending: { text: string; status: string; done?: boolean } | null = null
+  let timer: number | undefined
+  let chain = Promise.resolve()
+  const send = (payload: Record<string, unknown>) => {
+    chain = chain.then(() =>
+      fetch(url, {
+        method: 'POST',
+        headers: { apikey: key, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: [{ topic: `agent:${roomId}`, event: 'draft', payload: { agent_id: agentId, seq: ++seq, ...payload }, private: true }] }),
+      })
+        .then(r => r.body?.cancel())
+        .catch(() => undefined),
+    )
+  }
+  const flush = () => {
+    timer = undefined
+    if (pending) send(pending)
+    pending = null
+  }
+  return {
+    push(text, status) {
+      pending = { text: text.slice(-4000), status }
+      if (timer === undefined) timer = setTimeout(flush, 250)
+    },
+    async done() {
+      clearTimeout(timer)
+      pending = null
+      send({ text: '', status: '', done: true })
+      await chain
+    },
+  }
+}
+
+const TOOL_LABEL: Record<string, string> = {
+  list_people: '팀원 확인 중',
+  list_tasks: '할 일 확인 중',
+  create_task: '할 일 만드는 중',
+  update_task: '할 일 고치는 중',
+  list_projects: '프로젝트 확인 중',
+  list_leave: '휴가 확인 중',
+  attendance: '근태 확인 중',
+  notify_person: '알림 보내는 중',
+  search_clients: '거래처 찾는 중',
+  queue_mail_work: '메일 확인 일정 잡는 중',
+  request_approval: '결재 올리는 중',
+  handoff: '다른 팀장에게 넘기는 중',
+  team_status: '팀 현황 보는 중',
+  add_directive: '지시 등록 중',
+  end_directive: '지시 마무리 중',
+  schedule_work: '예약 만드는 중',
+  list_schedules: '예약 확인 중',
+  cancel_schedule: '예약 지우는 중',
+  web_search: '웹 검색 중',
+}
 
 // ---------------------------------------------------------------------
 // 도구
@@ -621,7 +687,7 @@ function contextPrompt(ctx: Ctx, where: string) {
   return `지금: ${nowLabel()}. 요청한 사람: ${ctx.requester.name}${ctx.requester.title ? ` (${ctx.requester.title})` : ''}${ctx.requester.role === 'admin' ? ', 관리자' : ''}. 요청자 권한: ${AUTH_LABEL[authorityOf(ctx)]}. 대화 위치: ${where}.`
 }
 
-async function ask(ctx: Ctx, where: string, messages: Anthropic.MessageParam[], model: string = MODEL_CHAT): Promise<string> {
+async function ask(ctx: Ctx, where: string, messages: Anthropic.MessageParam[], model: string = MODEL_CHAT, onDraft?: Draft): Promise<string> {
   const apiKey = Deno.env.get('ANTHROPIC_API_KEY')
   if (!apiKey) return 'AI 연결 키 미설정 — 접수했습니다. 실시간 답변이 아직 연결되지 않아 다음 정기 실행(매일 07:57 메일 확인 · 평일 17:54 일일 보고)에서 처리합니다.'
   const client = new Anthropic({ apiKey })
@@ -640,10 +706,32 @@ async function ask(ctx: Ctx, where: string, messages: Anthropic.MessageParam[], 
     let res: Anthropic.Message
     const params = { model, max_tokens: 16000, system, tools, messages, output_config: { effort: 'medium' } }
     try {
-      res = useFallback
-        ? // 안전 분류로 거절되면 서버가 다른 모델로 이어서 답함
-          ((await client.beta.messages.create({ ...params, betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default' } as never)) as unknown as Anthropic.Message)
-        : await client.messages.create(params as never)
+      if (onDraft) {
+        // 실시간: 쓰는 대로 화면에 보냄
+        const stream = useFallback
+          ? // 안전 분류로 거절되면 서버가 다른 모델로 이어서 답함
+            client.beta.messages.stream({ ...params, betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default' } as never)
+          : client.messages.stream(params as never)
+        let text = ''
+        let status = step ? '정리하는 중' : '생각하는 중'
+        onDraft('', status)
+        // deno-lint-ignore no-explicit-any
+        ;(stream as any).on('streamEvent', (ev: any) => {
+          if (ev.type === 'content_block_start' && ev.content_block?.type === 'server_tool_use') {
+            status = TOOL_LABEL[ev.content_block.name] ?? '확인 중'
+            onDraft(text, status)
+          } else if (ev.type === 'content_block_delta' && ev.delta?.type === 'text_delta') {
+            text += ev.delta.text
+            status = ''
+            onDraft(text, status)
+          }
+        })
+        res = (await stream.finalMessage()) as unknown as Anthropic.Message
+      } else {
+        res = useFallback
+          ? ((await client.beta.messages.create({ ...params, betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default' } as never)) as unknown as Anthropic.Message)
+          : await client.messages.create(params as never)
+      }
     } catch (e) {
       if (useFallback && e instanceof Anthropic.BadRequestError) {
         useFallback = false
@@ -662,6 +750,7 @@ async function ask(ctx: Ctx, where: string, messages: Anthropic.MessageParam[], 
     const results: Anthropic.ToolResultBlockParam[] = []
     for (const u of uses) {
       const input = (u.input ?? {}) as Record<string, unknown>
+      onDraft?.('', TOOL_LABEL[u.name] ?? '처리하는 중')
       try {
         const out = await runTool(ctx, u.name, input)
         await logAction(ctx, u.name, input, true, out)
@@ -752,8 +841,16 @@ async function handleChat(messageId: number) {
     const lines = (recent ?? []).reverse().map(m => `[${hhmm(m.created_at)}] ${nameOf(ctx, m.user_id)}: ${m.content}`).join('\n')
     const others = turns.length > 1 ? ` 이 메시지는 ${turns.map(x => x.lead?.mention ?? x.agent.name).join(' · ')}가 함께 받았다. 앞에서 다른 팀장이 답한 부분은 반복하지 말고 네 팀 몫만 답해.` : ''
     const prompt = `최근 대화:\n${lines}\n\n위 대화에서 ${requester.name}님의 메시지(${hhmm(msg.created_at)})에 ${t.agent.name}(으)로서 답하고, 요청이 있으면 처리해.${others}`
-    const reply = await ask(ctx, where, [{ role: 'user', content: prompt }])
+    const live = liveDraft(room.id, t.agent.id)
+    let reply: string
+    try {
+      reply = await ask(ctx, where, [{ role: 'user', content: prompt }], MODEL_CHAT, (text, status) => live.push(text ? t.prefix + text : '', status))
+    } catch (e) {
+      console.error('agent-chat ask', e)
+      reply = '답을 만드는 중 문제가 생겼습니다. 잠시 뒤 다시 말씀해 주세요.'
+    }
     await sb.from('chat_messages').insert({ room_id: room.id, user_id: t.agent.id, content: (t.prefix + reply).slice(0, 4000) })
+    await live.done()
   }
 }
 

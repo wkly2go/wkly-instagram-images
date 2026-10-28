@@ -700,7 +700,11 @@ button.kpi:hover, a.kpi:hover { border-color: var(--blue); }
 .pick-x { display: inline-flex; padding: 3px; border-radius: 4px; flex-shrink: 0; }
 .pick-x:hover { background: var(--white); }
 .pick-list { position: absolute; z-index: 60; left: 0; right: 0; bottom: calc(100% + 4px); max-height: 300px; overflow: auto; min-width: 240px; background: var(--white); border: 1px solid var(--blue); border-radius: 8px; box-shadow: 0 6px 20px rgba(98, 98, 92, 0.25); padding: 4px; }
-.pick-group { padding: 6px 8px 2px; font-size: var(--fs-cap); font-weight: 700; color: var(--gray); }
+.pick-group { position: sticky; top: -4px; z-index: 1; display: flex; align-items: center; gap: 6px; width: 100%; margin-top: 4px; padding: 5px 8px; border: 0; border-radius: 6px; font: inherit; font-size: var(--fs-cap); font-weight: 900; text-align: left; cursor: pointer; color: var(--white); background: var(--blue); }
+.pick-group.g1 { background: var(--green); }
+.pick-group.g2 { background: var(--gray); }
+.pick-group.g3 { background: var(--line); color: var(--blue); }
+.pick-count { font-weight: 700; opacity: .9; }
 .pick-item { display: flex; align-items: center; gap: 8px; width: 100%; padding: 7px 8px; border: 0; border-radius: 6px; background: none; color: var(--blue); font-size: var(--fs-sm); text-align: left; cursor: pointer; }
 .pick-item.hi { background: var(--yellow-tint); }
 .pick-item.on { font-weight: 700; }
@@ -1962,3 +1966,17 @@ html.detail-wide .web-panel { max-width: 24vw; }
 .text-link:hover { background: var(--yellow); }
 .gantt-pick { width: auto; min-width: 240px; max-width: 100%; }
 .g-fold { border: 0; cursor: pointer; text-align: left; font: inherit; font-size: var(--fs-sm); font-weight: 700; background: var(--yellow-tint); color: var(--blue); border-top: 1px dashed var(--line); }
+/* AI 팀원 실시간 답 (2026-10-28) */
+.agent-live .bubble { white-space: pre-wrap; }
+.agent-live .agent-typing { padding: 2px 0 0; }
+.live-caret { display: inline-block; width: 7px; height: 1em; margin-left: 2px; vertical-align: -2px; background: var(--blue); animation: caret 1s steps(2) infinite; }
+@keyframes caret { 50% { opacity: 0; } }
+/* 자료실 필터 · 탭 한 줄 (2026-10-28) */
+.chips.one-line { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; }
+.chips.one-line > * { flex: none; }
+.lib-filters { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.lib-filter { display: inline-flex; align-items: center; gap: 4px; flex: none; }
+.lib-filter > span { font-size: var(--fs-cap); font-weight: 700; color: var(--blue); }
+.lib-filter .select { width: auto; min-width: 130px; }
+.sm-select { width: auto; height: 26px; padding: 0 22px 0 8px; font-size: var(--fs-cap); }
+.web-panel-search { display: flex !important; width: auto !important; margin: 6px 10px 2px; flex: none; }

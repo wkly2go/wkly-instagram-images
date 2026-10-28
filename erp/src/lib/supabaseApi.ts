@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import { ApiError, CHAT_FILE_MAX, EXCHANGE_FILE_MAX, groupIps, type Api, type DriveEnsureResult, type DriveFolder, type DriveStatus, type ImportResult } from './api'
+import { ApiError, CHAT_FILE_MAX, EXCHANGE_FILE_MAX, groupIps, type AgentDraft, type Api, type DriveEnsureResult, type DriveFolder, type DriveStatus, type ImportResult } from './api'
 import { desktop } from './desktop'
 import type {
   SavedItem,
@@ -326,6 +326,17 @@ export function createSupabaseApi(url: string, key: string): Api {
             cb({ type, message })
           },
         )
+        .subscribe()
+      return () => {
+        sb.removeChannel(ch)
+      }
+    },
+
+    subscribeAgentDrafts(roomId, cb) {
+      // 비공개 방송: 이 방을 볼 수 있는 사람만 받음 (realtime.messages 정책 0062)
+      const ch = sb
+        .channel(`agent:${roomId}`, { config: { private: true } })
+        .on('broadcast', { event: 'draft' }, ({ payload }) => cb(payload as AgentDraft))
         .subscribe()
       return () => {
         sb.removeChannel(ch)

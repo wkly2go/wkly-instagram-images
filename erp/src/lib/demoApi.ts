@@ -1081,6 +1081,10 @@ export function createDemoApi(): Api {
       return () => bus.removeEventListener('chat_messages', h)
     },
 
+    subscribeAgentDrafts() {
+      return () => undefined
+    },
+
     async listApprovals() {
       const self = requireMe()
       const talk = (id: string) => (store.approval_activity ?? []).filter(x => x.approval_id === id && ['댓글', '진행', '결과', 'AI 답변'].includes(x.kind)).length
