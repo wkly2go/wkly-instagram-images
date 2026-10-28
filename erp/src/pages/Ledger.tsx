@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
-import { ChevronLeft, ChevronRight, Download, KeyRound, Lock, Pencil, Search, Trash2, X } from 'lucide-react'
+import { BarChart3, CalendarClock, ChevronLeft, ChevronRight, Download, KeyRound, Lock, Pencil, Search, Trash2, Wallet, X } from 'lucide-react'
+import { CompareView, RecurringView } from '../components/LedgerViews'
 import { Shell } from '../components/Shell'
-import { Button, Empty, Field, Modal } from '../components/ui'
+import { Button, Empty, Field, Modal, ViewTabs } from '../components/ui'
 import { ask } from '../components/Ask'
 import { useApp } from '../lib/app'
 import { friendlyError } from '../lib/api'
@@ -111,6 +112,8 @@ function LedgerBoard({ onLock, onExpired }: { onLock: () => void; onExpired: () 
   const [filter, setFilter] = useState<'all' | LedgerDirection>('all')
   const [q, setQ] = useState('')
   const [changingPw, setChangingPw] = useState(false)
+  // 이번 달 · 정기 출금 · 월별 비교 (2026-10-28 "정기 출금일과 금액 · 월별 비교 대시보드")
+  const [tab, setTab] = useState<'month' | 'recurring' | 'compare'>('month')
   const amountRef = useRef<HTMLInputElement>(null)
 
   const load = useCallback(async () => {
@@ -223,7 +226,19 @@ function LedgerBoard({ onLock, onExpired }: { onLock: () => void; onExpired: () 
   return (
     <div className="ledger col gap-12">
       {/* 머리: 월 이동 · 내보내기 · 비밀번호 · 잠금 */}
+      <ViewTabs
+        label="장부 화면"
+        items={[
+          { key: 'month' as const, label: '월 장부', icon: <Wallet size={14} /> },
+          { key: 'recurring' as const, label: '정기 출금', icon: <CalendarClock size={14} /> },
+          { key: 'compare' as const, label: '월별 비교', icon: <BarChart3 size={14} /> },
+        ]}
+        active={tab}
+        onPick={setTab}
+      />
       <div className="row ledger-head">
+        {tab !== 'recurring' && (
+          <>
         <button type="button" className="icon-btn" onClick={() => setMonth(addMonths(month, -1))} aria-label="지난달">
           <ChevronLeft size={18} />
         </button>
@@ -238,8 +253,12 @@ function LedgerBoard({ onLock, onExpired }: { onLock: () => void; onExpired: () 
             이번 달
           </button>
         )}
+          </>
+        )}
+        {tab === 'compare' && <span className="t-cap">까지 12개월</span>}
+        {tab === 'recurring' && <b className="t-title">매달 나가는 돈</b>}
         <span className="grow" />
-        <Button kind="ghost" size="sm" onClick={exportCsv} disabled={!rows.length} title="이 달 장부를 엑셀(CSV)로">
+        <Button kind="ghost" size="sm" onClick={exportCsv} disabled={!rows.length || tab !== 'month'} title="이 달 장부를 엑셀(CSV)로">
           <Download size={14} /> 엑셀
         </Button>
         <Button kind="ghost" size="sm" onClick={() => setChangingPw(true)} title="장부 비밀번호 바꾸기">
@@ -250,6 +269,12 @@ function LedgerBoard({ onLock, onExpired }: { onLock: () => void; onExpired: () 
         </Button>
       </div>
 
+      {tab === 'recurring' ? (
+        <RecurringView onExpired={onExpired} />
+      ) : tab === 'compare' ? (
+        <CompareView month={month} onExpired={onExpired} />
+      ) : (
+      <>
       {/* 한눈에: 입금 · 출금 · 남은 돈 */}
       <div className="ledger-kpis">
         <div className="ledger-kpi in">
@@ -411,6 +436,8 @@ function LedgerBoard({ onLock, onExpired }: { onLock: () => void; onExpired: () 
             ))}
           </tbody>
         </table>
+      )}
+      </>
       )}
       {changingPw && <ChangePassword onClose={() => setChangingPw(false)} onDone={onExpired} />}
     </div>

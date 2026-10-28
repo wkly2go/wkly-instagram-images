@@ -59,6 +59,7 @@ import type {
   SiteLog,
   MeetingRecording,
   LedgerEntry,
+  LedgerRecurring,
 } from './types'
 
 function must<T>(res: { data: T | null; error: { message: string } | null }): T {
@@ -427,6 +428,18 @@ export function createSupabaseApi(url: string, key: string): Api {
     },
     async deleteLedger(id) {
       mustAffect(await sb.from('cash_ledger').delete().eq('id', id).select('id'))
+    },
+    async listRecurring() {
+      return must(await sb.from('cash_recurring').select('*').order('day_of_month').order('name')) as LedgerRecurring[]
+    },
+    async saveRecurring(r) {
+      const body = strip(r, READONLY) as Record<string, unknown>
+      delete body.created_by
+      const q = r.id ? sb.from('cash_recurring').update(body).eq('id', r.id) : sb.from('cash_recurring').insert(body)
+      return must(await q.select().single()) as LedgerRecurring
+    },
+    async deleteRecurring(id) {
+      mustAffect(await sb.from('cash_recurring').delete().eq('id', id).select('id'))
     },
     async listSubscriptions() {
       const { data, error } = await sb.from('subscriptions').select('*').order('status').order('next_billing', { ascending: true, nullsFirst: false }).order('name')
