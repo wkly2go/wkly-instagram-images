@@ -1,4 +1,5 @@
 import { CardView } from './ChatCards'
+import { Linkify } from './ui'
 import { useEffect, useRef, useState, type DragEvent } from 'react'
 import { Bookmark, Check, Download, FileText, Loader2, MessageSquare, Paperclip, Pencil, Send, SmilePlus, Trash2, X } from 'lucide-react'
 import { useApp } from '../lib/app'
@@ -157,9 +158,9 @@ export function MessageList({ messages, reads = [], members, onRemove, onEdit, o
                 </div>
               ) : (
                 <div className={`bubble ${mine ? 'mine' : 'other'} ${m.attachment?.card ? 'has-card' : m.attachment ? 'has-file' : ''}`}>
-                  {m.attachment?.card ? <span className="card-note">{m.content}</span> : null}
+                  {m.attachment?.card ? <span className="card-note"><Linkify text={m.content} /></span> : null}
                   {m.attachment?.card ? <CardView card={m.attachment.card} /> : m.attachment && <AttachmentView att={m.attachment} />}
-                  {!m.attachment?.card && (!m.attachment || m.content !== `📎 ${m.attachment.name}`) && <span>{m.content}</span>}
+                  {!m.attachment?.card && (!m.attachment || m.content !== `📎 ${m.attachment.name}`) && <span><Linkify text={m.content} /></span>}
                 </div>
               )}
               <span className="meta">

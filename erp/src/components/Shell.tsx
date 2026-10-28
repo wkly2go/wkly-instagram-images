@@ -1,9 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from 'react'
-import { Bookmark, Bot, ListTodo, Plus, Search, Briefcase, HardDrive, MonitorDown, ChevronLeft, ChevronRight, CircleHelp, ClipboardCheck, FolderKanban, Home, Library, Megaphone, MessageCircle, MoreHorizontal, Settings, Users, type LucideIcon } from 'lucide-react'
+import { Bookmark, Bot, ListTodo, Plus, Search, Briefcase, HardDrive, ChevronLeft, ChevronRight, CircleHelp, ClipboardCheck, FolderKanban, Home, Library, Megaphone, MessageCircle, MoreHorizontal, Settings, Users, type LucideIcon } from 'lucide-react'
 import { isDesktopApp } from '../lib/desktop'
 import { AssignTaskModal } from './AssignTask'
 import { NotificationBell } from './Notifications'
-import { WebSearchBox, webSlot } from './WebSearch'
+import { TopMenu, webSlot } from './WebSearch'
 import { openCommandPalette } from './CommandPalette'
 import { detailSlot } from './RightPanel'
 
@@ -470,13 +470,8 @@ export function ShellFrame({ children, initial }: { children: ReactNode; initial
               {/* 입력칸 하나 (2026-10-23): 찾기 · AI 에게 묻기 · 인터넷 검색을 Ctrl K 한 칸으로 */}
               <OneBox />
               <NotificationBell />
-              {!isDesktopApp() && (
-                <Link to="/download" className="quick-btn pc-only" title="PC 프로그램 내려받기 (회사 컴퓨터 · 출근 기록)" style={{ textDecoration: 'none' }}>
-                  <MonitorDown size={15} aria-label="PC 프로그램 내려받기" />
-                </Link>
-              )}
-              {/* 검색창만 오른쪽 끝, 나머지(알림 · 창 숨기기 · 글자 크기 등)는 왼쪽 — 순서는 styles.css 의 order */}
-              <WebSearchBox inputHidden />
+              {/* 오른쪽 위 아이콘들은 '보기' 펼침 메뉴 하나로 (2026-10-28) */}
+              <TopMenu showDownload={!isDesktopApp()} />
               <span className="grow" />
             </header>
             <div className="body" ref={mountWebSlot}>

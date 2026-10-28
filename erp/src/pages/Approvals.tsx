@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Linkify } from '../components/ui'
 import { ArrowLeft } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { dateLabel, dateTimeLabel, minutesLabel, timeLabel, toDateKey, todayKey, won } from '../lib/date'
@@ -309,7 +310,7 @@ function ApprovalDetail({ a, onBack }: { a: Approval; onBack: () => void }) {
         </div>
       )}
       {a.kind === '업무 보고' && a.payload.user_id && a.payload.date && <ReportLogs userId={a.payload.user_id} date={a.payload.date} />}
-      {a.content && a.kind !== '일일 보고' && <div className="panel t-small pre">{a.content}</div>}
+      {a.content && a.kind !== '일일 보고' && <div className="panel t-small pre"><Linkify text={a.content} /></div>}
       <DocFullText texts={[a.content, typeof a.payload?.body === 'string' ? a.payload.body : null]} />
       {target && a.target_id && (
         <Link to={target} className="t-small">
@@ -400,13 +401,13 @@ export function DailyReport({ a }: { a: Approval }) {
                       <Meter value={pct} label={`${m[1]} 할 일 완료율`} />
                     </span>
                     <span className="t-meta t-blue">{Math.round(pct)}%</span>
-                    <span className="t-cap truncate grow">{m[4]}</span>
+                    <span className="t-cap truncate grow"><Linkify text={m[4]} /></span>
                   </div>
                 )
               }
               return (
                 <span key={j} className="t-small">
-                  {l.replace(/^[·•-]\s*/, '· ')}
+                  <Linkify text={l.replace(/^[·•-]\s*/, '· ')} />
                 </span>
               )
             })}
@@ -458,7 +459,7 @@ function ReportLogs({ userId, date }: { userId: string; date: string }) {
         <div key={l.id} className="row top t-small">
           <span className="t-meta">{timeLabel(l.created_at)}</span>
           <KindBadge kind={l.kind} />
-          <span className="grow pre">{l.content}</span>
+          <span className="grow pre"><Linkify text={l.content} /></span>
           {l.minutes ? <span className="t-cap">{l.minutes}분</span> : null}
         </div>
       ))}

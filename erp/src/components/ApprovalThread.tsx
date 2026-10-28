@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { Linkify } from './ui'
 import { Bot, Check, CircleDot, FilePen, Flag, MessageSquare, Send, Trash2, X, type LucideIcon } from 'lucide-react'
 import { useApp, useAsync } from '../lib/app'
 import { dateTimeLabel } from '../lib/date'
@@ -108,7 +109,7 @@ export function ApprovalThread({ a }: { a: Approval }) {
                     </button>
                   )}
                 </div>
-                {x.body && <div className="t-small pre appr-body">{x.body}</div>}
+                {x.body && <div className="t-small pre appr-body"><Linkify text={x.body} /></div>}
               </div>
             </li>
           )

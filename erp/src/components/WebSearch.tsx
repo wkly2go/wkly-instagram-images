@@ -1,7 +1,7 @@
 import { WeekPanel } from './WeekPanel'
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { createPortal } from 'react-dom'
-import { ChevronLeft, ChevronRight, ExternalLink, PanelRightClose, PanelRightOpen, Search, X } from 'lucide-react'
+import { ChevronDown, ChevronLeft, ChevronRight, ExternalLink, MonitorDown, PanelRightClose, PanelRightOpen, Search, X } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { desktop } from '../lib/desktop'
 
@@ -382,6 +382,68 @@ export function runWebSearch(q: string) {
   if (!v) return
   saveRecent([v, ...readRecent().filter(x => x !== v)])
   setOpenState({ q: v, engine: 'google' })
+}
+
+/**
+ * 상단 오른쪽 아이콘들을 펼침 메뉴 하나로 (2026-10-28 "상부 아이콘들은 탭다운 방식으로")
+ *  - 오른쪽 칸(주간 일정표 · 인터넷) 보이기/숨기기 · 글자 크기 · 인터넷 창 뒤로/앞으로(PC 프로그램) · PC 프로그램 내려받기
+ */
+export function TopMenu({ showDownload }: { showDownload: boolean }) {
+  const open = useOpenState()
+  const zoom = useZoom()
+  const app = desktop()
+  const [on, setOn] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!on) return
+    const off = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && setOn(false)
+    const esc = (e: KeyboardEvent) => e.key === 'Escape' && setOn(false)
+    window.addEventListener('mousedown', off)
+    window.addEventListener('keydown', esc)
+    return () => {
+      window.removeEventListener('mousedown', off)
+      window.removeEventListener('keydown', esc)
+    }
+  }, [on])
+  return (
+    <div className="top-menu" ref={ref}>
+      <button type="button" className="top-menu-btn" onClick={() => setOn(v => !v)} aria-expanded={on} aria-haspopup="menu" title="화면 · 글자 크기 · 프로그램">
+        보기 <ChevronDown size={13} />
+      </button>
+      {on && (
+        <div className="top-menu-pop" role="menu">
+          <button type="button" role="menuitem" onClick={() => (open ? hidePanel() : showPanel(), setOn(false))}>
+            {open ? <PanelRightClose size={14} /> : <PanelRightOpen size={14} />} {open ? '오른쪽 칸 숨기기 (본 화면 넓게)' : '오른쪽 칸 보이기 (주간 일정표 · 인터넷)'}
+          </button>
+          <div className="top-menu-row" role="group" aria-label="글자 크기">
+            <span className="grow">글자 크기 {zoom}</span>
+            <button type="button" className="icon-btn sm" onClick={() => stepZoom(-1)} aria-label="글자 작게">
+              가−
+            </button>
+            <button type="button" className="icon-btn sm" onClick={() => stepZoom(1)} aria-label="글자 크게">
+              가+
+            </button>
+          </div>
+          {app?.searchNav && (
+            <div className="top-menu-row" role="group" aria-label="인터넷 창 이동">
+              <span className="grow">인터넷 창</span>
+              <button type="button" className="icon-btn sm" onClick={() => app.searchNav?.('back')} aria-label="뒤로">
+                <ChevronLeft size={14} />
+              </button>
+              <button type="button" className="icon-btn sm" onClick={() => app.searchNav?.('forward')} aria-label="앞으로">
+                <ChevronRight size={14} />
+              </button>
+            </div>
+          )}
+          {showDownload && (
+            <a href="/download" role="menuitem" onClick={() => setOn(false)}>
+              <MonitorDown size={14} /> PC 프로그램 내려받기
+            </a>
+          )}
+        </div>
+      )}
+    </div>
+  )
 }
 
 /** 상단 바: 검색 입력칸은 통합 검색창으로 합치고, 인터넷 창 이동 · 숨기기 버튼만 (2026-10-23) */
