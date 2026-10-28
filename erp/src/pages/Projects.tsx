@@ -58,11 +58,20 @@ export default function Projects() {
   const selected = data.projects.find(p => p.id === selectedId)
   // 넓은 화면: 프로젝트를 누르면 지금 화면은 왼쪽에 두고 오른쪽 칸에 프로젝트 전체 (2026-10-28)
   const wide = usePanelWide()
+  // 첫 화면(넓은 화면): 가운데 = 프로젝트 목록, 오른쪽 = 대시보드 요약 → 프로젝트를 누르면 오른쪽이 그 프로젝트 상세 (2026-10-28)
+  const view0 = query.get('view')
+  const dashRight = wide && !view0 && !query.get('q')
   useRightPanel(
-    wide && selected ? `projfull:${selected.id}` : null,
-    selected ? `${selected.code ? `${selected.code} · ` : ''}${selected.name}` : '프로젝트',
-    selected ? <ProjectDetail key={selected.id} project={selected} data={data} panel onEdit={() => setEditing(selected)} onBack={() => go({ id: null })} /> : null,
-    { wide: true, onClose: () => go({ id: null }) },
+    wide && selected ? `projfull:${selected.id}` : dashRight ? 'projdash' : null,
+    selected ? `${selected.code ? `${selected.code} · ` : ''}${selected.name}` : '대시보드 · 요약',
+    selected ? (
+      <ProjectDetail key={selected.id} project={selected} data={data} panel onEdit={() => setEditing(selected)} onBack={() => go({ id: null })} />
+    ) : dashRight ? (
+      <div className="panel-dash">
+        <ProjectDashboard projects={data.projects} tasks={data.tasks} clients={data.clients} />
+      </div>
+    ) : null,
+    { wide: true, onClose: selected ? () => go({ id: null }) : undefined },
   )
 
   if (selectedId && !wide) {
@@ -95,11 +104,11 @@ export default function Projects() {
   const foundProjects = words.length ? data.projects.filter(p => hit([p.code, p.name, p.location, p.description, p.category, p.status, clientName(p.client_id), profileName(p.owner_id)].filter(Boolean).join(' '))) : []
   const foundTasks = words.length ? data.tasks.filter(t => hit([t.title, t.memo, data.projects.find(p => p.id === t.project_id)?.name, profileName(t.assignee_id)].filter(Boolean).join(' '))) : []
   const tabs: [string | null, string][] = [
-    [null, '대시보드'],
+    [null, wide ? '프로젝트 · 대시보드' : '대시보드'],
     ['schedule', '일정표'],
     ['week', '주간'],
     ['calendar', '캘린더'],
-    ['list', '프로젝트 목록'],
+    ...(wide ? [] : ([['list', '프로젝트 목록']] as [string, string][])),
     ['org', '조직 · 진행 현황'],
     ['mine', '내 할 일'],
     ['tasks', '팀 할 일'],
@@ -157,7 +166,7 @@ export default function Projects() {
           {view === 'mine' && <SentTasks projects={data.projects} tasks={data.tasks} />}
           <TaskList tasks={data.tasks} projects={data.projects} mineOnly={view === 'mine'} />
         </div>
-      ) : view === 'list' ? (
+      ) : view === 'list' || (!view && wide) ? (
         <div className="proj-list-wrap">
         <div className="row top gap-12" style={{ flex: 1, minHeight: 0, flexWrap: 'wrap' }}>
           <div className="col grow" style={{ flexBasis: 320 }}>
