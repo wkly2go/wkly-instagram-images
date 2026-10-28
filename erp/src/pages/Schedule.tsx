@@ -179,6 +179,9 @@ export function Gantt({ projects, tasks }: { projects: Project[]; tasks: Task[] 
   const projectId = query.get('project') ?? 'all'
   const project = projects.find(p => p.id === projectId) ?? null
   const [editing, setEditing] = useState<Task | 'new' | null>(null)
+  // NIC(계약 전) 프로젝트는 접어 둠 (대표 지시 2026-10-28)
+  const [showNic, setShowNic] = useState(false)
+  const nicCount = active.filter(p => p.status === 'NIC').length
 
   const items = project ? tasks.filter(t => t.project_id === project.id && spanOf(t)) : []
   const dates = project
@@ -229,7 +232,7 @@ export function Gantt({ projects, tasks }: { projects: Project[]; tasks: Task[] 
           {(['진행', '기획', 'NIC'] as const).map(st => {
             const list = active.filter(p => p.status === st)
             return list.length ? (
-              <optgroup key={st} label={`${st} ${list.length}`}>
+              <optgroup key={st} label={st === 'NIC' ? `NIC (계약 전) ${list.length}` : `${st} ${list.length}`}>
                 {list.map(p => (
                   <option key={p.id} value={p.id}>
                     {p.code ? `${p.code} ` : ''}
@@ -312,7 +315,19 @@ export function Gantt({ projects, tasks }: { projects: Project[]; tasks: Task[] 
                   </div>
                 )
               })
-            : active.map(p => {
+            : [
+                ...active.filter(p => p.status !== 'NIC'),
+                ...(nicCount ? [null] : []),
+                ...(showNic ? active.filter(p => p.status === 'NIC') : []),
+              ].map(p => {
+                if (!p) {
+                  const r = ++row
+                  return (
+                    <button key="nic" type="button" className="g-phase g-fold" style={{ gridRow: r, gridColumn: `1 / span ${weeks + 1}` }} onClick={() => setShowNic(v => !v)} aria-expanded={showNic}>
+                      {showNic ? '▾' : '▸'} NIC 프로젝트 (계약 전) {nicCount}개 · {showNic ? '접기' : '펼치기'}
+                    </button>
+                  )
+                }
                 const r = ++row
                 const s = p.start_date ?? p.end_date
                 const e = p.end_date ?? p.start_date
