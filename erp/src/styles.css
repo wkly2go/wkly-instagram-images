@@ -2216,3 +2216,14 @@ header .main-nav { margin: 0; gap: 2px; }
 .cmdk-ai-wait { color: var(--gray); animation: cmdk-pulse 1.2s ease-in-out infinite; }
 @keyframes cmdk-pulse { 50% { opacity: .45; } }
 .cmdk-ai-foot { display: flex; align-items: center; gap: 8px; font-size: var(--fs-cap); color: var(--gray); }
+
+/* 홈 맨 위 오늘 업무 */
+.today-work { border: 1px solid var(--blue); border-radius: 12px; padding: 10px 14px 12px; background: var(--white); }
+.today-list { display: flex; flex-direction: column; }
+.today-row { display: flex; align-items: center; gap: 8px; padding: 6px 2px; border-bottom: 1px solid var(--line); min-width: 0; }
+.today-row:last-child { border-bottom: 0; }
+.today-row:hover { background: var(--yellow-tint, var(--paper)); }
+.today-row.late .today-title { color: var(--alert); }
+.today-title { flex: 1; min-width: 0; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.today-proj { font: 400 var(--fs-cap)/1.4 var(--mono); color: var(--gray); white-space: nowrap; }
+.today-empty { padding: 8px 2px; color: var(--gray); font-size: var(--fs-cap); }
