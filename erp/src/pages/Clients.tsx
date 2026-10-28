@@ -1,4 +1,6 @@
 import { useMemo, useState } from 'react'
+import { Linkify } from '../components/ui'
+import { TextLinks } from '../components/ui'
 import { ArrowLeft, ChevronDown, ChevronRight, Pencil, Plus, Search, Star, Trash2 } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { manwon, shortDate, todayKey } from '../lib/date'
@@ -452,6 +454,7 @@ function ClientForm({ client, onClose, onSaved }: { client: Client | null; onClo
         {text('website', '웹사이트', true)}
         <Field label="메모" className="full">
           <textarea className="textarea" rows={3} value={f.memo ?? ''} onChange={e => set({ memo: e.target.value || null })} />
+          <TextLinks text={f.memo} />
         </Field>
       </div>
     </Modal>
@@ -579,7 +582,7 @@ function ContactDetail({ contact: x, contacts, clients, onClient, onPerson }: { 
         <dt>이메일</dt>
         <dd>{x.email ?? '-'}</dd>
         <dt>메모</dt>
-        <dd>{x.memo ?? '-'}</dd>
+        <dd>{x.memo ? <Linkify text={x.memo} /> : '-'}</dd>
         <dt>최근 연락</dt>
         <dd>{last ? `${shortDate(last.log_date)} · ${last.kind}${last.project_id ? ` · ${data.projects.find(p => p.id === last.project_id)?.name ?? ''}` : ''}` : '-'}</dd>
       </dl>

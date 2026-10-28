@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { TextLinks } from './ui'
 import { Pencil, Trash2 } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { manwon, shortDate, todayKey } from '../lib/date'
@@ -339,6 +340,7 @@ function FinanceForm({ project, finance, hasLines, onClose }: { project: Project
         </Field>
         <Field label="메모" className="full">
           <textarea className="textarea" rows={2} value={memo} onChange={e => setMemo(e.target.value)} />
+          <TextLinks text={memo} />
         </Field>
       </div>
     </Modal>

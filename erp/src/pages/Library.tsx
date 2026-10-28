@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState, type ReactNode } from 'react'
+import { TextLinks } from '../components/ui'
 import { ArrowLeft, FileText, Pencil, Plus, Search, Trash2 } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { parseCsv } from '../lib/csv'
@@ -844,6 +845,7 @@ function ContactForm({ contact, preset, onClose, onSaved }: { contact: BrandCont
         </Field>
         <Field label="메모" className="full">
           <textarea className="textarea" rows={2} value={f.memo ?? ''} onChange={e => set({ memo: e.target.value || null })} />
+          <TextLinks text={f.memo} />
         </Field>
         <label className="row t-cap full" style={{ gap: 6 }}>
           <input type="checkbox" checked={!!f.opt_out} disabled={!!contact?.opt_out && me.role !== 'admin'} onChange={e => set({ opt_out: e.target.checked })} />
