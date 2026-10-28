@@ -62,6 +62,24 @@ export default function Chat() {
   const mentions = notes.filter(n => ACTIVITY_KINDS.includes(n.kind))
   const unreadMentions = mentions.filter(n => !n.read_at).length
   // 프로젝트 방: 내 방(알림 전체이거나 나를 부름)만 펼치고 나머지는 접어 둠
+  // 묶음 접기 (프로젝트 대화 · 채팅방 · 1:1) · 이 PC 에 기억 (2026-10-28)
+  const [folded, setFolded] = useState<string[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('wkly-chat-folded') ?? '[]') as string[]
+    } catch {
+      return []
+    }
+  })
+  const toggleFold = (label: string) =>
+    setFolded(prev => {
+      const next = prev.includes(label) ? prev.filter(x => x !== label) : [...prev, label]
+      try {
+        localStorage.setItem('wkly-chat-folded', JSON.stringify(next))
+      } catch {
+        /* 저장 못 해도 화면은 그대로 */
+      }
+      return next
+    })
   const [showOther, setShowOther] = useState(() => {
     try {
       return localStorage.getItem('wkly-chat-other') === '1'
@@ -147,7 +165,14 @@ export default function Chat() {
             {groups.map(([label, list]) => (
               <div key={label}>
                 <div className="room-group">
-                  <span className="grow">{label}</span>
+                  <button type="button" className="room-fold grow" onClick={() => toggleFold(label)} aria-expanded={!folded.includes(label)} title={folded.includes(label) ? '펼치기' : '접기'}>
+                    {folded.includes(label) ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
+                    {label}
+                    {folded.includes(label) && (() => {
+                      const n = (label === '프로젝트 대화' ? projRooms : list).reduce((t, r) => t + countedUnread(r), 0)
+                      return n > 0 ? <Badge tone="blue">{n}</Badge> : <span className="t-meta">{label === '프로젝트 대화' ? projRooms.length : list.length}</span>
+                    })()}
+                  </button>
                   {label === '1:1 대화' ? (
                     <button type="button" className="icon-btn sm" onClick={() => setDmPicking(true)} aria-label="1:1 대화 시작" title="팀원과 1:1 대화 시작">
                       <Plus size={14} />
@@ -158,10 +183,10 @@ export default function Chat() {
                     </button>
                   ) : null}
                 </div>
-                {list.map(r => (
+                {(folded.includes(label) ? list.filter(r => r.id === roomId) : list).map(r => (
                   <RoomItem key={r.id} r={r} active={r.id === roomId} to={withQuery(path, query, { room: r.id, view: null, thread: null })} />
                 ))}
-                {label === '프로젝트 대화' && otherProj.length > 0 && (
+                {label === '프로젝트 대화' && !folded.includes(label) && otherProj.length > 0 && (
                   <button
                     type="button"
                     className="item t-cap room-more"
@@ -179,8 +204,8 @@ export default function Chat() {
                     {showOther ? <ChevronDown size={12} /> : <ChevronRight size={12} />} {showOther ? '다른 프로젝트 접기' : `다른 프로젝트 ${otherProj.length}개`}
                   </button>
                 )}
-                {label === '프로젝트 대화' && !projRooms.length && <span className="item t-cap">기획 · 진행 중인 프로젝트마다 대화방이 생깁니다.</span>}
-                {label === '1:1 대화' && !list.length && (
+                {label === '프로젝트 대화' && !folded.includes(label) && !projRooms.length && <span className="item t-cap">기획 · 진행 중인 프로젝트마다 대화방이 생깁니다.</span>}
+                {label === '1:1 대화' && !folded.includes(label) && !list.length && (
                   <button type="button" className="item t-cap" onClick={() => setDmPicking(true)}>
                     + 팀원을 골라 1:1 대화를 시작하세요
                   </button>
