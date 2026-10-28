@@ -53,6 +53,7 @@ import type {
   WorkLog,
   SiteLog,
   MeetingRecording,
+  LedgerEntry,
 } from './types'
 import { approvalKindOf, type AgentSchedule, type AiAgent, type ApprovalActivity } from './types'
 import { nextRun } from './schedule'
@@ -82,6 +83,9 @@ interface Store {
   finances: ProjectFinance[]
   payments: Payment[]
   subscriptions?: Subscription[]
+  ledger?: LedgerEntry[]
+  ledger_pw?: string | null
+  ledger_until?: string | null
   site_logs?: SiteLog[]
   meeting_recordings?: MeetingRecording[]
   budget_lines: BudgetLine[]
@@ -1230,6 +1234,62 @@ export function createDemoApi(): Api {
       persist()
       emit('finances')
       return clone(row)
+    },
+    // ---------- 입출금 장부 (체험: 비밀번호는 이 브라우저에만) ----------
+    async ledgerStatus() {
+      if (!isAdmin()) return { admin: false }
+      return { admin: true, has_password: !!store.ledger_pw, open_until: store.ledger_until && store.ledger_until > now() ? store.ledger_until : null, fails: 0 }
+    },
+    async ledgerSetPassword(oldPw, newPw) {
+      requireAdmin()
+      if (newPw.length < 6) throw new ApiError('비밀번호는 6자 이상으로 정해 주세요.')
+      if (store.ledger_pw && oldPw !== store.ledger_pw) throw new ApiError('지금 비밀번호가 맞지 않습니다.')
+      store.ledger_pw = newPw
+      store.ledger_until = null
+      persist()
+    },
+    async ledgerUnlock(pw) {
+      requireAdmin()
+      if (!store.ledger_pw) throw new ApiError('먼저 장부 비밀번호를 정해 주세요.')
+      if (pw !== store.ledger_pw) throw new ApiError('비밀번호가 맞지 않습니다.')
+      store.ledger_until = new Date(Date.now() + 30 * 60_000).toISOString()
+      persist()
+      return store.ledger_until
+    },
+    async ledgerLock() {
+      store.ledger_until = null
+      persist()
+    },
+    async ledgerTouch() {
+      if (!store.ledger_until || store.ledger_until < now()) return null
+      store.ledger_until = new Date(Date.now() + 30 * 60_000).toISOString()
+      return store.ledger_until
+    },
+    async listLedger(from, to) {
+      requireAdmin()
+      if (!store.ledger_until || store.ledger_until < now()) throw new ApiError('장부가 잠겨 있습니다.')
+      return clone((store.ledger ?? []).filter(x => x.entry_date >= from && x.entry_date <= to).sort((a, b) => b.entry_date.localeCompare(a.entry_date) || b.id - a.id))
+    },
+    async saveLedger(e) {
+      requireAdmin()
+      const self = requireMe()
+      if (!store.ledger_until || store.ledger_until < now()) throw new ApiError('장부가 잠겨 있습니다.')
+      store.ledger = store.ledger ?? []
+      let row: LedgerEntry
+      if (e.id) {
+        row = { ...store.ledger.find(x => x.id === e.id)!, ...e, updated_at: now() } as LedgerEntry
+        store.ledger = store.ledger.map(x => (x.id === e.id ? row : x))
+      } else {
+        row = { id: Date.now(), entry_date: todayKey(), direction: '출금', amount: 0, category: '기타', counterparty: null, method: '계좌', memo: null, project_id: null, ...e, created_by: self, created_at: now(), updated_at: now() } as LedgerEntry
+        store.ledger.push(row)
+      }
+      persist()
+      return clone(row)
+    },
+    async deleteLedger(id) {
+      requireAdmin()
+      store.ledger = (store.ledger ?? []).filter(x => x.id !== id)
+      persist()
     },
     async listSubscriptions() {
       requireMe()

@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import type { LedgerStatus } from './types'
 import { ApiError, CHAT_FILE_MAX, EXCHANGE_FILE_MAX, groupIps, type AgentDraft, type Api, type DriveEnsureResult, type DriveFolder, type DriveStatus, type ImportResult } from './api'
 import { desktop } from './desktop'
 import type {
@@ -57,6 +58,7 @@ import type {
   WorkLog,
   SiteLog,
   MeetingRecording,
+  LedgerEntry,
 } from './types'
 
 function must<T>(res: { data: T | null; error: { message: string } | null }): T {
@@ -396,6 +398,35 @@ export function createSupabaseApi(url: string, key: string): Api {
     async saveFinance(f) {
       const body = strip(f, READONLY) as Record<string, unknown>
       return must(await sb.from('project_finances').upsert(body, { onConflict: 'project_id' }).select().single()) as ProjectFinance
+    },
+    // ---------- 입출금 장부 (서버가 관리자 + 잠금 해제 여부를 확인) ----------
+    async ledgerStatus() {
+      return must(await sb.rpc('ledger_status')) as LedgerStatus
+    },
+    async ledgerSetPassword(oldPw, newPw) {
+      must(await sb.rpc('ledger_set_password', { p_old: oldPw, p_new: newPw }))
+    },
+    async ledgerUnlock(pw) {
+      return must(await sb.rpc('ledger_unlock', { p_password: pw })) as string
+    },
+    async ledgerLock() {
+      await sb.rpc('ledger_lock')
+    },
+    async ledgerTouch() {
+      const { data } = await sb.rpc('ledger_touch')
+      return (data as string | null) ?? null
+    },
+    async listLedger(from, to) {
+      return must(await sb.from('cash_ledger').select('*').gte('entry_date', from).lte('entry_date', to).order('entry_date', { ascending: false }).order('id', { ascending: false })) as LedgerEntry[]
+    },
+    async saveLedger(e) {
+      const body = strip(e, READONLY) as Record<string, unknown>
+      delete body.created_by
+      const q = e.id ? sb.from('cash_ledger').update(body).eq('id', e.id) : sb.from('cash_ledger').insert(body)
+      return must(await q.select().single()) as LedgerEntry
+    },
+    async deleteLedger(id) {
+      mustAffect(await sb.from('cash_ledger').delete().eq('id', id).select('id'))
     },
     async listSubscriptions() {
       const { data, error } = await sb.from('subscriptions').select('*').order('status').order('next_billing', { ascending: true, nullsFirst: false }).order('name')

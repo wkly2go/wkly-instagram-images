@@ -1,5 +1,5 @@
 import type { AccessSource } from './desktop'
-import type {
+import type { LedgerEntry, LedgerStatus,
   AiAgent,
   AgentSchedule,
   ActivityInputKind,
@@ -262,6 +262,15 @@ export interface Api {
   listFinances(): Promise<ProjectFinance[]>
   saveFinance(f: Draft<ProjectFinance> & { project_id: string }): Promise<ProjectFinance>
   /** 구독료: 보기는 모두, 등록 · 수정 · 삭제는 관리자 */
+  // 입출금 장부 (관리자 · 비밀번호 잠금 해제 때만, 서버에서 막음)
+  ledgerStatus(): Promise<LedgerStatus>
+  ledgerSetPassword(oldPw: string | null, newPw: string): Promise<void>
+  ledgerUnlock(pw: string): Promise<string>
+  ledgerLock(): Promise<void>
+  ledgerTouch(): Promise<string | null>
+  listLedger(from: string, to: string): Promise<LedgerEntry[]>
+  saveLedger(e: Draft<LedgerEntry>): Promise<LedgerEntry>
+  deleteLedger(id: number): Promise<void>
   listSubscriptions(): Promise<Subscription[]>
   saveSubscription(s: Draft<Subscription>): Promise<Subscription>
   deleteSubscription(id: string): Promise<void>

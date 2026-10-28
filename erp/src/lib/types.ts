@@ -1068,3 +1068,35 @@ export interface MeetingRecording {
   created_at: string
   updated_at: string
 }
+
+// ---------- 입출금 장부 (관리자 전용 · 비밀번호 잠금, 0063) ----------
+export const LEDGER_METHODS = ['계좌', '카드', '현금', '기타'] as const
+export type LedgerMethod = (typeof LEDGER_METHODS)[number]
+export type LedgerDirection = '입금' | '출금'
+/** 자주 쓰는 분류 (직접 입력도 됨) */
+export const LEDGER_CATEGORIES: Record<LedgerDirection, string[]> = {
+  입금: ['매출 · 용역', '매출 · 광고', '매출 · 대관', '지원금', '이자 · 환급', '기타 입금'],
+  출금: ['외주 · 협력사', '인건비', '임대료', '재료 · 소품', '광고비', '구독 · 소프트웨어', '세금 · 공과금', '식대 · 경비', '교통 · 운반', '기타 출금'],
+}
+export interface LedgerEntry {
+  id: number
+  entry_date: string
+  direction: LedgerDirection
+  amount: number
+  category: string
+  counterparty: string | null
+  method: LedgerMethod
+  memo: string | null
+  project_id: string | null
+  created_by: string
+  created_at: string
+  updated_at: string
+}
+export interface LedgerStatus {
+  admin: boolean
+  has_password?: boolean
+  /** 열려 있으면 닫히는 시각 */
+  open_until?: string | null
+  /** 최근 10분 틀린 횟수 (5번이면 잠김) */
+  fails?: number
+}
