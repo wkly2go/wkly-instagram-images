@@ -122,22 +122,21 @@ export default function Projects() {
       {/* ① 화면 고르기 (밑줄 탭) */}
       <ViewTabs label="프로젝트 화면" items={tabs} active={activeTab} onPick={v => navigate(v ? `/projects?view=${v}` : '/projects')} />
       {/* ② 찾기 · 만들기 (한 줄) */}
+      {/* ② 찾기 · 만들기: 한 줄, 검색이 가장 넓게 (2026-10-28 "더 미니멀하게") */}
       <div className="row proj-tools">
-        {/* 거래처 · 연락처 (대표 지시 2026-10-22 "거래처 프로젝트에 통합") */}
-        <Button kind="ghost" size="sm" onClick={() => navigate('/clients')} title="거래처 · 연락처">
-          <Building2 size={14} /> 거래처 · 연락처
-        </Button>
-        <span className="grow" />
         <ProjectSearch value={q} onChange={v => go({ q: v || null })} />
-        {!view && admin && <span className="t-cap">{todayKey().slice(0, 4)}년 · 공급가액(VAT 별도)</span>}
+        {/* 거래처 · 연락처 (대표 지시 2026-10-22 "거래처 프로젝트에 통합") */}
+        <button type="button" className="icon-btn" onClick={() => navigate('/clients')} title="거래처 · 연락처" aria-label="거래처 · 연락처">
+          <Building2 size={16} />
+        </button>
         {view !== 'payments' && view !== 'schedule' && view !== 'subs' && (
-          <Button kind="outline" onClick={() => setAssigning(true)}>
-            업무 지시
+          <Button kind="ghost" size="sm" onClick={() => setAssigning(true)} title="팀원에게 업무 지시">
+            <ListChecks size={14} /> 업무 지시
           </Button>
         )}
         {view !== 'payments' && (
-          <Button onClick={() => setEditing('new')}>
-            프로젝트
+          <Button size="sm" onClick={() => setEditing('new')} title="새 프로젝트">
+            <Plus size={14} /> 프로젝트
           </Button>
         )}
       </div>
@@ -191,9 +190,8 @@ export default function Projects() {
                 ))}
               </FilterGroup>
               <span className="grow" />
-              <label className="filter-group">
-                <span className="filter-label">정렬</span>
-                <select className="select sm-select" value={sort ?? ''} onChange={e => go({ sort: e.target.value || null })} aria-label="정렬">
+              <label className="filter-group" title="정렬">
+                <select className="sort-select" value={sort ?? ''} onChange={e => go({ sort: e.target.value || null })} aria-label="정렬">
                   <option value="">연번순</option>
                   <option value="name">이름순</option>
                   <option value="recent">최근순</option>

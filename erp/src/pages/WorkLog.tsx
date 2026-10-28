@@ -1,3 +1,4 @@
+import { UserPic } from '../components/UserPic'
 import { useMemo, useState, type ReactNode } from "react";
 import { Linkify } from '../components/ui'
 import { ChevronLeft, ChevronRight, ListTodo, Pencil, Search, Trash2, StickyNote } from "lucide-react";
@@ -397,6 +398,7 @@ function TeamSide({
         return (
           <div key={p.id} className="team-row">
           <button type="button" className={`team-person${active ? " active" : ""}`} onClick={() => go({ user: p.id === me.id ? null : p.id, team: null })}>
+            <UserPic id={p.id} size={28} />
             <span className="col grow" style={{ minWidth: 0 }}>
               <span className="row" style={{ gap: 4, minWidth: 0 }}>
                 <span className="t-smallb truncate">

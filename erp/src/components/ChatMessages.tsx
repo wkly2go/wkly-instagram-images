@@ -1,3 +1,4 @@
+import { UserPic } from './UserPic'
 import { CardView } from './ChatCards'
 import { Linkify } from './ui'
 import { useEffect, useRef, useState, type DragEvent } from 'react'
@@ -129,7 +130,12 @@ export function MessageList({ messages, reads = [], members, onRemove, onEdit, o
         {newDay && <div className="chat-day">{dateLabel(day)}</div>}
         <div id={`msg-${m.id}`} className={`msg ${mine ? 'mine' : ''} ${cont ? 'cont' : ''}${m.pending ? ' pending' : ''}`}>
           <div className="stack" style={{ alignItems: mine ? 'flex-end' : 'flex-start' }}>
-            {!mine && !cont && <span className="t-cap">{profileName(m.user_id)}</span>}
+            {!mine && !cont && (
+              <span className="row msg-who">
+                <UserPic id={m.user_id} size={20} />
+                <span className="t-cap">{profileName(m.user_id)}</span>
+              </span>
+            )}
             <div className="line">
               {editId === m.id ? (
                 <div className="bubble-edit">

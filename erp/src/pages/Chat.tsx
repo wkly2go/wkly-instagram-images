@@ -1,3 +1,4 @@
+import { UserPic } from '../components/UserPic'
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { Linkify } from '../components/ui'
 import { ArrowLeft, AtSign, BellOff, Bookmark, Check, ChevronDown, ChevronRight, Plus, Send, Trash2 } from 'lucide-react'
@@ -32,6 +33,7 @@ function RoomItem({ r, active, to }: { r: ChatRoomSummary; active: boolean; to: 
   return (
     <Link to={to} className={`item ${active ? 'active' : ''} ${r.members ? 'dm' : ''} ${r.level === 'mute' ? 'muted' : ''} ${(counted || quiet) && !active ? 'has-new' : ''}`}>
       <div className="row">
+        {r.members && <UserPic id={r.members.find(x => x !== me.id) ?? me.id} size={18} />}
         <span className="t-smallb truncate grow">{r.members ? roomTitle(r, me.id, profileName).slice(2) : `# ${r.name}`}</span>
         {r.level === 'mute' && <BellOff size={11} aria-label="알림 끔" />}
         {r.last_at && <span className="t-meta">{relativeLabel(r.last_at)}</span>}

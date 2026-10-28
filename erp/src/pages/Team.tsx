@@ -1,3 +1,4 @@
+import { UserPic } from '../components/UserPic'
 import { useState } from 'react'
 import { AttendanceRulesPanel, CheckInCard, CheckinTag, MonthSummary, OfficeNetworkPanel, useCheckins, WorkPlanSection } from '../components/CheckIn'
 import { useAction, useApp, useAsync } from '../lib/app'
@@ -104,7 +105,8 @@ function PeopleList({ selectedId, onSelect }: { selectedId: string | null; onSel
         {people.map(p => {
           const a = attendance.get(p.id)
           return (
-            <button key={p.id} type="button" className={`item ${p.id === selectedId ? 'active' : ''}`} onClick={() => onSelect(p.id)}>
+            <button key={p.id} type="button" className={`item team-item ${p.id === selectedId ? 'active' : ''}`} onClick={() => onSelect(p.id)}>
+              <UserPic id={p.id} size={32} />
               <span className="col gap-2" style={{ minWidth: 0 }}>
                 <span className="row" style={{ gap: 6 }}>
                   <span className="t-smallb truncate">{p.name}</span>
