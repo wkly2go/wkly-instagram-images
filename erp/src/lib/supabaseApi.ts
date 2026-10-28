@@ -720,6 +720,9 @@ export function createSupabaseApi(url: string, key: string): Api {
       const { error: e2 } = await sb.rpc('touch_attendance_v2', { p_source: source })
       if (e2) await sb.rpc('touch_attendance') // 0014 미적용
     },
+    async punchAttendance(kind, source) {
+      return must(await sb.rpc('attendance_punch', { p_kind: kind, p_source: source, p_device: desktop()?.deviceId ?? null })) as { kind: string; at: string }
+    },
     async listNotes() {
       const { data, error } = await sb.from('notes').select('*').order('pinned', { ascending: false }).order('updated_at', { ascending: false })
       if (error) return [] // 0016 미적용

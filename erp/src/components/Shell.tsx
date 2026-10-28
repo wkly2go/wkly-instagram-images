@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from 'react'
 import { Bookmark, Bot, ListTodo, Plus, Search, Briefcase, HardDrive, ChevronLeft, ChevronRight, CircleHelp, ClipboardCheck, FolderKanban, Home, Library, Megaphone, MessageCircle, MoreHorizontal, Settings, Users, Landmark, type LucideIcon } from 'lucide-react'
-import { isDesktopApp } from '../lib/desktop'
+import { accessSource, isDesktopApp } from '../lib/desktop'
+import { useAttendance } from '../lib/attendance'
 import { AssignTaskModal } from './AssignTask'
 import { NotificationBell } from './Notifications'
 import { TopMenu, webSlot } from './WebSearch'
@@ -232,6 +233,30 @@ function ProfilePanel({ summary, active }: { summary: Summary; active: TabKey })
   const { api, me, bump, toast, openQuick } = useApp()
   const [editing, setEditing] = useState(false)
   const [msg, setMsg] = useState(me.status_message ?? '')
+  // 근태: 고르고 '확인'을 눌러야 인정 (대표 지시 2026-10-28)
+  const [pick, setPick] = useState<TodayStatus>(me.today_status)
+  useEffect(() => setPick(me.today_status), [me.today_status])
+  const [punching, setPunching] = useState(false)
+  const att = useAttendance().get(me.id)
+  const hm = (iso: string | null | undefined) => (iso ? new Date(iso).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Seoul' }) : null)
+  const confirmStatus = async () => {
+    setPunching(true)
+    try {
+      if (pick === '출근' || pick === '외근' || pick === '재택' || pick === '퇴근') {
+        const r = await api.punchAttendance(pick, accessSource())
+        toast(`${pick} 확인 · ${hm(r.at) ?? ''}`)
+      } else {
+        await api.updateProfile(me.id, { today_status: pick })
+        toast(`오늘 상태: ${pick}`)
+      }
+      bump()
+    } catch (e) {
+      toast(friendlyError(e))
+      setPick(me.today_status)
+    } finally {
+      setPunching(false)
+    }
+  }
 
   const save = async (patch: { today_status?: TodayStatus; status_message?: string | null }) => {
     try {
@@ -251,14 +276,20 @@ function ProfilePanel({ summary, active }: { summary: Summary; active: TabKey })
         <span className="t-bodyb">{me.name}</span>
         {me.title && <span className="t-cap">{me.title}</span>}
       </div>
-      <label className="today-is">
+      <div className="today-is">
         <span className="t-meta">TODAY IS</span>
-        <select value={me.today_status} onChange={e => save({ today_status: e.target.value as TodayStatus })} aria-label="오늘 상태">
+        <select value={pick} onChange={e => setPick(e.target.value as TodayStatus)} aria-label="오늘 상태">
           {TODAY_STATUSES.map(s => (
             <option key={s}>{s}</option>
           ))}
         </select>
-      </label>
+        <button type="button" className="today-ok" onClick={() => void confirmStatus()} disabled={punching} title="고른 상태로 출근 · 퇴근을 확인합니다 (눌러야 근태 인정)">
+          확인
+        </button>
+      </div>
+      <span className="today-rec t-meta">
+        {att?.checkin_at ? `출근 확인 ${hm(att.checkin_at)}${att.kind && att.kind !== '출근' ? ` · ${att.kind}` : ''}${att.checkout_at ? ` · 퇴근 ${hm(att.checkout_at)}` : ''}` : '오늘 출근 확인 전 — 고르고 확인을 눌러 주세요'}
+      </span>
       {editing ? (
         <div className="status-msg">
           <textarea

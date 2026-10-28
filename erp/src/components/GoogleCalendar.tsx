@@ -25,6 +25,9 @@ export function googleEventLink(t: Pick<Task, 'title' | 'start_date' | 'due_date
   return `https://calendar.google.com/calendar/render?${q}`
 }
 
+/** 구독 주소를 구글 캘린더에 한 번에 추가하는 링크 */
+export const googleSubscribeLink = (feed: string) => `https://calendar.google.com/calendar/r?cid=${encodeURIComponent(feed.replace(/^https:/, 'webcal:'))}`
+
 function FeedRow({ label, help, url }: { label: string; help: string; url: string }) {
   const { toast } = useApp()
   const copy = async () => {
@@ -39,7 +42,10 @@ function FeedRow({ label, help, url }: { label: string; help: string; url: strin
     <div className="gcal-feed">
       <div className="row wrap" style={{ gap: 6 }}>
         <span className="t-bodyb grow">{label}</span>
-        <Button size="sm" onClick={copy}>
+        <a className="btn btn-primary btn-sm" href={googleSubscribeLink(url)} target="_blank" rel="noreferrer" title="구글 캘린더에 자동 등록 (한 번만)">
+          구글 캘린더에 추가
+        </a>
+        <Button size="sm" kind="outline" onClick={copy}>
           주소 복사
         </Button>
         <a className="btn btn-outline btn-sm" href={url.replace(/^https:/, 'webcal:')} title="아이폰 · 맥 캘린더에 바로 추가">
@@ -84,14 +90,14 @@ export function GoogleCalendarModal({ onClose }: { onClose: () => void }) {
       ) : (
         <div className="col gap-10">
           <p className="t-cap" style={{ margin: 0 }}>
-            인트라넷 일정(할 일 · 프로젝트 기간 · 휴가)이 내 구글 캘린더에 자동으로 들어옵니다. 휴대폰 구글 캘린더 앱에도 같은 계정이면 그대로 보입니다. 금액 정보는 보내지 않습니다.
+            인트라넷의 모든 일정(할 일 · 프로젝트 기간 · 승인된 휴가 · 외근 · 재택)이 내 구글 캘린더에 자동으로 들어옵니다. 휴대폰 구글 캘린더 앱에도 같은 계정이면 그대로 보입니다. 금액 정보는 보내지 않습니다.
           </p>
-          <FeedRow label="내 일정" help="나에게 배정된 할 일 + 프로젝트 기간 + 내 휴가" url={url} />
-          <FeedRow label="팀 전체 일정" help="팀원 모두의 할 일 · 휴가 (이름 표시)" url={`${url}&scope=team`} />
+          <FeedRow label="내 일정" help="나에게 배정된 할 일 + 프로젝트 기간 + 내 휴가 · 외근 · 재택" url={url} />
+          <FeedRow label="팀 전체 일정" help="팀원 모두의 할 일 · 휴가 · 외근 · 재택 (이름 표시)" url={`${url}&scope=team`} />
           <ol className="guide-steps">
-            <li>위에서 <b>주소 복사</b>를 누릅니다.</li>
+            <li><b>구글 캘린더에 추가</b>를 누르고 구글 화면에서 <b>추가</b>를 한 번 누르면 끝입니다. 이후 일정은 자동으로 들어옵니다.</li>
             <li>
-              PC에서 <a href={ADD_BY_URL} target="_blank" rel="noreferrer">구글 캘린더 › 다른 캘린더 › URL로 추가 <ExternalLink size={11} /></a>를 열고 주소를 붙여 넣은 뒤 <b>캘린더 추가</b>를 누릅니다.
+              버튼이 안 되면 <b>주소 복사</b> 후 PC에서 <a href={ADD_BY_URL} target="_blank" rel="noreferrer">구글 캘린더 › 다른 캘린더 › URL로 추가 <ExternalLink size={11} /></a>를 열고 주소를 붙여 넣은 뒤 <b>캘린더 추가</b>를 누릅니다.
             </li>
             <li>휴대폰 구글 캘린더 앱 › 설정에서 새로 생긴 'WKLY 내 일정'을 켜면 폰에도 보입니다.</li>
             <li>아이폰 기본 캘린더는 <b>아이폰 캘린더</b> 버튼을 누르면 바로 구독됩니다.</li>

@@ -84,10 +84,10 @@ export function CheckInCard({ always = false }: { always?: boolean }) {
       {access && (
         <span className="t-cap">
           {isDesktopApp() && access.office
-            ? '회사 PC 프로그램 · 회사 인터넷으로 접속 중 — 사무실 출근은 자동으로 기록됩니다.'
+            ? '회사 PC 프로그램 · 회사 인터넷으로 접속 중 — 왼쪽 TODAY IS 에서 출근을 고르고 확인을 누르면 출근으로 인정됩니다.'
             : outside
               ? '지금은 회사 인터넷이 아닙니다. 사무실 출근은 회사 PC 프로그램에서만 인정되고, 외부에서는 승인된 외근 · 재택만 체크할 수 있습니다.'
-              : '사무실 출근은 회사 PC 프로그램에서 자동으로 기록됩니다. 외부에서는 승인된 외근 · 재택만 체크할 수 있습니다.'}
+              : '사무실 출근은 회사에서 왼쪽 TODAY IS 출근 → 확인을 눌러야 인정됩니다. 외부에서는 전날 승인된 외근 · 재택만 체크할 수 있습니다.'}
         </span>
       )}
       {approved ? (
@@ -109,9 +109,11 @@ export function CheckInCard({ always = false }: { always?: boolean }) {
         <span className="t-small">오늘 {plan.kind} 신청이 대표 승인을 기다리고 있습니다. 승인되면 알림이 오고, 이 칸에서 바로 출근 체크할 수 있습니다.</span>
       ) : plan?.status === '반려' ? (
         <span className="t-small">오늘 {plan.kind} 신청이 반려되었습니다. 회사에 출근해 회사 PC 프로그램으로 접속해 주세요.</span>
+      ) : me.role !== 'admin' ? (
+        <span className="t-small">오늘 승인된 외근 · 재택이 없습니다. 외근 · 재택 · 연차는 <b>전날까지</b> 신청 · 승인되어야 인정됩니다. 급한 사정은 대표에게 직접 요청해 주세요.</span>
       ) : (
         <>
-          <span className="t-smallb">오늘 승인된 외근 · 재택이 없습니다 — 긴급 신청</span>
+          <span className="t-smallb">오늘 승인된 외근 · 재택이 없습니다 — 당일 신청 (관리자만)</span>
           <div className="chips">
             {WORK_PLAN_KINDS.map(k => (
               <Chip key={k} active={req.kind === k} onClick={() => setReq({ ...req, kind: k })}>
@@ -159,10 +161,11 @@ export function WorkPlanSection() {
   }
   return (
     <>
-      <SectionHead title="외근 · 재택 사전 신청" right={<span className="t-cap">승인된 날만 노트북 · 휴대폰으로 출근 체크 가능</span>} />
+      <SectionHead title="외근 · 재택 사전 신청" right={<span className="t-cap">전날까지 신청 · 승인된 날만 인정 · 그날 확인을 눌러야 출근</span>} />
       <div className="form-grid">
         <Field label="날짜">
-          <input className="input" type="date" min={today} value={f.day} onChange={e => e.target.value && setF({ ...f, day: e.target.value })} />
+          {/* 전날까지 신청 (2026-10-28 대표 지시), 관리자는 당일도 */}
+          <input className="input" type="date" min={admin ? today : tomorrow} value={f.day} onChange={e => e.target.value && setF({ ...f, day: e.target.value })} />
         </Field>
         <div className="label" role="group" aria-label="구분">
           <span>구분</span>

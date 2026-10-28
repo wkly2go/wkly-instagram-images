@@ -147,6 +147,11 @@ export interface Attendance {
   day: string
   first_at: string
   last_at: string
+  /** 본인이 '확인'을 눌러 출근 인정된 시각 (0065) */
+  checkin_at?: string | null
+  /** 퇴근 확인 시각 */
+  checkout_at?: string | null
+  kind?: '출근' | '외근' | '재택' | '현장 직출' | null
 }
 
 /** 개인 메모 (본인만 봄 · 업무 일지에 안 들어감) */
