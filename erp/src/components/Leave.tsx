@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useAction, useApp, useAsync } from '../lib/app'
-import { shortDate, todayKey } from '../lib/date'
+import { addDays, shortDate, todayKey } from '../lib/date'
 import { DEDUCTS, leaveBalance, weekdaysBetween } from '../lib/leave'
 import { useRouter } from '../lib/router'
 import { LEAVE_KINDS, type HrRecord, type LeaveKind, type LeaveRecord } from '../lib/types'
@@ -181,7 +181,7 @@ function LeaveForm({ profileIds }: { profileIds: string[] }) {
           </select>
         </Field>
         <Field label={half ? '날짜' : '시작일'}>
-          <input className="input" type="date" value={start} onChange={e => setStart(e.target.value)} />
+          <input className="input" type="date" value={start} min={me.role === 'admin' || kind === '병가' || kind === '경조사' ? undefined : addDays(todayKey(), 1)} onChange={e => setStart(e.target.value)} />
         </Field>
         {!half && (
           <Field label="종료일">
@@ -196,6 +196,7 @@ function LeaveForm({ profileIds }: { profileIds: string[] }) {
         <Field label="사유 (선택)" className="full">
           <input className="input" value={reason} onChange={e => setReason(e.target.value)} maxLength={500} />
         </Field>
+        <span className="t-cap full">연차 · 반차는 전날까지 신청해야 인정됩니다. 병가 · 경조사는 당일 신청 가능.</span>
       </div>
       <div className="row">
         <span className="t-cap grow">{start ? `${days(count)} · ${DEDUCTS(kind) ? '연차에서 차감' : '연차 차감 없음'}` : '날짜를 고르세요.'}</span>

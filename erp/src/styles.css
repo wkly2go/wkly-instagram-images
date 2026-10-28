@@ -2204,3 +2204,7 @@ header .main-nav { margin: 0; gap: 2px; }
 .cmp-table th:nth-child(n+2) { width: auto; }
 .cmp-table { table-layout: auto; }
 .ledger-cats { align-content: start; }
+/* 근태 확인 버튼 (2026-10-28 "선택 후 확인 버튼을 눌러야 인정") */
+.today-ok { flex: none; height: 26px; padding: 0 10px; border: 0; border-radius: 6px; background: var(--blue); color: #fff; font: inherit; font-size: var(--fs-cap); font-weight: 800; cursor: pointer; }
+.today-ok:disabled { opacity: .5; }
+.today-rec { display: block; margin-top: -4px; color: var(--side-muted); }

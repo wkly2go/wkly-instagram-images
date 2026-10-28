@@ -365,6 +365,8 @@ export interface Api {
   /** 앱을 연 동안 몇 분마다 호출: 오늘 첫 호출이 출근 시각 */
   /** source: 접속 경로. 설정에 따라 PC 프로그램 접속만 출근으로 인정 */
   touchAttendance(source: AccessSource): Promise<void>
+  /** 출근 · 외근 · 재택 · 현장 직출 · 퇴근 '확인' (0065: 눌러야 근태 인정) */
+  punchAttendance(kind: '출근' | '외근' | '재택' | '현장 직출' | '퇴근', source: AccessSource): Promise<{ kind: string; at: string }>
   listAttendance(day: string): Promise<Attendance[]>
   // 개인 메모장 (본인 것만)
   listNotes(): Promise<Note[]>

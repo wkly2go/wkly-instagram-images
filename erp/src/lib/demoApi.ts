@@ -1751,6 +1751,23 @@ export function createDemoApi(): Api {
       emit('notifications')
       void meProfile
     },
+    async punchAttendance(kind) {
+      const self = requireMe()
+      const day = todayKey()
+      store.attendance = store.attendance ?? []
+      const row = store.attendance.find(a => a.user_id === self && a.day === day)
+      if (kind === '퇴근') {
+        if (!row) throw new ApiError('오늘 출근 확인 기록이 없습니다. 먼저 출근을 확인해 주세요.')
+        row.checkout_at = now()
+      } else if (row) row.checkin_at = row.checkin_at ?? now()
+      else store.attendance.push({ user_id: self, day, first_at: now(), last_at: now(), checkin_at: now(), kind })
+      const p = store.profiles.find(x => x.id === self)
+      if (p) p.today_status = (kind === '현장 직출' ? '외근' : kind) as typeof p.today_status
+      persist()
+      emit('attendance')
+      emit('profiles')
+      return { kind, at: now() }
+    },
     async touchAttendance(source) {
       const self = requireMe()
       const day = todayKey()

@@ -1,7 +1,8 @@
 // WKLY ERP 일정 구독 주소 (구글 캘린더 · 아이폰 캘린더 'URL로 추가')
 //   GET /functions/v1/calendar-feed?t=<개인 토큰>[&scope=team]
 //   - 토큰은 calendar_feeds 에서 본인이 발급 (calendar_feed_token RPC). 다시 만들면 예전 주소는 막힘
-//   - 기본: 내 할 일 · 진행 중 프로젝트 기간 · 내 휴가 / scope=team: 팀 전체 할 일 · 휴가
+//   - 기본: 내 할 일 · 진행 중 프로젝트 기간 · 내 휴가 · 내 외근/재택 / scope=team: 팀 전체 할 일 · 휴가 · 외근/재택
+//   - 휴가 · 외근 · 재택은 승인된 것만 (전날 신청 · 승인 규칙)
 //   - 금액 정보는 넣지 않는다. 구글 캘린더는 몇 시간마다 이 주소를 다시 읽는다.
 // 배포: verify_jwt = false (구글 서버가 로그인 없이 읽어야 하므로 토큰으로만 확인)
 import { createClient } from 'npm:@supabase/supabase-js@2.45.4'
@@ -75,11 +76,12 @@ Deno.serve(async req => {
   const team = url.searchParams.get('scope') === 'team'
 
   const since = new Date(Date.now() - 90 * 864e5).toISOString().slice(0, 10)
-  const [{ data: people }, { data: tasks }, { data: projects }, { data: leaves }] = await Promise.all([
+  const [{ data: people }, { data: tasks }, { data: projects }, { data: leaves }, { data: plans }] = await Promise.all([
     sb.from('profiles').select('id, name'),
     (team ? sb.from('tasks').select('*') : sb.from('tasks').select('*').eq('assignee_id', me)).or(`due_date.gte.${since},start_date.gte.${since}`),
     sb.from('projects').select('id, name, status, start_date, end_date').neq('status', '보류'),
     (team ? sb.from('leave_records').select('*') : sb.from('leave_records').select('*').eq('profile_id', me)).eq('status', '승인').gte('end_date', since),
+    (team ? sb.from('work_plans').select('*') : sb.from('work_plans').select('*').eq('user_id', me)).eq('status', '승인').gte('day', since),
   ])
   const nameOf = new Map((people ?? []).map(p => [p.id as string, p.name as string]))
   const projName = new Map((projects ?? []).map(p => [p.id as string, p.name as string]))
@@ -106,6 +108,12 @@ Deno.serve(async req => {
   for (const l of leaves ?? []) {
     const who = nameOf.get(l.profile_id) ?? ''
     ev.push(...vevent({ uid: `leave-${l.id}`, start: l.start_date, end: l.end_date, title: `${team || l.profile_id !== me ? who + ' ' : ''}${l.kind}`, url: `${APP}/team` }, stamp))
+  }
+
+  for (const w of plans ?? []) {
+    const who = nameOf.get(w.user_id) ?? ''
+    const desc = [w.place ? `장소: ${w.place}` : null, w.reason ? `사유: ${w.reason}` : null, '당일 인트라넷에서 확인을 눌러야 근태 인정'].filter(Boolean).join('\n')
+    ev.push(...vevent({ uid: `plan-${w.id}`, start: w.day, title: `${team || w.user_id !== me ? who + ' ' : ''}${w.kind}${w.place ? ` · ${w.place}` : ''}`, desc, url: `${APP}/team` }, stamp))
   }
 
   const cal = [
