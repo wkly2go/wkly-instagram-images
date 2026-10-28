@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from 'react'
-import { Bookmark, Bot, ListTodo, Plus, Search, Briefcase, HardDrive, ChevronLeft, ChevronRight, CircleHelp, ClipboardCheck, FolderKanban, Home, Library, Megaphone, MessageCircle, MoreHorizontal, Settings, Users, type LucideIcon } from 'lucide-react'
+import { Bookmark, Bot, ListTodo, Plus, Search, Briefcase, HardDrive, ChevronLeft, ChevronRight, CircleHelp, ClipboardCheck, FolderKanban, Home, Library, Megaphone, MessageCircle, MoreHorizontal, Settings, Users, Landmark, type LucideIcon } from 'lucide-react'
 import { isDesktopApp } from '../lib/desktop'
 import { AssignTaskModal } from './AssignTask'
 import { NotificationBell } from './Notifications'
@@ -24,7 +24,7 @@ import { TODAY_STATUSES, type TodayStatus } from '../lib/types'
 import { Presence, toneOf } from './ui'
 import { countedUnread, rememberRoomLevels, useChatTick } from '../lib/chat'
 
-export type TabKey = 'home' | 'approvals' | 'chat' | 'work' | 'projects' | 'clients' | 'library' | 'drive' | 'team' | 'agents' | 'ads' | 'admin'
+export type TabKey = 'home' | 'approvals' | 'chat' | 'work' | 'projects' | 'clients' | 'library' | 'drive' | 'team' | 'agents' | 'ads' | 'ledger' | 'admin'
 
 export const TABS: { key: TabKey; label: string; path: string; admin?: boolean }[] = [
   { key: 'home', label: '홈', path: '/' },
@@ -35,6 +35,7 @@ export const TABS: { key: TabKey; label: string; path: string; admin?: boolean }
   { key: 'team', label: '업무·근태', path: '/team' },
   { key: 'agents', label: 'AI팀', path: '/agents' },
   { key: 'ads', label: '광고', path: '/ads', admin: true },
+  { key: 'ledger', label: '입출금 장부', path: '/ledger', admin: true },
   { key: 'admin', label: '관리', path: '/admin', admin: true },
 ]
 
@@ -51,6 +52,7 @@ const ICONS: Record<TabKey, LucideIcon> = {
   team: Users,
   agents: Bot,
   ads: Megaphone,
+  ledger: Landmark,
   admin: Settings,
 }
 const MAIN_TABS: TabKey[] = ['home', 'approvals', 'chat', 'projects']
