@@ -1885,9 +1885,19 @@ export function createDemoApi(): Api {
     async instructAgent(agentId, instruction) {
       const self = requireMe()
       if (!store.profiles.some(p => p.id === agentId && p.is_agent && p.active)) throw new ApiError('AI 팀원에게만 지시할 수 있습니다.')
-      ;(store.agent_instructions ??= []).push({ id: uid(), agent_id: agentId, instruction, status: '대기', response: null, created_by: self, created_at: now(), responded_at: null })
+      const id = uid()
+      ;(store.agent_instructions ??= []).push({ id, agent_id: agentId, instruction, status: '대기', response: null, created_by: self, created_at: now(), responded_at: null })
       persist()
       emit('agent_instructions')
+      // 체험 모드: 잠시 뒤 예시 답변
+      setTimeout(() => {
+        const r = (store.agent_instructions ?? []).find(x => x.id === id)
+        if (!r || r.status !== '대기') return
+        Object.assign(r, { status: '완료', response: `(체험 모드 예시 답변) "${instruction.slice(0, 60)}" 확인했습니다. 실제 인트라넷에서는 총괄이 바로 처리하고 여기에 답을 씁니다.`, responded_at: now() })
+        persist()
+        emit('agent_instructions')
+      }, 1500)
+      return id
     },
     async deleteAgentInstruction(id) {
       const self = requireMe()

@@ -7,7 +7,7 @@ import { friendlyError } from '../lib/api'
 import { countedUnread, pokeChat, roomTitle, useChatTick, useRoomMessages } from '../lib/chat'
 import { parseSlash, parseTaskText, remindIso, slashMenu } from '../lib/slash'
 import { approvalKindOf, ROOM_LEVEL_LABEL, type RoomLevel } from '../lib/types'
-import { leadAgent } from '../components/AgentDesk'
+import { useMyAgents } from '../components/AgentDesk'
 import { dateTimeLabel, relativeLabel, todayKey } from '../lib/date'
 import { Link, normalizePath, useRouter, withQuery } from '../lib/router'
 import type { AppNotification, ChatRoomSummary, NotificationKind, Project, SavedItem } from '../lib/types'
@@ -338,6 +338,7 @@ function Room({ room }: { room: ChatRoomSummary }) {
   const { api, me, version, profileName, profiles, toast } = useApp()
   const { navigate } = useRouter()
   const { messages, reads, drafts, send: sendMessage, sendFile, remove, edit, react } = useRoomMessages(room.id)
+  const myAi = useMyAgents()
   const { query } = useRouter()
   const threadId = Number(query.get('thread')) || null
   // 여러 파일은 차례로 보냄 (실패한 파일에서 멈춤)
@@ -385,7 +386,7 @@ function Room({ room }: { room: ChatRoomSummary }) {
       return true
     }
     if (cmd === 'ai') {
-      const agent = leadAgent(profiles)
+      const agent = myAi[0]
       if (!agent) return toast('AI 팀원이 없습니다.'), false
       if (!rest) return toast('예) /ai 이번 주 할 일 정리해줘'), false
       return sendMessage(`@${agent.name} ${rest}`)

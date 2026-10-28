@@ -768,7 +768,8 @@ export function createSupabaseApi(url: string, key: string): Api {
     },
     async instructAgent(agentId, instruction) {
       const { data } = await sb.auth.getSession()
-      must(await sb.from('agent_instructions').insert({ agent_id: agentId, instruction, created_by: data.session?.user.id }).select('id'))
+      const rows = must(await sb.from('agent_instructions').insert({ agent_id: agentId, instruction, created_by: data.session?.user.id }).select('id')) as { id: string }[]
+      return rows[0].id
     },
     deleteAgentInstruction: id => remove('agent_instructions', id),
     async listAgentActions() {
