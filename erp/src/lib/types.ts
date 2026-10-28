@@ -359,7 +359,7 @@ export function projectDriveUrl(p: Pick<Project, 'drive_url' | 'description' | '
  */
 export type Division = 'AR' | 'TW' | 'RS'
 export const DIVISIONS: Record<Division, { label: string; full: string; color: string }> = {
-  AR: { label: '아트리어', full: '아트리어 프로젝트', color: 'var(--green)' },
+  AR: { label: '아트리어', full: '아트리어 프로젝트', color: '#1264a3' },
   TW: { label: '더위클리', full: '더위클리 프로젝트', color: 'var(--blue)' },
   RS: { label: '내부 리서치', full: '내부 리서치 프로젝트', color: 'var(--pink)' },
 }
