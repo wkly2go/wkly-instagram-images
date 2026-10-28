@@ -17,6 +17,7 @@ import { presenceOf, useAttendance } from "../lib/attendance";
 import type { Approval, Client, Project, Task, WorkLog as Log } from "../lib/types";
 import { Board, BoardHead, type BoardCol } from "../components/Board";
 import { LogComposer, isMail } from "../components/LogForm";
+import { usePanelWide, useRightPanel } from "../components/RightPanel";
 import {
   Badge,
   Button,
@@ -197,10 +198,15 @@ export function WorkPane({ tabs }: { tabs?: ReactNode }) {
     </div>
   );
   const memoPad = <MemoPad onClose={() => setSide("none")} />;
+  // 할 일 버튼에 지연 개수 (눌러서 오른쪽 창으로)
+  const lateCount = data.tasks.filter(t => t.status !== "완료" && !!t.due_date && t.due_date < today && (!viewUser || t.assignee_id === viewUser)).length;
+  // 할 일 · 메모장은 오른쪽 창으로 (대표 지시 2026-10-28 "아래 지연은 오른쪽 창으로 옮겨"), 좁은 화면은 아래 칸
+  const wide = usePanelWide();
+  useRightPanel(wide && side !== "none" ? `work:${side}` : null, side === "memo" ? "메모장" : "할 일 · 미승인 보고", side === "memo" ? memoPad : todoPad, { onClose: () => setSide("none") });
 
   return (
     <div className="work-wrap">
-      <div className="row wrap work-head">
+      <div className="row work-head">
         {tabs}
         <button type="button" className="icon-btn" onClick={() => shift(-1)} aria-label="이전">
           <ChevronLeft size={18} />
@@ -224,15 +230,15 @@ export function WorkPane({ tabs }: { tabs?: ReactNode }) {
         <span className="t-cap">
           {data.logs.length}건 · {minutesLabel(total)}
         </span>
-        <Button kind={side === "todo" ? "blue" : "outline"} size="sm" onClick={() => setSide(side === "todo" ? "none" : "todo")} title="할 일 · 미승인 업무 보고">
-          할 일
+        <Button kind={side === "todo" ? "blue" : "outline"} size="sm" onClick={() => setSide(side === "todo" ? "none" : "todo")} title="할 일 · 미승인 업무 보고 (오른쪽 창)">
+          할 일{lateCount > 0 && <span className="late-pill">지연 {lateCount}</span>}
         </Button>
         <Button kind={side === "memo" ? "blue" : "outline"} size="sm" onClick={() => setSide(side === "memo" ? "none" : "memo")} title="나만 보는 메모 (업무 일지에 안 들어감)">
           메모장
         </Button>
         {!other && !team && period === "day" && (
           <Button kind="yellow" size="sm" onClick={() => setReporting(true)} disabled={data.logs.length === 0}>
-            업무 보고 제출
+            보고 제출
           </Button>
         )}
       </div>
@@ -269,7 +275,7 @@ export function WorkPane({ tabs }: { tabs?: ReactNode }) {
             )}
           </div>
           {!other && !team && period === "day" && !q && <LogComposer key={date} date={date} initialClientId={query.get("client") ?? ""} />}
-          {side !== "none" && (
+          {side !== "none" && !wide && (
             <div className="work-drawer" key={side}>
               {side === "memo" ? memoPad : todoPad}
             </div>

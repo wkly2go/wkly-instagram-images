@@ -468,6 +468,15 @@ export function ShellFrame({ children, initial }: { children: ReactNode; initial
               <span className="site-url t-meta">{window.location.host}</span>
               {api.mode === 'demo' && <span className="mode-badge" title="Supabase 연결 전 체험 모드. 데이터는 이 브라우저에만 저장됩니다.">DEMO</span>}
               {/* 입력칸 하나 (2026-10-23): 찾기 · AI 에게 묻기 · 인터넷 검색을 Ctrl K 한 칸으로 */}
+              {/* 화면 뒤로 · 앞으로: 가운데 창 위 한 줄을 없애고 위쪽 바로 (2026-10-28 "여백 정리") */}
+              <span className="main-nav" role="group" aria-label="화면 이동">
+                <button type="button" className="icon-btn sm" onClick={() => window.history.back()} aria-label="이전 화면" title="이전 화면 (Alt+←)">
+                  <ChevronLeft size={15} />
+                </button>
+                <button type="button" className="icon-btn sm" onClick={() => window.history.forward()} aria-label="다음 화면" title="다음 화면 (Alt+→)">
+                  <ChevronRight size={15} />
+                </button>
+              </span>
               <OneBox />
               <NotificationBell />
               {/* 오른쪽 위 아이콘들은 '보기' 펼침 메뉴 하나로 (2026-10-28) */}
@@ -477,15 +486,6 @@ export function ShellFrame({ children, initial }: { children: ReactNode; initial
             <div className="body" ref={mountWebSlot}>
               <ProfilePanel summary={summary} active={active} />
               <main ref={mainRef} className={`main ${flush ? 'flush' : ''}`}>
-                {/* 가운데 창 뒤로 · 앞으로 (인트라넷 화면 이동 기록) */}
-                <div className="main-nav" role="group" aria-label="화면 이동">
-                  <button type="button" className="main-nav-btn" onClick={() => window.history.back()} aria-label="이전 화면" title="이전 화면">
-                    <ChevronLeft size={13} /> 뒤로
-                  </button>
-                  <button type="button" className="main-nav-btn" onClick={() => window.history.forward()} aria-label="다음 화면" title="다음 화면">
-                    앞으로 <ChevronRight size={13} />
-                  </button>
-                </div>
                 {/* 화면이 바뀔 때만 가운데 내용이 살짝 나타남 (같은 화면 안 탭 · 검색 이동은 그대로) */}
                 <div className="main-view" key={path}>
                   {children}
