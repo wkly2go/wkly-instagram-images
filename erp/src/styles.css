@@ -1980,3 +1980,12 @@ html.detail-wide .web-panel { max-width: 24vw; }
 .lib-filter .select { width: auto; min-width: 130px; }
 .sm-select { width: auto; height: 26px; padding: 0 22px 0 8px; font-size: var(--fs-cap); }
 .web-panel-search { display: flex !important; width: auto !important; margin: 6px 10px 2px; flex: none; }
+/* 업무 일지 입력칸 (2026-10-28 사용성 개선) */
+.log-composer { border-top: 1px solid var(--line); padding: 10px 12px; background: var(--white); }
+.log-composer-top { gap: 6px; flex-wrap: nowrap; }
+.log-kind { width: auto; min-width: 96px; flex: none; }
+.log-min { width: 56px !important; flex: none; }
+.log-text { min-height: 52px; resize: vertical; }
+.log-links { gap: 6px; flex-wrap: wrap; }
+.log-links .pick { flex: 1 1 140px; min-width: 0; }
+.log-links .pick-list { bottom: auto; top: calc(100% + 4px); }

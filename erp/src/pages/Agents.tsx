@@ -8,7 +8,7 @@ import { Shell } from '../components/Shell'
 import { AiTeam } from '../components/AiTeam'
 import { DocFullText } from '../components/DocFullText'
 import { usePanelWide, useRightPanel } from '../components/RightPanel'
-import { Badge, Button, Chip, Empty, Field, Modal, SectionHead, type Tone } from '../components/ui'
+import { Badge, Button, Chip, Empty, Field, Linkify, Modal, SectionHead, type Tone } from '../components/ui'
 
 const V_TONE: Record<string, Tone> = { 완료: 'acid', '변동 없음': 'outline', '일부 실패': 'yellow', 실패: 'red', 미실행: 'gray', '진행 중': 'blue' }
 const R_TONE: Record<string, Tone> = { 대기: 'yellow', '처리 중': 'blue', 완료: 'acid', '수동 필요': 'red', 거절: 'gray' }
@@ -331,8 +331,9 @@ function AgentReportDetail({ r, head }: { r: AgentReport; head?: boolean }) {
     <div className="col gap-6">
       {head && <span className="t-bodyb">{r.job_name === MANAGER ? `🤖 ${r.title}` : r.job_name}</span>}
       {r.job_name !== MANAGER && r.title !== r.job_name && <span className="t-cap">{r.title}</span>}
-      {r.summary && <div className="note pre">{r.summary}</div>}
-      {r.body && <div className="t-small pre agent-body">{r.body}</div>}
+      {/* 보고서 속 링크는 모두 누를 수 있게 (2026-10-28) */}
+      {r.summary && <div className="note pre"><Linkify text={r.summary} /></div>}
+      {r.body && <div className="t-small pre agent-body"><Linkify text={r.body} /></div>}
       <DocFullText texts={[r.link, r.body, r.summary]} />
       {r.link && /^https?:\/\//.test(r.link) && (
         <a href={r.link} target="_blank" rel="noreferrer" className="t-cap">

@@ -346,46 +346,46 @@ export function LogComposer({ date, initialClientId = '' }: { date: string; init
     }
   }
   return (
-    <div className="col gap-6" style={{ borderTop: '1px solid var(--line)', padding: '10px 12px', background: 'var(--white)' }}>
-      <div className="chips" role="group" aria-label="기록 종류">
-        {LOG_KINDS.map(k => (
-          <Chip key={k} active={d.kind === k} onClick={() => set({ kind: k })}>
-            {k}
-          </Chip>
-        ))}
-      </div>
-      {link.auto && (d.projectId || d.clientId) && (
-        <span className="auto-link t-cap">업무 내용으로 자동 연결했습니다. 다르면 오른쪽에서 바꾸세요.</span>
-      )}
-      {isMail(d.kind) && (
-        <div className="row">
-          <input className="input" placeholder={d.kind === '메일 발신' ? '받는 사람 이메일' : '보낸 사람 이메일'} value={d.counterpart} onChange={e => set({ counterpart: e.target.value })} />
-          <input className="input" placeholder="메일 제목" value={d.subject} onChange={e => set({ subject: e.target.value })} />
-        </div>
-      )}
-      <div className="row composer-row">
-        <textarea
-          className="textarea grow"
-          style={{ minHeight: 36, height: 36 }}
-          placeholder="무엇을 했나요? (Enter 기록, Shift+Enter 줄바꿈)"
-          value={d.content}
-          onChange={e => set({ content: e.target.value })}
-          onKeyDown={onKey}
-          aria-label="기록 내용"
-        />
-        <div className="row composer-meta">
-          <Selects d={d} set={link.setManual} clients={clients} projects={projects} />
-          <input className="input" style={{ width: 64, flexShrink: 0 }} inputMode="numeric" placeholder="분" value={d.minutes} onChange={e => set({ minutes: e.target.value.replace(/\D/g, '') })} aria-label="소요 시간(분)" />
-        </div>
+    // 좁은 칸에서도 한눈에: ① 종류 풀다운 · 분 · 기록 ② 내용 ③ 거래처 · 프로젝트 (2026-10-28 "사용성 개선")
+    <div className="col gap-6 log-composer">
+      <div className="row log-composer-top">
+        <select className="select log-kind" value={d.kind} onChange={e => set({ kind: e.target.value as LogKind })} aria-label="기록 종류">
+          {LOG_KINDS.map(k => (
+            <option key={k} value={k}>
+              {k}
+            </option>
+          ))}
+        </select>
+        <input className="input log-min" inputMode="numeric" placeholder="분" value={d.minutes} onChange={e => set({ minutes: e.target.value.replace(/\D/g, '') })} aria-label="소요 시간(분)" title="걸린 시간(분)" />
+        <span className="grow" />
         {d.kind === '메일 발신' && (
-          <Button kind="outline" disabled={busy} onClick={() => submit(d, 'gmail')} title="Gmail 작성창을 열고 기록도 남깁니다">
-            Gmail로 작성
+          <Button kind="outline" size="sm" disabled={busy} onClick={() => submit(d, 'gmail')} title="Gmail 작성창을 열고 기록도 남깁니다">
+            Gmail
           </Button>
         )}
-        <Button disabled={busy} onClick={() => submit(d, 'log')}>
+        <Button size="sm" disabled={busy || !d.content.trim()} onClick={() => submit(d, 'log')}>
           기록
         </Button>
       </div>
+      {isMail(d.kind) && (
+        <div className="row wrap">
+          <input className="input grow" placeholder={d.kind === '메일 발신' ? '받는 사람 이메일' : '보낸 사람 이메일'} value={d.counterpart} onChange={e => set({ counterpart: e.target.value })} />
+          <input className="input grow" placeholder="메일 제목" value={d.subject} onChange={e => set({ subject: e.target.value })} />
+        </div>
+      )}
+      <textarea
+        className="textarea log-text"
+        rows={2}
+        placeholder="무엇을 했나요? (Enter 기록 · Shift+Enter 줄바꿈)"
+        value={d.content}
+        onChange={e => set({ content: e.target.value })}
+        onKeyDown={onKey}
+        aria-label="기록 내용"
+      />
+      <div className="row log-links">
+        <Selects d={d} set={link.setManual} clients={clients} projects={projects} />
+      </div>
+      {link.auto && (d.projectId || d.clientId) && <span className="auto-link t-cap">업무 내용으로 자동 연결했습니다. 다르면 위에서 바꾸세요.</span>}
     </div>
   )
 }
