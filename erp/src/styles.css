@@ -2208,3 +2208,11 @@ header .main-nav { margin: 0; gap: 2px; }
 .today-ok { flex: none; height: 26px; padding: 0 10px; border: 0; border-radius: 6px; background: var(--blue); color: #fff; font: inherit; font-size: var(--fs-cap); font-weight: 800; cursor: pointer; }
 .today-ok:disabled { opacity: .5; }
 .today-rec { display: block; margin-top: -4px; color: var(--side-muted); }
+
+/* 검색창 안 AI 답변 (창 이동 없이 바로) */
+.cmdk-ai { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; overflow: auto; }
+.cmdk-ai-q { display: flex; align-items: center; gap: 8px; font-weight: 700; color: var(--blue); }
+.cmdk-ai-a { padding: 10px 12px; border-radius: 10px; background: var(--paper); border: 1px solid var(--line); line-height: 1.6; max-height: 46vh; overflow: auto; }
+.cmdk-ai-wait { color: var(--gray); animation: cmdk-pulse 1.2s ease-in-out infinite; }
+@keyframes cmdk-pulse { 50% { opacity: .45; } }
+.cmdk-ai-foot { display: flex; align-items: center; gap: 8px; font-size: var(--fs-cap); color: var(--gray); }

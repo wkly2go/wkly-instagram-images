@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from 'react'
+import { useMyAgents } from './AgentDesk'
 import { Bookmark, Bot, ListTodo, Plus, Search, Briefcase, HardDrive, ChevronLeft, ChevronRight, CircleHelp, ClipboardCheck, FolderKanban, Home, Library, Megaphone, MessageCircle, MoreHorizontal, Settings, Users, Landmark, type LucideIcon } from 'lucide-react'
 import { accessSource, isDesktopApp } from '../lib/desktop'
 import { useAttendance } from '../lib/attendance'
@@ -456,13 +457,14 @@ export function Shell({ active, flush, children }: { active: TabKey; flush?: boo
 }
 
 function OneBox() {
+  const ai = useMyAgents()[0]
   return (
     <div className="top-ai one-box" onClick={() => openCommandPalette()}>
       <Search size={14} aria-hidden="true" />
       <input
         readOnly
         value=""
-        placeholder="찾기 · WKLY 총괄에게 묻기 · 인터넷 검색"
+        placeholder={`찾기 · ${ai?.name ?? 'AI'}에게 묻기 · 인터넷 검색`}
         aria-label="찾기 · AI 에게 묻기 · 인터넷 검색 (Ctrl K)"
         title="사람 · 프로젝트 · 파일 찾기, AI 에게 묻기, 인터넷 검색"
         // 한글 입력(IME)이 끊기지 않게, 칸에 들어오면 바로 찾기 창으로 옮겨 그곳에서 입력

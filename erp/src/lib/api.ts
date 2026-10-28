@@ -434,7 +434,8 @@ export interface Api {
 
   // AI 팀원 직접 지시
   listAgentInstructions(): Promise<AgentInstruction[]>
-  instructAgent(agentId: string, instruction: string): Promise<void>
+  /** 지시 id 를 돌려줌 (검색창에서 답을 바로 보여 주기 위해) */
+  instructAgent(agentId: string, instruction: string): Promise<string>
   deleteAgentInstruction(id: string): Promise<void>
   /** AI 처리 기록 (관리자 · 사람 팀장 · 요청 본인) */
   listAgentActions(): Promise<AgentActionLog[]>
