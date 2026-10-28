@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { TextLinks } from './ui'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { presenceOf } from '../lib/attendance'
 import { addDays, dateLabel, timeLabel, toDateKey, todayKey } from '../lib/date'
@@ -158,6 +159,7 @@ function HrForm({ initial, onDone }: { initial: HrRecord; onDone: () => void }) 
         </Field>
         <Field label="비고" className="full">
           <textarea className="textarea" value={f.note ?? ''} onChange={set('note')} maxLength={2000} placeholder="계약 형태 · 직급 변경 · 교육 이수 등" />
+          <TextLinks text={f.note} />
         </Field>
       </div>
       <div className="row" style={{ justifyContent: 'flex-end' }}>

@@ -1,4 +1,5 @@
 import { useMemo, useState, type ReactNode } from "react";
+import { Linkify } from '../components/ui'
 import { ChevronLeft, ChevronRight, ListTodo, Pencil, Search, Trash2, StickyNote } from "lucide-react";
 import { useAction, useApp, useAsync } from "../lib/app";
 import {
@@ -137,7 +138,7 @@ export function WorkPane({ tabs }: { tabs?: ReactNode }) {
           <span className="cell-pre t-small t-blue">{l.content}</span>
           {l.memo && (
             <span className="log-memo cell-pre" title="메모">
-              📝 {l.memo}
+              📝 <Linkify text={l.memo} />
             </span>
           )}
           {isMail(l.kind) && (l.email_counterpart || l.email_subject) && (

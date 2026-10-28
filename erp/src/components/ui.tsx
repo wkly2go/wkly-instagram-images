@@ -224,3 +224,30 @@ export function Linkify({ text }: { text: string | null | undefined }) {
   out.push(text.slice(last))
   return <>{out}</>
 }
+
+/** 입력칸 아래: 적힌 주소를 바로 눌러 열 수 있게 (2026-10-28 "메모 링크 클릭할 수 있게") · 창 위에서 열리므로 새 창으로 */
+export function TextLinks({ text }: { text: string | null | undefined }) {
+  if (!text) return null
+  const urls = [...new Set([...text.matchAll(LINK_RE)].map(m => (m[2] ?? m[3]).replace(/[.,;:!?)\]}'"]+$/, '')))]
+  if (!urls.length) return null
+  const label = (u: string) => {
+    if (/docs\.google\.com\/spreadsheets/.test(u)) return '구글 시트'
+    if (/docs\.google\.com\/document/.test(u)) return '구글 문서'
+    if (/docs\.google\.com\/presentation/.test(u)) return '구글 슬라이드'
+    if (/drive\.google\.com/.test(u)) return '구글 드라이브'
+    try {
+      return new URL(u).hostname.replace(/^www\./, '')
+    } catch {
+      return u
+    }
+  }
+  return (
+    <div className="text-links">
+      {urls.map(u => (
+        <a key={u} href={u} target="_blank" rel="noopener noreferrer" data-external="" className="chip text-link" title={u}>
+          ↗ {label(u)} 열기
+        </a>
+      ))}
+    </div>
+  )
+}

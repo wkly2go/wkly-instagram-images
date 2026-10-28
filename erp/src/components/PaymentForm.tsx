@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { TextLinks } from './ui'
 import { useAction, useApp } from '../lib/app'
 import { manwon, nextMonday, shortDate, todayKey, weekday } from '../lib/date'
 import { maskAccount, sameName } from '../lib/finance'
@@ -249,6 +250,7 @@ export function PaymentForm({
         )}
         <Field label="비고" className="full">
           <textarea className="textarea" rows={2} value={f.memo ?? ''} onChange={e => set({ memo: e.target.value || null })} />
+          <TextLinks text={f.memo} />
         </Field>
       </div>
     </Modal>

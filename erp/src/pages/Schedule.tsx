@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { TextLinks } from '../components/ui'
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { addDays, addMonths, monthGrid, shortDate, todayKey, weekday, periodLabel } from '../lib/date'
@@ -156,6 +157,7 @@ export function TaskAssignModal({ task, projects, tasks, presetProject, presetAs
         )}
         <Field label="메모 (선택)" className="full">
           <textarea className="textarea" value={f.memo} onChange={e => setF({ ...f, memo: e.target.value })} maxLength={2000} placeholder="참고 자료 · 요청 사항" />
+          <TextLinks text={f.memo} />
         </Field>
       </div>
       {f.start_date && f.due_date && f.start_date > f.due_date && <span className="t-cap t-red">시작일이 마감일보다 늦습니다.</span>}
@@ -216,16 +218,29 @@ export function Gantt({ projects, tasks }: { projects: Project[]; tasks: Task[] 
   return (
     <div className="col gap-10">
       <div className="row wrap">
-        <div className="chips">
-          <Chip active={!project} onClick={() => navigate(withQuery(path, query, { project: null }), { replace: true })}>
-            전체 프로젝트
-          </Chip>
-          {active.map(p => (
-            <Chip key={p.id} active={p.id === projectId} onClick={() => navigate(withQuery(path, query, { project: p.id }), { replace: true })}>
-              {p.name}
-            </Chip>
-          ))}
-        </div>
+        {/* 프로젝트 고르기: 칩이 너무 많아 풀다운으로 (대표 지시 2026-10-28) */}
+        <select
+          className="select gantt-pick"
+          value={project ? project.id : 'all'}
+          onChange={e => navigate(withQuery(path, query, { project: e.target.value === 'all' ? null : e.target.value }), { replace: true })}
+          aria-label="프로젝트 고르기"
+        >
+          <option value="all">전체 프로젝트 ({active.length})</option>
+          {(['진행', '기획', 'NIC'] as const).map(st => {
+            const list = active.filter(p => p.status === st)
+            return list.length ? (
+              <optgroup key={st} label={`${st} ${list.length}`}>
+                {list.map(p => (
+                  <option key={p.id} value={p.id}>
+                    {p.code ? `${p.code} ` : ''}
+                    {p.name}
+                  </option>
+                ))}
+              </optgroup>
+            ) : null
+          })}
+          {project && !active.some(p => p.id === project.id) && <option value={project.id}>{project.name}</option>}
+        </select>
         <span className="grow" />
         <Button onClick={() => setEditing('new')}>
           업무 지시
