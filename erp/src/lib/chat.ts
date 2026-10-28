@@ -1,6 +1,6 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { useApp } from './app'
-import { friendlyError } from './api'
+import { friendlyError, type AgentDraft } from './api'
 import { ask } from '../components/Ask'
 import type { ChatMessage, ChatRead, ChatRoom, ChatRoomSummary, RoomLevel } from './types'
 
@@ -34,10 +34,13 @@ export function useRoomMessages(roomId: string | null) {
   const { api, me, toast } = useApp()
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [reads, setReads] = useState<ChatRead[]>([])
+  // AI 팀원이 쓰는 중인 답 (팀원별 하나, 진짜 글이 오면 지움)
+  const [drafts, setDrafts] = useState<Record<string, AgentDraft & { at: number }>>({})
 
   useEffect(() => {
     setMessages([])
     setReads([])
+    setDrafts({})
     if (!roomId) return
     let alive = true
     // 읽음 표시: 누가 어디까지 읽었는지 (다른 사람이 읽으면 실시간으로 다시 불러옴)
@@ -67,13 +70,23 @@ export function useRoomMessages(roomId: string | null) {
         return [...prev, message]
       })
       if (type === 'INSERT' && message.user_id !== me.id) markSoon()
+      if (type === 'INSERT' && message.user_id) setDrafts(prev => dropDraft(prev, message.user_id!))
     })
+    const offDrafts = api.subscribeAgentDrafts(roomId, d =>
+      setDrafts(prev => {
+        if (d.done) return dropDraft(prev, d.agent_id)
+        const old = prev[d.agent_id]
+        if (old && old.seq > d.seq) return prev
+        return { ...prev, [d.agent_id]: { ...d, at: Date.now() } }
+      }),
+    )
     return () => {
       alive = false
       window.clearTimeout(readsTimer)
       window.clearTimeout(markTimer)
       off()
       offReads()
+      offDrafts()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roomId])
@@ -138,7 +151,7 @@ export function useRoomMessages(roomId: string | null) {
       toast(friendlyError(e))
     }
   }
-  return { messages, reads, send, sendFile, remove, edit, react }
+  return { messages, reads, drafts, send, sendFile, remove, edit, react }
 }
 
 /** 방 이름: 1:1 대화는 상대 이름, 나머지는 '# 방이름' */
@@ -165,4 +178,11 @@ export function wantsAlert(m: ChatMessage, myName: string) {
 export function countedUnread(r: ChatRoomSummary) {
   const level = r.level ?? 'all'
   return level === 'all' ? r.unread : level === 'mention' ? r.mentions ?? 0 : 0
+}
+
+function dropDraft<T>(prev: Record<string, T>, id: string) {
+  if (!(id in prev)) return prev
+  const next = { ...prev }
+  delete next[id]
+  return next
 }

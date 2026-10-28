@@ -35,7 +35,7 @@ export default function Library() {
   const go = (t: Tab) => navigate(withQuery(path, new URLSearchParams(), { tab: t === 'research' ? null : t }), { replace: true })
   // 자료실은 '보고서 결제' 탭 안으로 (대표 지시 2026-10-22 "자료실을 보고서 결제에 포함")
   const tabs = (
-    <div className="chips">
+    <div className="chips one-line">
       <Chip onClick={() => navigate('/approvals')}>← 보고서 결제</Chip>
       {(
         [
@@ -61,7 +61,6 @@ export default function Library() {
 
 // ---------------------------------------------------------------- 리서치
 
-const R_TONE: Record<ResearchStatus, Tone> = { '새 자료': 'yellow', '검토 완료': 'outline', 활용: 'acid', 보관: 'paper' }
 const EMAIL_RE = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/
 
 /** 본문 '키: 값' 줄은 표로, 나머지는 문단으로 */
@@ -103,6 +102,12 @@ function Research({ tabs }: { tabs: ReactNode }) {
   )
   const selected = data.items.find(r => r.id === selectedId) ?? null
   const count = (s: ResearchStatus) => data.items.filter(r => r.status === s).length
+  // 종류: 실제 자료에 있는 것 전부 (거래처 리포트 먼저, 그다음 많은 순)
+  const kinds = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const r of data.items) m.set(r.kind, (m.get(r.kind) ?? 0) + 1)
+    return [...m.entries()].sort(([a, x], [b, y]) => (a === REPORT_KIND ? -1 : b === REPORT_KIND ? 1 : y - x || a.localeCompare(b, 'ko')))
+  }, [data.items])
 
   const wide = usePanelWide()
   useRightPanel(
@@ -135,30 +140,45 @@ function Research({ tabs }: { tabs: ReactNode }) {
               <Search size={14} />
               <input className="input" value={q} onChange={e => setQ(e.target.value)} placeholder="제목·거래처·본문 검색" aria-label="자료 검색" />
             </label>
-            <button type="button" className="icon-btn" onClick={() => setEditing('report')} aria-label="거래처 보고서 쓰기" title="거래처 리서치 보고서 쓰기 (공통 양식)">
-              <FileText size={17} />
-            </button>
-            <button type="button" className="icon-btn" onClick={() => setEditing('new')} aria-label="자료 추가" title="자료 직접 추가">
-              <Plus size={18} />
-            </button>
+            <Button kind="outline" size="sm" onClick={() => setEditing('report')} title="거래처 리서치 보고서 쓰기 (공통 양식)">
+              <FileText size={13} /> 거래처 보고서
+            </Button>
+            <Button size="sm" onClick={() => setEditing('new')} title="자료 직접 추가">
+              <Plus size={13} /> 자료
+            </Button>
           </div>
-          <div className="chips">
-            {RESEARCH_STATUSES.map(s => (
-              <Chip key={s} active={status === s} onClick={() => go({ status: s === '새 자료' ? null : s })}>
-                {s} {count(s) || ''}
-              </Chip>
-            ))}
-            <Chip active={status === 'all'} onClick={() => go({ status: 'all' })}>
-              전체
-            </Chip>
-          </div>
-          <div className="chips">
-            <Chip active={!kind} onClick={() => go({ kind: null })}>
-              모든 종류
-            </Chip>
-            <Chip active={kind === REPORT_KIND} onClick={() => go({ kind: kind === REPORT_KIND ? null : REPORT_KIND })}>
-              거래처 리포트 {data.items.filter(r => r.kind === REPORT_KIND).length || ''}
-            </Chip>
+          {/* 상태 · 종류는 풀다운 하나씩 (대표 지시 2026-10-28 "종류를 쉽게 선택") */}
+          <div className="lib-filters">
+            <label className="lib-filter">
+              <span>상태</span>
+              <select className="select" value={status} onChange={e => go({ status: e.target.value === '새 자료' ? null : e.target.value })} aria-label="상태">
+                {RESEARCH_STATUSES.map(s => (
+                  <option key={s} value={s}>
+                    {s} ({count(s)})
+                  </option>
+                ))}
+                <option value="all">전체 ({data.items.length})</option>
+              </select>
+            </label>
+            <label className="lib-filter">
+              <span>종류</span>
+              <select className="select" value={kind ?? ''} onChange={e => go({ kind: e.target.value || null })} aria-label="종류">
+                <option value="">모든 종류 ({data.items.length})</option>
+                {kinds.map(([k, n]) => (
+                  <option key={k} value={k}>
+                    {k} ({n})
+                  </option>
+                ))}
+              </select>
+            </label>
+            <span className="chips one-line grow" aria-label="자주 쓰는 종류">
+              {kinds.slice(0, 6).map(([k, n]) => (
+                <Chip key={k} active={kind === k} onClick={() => go({ kind: kind === k ? null : k })}>
+                  {k} {n}
+                </Chip>
+              ))}
+            </span>
+            <span className="t-cap">{list.length}건</span>
           </div>
         </div>
         <div className="pane-body" style={{ padding: '0 12px 12px' }}>
@@ -213,8 +233,25 @@ function ResearchDetail({ r, projects, rooms, clients, onBack, onEdit }: { r: Re
         <button type="button" className="icon-btn back-btn" onClick={onBack} aria-label="목록으로">
           <ArrowLeft size={18} />
         </button>
-        <Badge>{r.kind}</Badge>
-        <Badge tone={R_TONE[r.status]}>{r.status}</Badge>
+        {/* 종류 · 상태는 여기서 바로 바꿈 */}
+        {me.role === 'admin' || r.created_by === me.id ? (
+          <select className="select sm-select" value={r.kind} disabled={busy} onChange={e => run(() => api.saveResearch({ id: r.id, kind: e.target.value as ResearchItem['kind'] }), '종류를 바꿨습니다.')} aria-label="종류 바꾸기" title="종류 바꾸기">
+            {[...new Set([...RESEARCH_KINDS, r.kind])].map(k => (
+              <option key={k} value={k}>
+                {k}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <Badge>{r.kind}</Badge>
+        )}
+        <select className="select sm-select" value={r.status} disabled={busy} onChange={e => setStatus(e.target.value as ResearchStatus, `${e.target.value}(으)로 바꿨습니다.`)} aria-label="상태 바꾸기" title="상태 바꾸기">
+          {RESEARCH_STATUSES.map(s => (
+            <option key={s} value={s}>
+              {s}
+            </option>
+          ))}
+        </select>
         <span className="grow" />
         <span className="t-cap">
           {r.collected_by_agent ? `🤖 ${(profileOf(r.collected_by_agent)?.name ?? r.collected_by_agent)}` : profileName(r.created_by)} · {shortDate(toDateKey(r.created_at))} {relativeLabel(r.created_at)}

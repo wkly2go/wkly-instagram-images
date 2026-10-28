@@ -136,6 +136,8 @@ export const CHAT_FILE_MAX = 20 * 1024 * 1024
 export const EXCHANGE_FILE_MAX = 50 * 1024 * 1024
 
 export type MessageEvent = { type: 'INSERT' | 'UPDATE' | 'DELETE'; message: ChatMessage }
+/** AI 팀원이 답을 쓰는 중 (서버가 실시간 방송, DB 에는 다 쓴 뒤 한 번 저장) */
+export type AgentDraft = { agent_id: string; seq: number; text: string; status: string; done?: boolean }
 
 /**
  * 화면은 이 인터페이스만 사용한다.
@@ -239,6 +241,8 @@ export interface Api {
   calendarFeedUrl(reset?: boolean): Promise<string | null>
   /** roomId 가 null 이면 모든 방 */
   subscribeMessages(roomId: string | null, cb: (e: MessageEvent) => void): () => void
+  /** AI 팀원 답이 써지는 대로 받기 (글자 단위 실시간) */
+  subscribeAgentDrafts(roomId: string, cb: (d: AgentDraft) => void): () => void
 
   // 승인
   listApprovals(): Promise<Approval[]>

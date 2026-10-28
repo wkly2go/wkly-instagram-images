@@ -506,6 +506,9 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
   const [sitesOpen, setSitesOpen] = useState<SiteGroup | null>(null)
   // 링크를 열어 둔 상태면 검색어가 없는 것으로 봄
   const term = engine === 'url' ? '' : q
+  // 패널 안 검색창 (대표 지시 2026-10-28 "검색창이 사라졌어")
+  const [box2, setBox2] = useState(term)
+  useEffect(() => setBox2(engine === 'url' ? '' : q), [q, engine])
   // 첫 화면을 열어 둔 검색 종류는 켜진 것으로 표시
   const homeOf = engine === 'url' ? (Object.keys(HOME) as Engine[]).find(k => HOME[k] === q) : undefined
   const pickGroup = (k: SiteGroup) => {
@@ -685,6 +688,25 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
           <X size={14} />
         </button>
       </div>
+      <form
+        className="web-search web-panel-search"
+        role="search"
+        onSubmit={e => {
+          e.preventDefault()
+          const v = box2.trim()
+          if (!v) return
+          saveRecent([v, ...readRecent().filter(x => x !== v)])
+          onSearch(v, engine === 'url' || !engine ? 'google' : engine)
+        }}
+      >
+        <Search size={14} />
+        <input value={box2} onChange={e => setBox2(e.target.value)} placeholder={engine === 'chatgpt' ? 'ChatGPT 에 질문 (Enter)' : engine === 'perplexity' ? 'Perplexity 에 질문 (Enter)' : '구글 · 인터넷 검색 (Enter)'} aria-label="인터넷 검색" enterKeyHint="search" />
+        {box2 && (
+          <button type="button" className="icon-btn sm" onClick={() => setBox2('')} aria-label="검색어 지우기">
+            <X size={12} />
+          </button>
+        )}
+      </form>
       {q && <div className="web-sites" role="group" aria-label="업무 사이트만 검색">
         <div className="web-tabs" role="tablist">
           {(Object.keys(SITE_GROUPS) as SiteGroup[]).filter(k => k !== 'press').map(k => (
