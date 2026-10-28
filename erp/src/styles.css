@@ -1106,7 +1106,8 @@ button.kpi:hover, a.kpi:hover { border-color: var(--blue); }
 @media (max-width: 760px) { .side-tools { flex-basis: 100%; border-top: 0; padding-top: 0; } }
 
 /* ---------- 다크 모드 (기기 설정을 따름 · 검정 대신 짙은 남색 계열) ---------- */
-@media (prefers-color-scheme: dark) {
+/* 야간(다크) 모드 연동 끔 (대표 지시 2026-10-28 "야간 연동 하지마") — 기기 설정과 상관없이 늘 밝은 화면. 다시 켜려면 'not all' 을 '(prefers-color-scheme: dark)' 로 */
+@media not all {
   :root {
     color-scheme: dark;
     /* macOS 다크 모드 색 구성: 창 바탕 · 패널 · 구분선은 중성 회색, 강조는 시스템 블루 */

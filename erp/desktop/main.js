@@ -57,6 +57,7 @@ function start() {
   app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required')
 
   app.whenReady().then(() => {
+    nativeTheme.themeSource = 'light' // 야간(다크) 모드 연동 안 함 (2026-10-28)
     if (app.isPackaged) app.setLoginItemSettings({ openAtLogin: true })
     allowMeetingAudio()
     createWindow()
@@ -124,7 +125,7 @@ function createWindow() {
     minHeight: 560,
     title: 'WKLY 인트라넷',
     icon: ICON,
-    backgroundColor: nativeTheme.shouldUseDarkColors ? '#1e1e1e' : '#FFFFFF', // 기기 다크 모드를 따름 (창이 뜰 때 흰 번쩍임 방지)
+    backgroundColor: '#FFFFFF', // 야간(다크) 모드 연동 안 함 (2026-10-28)
     autoHideMenuBar: true,
     show: false,
     webPreferences: webPrefs(),
