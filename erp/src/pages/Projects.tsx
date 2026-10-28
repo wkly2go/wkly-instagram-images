@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { AlarmClock, ArrowLeft, Plus, CheckCircle2, ChevronLeft, ChevronRight, CircleSlash, FolderOpen, Pencil, Search, Trash2 } from 'lucide-react'
+import { AlarmClock, ArrowLeft, Building2, CalendarDays, CalendarRange, GanttChart, LayoutDashboard, ListChecks, Network, Repeat, Users, Wallet, Plus, CheckCircle2, ChevronLeft, ChevronRight, CircleSlash, FolderOpen, Pencil, Search, Trash2 } from 'lucide-react'
 import { ProjectMaterials } from '../components/ProjectMaterials'
 import { SiteLogsSection } from '../components/SiteLogs'
 import { ProjectDriveSection, useProjectFolderSync } from '../components/DriveFiles'
@@ -13,7 +13,7 @@ import { ContactTimeline, ExchangeFilesSection, ProjectContactsSection } from '.
 import { OrgSection } from '../components/Org'
 import { Board, type BoardCol } from '../components/Board'
 import { Shell } from '../components/Shell'
-import { Badge, Button, Chip, Empty, Field, KindTag, Modal, SectionHead, StatusBadge } from '../components/ui'
+import { Badge, Button, Chip, Empty, Field, FilterGroup, KindTag, Modal, SectionHead, StatusBadge, ViewTabs } from '../components/ui'
 import { NewApproval } from './Approvals'
 import { FinancePanel } from '../components/FinancePanel'
 import { ProjectDashboard } from './ProjectDashboard'
@@ -103,30 +103,30 @@ export default function Projects() {
   const hit = (text: string) => words.every(w => text.toLowerCase().includes(w))
   const foundProjects = words.length ? data.projects.filter(p => hit([p.code, p.name, p.location, p.description, p.category, p.status, clientName(p.client_id), profileName(p.owner_id)].filter(Boolean).join(' '))) : []
   const foundTasks = words.length ? data.tasks.filter(t => hit([t.title, t.memo, data.projects.find(p => p.id === t.project_id)?.name, profileName(t.assignee_id)].filter(Boolean).join(' '))) : []
-  const tabs: [string | null, string][] = [
-    [null, wide ? '프로젝트 · 대시보드' : '대시보드'],
-    ['schedule', '일정표'],
-    ['week', '주간'],
-    ['calendar', '캘린더'],
-    ...(wide ? [] : ([['list', '프로젝트 목록']] as [string, string][])),
-    ['org', '조직 · 진행 현황'],
-    ['mine', '내 할 일'],
-    ['tasks', '팀 할 일'],
-    ...(admin ? ([['payments', '결제 대장']] as [string, string][]) : []),
-    ['subs', '구독료'],
+  const I = 14
+  const tabs: { key: string | null; label: string; icon: JSX.Element }[] = [
+    { key: null, label: wide ? '프로젝트' : '대시보드', icon: <LayoutDashboard size={I} /> },
+    ...(wide ? [] : [{ key: 'list', label: '프로젝트 목록', icon: <FolderOpen size={I} /> }]),
+    { key: 'schedule', label: '일정표', icon: <GanttChart size={I} /> },
+    { key: 'week', label: '주간', icon: <CalendarRange size={I} /> },
+    { key: 'calendar', label: '캘린더', icon: <CalendarDays size={I} /> },
+    { key: 'org', label: '조직 · 진행', icon: <Network size={I} /> },
+    { key: 'mine', label: '내 할 일', icon: <ListChecks size={I} /> },
+    { key: 'tasks', label: '팀 할 일', icon: <Users size={I} /> },
+    ...(admin ? [{ key: 'payments', label: '결제 대장', icon: <Wallet size={I} /> }] : []),
+    { key: 'subs', label: '구독료', icon: <Repeat size={I} /> },
   ]
+  const activeTab = tabs.some(t => t.key === view) ? view : null
   return (
     <Shell active="projects">
-      <div className="row wrap">
-        <div className="chips">
-          {tabs.map(([v, label]) => (
-            <Chip key={label} active={view === v || (v === null && !tabs.some(t => t[0] === view))} onClick={() => navigate(v ? `/projects?view=${v}` : '/projects')}>
-              {label}
-            </Chip>
-          ))}
-        </div>
+      {/* ① 화면 고르기 (밑줄 탭) */}
+      <ViewTabs label="프로젝트 화면" items={tabs} active={activeTab} onPick={v => navigate(v ? `/projects?view=${v}` : '/projects')} />
+      {/* ② 찾기 · 만들기 (한 줄) */}
+      <div className="row proj-tools">
         {/* 거래처 · 연락처 (대표 지시 2026-10-22 "거래처 프로젝트에 통합") */}
-        <Chip onClick={() => navigate('/clients')}>🏢 거래처 · 연락처</Chip>
+        <Button kind="ghost" size="sm" onClick={() => navigate('/clients')} title="거래처 · 연락처">
+          <Building2 size={14} /> 거래처 · 연락처
+        </Button>
         <span className="grow" />
         <ProjectSearch value={q} onChange={v => go({ q: v || null })} />
         {!view && admin && <span className="t-cap">{todayKey().slice(0, 4)}년 · 공급가액(VAT 별도)</span>}
@@ -170,33 +170,35 @@ export default function Projects() {
         <div className="proj-list-wrap">
         <div className="row top gap-12" style={{ flex: 1, minHeight: 0, flexWrap: 'wrap' }}>
           <div className="col grow" style={{ flexBasis: 320 }}>
-            <div className="row wrap" style={{ gap: 6, paddingBottom: 4 }}>
-              <div className="chips">
+            {/* ③ 거르기: 이름표가 붙은 묶음 · 정렬은 풀다운 */}
+            <div className="row wrap proj-filters">
+              <FilterGroup label="상태">
                 {(['진행', '기획'] as ProjectStatus[]).map(s => (
-                  <Chip key={s} active={status === s} onClick={() => go({ status: s === '진행' ? null : s })}>
-                    {s} {shown.filter(p => p.status === s).length}
-                  </Chip>
+                  <button key={s} type="button" className={status === s ? 'on' : ''} onClick={() => go({ status: s === '진행' ? null : s })}>
+                    {s} <b>{shown.filter(p => p.status === s).length}</b>
+                  </button>
                 ))}
-                <Chip active={status === 'all'} onClick={() => go({ status: 'all' })}>
-                  전체 {shown.filter(p => OPEN.includes(p.status)).length}
-                </Chip>
-              </div>
-              <span className="grow" />
-              <div className="chips" aria-label="회사">
+                <button type="button" className={status === 'all' ? 'on' : ''} onClick={() => go({ status: 'all' })}>
+                  전체 <b>{shown.filter(p => OPEN.includes(p.status)).length}</b>
+                </button>
+              </FilterGroup>
+              <FilterGroup label="회사">
                 {([[null, '전체'], ...DIVISION_KEYS.map(k => [k, DIVISIONS[k].label])] as [string | null, string][]).map(([k, l]) => (
-                  <Chip key={l} active={brand === k} onClick={() => go({ brand: k })}>
+                  <button key={l} type="button" className={brand === k ? 'on' : ''} onClick={() => go({ brand: k })}>
                     {k && <i className="div-dot" style={{ background: DIVISIONS[k as Division].color }} />}
                     {l}
-                  </Chip>
+                  </button>
                 ))}
-              </div>
-              <div className="chips" aria-label="정렬">
-                {([[null, '연번순'], ['name', '이름순'], ['recent', '최근순']] as [string | null, string][]).map(([k, l]) => (
-                  <Chip key={l} active={sort === k} onClick={() => go({ sort: k })}>
-                    {l}
-                  </Chip>
-                ))}
-              </div>
+              </FilterGroup>
+              <span className="grow" />
+              <label className="filter-group">
+                <span className="filter-label">정렬</span>
+                <select className="select sm-select" value={sort ?? ''} onChange={e => go({ sort: e.target.value || null })} aria-label="정렬">
+                  <option value="">연번순</option>
+                  <option value="name">이름순</option>
+                  <option value="recent">최근순</option>
+                </select>
+              </label>
             </div>
             {/* 회사별로 나눠 보기: 아트리어(AR) · 더위클리(TW) — 회사 칩을 고르면 그 회사만 */}
             {/* 구분별 카드 (조직 · 진행 현황과 같은 모양): 아트리어 · 더위클리 · 내부 리서치 — 위쪽 색 띠 = 대표 색상 */}

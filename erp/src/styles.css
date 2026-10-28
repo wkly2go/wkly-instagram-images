@@ -2079,3 +2079,20 @@ header .main-nav { margin: 0; gap: 2px; }
 .profile .side-tools .quick-btn:hover { background: var(--side-hover); }
 .web-tab.on, .web-sites .web-tab.on { background: var(--blue); color: #fff; border-color: var(--blue); }
 .profile .photo-wrap, .profile .photo { border-color: rgba(255,255,255,.2); }
+/* 화면 탭 · 필터 묶음 (2026-10-28 "상부 아이콘을 쉽게 보고 구분되게") */
+.view-tabs { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; border-bottom: 1px solid var(--line); margin: -4px -2px 0; padding: 0 2px; flex: none; }
+.view-tab { display: inline-flex; align-items: center; gap: 6px; flex: none; height: 38px; padding: 0 12px; border: 0; border-bottom: 3px solid transparent; background: none; color: var(--gray); font: inherit; font-size: var(--fs-sm); font-weight: 700; cursor: pointer; white-space: nowrap; }
+.view-tab:hover { color: var(--blue); background: var(--blue-tint); border-radius: 6px 6px 0 0; }
+.view-tab.on { color: var(--blue); border-bottom-color: var(--blue); }
+.view-tab svg { opacity: .8; }
+.view-tab-n { min-width: 18px; padding: 0 5px; border-radius: 999px; background: var(--alert); color: #fff; font-size: var(--fs-cap); line-height: 18px; text-align: center; }
+.proj-tools { gap: 6px; flex-wrap: wrap; }
+.proj-filters { gap: 10px 14px; padding: 2px 0 6px; align-items: center; }
+.filter-group { display: inline-flex; align-items: center; gap: 6px; }
+.filter-label { font-size: var(--fs-cap); font-weight: 700; color: var(--gray); }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--white); }
+.seg > button { display: inline-flex; align-items: center; gap: 4px; height: 28px; padding: 0 10px; border: 0; border-left: 1px solid var(--line); background: none; color: var(--gray); font: inherit; font-size: var(--fs-cap); font-weight: 700; cursor: pointer; white-space: nowrap; }
+.seg > button:first-child { border-left: 0; }
+.seg > button:hover { background: var(--blue-tint); color: var(--blue); }
+.seg > button.on { background: var(--blue); color: #fff; }
+.seg > button b { font-weight: 900; }
