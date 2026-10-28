@@ -4,7 +4,10 @@ import { useApp, useAsync } from '../lib/app'
 import { friendlyError } from '../lib/api'
 import { todayKey } from '../lib/date'
 import { openGmail } from '../lib/links'
-import { LOG_KINDS, type Client, type LogKind, type Project } from '../lib/types'
+import { DIVISIONS, LOG_KINDS, projectBrand, type Client, type Division, type LogKind, type Project } from '../lib/types'
+
+// 프로젝트 목록 구분 순서: 더위클리 → 아트리어 → 내부 리서치
+const DIVISION_ORDER: Division[] = ['TW', 'AR', 'RS']
 import { Button, Chip, Field } from './ui'
 
 export interface LogDraft {
@@ -88,6 +91,8 @@ export interface PickItem {
   label: string
   sub?: string
   group?: string
+  /** 묶음 안 작은 구분 (예: 더위클리 · 아트리어 · 내부 리서치) */
+  section?: { key: string; label: string; color: string; order: number }
 }
 
 const norm = (s: string) => s.toLowerCase().replace(/[\s·.,()[\]'"‘’“”_-]/g, '')
@@ -108,7 +113,7 @@ export function SearchPick({ items, value, onChange, placeholder, label, groups 
     const k = norm(q)
     const hit = k ? items.filter(i => norm(i.label).includes(k) || (i.sub && norm(i.sub).includes(k))) : items
     const order = groups ?? []
-    return [...hit].sort((a, b) => order.indexOf(a.group ?? '') - order.indexOf(b.group ?? ''))
+    return [...hit].sort((a, b) => order.indexOf(a.group ?? '') - order.indexOf(b.group ?? '') || (a.section?.order ?? 0) - (b.section?.order ?? 0))
   }, [items, q, groups])
   // 묶음 접기: 검색 중이 아니면 완료 · 보류 묶음은 접어 둠
   const [userFold, setUserFold] = useState<Record<string, boolean>>({})
@@ -199,6 +204,12 @@ export function SearchPick({ items, value, onChange, placeholder, label, groups 
                     <span className="pick-count">{groupCount.get(g) ?? 0}</span>
                   </button>
                 )}
+                {!folded.has(g) && it.section && (head || shown[i - 1].section?.key !== it.section.key) && (
+                  <div className="pick-section" style={{ borderColor: it.section.color, color: it.section.color }}>
+                    {it.section.label}
+                    <span className="pick-count">{shown.filter(x => x.group === it.group && x.section?.key === it.section!.key).length}</span>
+                  </div>
+                )}
                 {!folded.has(g) && (
                   <button
                     type="button"
@@ -208,6 +219,7 @@ export function SearchPick({ items, value, onChange, placeholder, label, groups 
                     onMouseEnter={() => setHi(i)}
                     onClick={() => pick(it.id)}
                   >
+                    {it.section && <i className="pick-dot" style={{ background: it.section.color }} aria-hidden="true" />}
                     <span className="truncate grow">{it.label}</span>
                     {it.sub && <span className="t-cap truncate">{it.sub}</span>}
                   </button>
@@ -284,7 +296,10 @@ function Selects({ d, set, clients, projects }: { d: LogDraft; set: (p: Partial<
           // 프로젝트를 고르면 그 거래처도 함께
           set({ projectId: id, ...(p?.client_id && !d.clientId ? { clientId: p.client_id } : {}) })
         }}
-        items={projects.map(p => ({ id: p.id, label: p.name, sub: [p.code, clientName(p.client_id)].filter(Boolean).join(' · ') || undefined, group: projectGroup(p) }))}
+        items={projects.map(p => {
+          const dv = projectBrand(p)
+          return { id: p.id, label: p.name, sub: [p.code, clientName(p.client_id)].filter(Boolean).join(' · ') || undefined, group: projectGroup(p), section: { key: dv, label: DIVISIONS[dv].full, color: DIVISIONS[dv].color, order: DIVISION_ORDER.indexOf(dv) } }
+        })}
       />
     </>
   )
