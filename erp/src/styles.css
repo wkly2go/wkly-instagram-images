@@ -1961,3 +1961,4 @@ html.detail-wide .web-panel { max-width: 24vw; }
 .text-link { text-decoration: none; font-weight: 700; color: var(--blue); border-color: var(--blue); background: var(--white); }
 .text-link:hover { background: var(--yellow); }
 .gantt-pick { width: auto; min-width: 240px; max-width: 100%; }
+.g-fold { border: 0; cursor: pointer; text-align: left; font: inherit; font-size: var(--fs-sm); font-weight: 700; background: var(--yellow-tint); color: var(--blue); border-top: 1px dashed var(--line); }
