@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Linkify } from '../components/ui'
 import { countedUnread } from '../lib/chat'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { dateLabel, dateTimeLabel, relativeLabel, todayKey } from '../lib/date'
@@ -163,7 +164,7 @@ function ReportPreview({ a }: { a: Approval }) {
           <span className="t-smallb">{issues.title}</span>
           {issues.lines.slice(0, 3).map((l, i) => (
             <span key={i} className="t-small">
-              {l}
+              <Linkify text={l} />
             </span>
           ))}
         </div>

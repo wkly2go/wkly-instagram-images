@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { Linkify } from './ui'
 import { Bot } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { dateLabel, timeLabel, toDateKey, todayKey } from '../lib/date'
@@ -104,7 +105,7 @@ export function AgentDesk() {
                 </div>
                 {i.response && (
                   <p className="instr-res pre">
-                    <b>{profileName(i.agent_id)}</b> {i.response}
+                    <b>{profileName(i.agent_id)}</b> <Linkify text={i.response} />
                   </p>
                 )}
               </div>

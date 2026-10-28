@@ -8,7 +8,7 @@ import { X } from 'lucide-react'
  * 목록에서 자료 · 링크를 누르면 본 화면 오른쪽에 결과 칸이 왼쪽→오른쪽으로 펼쳐지며 나타나고,
  * 가운데 두 칸(본 화면 · 결과)은 폭이 함께 늘고 줄어든다.
  */
-export type PanelDetail = { key: string; title: string; node: ReactNode }
+export type PanelDetail = { key: string; title: string; node: ReactNode; wide?: boolean; onClose?: () => void }
 
 let current: PanelDetail | null = null
 const listeners = new Set<() => void>()
@@ -25,10 +25,10 @@ const subscribe = (cb: () => void) => {
 export const usePanelDetail = () => useSyncExternalStore(subscribe, () => current)
 
 /** key 가 있으면 오른쪽 칸에 node 를 띄우고, key 가 바뀌거나 화면을 떠나면 내린다 */
-export function useRightPanel(key: string | null, title: string, node: ReactNode) {
+export function useRightPanel(key: string | null, title: string, node: ReactNode, opts?: { wide?: boolean; onClose?: () => void }) {
   useEffect(() => {
     if (!key) return
-    current = { key, title, node }
+    current = { key, title, node, wide: opts?.wide, onClose: opts?.onClose }
     emit()
   })
   useEffect(() => {
@@ -105,15 +105,16 @@ export function DetailColumnHost() {
   }, [closed])
   useEffect(() => {
     document.documentElement.classList.toggle('detail-open', show)
-    return () => document.documentElement.classList.remove('detail-open')
-  }, [show])
+    document.documentElement.classList.toggle('detail-wide', show && !!d?.wide)
+    return () => document.documentElement.classList.remove('detail-open', 'detail-wide')
+  }, [show, d?.wide])
   if (!show || !detailSlot) return null
   return createPortal(
     // key 가 바뀌면 새로 그려 결과 칸 맨 뒤(=맨 위)에 붙음 → 수정 칸 등이 열려 있어도 새로 누른 자료가 그 위에 보임
-    <aside key={d.key} className="detail-col" aria-label={d.title}>
+    <aside key={d.key} className={`detail-col${d.wide ? ' wide' : ''}`} aria-label={d.title}>
       <div className="detail-head">
         <span className="grow truncate">{d.title}</span>
-        <button type="button" className="icon-btn sm" onClick={() => setClosed(d.key)} aria-label="결과 칸 닫기" title="닫기">
+        <button type="button" className="icon-btn sm" onClick={() => (d.onClose ? d.onClose() : setClosed(d.key))} aria-label="결과 칸 닫기" title="닫기">
           <X size={14} />
         </button>
       </div>

@@ -187,3 +187,40 @@ export function Presence({ status, className = '' }: { status?: string | null; c
   if (!status) return null
   return <span className={`presence ${PRESENCE[status] ?? 'off'} ${className}`} title={status} aria-label={status} role="img" />
 }
+
+/**
+ * 글 속 주소를 누를 수 있는 링크로 (2026-10-28 "AI 보고 링크를 복사해서 붙여넣기 하지 말고 클릭하면 이 위치에서 열리게")
+ *  - https://… 와 [이름](https://…) 모두. 누르면 오른쪽 인터넷 창에서 열림 (WebSearch 의 링크 가로채기)
+ */
+const LINK_RE = /\[([^\]\n]{1,120})\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s<>"'`]+)/g
+export function Linkify({ text }: { text: string | null | undefined }) {
+  if (!text) return null
+  const out: (string | JSX.Element)[] = []
+  let last = 0
+  let k = 0
+  for (const m of text.matchAll(LINK_RE)) {
+    const at = m.index ?? 0
+    let url = m[2] ?? m[3]
+    let label = m[1] ?? url
+    let tail = ''
+    if (!m[2]) {
+      // 문장 끝 마침표 · 쉼표 · 닫는 괄호는 주소에서 뺌
+      const t = url.match(/[.,;:!?)\]}'"]+$/)
+      if (t) {
+        tail = t[0]
+        url = url.slice(0, -tail.length)
+        label = url
+      }
+    }
+    out.push(text.slice(last, at))
+    out.push(
+      <a key={k++} href={url} className="auto-link" target="_blank" rel="noopener noreferrer" title={url} onClick={e => e.stopPropagation()}>
+        {label.length > 70 ? `${label.slice(0, 67)}…` : label}
+      </a>,
+    )
+    if (tail) out.push(tail)
+    last = at + m[0].length
+  }
+  out.push(text.slice(last))
+  return <>{out}</>
+}

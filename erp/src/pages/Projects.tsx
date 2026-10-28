@@ -3,7 +3,8 @@ import { AlarmClock, ArrowLeft, Plus, CheckCircle2, ChevronLeft, ChevronRight, C
 import { ProjectMaterials } from '../components/ProjectMaterials'
 import { SiteLogsSection } from '../components/SiteLogs'
 import { ProjectDriveSection, useProjectFolderSync } from '../components/DriveFiles'
-import { useRightPanel } from '../components/RightPanel'
+import { usePanelWide, useRightPanel } from '../components/RightPanel'
+import type { Approval } from '../lib/types'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { addMonths, dateLabel, monthGrid, shortDate, timeLabel, toDateKey, todayKey, weekRange, weekday, periodLabel } from '../lib/date'
 import { Link, useRouter, withQuery } from '../lib/router'
@@ -12,7 +13,7 @@ import { ContactTimeline, ExchangeFilesSection, ProjectContactsSection } from '.
 import { OrgSection } from '../components/Org'
 import { Board, type BoardCol } from '../components/Board'
 import { Shell } from '../components/Shell'
-import { Badge, Button, Chip, Empty, Field, Modal, SectionHead, StatusBadge } from '../components/ui'
+import { Badge, Button, Chip, Empty, Field, KindTag, Modal, SectionHead, StatusBadge } from '../components/ui'
 import { NewApproval } from './Approvals'
 import { FinancePanel } from '../components/FinancePanel'
 import { ProjectDashboard } from './ProjectDashboard'
@@ -55,8 +56,16 @@ export default function Projects() {
   )
   const go = (patch: Record<string, string | null>) => navigate(withQuery(path, query, patch), { replace: !('id' in patch) })
   const selected = data.projects.find(p => p.id === selectedId)
+  // 넓은 화면: 프로젝트를 누르면 지금 화면은 왼쪽에 두고 오른쪽 칸에 프로젝트 전체 (2026-10-28)
+  const wide = usePanelWide()
+  useRightPanel(
+    wide && selected ? `projfull:${selected.id}` : null,
+    selected ? `${selected.code ? `${selected.code} · ` : ''}${selected.name}` : '프로젝트',
+    selected ? <ProjectDetail key={selected.id} project={selected} data={data} panel onEdit={() => setEditing(selected)} onBack={() => go({ id: null })} /> : null,
+    { wide: true, onClose: () => go({ id: null }) },
+  )
 
-  if (selectedId) {
+  if (selectedId && !wide) {
     return (
       <Shell active="projects">
         {selected ? <ProjectDetail project={selected} data={data} onEdit={() => setEditing(selected)} onBack={() => go({ id: null })} /> : <Empty>{loading ? '불러오는 중…' : '프로젝트를 찾을 수 없습니다.'}</Empty>}
@@ -636,7 +645,7 @@ function TaskLegend() {
 }
 
 
-function ProjectDetail({ project: p, data, onEdit, onBack }: { project: Project; data: Data; onEdit: () => void; onBack: () => void }) {
+function ProjectDetail({ project: p, data, onEdit, onBack, panel = false }: { project: Project; data: Data; onEdit: () => void; onBack: () => void; /** 오른쪽 칸 안에 그릴 때 (자료 칸을 따로 띄우지 않음) */ panel?: boolean }) {
   const { api, me, profileName, version } = useApp()
   const { navigate } = useRouter()
   const { busy, run } = useAction()
@@ -645,14 +654,20 @@ function ProjectDetail({ project: p, data, onEdit, onBack }: { project: Project;
   const tasks = data.tasks.filter(t => t.project_id === p.id)
   const client = data.clients.find(c => c.id === p.client_id)
   // 이 프로젝트에 연결된 자료는 오른쪽 칸(검색 창 자리)에 표시
-  useRightPanel(`project:${p.id}`, '프로젝트 자료', <ProjectMaterials projectId={p.id} />)
+  useRightPanel(panel ? null : `project:${p.id}`, '프로젝트 자료', <ProjectMaterials projectId={p.id} />)
   const { data: extra } = useAsync(
     async () => {
-      const [logs, rooms, contacts] = await Promise.all([api.listWorkLogs({ projectId: p.id, limit: 50 }), api.listRooms(), api.listContacts().catch(() => [] as Contact[])])
-      return { logs, room: rooms.find(r => r.project_id === p.id) ?? null, contacts }
+      const [logs, rooms, contacts, approvals] = await Promise.all([
+        api.listWorkLogs({ projectId: p.id, limit: 50 }),
+        api.listRooms(),
+        api.listContacts().catch(() => [] as Contact[]),
+        api.listApprovals().catch(() => [] as Approval[]),
+      ])
+      const related = approvals.filter(a => a.target_id === p.id || a.payload?.project_id === p.id)
+      return { logs, room: rooms.find(r => r.project_id === p.id && !r.members) ?? null, contacts, approvals: related }
     },
     [p.id, version],
-    { logs: [] as WorkLog[], room: null as ChatRoomSummary | null, contacts: [] as Contact[] },
+    { logs: [] as WorkLog[], room: null as ChatRoomSummary | null, contacts: [] as Contact[], approvals: [] as Approval[] },
   )
 
   const openRoom = async () => {
@@ -747,6 +762,21 @@ function ProjectDetail({ project: p, data, onEdit, onBack }: { project: Project;
       {/* 인테리어(아트리어 · AR) 프로젝트는 현장 작업일지, 다른 프로젝트는 작업일지가 있을 때만 */}
       <SiteLogsSection project={p} always={projectBrand(p) === 'AR'} />
       <FinancePanel project={p} clients={data.clients} projects={data.projects} />
+      {/* 이 프로젝트의 결재 · 보고 */}
+      <SectionHead title="결재 · 보고" count={extra.approvals.length ? String(extra.approvals.length) : undefined} right={<Link to="/approvals">보고서 결제 ›</Link>} />
+      {extra.approvals.length === 0 ? (
+        <span className="t-cap">이 프로젝트로 올린 결재가 없습니다.</span>
+      ) : (
+        <div className="col">
+          {extra.approvals.slice(0, 12).map(a => (
+            <Link key={a.id} to={`/approvals?id=${a.id}`} className="row dashed link-row" style={{ padding: '5px 0', gap: 6 }}>
+              <KindTag kind={a.kind} />
+              <span className="t-small truncate grow">{a.title}</span>
+              <StatusBadge status={a.status} />
+            </Link>
+          ))}
+        </div>
+      )}
       {editingTask && <TaskAssignModal key={editingTask.id} task={editingTask} projects={data.projects} tasks={data.tasks} onClose={() => setEditingTask(null)} />}
       {approving && <NewApproval preset={{ kind: '프로젝트', target_id: p.id, title: `프로젝트: ${p.name}` }} onClose={() => setApproving(false)} onCreated={id => navigate(`/approvals?view=mine&id=${id}`)} />}
     </>

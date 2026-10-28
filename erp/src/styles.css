@@ -1939,3 +1939,19 @@ svg text[font-size="12"] { font-size: var(--fs-sm); }
 .week-panel, .week-days, .week-day { flex: none; height: auto; min-height: 0; }
 .week-panel { flex: 1 1 auto; }
 .msg.pending .bubble { opacity: .65; }
+.auto-link { color: var(--blue); text-decoration: underline; text-underline-offset: 2px; word-break: break-all; cursor: pointer; } .auto-link:hover { background: var(--yellow-tint); }
+
+/* 오른쪽 위 '보기' 펼침 메뉴 (2026-10-28) */
+.topbar > .top-menu { order: 2; position: relative; }
+.top-menu-btn { display: inline-flex; align-items: center; gap: 4px; height: 32px; padding: 0 12px; border: 1px solid var(--blue); border-radius: 999px; background: var(--white); color: var(--blue); font: inherit; font-size: var(--fs-sm); font-weight: 700; cursor: pointer; }
+.top-menu-btn[aria-expanded='true'] { background: var(--yellow); }
+.top-menu-pop { position: absolute; right: 0; top: calc(100% + 6px); z-index: 70; min-width: 260px; background: var(--white); border: 1px solid var(--blue); border-radius: 8px; padding: 4px; box-shadow: 0 8px 22px rgba(28, 68, 241, .18); display: flex; flex-direction: column; }
+.top-menu-pop > button, .top-menu-pop > a { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 0; background: none; border-radius: 6px; font: inherit; font-size: var(--fs-sm); color: var(--blue); text-align: left; cursor: pointer; text-decoration: none; }
+.top-menu-pop > button:hover, .top-menu-pop > a:hover { background: var(--blue-tint); }
+.top-menu-row { display: flex; align-items: center; gap: 4px; padding: 6px 10px; border-top: 1px dashed var(--line); font-size: var(--fs-sm); color: var(--blue); }
+.top-menu-row .icon-btn.sm { border: 1px solid var(--blue); border-radius: 999px; min-width: 30px; height: 26px; color: var(--blue); }
+@media (pointer: coarse) { .topbar > .top-menu { display: none; } }
+
+/* 프로젝트 전체는 오른쪽 칸을 넓게 (지금 화면은 왼쪽으로) */
+.detail-col.wide { flex: 1.25 1 0; }
+html.detail-wide .web-panel { max-width: 24vw; }

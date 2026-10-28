@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react'
+import { Linkify } from '../components/ui'
 import { ArrowLeft, AtSign, BellOff, Bookmark, Check, ChevronDown, ChevronRight, Plus, Send, Trash2 } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { friendlyError } from '../lib/api'
@@ -296,7 +297,7 @@ function Activity({ list: all }: { list: AppNotification[] }) {
           <button key={n.id} type="button" className={`activity-row ${n.read_at ? '' : 'unread'}`} onClick={() => void open(n)}>
             <span className="col gap-2 grow" style={{ minWidth: 0 }}>
               <span className="t-smallb">{n.title}</span>
-              {n.body && <span className="t-small activity-body">{n.body}</span>}
+              {n.body && <span className="t-small activity-body"><Linkify text={n.body} /></span>}
             </span>
             <span className="t-meta nowrap">{relativeLabel(n.created_at)}</span>
           </button>
