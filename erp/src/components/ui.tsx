@@ -251,3 +251,31 @@ export function TextLinks({ text }: { text: string | null | undefined }) {
     </div>
   )
 }
+
+/**
+ * 화면 전환 탭 (2026-10-28 "상부 아이콘을 쉽게 보고 구분되게"): 밑줄 탭 + 아이콘, 한 줄 · 넘치면 옆으로 밀기
+ * 필터 칩(둥근 버튼)과 모양을 달리해 '어느 화면인지'와 '무엇을 거르는지'가 구분되게
+ */
+export function ViewTabs<K extends string | null>({ items, active, onPick, label }: { items: { key: K; label: string; icon?: ReactNode; count?: number }[]; active: K; onPick: (k: K) => void; label: string }) {
+  return (
+    <nav className="view-tabs" role="tablist" aria-label={label}>
+      {items.map(it => (
+        <button key={String(it.key)} type="button" role="tab" aria-selected={active === it.key} className={`view-tab${active === it.key ? ' on' : ''}`} onClick={() => onPick(it.key)}>
+          {it.icon}
+          <span>{it.label}</span>
+          {!!it.count && <span className="view-tab-n">{it.count}</span>}
+        </button>
+      ))}
+    </nav>
+  )
+}
+
+/** 이름표가 붙은 필터 묶음: [상태] 진행 · 기획 · 전체 */
+export function FilterGroup({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="filter-group" role="group" aria-label={label}>
+      <span className="filter-label">{label}</span>
+      <div className="seg">{children}</div>
+    </div>
+  )
+}
