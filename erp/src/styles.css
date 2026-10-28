@@ -1998,3 +1998,7 @@ header .main-nav { margin: 0; gap: 2px; }
 .work-head { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; gap: 4px 6px; padding: 4px 10px; }
 .work-head > * { flex: none; }
 .work-head .t-cap { white-space: nowrap; }
+/* 오른쪽 창 대시보드 요약 (2026-10-28) */
+.panel-dash .kpis, .panel-dash .kpis.kpis-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.panel-dash .section { min-width: 0; }
+.panel-dash .kpi .t-num, .panel-dash .kpi b { font-size: var(--fs-title); }
