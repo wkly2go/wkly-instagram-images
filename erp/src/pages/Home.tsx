@@ -13,6 +13,7 @@ import { PushSetupCard } from '../components/PushSetup'
 import { KindTag, Button, Empty, Modal, SectionHead, StatusBadge } from '../components/ui'
 import { DailyReport, DecideButtons, reportSections } from './Approvals'
 import { MonthCalendar } from './Schedule'
+import { TodayWork } from '../components/TodayWork'
 
 interface HomeData {
   approvals: Approval[]
@@ -50,7 +51,9 @@ export default function Home() {
 
   return (
     <Shell active="home">
-      {/* 월별 일정표를 맨 위에 (대표 지시 2026-10-23) */}
+      {/* 오늘 업무를 가장 위에 (대표 지시 2026-10-28, 전체 공통) */}
+      <TodayWork tasks={data.tasks} projects={data.projects} />
+      {/* 월별 일정표 (대표 지시 2026-10-23) */}
       <section className="section" aria-label="월별 일정표">
         <SectionHead title="월별 일정표" right={<Link to="/projects?view=calendar">크게 보기 ›</Link>} />
         <MonthCalendar projects={data.projects} tasks={data.tasks} />
