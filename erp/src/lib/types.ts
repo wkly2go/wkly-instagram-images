@@ -1088,6 +1088,25 @@ export interface LedgerEntry {
   method: LedgerMethod
   memo: string | null
   project_id: string | null
+  /** 정기 출금에서 기록한 것 (0064) */
+  recurring_id?: number | null
+  created_by: string
+  created_at: string
+  updated_at: string
+}
+/** 정기 출금: 매달 같은 날 나가는 돈 (0064) */
+export interface LedgerRecurring {
+  id: number
+  name: string
+  amount: number
+  day_of_month: number
+  category: string
+  counterparty: string | null
+  method: LedgerMethod
+  memo: string | null
+  active: boolean
+  start_month: string | null
+  end_month: string | null
   created_by: string
   created_at: string
   updated_at: string

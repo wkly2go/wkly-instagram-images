@@ -1,5 +1,5 @@
 import type { AccessSource } from './desktop'
-import type { LedgerEntry, LedgerStatus,
+import type { LedgerEntry, LedgerRecurring, LedgerStatus,
   AiAgent,
   AgentSchedule,
   ActivityInputKind,
@@ -271,6 +271,9 @@ export interface Api {
   listLedger(from: string, to: string): Promise<LedgerEntry[]>
   saveLedger(e: Draft<LedgerEntry>): Promise<LedgerEntry>
   deleteLedger(id: number): Promise<void>
+  listRecurring(): Promise<LedgerRecurring[]>
+  saveRecurring(r: Draft<LedgerRecurring>): Promise<LedgerRecurring>
+  deleteRecurring(id: number): Promise<void>
   listSubscriptions(): Promise<Subscription[]>
   saveSubscription(s: Draft<Subscription>): Promise<Subscription>
   deleteSubscription(id: string): Promise<void>

@@ -54,6 +54,7 @@ import type {
   SiteLog,
   MeetingRecording,
   LedgerEntry,
+  LedgerRecurring,
 } from './types'
 import { approvalKindOf, type AgentSchedule, type AiAgent, type ApprovalActivity } from './types'
 import { nextRun } from './schedule'
@@ -84,6 +85,7 @@ interface Store {
   payments: Payment[]
   subscriptions?: Subscription[]
   ledger?: LedgerEntry[]
+  recurring?: LedgerRecurring[]
   ledger_pw?: string | null
   ledger_until?: string | null
   site_logs?: SiteLog[]
@@ -1280,11 +1282,36 @@ export function createDemoApi(): Api {
         row = { ...store.ledger.find(x => x.id === e.id)!, ...e, updated_at: now() } as LedgerEntry
         store.ledger = store.ledger.map(x => (x.id === e.id ? row : x))
       } else {
-        row = { id: Date.now(), entry_date: todayKey(), direction: '출금', amount: 0, category: '기타', counterparty: null, method: '계좌', memo: null, project_id: null, ...e, created_by: self, created_at: now(), updated_at: now() } as LedgerEntry
+        row = { entry_date: todayKey(), direction: '출금', amount: 0, category: '기타', counterparty: null, method: '계좌', memo: null, project_id: null, ...e, id: Date.now(), created_by: self, created_at: now(), updated_at: now() } as LedgerEntry
         store.ledger.push(row)
       }
       persist()
       return clone(row)
+    },
+    async listRecurring() {
+      requireAdmin()
+      if (!store.ledger_until || store.ledger_until < now()) throw new ApiError('장부가 잠겨 있습니다.')
+      return clone([...(store.recurring ?? [])].sort((a, b) => a.day_of_month - b.day_of_month))
+    },
+    async saveRecurring(r) {
+      requireAdmin()
+      const self = requireMe()
+      store.recurring = store.recurring ?? []
+      let row: LedgerRecurring
+      if (r.id) {
+        row = { ...store.recurring.find(x => x.id === r.id)!, ...r, updated_at: now() } as LedgerRecurring
+        store.recurring = store.recurring.map(x => (x.id === r.id ? row : x))
+      } else {
+        row = { name: '', amount: 0, day_of_month: 25, category: '기타 출금', counterparty: null, method: '계좌', memo: null, active: true, start_month: null, end_month: null, ...r, id: Date.now(), created_by: self, created_at: now(), updated_at: now() } as LedgerRecurring
+        store.recurring.push(row)
+      }
+      persist()
+      return clone(row)
+    },
+    async deleteRecurring(id) {
+      requireAdmin()
+      store.recurring = (store.recurring ?? []).filter(x => x.id !== id)
+      persist()
     },
     async deleteLedger(id) {
       requireAdmin()

@@ -2166,3 +2166,41 @@ header .main-nav { margin: 0; gap: 2px; }
 .ledger-table .row-actions { text-align: right; }
 .ledger-table .row-actions .icon-btn { opacity: .5; } .ledger-table tr:hover .row-actions .icon-btn { opacity: 1; }
 @media (max-width: 900px) { .ledger-kpis, .ledger-charts { grid-template-columns: 1fr; } }
+/* 정기 출금 · 월별 비교 (2026-10-28) */
+.ledger-kpis.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.ledger-kpi.warn { border-left-color: var(--red); background: #fdecec; } .ledger-kpi.warn b { color: var(--red); }
+.rec-strip { display: grid; grid-template-columns: repeat(31, minmax(0, 1fr)); gap: 2px; border: 1px solid var(--line); border-radius: 10px; padding: 8px; background: var(--white); }
+.rec-day { min-height: 46px; border-radius: 6px; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 3px 0; background: var(--paper); font-size: 10px; color: var(--gray); }
+.rec-day.today { box-shadow: inset 0 0 0 2px var(--blue); }
+.rec-day .rec-d { font-weight: 700; }
+.rec-day .rec-amt { font-weight: 800; font-size: 9px; text-align: center; line-height: 1.1; word-break: keep-all; }
+.rec-day.due { background: #fdecec; color: var(--red); }
+.rec-day.late { background: var(--red); color: #fff; }
+.rec-day.done { background: var(--blue-tint); color: var(--blue); }
+.rec-badge { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 999px; border: 0; font: inherit; font-size: var(--fs-cap); font-weight: 800; cursor: pointer; white-space: nowrap; }
+.rec-badge.done { background: var(--blue-tint); color: var(--blue); cursor: default; }
+.rec-badge.due { background: #fdecec; color: var(--red); }
+.rec-badge.late { background: var(--red); color: #fff; }
+.rec-table th:nth-child(1) { width: 78px; } .rec-table th:nth-child(5) { width: 52px; } .rec-table th:nth-child(6) { width: 110px; } .rec-table th:nth-child(7) { width: 110px; } .rec-table th:nth-child(8) { width: 90px; }
+.rec-table tr.done td { opacity: .6; }
+.rec-paused summary { cursor: pointer; padding: 4px 0; }
+.lg-key.net { background: var(--blue); border-radius: 50%; }
+.cmp-chart { position: relative; height: 170px; margin-top: 6px; }
+.cmp-bars { position: absolute; inset: 0; display: flex; gap: 4px; align-items: flex-end; }
+.cmp-month { flex: 1; min-width: 0; height: 100%; display: flex; flex-direction: column; align-items: center; gap: 2px; border-radius: 4px; }
+.cmp-month.cur { background: var(--blue-tint); }
+.cmp-month .bar-pair { flex: 1; width: 100%; display: flex; align-items: flex-end; justify-content: center; gap: 2px; padding-top: 4px; }
+.cmp-month .bar-pair i { width: 32%; max-width: 16px; border-radius: 3px 3px 0 0; }
+.cmp-month .bar-pair i.in { background: #1264a3; } .cmp-month .bar-pair i.out { background: var(--red); }
+.cmp-month span { font-size: var(--fs-cap); color: var(--gray); height: 16px; }
+.cmp-net { position: absolute; left: 0; right: 0; top: 4px; height: 140px; width: 100%; pointer-events: none; overflow: visible; }
+.cmp-net polyline { fill: none; stroke: var(--blue); stroke-width: 2; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
+.cmp-net .zero { stroke: var(--gray); stroke-dasharray: 3 3; stroke-width: 1; vector-effect: non-scaling-stroke; opacity: .5; }
+.cmp-table th:nth-child(1) { width: 70px; }
+@media (max-width: 900px) { .ledger-kpis.four { grid-template-columns: repeat(2, minmax(0, 1fr)); } .rec-strip { grid-template-columns: repeat(11, minmax(0, 1fr)); } }
+.cmp-dots { position: absolute; inset: 0; pointer-events: none; }
+.cmp-dots i { position: absolute; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 50%; background: var(--blue); border: 2px solid var(--white); }
+.cmp-dots i.minus { background: var(--red); }
+.cmp-table th:nth-child(n+2) { width: auto; }
+.cmp-table { table-layout: auto; }
+.ledger-cats { align-content: start; }
