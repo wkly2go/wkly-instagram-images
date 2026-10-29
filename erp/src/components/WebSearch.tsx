@@ -332,6 +332,35 @@ const useNativeEpoch = () =>
     return () => epochListeners.delete(cb)
   }, () => nativeEpoch)
 type Rect = { x: number; y: number; width: number; height: number }
+const NONE: Rect = { x: 0, y: 0, width: 0, height: 0 }
+/**
+ * PC 프로그램의 웹 칸(구글 등)은 인트라넷 화면 맨 위에 그려지므로, 칸 자리가 다른 화면(결과 칸 · 팝업 등)에
+ * 가려지거나 창 밖으로 밀리면 겹쳐 보임 (2026-10-29 "겹치는 오류"). 실제로 보이는 자리만 보내고,
+ * 다른 요소가 덮고 있으면 숨김
+ */
+export function visibleRect(box: Element, clip?: Element | null): Rect {
+  const r = box.getBoundingClientRect()
+  const c = clip?.getBoundingClientRect()
+  const left = Math.max(r.left, c?.left ?? r.left, 0)
+  const top = Math.max(r.top, c?.top ?? r.top, 0)
+  const right = Math.min(r.right, c?.right ?? r.right, window.innerWidth)
+  const bottom = Math.min(r.bottom, c?.bottom ?? r.bottom, window.innerHeight)
+  if (right - left < 40 || bottom - top < 40) return NONE
+  // 가운데 · 네 모서리 근처가 모두 이 칸이어야 보여 줌 (하나라도 다른 화면이 덮으면 숨김)
+  const pts: [number, number][] = [
+    [(left + right) / 2, (top + bottom) / 2],
+    [left + 6, top + 6],
+    [right - 6, top + 6],
+    [left + 6, bottom - 6],
+    [right - 6, bottom - 6],
+  ]
+  for (const [x, y] of pts) {
+    const el = document.elementFromPoint(x, y)
+    if (!el || !(box === el || box.contains(el))) return NONE
+  }
+  return { x: Math.round(left), y: Math.round(top), width: Math.round(right - left), height: Math.round(bottom - top) }
+}
+
 /** 드라이브 탭: 웹 칸을 이 자리(rect)에 이 주소로 */
 export function claimNative(url: string, rect: Rect) {
   const app = desktop()
@@ -570,15 +599,8 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
   const covered = () => !!document.querySelector('.scrim, .lock-screen, .notif-panel, .img-viewer')
   const rectOf = () => {
     const box = nativeBox.current
-    const r = box?.getBoundingClientRect()
-    if (!box || !r || covered()) return { x: 0, y: 0, width: 0, height: 0 }
-    // 검색 창(aside) 영역 안으로만: 레이아웃이 바뀌는 순간에도 결과 칸이 본 화면 위로 튀어나오지 않게
-    const pr = box.closest('.web-panel')?.getBoundingClientRect()
-    const left = Math.max(r.left, pr?.left ?? r.left)
-    const top = Math.max(r.top, pr?.top ?? r.top)
-    const right = Math.min(r.right, pr?.right ?? r.right)
-    const bottom = Math.min(r.bottom, pr?.bottom ?? r.bottom)
-    return { x: left, y: top, width: Math.max(0, right - left), height: Math.max(0, bottom - top) }
+    if (!box || covered()) return { x: 0, y: 0, width: 0, height: 0 }
+    return visibleRect(box, box.closest('.web-panel'))
   }
 
   // PC 프로그램: 검색 결과를 패널 안 칸에 띄우고, 크기가 바뀌면 따라감 · 패널을 닫으면 함께 닫힘
