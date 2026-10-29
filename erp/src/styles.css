@@ -2227,3 +2227,12 @@ header .main-nav { margin: 0; gap: 2px; }
 .today-title { flex: 1; min-width: 0; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .today-proj { font: 400 var(--fs-cap)/1.4 var(--mono); color: var(--gray); white-space: nowrap; }
 .today-empty { padding: 8px 2px; color: var(--gray); font-size: var(--fs-cap); }
+
+/* 자료실 필터: 상태 탭 한 줄 + 종류 칩 (겹치던 풀다운 정리) */
+.lib-status { display: flex; align-items: center; gap: 2px; border-bottom: 1px solid var(--line); min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.lib-status::-webkit-scrollbar { display: none; }
+.lib-status button { flex: none; padding: 7px 10px; border: 0; border-bottom: 2px solid transparent; background: none; color: var(--gray); font: inherit; font-weight: 700; cursor: pointer; white-space: nowrap; }
+.lib-status button b { margin-left: 2px; font-weight: 700; color: inherit; opacity: .7; }
+.lib-status button.on { color: var(--blue); border-bottom-color: var(--blue); }
+.lib-status button:hover { color: var(--blue); }
+.lib-kinds { display: flex; flex-wrap: wrap; gap: 6px; padding-top: 8px; }

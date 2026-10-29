@@ -101,13 +101,26 @@ function Research({ tabs }: { tabs: ReactNode }) {
       (!words.length || words.every(w => [r.title, r.summary, r.brand_name, r.tags.join(' '), r.source_name, r.body].join(' ').toLowerCase().includes(w))),
   )
   const selected = data.items.find(r => r.id === selectedId) ?? null
-  const count = (s: ResearchStatus) => data.items.filter(r => r.status === s).length
-  // 종류: 실제 자료에 있는 것 전부 (거래처 리포트 먼저, 그다음 많은 순)
+  // 상태: 기본 넷 + 실제 자료에 있는 것 (승인 대기 등 에이전트가 쓰는 상태도 빠짐없이). 숫자는 고른 종류 기준
+  const STATUS_ORDER = ['새 자료', '승인 대기', '검토 완료', '활용', '승인', '반려', '보관']
+  const inKind = data.items.filter(r => !kind || r.kind === kind)
+  const statusTabs = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const r of inKind) m.set(r.status, (m.get(r.status) ?? 0) + 1)
+    const keys = [...new Set([...RESEARCH_STATUSES, ...m.keys()])].sort((a, b) => STATUS_ORDER.indexOf(a) - STATUS_ORDER.indexOf(b))
+    return [...keys.map(k => [k, m.get(k) ?? 0] as [string, number]), ['all', inKind.length] as [string, number]]
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data.items, kind])
+  // 종류: 고른 상태 안에서 있는 것만 (거래처 리포트 먼저, 그다음 많은 순). 고른 종류는 0건이어도 남김
+  const inStatus = data.items.filter(r => words.length > 0 || status === 'all' || r.status === status)
+  const kindTotal = inStatus.length
   const kinds = useMemo(() => {
     const m = new Map<string, number>()
-    for (const r of data.items) m.set(r.kind, (m.get(r.kind) ?? 0) + 1)
+    for (const r of inStatus) m.set(r.kind, (m.get(r.kind) ?? 0) + 1)
+    if (kind && !m.has(kind)) m.set(kind, 0)
     return [...m.entries()].sort(([a, x], [b, y]) => (a === REPORT_KIND ? -1 : b === REPORT_KIND ? 1 : y - x || a.localeCompare(b, 'ko')))
-  }, [data.items])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data.items, status, kind, words.length])
 
   const wide = usePanelWide()
   useRightPanel(
@@ -147,38 +160,26 @@ function Research({ tabs }: { tabs: ReactNode }) {
               <Plus size={13} /> 자료
             </Button>
           </div>
-          {/* 상태 · 종류는 풀다운 하나씩 (대표 지시 2026-10-28 "종류를 쉽게 선택") */}
-          <div className="lib-filters">
-            <label className="lib-filter">
-              <span>상태</span>
-              <select className="select" value={status} onChange={e => go({ status: e.target.value === '새 자료' ? null : e.target.value })} aria-label="상태">
-                {RESEARCH_STATUSES.map(s => (
-                  <option key={s} value={s}>
-                    {s} ({count(s)})
-                  </option>
-                ))}
-                <option value="all">전체 ({data.items.length})</option>
-              </select>
-            </label>
-            <label className="lib-filter">
-              <span>종류</span>
-              <select className="select" value={kind ?? ''} onChange={e => go({ kind: e.target.value || null })} aria-label="종류">
-                <option value="">모든 종류 ({data.items.length})</option>
-                {kinds.map(([k, n]) => (
-                  <option key={k} value={k}>
-                    {k} ({n})
-                  </option>
-                ))}
-              </select>
-            </label>
-            <span className="chips one-line grow" aria-label="자주 쓰는 종류">
-              {kinds.slice(0, 6).map(([k, n]) => (
-                <Chip key={k} active={kind === k} onClick={() => go({ kind: kind === k ? null : k })}>
-                  {k} {n}
-                </Chip>
-              ))}
-            </span>
-            <span className="t-cap">{list.length}건</span>
+          {/* 상태 · 종류 정리 (대표 지시 2026-10-29 "중복되는 것 정리, 사용성"):
+              풀다운 + 같은 종류 칩이 겹치던 것을 → 상태 탭 한 줄 + 종류 칩 한 벌로. 숫자는 지금 보이는 목록 기준 */}
+          <div className="lib-status" role="tablist" aria-label="상태">
+            {statusTabs.map(([s, n]) => (
+              <button key={s} type="button" role="tab" aria-selected={status === s} className={status === s ? 'on' : ''} onClick={() => go({ status: s === '새 자료' ? null : s })}>
+                {s === 'all' ? '전체' : s} <b>{n}</b>
+              </button>
+            ))}
+            <span className="grow" />
+            <span className="t-cap">{words.length ? `검색 결과 ${list.length}건 (모든 상태)` : `${list.length}건`}</span>
+          </div>
+          <div className="lib-kinds" aria-label="종류">
+            <Chip active={!kind} onClick={() => go({ kind: null })}>
+              모든 종류 {kindTotal}
+            </Chip>
+            {kinds.map(([k, n]) => (
+              <Chip key={k} active={kind === k} onClick={() => go({ kind: kind === k ? null : k })}>
+                {k} {n}
+              </Chip>
+            ))}
           </div>
         </div>
         <div className="pane-body" style={{ padding: '0 12px 12px' }}>
@@ -246,7 +247,7 @@ function ResearchDetail({ r, projects, rooms, clients, onBack, onEdit }: { r: Re
           <Badge>{r.kind}</Badge>
         )}
         <select className="select sm-select" value={r.status} disabled={busy} onChange={e => setStatus(e.target.value as ResearchStatus, `${e.target.value}(으)로 바꿨습니다.`)} aria-label="상태 바꾸기" title="상태 바꾸기">
-          {RESEARCH_STATUSES.map(s => (
+          {[...new Set<string>([r.status, ...RESEARCH_STATUSES])].map(s => (
             <option key={s} value={s}>
               {s}
             </option>
