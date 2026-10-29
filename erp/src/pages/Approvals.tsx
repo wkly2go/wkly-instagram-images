@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Linkify } from '../components/ui'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, BookOpen, FileText, Filter, Inbox, List, MessageSquare, NotebookPen, Plus, Send } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { dateLabel, dateTimeLabel, minutesLabel, timeLabel, toDateKey, todayKey, won } from '../lib/date'
 import { openGmail } from '../lib/links'
@@ -13,7 +13,7 @@ import { Shell } from '../components/Shell'
 import { ApprovalThread } from '../components/ApprovalThread'
 import { Board, BoardHead } from '../components/Board'
 import { usePanelWide, useRightPanel } from '../components/RightPanel'
-import { Button, Chip, Field, KindBadge, KindTag, Modal, StatusBadge } from '../components/ui'
+import { Button, Chip, Field, KindBadge, KindTag, Modal, StatusBadge, ViewTabs } from '../components/ui'
 import { MeetingRecorder } from '../components/MeetingRecorder'
 
 type View = 'todo' | 'mine' | 'all'
@@ -163,49 +163,56 @@ export default function Approvals() {
 
   return (
     <Shell active="approvals">
-      <div className="row wrap">
-        <div className="chips">
-          <Chip active={view === 'todo'} onClick={() => go({ view: null, id: null })}>
-            처리할 것 {todo.length}
-          </Chip>
-          <Chip active={view === 'mine'} onClick={() => go({ view: 'mine', id: null })}>
-            내 요청
-          </Chip>
-          <Chip active={view === 'all'} onClick={() => go({ view: 'all', id: null })}>
-            전체
-          </Chip>
-        </div>
-        {/* 자료실 (대표 지시 2026-10-22 "자료실을 보고서 결제에 포함") */}
-        <Chip onClick={() => navigate('/library')}>📚 자료실</Chip>
+      {/* 6번 방식 (대표 선택 2026-10-29): 화면 전환은 밑줄 탭, 자주 하는 일(승인 요청)만 진한 버튼, 나머지는 조용한 도구 줄 */}
+      <div className="row" style={{ alignItems: 'flex-end', gap: 8 }}>
+        <ViewTabs
+          label="승인 보기"
+          active={kind === '회의록' ? 'minutes' : view}
+          onPick={k => (k === 'minutes' ? go({ kind: '회의록', view: 'all', id: null }) : go({ view: k === 'todo' ? null : k, kind: null, id: null }))}
+          items={[
+            { key: 'todo', label: '처리할 것', icon: <Inbox size={15} />, count: todo.length },
+            { key: 'mine', label: '내 요청', icon: <Send size={15} /> },
+            { key: 'all', label: '전체', icon: <List size={15} /> },
+            { key: 'minutes', label: `회의록 ${data.filter(a => a.kind === '회의록').length}`, icon: <NotebookPen size={15} /> },
+          ]}
+        />
         <span className="grow" />
-        {/* 회의록 방: 회의록만 모아 보기 · 바로 쓰기 */}
-        <Chip active={kind === '회의록'} onClick={() => go({ kind: kind === '회의록' ? null : '회의록', view: kind === '회의록' ? null : 'all' })}>
-          📝 회의록 {data.filter(a => a.kind === '회의록').length}
-        </Chip>
-        <Button kind="outline" onClick={() => setMinutes(true)}>
-          회의록 쓰기
-        </Button>
-        {daily > 0 && (
-          <Chip active={kind === '일일 보고'} onClick={() => go({ kind: kind === '일일 보고' ? null : '일일 보고' })}>
-            일일 보고 {daily}
-          </Chip>
-        )}
-        <Button onClick={() => setCreating(true)}>
-          승인 요청
+        <Button onClick={() => setCreating(true)} style={{ marginBottom: 4 }}>
+          <Plus size={14} /> 승인 요청
         </Button>
       </div>
-      <div className="chips">
-        <Chip active={!kind} onClick={() => go({ kind: null })}>
-          모든 종류
-        </Chip>
-        {APPROVAL_KINDS.map(k => {
-          const n = base.filter(a => a.kind === k).length
-          return n ? (
-            <Chip key={k} active={kind === k} onClick={() => go({ kind: k })}>
-              {k} {n}
+      <div className="tool-row">
+        {kind !== '회의록' && (
+          <>
+            <span className="tool-label">
+              <Filter size={13} /> 종류
+            </span>
+            <Chip active={!kind} onClick={() => go({ kind: null })}>
+              모든 종류
             </Chip>
-          ) : null
-        })}
+            {APPROVAL_KINDS.filter(k => k !== '회의록').map(k => {
+              const n = base.filter(a => a.kind === k).length
+              return n ? (
+                <Chip key={k} active={kind === k} onClick={() => go({ kind: k })}>
+                  {k} {n}
+                </Chip>
+              ) : null
+            })}
+          </>
+        )}
+        <span className="grow" />
+        {daily > 0 && kind !== '일일 보고' && (
+          <Chip onClick={() => go({ kind: '일일 보고' })}>
+            <FileText size={13} /> 일일 보고 {daily}
+          </Chip>
+        )}
+        <Chip onClick={() => setMinutes(true)}>
+          <NotebookPen size={13} /> 회의록 쓰기
+        </Chip>
+        {/* 자료실 (대표 지시 2026-10-22 "자료실을 보고서 결제에 포함") */}
+        <Chip onClick={() => navigate('/library')}>
+          <BookOpen size={13} /> 자료실
+        </Chip>
       </div>
       {selected && !wide ? (
         <div className="pane-detail">
@@ -249,7 +256,7 @@ function ApprovalBoards({ list, byKind, loading, view, selectedId, onOpen }: { l
                   {a.title}
                   {!!a.activity_count && (
                     <span className="appr-count" title={`주고받은 글 ${a.activity_count}`}>
-                      💬 {a.activity_count}
+                      <MessageSquare size={12} style={{ verticalAlign: -1 }} /> {a.activity_count}
                     </span>
                   )}
                 </span>

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { MonitorSpeaker, Mic, Pause, Play, Square, Upload, Video } from 'lucide-react'
+import { Mic, MonitorSpeaker, Pause, Play, Square, Upload, Video } from 'lucide-react'
 import { useApp } from '../lib/app'
 import type { MeetingRecording } from '../lib/types'
 import { desktop } from '../lib/desktop'
@@ -183,7 +183,7 @@ export function MeetingRecorder({ title, onResult }: { title: string; onResult: 
   return (
     <div className="meet-rec">
       <div className="meet-rec-head">
-        <b>🎙 회의록 AI</b>
+        <b><Mic size={14} style={{ verticalAlign: -2 }} aria-hidden="true" /> 회의록 AI</b>
         <span className="t-cap">회의를 녹음하면 AI가 말한 사람을 나눠 받아쓰고 회의록으로 정리합니다.</span>
       </div>
       {(phase === 'idle' || phase === 'error') && (

@@ -45,7 +45,7 @@ export default function Agents() {
 function AgentTabs({ tab, go }: { tab: Tab; go: (t: Tab) => void }) {
   return (
       <div className="row wrap">
-        <div className="chips">
+        <div className="chips" role="tablist" aria-label="AI 팀 메뉴">
           {(
             [
               ['team', 'AI 팀원 · 지시 · 예약'],
