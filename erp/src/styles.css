@@ -2296,3 +2296,28 @@ html.col-resizing iframe { pointer-events: none; }
   html.side-rail .new-btn svg { width: 17px; height: 17px; }
   html.side-rail .new-pop { left: 0; right: auto; width: 200px; }
 }
+
+/* 왼쪽 칸 더 줄이기 (2026-10-29 "왼쪽을 더 줄여줘"): 184 → 148px, 글자 · 간격 촘촘하게 */
+@media (min-width: 900px) {
+  .body > .profile { width: 148px; padding: 8px 6px; gap: 6px; }
+  .profile .me-row { gap: 6px; }
+  .profile .me-row .photo { width: 30px; height: 30px; font-size: var(--fs-sm); }
+  .profile .me-name .t-bodyb { font-size: var(--fs-sm); }
+  .profile .me-name .t-cap { font-size: 10px; }
+  .profile .side-nav { padding: 4px 0; gap: 0; }
+  .profile .side-item { gap: 6px; padding: 4px 6px; font-size: var(--fs-cap); }
+  .profile .side-item svg { width: 14px; height: 14px; }
+  .profile .side-n { min-width: 16px; height: 16px; padding: 0 4px; font-size: 10px; line-height: 16px; }
+  .profile .new-menu { margin-bottom: 4px; }
+  .profile .new-btn { height: 28px; font-size: var(--fs-cap); }
+  .profile .today-is { padding: 0 4px; gap: 4px; }
+  .profile .today-is .t-meta { display: none; }
+  .profile .today-is select { padding: 3px 0; font-size: var(--fs-cap); }
+  .profile .today-ok { height: 22px; padding: 0 7px; }
+  .profile .today-rec { font-size: 10px; line-height: 1.3; }
+  .profile .status-msg { font-size: var(--fs-cap); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .profile .side-tools { padding-top: 6px; gap: 4px; }
+  .profile .side-tools .quick-btn { height: 24px; padding: 0 7px; font-size: 10px; }
+  .profile .mini-cal-grid .day { line-height: 17px; font-size: 10px; }
+  .profile .mini-cal-grid .wd { font-size: 10px; }
+}
