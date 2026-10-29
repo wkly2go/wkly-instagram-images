@@ -1,4 +1,5 @@
 import { desktop } from './desktop'
+import type { MaterialMove, MaterialStockRow } from './types'
 import { ApiError, groupIps, type Api, type DriveFolder, type ImportResult, type MessageEvent } from './api'
 import { addDays, nextMonday, toDateKey, todayKey } from './date'
 import { DEFAULT_REPORT_BODY } from './reports'
@@ -84,6 +85,7 @@ interface Store {
   finances: ProjectFinance[]
   payments: Payment[]
   subscriptions?: Subscription[]
+  material_moves?: MaterialMove[]
   ledger?: LedgerEntry[]
   recurring?: LedgerRecurring[]
   ledger_pw?: string | null
@@ -1394,6 +1396,64 @@ export function createDemoApi(): Api {
     async listPayments(filter = {}) {
       if (!isAdmin()) return []
       return clone(store.payments.filter(p => (!filter.projectId || p.project_id === filter.projectId) && (!filter.clientId || p.client_id === filter.clientId)).sort((a, b) => (a.due_date ?? '9999').localeCompare(b.due_date ?? '9999')))
+    },
+    async listMaterialMoves(projectId) {
+      requireMe()
+      return clone((store.material_moves ?? []).filter(m => m.project_id === projectId).sort((a, b) => b.received_on.localeCompare(a.received_on) || b.created_at.localeCompare(a.created_at)))
+    },
+    async saveMaterialMove(m) {
+      const self = requireMe()
+      const list = (store.material_moves ??= [])
+      const prev = m.id ? list.find(x => x.id === m.id) : undefined
+      const row = { ...(prev ?? { id: uid(), kind: '입고', material_id: null, spec: null, unit: null, qty: 1, unit_price: 0, supplier: null, client_id: null, evidence: '세금계산서', invoice_received: false, paid: false, received_on: todayKey(), status: '입고', payment_id: null, memo: null, created_by: self, created_at: now() }), ...m } as MaterialMove
+      // 서버 트리거와 같은 규칙: 입고 · 반품 → 지급 결제 자동 (체험 모드)
+      if (row.kind !== '출고' || row.payment_id) {
+        const sign = row.kind === '반품' ? -1 : 1
+        const supplyAmt = sign * Math.round(row.qty * row.unit_price)
+        const vat = ['세금계산서', '카드', '현금영수증'].includes(row.evidence) ? Math.round(supplyAmt * 0.1) : 0
+        const status = row.status === '취소' || row.kind === '출고' ? '취소' : row.paid ? '완료' : '예정'
+        const pay = {
+          direction: '지급', project_id: row.project_id, client_id: row.client_id, category: '자재',
+          title: `${row.kind === '반품' ? '[자재 반품]' : '[자재]'} ${row.name}${row.spec ? ` ${row.spec}` : ''} ${row.qty}${row.unit ?? ''}`,
+          payee: row.supplier, contract_type: ['세금계산서', '카드', '현금영수증'].includes(row.evidence) ? row.evidence : '기타',
+          amount: supplyAmt + vat, vat, tax_invoice: row.evidence === '세금계산서' ? (row.invoice_received ? '발행' : '미발행') : '해당 없음',
+          status, paid_date: status === '완료' ? row.received_on : null, requested_date: row.received_on, memo: '자재 입출고 연동',
+        } as Partial<Payment>
+        const old = row.payment_id ? store.payments.find(x => x.id === row.payment_id) : undefined
+        if (old) Object.assign(old, pay, { updated_at: now() })
+        else if (row.status === '입고') {
+          const created = paymentRules({ ...paymentDefaults(), ...pay, id: uid(), updated_at: now() } as Payment)
+          store.payments.push(created)
+          row.payment_id = created.id
+        }
+        emit('payments')
+      }
+      if (prev) Object.assign(prev, row)
+      else list.push(row)
+      persist()
+      emit('material_receipts')
+      return clone(row)
+    },
+    async listMaterialStock(projectId) {
+      const m = new Map<string, MaterialStockRow>()
+      for (const r of (store.material_moves ?? []).filter(x => x.project_id === projectId && x.status === '입고')) {
+        const k = r.material_id ?? `${r.name.toLowerCase()}|${r.spec ?? ''}`
+        const s = m.get(k) ?? { project_id: projectId, material_id: r.material_id, name: r.name, spec: r.spec, unit: r.unit, qty_in: 0, qty_out: 0, qty_return: 0, on_hand: 0, last_on: r.received_on }
+        if (r.kind === '입고') s.qty_in += r.qty
+        else if (r.kind === '출고') s.qty_out += r.qty
+        else s.qty_return += r.qty
+        s.on_hand = s.qty_in - s.qty_out - s.qty_return
+        if (r.received_on > s.last_on) s.last_on = r.received_on
+        m.set(k, s)
+      }
+      return [...m.values()]
+    },
+    async listMaterialItems() {
+      return [
+        { id: 'demo-m1', category: '목재', name: '합판', brand: null, spec: '12T 1220×2440', unit: '장', unit_price: 24000 },
+        { id: 'demo-m2', category: '도장', name: '수성 페인트', brand: '삼화', spec: '18L 백색', unit: '통', unit_price: 68000 },
+        { id: 'demo-m3', category: '전기', name: 'LED 바 조명', brand: null, spec: '1200mm 4000K', unit: '개', unit_price: 15000 },
+      ]
     },
     async savePayment(p) {
       requireAdmin()

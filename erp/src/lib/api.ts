@@ -1,5 +1,5 @@
 import type { AccessSource } from './desktop'
-import type { LedgerEntry, LedgerRecurring, LedgerStatus,
+import type { LedgerEntry, LedgerRecurring, LedgerStatus, MaterialItem, MaterialMove, MaterialStockRow,
   AiAgent,
   AgentSchedule,
   ActivityInputKind,
@@ -289,6 +289,12 @@ export interface Api {
   /** 화면에 보일 사진 링크 (1시간) */
   sitePhotoUrl(path: string): Promise<string>
   listPayments(filter?: { projectId?: string; clientId?: string }): Promise<Payment[]>
+  /** 자재 입출고 (프로젝트별) — 입고 · 반품은 지급 결제가 자동으로 생김 */
+  listMaterialMoves(projectId: string): Promise<MaterialMove[]>
+  saveMaterialMove(m: Draft<MaterialMove>): Promise<MaterialMove>
+  listMaterialStock(projectId: string): Promise<MaterialStockRow[]>
+  /** 마감재 DB 목록 (자재 고르기) */
+  listMaterialItems(): Promise<MaterialItem[]>
   savePayment(p: Draft<Payment>): Promise<Payment>
   deletePayment(id: string): Promise<void>
   /** 여러 결제를 한 번에 (대지급 정산·상태 일괄 변경) */

@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import type { LedgerStatus } from './types'
+import type { LedgerStatus, MaterialItem, MaterialMove, MaterialStockRow } from './types'
 import { ApiError, CHAT_FILE_MAX, EXCHANGE_FILE_MAX, groupIps, type AgentDraft, type Api, type DriveEnsureResult, type DriveFolder, type DriveStatus, type ImportResult } from './api'
 import { desktop } from './desktop'
 import type {
@@ -506,6 +506,24 @@ export function createSupabaseApi(url: string, key: string): Api {
       return rows.length ? rows : read('payments_shared')
     },
     savePayment: p => save('payments', p) as Promise<Payment>,
+    async listMaterialMoves(projectId) {
+      const { data, error } = await sb.from('material_receipts').select('*').eq('project_id', projectId).order('received_on', { ascending: false }).order('created_at', { ascending: false }).limit(500)
+      if (error) return [] // 0068 미적용
+      return (data as MaterialMove[]).map(m => ({ ...m, qty: Number(m.qty) }))
+    },
+    async saveMaterialMove(m) {
+      const r = (await save('material_receipts', m)) as MaterialMove
+      return { ...r, qty: Number(r.qty) }
+    },
+    async listMaterialStock(projectId) {
+      const { data, error } = await sb.from('material_stock').select('*').eq('project_id', projectId)
+      if (error) return []
+      return (data as MaterialStockRow[]).map(r => ({ ...r, qty_in: Number(r.qty_in), qty_out: Number(r.qty_out), qty_return: Number(r.qty_return), on_hand: Number(r.on_hand) }))
+    },
+    async listMaterialItems() {
+      const { data, error } = await sb.from('materials').select('id, category, name, brand, spec, unit, unit_price').order('name').limit(2000)
+      return error ? [] : (data as MaterialItem[])
+    },
     deletePayment: id => remove('payments', id),
     async updatePayments(ids, patch) {
       if (!ids.length) return

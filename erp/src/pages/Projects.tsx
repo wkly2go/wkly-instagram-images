@@ -15,6 +15,7 @@ import { Board, type BoardCol } from '../components/Board'
 import { Shell } from '../components/Shell'
 import { Badge, Button, Chip, Empty, Field, FilterGroup, KindTag, Modal, SectionHead, StatusBadge, ViewTabs } from '../components/ui'
 import { NewApproval } from './Approvals'
+import { MaterialMoves } from '../components/MaterialMoves'
 import { FinancePanel } from '../components/FinancePanel'
 import { ProjectDashboard } from './ProjectDashboard'
 import { Payments } from './Payments'
@@ -771,6 +772,8 @@ function ProjectDetail({ project: p, data, onEdit, onBack, panel = false }: { pr
       {/* 인테리어(아트리어 · AR) 프로젝트는 현장 작업일지, 다른 프로젝트는 작업일지가 있을 때만 */}
       <SiteLogsSection project={p} always={projectBrand(p) === 'AR'} />
       <FinancePanel project={p} clients={data.clients} projects={data.projects} />
+      {/* 자재 입출고: 입고 · 반품은 위 결제 내역(지급)에 자동 등록 */}
+      <MaterialMoves project={p} clients={data.clients} />
       {/* 이 프로젝트의 결재 · 보고 */}
       <SectionHead title="결재 · 보고" count={extra.approvals.length ? String(extra.approvals.length) : undefined} right={<Link to="/approvals">보고서 결제 ›</Link>} />
       {extra.approvals.length === 0 ? (

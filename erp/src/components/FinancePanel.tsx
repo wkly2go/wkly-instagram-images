@@ -5,7 +5,7 @@ import { useAction, useApp, useAsync } from '../lib/app'
 import { manwon, shortDate, todayKey } from '../lib/date'
 import { budgetByCategory, isOverdue, projectMoney, supply } from '../lib/finance'
 import { Link } from '../lib/router'
-import type { BudgetLine, Client, Payment, Project, ProjectFinance } from '../lib/types'
+import { EVIDENCE_KINDS, evidenceHasVat, type BudgetLine, type Client, type EvidenceKind, type Payment, type Project, type ProjectFinance } from '../lib/types'
 import { Meter } from './charts'
 import { PaymentForm, parseMoney } from './PaymentForm'
 import { Badge, Button, Empty, Field, Modal, type Tone } from './ui'
@@ -37,7 +37,8 @@ export function FinancePanel({ project, clients, projects }: { project: Project;
   )
   const [editFin, setEditFin] = useState(false)
   const [form, setForm] = useState<Payment | 'new' | null>(null)
-  const [quick, setQuick] = useState({ direction: '지급' as Payment['direction'], title: '', payee: '', amount: '', due: '' })
+  // 간편 입력 (대표 지시 2026-10-29 "세금계산서와 영수증 · 현금 지급을 간편하게"): 증빙 버튼 하나로 부가세 · 계산서 · 증빙 종류가 정해짐
+  const [quick, setQuick] = useState({ direction: '지급' as Payment['direction'], title: '', payee: '', amount: '', due: '', evidence: '세금계산서' as EvidenceKind, done: false, invoice: false })
   const [line, setLine] = useState({ category: '', payee: '', budget: '' })
   const m = projectMoney(data.finance, data.payments, data.lines, today)
   const cats = budgetByCategory(data.lines, data.payments)
@@ -48,6 +49,7 @@ export function FinancePanel({ project, clients, projects }: { project: Project;
     const amount = parseMoney(quick.amount)
     if (!quick.title.trim() || !amount) return
     const client = clients.find(c => c.name === quick.payee.trim())
+    const ev = quick.evidence
     const ok = await run(
       () =>
         api.savePayment({
@@ -57,15 +59,18 @@ export function FinancePanel({ project, clients, projects }: { project: Project;
           payee: quick.payee.trim() || null,
           client_id: client?.id ?? null,
           amount,
-          vat: Math.round(amount / 11),
-          contract_type: '세금계산서',
-          tax_invoice: '미발행',
-          status: '예정',
-          due_date: quick.due || null,
+          vat: evidenceHasVat(ev) ? Math.round(amount / 11) : 0,
+          contract_type: ev === '간이영수증' || ev === '현금' ? '기타' : ev,
+          tax_invoice: ev === '세금계산서' ? (quick.invoice ? '발행' : '미발행') : '해당 없음',
+          tax_invoice_date: ev === '세금계산서' && quick.invoice ? today : null,
+          status: quick.done ? '완료' : '예정',
+          paid_date: quick.done ? quick.due || today : null,
+          due_date: quick.done ? null : quick.due || null,
+          memo: ev === '간이영수증' || ev === '현금' ? `증빙: ${ev}` : null,
         }),
-      '추가했습니다. (VAT 10% 포함으로 계산 · 눌러서 수정)',
+      `추가했습니다. (${evidenceHasVat(ev) ? '부가세 10% 포함으로 계산' : '부가세 없음'} · 눌러서 수정)`,
     )
-    if (ok) setQuick(q => ({ ...q, title: '', amount: '', due: '' }))
+    if (ok) setQuick(q => ({ ...q, title: '', amount: '', due: '', invoice: false }))
   }
   const addLine = async () => {
     if (!line.category.trim()) return
@@ -239,26 +244,55 @@ export function FinancePanel({ project, clients, projects }: { project: Project;
           </table>
         </div>
       )}
-      <div className="row wrap" style={admin ? undefined : { display: 'none' }}>
-        <select className="select" style={{ width: 84 }} value={quick.direction} onChange={e => setQuick({ ...quick, direction: e.target.value as Payment['direction'] })} aria-label="구분">
-          <option>지급</option>
-          <option>수금</option>
-        </select>
-        <input className="input" style={{ flex: '2 1 140px' }} placeholder="내용" value={quick.title} onChange={e => setQuick({ ...quick, title: e.target.value })} aria-label="결제 내용" />
-        <input className="input" style={{ flex: '1 1 110px' }} list="fin-payees" placeholder="업체" value={quick.payee} onChange={e => setQuick({ ...quick, payee: e.target.value })} aria-label="업체" />
-        <datalist id="fin-payees">
-          {clients.map(c => (
-            <option key={c.id} value={c.name} />
-          ))}
-        </datalist>
-        <input className="input" style={{ flex: '1 1 100px' }} inputMode="numeric" placeholder="금액 (VAT 포함)" value={quick.amount} onChange={e => setQuick({ ...quick, amount: e.target.value })} aria-label="금액" />
-        <input className="input" style={{ width: 136 }} type="date" value={quick.due} onChange={e => setQuick({ ...quick, due: e.target.value })} aria-label="예정일" />
-        <Button onClick={addQuick} disabled={busy || !quick.title.trim() || !parseMoney(quick.amount)}>
-          추가
-        </Button>
-        <Button kind="outline" onClick={() => setForm('new')}>
-          자세히 입력
-        </Button>
+      <div className="quick-pay" style={admin ? undefined : { display: 'none' }}>
+        <div className="row wrap">
+          <div className="seg" role="radiogroup" aria-label="구분">
+            {(['지급', '수금'] as const).map(d => (
+              <button key={d} type="button" role="radio" aria-checked={quick.direction === d} className={quick.direction === d ? 'on' : ''} onClick={() => setQuick({ ...quick, direction: d })}>
+                {d}
+              </button>
+            ))}
+          </div>
+          <input className="input" style={{ flex: '2 1 140px' }} placeholder="내용 (예: 목공 자재 · 현장 식대)" value={quick.title} onChange={e => setQuick({ ...quick, title: e.target.value })} aria-label="결제 내용" />
+          <input className="input" style={{ flex: '1 1 110px' }} list="fin-payees" placeholder={quick.direction === '수금' ? '보내는 곳' : '업체 · 받는 사람'} value={quick.payee} onChange={e => setQuick({ ...quick, payee: e.target.value })} aria-label="업체" />
+          <datalist id="fin-payees">
+            {clients.map(c => (
+              <option key={c.id} value={c.name} />
+            ))}
+          </datalist>
+          <input className="input" style={{ flex: '1 1 110px' }} inputMode="numeric" placeholder="총액 (부가세 포함)" value={quick.amount} onChange={e => setQuick({ ...quick, amount: e.target.value })} onKeyDown={e => e.key === 'Enter' && addQuick()} aria-label="금액" />
+          <input className="input" style={{ width: 136 }} type="date" value={quick.due} onChange={e => setQuick({ ...quick, due: e.target.value })} aria-label={quick.done ? '지급일' : '예정일'} title={quick.done ? '지급한 날 (비우면 오늘)' : '지급 예정일 (비우면 차주 월요일)'} />
+        </div>
+        <div className="row wrap">
+          <span className="t-cap">증빙</span>
+          <div className="seg" role="radiogroup" aria-label="증빙">
+            {EVIDENCE_KINDS.map(k => (
+              <button key={k} type="button" role="radio" aria-checked={quick.evidence === k} className={quick.evidence === k ? 'on' : ''} onClick={() => setQuick({ ...quick, evidence: k, done: k === '현금' || k === '카드' ? true : quick.done })}>
+                {k}
+              </button>
+            ))}
+          </div>
+          {quick.evidence === '세금계산서' && (
+            <label className="mat-check">
+              <input type="checkbox" checked={quick.invoice} onChange={e => setQuick({ ...quick, invoice: e.target.checked })} /> 계산서 {quick.direction === '수금' ? '발행함' : '받음'}
+            </label>
+          )}
+          <label className="mat-check">
+            <input type="checkbox" checked={quick.done} onChange={e => setQuick({ ...quick, done: e.target.checked })} /> {quick.direction === '수금' ? '입금 받음' : '이미 지급함'}
+          </label>
+          <span className="grow" />
+          {parseMoney(quick.amount) > 0 && (
+            <span className="t-cap">
+              {evidenceHasVat(quick.evidence) ? `공급가 ${Math.round(parseMoney(quick.amount) / 1.1).toLocaleString('ko-KR')} + 부가세 ${Math.round(parseMoney(quick.amount) / 11).toLocaleString('ko-KR')}` : '부가세 없음'}
+            </span>
+          )}
+          <Button onClick={addQuick} disabled={busy || !quick.title.trim() || !parseMoney(quick.amount)}>
+            {quick.direction} 추가
+          </Button>
+          <Button kind="outline" onClick={() => setForm('new')}>
+            자세히 입력
+          </Button>
+        </div>
       </div>
 
       {editFin && <FinanceForm project={project} finance={data.finance} hasLines={data.lines.length > 0} onClose={() => setEditFin(false)} />}

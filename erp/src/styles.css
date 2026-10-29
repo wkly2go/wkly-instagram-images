@@ -2355,3 +2355,24 @@ html.col-resizing iframe { pointer-events: none; }
 .ins-legend i { display: inline-block; width: 12px; border-radius: 3px; }
 /* 고르기 목록: 찾는 게 없을 때 새로 추가 */
 .pick-create { color: var(--blue); font-weight: 700; border-bottom: 1px solid var(--line); margin-bottom: 2px; }
+
+/* 자재 입출고 · 간편 입출금 (2026-10-29) */
+.mat-form, .quick-pay { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); }
+.quick-pay { flex-direction: column; align-items: stretch; }
+.mat-form .input { height: 32px; }
+.mat-name { flex: 2 1 200px; min-width: 160px; }
+.mat-spec { flex: 1 1 110px; min-width: 90px; }
+.mat-qty { flex: 0 1 72px; min-width: 60px; }
+.mat-unit { flex: 0 1 60px; min-width: 50px; }
+.mat-price { flex: 1 1 120px; min-width: 100px; }
+.mat-sup { flex: 1 1 130px; min-width: 110px; }
+.mat-date { flex: 0 0 136px; }
+.mat-ev { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; flex-basis: 100%; }
+.mat-sum { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; flex-basis: 100%; }
+.mat-sum b { color: var(--blue); font-variant-numeric: tabular-nums; }
+.mat-check { display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-cap); font-weight: 600; color: var(--blue); cursor: pointer; white-space: nowrap; }
+.mat-form .seg, .quick-pay .seg { background: var(--white); border: 1px solid var(--line); border-radius: 8px; padding: 2px; }
+.mat-row { display: flex; align-items: center; gap: 8px; padding: 5px 2px; border-bottom: 1px solid var(--line); min-width: 0; font-size: var(--fs-sm); }
+.mat-row.muted { opacity: .5; text-decoration: line-through; }
+.mat-stock td.red b { color: var(--alert); }
+.mat-moves .badge svg { vertical-align: -1px; }

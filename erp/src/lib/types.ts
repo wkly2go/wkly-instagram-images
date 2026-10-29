@@ -1124,3 +1124,57 @@ export interface LedgerStatus {
   /** 최근 10분 틀린 횟수 (5번이면 잠김) */
   fails?: number
 }
+
+// ---------- 자재 입출고 (0068) ----------
+export const MATERIAL_MOVE_KINDS = ['입고', '출고', '반품'] as const
+export type MaterialMoveKind = (typeof MATERIAL_MOVE_KINDS)[number]
+/** 증빙: 세금계산서 · 카드 · 현금영수증은 부가세 10% 포함, 간이영수증 · 현금은 부가세 없음 */
+export const EVIDENCE_KINDS = ['세금계산서', '카드', '현금영수증', '간이영수증', '현금'] as const
+export type EvidenceKind = (typeof EVIDENCE_KINDS)[number]
+export const evidenceHasVat = (e: EvidenceKind) => e === '세금계산서' || e === '카드' || e === '현금영수증'
+export interface MaterialMove {
+  id: string
+  project_id: string
+  material_id: string | null
+  kind: MaterialMoveKind
+  name: string
+  spec: string | null
+  unit: string | null
+  qty: number
+  /** 공급 단가 (부가세 별도) */
+  unit_price: number
+  supplier: string | null
+  client_id: string | null
+  evidence: EvidenceKind
+  invoice_received: boolean
+  /** 바로 지급함 (현금 · 카드) */
+  paid: boolean
+  received_on: string
+  status: '입고' | '취소'
+  payment_id: string | null
+  memo: string | null
+  created_by: string | null
+  created_at: string
+}
+export interface MaterialStockRow {
+  project_id: string
+  material_id: string | null
+  name: string
+  spec: string | null
+  unit: string | null
+  qty_in: number
+  qty_out: number
+  qty_return: number
+  on_hand: number
+  last_on: string
+}
+/** 마감재 DB 자재 (고르기용) */
+export interface MaterialItem {
+  id: string
+  category: string | null
+  name: string
+  brand: string | null
+  spec: string | null
+  unit: string | null
+  unit_price: number | null
+}
