@@ -303,3 +303,108 @@ export function paymentChecks(payments: Payment[], lines: BudgetLine[], projects
   ]
   return checks.filter(c => c.items.length)
 }
+
+/** 업체(받는 사람)별 계약 · 지급 진행 (공급가액). 대표 지시 2026-10-29 "계약이 된 건지, 몇 프로 지급했는지, 남은 금액이 얼마인지" */
+export interface ContractRow {
+  key: string
+  projectId: string | null
+  payee: string
+  category: string | null
+  /** 예산 줄의 업체 계약금 합 (없으면 계약 없음) */
+  contract: number | null
+  /** 잡힌 지급 합 (예상 · 취소 제외) */
+  scheduled: number
+  paid: number
+  open: number
+  /** 계약이 있으면 계약 대비, 없으면 잡힌 지급 대비 % */
+  rate: number | null
+  /** (계약 ?? 잡힌 지급) − 지급 완료 */
+  remain: number
+  count: number
+  doneCount: number
+  next: string | null
+  bank: string | null
+  account: string | null
+  holder: string | null
+}
+
+export const contractKey = (p: Pick<Payment, 'project_id' | 'payee' | 'title'>) => `${p.project_id ?? '-'}|${normName(p.payee?.trim() || p.title)}`
+
+export function contractRows(payments: Payment[], lines: BudgetLine[]): ContractRow[] {
+  const map = new Map<string, { items: Payment[] }>()
+  for (const p of payments) {
+    if (p.direction !== '지급' || p.is_estimate || p.status === '취소') continue
+    const k = contractKey(p)
+    const g = map.get(k) ?? { items: [] }
+    g.items.push(p)
+    map.set(k, g)
+  }
+  return [...map.entries()].map(([key, { items }]) => {
+    const first = items[0]
+    const name = normName(first.payee?.trim() || first.title)
+    const ids = new Set(items.map(p => p.budget_line_id).filter(Boolean))
+    const mine = lines.filter(l => l.project_id === first.project_id && ((l.payee && normName(l.payee) === name) || ids.has(l.id)))
+    const cs = mine.map(l => l.contract_amount).filter((n): n is number => n != null)
+    const contract = cs.length ? cs.reduce((a, b) => a + b, 0) : null
+    const paid = sum(items.filter(isDone))
+    const open = sum(items.filter(isOpen))
+    const scheduled = paid + open
+    const base = contract ?? scheduled
+    const withAcc = [...items].reverse().find(p => p.account_no)
+    const next = items.filter(p => isOpen(p) && p.due_date).map(p => p.due_date!).sort()[0] ?? null
+    return {
+      key,
+      projectId: first.project_id,
+      payee: first.payee?.trim() || first.title,
+      category: mine[0]?.category ?? first.category,
+      contract,
+      scheduled,
+      paid,
+      open,
+      rate: base > 0 ? (paid / base) * 100 : null,
+      remain: base - paid,
+      count: items.length,
+      doneCount: items.filter(isDone).length,
+      next,
+      bank: withAcc?.bank_name ?? null,
+      account: withAcc?.account_no ?? null,
+      holder: withAcc?.account_holder ?? null,
+    }
+  })
+}
+
+/** 노무비 사람별 합계 */
+export interface LaborPerson {
+  key: string
+  name: string
+  types: string[]
+  projects: string[]
+  count: number
+  total: number
+  open: number
+  bank: string | null
+  account: string | null
+  holder: string | null
+}
+
+export function laborPeople(list: Payment[]): LaborPerson[] {
+  const map = new Map<string, LaborPerson>()
+  for (const p of list) {
+    const name = p.payee?.trim() || p.account_holder?.trim() || '이름 없음'
+    const k = normName(name)
+    const r = map.get(k) ?? { key: k, name, types: [], projects: [], count: 0, total: 0, open: 0, bank: null, account: null, holder: null }
+    if (p.contract_type && !r.types.includes(p.contract_type)) r.types.push(p.contract_type)
+    if (p.project_id && !r.projects.includes(p.project_id)) r.projects.push(p.project_id)
+    if (isDone(p)) {
+      r.count++
+      r.total += p.amount
+    } else if (isOpen(p)) r.open += p.amount
+    if (p.account_no) {
+      r.bank = p.bank_name
+      r.account = p.account_no
+      r.holder = p.account_holder
+    }
+    map.set(k, r)
+  }
+  return [...map.values()].sort((a, b) => b.total - a.total || b.open - a.open)
+}

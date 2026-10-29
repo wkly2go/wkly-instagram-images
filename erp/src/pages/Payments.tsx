@@ -3,9 +3,10 @@ import { ChevronLeft, ChevronRight, Search } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { toCsv, downloadText } from '../lib/csv'
 import { addDays, dateLabel, manwon, shortDate, todayKey } from '../lib/date'
-import { advanceGroups, isAdvance, isAgency, isDone, isLabor, isOpen, isOverdue, laborMonthly, maskAccount, paymentChecks, paymentRun, runMonday, sameName, supply } from '../lib/finance'
+import { advanceGroups, contractKey, contractRows, isAdvance, isAgency, isDone, isLabor, isOpen, isOverdue, laborMonthly, laborPeople, paymentChecks, paymentRun, projectMoney, runMonday, sameName, supply } from '../lib/finance'
 import { useRouter, withQuery } from '../lib/router'
-import type { BudgetLine, Client, Payment, Project } from '../lib/types'
+import type { BudgetLine, Client, Payment, Project, ProjectFinance } from '../lib/types'
+import { AccountCell, PayDash, ProgressCell } from '../components/PayDash'
 import { PaymentForm } from '../components/PaymentForm'
 import { Badge, Button, Chip, Empty, Loading, type Tone } from '../components/ui'
 import { PaymentImport } from './PaymentImport'
@@ -16,6 +17,7 @@ const PAY_TONE: Record<Payment['status'], Tone> = { 예정: 'outline', 청구: '
 export interface PayData {
   payments: Payment[]
   lines: BudgetLine[]
+  finances: ProjectFinance[]
 }
 
 /** 프로젝트 › 결제 대장 (관리자) */
@@ -26,11 +28,11 @@ export function Payments({ projects, clients }: { projects: Project[]; clients: 
   const go = (patch: Record<string, string | null>) => navigate(withQuery(path, query, patch), { replace: true })
   const { data, loading } = useAsync<PayData>(
     async () => {
-      const [payments, lines] = await Promise.all([api.listPayments(), api.listBudgetLines()])
-      return { payments, lines }
+      const [payments, lines, finances] = await Promise.all([api.listPayments(), api.listBudgetLines(), api.listFinances()])
+      return { payments, lines, finances }
     },
     [version],
-    { payments: [], lines: [] },
+    { payments: [], lines: [], finances: [] },
   )
   const advances = advanceGroups(data.payments)
   const checks = paymentChecks(data.payments, data.lines, projects, todayKey())
@@ -123,6 +125,18 @@ function Register({ data, projects, clients }: { data: PayData; projects: Projec
   const estimate = rows.filter(p => p.is_estimate && p.status !== '취소').reduce((n, p) => n + p.amount, 0)
   const selected = rows.filter(p => sel.has(p.id))
   const opened = openId ? data.payments.find(p => p.id === openId) : undefined
+  // 업체별 계약 · 지급률 · 잔액, 현장별 수금률 (줄마다 보여 줌)
+  const contracts = useMemo(() => new Map(contractRows(data.payments, data.lines).map(c => [c.key, c])), [data.payments, data.lines])
+  const collect = useMemo(() => {
+    const map = new Map<string, { contract: number | null; rate: number | null; remain: number }>()
+    for (const pr of projects) {
+      const fin = data.finances.find(f => f.project_id === pr.id)
+      if (fin?.contract_amount == null) continue
+      const m = projectMoney(fin, data.payments.filter(p => p.project_id === pr.id), [], today)
+      map.set(pr.id, { contract: m.contract, rate: m.collectRate, remain: (m.contract ?? 0) - m.received })
+    }
+    return map
+  }, [data.payments, data.finances, projects, today])
 
   const toggleAll = (on: boolean) => setSel(on ? new Set(rows.map(p => p.id)) : new Set())
   // 필터를 바꾸면 선택을 비움 (안 보이는 줄이 같이 바뀌지 않게)
@@ -146,6 +160,7 @@ function Register({ data, projects, clients }: { data: PayData; projects: Projec
 
   return (
     <>
+      <PayDash projectId={projectId === 'none' ? '' : projectId} projects={projects} payments={data.payments} lines={data.lines} finances={data.finances} onPick={id => go({ project: id })} onVendor={name => { setQ(name); go({ q: name }) }} />
       <div className="filters">
         <select className="select" value={projectId} onChange={e => go({ project: e.target.value || null })} aria-label="프로젝트">
           <option value="">모든 현장</option>
@@ -216,14 +231,13 @@ function Register({ data, projects, clients }: { data: PayData; projects: Projec
                 <th>
                   <input type="checkbox" aria-label="모두 선택" checked={sel.size > 0 && selected.length === rows.length} onChange={e => toggleAll(e.target.checked)} />
                 </th>
-                <th>요청일</th>
                 {!projectId && <th>현장</th>}
-                <th>공사 구분</th>
-                <th>항목</th>
+                <th>항목 · 물품</th>
                 <th>업체·성명</th>
                 <th className="num">금액</th>
                 <th>상태</th>
                 <th className="num" title="완료면 지급일, 아니면 지급예정일">날짜</th>
+                <th style={{ minWidth: 170 }} title="업체 계약금(공급가) 대비 지급 완료 비율 · 수금은 현장 계약 대비">계약 · 진행</th>
                 <th>계산서</th>
                 <th>계좌</th>
               </tr>
@@ -246,20 +260,20 @@ function Register({ data, projects, clients }: { data: PayData; projects: Projec
                         }}
                       />
                     </td>
-                    <td className="num">{shortDate(p.requested_date) || '–'}</td>
                     {!projectId && (
                       <td className="max">
-                        <span className="truncate" style={{ display: 'block', maxWidth: 130 }} title={projectName(p.project_id)}>
+                        <button type="button" className="link-btn truncate" style={{ display: 'block', maxWidth: 130 }} title={`${projectName(p.project_id)} — 이 현장만 보기`} onClick={e => { e.stopPropagation(); if (p.project_id) go({ project: p.project_id }) }}>
                           {projectName(p.project_id) || '–'}
-                        </span>
+                        </button>
                       </td>
                     )}
-                    <td className="nowrap">{p.category ?? '–'}</td>
                     <td className="max">
                       <span className="strong truncate" style={{ display: 'block' }} title={p.title}>
                         {p.direction === '수금' && <Badge tone="blue">수금</Badge>} {p.title}
                       </span>
-                      <span className="t-cap">{[p.stage, p.is_estimate ? '예상 비용' : null, isAdvance(p) ? `대지급 ${p.advance_by!.trim()}` : null, p.approval_id ? '지출 승인' : null].filter(Boolean).join(' · ')}</span>
+                      <span className="t-cap truncate" style={{ display: 'block', maxWidth: 260 }} title={p.memo ?? undefined}>
+                        {[p.category, p.stage, p.is_estimate ? '예상 비용' : null, isAdvance(p) ? `대지급 ${p.advance_by!.trim()}` : null, p.approval_id ? '지출 승인' : null, p.memo].filter(Boolean).join(' · ') || '–'}
+                      </span>
                     </td>
                     <td className="nowrap">
                       <span style={{ display: 'block' }}>{p.payee ?? '–'}</span>
@@ -271,10 +285,22 @@ function Register({ data, projects, clients }: { data: PayData; projects: Projec
                     </td>
                     <td className={`num ${isLate ? 'red' : ''}`} title={p.paid_date ? `지급일 ${p.paid_date}` : p.due_date ? `지급예정일 ${p.due_date}` : undefined}>
                       {p.paid_date ? shortDate(p.paid_date) : p.due_date ? <span className="t-muted">{shortDate(p.due_date)} 예정</span> : '–'}
+                      {p.requested_date && <span className="t-cap" style={{ display: 'block' }}>요청 {shortDate(p.requested_date)}</span>}
+                    </td>
+                    <td>
+                      {(() => {
+                        if (p.status === '취소' || p.is_estimate) return <span className="t-muted">–</span>
+                        if (p.direction === '수금') {
+                          const c = p.project_id ? collect.get(p.project_id) : undefined
+                          return c ? <ProgressCell contract={c.contract} rate={c.rate} remain={c.remain} verb="수금" /> : <span className="t-muted">현장 계약 없음</span>
+                        }
+                        const c = contracts.get(contractKey(p))
+                        return c ? <ProgressCell contract={c.contract} rate={c.rate} remain={c.remain} /> : <span className="t-muted">–</span>
+                      })()}
                     </td>
                     <td className="nowrap t-cap">{p.tax_invoice === '해당 없음' ? '–' : p.tax_invoice}</td>
-                    <td className="nowrap t-cap" title={p.account_holder ? `예금주 ${p.account_holder}` : undefined}>
-                      {p.bank_name || p.account_no ? `${p.bank_name ?? ''} ${maskAccount(p.account_no)}` : '–'}
+                    <td className="nowrap">
+                      <AccountCell bank={p.bank_name} no={p.account_no} holder={p.account_holder} payee={p.payee} />
                     </td>
                   </tr>
                 )
@@ -401,11 +427,18 @@ function Advances({ data, projects }: { data: PayData; projects: Project[] }) {
 
 function Labor({ data, projects }: { data: PayData; projects: Project[] }) {
   const today = todayKey()
+  const { query, path, navigate } = useRouter()
+  const projectId = query.get('project') ?? ''
   const [year, setYear] = useState(today.slice(0, 4))
   const [month, setMonth] = useState<string | null>(today.slice(0, 7))
-  const months = laborMonthly(data.payments, year)
+  const [by, setBy] = useState<'person' | 'list'>('person')
+  const scoped = projectId ? data.payments.filter(p => p.project_id === projectId) : data.payments
+  const months = laborMonthly(scoped, year)
   const projectName = (id: string | null) => projects.find(p => p.id === id)?.name ?? ''
-  const labor = data.payments.filter(isLabor)
+  const labor = scoped.filter(isLabor)
+  // 사람별: 고른 달(없으면 고른 해)의 지급 완료 + 미지급
+  const period = month ?? year
+  const people = laborPeople(labor.filter(p => ((p.status === '완료' ? p.paid_date : p.due_date ?? p.requested_date) ?? '').startsWith(period)))
   const rows = month ? labor.filter(p => p.status === '완료' && p.paid_date?.startsWith(month)).sort((a, b) => (a.paid_date ?? '').localeCompare(b.paid_date ?? '')) : []
   const unpaid = month ? labor.filter(p => isOpen(p) && (p.due_date ?? p.requested_date ?? '').startsWith(month)) : []
   const noType = rows.filter(p => !p.contract_type)
@@ -422,13 +455,21 @@ function Labor({ data, projects }: { data: PayData; projects: Project[] }) {
   return (
     <>
       <div className="note">결제 대장에서 계약형태가 사업소득(3.3%)·일용근로·4대보험 근로이거나 공사 구분이 '노무비'인 지급 완료 건을 지급일 기준으로 모읍니다. 매달 첫째 주 세무사에게 CSV로 전달하세요.</div>
-      <div className="row">
+      <div className="row wrap">
         <select className="select" style={{ width: 110 }} value={year} onChange={e => setYear(e.target.value)} aria-label="연도">
           {years.map(y => (
             <option key={y}>{y}</option>
           ))}
         </select>
-        <span className="t-cap">월을 누르면 아래에 명세가 나옵니다.</span>
+        <select className="select" style={{ width: 220 }} value={projectId} onChange={e => navigate(withQuery(path, query, { project: e.target.value || null }), { replace: true })} aria-label="현장">
+          <option value="">모든 현장</option>
+          {projects.filter(pr => data.payments.some(p => p.project_id === pr.id && isLabor(p))).map(pr => (
+            <option key={pr.id} value={pr.id}>
+              {pr.name}
+            </option>
+          ))}
+        </select>
+        <span className="t-cap">월을 누르면 아래에 사람별 합계와 명세가 나옵니다. 다시 누르면 한 해 전체.</span>
       </div>
       <div className="table-wrap">
         <table className="table">
@@ -469,7 +510,63 @@ function Labor({ data, projects }: { data: PayData; projects: Project[] }) {
           </tfoot>
         </table>
       </div>
-      {month && (
+      <section className="section">
+        <div className="section-h">
+          <span className="t-bodyb">{month ? `${month.replace('-', '.')}` : `${year}년`} 사람별 노무비</span>
+          <span className="cap">
+            {people.length}명 · 지급 {people.reduce((n, r) => n + r.total, 0).toLocaleString('ko-KR')}원
+            {people.some(r => r.open) ? ` · 미지급 ${people.reduce((n, r) => n + r.open, 0).toLocaleString('ko-KR')}원` : ''}
+          </span>
+          {month && (
+            <span className="seg" role="radiogroup" aria-label="보기">
+              <button type="button" role="radio" aria-checked={by === 'person'} className={by === 'person' ? 'on' : ''} onClick={() => setBy('person')}>
+                사람별
+              </button>
+              <button type="button" role="radio" aria-checked={by === 'list'} className={by === 'list' ? 'on' : ''} onClick={() => setBy('list')}>
+                지급 명세
+              </button>
+            </span>
+          )}
+        </div>
+        {(!month || by === 'person') &&
+          (people.length === 0 ? (
+            <Empty>이 기간 노무비가 없습니다.</Empty>
+          ) : (
+            <div className="table-wrap">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>성명</th>
+                    <th>고용형태</th>
+                    <th>현장</th>
+                    <th className="num">지급 건수</th>
+                    <th className="num">지급 총액</th>
+                    <th className="num">미지급</th>
+                    <th>계좌</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {people.map(r => (
+                    <tr key={r.key}>
+                      <td className="strong nowrap">{r.name}</td>
+                      <td className="nowrap t-cap">{r.types.join(', ') || <span className="t-red">미입력</span>}</td>
+                      <td className="max t-cap truncate" style={{ maxWidth: 200 }} title={r.projects.map(projectName).join(', ')}>
+                        {r.projects.map(projectName).filter(Boolean).join(', ') || '–'}
+                      </td>
+                      <td className="num">{r.count || '–'}</td>
+                      <td className="num">{r.total ? r.total.toLocaleString('ko-KR') : '–'}</td>
+                      <td className={`num ${r.open ? 't-blue' : ''}`}>{r.open ? r.open.toLocaleString('ko-KR') : '–'}</td>
+                      <td>
+                        <AccountCell bank={r.bank} no={r.account} holder={r.holder} payee={r.name} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ))}
+      </section>
+      {month && by === 'list' && (
         <section className="section">
           <div className="section-h">
             <span className="t-bodyb">{month.replace('-', '.')} 노무비 명세</span>
@@ -513,9 +610,8 @@ function Labor({ data, projects }: { data: PayData; projects: Project[] }) {
                         {p.payee ?? '–'} {isAgency(p) && <Badge tone="paper">업체</Badge>}
                       </td>
                       <td className="nowrap t-cap">{p.contract_type ?? '–'}</td>
-                      <td className="nowrap t-cap">
-                        {p.bank_name ?? ''} {maskAccount(p.account_no)}
-                        {p.account_holder && !sameName(p.account_holder, p.payee) ? ` (${p.account_holder})` : ''}
+                      <td>
+                        <AccountCell bank={p.bank_name} no={p.account_no} holder={p.account_holder && !sameName(p.account_holder, p.payee) ? p.account_holder : null} />
                       </td>
                       <td className={`num ${p.amount < 0 ? 'red' : ''}`}>{p.amount.toLocaleString('ko-KR')}</td>
                     </tr>

@@ -2376,3 +2376,17 @@ html.col-resizing iframe { pointer-events: none; }
 .mat-row.muted { opacity: .5; text-decoration: line-through; }
 .mat-stock td.red b { color: var(--alert); }
 .mat-moves .badge svg { vertical-align: -1px; }
+
+/* 결제 대장: 계좌 전체 · 계약 진행 · 현장 대시보드 (2026-10-29) */
+.acct { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.acct-no { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; font-size: var(--fs-cap); }
+.acct-bank { color: var(--gray); }
+.mono { font-family: var(--mono); letter-spacing: 0; }
+.icon-btn.xs { width: 20px; height: 20px; min-width: 20px; padding: 0; }
+.input.xs { height: 22px; padding: 0 6px; font-size: var(--fs-cap); }
+.prog { display: flex; flex-direction: column; gap: 3px; min-width: 150px; font-size: var(--fs-cap); }
+.prog-h { display: flex; gap: 6px; white-space: nowrap; }
+.prog .meter { flex: none; width: 100%; }
+td .meter { display: block; margin: 3px 0; }
+.section-h.fold { width: 100%; border: 0; border-bottom: 1px dashed var(--line); background: none; cursor: pointer; text-align: left; }
+.pay-dash .kpi .input.xs { display: inline-block; }
