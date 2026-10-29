@@ -2296,3 +2296,60 @@ html.col-resizing iframe { pointer-events: none; }
   html.side-rail .new-btn svg { width: 17px; height: 17px; }
   html.side-rail .new-pop { left: 0; right: auto; width: 200px; }
 }
+
+/* 왼쪽 칸 더 줄이기 (2026-10-29 "왼쪽을 더 줄여줘"): 184 → 148px, 글자 · 간격 촘촘하게 */
+@media (min-width: 900px) {
+  .body > .profile { width: 148px; padding: 8px 6px; gap: 6px; }
+  .profile .me-row { gap: 6px; }
+  .profile .me-row .photo { width: 30px; height: 30px; font-size: var(--fs-sm); }
+  .profile .me-name .t-bodyb { font-size: var(--fs-sm); }
+  .profile .me-name .t-cap { font-size: 10px; }
+  .profile .side-nav { padding: 4px 0; gap: 0; }
+  .profile .side-item { gap: 6px; padding: 4px 6px; font-size: var(--fs-cap); }
+  .profile .side-item svg { width: 14px; height: 14px; }
+  .profile .side-n { min-width: 16px; height: 16px; padding: 0 4px; font-size: 10px; line-height: 16px; }
+  .profile .new-menu { margin-bottom: 4px; }
+  .profile .new-btn { height: 28px; font-size: var(--fs-cap); }
+  .profile .today-is { padding: 0 4px; gap: 4px; }
+  .profile .today-is .t-meta { display: none; }
+  .profile .today-is select { padding: 3px 0; font-size: var(--fs-cap); }
+  .profile .today-ok { height: 22px; padding: 0 7px; }
+  .profile .today-rec { font-size: 10px; line-height: 1.3; }
+  .profile .status-msg { font-size: var(--fs-cap); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .profile .side-tools { padding-top: 6px; gap: 4px; }
+  .profile .side-tools .quick-btn { height: 24px; padding: 0 7px; font-size: 10px; }
+  .profile .mini-cal-grid .day { line-height: 17px; font-size: 10px; }
+  .profile .mini-cal-grid .wd { font-size: 10px; }
+}
+/* 검색창은 오른쪽 (2026-10-29) */
+@media (pointer: fine) { .topbar > .one-box { order: 2; flex: 0 1 420px; } }
+
+/* 대시보드 인사이트 (2026-10-29) */
+.ins-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px; margin-top: 8px; }
+.ins-card { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--line); border-left: 4px solid var(--blue-tint); border-radius: 8px; background: var(--white); color: inherit; text-decoration: none; min-width: 0; }
+.ins-card:hover { background: var(--blue-tint); text-decoration: none; }
+.ins-card.bad { border-left-color: var(--alert); }
+.ins-card.warn { border-left-color: #e8a317; }
+.ins-card.good { border-left-color: var(--green); }
+.ins-card.info { border-left-color: var(--blue); }
+.ins-icon { flex: none; display: inline-flex; width: 26px; height: 26px; align-items: center; justify-content: center; border-radius: 6px; background: var(--paper); color: var(--blue); }
+.ins-card.bad .ins-icon { background: #fde8ee; color: var(--alert); }
+.ins-card.warn .ins-icon { background: #fdf3dc; color: #a46f00; }
+.ins-card.good .ins-icon { background: #e3f4ea; color: var(--green); }
+.ins-body { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.ins-title { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; font-size: var(--fs-cap); font-weight: 700; color: var(--gray); }
+.ins-title b { font-size: var(--fs-body); font-weight: 900; color: var(--blue); font-variant-numeric: tabular-nums; }
+.ins-card.bad .ins-title b { color: var(--alert); }
+.ins-detail { font-size: var(--fs-cap); color: var(--gray); line-height: 1.45; }
+.ins-cash { margin-top: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; display: flex; flex-direction: column; gap: 5px; }
+.ins-cash-h { font-size: var(--fs-cap); font-weight: 700; color: var(--blue); }
+.ins-week { display: grid; grid-template-columns: 52px minmax(0, 1fr) 84px; align-items: center; gap: 8px; }
+.ins-wk { font: 600 var(--fs-cap)/1 var(--mono); color: var(--gray); }
+.ins-bars { display: flex; flex-direction: column; gap: 2px; }
+.ins-bars i, .ins-legend i { display: block; height: 7px; min-width: 2px; border-radius: 0 4px 4px 0; }
+.ins-bars i.in, .ins-legend i.in { background: var(--blue); }
+.ins-bars i.out, .ins-legend i.out { background: #e8a317; }
+.ins-net { text-align: right; font: 700 var(--fs-cap)/1 var(--mono); color: var(--blue); font-variant-numeric: tabular-nums; }
+.ins-net.neg { color: var(--alert); }
+.ins-legend { display: flex; align-items: center; gap: 4px; font-size: 10px; color: var(--gray); }
+.ins-legend i { display: inline-block; width: 12px; border-radius: 3px; }

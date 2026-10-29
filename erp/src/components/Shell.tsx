@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from 'react'
 import { useMyAgents } from './AgentDesk'
-import { Bookmark, Bot, ListTodo, Plus, Search, Briefcase, HardDrive, ChevronDown, ChevronLeft, ChevronRight, CircleHelp, PanelLeftClose, PanelLeftOpen, ClipboardCheck, FolderKanban, Home, Library, Megaphone, MessageCircle, MoreHorizontal, Settings, Users, Landmark, type LucideIcon } from 'lucide-react'
+import { Bookmark, Bot, ListTodo, Plus, Search, Briefcase, HardDrive, ChevronLeft, ChevronRight, CircleHelp, PanelLeftClose, PanelLeftOpen, ClipboardCheck, FolderKanban, Home, Library, Megaphone, MessageCircle, MoreHorizontal, Settings, Users, Landmark, type LucideIcon } from 'lucide-react'
 import { accessSource, isDesktopApp } from '../lib/desktop'
 import { useAttendance } from '../lib/attendance'
 import { AssignTaskModal } from './AssignTask'
@@ -385,22 +385,8 @@ function MiniCalendar() {
   const { navigate, path, query } = useRouter()
   const today = todayKey()
   const [month, setMonth] = useState(today.slice(0, 7))
-  // 달력 접기 (기본 접힘 · 이 PC에 기억)
-  const [open, setOpenRaw] = useState(() => {
-    try {
-      return localStorage.getItem('wkly-mini-cal') === '1'
-    } catch {
-      return false
-    }
-  })
-  const setOpen = (v: boolean) => {
-    setOpenRaw(v)
-    try {
-      localStorage.setItem('wkly-mini-cal', v ? '1' : '0')
-    } catch {
-      /* 무시 */
-    }
-  }
+  // 달력은 늘 펼쳐 둠 (대표 지시 2026-10-29 "왼쪽 달력 고정")
+  const open = true
   const { data } = useAsync(
     async () => {
       const [tasks, projects, leaves] = await Promise.all([api.listTasks(), api.listProjects(), api.listLeave()])
@@ -447,7 +433,7 @@ function MiniCalendar() {
             <ChevronLeft size={14} />
           </button>
         )}
-        <button type="button" className="mini-cal-title grow" onClick={() => (open ? setMonth(today.slice(0, 7)) : setOpen(true))} title={open ? '이번 달로' : '달력 펼치기'}>
+        <button type="button" className="mini-cal-title grow" onClick={() => setMonth(today.slice(0, 7))} title="이번 달로">
           {y}.{mo}
         </button>
         {open && (
@@ -455,9 +441,6 @@ function MiniCalendar() {
             <ChevronRight size={14} />
           </button>
         )}
-        <button type="button" className="icon-btn" onClick={() => setOpen(!open)} aria-label={open ? '달력 접기' : '달력 펼치기'} title={open ? '달력 접기' : '달력 펼치기'}>
-          <ChevronDown size={14} style={{ transform: open ? 'rotate(180deg)' : undefined }} />
-        </button>
       </div>
       {open && <div className="mini-cal-grid">
         {['일', '월', '화', '수', '목', '금', '토'].map(w => (
@@ -569,11 +552,12 @@ export function ShellFrame({ children, initial }: { children: ReactNode; initial
                   <ChevronRight size={15} />
                 </button>
               </span>
+              <span className="grow" />
+              {/* 검색창은 오른쪽 (2026-10-29) */}
               <OneBox />
               <NotificationBell />
               {/* 오른쪽 위 아이콘들은 '보기' 펼침 메뉴 하나로 (2026-10-28) */}
               <TopMenu showDownload={!isDesktopApp()} />
-              <span className="grow" />
             </header>
             <div className="body" ref={mountWebSlot}>
               <ProfilePanel summary={summary} active={active} />
