@@ -2323,3 +2323,33 @@ html.col-resizing iframe { pointer-events: none; }
 }
 /* 검색창은 오른쪽 (2026-10-29) */
 @media (pointer: fine) { .topbar > .one-box { order: 2; flex: 0 1 420px; } }
+
+/* 대시보드 인사이트 (2026-10-29) */
+.ins-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px; margin-top: 8px; }
+.ins-card { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--line); border-left: 4px solid var(--blue-tint); border-radius: 8px; background: var(--white); color: inherit; text-decoration: none; min-width: 0; }
+.ins-card:hover { background: var(--blue-tint); text-decoration: none; }
+.ins-card.bad { border-left-color: var(--alert); }
+.ins-card.warn { border-left-color: #e8a317; }
+.ins-card.good { border-left-color: var(--green); }
+.ins-card.info { border-left-color: var(--blue); }
+.ins-icon { flex: none; display: inline-flex; width: 26px; height: 26px; align-items: center; justify-content: center; border-radius: 6px; background: var(--paper); color: var(--blue); }
+.ins-card.bad .ins-icon { background: #fde8ee; color: var(--alert); }
+.ins-card.warn .ins-icon { background: #fdf3dc; color: #a46f00; }
+.ins-card.good .ins-icon { background: #e3f4ea; color: var(--green); }
+.ins-body { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.ins-title { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; font-size: var(--fs-cap); font-weight: 700; color: var(--gray); }
+.ins-title b { font-size: var(--fs-body); font-weight: 900; color: var(--blue); font-variant-numeric: tabular-nums; }
+.ins-card.bad .ins-title b { color: var(--alert); }
+.ins-detail { font-size: var(--fs-cap); color: var(--gray); line-height: 1.45; }
+.ins-cash { margin-top: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; display: flex; flex-direction: column; gap: 5px; }
+.ins-cash-h { font-size: var(--fs-cap); font-weight: 700; color: var(--blue); }
+.ins-week { display: grid; grid-template-columns: 52px minmax(0, 1fr) 84px; align-items: center; gap: 8px; }
+.ins-wk { font: 600 var(--fs-cap)/1 var(--mono); color: var(--gray); }
+.ins-bars { display: flex; flex-direction: column; gap: 2px; }
+.ins-bars i, .ins-legend i { display: block; height: 7px; min-width: 2px; border-radius: 0 4px 4px 0; }
+.ins-bars i.in, .ins-legend i.in { background: var(--blue); }
+.ins-bars i.out, .ins-legend i.out { background: #e8a317; }
+.ins-net { text-align: right; font: 700 var(--fs-cap)/1 var(--mono); color: var(--blue); font-variant-numeric: tabular-nums; }
+.ins-net.neg { color: var(--alert); }
+.ins-legend { display: flex; align-items: center; gap: 4px; font-size: 10px; color: var(--gray); }
+.ins-legend i { display: inline-block; width: 12px; border-radius: 3px; }

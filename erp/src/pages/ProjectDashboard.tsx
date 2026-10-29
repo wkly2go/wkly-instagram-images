@@ -6,6 +6,7 @@ import { Link, useRouter } from '../lib/router'
 import { DIVISIONS, DIVISION_KEYS, projectBrand, type BudgetLine, type Client, type Payment, type Project, type ProjectFinance, type Task } from '../lib/types'
 import { BarChart, FlowChart, HBarChart, Meter, StackBar, shortMan } from '../components/charts'
 import { Badge, Empty, type Tone } from '../components/ui'
+import { DashInsights } from '../components/DashInsights'
 
 interface FinData {
   finances: ProjectFinance[]
@@ -44,6 +45,7 @@ export function ProjectDashboard({ projects, tasks, clients }: { projects: Proje
     <div className="col gap-12">
       {admin ? <AdminKpis projects={projects} fin={fin} money={money} today={today} /> : <MemberKpis projects={projects} tasks={tasks} today={today} />}
       {admin && <CheckStrip fin={fin} projects={projects} today={today} />}
+      <DashInsights projects={projects} tasks={tasks} clients={clients} fin={fin} money={money} today={today} />
       <Orders projects={projects} money={money} today={today} admin={admin} />
       <ProgressBoard projects={projects} tasks={tasks} today={today} />
       <OwnerProgress projects={projects} tasks={tasks} money={money} today={today} />
