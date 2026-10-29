@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from 'react'
 import { useMyAgents } from './AgentDesk'
-import { Bookmark, Bot, ListTodo, Plus, Search, Briefcase, HardDrive, ChevronLeft, ChevronRight, CircleHelp, ClipboardCheck, FolderKanban, Home, Library, Megaphone, MessageCircle, MoreHorizontal, Settings, Users, Landmark, type LucideIcon } from 'lucide-react'
+import { Bookmark, Bot, ListTodo, Plus, Search, Briefcase, HardDrive, ChevronDown, ChevronLeft, ChevronRight, CircleHelp, PanelLeftClose, PanelLeftOpen, ClipboardCheck, FolderKanban, Home, Library, Megaphone, MessageCircle, MoreHorizontal, Settings, Users, Landmark, type LucideIcon } from 'lucide-react'
 import { accessSource, isDesktopApp } from '../lib/desktop'
 import { useAttendance } from '../lib/attendance'
 import { AssignTaskModal } from './AssignTask'
@@ -230,7 +230,32 @@ function NewMenu() {
   )
 }
 
+/** 왼쪽 칸 아이콘만 보기 (이 PC에 기억) */
+const RAIL_KEY = 'wkly-side-rail'
+function useSideRail(): [boolean, (v: boolean) => void] {
+  const [rail, set] = useState(() => {
+    try {
+      return localStorage.getItem(RAIL_KEY) === '1'
+    } catch {
+      return false
+    }
+  })
+  useEffect(() => {
+    document.documentElement.classList.toggle('side-rail', rail)
+  }, [rail])
+  const setRail = (v: boolean) => {
+    set(v)
+    try {
+      localStorage.setItem(RAIL_KEY, v ? '1' : '0')
+    } catch {
+      /* 기억 못 해도 이번 화면에서는 적용 */
+    }
+  }
+  return [rail, setRail]
+}
+
 function ProfilePanel({ summary, active }: { summary: Summary; active: TabKey }) {
+  const [, setRail] = useSideRail()
   const { api, me, bump, toast, openQuick } = useApp()
   const [editing, setEditing] = useState(false)
   const [msg, setMsg] = useState(me.status_message ?? '')
@@ -270,13 +295,22 @@ function ProfilePanel({ summary, active }: { summary: Summary; active: TabKey })
 
   return (
     <aside className="profile" aria-label="내 프로필">
-      <PhotoBox />
-      <MiniCalendar />
-      <SideNav active={active} summary={summary} />
-      <div className="row" style={{ alignItems: 'baseline', gap: 6 }}>
-        <span className="t-bodyb">{me.name}</span>
-        {me.title && <span className="t-cap">{me.title}</span>}
+      {/* 작게 (대표 지시 2026-10-29 "이 부분을 줄여서 작업 공간 확보"): 사진 · 이름 한 줄, 달력 접기, 아이콘만 보기 */}
+      <div className="me-row">
+        <PhotoBox />
+        <div className="me-name">
+          <span className="t-bodyb truncate">{me.name}</span>
+          {me.title && <span className="t-cap truncate">{me.title}</span>}
+        </div>
+        <button type="button" className="icon-btn sm side-fold" onClick={() => setRail(true)} aria-label="왼쪽 칸 접기" title="왼쪽 칸 접기 (아이콘만)">
+          <PanelLeftClose size={15} />
+        </button>
       </div>
+      <button type="button" className="icon-btn side-unfold" onClick={() => setRail(false)} aria-label="왼쪽 칸 펼치기" title="왼쪽 칸 펼치기">
+        <PanelLeftOpen size={16} />
+      </button>
+      <SideNav active={active} summary={summary} />
+      <MiniCalendar />
       <div className="today-is">
         <span className="t-meta">TODAY IS</span>
         <select value={pick} onChange={e => setPick(e.target.value as TodayStatus)} aria-label="오늘 상태">
@@ -351,6 +385,22 @@ function MiniCalendar() {
   const { navigate, path, query } = useRouter()
   const today = todayKey()
   const [month, setMonth] = useState(today.slice(0, 7))
+  // 달력 접기 (기본 접힘 · 이 PC에 기억)
+  const [open, setOpenRaw] = useState(() => {
+    try {
+      return localStorage.getItem('wkly-mini-cal') === '1'
+    } catch {
+      return false
+    }
+  })
+  const setOpen = (v: boolean) => {
+    setOpenRaw(v)
+    try {
+      localStorage.setItem('wkly-mini-cal', v ? '1' : '0')
+    } catch {
+      /* 무시 */
+    }
+  }
   const { data } = useAsync(
     async () => {
       const [tasks, projects, leaves] = await Promise.all([api.listTasks(), api.listProjects(), api.listLeave()])
@@ -390,19 +440,26 @@ function MiniCalendar() {
     return [addDays(d, -dow), addDays(d, 6 - dow)]
   }, [path, query, today])
   return (
-    <section className="mini-cal" aria-label="이번 달 달력">
+    <section className={`mini-cal${open ? '' : ' folded'}`} aria-label="이번 달 달력">
       <div className="row">
-        <button type="button" className="icon-btn" onClick={() => setMonth(addMonths(month, -1))} aria-label="이전 달">
-          <ChevronLeft size={14} />
-        </button>
-        <button type="button" className="mini-cal-title grow" onClick={() => setMonth(today.slice(0, 7))} title="이번 달로">
+        {open && (
+          <button type="button" className="icon-btn" onClick={() => setMonth(addMonths(month, -1))} aria-label="이전 달">
+            <ChevronLeft size={14} />
+          </button>
+        )}
+        <button type="button" className="mini-cal-title grow" onClick={() => (open ? setMonth(today.slice(0, 7)) : setOpen(true))} title={open ? '이번 달로' : '달력 펼치기'}>
           {y}.{mo}
         </button>
-        <button type="button" className="icon-btn" onClick={() => setMonth(addMonths(month, 1))} aria-label="다음 달">
-          <ChevronRight size={14} />
+        {open && (
+          <button type="button" className="icon-btn" onClick={() => setMonth(addMonths(month, 1))} aria-label="다음 달">
+            <ChevronRight size={14} />
+          </button>
+        )}
+        <button type="button" className="icon-btn" onClick={() => setOpen(!open)} aria-label={open ? '달력 접기' : '달력 펼치기'} title={open ? '달력 접기' : '달력 펼치기'}>
+          <ChevronDown size={14} style={{ transform: open ? 'rotate(180deg)' : undefined }} />
         </button>
       </div>
-      <div className="mini-cal-grid">
+      {open && <div className="mini-cal-grid">
         {['일', '월', '화', '수', '목', '금', '토'].map(w => (
           <span key={w} className="wd">
             {w}
@@ -425,7 +482,7 @@ function MiniCalendar() {
             </button>
           )
         })}
-      </div>
+      </div>}
     </section>
   )
 }
