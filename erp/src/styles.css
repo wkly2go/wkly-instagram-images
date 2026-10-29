@@ -2236,3 +2236,21 @@ header .main-nav { margin: 0; gap: 2px; }
 .lib-status button.on { color: var(--blue); border-bottom-color: var(--blue); }
 .lib-status button:hover { color: var(--blue); }
 .lib-kinds { display: flex; flex-wrap: wrap; gap: 6px; padding-top: 8px; }
+
+/* ---------- 버튼 역할 구분 (대표 선택 2026-10-29: 6번 Asana 방식) ----------
+   화면 전환 = 밑줄 탭 · 거르기/도구 = 조용한 글자 버튼(테두리 없음) · 실행 = 진한 버튼 하나 · 보조 실행 = 옅은 테두리 */
+.chip { height: 28px; padding: 0 9px; border: 0; border-radius: 6px; background: none; color: var(--gray); font-weight: 600; gap: 5px; }
+.chip:hover { background: var(--blue-tint); color: var(--blue); }
+.chip.active { background: var(--blue-tint); color: var(--blue); font-weight: 800; border: 0; }
+.chip.active .chip-count { color: inherit; }
+.chip svg { flex: none; opacity: .85; }
+.chips[role="tablist"] { gap: 18px; border-bottom: 1px solid var(--line); flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding: 0 2px; }
+.chips[role="tablist"]::-webkit-scrollbar { display: none; }
+.chips[role="tablist"] .chip { height: 36px; padding: 0 1px; border-radius: 0; border-bottom: 2px solid transparent; font-size: var(--fs-sm); color: var(--gray); }
+.chips[role="tablist"] .chip:hover { background: none; color: var(--blue); }
+.chips[role="tablist"] .chip.active { background: none; color: var(--blue); border-bottom-color: var(--blue); }
+.btn-outline { background: var(--white); color: var(--blue); border-color: var(--line); }
+.btn-outline:not(:disabled):hover { background: var(--blue-tint); border-color: var(--blue-tint); }
+.tool-row { display: flex; align-items: center; flex-wrap: wrap; gap: 2px; min-width: 0; }
+.tool-label { display: inline-flex; align-items: center; gap: 4px; margin-right: 4px; font-size: var(--fs-cap); font-weight: 600; color: var(--gray); }
+.view-tabs { margin-top: 0; }

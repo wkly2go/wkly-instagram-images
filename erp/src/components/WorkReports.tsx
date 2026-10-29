@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { CheckSquare, Plus, Square } from 'lucide-react'
+import { CheckSquare, Folder, Plus, Square } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { addDays, shortDate, todayKey } from '../lib/date'
 import { Link } from '../lib/router'
@@ -124,7 +124,7 @@ export function WorkTodo({ projects, clients, tasks, userId }: { projects: Proje
           <div className="row" style={{ gap: 6 }}>
             {pid ? (
               <Link to={`/projects?id=${pid}`} className="t-smallb truncate grow">
-                📁 {name(pid)}
+                <Folder size={13} style={{ verticalAlign: -2 }} aria-hidden="true" /> {name(pid)}
               </Link>
             ) : (
               <span className="t-smallb grow">{name(pid)}</span>

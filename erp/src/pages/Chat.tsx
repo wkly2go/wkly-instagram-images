@@ -1,7 +1,7 @@
 import { UserPic } from '../components/UserPic'
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { Linkify } from '../components/ui'
-import { ArrowLeft, AtSign, BellOff, Bookmark, Check, ChevronDown, ChevronRight, Plus, Send, Trash2 } from 'lucide-react'
+import { ArrowLeft, AtSign, BellOff, Bookmark, Check, ChevronDown, ChevronRight, Folder, Plus, Send, Trash2 } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { friendlyError } from '../lib/api'
 import { countedUnread, pokeChat, roomTitle, useChatTick, useRoomMessages } from '../lib/chat'
@@ -472,7 +472,7 @@ function Room({ room }: { room: ChatRoomSummary }) {
         )}
         {project && (
           <Link to={`/projects?id=${project.id}`}>
-            <Badge>📁 {project.name}</Badge>
+            <Badge><Folder size={12} style={{ verticalAlign: -2 }} aria-hidden="true" /> {project.name}</Badge>
           </Link>
         )}
         <span className="grow" />

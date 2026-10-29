@@ -140,7 +140,7 @@ export function WorkPane({ tabs }: { tabs?: ReactNode }) {
           <span className="cell-pre t-small t-blue">{l.content}</span>
           {l.memo && (
             <span className="log-memo cell-pre" title="메모">
-              📝 <Linkify text={l.memo} />
+              <StickyNote size={12} style={{ verticalAlign: -2 }} aria-hidden="true" /> <Linkify text={l.memo} />
             </span>
           )}
           {isMail(l.kind) && (l.email_counterpart || l.email_subject) && (
@@ -192,7 +192,7 @@ export function WorkPane({ tabs }: { tabs?: ReactNode }) {
   const todoWho = !viewUser ? "팀 전체" : viewUser === me.id ? "내" : `${profileName(viewUser)}`;
   const todoPad = (
     <div className="col gap-6" aria-label="할 일">
-      <span className="t-bodyb">✅ {todoWho} 할 일</span>
+      <span className="t-bodyb"><ListTodo size={15} style={{ verticalAlign: -2 }} aria-hidden="true" /> {todoWho} 할 일</span>
       <span className="t-cap">왼쪽에서 고른 사람의 할 일입니다. 프로젝트 이름을 쓰면 자동 연결되고, 승인 안 된 업무 보고는 승인될 때까지 여기에 남습니다.</span>
       <PendingReports reports={reports} userId={viewUser ?? null} />
       <WorkTodo projects={data.projects} clients={data.clients} tasks={data.tasks} userId={viewUser ?? null} />

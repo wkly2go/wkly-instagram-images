@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Pin, Search, Trash2, X } from 'lucide-react'
+import { NotebookPen, Pin, Search, Trash2, X } from 'lucide-react'
 import { useApp, useAsync } from '../lib/app'
 import { friendlyError } from '../lib/api'
 import { relativeLabel } from '../lib/date'
@@ -92,7 +92,7 @@ export function MemoPad({ onClose }: { onClose: () => void }) {
   return (
     <aside className="memo-pad" aria-label="메모장">
       <div className="row">
-        <span className="t-bodyb grow">📝 메모장</span>
+        <span className="t-bodyb grow"><NotebookPen size={15} style={{ verticalAlign: -2 }} aria-hidden="true" /> 메모장</span>
         <button type="button" className="icon-btn" onClick={onClose} aria-label="메모장 닫기">
           <X size={16} />
         </button>

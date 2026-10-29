@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Bot, CalendarClock, MessageCircle, Plus, Power, Send, Trash2 } from 'lucide-react'
+import { Bot, CalendarClock, MessageCircle, Pencil, Plus, Power, Send, Trash2 } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { dateTimeLabel, relativeLabel, todayKey } from '../lib/date'
 import { useRouter, withQuery } from '../lib/router'
@@ -232,7 +232,7 @@ function AgentDetail({ agent, conf, schedules, instructions, onChanged }: { agen
                 {canEdit(s) && (
                   <>
                     <button type="button" className="icon-btn sm" onClick={() => setScheduling(s)} aria-label="예약 고치기" title="고치기">
-                      ✎
+                      <Pencil size={13} aria-hidden="true" />
                     </button>
                     <button type="button" className={`icon-btn sm${s.enabled ? ' t-blue' : ''}`} onClick={() => void toggle(s)} aria-label={s.enabled ? '예약 끄기' : '예약 켜기'} title={s.enabled ? '끄기' : '켜기'}>
                       <Power size={13} />

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { MapPin, Smartphone } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { addDays, shortDate, timeLabel, todayKey, weekday } from '../lib/date'
 import { useAttendance } from '../lib/attendance'
@@ -252,7 +253,7 @@ export function WorkPlanSection() {
               </span>
               {c.lat != null && c.lng != null && (
                 <a className="t-meta t-blue" href={`https://maps.google.com/?q=${c.lat},${c.lng}`} target="_blank" rel="noreferrer">
-                  📍 위치
+                  <MapPin size={12} style={{ verticalAlign: -2 }} aria-hidden="true" /> 위치
                 </a>
               )}
               <Button size="sm" onClick={() => run(() => api.decideCheckin(c.id, '승인'), '출근으로 인정했습니다.')} disabled={busy}>
@@ -280,11 +281,11 @@ export function CheckinTag({ c }: { c: AttendanceCheckin | undefined }) {
   if (!c) return null
   return (
     <span className="away-tag" title={c.note ?? ''}>
-      📱 {c.kind} {timeLabel(c.at)} · {c.status === '대기' ? '확인 대기' : c.status}
+      <Smartphone size={12} style={{ verticalAlign: -2 }} aria-hidden="true" /> {c.kind} {timeLabel(c.at)} · {c.status === '대기' ? '확인 대기' : c.status}
       {c.lat != null && c.lng != null && (
         <a href={`https://maps.google.com/?q=${c.lat},${c.lng}`} target="_blank" rel="noreferrer" className="t-blue">
           {' '}
-          📍
+          <MapPin size={12} style={{ verticalAlign: -2 }} aria-hidden="true" />
         </a>
       )}
     </span>

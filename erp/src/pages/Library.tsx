@@ -35,7 +35,7 @@ export default function Library() {
   const go = (t: Tab) => navigate(withQuery(path, new URLSearchParams(), { tab: t === 'research' ? null : t }), { replace: true })
   // 자료실은 '보고서 결제' 탭 안으로 (대표 지시 2026-10-22 "자료실을 보고서 결제에 포함")
   const tabs = (
-    <div className="chips one-line">
+    <div className="chips one-line" role="tablist" aria-label="자료실 메뉴">
       <Chip onClick={() => navigate('/approvals')}>← 보고서 결제</Chip>
       {(
         [

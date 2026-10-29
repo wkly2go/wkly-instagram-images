@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Bell } from 'lucide-react'
+import { Bell, Volume2 } from 'lucide-react'
 import { useApp, useAsync } from '../lib/app'
 import { relativeLabel } from '../lib/date'
 import { normalizePath, useRouter } from '../lib/router'
@@ -187,7 +187,7 @@ function SoundSetting() {
       ))}
       <span className="grow" />
       <button type="button" className="btn btn-ghost btn-sm" onClick={() => playAlert('notify', true)}>
-        🔊 들어보기
+        <Volume2 size={13} style={{ verticalAlign: -2 }} aria-hidden="true" /> 들어보기
       </button>
     </div>
   )
