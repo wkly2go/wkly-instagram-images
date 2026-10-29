@@ -572,6 +572,7 @@ function trimSearchChrome(wc) {
       wc.insertCSS(CHATGPT_CSS)
       return
     }
+    if (GOOGLE_APP.test(u)) return // 구글 편집기 · 드라이브: 도구 막대 · 메뉴가 그대로 보여야 편집됨
     if (AI_SITE.test(u) || SHOP_SITE.test(u)) return // AI · 쇼핑 사이트는 손대지 않음 (다시 그려지며 흔들리거나, 화면을 고치면 봇으로 보고 막음)
     wc.insertCSS(FIT_CSS)
     if (/^https:\/\/(www\.)?google\.[a-z.]+\/maps/.test(u) || /^https:\/\/(m\.)?map\.naver\.com/.test(u)) return // 지도는 그대로
@@ -595,7 +596,9 @@ function desktopUserAgent() {
 }
 // 쇼핑몰 · 결제 사이트는 봇 차단(Akamai 등)이 엄격해, 휴대폰 UA + PC 헤더처럼 정보가 어긋나면 '접근 거부'를 띄움 → PC 크롬으로 일치시켜 접속
 const SHOP_SITE = /^https:\/\/([a-z0-9-]+\.)*(coupang\.com|shopping\.naver\.com|smartstore\.naver\.com|brand\.naver\.com|gmarket\.co\.kr|11st\.co\.kr|auction\.co\.kr|ssg\.com|lotteon\.com|kurly\.com|ohou\.se|musinsa\.com|29cm\.co\.kr|wconcept\.co\.kr|kream\.co\.kr|oliveyoung\.co\.kr|kasina\.co\.kr|thehandsome\.com|interpark\.com|melon\.com|yes24\.com|ticketlink\.co\.kr)(\/|$)/
-const isDesktopSite = url => AI_SITE.test(url) || SHOP_SITE.test(url)
+// 구글 문서 · 시트 · 슬라이드 · 드라이브 · 로그인: 휴대폰 화면이면 '앱에서 열기'만 뜨고 편집이 안 됨 → PC 크롬으로, 화면도 손대지 않음 (2026-10-29)
+const GOOGLE_APP = /^https:\/\/(docs|drive|accounts|sheets|slides|forms|calendar|mail|meet|keep)\.google\.com(\/|$)/
+const isDesktopSite = url => AI_SITE.test(url) || SHOP_SITE.test(url) || GOOGLE_APP.test(url)
 const uaFor = url => (isDesktopSite(url) ? desktopUserAgent() : chromeUserAgent())
 /** 검색 칸이 보내는 모든 요청의 브라우저 정보(UA · 모바일 여부 · 운영체제)를 서로 맞춤 (어긋나면 봇으로 보고 차단) */
 let uaHookInstalled = false
@@ -689,7 +692,9 @@ function setupSearchView() {
       })
       // 인트라넷 글자 크기와 맞추기 (사이트를 옮겨 다녀도 같은 배율) · 같은 배율이면 다시 넣지 않음 (다시 그려지며 흔들림)
       const fit = () => {
-        if (Math.abs(wc.getZoomFactor() - searchZoom) > 0.001) wc.setZoomFactor(searchZoom)
+        // 구글 문서 · 드라이브는 원래 크기(100%)로 (작게 줄이면 글자 · 메뉴가 읽기 어려움)
+        const z = GOOGLE_APP.test(wc.getURL()) ? 1 : searchZoom
+        if (Math.abs(wc.getZoomFactor() - z) > 0.001) wc.setZoomFactor(z)
         trimSearchChrome(wc)
       }
       wc.on('did-finish-load', fit)
@@ -725,6 +730,6 @@ function setupSearchView() {
     const v = Number(z)
     if (!(v >= 0.5 && v <= 1.5)) return
     searchZoom = v
-    if (searchView) searchView.webContents.setZoomFactor(v)
+    if (searchView && !GOOGLE_APP.test(searchView.webContents.getURL())) searchView.webContents.setZoomFactor(v)
   })
 }
