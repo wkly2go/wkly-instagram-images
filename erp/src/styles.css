@@ -2353,3 +2353,5 @@ html.col-resizing iframe { pointer-events: none; }
 .ins-net.neg { color: var(--alert); }
 .ins-legend { display: flex; align-items: center; gap: 4px; font-size: 10px; color: var(--gray); }
 .ins-legend i { display: inline-block; width: 12px; border-radius: 3px; }
+/* 고르기 목록: 찾는 게 없을 때 새로 추가 */
+.pick-create { color: var(--blue); font-weight: 700; border-bottom: 1px solid var(--line); margin-bottom: 2px; }

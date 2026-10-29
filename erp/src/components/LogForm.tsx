@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
-import { Search, X } from 'lucide-react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { Plus, Search, X } from 'lucide-react'
 import { useApp, useAsync } from '../lib/app'
 import { friendlyError } from '../lib/api'
 import { todayKey } from '../lib/date'
@@ -97,11 +97,31 @@ export interface PickItem {
 
 const norm = (s: string) => s.toLowerCase().replace(/[\s·.,()[\]'"‘’“”_-]/g, '')
 
-export function SearchPick({ items, value, onChange, placeholder, label, groups }: { items: PickItem[]; value: string; onChange: (id: string) => void; placeholder: string; label: string; groups?: string[] }) {
+export function SearchPick({ items, value, onChange, placeholder, label, groups, onCreate }: { items: PickItem[]; value: string; onChange: (id: string) => void; placeholder: string; label: string; groups?: string[]; /** 찾는 게 없을 때 새로 만들기 (새 id 를 돌려줌) */ onCreate?: (name: string) => Promise<string | null> }) {
   const [q, setQ] = useState('')
   const [open, setOpen] = useState(false)
   const [hi, setHi] = useState(0)
+  const [creating, setCreating] = useState(false)
   const box = useRef<HTMLDivElement>(null)
+  // 목록은 화면 안에서 공간이 넓은 쪽(위 · 아래)으로 펼치고, 높이도 남은 공간에 맞춤 (2026-10-29 "아래로 잘리는 문제")
+  const [place, setPlace] = useState<{ up: boolean; max: number }>({ up: false, max: 300 })
+  useLayoutEffect(() => {
+    if (!open || !box.current) return
+    const fit = () => {
+      const r = box.current!.getBoundingClientRect()
+      const below = window.innerHeight - r.bottom - 12
+      const above = r.top - 12
+      const up = below < 240 && above > below
+      setPlace({ up, max: Math.max(140, Math.min(320, up ? above : below)) })
+    }
+    fit()
+    window.addEventListener('resize', fit)
+    window.addEventListener('scroll', fit, true)
+    return () => {
+      window.removeEventListener('resize', fit)
+      window.removeEventListener('scroll', fit, true)
+    }
+  }, [open])
   const selected = items.find(i => i.id === value)
   useEffect(() => {
     if (!open) return
@@ -189,8 +209,28 @@ export function SearchPick({ items, value, onChange, placeholder, label, groups 
         </label>
       )}
       {open && (
-        <div className="pick-list" role="listbox" aria-label={label}>
-          {list.length === 0 && <div className="pick-empty">'{q}' 검색 결과가 없습니다.</div>}
+        <div className="pick-list" role="listbox" aria-label={label} style={place.up ? { top: 'auto', bottom: 'calc(100% + 4px)', maxHeight: place.max } : { bottom: 'auto', top: 'calc(100% + 4px)', maxHeight: place.max }}>
+          {list.length === 0 && <div className="pick-empty">{q.trim() ? `'${q}' 검색 결과가 없습니다.` : `등록된 ${label}이(가) 없습니다.`}</div>}
+          {onCreate && q.trim() && !items.some(i => norm(i.label) === norm(q)) && (
+            <button
+              type="button"
+              className="pick-item pick-create"
+              disabled={creating}
+              onMouseDown={e => e.preventDefault()}
+              onClick={async () => {
+                setCreating(true)
+                try {
+                  const id = await onCreate(q.trim())
+                  if (id) pick(id)
+                } finally {
+                  setCreating(false)
+                }
+              }}
+            >
+              <Plus size={13} aria-hidden="true" />
+              <span className="truncate grow">'{q.trim()}' 새 {label}(으)로 추가</span>
+            </button>
+          )}
           {shown.slice(0, 80).map((it, i) => {
             const head = it.group && (i === 0 || shown[i - 1].group !== it.group)
             const g = it.group ?? ''
@@ -276,6 +316,18 @@ export function guessLinks(text: string, projects: Project[], clients: Client[])
 }
 
 function Selects({ d, set, clients, projects }: { d: LogDraft; set: (p: Partial<LogDraft>) => void; clients: Client[]; projects: Project[] }) {
+  const { api, toast, bump } = useApp()
+  const addClient = async (name: string) => {
+    try {
+      const c = await api.saveClient({ name, category: '클라이언트' })
+      bump()
+      toast(`'${name}' 거래처를 추가했습니다.`)
+      return c.id
+    } catch (e) {
+      toast(friendlyError(e))
+      return null
+    }
+  }
   const clientName = (id: string | null) => clients.find(c => c.id === id)?.name
   return (
     <>
@@ -284,6 +336,7 @@ function Selects({ d, set, clients, projects }: { d: LogDraft; set: (p: Partial<
         placeholder="거래처 검색"
         value={d.clientId}
         onChange={id => set({ clientId: id })}
+        onCreate={addClient}
         items={clients.map(c => ({ id: c.id, label: c.name, sub: c.category }))}
       />
       <SearchPick
