@@ -415,12 +415,11 @@ export function runWebSearch(q: string) {
 
 /**
  * 상단 오른쪽 아이콘들을 펼침 메뉴 하나로 (2026-10-28 "상부 아이콘들은 탭다운 방식으로")
- *  - 오른쪽 칸(주간 일정표 · 인터넷) 보이기/숨기기 · 글자 크기 · 인터넷 창 뒤로/앞으로(PC 프로그램) · PC 프로그램 내려받기
+ *  - 오른쪽 칸(주간 일정표 · 인터넷) 보이기/숨기기 · 글자 크기 · PC 프로그램 내려받기
  */
 export function TopMenu({ showDownload }: { showDownload: boolean }) {
   const open = useOpenState()
   const zoom = useZoom()
-  const app = desktop()
   const [on, setOn] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -453,17 +452,6 @@ export function TopMenu({ showDownload }: { showDownload: boolean }) {
               가+
             </button>
           </div>
-          {app?.searchNav && (
-            <div className="top-menu-row" role="group" aria-label="인터넷 창 이동">
-              <span className="grow">인터넷 창</span>
-              <button type="button" className="icon-btn sm" onClick={() => app.searchNav?.('back')} aria-label="뒤로">
-                <ChevronLeft size={14} />
-              </button>
-              <button type="button" className="icon-btn sm" onClick={() => app.searchNav?.('forward')} aria-label="앞으로">
-                <ChevronRight size={14} />
-              </button>
-            </div>
-          )}
           {showDownload && (
             <a href="/download" role="menuitem" onClick={() => setOn(false)}>
               <MonitorDown size={14} /> PC 프로그램 내려받기

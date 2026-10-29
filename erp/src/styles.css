@@ -2321,3 +2321,5 @@ html.col-resizing iframe { pointer-events: none; }
   .profile .mini-cal-grid .day { line-height: 17px; font-size: 10px; }
   .profile .mini-cal-grid .wd { font-size: 10px; }
 }
+/* 검색창은 오른쪽 (2026-10-29) */
+@media (pointer: fine) { .topbar > .one-box { order: 2; flex: 0 1 420px; } }
