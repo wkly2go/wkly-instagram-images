@@ -268,7 +268,7 @@ function ClientDetail({ client: c, clients, onEdit, onBack }: { client: Client; 
             ))}
             {data.projects.length === 0 && <span className="t-cap">연결된 프로젝트가 없습니다.</span>}
           </div>
-          {me.role === 'admin' && <ClientPayments client={c} projects={data.allProjects} />}
+          {<ClientPayments client={c} projects={data.allProjects} />}
         </div>
         <div className="col grow" style={{ flexBasis: 240 }}>
           <SectionHead title="커뮤니케이션 이력" count={data.logs.length ? String(data.logs.length) : undefined} right="업무 일지 연동" />
