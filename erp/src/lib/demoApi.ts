@@ -1228,10 +1228,10 @@ export function createDemoApi(): Api {
     },
 
     async listFinances() {
-      return isAdmin() ? clone(store.finances) : []
+      return clone(store.finances)
     },
     async saveFinance(f) {
-      requireAdmin()
+      requireMe()
       const prev = store.finances.find(x => x.project_id === f.project_id)
       const row: ProjectFinance = { contract_amount: null, budget_cost: null, target_margin: null, memo: null, created_at: now(), ...prev, ...f, updated_by: me, updated_at: now() } as ProjectFinance
       store.finances = [...store.finances.filter(x => x.project_id !== f.project_id), row]
@@ -1394,7 +1394,6 @@ export function createDemoApi(): Api {
       emit('subscriptions')
     },
     async listPayments(filter = {}) {
-      if (!isAdmin()) return []
       return clone(store.payments.filter(p => (!filter.projectId || p.project_id === filter.projectId) && (!filter.clientId || p.client_id === filter.clientId)).sort((a, b) => (a.due_date ?? '9999').localeCompare(b.due_date ?? '9999')))
     },
     async listMaterialMoves(projectId) {
@@ -1456,7 +1455,7 @@ export function createDemoApi(): Api {
       ]
     },
     async savePayment(p) {
-      requireAdmin()
+      requireMe()
       const prev = p.id ? store.payments.find(x => x.id === p.id) : undefined
       if (p.id && !prev) throw new ApiError('항목을 찾을 수 없습니다.')
       const row = paymentRules({ ...(prev ?? paymentDefaults()), ...p, id: prev?.id ?? uid(), updated_at: now() } as Payment)
@@ -1471,7 +1470,7 @@ export function createDemoApi(): Api {
       del('payments', id)
     },
     async updatePayments(ids, patch) {
-      requireAdmin()
+      requireMe()
       for (const id of ids) {
         const prev = store.payments.find(x => x.id === id)
         if (!prev) throw new ApiError('항목을 찾을 수 없습니다.')
@@ -1481,7 +1480,7 @@ export function createDemoApi(): Api {
       emit('payments')
     },
     async importPayments(rows, lines = []) {
-      requireAdmin()
+      requireMe()
       for (const b of lines) store.budget_lines.push({ ...base(), id: uid(), project_id: '', category: '', item: null, payee: null, budget_amount: 0, contract_amount: null, sort_order: 0, memo: null, ...b } as BudgetLine)
       for (const r of rows) store.payments.push(paymentRules({ ...paymentDefaults(), ...r, id: uid() } as Payment))
       persist()
@@ -1489,11 +1488,10 @@ export function createDemoApi(): Api {
       return { payments: rows.length, budgetLines: lines.length }
     },
     async listBudgetLines(projectId) {
-      if (!isAdmin()) return []
       return clone(store.budget_lines.filter(b => !projectId || b.project_id === projectId).sort((a, b) => a.sort_order - b.sort_order))
     },
     async saveBudgetLine(b) {
-      requireAdmin()
+      requireMe()
       if (b.budget_amount != null && b.budget_amount < 0) throw new ApiError('입력값을 확인해 주세요.')
       return upsert<'budget_lines', BudgetLine>('budget_lines', b, () => ({ ...base(), project_id: '', category: '', item: null, payee: null, budget_amount: 0, contract_amount: null, sort_order: store.budget_lines.length + 1, memo: null }) as BudgetLine)
     },

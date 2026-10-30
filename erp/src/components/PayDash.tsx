@@ -142,7 +142,8 @@ export function PayDash({ projectId, projects, payments, lines, finances, onPick
 
 function ProjectBoard({ project, payments, lines, fin, onVendor }: { project: Project; payments: Payment[]; lines: BudgetLine[]; fin: ProjectFinance | undefined; onVendor: (name: string) => void }) {
   const { api, me } = useApp()
-  const admin = me.role === 'admin'
+  // 팀원 모두 수정 (2026-10-30)
+  const admin = !!me
   const { run } = useAction()
   const today = todayKey()
   const m = projectMoney(fin, payments, lines, today)

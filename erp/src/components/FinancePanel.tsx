@@ -23,8 +23,9 @@ interface Data {
 /** 프로젝트 상세의 재무 칸 (관리자만) */
 export function FinancePanel({ project, clients, projects }: { project: Project; clients: Client[]; projects: Project[] }) {
   const { api, version, me } = useApp()
-  // 재무는 구성원 모두 열람 (대표 지시 2026-10-18), 입력 · 수정은 관리자만
-  const admin = me.role === 'admin'
+  // 재무는 구성원 모두 열람 · 기입 · 수정 (대표 지시 2026-10-18, 2026-10-30), 삭제만 관리자
+  const admin = true
+  const isAdmin = me.role === 'admin'
   const { busy, run } = useAction()
   const today = todayKey()
   const { data } = useAsync<Data>(
@@ -82,7 +83,7 @@ export function FinancePanel({ project, clients, projects }: { project: Project;
     <section className="section" aria-label="재무">
       <div className="section-h">
         <span className="t-bodyb">재무</span>
-        <span className="cap">공급가액 · VAT 별도{admin ? '' : ' · 입력은 관리자'}</span>
+        <span className="cap">공급가액 · VAT 별도</span>
         {admin && (
           <Button kind="outline" size="sm" onClick={() => setEditFin(true)}>
             계약·목표
@@ -169,9 +170,9 @@ export function FinancePanel({ project, clients, projects }: { project: Project;
                         >
                           <Pencil size={12} />
                         </button>
-                        <button type="button" className="icon-btn sm" aria-label="예산 삭제" onClick={async () => (await ask(`'${r.category}' 예산 줄을 삭제할까요?`)) && run(() => api.deleteBudgetLine(r.lines[0].id))}>
+                        {isAdmin && <button type="button" className="icon-btn sm" aria-label="예산 삭제" onClick={async () => (await ask(`'${r.category}' 예산 줄을 삭제할까요?`)) && run(() => api.deleteBudgetLine(r.lines[0].id))}>
                           <Trash2 size={12} />
-                        </button>
+                        </button>}
                       </>
                     )}
                     {r.lines.length > 1 && <span className="t-cap">{r.lines.length}줄</span>}

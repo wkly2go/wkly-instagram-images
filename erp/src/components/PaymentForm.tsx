@@ -33,7 +33,7 @@ export function PaymentForm({
   lines?: BudgetLine[]
   onClose: () => void
 }) {
-  const { api } = useApp()
+  const { api, me } = useApp()
   const { busy, run } = useAction()
   const [f, setF] = useState<Partial<Payment>>(
     () =>
@@ -96,7 +96,7 @@ export function PaymentForm({
       onClose={onClose}
       actions={
         <>
-          {payment && (
+          {payment && me.role === 'admin' && (
             <Button kind="ghost" onClick={remove} disabled={busy} style={{ marginRight: 'auto' }}>
               삭제
             </Button>

@@ -33,8 +33,7 @@ interface Data {
 export default function Projects() {
   const { api, version } = useApp()
   const { query, path, navigate } = useRouter()
-  const { me, profileName } = useApp()
-  const admin = me.role === 'admin'
+  const { profileName } = useApp()
   const view = query.get('view') // null(대시보드) | 'schedule' | 'week' | 'calendar' | 'list' | 'mine' | 'tasks' | 'payments'
   const status = (query.get('status') as ProjectStatus | 'all' | null) ?? '진행'
   const selectedId = query.get('id')
@@ -114,7 +113,7 @@ export default function Projects() {
     { key: 'org', label: '조직 · 진행', icon: <Network size={I} /> },
     { key: 'mine', label: '내 할 일', icon: <ListChecks size={I} /> },
     { key: 'tasks', label: '팀 할 일', icon: <Users size={I} /> },
-    ...(admin ? [{ key: 'payments', label: '결제 대장', icon: <Wallet size={I} /> }] : []),
+    { key: 'payments', label: '결제 대장', icon: <Wallet size={I} /> },
     { key: 'subs', label: '구독료', icon: <Repeat size={I} /> },
   ]
   const activeTab = tabs.some(t => t.key === view) ? view : null
@@ -148,7 +147,7 @@ export default function Projects() {
           <SectionHead title={`‘${q}’ 할 일`} count={String(foundTasks.length)} />
           <TaskBoard list={foundTasks} projects={data.projects} onStatus={() => undefined} onEdit={t => t.project_id && go({ id: t.project_id })} />
         </div>
-      ) : view === 'payments' && admin ? (
+      ) : view === 'payments' ? (
         <Payments projects={data.projects} clients={data.clients} />
       ) : view === 'org' ? (
         <OrgSection />

@@ -80,7 +80,7 @@ export function Payments({ projects, clients }: { projects: Project[]; clients: 
 type StatusFilter = 'open' | 'done' | 'estimate' | 'all'
 
 function Register({ data, projects, clients }: { data: PayData; projects: Project[]; clients: Client[] }) {
-  const { api } = useApp()
+  const { api, me } = useApp()
   const { query, path, navigate } = useRouter()
   const { busy, run } = useAction()
   const today = todayKey()
@@ -324,7 +324,7 @@ function Register({ data, projects, clients }: { data: PayData; projects: Projec
           <Button kind="outline" size="sm" disabled={busy} onClick={() => bulk({ status: '취소' }, '취소로 바꿨습니다.')}>
             취소
           </Button>
-          <Button
+          {me.role === 'admin' && <Button
             kind="ghost"
             size="sm"
             disabled={busy}
@@ -338,7 +338,7 @@ function Register({ data, projects, clients }: { data: PayData; projects: Projec
             }}
           >
             삭제
-          </Button>
+          </Button>}
           <Button kind="ghost" size="sm" onClick={() => setSel(new Set())}>
             선택 해제
           </Button>
