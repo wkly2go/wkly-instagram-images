@@ -7,6 +7,7 @@ import { advanceGroups, contractKey, contractRows, isAdvance, isAgency, isDone, 
 import { useRouter, withQuery } from '../lib/router'
 import type { BudgetLine, Client, Payment, Project, ProjectFinance } from '../lib/types'
 import { AccountCell, PayDash, ProgressCell } from '../components/PayDash'
+import { PayGroups } from '../components/PayGroups'
 import { PaymentForm } from '../components/PaymentForm'
 import { Badge, Button, Chip, Empty, Loading, type Tone } from '../components/ui'
 import { PaymentImport } from './PaymentImport'
@@ -92,6 +93,7 @@ function Register({ data, projects, clients }: { data: PayData; projects: Projec
   const [q, setQ] = useState(query.get('q') ?? '')
   const openId = query.get('pid')
   const [form, setForm] = useState<Payment | 'new' | null>(null)
+  const [preset, setPreset] = useState<Partial<Payment> | null>(null)
   const [sel, setSel] = useState<Set<string>>(new Set())
   const projectName = (id: string | null) => projects.find(p => p.id === id)?.name ?? ''
 
@@ -160,7 +162,7 @@ function Register({ data, projects, clients }: { data: PayData; projects: Projec
 
   return (
     <>
-      <PayDash projectId={projectId === 'none' ? '' : projectId} projects={projects} payments={data.payments} lines={data.lines} finances={data.finances} onPick={id => go({ project: id })} onVendor={name => { setQ(name); go({ q: name }) }} />
+      <PayDash projectId={projectId === 'none' ? '' : projectId} projects={projects} payments={data.payments} lines={data.lines} finances={data.finances} onPick={id => go({ project: id })} />
       <div className="filters">
         <select className="select" value={projectId} onChange={e => go({ project: e.target.value || null })} aria-label="프로젝트">
           <option value="">모든 현장</option>
@@ -223,6 +225,20 @@ function Register({ data, projects, clients }: { data: PayData; projects: Projec
       </div>
       {rows.length === 0 ? (
         <Empty>조건에 맞는 결제가 없습니다.</Empty>
+      ) : projectId && projectId !== 'none' ? (
+        <PayGroups
+          rows={rows}
+          all={data.payments.filter(p => p.project_id === projectId)}
+          lines={data.lines.filter(l => l.project_id === projectId)}
+          finance={data.finances.find(f => f.project_id === projectId)}
+          sel={sel}
+          setSel={setSel}
+          onOpen={p => setForm(p)}
+          onNew={p => {
+            setPreset(p)
+            setForm('new')
+          }}
+        />
       ) : (
         <div className="table-wrap">
           <table className="table">
@@ -348,13 +364,14 @@ function Register({ data, projects, clients }: { data: PayData; projects: Projec
         <PaymentForm
           key={form === 'new' ? 'new' : (form ?? opened)?.id ?? 'new'}
           payment={form === 'new' ? null : (form ?? opened ?? null)}
-          preset={{ project_id: projectId && projectId !== 'none' ? projectId : null, direction: (dir as Payment['direction']) || '지급' }}
+          preset={{ project_id: projectId && projectId !== 'none' ? projectId : null, direction: (dir as Payment['direction']) || '지급', ...(form === 'new' ? preset : null) }}
           projects={projects}
           clients={clients}
           payments={data.payments}
           lines={data.lines}
           onClose={() => {
             setForm(null)
+            setPreset(null)
             if (openId) go({ pid: null })
           }}
         />

@@ -2390,3 +2390,14 @@ html.col-resizing iframe { pointer-events: none; }
 td .meter { display: block; margin: 3px 0; }
 .section-h.fold { width: 100%; border: 0; border-bottom: 1px dashed var(--line); background: none; cursor: pointer; text-align: left; }
 .pay-dash .kpi .input.xs { display: inline-block; }
+
+/* 현장 결제 묶음 (업체별 1 · 2 · 3차) */
+.pay-groups tr.pg-head > td { background: var(--blue-tint); border-top: 2px solid var(--blue); padding: 8px 10px; }
+.pg-h { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.pg-name { min-width: 180px; }
+.pg-prog { display: flex; flex-direction: column; gap: 3px; flex: 1 1 260px; max-width: 420px; }
+.pg-prog .meter { flex: none; width: 100%; background: var(--white); }
+.pg-act { margin-left: auto; }
+.pg-seq { display: inline-block; min-width: 34px; padding: 1px 6px; border: 1px solid var(--blue); border-radius: 10px; color: var(--blue); font-weight: 700; font-size: var(--fs-cap); text-align: center; }
+.pg-seq.done { background: var(--blue); color: var(--white); }
+.pay-groups tr.pg-item > td:first-child { border-left: 2px solid var(--blue-tint); }
