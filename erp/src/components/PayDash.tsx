@@ -4,8 +4,8 @@
 import { useState } from 'react'
 import { Copy, ExternalLink } from 'lucide-react'
 import { useAction, useApp } from '../lib/app'
-import { manwon, shortDate, todayKey } from '../lib/date'
-import { contractRows, isOpen, projectMoney, type ContractRow } from '../lib/finance'
+import { manwon, todayKey } from '../lib/date'
+import { isOpen, projectMoney } from '../lib/finance'
 import { Link } from '../lib/router'
 import type { BudgetLine, Payment, Project, ProjectFinance } from '../lib/types'
 import { Meter } from './charts'
@@ -58,11 +58,11 @@ export function ProgressCell({ contract, rate, remain, verb = '지급' }: { cont
   )
 }
 
-export function PayDash({ projectId, projects, payments, lines, finances, onPick, onVendor }: { projectId: string; projects: Project[]; payments: Payment[]; lines: BudgetLine[]; finances: ProjectFinance[]; onPick: (id: string) => void; onVendor: (name: string) => void }) {
+export function PayDash({ projectId, projects, payments, lines, finances, onPick }: { projectId: string; projects: Project[]; payments: Payment[]; lines: BudgetLine[]; finances: ProjectFinance[]; onPick: (id: string) => void }) {
   const [open, setOpen] = useState(true)
   const today = todayKey()
   const project = projects.find(p => p.id === projectId)
-  if (project) return <ProjectBoard project={project} payments={payments.filter(p => p.project_id === project.id)} lines={lines.filter(l => l.project_id === project.id)} fin={finances.find(f => f.project_id === project.id)} onVendor={onVendor} />
+  if (project) return <ProjectBoard project={project} payments={payments.filter(p => p.project_id === project.id)} lines={lines.filter(l => l.project_id === project.id)} fin={finances.find(f => f.project_id === project.id)} />
   if (projectId) return null
   const rows = projects
     .map(pr => {
@@ -140,20 +140,18 @@ export function PayDash({ projectId, projects, payments, lines, finances, onPick
   )
 }
 
-function ProjectBoard({ project, payments, lines, fin, onVendor }: { project: Project; payments: Payment[]; lines: BudgetLine[]; fin: ProjectFinance | undefined; onVendor: (name: string) => void }) {
+function ProjectBoard({ project, payments, lines, fin }: { project: Project; payments: Payment[]; lines: BudgetLine[]; fin: ProjectFinance | undefined }) {
   const { api, me } = useApp()
   // 팀원 모두 수정 (2026-10-30)
   const admin = !!me
   const { run } = useAction()
   const today = todayKey()
   const m = projectMoney(fin, payments, lines, today)
-  const vendors: ContractRow[] = contractRows(payments, lines).sort((a, b) => b.remain - a.remain)
   const [target, setTarget] = useState(m.target != null ? String(m.target) : '')
   const out = m.paid + m.payable
   const payRate = out > 0 ? (m.paid / out) * 100 : null
   const material = payments.filter(p => p.direction === '지급' && p.status !== '취소' && !p.is_estimate && (p.category ?? '').includes('자재')).reduce((n, p) => n + p.amount - p.vat, 0)
   const labor = payments.filter(p => p.direction === '지급' && p.status !== '취소' && !p.is_estimate && (p.category ?? '').replace(/\s/g, '') === '노무비').reduce((n, p) => n + p.amount, 0)
-  const noContract = vendors.filter(v => v.contract == null).length
   // 목표 마진에 맞추려면 쓸 수 있는 비용 한도
   const costCap = m.contract != null && m.target != null ? Math.round(m.contract * (1 - m.target / 100)) : null
   const saveTarget = () => {
@@ -226,53 +224,6 @@ function ProjectBoard({ project, payments, lines, fin, onVendor }: { project: Pr
           </span>
         </div>
       </div>
-      {vendors.length > 0 && (
-        <>
-          <div className="section-h" style={{ marginTop: 6 }}>
-            <span className="t-smallb">업체 · 사람별 계약과 지급</span>
-            <span className="cap">
-              {vendors.length}곳{noContract ? ` · 계약 없이 건별 지급 ${noContract}곳` : ''} · 계약금은 프로젝트 재무의 공사 구분 예산 줄(업체 계약금)에서 · 누르면 그 업체 결제만
-            </span>
-          </div>
-          <div className="table-wrap">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>업체·성명</th>
-                  <th style={{ minWidth: 190 }}>계약 · 지급률 · 잔액</th>
-                  <th className="num">지급 완료</th>
-                  <th className="num">미지급</th>
-                  <th className="num">다음 지급</th>
-                  <th>계좌</th>
-                </tr>
-              </thead>
-              <tbody>
-                {vendors.map(v => (
-                  <tr key={v.key} className="click" onClick={() => onVendor(v.payee)}>
-                    <td className="nowrap">
-                      <span className="strong" style={{ display: 'block' }}>
-                        {v.payee}
-                      </span>
-                      <span className="t-cap">
-                        {[v.category, `${v.doneCount}/${v.count}회 지급`].filter(Boolean).join(' · ')}
-                      </span>
-                    </td>
-                    <td>
-                      <ProgressCell contract={v.contract} rate={v.rate} remain={v.remain} />
-                    </td>
-                    <td className="num">{manwon(v.paid) || '–'}</td>
-                    <td className="num">{manwon(v.open) || '–'}</td>
-                    <td className={`num ${v.next && v.next < today ? 'red' : ''}`}>{v.next ? shortDate(v.next) : '–'}</td>
-                    <td>
-                      <AccountCell bank={v.bank} no={v.account} holder={v.holder} payee={v.payee} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </>
-      )}
       {m.overdueOut.length + m.overdueIn.length > 0 && (
         <div className="note warn">
           연체 {m.overdueOut.length + m.overdueIn.length}건: {[...m.overdueIn, ...m.overdueOut].slice(0, 4).map(p => `${p.direction === '수금' ? '[수금] ' : ''}${p.payee ?? p.title} ${manwon(p.amount)}`).join(', ')}
