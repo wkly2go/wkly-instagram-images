@@ -798,7 +798,8 @@ function ProjectDetail({ project: p, data, onEdit, onBack, panel = false }: { pr
         <div className="col grow" style={{ flexBasis: 300 }}>
           <SectionHead title="할 일" count={`${tasks.filter(t => t.status === '완료').length}/${tasks.length}`} right={<TaskLegend />} />
           <TaskBoard
-            list={tasks}
+            // 할 일(안 끝난 것)을 맨 위에, 완료는 아래로 (대표 지시 2026-10-31)
+            list={[...tasks.filter(t => t.status !== '완료'), ...tasks.filter(t => t.status === '완료')]}
             projects={data.projects}
             onStatus={t => run(() => api.saveTask({ id: t.id, status: NEXT[t.status] }))}
             onDelete={async t => (await ask('이 할 일을 삭제할까요?')) && run(() => api.deleteTask(t.id))}
@@ -821,11 +822,9 @@ function ProjectDetail({ project: p, data, onEdit, onBack, panel = false }: { pr
       <ProjectDriveSection project={p} />
       {/* 회사 메일함에서 이 프로젝트 · 거래처와 연결된 메일 (지메일 · 읽기만) */}
       <ProjectMails project={p} />
-      {/* 이 프로젝트의 결재 · 보고 */}
-      <SectionHead title="결재 · 보고" count={extra.approvals.length ? String(extra.approvals.length) : undefined} right={<Link to="/approvals">보고서 결제 ›</Link>} />
-      {extra.approvals.length === 0 ? (
-        <span className="t-cap">이 프로젝트로 올린 결재가 없습니다.</span>
-      ) : (
+      {/* 이 프로젝트의 결재 · 보고: 올린 결재가 있을 때만 (대표 지시 2026-10-31 빈 칸 삭제) */}
+      {extra.approvals.length > 0 && <SectionHead title="결재 · 보고" count={String(extra.approvals.length)} right={<Link to="/approvals">보고서 결제 ›</Link>} />}
+      {extra.approvals.length === 0 ? null : (
         <div className="col">
           {extra.approvals.slice(0, 12).map(a => (
             <Link key={a.id} to={`/approvals?id=${a.id}`} className="row dashed link-row" style={{ padding: '5px 0', gap: 6 }}>
