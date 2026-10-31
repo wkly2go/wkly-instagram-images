@@ -82,7 +82,7 @@ export function PayDash({ projectId, projects, payments, lines, finances, onPick
       <button type="button" className="section-h fold" onClick={() => setOpen(!open)} aria-expanded={open}>
         <span className="t-bodyb">현장별 요약</span>
         <span className="cap">
-          {rows.length}곳{miss ? <span className="t-red"> · 목표 수익률 미달 {miss}곳</span> : ''} · 공급가 기준 · 누르면 그 현장 대시보드
+          {rows.length}곳{miss ? <span className="t-red"> · 목표 수익률 미달 {miss}곳</span> : ''} · 부가세 포함 기준 · 누르면 그 현장 대시보드
         </span>
         <span className="t-cap">{open ? '접기' : '펼치기'}</span>
       </button>
@@ -159,7 +159,7 @@ function ProjectBoard({ project, payments, lines, fin }: { project: Project; pay
     <section className="section pay-dash" aria-label="현장 대시보드">
       <div className="section-h">
         <span className="t-bodyb">{project.name}</span>
-        <span className="cap">{[project.code, project.status, '공급가 기준'].filter(Boolean).join(' · ')}</span>
+        <span className="cap">{[project.code, project.status, '부가세 포함 기준'].filter(Boolean).join(' · ')}</span>
         <span className="row" style={{ gap: 10 }}>
           <Link to={`/projects?id=${project.id}`} className="t-cap">
             프로젝트 상세 · 자재 입출고 <ExternalLink size={11} />

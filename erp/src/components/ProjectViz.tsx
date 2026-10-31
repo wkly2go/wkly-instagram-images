@@ -81,6 +81,15 @@ export function ProjectHead({ project, payments, lines, finance, tasks, only }: 
   if (noDate.length) alarms.push({ key: 'nd', level: 'amber', text: `예정일 없는 결제 ${noDate.length}건`, to: pay })
   if (lateTasks.length) alarms.push({ key: 'lt', level: 'red', text: `마감 지난 할 일 ${lateTasks.length}건`, to: '/projects?view=mine' })
   if (m.contract == null) alarms.push({ key: 'nc', level: 'amber', text: '계약액 미입력 — 수금률 · 마진을 계산할 수 없음', to: `/projects?id=${project.id}` })
+  // 재무 세부 숫자도 알람으로 (대표 지시 2026-10-31 "이 내용들은 알람에 포함")
+  const liveP = payments.filter(p => p.status !== '취소' && !p.is_estimate)
+  const outP = liveP.filter(p => p.direction === '지급')
+  const noInvOut = outP.filter(p => p.tax_invoice === '미발행')
+  if (noInvOut.length) alarms.push({ key: 'nio', level: 'amber', text: `세금계산서 미수취 지급 ${noInvOut.length}건`, to: pay })
+  const nextOut = outP.filter(p => isOpen(p) && p.due_date && p.due_date >= today).sort((a, b) => (a.due_date ?? '').localeCompare(b.due_date ?? ''))[0]
+  if (nextOut) alarms.push({ key: 'nx', level: 'ok', text: `다음 지급 ${shortDate(nextOut.due_date)} ${nextOut.payee ?? nextOut.title} ${manwon(nextOut.amount)}`, to: pay })
+  const vat = liveP.filter(p => p.direction === '수금').reduce((n, p) => n + p.vat, 0) - outP.reduce((n, p) => n + p.vat, 0)
+  if (liveP.length) alarms.push({ key: 'vat', level: 'ok', text: `부가세 (매출 − 매입) ${manwon(vat) || '0'} · 매입 업체 ${new Set(outP.map(p => (p.payee ?? p.title).trim())).size}곳 · ${outP.length}건`, to: pay })
 
   const doneN = tasks.filter(t => t.status === '완료').length
   // 일정 고치기 (대표 지시 2026-10-31 "프로젝트 일정표는 각 프로젝트에서 업무일지로 수정 가능하게, 별도로도 수정 가능하게")
@@ -148,18 +157,19 @@ export function ProjectHead({ project, payments, lines, finance, tasks, only }: 
       <div className="pviz-card">
         <div className="pviz-h">
           <b>입출금 알람</b>
-          <span className="t-cap">{alarms.length ? `${alarms.length}건` : ''}</span>
+          <span className="t-cap">{alarms.filter(a => a.level !== 'ok').length ? `${alarms.filter(a => a.level !== 'ok').length}건` : ''}</span>
           <Link to={pay} className="t-cap" style={{ marginLeft: 'auto' }}>
             결제 대장 ›
           </Link>
         </div>
-        {alarms.length === 0 ? (
+        {!alarms.some(a => a.level !== 'ok') && (
           <span className="pviz-alarm ok">
             <CheckCircle2 size={14} /> 연체 · 예산 초과 · 확인할 결제가 없습니다.
           </span>
-        ) : (
+        )}
+        {alarms.length === 0 ? null : (
           <ul className="pviz-alarms">
-            {alarms.slice(0, 8).map(a => (
+            {alarms.slice(0, 12).map(a => (
               <li key={a.key}>
                 <Link to={a.to} className={`pviz-alarm ${a.level}`}>
                   {a.level === 'red' ? <AlertTriangle size={13} /> : <BellRing size={13} />} {a.text}

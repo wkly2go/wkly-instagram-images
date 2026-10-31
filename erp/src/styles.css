@@ -2993,3 +2993,25 @@ input[type='radio'] { border-radius: 50% !important; }
 .vendor-pane .vp-pay em { font-style: normal; font-family: var(--mono); color: var(--gray); font-size: 11px; }
 .vendor-pane .vp-pay b { margin-left: auto; font-family: var(--mono); }
 .vendor-pane .split, .vendor-pane .detail { min-width: 0; }
+
+/* 공통: 입력 칸 가로 크기는 내용에 맞춰 반응형 (대표 지시 2026-10-31) — 잘리지 않고 글자만큼 늘고 줄어듦 */
+.ps-in, .contract-goal .ps-in, .site-entry .input, .site-entry .select { field-sizing: content; }
+.pay-sheet.vendor-sheet.one-line { table-layout: auto; width: 100%; min-width: 0; }
+.vendor-sheet.one-line td.vs-2 { white-space: nowrap; }
+.vendor-sheet.one-line td.vs-2 > *, .vendor-sheet.one-line td.vs-2 > .ps-in, .vendor-sheet.one-line td.vs-2 > select.ps-in,
+.vendor-sheet.one-line td.vs-stage > .ps-in:first-child, .vendor-sheet.one-line td.vs-stage > .ps-in.vs-day {
+  width: auto; min-width: 4ch; max-width: 22ch;
+}
+.vendor-sheet.one-line .ps-in.num { min-width: 9ch; }
+.vendor-sheet.one-line .ps-in.vs-day { min-width: 5ch; }
+.vendor-sheet.one-line select.ps-in { padding-right: 18px; }
+.vendor-sheet.one-line .ps-in.vs-name { max-width: 16ch; }
+.vendor-sheet.one-line td.vs-2 > :only-child { width: 100%; max-width: none; }
+.contract-goal .ps-in { min-width: 10ch; }
+.contract-goal .ps-in.w-s { min-width: 4ch; width: auto; }
+.pay-sheet .ps-in { min-width: 6ch; }
+/* 단계별 계산서 체크 (결제일 옆) */
+.vendor-sheet .vs-inv { display: inline-flex !important; align-items: center; gap: 3px; width: auto !important; min-width: 0 !important; padding: 0 6px; font-size: 11px; color: var(--gray); white-space: nowrap; cursor: pointer; border-left: 1px dashed var(--line); }
+.vendor-sheet .vs-inv input { margin: 0; accent-color: var(--blue); }
+.vendor-sheet .vs-inv.off { opacity: 0.4; cursor: default; }
+.vendor-sheet .vs-inv:has(input:checked) { color: var(--blue); font-weight: 700; }
