@@ -286,7 +286,7 @@ export function ProjectDriveSection({ project }: { project: Project }) {
     <section className="col gap-6">
       <SectionHead
         title="구글 드라이브 자료"
-        count={files.length}
+        count={files.length || undefined}
         right={
           <span className="row gap-6">
             <Button
@@ -380,9 +380,8 @@ export function ProjectDriveSection({ project }: { project: Project }) {
           파일에서 '링크 복사' 뒤 위 칸에 붙여 넣으면 첨부됩니다.
         </span>
       )}
-      {files.length === 0 ? (
-        <Empty>첨부한 드라이브 자료가 없습니다.</Empty>
-      ) : (
+      {/* 따로 첨부한 링크가 없으면 아무것도 안 보임 — 폴더 파일은 아래 '프로젝트 폴더 파일'에 (대표 지시 2026-10-31) */}
+      {files.length === 0 ? null : (
         <div className="drive-list">
           {files.map((f) => (
             <div key={f.id} className="drive-row as-div">
