@@ -1,12 +1,12 @@
 import { useState, type ReactNode } from 'react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { manwon, shortDate, todayKey } from '../lib/date'
-import { isDone, isOpen, isOverdue, projectMoney, supply } from '../lib/finance'
+import { isOpen, isOverdue, projectMoney } from '../lib/finance'
 import { Link } from '../lib/router'
 import type { BudgetLine, Client, Payment, Project, ProjectFinance } from '../lib/types'
 import { Meter } from './charts'
 import { PaymentForm, parseMoney } from './PaymentForm'
-import { PaySheet } from './PaySheet'
+import { VendorSheet } from './VendorSheet'
 
 interface Data {
   finance: ProjectFinance | undefined
@@ -21,7 +21,6 @@ export function FinancePanel({ project, clients, projects, viz, part }: { projec
   const { api, version } = useApp()
   const today = todayKey()
   // 결제 대장을 프로젝트 화면 안에 바로 (대표 지시 2026-10-31 "결제 대장은 메인 화면으로 이동")
-  const [sel, setSel] = useState<Set<string>>(new Set())
   const [form, setForm] = useState<Payment | null>(null)
   const { data } = useAsync<Data>(
     async () => {
@@ -33,22 +32,6 @@ export function FinancePanel({ project, clients, projects, viz, part }: { projec
   )
   const m = projectMoney(data.finance, data.payments, data.lines, today)
   const ledger = `/projects?view=payments&project=${project.id}`
-  // 공사 구분별 지급 (완료 + 미지급, 취소 · 예상 제외) — 많은 순 6개, 나머지는 '기타'
-  const out = data.payments.filter(p => p.direction === '지급' && p.status !== '취소' && !p.is_estimate)
-  const byCat = new Map<string, { done: number; open: number }>()
-  for (const p of out) {
-    const k = p.category?.trim() || '미분류'
-    const r = byCat.get(k) ?? { done: 0, open: 0 }
-    if (isDone(p)) r.done += supply(p)
-    else r.open += supply(p)
-    byCat.set(k, r)
-  }
-  let cats = [...byCat.entries()].map(([name, r]) => ({ name, ...r, total: r.done + r.open })).sort((a, b) => b.total - a.total)
-  if (cats.length > 7) {
-    const rest = cats.slice(6)
-    cats = [...cats.slice(0, 6), { name: `기타 ${rest.length}개`, done: rest.reduce((n, r) => n + r.done, 0), open: rest.reduce((n, r) => n + r.open, 0), total: rest.reduce((n, r) => n + r.total, 0) }]
-  }
-  const max = Math.max(1, ...cats.map(c => c.total))
   const spent = m.paid + m.payable
   const late = data.payments.filter(p => isOverdue(p, today)).length
   const next = data.payments.filter(p => p.direction === '지급' && isOpen(p) && !p.is_estimate && p.due_date && p.due_date >= today).sort((a, b) => (a.due_date ?? '').localeCompare(b.due_date ?? ''))[0]
@@ -57,7 +40,7 @@ export function FinancePanel({ project, clients, projects, viz, part }: { projec
     <section className="section fin-viz" aria-label="재무">
       <div className="section-h">
         <span className="t-bodyb">재무</span>
-        <span className="cap">결제 대장 기준 · 공급가액</span>
+        <span className="cap">협력업체 관리 기준 · 공급가액</span>
         <Link to={ledger} className="t-cap" title="이 현장 결제 대장만 크게 보기 (이번 주 지급 · 점검 · 업체별 묶음)">
           크게 보기 ›
         </Link>
@@ -72,23 +55,7 @@ export function FinancePanel({ project, clients, projects, viz, part }: { projec
             <Tile label="지급" value={manwon(m.paid) || '0'} sub={`미지급 ${manwon(m.payable) || '0'}`} rate={spent ? (m.paid / spent) * 100 : null} />
             <Tile label="예상 마진" value={m.margin != null ? manwon(m.margin) : '–'} sub={m.marginRate != null ? `${Math.round(m.marginRate)}%` : '계약을 넣으면 계산'} tone={m.marginRate != null && m.target != null && m.marginRate < m.target ? 'red' : undefined} />
           </div>
-          {cats.length > 0 && (
-            <div className="fin-bars" role="list" aria-label="공사 구분별 지급">
-              {cats.map(c => (
-                <div key={c.name} className="fin-bar" role="listitem" title={`${c.name} · 완료 ${c.done.toLocaleString('ko-KR')}원 · 미지급 ${c.open.toLocaleString('ko-KR')}원`}>
-                  <span className="fb-name">{c.name}</span>
-                  <span className="fb-track">
-                    <span className="fb-done" style={{ width: `${(c.done / max) * 100}%` }} />
-                    <span className="fb-open" style={{ width: `${(c.open / max) * 100}%` }} />
-                  </span>
-                  <span className="fb-val">{manwon(c.total)}</span>
-                </div>
-              ))}
-              <span className="t-cap fin-legend">
-                <i className="lg done" /> 지급 완료 <i className="lg open" /> 미지급
-              </span>
-            </div>
-          )}
+          {/* 공사 구분별 지급 막대는 뺌 (대표 지시 2026-10-31 "삭제") */}
           {(late > 0 || next) && (
             <div className="t-cap">
               {late > 0 && <span className="t-red">연체 {late}건 · </span>}
@@ -102,13 +69,16 @@ export function FinancePanel({ project, clients, projects, viz, part }: { projec
   )
   // 결제 대장 (대표 지시 2026-10-31 배치: 개요 · 알람 → 재무 시각화 → 일정 → 업무일지 · 할 일 → 결제 대장 → 자재 입출고 → 현장 작업일지)
   const ledgerBox = (
-    <section className="section" aria-label="결제 대장">
+    <section className="section" aria-label="협력업체 관리">
       <div className="section-h">
-        <span className="t-bodyb">결제 대장</span>
-        <span className="cap">노란 칸에 바로 입력 · 맨 아래 줄 Enter = 추가</span>
+        <span className="t-bodyb">협력업체 관리</span>
+        <span className="cap">업체 1곳 = 1줄 · 선금 · 중도금 · 잔금 · 노란 칸에 바로 입력</span>
+        <Link to={ledger} className="t-cap">
+          결제 건별 보기 ›
+        </Link>
       </div>
       <ContractGoal project={project} finance={data.finance} />
-      <PaySheet rows={data.payments} all={data.all} projectId={project.id} sel={sel} setSel={setSel} onOpen={p => setForm(p)} />
+      <VendorSheet projectId={project.id} payments={data.payments} all={data.all} lines={data.lines} finance={data.finance} onOpen={p => setForm(p)} />
       {form && <PaymentForm key={form.id} payment={form} preset={{ project_id: project.id }} projects={projects} clients={clients} payments={data.all} lines={data.lines} lockProject onClose={() => setForm(null)} />}
     </section>
   )
