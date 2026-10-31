@@ -817,8 +817,11 @@ function ProjectDetail({ project: p, data, onEdit, onBack, panel = false }: { pr
         </div>
       <ProjectVizLoader project={p} part="alarm" />
       </div>
+      {/* 재무는 늘 협력업체 관리 바로 위 (대표 지시 2026-10-31) */}
       <FinancePanel project={p} clients={data.clients} projects={data.projects} part="viz" />
-      <ProjectVizLoader project={p} part="schedule" />
+      {/* 프로젝트 일정은 오른쪽 칸 '프로젝트 일정'으로 옮김 (대표 지시 2026-10-31) */}
+      {/* ⑤ 협력업체 관리 ⑥ 현장 작업일지(자재 입출고 포함 — 별도 칸 없음, 대표 지시 2026-10-31) */}
+      <FinancePanel project={p} clients={data.clients} projects={data.projects} part="ledger" />
       <div className="row top gap-12 proj-side-row" style={{ flexWrap: 'wrap' }}>
         <div className="col proj-inline-materials" style={{ flexBasis: 240, flexGrow: 1 }}>
           <ProjectContactsSection project={p} clients={data.clients} contacts={extra.contacts} />
@@ -827,8 +830,6 @@ function ProjectDetail({ project: p, data, onEdit, onBack, panel = false }: { pr
           <ContactTimeline logs={extra.logs} projects={[]} showContact contacts={extra.contacts} />
         </div>
       </div>
-      {/* ⑤ 협력업체 관리 ⑥ 현장 작업일지(자재 입출고 포함 — 별도 칸 없음, 대표 지시 2026-10-31) */}
-      <FinancePanel project={p} clients={data.clients} projects={data.projects} part="ledger" />
       {/* 인테리어(아트리어 · AR)는 현장 작업일지 늘, 다른 프로젝트는 작업일지가 있을 때만 */}
       <SiteLogsSection project={p} always={projectBrand(p) === 'AR'} clients={data.clients} />
       {/* 구글 드라이브 자료: 드라이브 파일을 가리켜 늘 최신 · 구글 문서는 편집 화면으로 */}

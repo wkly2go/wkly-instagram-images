@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { useAction, useApp, useAsync } from '../lib/app'
-import { manwon, shortDate, todayKey } from '../lib/date'
+import { addDays, manwon, shortDate, todayKey } from '../lib/date'
 import { isOpen, isOverdue, projectMoney } from '../lib/finance'
 import { Link } from '../lib/router'
 import type { BudgetLine, Client, Payment, Project, ProjectFinance } from '../lib/types'
@@ -55,7 +55,8 @@ export function FinancePanel({ project, clients, projects, viz, part }: { projec
             <Tile label="지급" value={manwon(m.paid) || '0'} sub={`미지급 ${manwon(m.payable) || '0'}`} rate={spent ? (m.paid / spent) * 100 : null} />
             <Tile label="예상 마진" value={m.margin != null ? manwon(m.margin) : '–'} sub={m.marginRate != null ? `${Math.round(m.marginRate)}%` : '계약을 넣으면 계산'} tone={m.marginRate != null && m.target != null && m.marginRate < m.target ? 'red' : undefined} />
           </div>
-          {/* 공사 구분별 지급 막대는 뺌 (대표 지시 2026-10-31 "삭제") */}
+          {/* 세분화 (대표 지시 2026-10-31 "재무 항목을 더 세분화하고 시각화") */}
+          <MoneyFlow m={m} payments={data.payments} today={today} />
           {(late > 0 || next) && (
             <div className="t-cap">
               {late > 0 && <span className="t-red">연체 {late}건 · </span>}
@@ -156,6 +157,70 @@ export function ContractGoal({ project, finance }: { project: Project; finance: 
         <span>메모</span>
         <input className="ps-in" defaultValue={finance?.memo ?? ''} onBlur={e => save({ memo: e.target.value.trim() || null })} onKeyDown={e => e.key === 'Enter' && (e.target as HTMLInputElement).blur()} aria-label="계약 메모" />
       </label>
+    </div>
+  )
+}
+
+/** 돈의 흐름: 같은 눈금(계약 또는 더 큰 쪽)에 매출 · 매입 막대 + 세부 숫자 */
+function MoneyFlow({ m, payments, today }: { m: ReturnType<typeof projectMoney>; payments: Payment[]; today: string }) {
+  const live = payments.filter(p => p.status !== '취소' && !p.is_estimate)
+  const inn = live.filter(p => p.direction === '수금')
+  const out = live.filter(p => p.direction === '지급')
+  const week = addDays(today, 7)
+  const sum = (l: Payment[]) => l.reduce((n, p) => n + p.amount, 0)
+  const lateIn = inn.filter(p => isOpen(p) && p.due_date && p.due_date < today)
+  const soonIn = inn.filter(p => isOpen(p) && p.due_date && p.due_date >= today && p.due_date <= week)
+  const lateOut = out.filter(p => isOpen(p) && p.due_date && p.due_date < today)
+  const soonOut = out.filter(p => isOpen(p) && p.due_date && p.due_date >= today && p.due_date <= week)
+  const noInvIn = inn.filter(p => p.tax_invoice === '미발행')
+  const noInvOut = out.filter(p => p.tax_invoice === '미발행')
+  const vatIn = inn.reduce((n, p) => n + p.vat, 0)
+  const vatOut = out.reduce((n, p) => n + p.vat, 0)
+  const contract = m.contract ?? 0
+  const receivable = Math.max(0, contract - m.received)
+  const margin = Math.max(0, contract - m.cost)
+  const scale = Math.max(1, contract, m.received + receivable, m.cost)
+  const w = (n: number) => `${Math.max(0, (n / scale) * 100)}%`
+  const seg = (n: number, cls: string, label: string) => (n > 0 ? <i className={cls} style={{ width: w(n) }} title={`${label} ${manwon(n)}`} /> : null)
+  const over = m.cost - contract
+  return (
+    <div className="mflow">
+      <div className="mflow-row">
+        <span className="mflow-name">매출</span>
+        <span className="mflow-bar">
+          {seg(m.received, 'in-done', '받은 돈')}
+          {seg(receivable, 'in-open', '받을 돈')}
+        </span>
+        <span className="mflow-val">{contract ? manwon(contract) : '계약 없음'}</span>
+      </div>
+      <div className="mflow-row">
+        <span className="mflow-name">매입</span>
+        <span className="mflow-bar">
+          {seg(m.paid, 'out-done', '지급 완료')}
+          {seg(m.payable, 'out-open', '지급 예정')}
+          {seg(m.estimate, 'out-est', '예상 비용')}
+          {seg(margin, 'margin', '남는 마진')}
+        </span>
+        <span className={`mflow-val${over > 0 ? ' t-red' : ''}`}>{over > 0 ? `${manwon(over)} 초과` : `마진 ${manwon(margin) || '0'}`}</span>
+      </div>
+      <div className="mflow-key">
+        <span><i className="in-done" />받은 돈 {manwon(m.received) || '0'}</span>
+        <span><i className="in-open" />받을 돈 {manwon(receivable) || '0'}</span>
+        <span><i className="out-done" />지급 완료 {manwon(m.paid) || '0'}</span>
+        <span><i className="out-open" />지급 예정 {manwon(m.payable) || '0'}</span>
+        {m.estimate > 0 && <span><i className="out-est" />예상 비용 {manwon(m.estimate)}</span>}
+        <span><i className="margin" />남는 마진 {manwon(margin) || '0'}</span>
+      </div>
+      <dl className="mflow-grid">
+        <div className={lateIn.length ? 'bad' : ''}><dt>수금 연체</dt><dd>{lateIn.length ? `${lateIn.length}건 · ${manwon(sum(lateIn))}` : '없음'}</dd></div>
+        <div><dt>7일 안 수금</dt><dd>{soonIn.length ? `${soonIn.length}건 · ${manwon(sum(soonIn))}` : '없음'}</dd></div>
+        <div className={lateOut.length ? 'bad' : ''}><dt>지급 연체</dt><dd>{lateOut.length ? `${lateOut.length}건 · ${manwon(sum(lateOut))}` : '없음'}</dd></div>
+        <div><dt>7일 안 지급</dt><dd>{soonOut.length ? `${soonOut.length}건 · ${manwon(sum(soonOut))}` : '없음'}</dd></div>
+        <div className={noInvIn.length ? 'warn' : ''}><dt>계산서 미발행 (매출)</dt><dd>{noInvIn.length ? `${noInvIn.length}건` : '없음'}</dd></div>
+        <div className={noInvOut.length ? 'warn' : ''}><dt>계산서 미수취 (매입)</dt><dd>{noInvOut.length ? `${noInvOut.length}건` : '없음'}</dd></div>
+        <div><dt>부가세 (매출 − 매입)</dt><dd>{manwon(vatIn - vatOut) || '0'}</dd></div>
+        <div><dt>매입 업체 · 건수</dt><dd>{new Set(out.map(p => (p.payee ?? p.title).trim())).size}곳 · {out.length}건</dd></div>
+      </dl>
     </div>
   )
 }
