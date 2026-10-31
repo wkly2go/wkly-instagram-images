@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import type { FieldUpload, LedgerStatus, MailItem, MaterialItem, MaterialMove, MaterialStockRow } from './types'
+import type { FieldUpload, MailFile, LedgerStatus, MailItem, MaterialItem, MaterialMove, MaterialStockRow } from './types'
 import { ApiError, CHAT_FILE_MAX, EXCHANGE_FILE_MAX, groupIps, type AgentDraft, type Api, type DriveEnsureResult, type DriveFolder, type DriveStatus, type ImportResult } from './api'
 import { desktop } from './desktop'
 import type {
@@ -977,6 +977,12 @@ export function createSupabaseApi(url: string, key: string): Api {
       q = clientId ? q.or(`project_ids.cs.{${projectId}},client_id.eq.${clientId}`) : q.contains('project_ids', [projectId])
       const { data, error } = await q
       return error ? [] : (data as MailItem[])
+    },
+    async listMailFiles(projectId, clientId) {
+      let q = sb.from('mail_files').select('id,mail_id,thread_id,name,kind,vendor,client_id,project_ids,drive_url,folder_id,sent_at').order('sent_at', { ascending: false }).limit(60)
+      q = clientId ? q.or(`project_ids.cs.{${projectId}},client_id.eq.${clientId}`) : q.contains('project_ids', [projectId])
+      const { data, error } = await q
+      return error ? [] : (data as MailFile[])
     },
     async fieldUploadFolder() {
       const { data } = await sb.from('app_settings').select('value').eq('key', 'field_upload_folder').maybeSingle()

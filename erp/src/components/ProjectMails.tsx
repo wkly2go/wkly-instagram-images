@@ -2,16 +2,17 @@
 //  - 연번 · 프로젝트 이름 · 거래처 · 연락처 메일 주소로 자동 연결 (서버 10분마다)
 //  - 읽기만 · 누르면 지메일에서 그 대화를 엶
 import { useState } from 'react'
-import { Mail, Paperclip } from 'lucide-react'
+import { FileText, Mail, Paperclip } from 'lucide-react'
 import { useApp, useAsync } from '../lib/app'
 import { shortDate } from '../lib/date'
-import { gmailThreadUrl, type MailItem, type Project } from '../lib/types'
+import { gmailThreadUrl, type MailFile, type MailItem, type Project } from '../lib/types'
 import { openLink } from './WebSearch'
 import { SectionHead } from './ui'
 
 export function ProjectMails({ project }: { project: Project }) {
   const { api, version } = useApp()
   const { data } = useAsync(() => api.listProjectMails(project.id, project.client_id ?? null), [project.id, project.client_id, version], [] as MailItem[])
+  const { data: saved } = useAsync(() => api.listMailFiles(project.id, project.client_id ?? null), [project.id, project.client_id, version], [] as MailFile[])
   const [all, setAll] = useState(false)
   // 같은 대화는 최신 한 통만
   const threads = [...new Map(data.map(m => [m.thread_id, m])).values()]
@@ -43,6 +44,17 @@ export function ProjectMails({ project }: { project: Project }) {
           </li>
         ))}
       </ul>
+      {saved.length > 0 && (
+        <div className="mail-files">
+          <span className="t-cap">받은 파일 · 드라이브 수신방</span>
+          {saved.slice(0, 24).map(f => (
+            <button key={f.id} type="button" className="chip" onClick={() => openLink(f.drive_url)} title={`${f.vendor} · ${f.kind}`}>
+              <FileText size={11} /> {f.kind !== '첨부' ? `[${f.kind}] ` : ''}
+              {f.name}
+            </button>
+          ))}
+        </div>
+      )}
       {threads.length > 6 && (
         <button type="button" className="link-btn t-cap" onClick={() => setAll(v => !v)}>
           {all ? '접기' : `${threads.length - 6}개 더 보기`}

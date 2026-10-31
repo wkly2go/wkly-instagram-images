@@ -70,6 +70,7 @@ import type { LedgerEntry, LedgerRecurring, LedgerStatus, MaterialItem, Material
   WorkLog,
   MailItem,
   FieldUpload,
+  MailFile,
 } from './types'
 
 /** 구글 드라이브 탭에 거는 회사 공용 폴더 */
@@ -432,6 +433,8 @@ export interface Api {
   listDriveIndex(projectId?: string): Promise<DriveIndexFile[]>
   /** 회사 지메일: 이 프로젝트(또는 그 거래처)와 연결된 메일 */
   listProjectMails(projectId: string, clientId: string | null): Promise<MailItem[]>
+  /** 메일 첨부를 드라이브 수신방에 저장한 파일 (프로젝트 · 거래처) */
+  listMailFiles(projectId: string, clientId: string | null): Promise<MailFile[]>
   /** 취재 자료 올리기: 올릴 드라이브 폴더 id · 최근 올린 묶음 · 묶음 저장(같은 폴더면 파일만 더함) */
   fieldUploadFolder(): Promise<string | null>
   listFieldUploads(limit?: number): Promise<FieldUpload[]>
