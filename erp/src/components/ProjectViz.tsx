@@ -4,12 +4,14 @@
 //   3줄: 업체별 지급률 · 앞으로 4주 지급 예정 (일정은 맨 위 '프로젝트 일정'에)
 //   금액은 공급가(VAT 별도) 기준. 마우스를 올리면 값, 누르면 그 업체 · 공사 구분 결제로
 import { useState } from 'react'
-import { AlertTriangle, BellRing, CheckCircle2 } from 'lucide-react'
+import { AlertTriangle, BellRing, CheckCircle2, ListChecks, Plus } from 'lucide-react'
 import { Link } from '../lib/router'
-import { useApp, useAsync } from '../lib/app'
+import { useAction, useApp, useAsync } from '../lib/app'
 import { addDays, addMonths, manwon, shortDate, todayKey, won } from '../lib/date'
 import { budgetByCategory, contractRows, isDone, isOpen, monthlyFlow, projectMoney, supply } from '../lib/finance'
-import type { BudgetLine, Payment, Project, ProjectFinance, Task } from '../lib/types'
+import { TASK_STATUSES, type BudgetLine, type Payment, type Project, type ProjectFinance, type Task, type TaskStatus } from '../lib/types'
+import { TaskAssignModal } from '../pages/Schedule'
+import { Button, Modal } from './ui'
 import { FlowChart, shortMan } from './charts'
 
 const SLOTS = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#6250d6']
@@ -335,6 +337,12 @@ export function ProjectHead({ project, payments, lines, finance, tasks }: { proj
   if (m.contract == null) alarms.push({ key: 'nc', level: 'amber', text: '계약액 미입력 — 수금률 · 마진을 계산할 수 없음', to: `/projects?id=${project.id}` })
 
   const doneN = tasks.filter(t => t.status === '완료').length
+  // 일정 고치기 (대표 지시 2026-10-31 "프로젝트 일정표는 각 프로젝트에서 업무일지로 수정 가능하게, 별도로도 수정 가능하게")
+  //  - [일지로 편집]: 할 일을 업무일지처럼 한 줄씩 바로 고침 (제목 · 시작 · 마감 · 담당 · 상태) · 맨 아래 줄에 새 일정
+  //  - 막대 · 이름을 누르면 수정 창 · 프로젝트 기간 줄을 누르면 기간 고치기 · [+ 일정]
+  const [editing, setEditing] = useState<Task | 'new' | null>(null)
+  const [logMode, setLogMode] = useState(false)
+  const [periodOpen, setPeriodOpen] = useState(false)
   return (
     <div className="pviz-row head">
       <div className="pviz-card">
@@ -344,17 +352,24 @@ export function ProjectHead({ project, payments, lines, finance, tasks }: { proj
           <span className="t-cap" style={{ marginLeft: 'auto' }}>
             할 일 {doneN}/{tasks.length} 완료{lateTasks.length ? ` · 지연 ${lateTasks.length}` : ''}
           </span>
+          <button type="button" className={`chip ${logMode ? 'active' : ''}`} onClick={() => setLogMode(v => !v)} title="업무일지처럼 한 줄씩 바로 고치기">
+            <ListChecks size={12} /> {logMode ? '타임라인' : '일지로 편집'}
+          </button>
+          <button type="button" className="chip" onClick={() => setEditing('new')} title="이 프로젝트에 일정 · 할 일 추가">
+            <Plus size={12} /> 일정
+          </button>
         </div>
+        {logMode ? <ScheduleLog project={project} tasks={tasks} /> : (
         <div className="pviz-tl">
           <div className="pviz-tl-axis">
             <span>{shortDate(lo)}</span>
             <span>{shortDate(hi)}</span>
           </div>
-          {start && end && (
-            <div className="pviz-tl-row proj">
+          {(start || end) && (
+            <div className="pviz-tl-row proj click" onClick={() => setPeriodOpen(true)} title="눌러서 프로젝트 기간 고치기">
               <span className="pviz-tl-name">프로젝트 기간</span>
               <span className="pviz-tl-track">
-                <i className="bar proj" style={{ left: `${pos(start)}%`, width: `${Math.max(1.5, pos(addDays(end, 1)) - pos(start))}%` }} title={`${shortDate(start)} ~ ${shortDate(end)}`} />
+                {start && end && <i className="bar proj" style={{ left: `${pos(start)}%`, width: `${Math.max(1.5, pos(addDays(end, 1)) - pos(start))}%` }} title={`${shortDate(start)} ~ ${shortDate(end)} · 눌러서 고치기`} />}
                 <b className="now" style={{ left: `${pos(today)}%` }} title="오늘" />
               </span>
             </div>
@@ -364,7 +379,7 @@ export function ProjectHead({ project, payments, lines, finance, tasks }: { proj
             const e0 = t.due_date ?? t.start_date!
             const late = t.status !== '완료' && e0 < today
             return (
-              <div key={t.id} className="pviz-tl-row">
+              <div key={t.id} className="pviz-tl-row click" onClick={() => setEditing(t)} title="눌러서 고치기">
                 <span className="pviz-tl-name" title={t.title}>
                   {t.title}
                 </span>
@@ -375,8 +390,11 @@ export function ProjectHead({ project, payments, lines, finance, tasks }: { proj
               </div>
             )
           })}
-          {!rows.length && <span className="t-cap">날짜가 있는 할 일이 없습니다.</span>}
+          {!rows.length && <span className="t-cap">날짜가 있는 할 일이 없습니다. [+ 일정] 또는 [일지로 편집]으로 넣어 주세요.</span>}
         </div>
+        )}
+        {editing && <TaskAssignModal task={editing === 'new' ? undefined : editing} projects={[project]} tasks={tasks} presetProject={project.id} onClose={() => setEditing(null)} />}
+        {periodOpen && <PeriodModal project={project} onClose={() => setPeriodOpen(false)} />}
       </div>
       <div className="pviz-card">
         <div className="pviz-h">
@@ -401,6 +419,121 @@ export function ProjectHead({ project, payments, lines, finance, tasks }: { proj
             ))}
           </ul>
         )}
+      </div>
+    </div>
+  )
+}
+
+/** 프로젝트 기간(시작 · 종료) 고치기 */
+function PeriodModal({ project, onClose }: { project: Project; onClose: () => void }) {
+  const { api } = useApp()
+  const { busy, run } = useAction()
+  const [a, setA] = useState(project.start_date ?? '')
+  const [b, setB] = useState(project.end_date ?? '')
+  const save = async () => {
+    if (a && b && a > b) return
+    if (await run(() => api.saveProject({ id: project.id, start_date: a || null, end_date: b || null }), '프로젝트 기간을 바꿨습니다.')) onClose()
+  }
+  return (
+    <Modal
+      title="프로젝트 기간"
+      onClose={onClose}
+      actions={
+        <>
+          <Button kind="ghost" onClick={onClose}>
+            취소
+          </Button>
+          <Button onClick={save} disabled={busy || (!!a && !!b && a > b)}>
+            저장
+          </Button>
+        </>
+      }
+    >
+      <div className="row gap-6">
+        <label className="label grow">
+          <span>시작일</span>
+          <input className="input" type="date" value={a} onChange={e => setA(e.target.value)} />
+        </label>
+        <label className="label grow">
+          <span>종료일</span>
+          <input className="input" type="date" value={b} onChange={e => setB(e.target.value)} />
+        </label>
+      </div>
+      {a && b && a > b && <span className="t-cap t-red">시작일이 종료일보다 늦습니다.</span>}
+    </Modal>
+  )
+}
+
+/** 업무일지처럼 한 줄씩 바로 고치는 일정 목록 · 칸을 바꾸면 바로 저장 · 맨 아래 줄에서 새 일정 */
+function ScheduleLog({ project, tasks }: { project: Project; tasks: Task[] }) {
+  const { api, profiles, toast, bump } = useApp()
+  const people = profiles.filter(p => p.active !== false)
+  const list = [...tasks].sort((x, y) => (x.start_date ?? x.due_date ?? '9999').localeCompare(y.start_date ?? y.due_date ?? '9999') || x.created_at.localeCompare(y.created_at))
+  const [draft, setDraft] = useState({ title: '', start_date: '', due_date: '', assignee_id: '' })
+  const save = async (t: Task, patch: Partial<Task>) => {
+    try {
+      await api.saveTask({ id: t.id, ...patch })
+      bump()
+    } catch (e) {
+      toast(e instanceof Error ? e.message : '저장하지 못했습니다.')
+    }
+  }
+  const add = async () => {
+    const title = draft.title.trim()
+    if (!title) return
+    try {
+      await api.saveTask({ project_id: project.id, title, start_date: draft.start_date || null, due_date: draft.due_date || draft.start_date || null, assignee_id: draft.assignee_id || null, status: '할 일' })
+      setDraft({ title: '', start_date: '', due_date: '', assignee_id: '' })
+      bump()
+      toast('일정을 넣었습니다.')
+    } catch (e) {
+      toast(e instanceof Error ? e.message : '넣지 못했습니다.')
+    }
+  }
+  return (
+    <div className="sched-log">
+      <div className="sched-log-row head">
+        <span>할 일 · 일정</span>
+        <span>시작</span>
+        <span>마감</span>
+        <span>담당</span>
+        <span>상태</span>
+      </div>
+      {list.map(t => (
+        <div key={t.id} className={`sched-log-row${t.status === '완료' ? ' done' : ''}`}>
+          <input className="input" defaultValue={t.title} onBlur={e => e.target.value.trim() && e.target.value.trim() !== t.title && save(t, { title: e.target.value.trim() })} aria-label="할 일" />
+          <input className="input" type="date" defaultValue={t.start_date ?? ''} onChange={e => save(t, { start_date: e.target.value || null })} aria-label="시작" />
+          <input className="input" type="date" defaultValue={t.due_date ?? ''} onChange={e => save(t, { due_date: e.target.value || null })} aria-label="마감" />
+          <select className="select" defaultValue={t.assignee_id ?? ''} onChange={e => save(t, { assignee_id: e.target.value || null })} aria-label="담당">
+            <option value="">미정</option>
+            {people.map(p => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+          <select className="select" defaultValue={t.status} onChange={e => save(t, { status: e.target.value as TaskStatus })} aria-label="상태">
+            {TASK_STATUSES.map(st => (
+              <option key={st}>{st}</option>
+            ))}
+          </select>
+        </div>
+      ))}
+      <div className="sched-log-row new">
+        <input className="input" value={draft.title} onChange={e => setDraft({ ...draft, title: e.target.value })} onKeyDown={e => e.key === 'Enter' && void add()} placeholder="+ 새 일정 (Enter)" aria-label="새 일정" />
+        <input className="input" type="date" value={draft.start_date} onChange={e => setDraft({ ...draft, start_date: e.target.value })} aria-label="새 일정 시작" />
+        <input className="input" type="date" value={draft.due_date} onChange={e => setDraft({ ...draft, due_date: e.target.value })} aria-label="새 일정 마감" />
+        <select className="select" value={draft.assignee_id} onChange={e => setDraft({ ...draft, assignee_id: e.target.value })} aria-label="새 일정 담당">
+          <option value="">담당</option>
+          {people.map(p => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+            </option>
+          ))}
+        </select>
+        <button type="button" className="btn btn-sm" onClick={() => void add()} disabled={!draft.title.trim()}>
+          넣기
+        </button>
       </div>
     </div>
   )
