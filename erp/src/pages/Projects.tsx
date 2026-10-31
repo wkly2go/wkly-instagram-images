@@ -119,13 +119,15 @@ export default function Projects() {
     { key: 'subs', label: '구독료', icon: <Repeat size={I} /> },
   ]
   const activeTab = tabs.some(t => t.key === view) ? view : null
+  const payFocus = view === 'payments' && !!query.get('project') && query.get('project') !== 'none'
   return (
     <Shell active="projects">
       {/* ① 화면 고르기 (밑줄 탭) */}
-      <ViewTabs label="프로젝트 화면" items={tabs} active={activeTab} onPick={v => navigate(v ? `/projects?view=${v}` : '/projects')} />
+      {/* 결제 대장에서 현장을 고른 동안에는 위 메뉴 · 검색을 숨기고 그 현장에 집중 (대표 지시 2026-10-31) — 돌아가기는 '← 전체 현장' */}
+      {!payFocus && <ViewTabs label="프로젝트 화면" items={tabs} active={activeTab} onPick={v => navigate(v ? `/projects?view=${v}` : '/projects')} />}
       {/* ② 찾기 · 만들기 (한 줄) */}
       {/* ② 찾기 · 만들기: 한 줄, 검색이 가장 넓게 (2026-10-28 "더 미니멀하게") */}
-      <div className="row proj-tools">
+      {!payFocus && <div className="row proj-tools">
         <ProjectSearch value={q} onChange={v => go({ q: v || null })} />
         {/* 거래처 · 연락처 (대표 지시 2026-10-22 "거래처 프로젝트에 통합") */}
         <button type="button" className="icon-btn" onClick={() => navigate('/clients')} title="거래처 · 연락처" aria-label="거래처 · 연락처">
@@ -141,7 +143,7 @@ export default function Projects() {
             <Plus size={14} /> 프로젝트
           </Button>
         )}
-      </div>
+      </div>}
       {words.length ? (
         <div className="col gap-10">
           <SectionHead title={`‘${q}’ 프로젝트`} count={String(foundProjects.length)} right={<button type="button" className="link-btn t-cap" onClick={() => go({ q: null })}>검색 지우기</button>} />
