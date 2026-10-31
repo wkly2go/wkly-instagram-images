@@ -2917,3 +2917,68 @@ html.detail-full .detail-col.full .col-resize { display: none; }
 .rp-task em { font-style: normal; color: var(--gray); font-variant-numeric: tabular-nums; margin-right: 4px; }
 .right-bar { min-height: 0; padding: 0; }
 .vendor-sheet.one-line td.vs-2 > select.ps-in:first-child { padding: 0 2px; font-size: 11.5px; }
+
+/* ═════════ WKLY v7 디자인시스템 적용 (대표 지시 2026-10-31 "동글한 디자인은 사각으로, 우리 디자인 시스템 적용") ═════════
+   피그마 'WKLY 디자인시스템' 기준: 모서리 0(사각) · line #d9d9d1 · paper #f4f4ef · gray #62625c · 마감 #e80003 ·
+   강조 노랑 #ffff00 · 파랑 #1c44f1 · 본문 Noto Sans KR · 숫자 · 날짜 메타는 JetBrains Mono Bold */
+:root {
+  --paper: #f4f4ef;
+  --line: #d9d9d1;
+  --gray: #62625c;
+  --red: #e80003;
+  --ds-yellow: #ffff00;
+  --ds-blue: #1c44f1;
+  --ds-black: #101010;
+  --r-book: 0px;
+  --r-inner: 0px;
+  --r-panel: 0px;
+  --r-bubble: 0px;
+}
+/* 모든 모서리 사각 (원형 라디오 단추만 예외) */
+*, *::before, *::after { border-radius: 0 !important; }
+input[type='radio'] { border-radius: 50% !important; }
+/* 그림자 대신 선: 디자인시스템은 효과 스타일 없음 */
+.proj-detail > .section, .proj-detail > .col, .proj-detail > .proj-top3 > *, .proj-detail > .proj-side-row > *,
+.proj-detail .pviz-row > .pviz-card, .proj-detail > .pviz-card, .right-pitem, .right-tabs button.on, .brief-chip { box-shadow: none !important; }
+.proj-detail > .section, .proj-detail > .col, .proj-detail > .proj-top3 > *, .proj-detail > .proj-side-row > * { border-color: var(--line); }
+/* 숫자 · 날짜 메타: JetBrains Mono Bold */
+.t-meta, .fin-num, .mflow-val, .mflow-grid dd, .rp-task em, .rp-dday, .side-n, .badge, .brief-nums td, .proj-overview > span,
+.board td.num, .pay-sheet .ps-in.num, .vendor-sheet .vs-rate, .pviz-dday { font-family: var(--mono); }
+.fin-num { font-weight: 700; letter-spacing: -0.6px; }
+.proj-overview > span { font-weight: 700; font-size: 11px; }
+.proj-overview > span em { font-family: var(--font); font-weight: 400; }
+/* 칩 · 배지 · 탭: 사각 태그 */
+.badge { padding: 1px 6px; }
+.brief-chip { padding: 3px 8px; }
+.right-tabs { padding: 0; gap: 0; border: 1px solid var(--line); background: var(--white); }
+.right-tabs button { border-right: 1px solid var(--line); }
+.right-tabs button:last-child { border-right: 0; }
+.right-tabs button.on { background: var(--blue); color: #fff; }
+/* 마감 · 지연은 디자인시스템 빨강 */
+.rp-dday.late, .brief-chip.red { color: var(--red); border-color: var(--red); background: #fff; }
+.brief.has-red { background: #fff; border-color: var(--red); border-left-width: 4px; }
+.brief { background: #fff; border-left: 4px solid var(--blue); }
+.brief.has-red .brief-head { color: var(--red); }
+
+/* ───── 왼쪽 사이드바 (대표 지시 2026-10-31 "왼쪽의 디자인 수정도") ─────
+   사각 메뉴 · 선택 표시는 왼쪽 노랑 막대 · 숫자 배지는 사각 모노 · 달력 오늘 칸 사각 */
+.profile { background: var(--side); }
+.side-nav { gap: 0; padding: 4px 0; }
+.side-item { position: relative; padding: 7px 10px 7px 12px; font-weight: 600; letter-spacing: -0.1px; }
+.side-item:hover { background: rgba(255, 255, 255, 0.08); }
+.side-item.on { background: rgba(255, 255, 255, 0.14); color: #fff; font-weight: 800; }
+.side-item.on::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--ds-yellow); }
+.side-n, .side-item .side-n { background: var(--red); color: #fff; min-width: 18px; height: 16px; line-height: 16px; padding: 0 4px; font-size: 10px; }
+.side-item.on .side-n { background: var(--ds-yellow); color: var(--ds-black); }
+.side-n.soft { background: rgba(255, 255, 255, 0.18); }
+.new-btn { height: 34px; border: 0; background: var(--ds-yellow); color: var(--ds-black); font-weight: 900; }
+.new-btn:hover { background: #fff; }
+.new-pop { border-color: var(--line); box-shadow: 0 8px 22px rgba(16, 16, 16, 0.12); }
+.profile .me-row .photo { width: 36px; height: 36px; }
+.profile .mini-cal { border: 0; padding: 8px; }
+.mini-cal-grid .day.today { background: var(--blue); color: #fff; }
+.mini-cal-grid .day:hover { background: var(--paper); }
+.mini-cal-grid .day i { width: 4px; height: 4px; }
+.profile .today-is { border: 0; }
+.profile .side-tools .quick-btn { border-color: rgba(255, 255, 255, 0.28); }
+.proj-overview > span { font-family: var(--font); font-weight: 600; font-size: 12px; }
