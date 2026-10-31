@@ -2599,3 +2599,13 @@ html.detail-full .detail-col.full .col-resize { display: none; }
 @media (min-width: 900px) {
   .body > .profile { position: sticky; top: 0; align-self: flex-start; max-height: 100vh; overflow-y: auto; flex-shrink: 0; }
 }
+/* 프로젝트 일정 편집 (2026-10-31) */
+.pviz-tl-row.click { cursor: pointer; border-radius: 4px; }
+.pviz-tl-row.click:hover { background: var(--blue-tint); }
+.pviz-h .chip { display: inline-flex; align-items: center; gap: 3px; }
+.sched-log { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; max-height: 360px; overflow-y: auto; }
+.sched-log-row { display: grid; grid-template-columns: minmax(120px, 1fr) 118px 118px 84px 80px; gap: 4px; align-items: center; }
+.sched-log-row.head { font-size: var(--fs-cap); color: var(--gray); font-weight: 700; }
+.sched-log-row .input, .sched-log-row .select { height: 30px; padding: 2px 6px; font-size: var(--fs-sm); min-width: 0; }
+.sched-log-row.done .input:first-child { text-decoration: line-through; color: var(--gray); }
+.sched-log-row.new { border-top: 1px dashed var(--line); padding-top: 6px; }
