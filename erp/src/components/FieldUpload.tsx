@@ -8,7 +8,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { Camera, ExternalLink, UploadCloud } from 'lucide-react'
 import { useApp, useAsync } from '../lib/app'
-import { ensureDriveFolder, folderUrl, uploadLarge } from '../lib/gdrive'
+import { ensureDriveFolder, folderUrl, isHiddenName, uploadLarge } from '../lib/gdrive'
 import type { FieldUpload as Upload } from '../lib/types'
 import { useExplorerToken } from './DriveExplorer'
 import { useDriveToken } from './DriveFiles'
@@ -43,7 +43,7 @@ export function FieldUploadBox() {
   const size = files.reduce((s, f) => s + f.size, 0)
   const ready = !!ex.token && !!root
 
-  const add = (list: FileList | null) => list && setFiles(prev => [...prev, ...Array.from(list).filter(f => !prev.some(p => p.name === f.name && p.size === f.size))])
+  const add = (list: FileList | null) => list && setFiles(prev => [...prev, ...Array.from(list).filter(f => !isHiddenName(f.name) && !prev.some(p => p.name === f.name && p.size === f.size))])
 
   const send = async () => {
     if (!ex.token || !root || !files.length || prog) return

@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { isHiddenName } from './gdrive'
 import type { FieldUpload, MailFile, LedgerStatus, MailItem, MaterialItem, MaterialMove, MaterialStockRow } from './types'
 import { ApiError, CHAT_FILE_MAX, EXCHANGE_FILE_MAX, groupIps, type AgentDraft, type Api, type DriveEnsureResult, type DriveFolder, type DriveStatus, type ImportResult } from './api'
 import { desktop } from './desktop'
@@ -1035,7 +1036,8 @@ export function createSupabaseApi(url: string, key: string): Api {
     async listDriveIndex(projectId) {
       let q = sb.from('drive_index').select('id,project_id,name,mime_type,parent_id,path,url,icon_url,size,modified_at,modified_by').order('modified_at', { ascending: false, nullsFirst: false })
       q = projectId ? q.eq('project_id', projectId).limit(2000) : q.limit(3000)
-      return must(await q) as DriveIndexFile[]
+      // 숨김 파일(._ · .DS_Store 등)은 목록에서 뺌
+      return (must(await q) as DriveIndexFile[]).filter(f => !isHiddenName(f.name))
     },
     driveAccessToken: () => invokeDrive<{ token: string; expires_at: number }>({ action: 'token' }),
     async driveSync(full) {
