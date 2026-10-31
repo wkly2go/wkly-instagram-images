@@ -9,6 +9,7 @@ import type { BudgetLine, Client, Payment, Project, ProjectFinance } from '../li
 import { AccountCell, PayDash, ProgressCell } from '../components/PayDash'
 import { PayGroups } from '../components/PayGroups'
 import { PaySheet } from '../components/PaySheet'
+import { VendorSheet } from '../components/VendorSheet'
 import { ContractGoal } from '../components/FinancePanel'
 import { PaymentForm } from '../components/PaymentForm'
 import { Badge, Button, Chip, Empty, Loading, type Tone } from '../components/ui'
@@ -98,7 +99,7 @@ function Register({ data, projects, clients }: { data: PayData; projects: Projec
   const cat = query.get('cat') ?? ''
   const [q, setQ] = useState(query.get('q') ?? '')
   const openId = query.get('pid')
-  const layout = query.get('layout') === 'group' ? 'group' : 'sheet'
+  const layout = query.get('layout') === 'group' ? 'group' : query.get('layout') === 'sheet' ? 'sheet' : 'vendor'
   const [form, setForm] = useState<Payment | 'new' | null>(null)
   const [preset, setPreset] = useState<Partial<Payment> | null>(null)
   const [sel, setSel] = useState<Set<string>>(new Set())
@@ -179,7 +180,7 @@ function Register({ data, projects, clients }: { data: PayData; projects: Projec
             <Button kind="ghost" size="sm" onClick={() => go({ project: null, cat: null, layout: null })} title="모든 현장 결제 대장으로">
               ← 전체 현장
             </Button>
-            <b className="pay-focus-title">{[projects.find(p => p.id === inProject)?.code, projectName(inProject)].filter(Boolean).join(' ')} 결제 대장</b>
+            <b className="pay-focus-title">{[projects.find(p => p.id === inProject)?.code, projectName(inProject)].filter(Boolean).join(' ')} 협력업체 관리</b>
           </>
         ) : (
         <select className="select" value={projectId} onChange={e => go({ project: e.target.value || null })} aria-label="프로젝트">
@@ -223,8 +224,11 @@ function Register({ data, projects, clients }: { data: PayData; projects: Projec
         </div>
         {inProject && (
           <div className="chips" aria-label="보기">
-            <Chip active={layout === 'sheet'} onClick={() => go({ layout: null })}>
-              한 줄 대장
+            <Chip active={layout === 'vendor'} onClick={() => go({ layout: null })}>
+              협력업체 관리
+            </Chip>
+            <Chip active={layout === 'sheet'} onClick={() => go({ layout: 'sheet' })}>
+              결제 건별
             </Chip>
             <Chip active={layout === 'group'} onClick={() => go({ layout: 'group' })}>
               업체별 · 계약금 · 중도금 · 잔금
@@ -252,7 +256,12 @@ function Register({ data, projects, clients }: { data: PayData; projects: Projec
         {late.length > 0 && <span className="t-red"> · 연체 {late.length}건 {manwon(late.reduce((n, p) => n + p.amount, 0))}</span>}
         {estimate !== 0 && <> · 예상 비용 {manwon(estimate)} (합계 제외)</>} · 실제 금액(VAT 포함) 기준
       </div>
-      {inProject && layout === 'sheet' ? (
+      {inProject && layout === 'vendor' ? (
+        <div>
+          {projects.find(p => p.id === inProject) && <ContractGoal project={projects.find(p => p.id === inProject)!} finance={data.finances.find(f => f.project_id === inProject)} />}
+          <VendorSheet projectId={inProject} payments={data.payments.filter(p => p.project_id === inProject)} all={data.payments} lines={data.lines.filter(l => l.project_id === inProject)} finance={data.finances.find(f => f.project_id === inProject)} onOpen={p => setForm(p)} />
+        </div>
+      ) : inProject && layout === 'sheet' ? (
         <div>
           {projects.find(p => p.id === inProject) && <ContractGoal project={projects.find(p => p.id === inProject)!} finance={data.finances.find(f => f.project_id === inProject)} />}
           <PaySheet rows={rows} all={data.payments} projectId={inProject} sel={sel} setSel={setSel} onOpen={p => setForm(p)} />

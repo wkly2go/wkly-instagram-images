@@ -793,7 +793,7 @@ function ProjectDetail({ project: p, data, onEdit, onBack, panel = false }: { pr
       </div>
       <ProjectVizLoader project={p} part="alarm" />
       </div>
-      <FinancePanel project={p} clients={data.clients} projects={data.projects} part="viz" viz={<ProjectVizLoader project={p} part="money" />} />
+      <FinancePanel project={p} clients={data.clients} projects={data.projects} part="viz" />
       <ProjectVizLoader project={p} part="schedule" />
       <div className="row top gap-12" style={{ flexWrap: 'wrap' }}>
         <div className="col grow" style={{ flexBasis: 300 }}>

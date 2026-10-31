@@ -1,21 +1,14 @@
-// 개별 프로젝트 시각화 (대표 지시 2026-10-31 "제조 KPI 대시보드 참고, 개별 프로젝트의 완성도 있는 시각화 자료와 사용성")
-//   1줄: 목표 대비 KPI 3칸 (수금 · 비용 · 마진율) — 큰 숫자 + 추이 미니 그래프 + 목표 + 차이 배지
-//   2줄: 공사 구분별 예산 대 집행 (가로 막대) · 비용 구성 (도넛, 가운데 합계) · 월별 수금 · 지급
-//   3줄: 업체별 지급률 · 앞으로 4주 지급 예정 (일정은 맨 위 '프로젝트 일정'에)
-//   금액은 공급가(VAT 별도) 기준. 마우스를 올리면 값, 누르면 그 업체 · 공사 구분 결제로
+// 프로젝트 상세: 프로젝트 일정 · 입출금 알람 (재무 KPI · 그래프는 2026-10-31 대표 지시로 모두 뺌 — 재무 4칸 요약 · 협력업체 관리로)
 import { useState } from 'react'
 import { AlertTriangle, BellRing, CheckCircle2, ListChecks, Plus } from 'lucide-react'
 import { Link } from '../lib/router'
 import { useAction, useApp, useAsync } from '../lib/app'
-import { addDays, addMonths, manwon, shortDate, todayKey, won } from '../lib/date'
-import { budgetByCategory, contractRows, isOpen, monthlyFlow, projectMoney } from '../lib/finance'
+import { addDays, manwon, shortDate, todayKey } from '../lib/date'
+import { budgetByCategory, isOpen, projectMoney } from '../lib/finance'
 import { TASK_STATUSES, type BudgetLine, type Payment, type Project, type ProjectFinance, type Task, type TaskStatus } from '../lib/types'
 import { TaskAssignModal } from '../pages/Schedule'
 import { Button, Modal } from './ui'
-import { shortMan } from './charts'
 
-const DARK = 'var(--blue)'
-const LIGHT = '#9cc3a6'
 
 /** 프로젝트 상세용: 스스로 불러옴 */
 /** part: 'alarm' 입출금 알람만 · 'money' 재무 시각화(KPI · 예산 대 집행 · 업체 지급률)만 · 'schedule' 프로젝트 일정만 · 없으면 전부
@@ -30,171 +23,17 @@ export function ProjectVizLoader({ project, part }: { project: Project; part?: '
     [project.id, version],
     { payments: [] as Payment[], lines: [] as BudgetLine[], finance: undefined as ProjectFinance | undefined, tasks: [] as Task[] },
   )
-  const money = !!data.payments.length || data.finance?.contract_amount != null
-  if (part === 'money') return money ? <ProjectViz project={project} payments={data.payments} lines={data.lines} finance={data.finance} /> : null
+  // 재무 KPI · 그래프는 모두 뺌 (대표 지시 2026-10-31 "삭제") — 재무 4칸 요약만 재무 칸에
+  if (part === 'money') return null
   if (part) return <ProjectHead project={project} payments={data.payments} lines={data.lines} finance={data.finance} tasks={data.tasks} only={part} />
   return (
     <div className="pviz-wrap">
       <ProjectHead project={project} payments={data.payments} lines={data.lines} finance={data.finance} tasks={data.tasks} />
-      {money && <ProjectViz project={project} payments={data.payments} lines={data.lines} finance={data.finance} />}
     </div>
-  )
-}
-
-export function ProjectViz({ project, payments, lines, finance, onVendor }: { project: Project; payments: Payment[]; lines: BudgetLine[]; finance: ProjectFinance | undefined; onVendor?: (name: string) => void }) {
-  const today = todayKey()
-  const m = projectMoney(finance, payments, lines, today)
-  const cats = budgetByCategory(lines, payments)
-  const vendors = contractRows(payments, lines).sort((a, b) => b.scheduled - a.scheduled).slice(0, 8)
-
-  // 달 목록: 첫 결제 달 ~ 이번 달 (최대 12개월, 최소 6개월)
-  const firstMonth = [...payments.map(p => (p.paid_date ?? p.due_date ?? p.requested_date ?? '').slice(0, 7)).filter(Boolean), project.start_date?.slice(0, 7) ?? ''].filter(Boolean).sort()[0] ?? today.slice(0, 7)
-  const endMonth = today.slice(0, 7)
-  const months: string[] = []
-  for (let mm = firstMonth < addMonths(endMonth, -11) ? addMonths(endMonth, -11) : firstMonth; mm <= endMonth; mm = addMonths(mm, 1)) months.push(mm)
-  while (months.length < 6) months.unshift(addMonths(months[0] ?? endMonth, -1))
-  const flow = monthlyFlow(payments, months)
-  const cumIn: number[] = []
-  const cumOut: number[] = []
-  flow.reduce((acc, f) => (cumIn.push(acc + f.inflow), acc + f.inflow), 0)
-  flow.reduce((acc, f) => (cumOut.push(acc + f.outflow), acc + f.outflow), 0)
-  const cumRate = m.contract ? cumOut.map(o => ((m.contract! - o) / m.contract!) * 100) : []
-
-  const costCap = m.contract != null && m.target != null ? Math.round(m.contract * (1 - m.target / 100)) : null
-  const costGap = costCap != null ? m.cost - costCap : null
-
-  // 일정: 기간 경과 % 대 할 일 완료 %
-  const start = project.start_date
-  const end = project.end_date
-  const elapsed = start && end && end > start ? Math.max(0, Math.min(100, ((Date.parse(today) - Date.parse(start)) / (Date.parse(end) - Date.parse(start))) * 100)) : null
-
-  return (
-    <section className="pviz" aria-label="프로젝트 시각화">
-      <div className="pviz-row three">
-        <KpiSpark
-          title="수금"
-          sub="받은 돈 · 공급가"
-          value={manwon(m.received) || '0'}
-          series={cumIn}
-          target={m.contract != null ? `계약 ${manwon(m.contract)}` : '계약액 미입력'}
-          badge={m.collectRate != null ? { text: `${Math.round(m.collectRate)}% 수금`, good: m.collectRate >= (elapsed ?? 0) } : null}
-          note={m.receivable ? `미수 ${manwon(m.receivable)}` : undefined}
-        />
-        <KpiSpark
-          title="비용"
-          sub={m.byBudget ? '예산 기준 (지급 없음)' : '지급 완료 + 미지급 + 예상'}
-          value={manwon(m.cost) || '0'}
-          series={cumOut}
-          target={costCap != null ? `목표 한도 ${manwon(costCap)}` : `예산 ${m.budget != null ? manwon(m.budget) : '–'}`}
-          badge={costGap != null ? { text: costGap > 0 ? `▲ ${manwon(costGap)} 초과` : `▼ ${manwon(-costGap)} 여유`, good: costGap <= 0 } : null}
-          note={`지급 ${manwon(m.paid) || '0'} · 남은 지급 ${manwon(m.payable) || '0'}`}
-        />
-        <KpiSpark
-          title="마진율"
-          sub="(계약 − 비용) ÷ 계약"
-          value={m.marginRate != null ? `${m.marginRate.toFixed(1)}%` : '–'}
-          series={cumRate}
-          target={m.target != null ? `목표 ${m.target}%` : '목표 미입력'}
-          badge={m.marginRate != null && m.target != null ? { text: `${m.marginRate >= m.target ? '▲' : '▼'} ${Math.abs(m.marginRate - m.target).toFixed(1)}%p`, good: m.marginRate >= m.target } : null}
-          note={m.margin != null ? `마진 ${manwon(m.margin)}` : undefined}
-        />
-      </div>
-
-      {/* 비용 구성 · 월별 수금 · 지급 · 앞으로 4주 지급 예정은 뺌 (대표 지시 2026-10-31 "이것도 삭제") */}
-      <div className="pviz-row">
-        <div className="pviz-card">
-          <div className="pviz-h">
-            <b>공사 구분별 예산 대 집행</b>
-            <span className="pviz-key">
-              <i style={{ background: LIGHT }} />
-              예산 <i style={{ background: DARK }} />
-              집행
-            </span>
-          </div>
-          {cats.length === 0 ? <span className="t-cap">예산 줄이나 지급이 없습니다.</span> : <BudgetBars rows={cats.slice(0, 7)} />}
-        </div>
-      </div>
-
-      <div className="pviz-row">
-        <div className="pviz-card">
-          <div className="pviz-h">
-            <b>업체별 지급률</b>
-            <span className="t-cap">계약(없으면 잡힌 지급) 대비</span>
-          </div>
-          {vendors.length === 0 ? (
-            <span className="t-cap">지급이 없습니다.</span>
-          ) : (
-            <ul className="pviz-vendors">
-              {vendors.map(v => (
-                <li key={v.key}>
-                  <button type="button" onClick={() => onVendor?.(v.payee)} disabled={!onVendor} title={`${v.payee} · 지급 ${won(v.paid)} / ${won(v.contract ?? v.scheduled)}`}>
-                    <span className="pviz-vname">{v.payee}</span>
-                    <span className="pviz-vbar">
-                      <i style={{ width: `${Math.min(100, v.rate ?? 0)}%` }} />
-                    </span>
-                    <span className="mono pviz-vpct">{v.rate != null ? `${Math.round(v.rate)}%` : '–'}</span>
-                    <span className="t-cap pviz-vrem">{v.remain > 0 ? `잔 ${manwon(v.remain)}` : '완료'}</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </div>
-    </section>
   )
 }
 
 /** 큰 숫자 + 추이 면 그래프 + 목표 + 차이 배지 */
-function KpiSpark({ title, sub, value, series, target, badge, note }: { title: string; sub: string; value: string; series: number[]; target: string; badge: { text: string; good: boolean } | null; note?: string }) {
-  const W = 150
-  const H = 44
-  const lo = Math.min(0, ...series)
-  const hi = Math.max(1, ...series)
-  const pts = series.map((v, i) => [series.length <= 1 ? W : (i / (series.length - 1)) * W, H - ((v - lo) / (hi - lo || 1)) * (H - 4) - 2])
-  const d = pts.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)},${y.toFixed(1)}`).join('')
-  return (
-    <div className="pviz-card pviz-kpi">
-      <div className="pviz-h">
-        <b>{title}</b>
-        <span className="t-cap">{sub}</span>
-      </div>
-      <div className="pviz-kpi-body">
-        <span className="pviz-big">{value}</span>
-        {series.length > 1 && (
-          <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} className="pviz-spark" aria-hidden="true">
-            <path d={`${d}L${W},${H}L0,${H}Z`} fill="var(--blue-tint)" />
-            <path d={d} fill="none" stroke="var(--blue)" strokeWidth={2} />
-          </svg>
-        )}
-      </div>
-      <div className="pviz-kpi-foot">
-        <span className="pviz-target">{target}</span>
-        {badge && <span className={`pviz-badge ${badge.good ? 'good' : 'bad'}`}>{badge.text}</span>}
-      </div>
-      {note && <span className="t-cap">{note}</span>}
-    </div>
-  )
-}
-
-function BudgetBars({ rows }: { rows: ReturnType<typeof budgetByCategory> }) {
-  const max = Math.max(1, ...rows.flatMap(r => [r.budget, r.spent]))
-  return (
-    <ul className="pviz-budget">
-      {rows.map(r => (
-        <li key={r.category} title={`${r.category} · 예산 ${won(r.budget)} · 집행 ${won(r.spent)}${r.over ? ` · 초과 ${won(r.over)}` : ''}`}>
-          <span className="pviz-bname">{r.category}</span>
-          <span className="pviz-bpair">
-            <i className="b" style={{ width: `${(r.budget / max) * 100}%` }} />
-            <i className={`s${r.over && r.budget ? ' over' : ''}`} style={{ width: `${(r.spent / max) * 100}%` }} />
-          </span>
-          <span className={`mono t-cap ${r.over && r.budget ? 't-red' : ''}`}>{r.rate != null ? `${Math.round(r.rate)}%` : shortMan(r.spent)}</span>
-        </li>
-      ))}
-    </ul>
-  )
-}
-
 export function ProjectHead({ project, payments, lines, finance, tasks, only }: { project: Project; payments: Payment[]; lines: BudgetLine[]; finance: ProjectFinance | undefined; tasks: Task[]; only?: 'alarm' | 'schedule' }) {
   const today = todayKey()
   const m = projectMoney(finance, payments, lines, today)

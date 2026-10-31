@@ -2660,3 +2660,21 @@ html.detail-full .detail-col.full .col-resize { display: none; }
 .contract-goal .ps-in.w-s { min-width: 56px; width: 56px; }
 .contract-goal .ps-in.num { text-align: right; }
 .contract-goal label.grow .ps-in { flex: 1; }
+
+/* 협력업체 관리: 업체 1곳 = 1줄, 단계 칸(선금 · 중도금 · 잔금)마다 금액 · 요청일 · 결제일 */
+.vendor-sheet { min-width: 0; }
+.vendor-sheet th.vs-group { text-align: center; position: sticky; }
+.vendor-sheet .vs-addmid { margin-left: 8px; display: inline-flex; align-items: center; gap: 2px; }
+.vendor-sheet th.vs-stage-h { text-align: center; min-width: 128px; }
+.vendor-sheet td.vs-stage { padding: 0; min-width: 128px; vertical-align: top; }
+.vendor-sheet td.vs-stage > .ps-in { border-bottom: 1px solid var(--line, #ddd); }
+.vendor-sheet td.vs-stage.done { box-shadow: inset 3px 0 0 var(--blue); }
+.vendor-sheet td.vs-stage.done .ps-in { background: #fffbe0; }
+.vendor-sheet .vs-date { display: flex; align-items: center; gap: 2px; font-size: 10px; color: var(--muted, #666); padding-left: 4px; }
+.vendor-sheet .vs-date > span { flex: none; width: 22px; }
+.vendor-sheet .vs-date .ps-in { height: 22px; min-width: 0; font-size: 11px; padding: 0 2px; }
+.vendor-sheet .vs-date .ps-in:disabled { background: transparent; color: var(--muted, #999); }
+.vendor-sheet td.vs-contract { vertical-align: top; }
+.vendor-sheet .vs-rate { display: block; text-align: right; padding: 2px 6px; }
+.vendor-sheet .ps-in.strong { font-weight: 700; }
+.vendor-sheet td.vs-stage > .t-cap { display: block; padding: 6px; }
