@@ -764,7 +764,27 @@ function ProjectDetail({ project: p, data, onEdit, onBack, panel = false }: { pr
           </Button>
         )}
       </div>
-      {/* 순서 (대표 지시 2026-10-31): ① 프로젝트 개요 + 입출금 알람 ② 재무 시각화 · 결제 대장 ③ 프로젝트 일정 ④ 업무일지 · 할 일 */}
+      {/* 순서 (대표 지시 2026-10-31): ⓪ 할 일 (맨 위) ① 프로젝트 개요 + 입출금 알람 ② 재무 ③ 프로젝트 일정 ④ 협력업체 관리 ⑤ 현장 작업일지 */}
+      <div className="row top gap-12" style={{ flexWrap: 'wrap' }}>
+        <div className="col grow" style={{ flexBasis: 300 }}>
+          <SectionHead title="할 일" count={`${tasks.filter(t => t.status === '완료').length}/${tasks.length}`} right={<TaskLegend />} />
+          <TaskBoard
+            // 할 일(안 끝난 것)을 맨 위에, 완료는 아래로 (대표 지시 2026-10-31)
+            list={[...tasks.filter(t => t.status !== '완료'), ...tasks.filter(t => t.status === '완료')]}
+            projects={data.projects}
+            onStatus={t => run(() => api.saveTask({ id: t.id, status: NEXT[t.status] }))}
+            onDelete={async t => (await ask('이 할 일을 삭제할까요?')) && run(() => api.deleteTask(t.id))}
+            onEdit={t => setEditingTask(t)}
+          />
+          <TaskAdder projectId={p.id} defaultAssignee={me.id} />
+        </div>
+        <div className="col proj-inline-materials" style={{ flexBasis: 240, flexGrow: 1, maxWidth: 360 }}>
+          <ProjectContactsSection project={p} clients={data.clients} contacts={extra.contacts} />
+          <ExchangeFilesSection clientId={p.client_id} projectId={p.id} contacts={extra.contacts} projects={data.projects} />
+          <SectionHead title="관련 업무 기록" count={extra.logs.length ? String(extra.logs.length) : undefined} right={<Link to={`/work?team=1`}>업무 일지 ›</Link>} />
+          <ContactTimeline logs={extra.logs} projects={[]} showContact contacts={extra.contacts} />
+        </div>
+      </div>
       <div className="pviz-row head proj-top">
       <div className="box">
         <dl className="kv">
@@ -794,26 +814,6 @@ function ProjectDetail({ project: p, data, onEdit, onBack, panel = false }: { pr
       </div>
       <FinancePanel project={p} clients={data.clients} projects={data.projects} part="viz" />
       <ProjectVizLoader project={p} part="schedule" />
-      <div className="row top gap-12" style={{ flexWrap: 'wrap' }}>
-        <div className="col grow" style={{ flexBasis: 300 }}>
-          <SectionHead title="할 일" count={`${tasks.filter(t => t.status === '완료').length}/${tasks.length}`} right={<TaskLegend />} />
-          <TaskBoard
-            // 할 일(안 끝난 것)을 맨 위에, 완료는 아래로 (대표 지시 2026-10-31)
-            list={[...tasks.filter(t => t.status !== '완료'), ...tasks.filter(t => t.status === '완료')]}
-            projects={data.projects}
-            onStatus={t => run(() => api.saveTask({ id: t.id, status: NEXT[t.status] }))}
-            onDelete={async t => (await ask('이 할 일을 삭제할까요?')) && run(() => api.deleteTask(t.id))}
-            onEdit={t => setEditingTask(t)}
-          />
-          <TaskAdder projectId={p.id} defaultAssignee={me.id} />
-        </div>
-        <div className="col proj-inline-materials" style={{ flexBasis: 240, flexGrow: 1, maxWidth: 360 }}>
-          <ProjectContactsSection project={p} clients={data.clients} contacts={extra.contacts} />
-          <ExchangeFilesSection clientId={p.client_id} projectId={p.id} contacts={extra.contacts} projects={data.projects} />
-          <SectionHead title="관련 업무 기록" count={extra.logs.length ? String(extra.logs.length) : undefined} right={<Link to={`/work?team=1`}>업무 일지 ›</Link>} />
-          <ContactTimeline logs={extra.logs} projects={[]} showContact contacts={extra.contacts} />
-        </div>
-      </div>
       {/* ⑤ 협력업체 관리 ⑥ 현장 작업일지(자재 입출고 포함 — 별도 칸 없음, 대표 지시 2026-10-31) */}
       <FinancePanel project={p} clients={data.clients} projects={data.projects} part="ledger" />
       {/* 인테리어(아트리어 · AR)는 현장 작업일지 늘, 다른 프로젝트는 작업일지가 있을 때만 */}

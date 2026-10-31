@@ -2715,3 +2715,23 @@ html.detail-full .detail-col.full .col-resize { display: none; }
 .vendor-sheet th.vs-stage-h { min-width: 0; }
 .vendor-sheet td.vs-stage { min-width: 0; }
 .vendor-sheet .vs-addmid { margin-left: 4px; padding: 0 2px; vertical-align: middle; }
+/* 협력업체 관리 · 한 줄 · 흰 바탕 */
+.pay-sheet.vendor-sheet.one-line { width: max-content; min-width: 100%; }
+.vendor-sheet.one-line th { white-space: nowrap; vertical-align: middle; background: var(--white, #fff); border-bottom: 2px solid var(--blue); }
+.vendor-sheet.one-line td.vs-2 { white-space: nowrap; vertical-align: middle; }
+.vendor-sheet.one-line td.vs-2 > *, .vendor-sheet.one-line td.vs-2 > .ps-in, .vendor-sheet.one-line td.vs-2 > select.ps-in { display: inline-block; width: 50%; vertical-align: middle; border-bottom: 0; }
+.vendor-sheet.one-line td.vs-2 > :only-child { width: 100%; }
+.vendor-sheet.one-line .vs-pair { display: inline-flex; border-bottom: 0; }
+.vendor-sheet.one-line .vs-pair > .ps-in { width: 50%; }
+.vendor-sheet.one-line .vs-pair + .ps-in, .vendor-sheet.one-line td.vs-2 > * + * { border-left: 1px dashed var(--line, #ddd); }
+.vendor-sheet.one-line .vs-rate { height: 28px; line-height: 28px; }
+.vendor-sheet.one-line .ps-in, .vendor-sheet.one-line select.ps-in, .vendor-sheet.one-line tr.ps-new .ps-in, .vendor-sheet.one-line td.vs-stage.done .ps-in { background: var(--white, #fff); height: 30px; }
+.vendor-sheet.one-line .ps-in:hover { background: var(--paper, #f6f6f2); }
+.vendor-sheet.one-line .ps-in:focus { background: var(--white, #fff); }
+.vendor-sheet.one-line td.vs-stage.done .ps-in:first-child { color: var(--blue); font-weight: 700; }
+.vendor-sheet.one-line tr.ps-new td { background: var(--white, #fff); }
+.vendor-sheet.one-line tfoot td { background: var(--white, #fff); }
+.contract-goal { background: var(--white, #fff); }
+.contract-goal .ps-in { background: var(--white, #fff); border-bottom: 1px solid var(--line, #ddd); }
+.vendor-sheet.one-line td.vs-2 > .vs-pair { display: inline-flex; }
+.vendor-sheet.one-line td.vs-2 > .vs-pair > .ps-in { display: inline-block; width: 50%; border-bottom: 0; }
