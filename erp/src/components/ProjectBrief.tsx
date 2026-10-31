@@ -7,7 +7,7 @@ import { useMemo, useState } from 'react'
 import { CalendarPlus, FileText, Printer } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { addDays, manwon, shortDate, todayKey, weekday } from '../lib/date'
-import { isDone, isOpen, projectMoney, supply } from '../lib/finance'
+import { isDone, isOpen, projectMoney } from '../lib/finance'
 import type { BudgetLine, MaterialMove, Payment, Project, ProjectFinance, SiteLog, Task } from '../lib/types'
 import { Button } from './ui'
 
@@ -61,10 +61,10 @@ export function ProjectBrief({ project }: { project: Project }) {
     const payWeek = out.filter(p => isOpen(p) && p.due_date && p.due_date >= today && p.due_date <= addDays(today, 7))
     const vendors = new Set(out.map(p => (p.payee ?? p.title).trim()))
     const noAcc = new Set(out.filter(p => isOpen(p) && !p.account_no && p.contract_type !== '카드').map(p => p.payee ?? p.title))
-    const contractSum = lines.reduce((n, l) => n + (l.contract_amount ?? 0), 0)
-    const paidOut = out.filter(isDone).reduce((n, p) => n + supply(p), 0)
+    const contractSum = Math.round(lines.reduce((n, l) => n + (l.contract_amount ?? 0), 0) * 1.1)
+    const paidOut = out.filter(isDone).reduce((n, p) => n + p.amount, 0)
     const crew = logs.reduce((n, l) => n + l.labor.reduce((a, x) => a + (x.day || 0) + (x.night || 0), 0), 0)
-    const matIn = moves.filter(x => x.status !== '취소' && x.kind !== '출고').reduce((n, x) => n + (x.kind === '반품' ? -1 : 1) * x.qty * x.unit_price, 0)
+    const matIn = Math.round(moves.filter(x => x.status !== '취소' && x.kind !== '출고').reduce((n, x) => n + (x.kind === '반품' ? -1 : 1) * x.qty * x.unit_price, 0) * 1.1)
     const lastLog = [...logs].sort((a, b) => b.log_date.localeCompare(a.log_date))[0]
     const inSite = start && end && today >= start && today <= end
 
@@ -92,10 +92,10 @@ export function ProjectBrief({ project }: { project: Project }) {
     if (lateOut.length) f.push({ area: '협력업체', level: 'red', title: `지급 연체 ${lateOut.length}건 · ${manwon(lateOut.reduce((n, p) => n + p.amount, 0))}`, detail: [...new Set(lateOut.map(p => p.payee ?? p.title))].slice(0, 3).join(', ') })
     if (payWeek.length) f.push({ area: '협력업체', level: 'amber', title: `7일 안 지급 ${payWeek.length}건 · ${manwon(payWeek.reduce((n, p) => n + p.amount, 0))}`, detail: payWeek.slice(0, 3).map(p => `${shortDate(p.due_date!)} ${p.payee ?? p.title}`).join(', ') })
     if (noAcc.size) f.push({ area: '협력업체', level: 'amber', title: `계좌 없는 업체 ${noAcc.size}곳`, detail: [...noAcc].slice(0, 3).join(', ') })
-    if (vendors.size && !lateOut.length) f.push({ area: '협력업체', level: 'green', title: `업체 ${vendors.size}곳${contractSum ? ` · 계약 대비 ${pct((paidOut / contractSum) * 100)} 지급` : ''}`, detail: `지급 완료 ${manwon(paidOut) || '0'} (공급가)` })
+    if (vendors.size && !lateOut.length) f.push({ area: '협력업체', level: 'green', title: `업체 ${vendors.size}곳${contractSum ? ` · 계약 대비 ${pct((paidOut / contractSum) * 100)} 지급` : ''}`, detail: `지급 완료 ${manwon(paidOut) || '0'} (부가세 포함)` })
     // 현장
     if (inSite && (!lastLog || dd(lastLog.log_date, today) >= 2)) f.push({ area: '현장', level: 'amber', title: lastLog ? `작업일지 ${dd(lastLog.log_date, today)}일째 없음` : '작업일지 없음', detail: '현장 작업일지에 오늘 작업 · 인원을 한 건씩 기록하세요.' })
-    if (logs.length) f.push({ area: '현장', level: 'green', title: `작업일지 ${logs.length}일 · 연인원 ${crew}명`, detail: `자재 ${manwon(matIn) || '0'} (공급가)${lastLog ? ` · 마지막 ${shortDate(lastLog.log_date)}` : ''}` })
+    if (logs.length) f.push({ area: '현장', level: 'green', title: `작업일지 ${logs.length}일 · 연인원 ${crew}명`, detail: `자재 ${manwon(matIn) || '0'} (부가세 포함)${lastLog ? ` · 마지막 ${shortDate(lastLog.log_date)}` : ''}` })
 
     const order: Record<Level, number> = { red: 0, amber: 1, green: 2 }
     f.sort((a, b) => order[a.level] - order[b.level])

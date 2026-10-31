@@ -40,7 +40,7 @@ export function FinancePanel({ project, clients, projects, viz, part }: { projec
     <section className="section fin-viz" aria-label="재무">
       <div className="section-h">
         <span className="t-bodyb">재무</span>
-        <span className="cap">협력업체 관리 기준 · 공급가액</span>
+        <span className="cap">협력업체 관리 기준 · 부가세 포함</span>
         <Link to={ledger} className="t-cap" title="이 현장 결제 대장만 크게 보기 (이번 주 지급 · 점검 · 업체별 묶음)">
           크게 보기 ›
         </Link>

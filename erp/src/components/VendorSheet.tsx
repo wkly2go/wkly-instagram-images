@@ -9,8 +9,8 @@ import { useMemo, useState } from 'react'
 import { MoreHorizontal, Plus } from 'lucide-react'
 import { useAction, useApp } from '../lib/app'
 import { manwon, todayKey } from '../lib/date'
-import { isDone, supply } from '../lib/finance'
-import { CONTRACT_TYPES, TAX_INVOICE_STATES, type BudgetLine, type Payment, type ProjectFinance } from '../lib/types'
+import { isDone } from '../lib/finance'
+import { CONTRACT_TYPES, type BudgetLine, type Payment, type ProjectFinance } from '../lib/types'
 import { Button } from './ui'
 import { openVendor } from './RightSchedule'
 import { showPanel } from './WebSearch'
@@ -116,14 +116,15 @@ export function VendorSheet({ projectId, payments, all, lines, finance, onOpen }
         items,
         line,
         ...s,
-        contract: dir === '수금' ? finance?.contract_amount ?? null : line?.contract_amount ?? null,
-        paid: liveItems.filter(isDone).reduce((n, p) => n + supply(p), 0),
+        // 계약금은 부가세 포함으로 보여 주고 받음 (저장은 공급가)
+        contract: dir === '수금' ? (finance?.contract_amount != null ? Math.round(finance.contract_amount * 1.1) : null) : line?.contract_amount != null ? Math.round(line.contract_amount * 1.1) : null,
+        paid: liveItems.filter(isDone).reduce((n, p) => n + p.amount, 0),
       })
     }
     // 계약만 있고 아직 결제가 없는 업체
     for (const l of lines) {
       if (!l.payee || usedLines.has(l.id)) continue
-      out.push({ key: `line|${l.id}`, dir: '지급', payee: l.payee, category: l.category, title: l.item ?? l.category, contractType: null, bank: null, account: null, holder: null, invoice: null, items: [], line: l, mids: [], contract: l.contract_amount, paid: 0 })
+      out.push({ key: `line|${l.id}`, dir: '지급', payee: l.payee, category: l.category, title: l.item ?? l.category, contractType: null, bank: null, account: null, holder: null, invoice: null, items: [], line: l, mids: [], contract: l.contract_amount != null ? Math.round(l.contract_amount * 1.1) : null, paid: 0 })
     }
     return out.sort((a, b) => (a.dir === b.dir ? (a.category ?? '').localeCompare(b.category ?? '', 'ko') || a.payee.localeCompare(b.payee, 'ko') : a.dir === '수금' ? -1 : 1))
   }, [payments, lines, finance])
@@ -144,8 +145,10 @@ export function VendorSheet({ projectId, payments, all, lines, finance, onOpen }
     })
   }
   /** 계약금 · 비고: 매입은 업체 계약 줄, 매출은 프로젝트 계약 */
-  const saveContract = (v: Vendor, patch: { contract_amount?: number | null; memo?: string | null }) =>
+  const saveContract = (v: Vendor, patchIncl: { contract_amount?: number | null; memo?: string | null }) =>
     void run(async () => {
+      // 화면은 부가세 포함, 저장은 공급가(÷1.1)
+      const patch = { ...patchIncl, ...(patchIncl.contract_amount !== undefined ? { contract_amount: patchIncl.contract_amount == null ? null : Math.round(patchIncl.contract_amount / 1.1) } : {}) }
       if (v.dir === '수금' && patch.contract_amount !== undefined) {
         await api.saveFinance({ project_id: projectId, contract_amount: patch.contract_amount, budget_cost: finance?.budget_cost ?? null, target_margin: finance?.target_margin ?? null, memo: finance?.memo ?? null })
         return
@@ -193,7 +196,7 @@ export function VendorSheet({ projectId, payments, all, lines, finance, onOpen }
           stage: label,
           requested_date: today,
           status: '예정',
-          tax_invoice: v.invoice && v.invoice !== '일부' ? v.invoice : '미발행',
+          tax_invoice: v.contractType && v.contractType !== '세금계산서' && v.contractType !== '계산서' ? '해당 없음' : '미발행',
           budget_line_id: v.line?.id ?? null,
         }),
       `${v.payee} ${label}을(를) 넣었습니다.`,
@@ -217,7 +220,7 @@ export function VendorSheet({ projectId, payments, all, lines, finance, onOpen }
     const ok = await run(async () => {
       let lineId: string | null = null
       if (d.dir === '지급' && (contract || d.memo.trim())) {
-        const l = await api.saveBudgetLine({ project_id: projectId, category: d.category.trim() || '미분류', payee, item: d.title.trim() || null, budget_amount: 0, sort_order: lines.length + 1, contract_amount: contract || null, memo: d.memo.trim() || null })
+        const l = await api.saveBudgetLine({ project_id: projectId, category: d.category.trim() || '미분류', payee, item: d.title.trim() || null, budget_amount: 0, sort_order: lines.length + 1, contract_amount: contract ? Math.round(contract / 1.1) : null, memo: d.memo.trim() || null })
         lineId = l.id
       }
       if (amount) {
@@ -237,7 +240,7 @@ export function VendorSheet({ projectId, payments, all, lines, finance, onOpen }
           stage: '선금',
           requested_date: d.preReq || today,
           status: '예정',
-          tax_invoice: d.invoice,
+          tax_invoice: d.contractType && d.contractType !== '세금계산서' && d.contractType !== '계산서' ? '해당 없음' : '미발행',
           budget_line_id: lineId,
           memo: d.dir === '수금' ? d.memo.trim() || null : null,
         })
@@ -269,18 +272,6 @@ export function VendorSheet({ projectId, payments, all, lines, finance, onOpen }
         ))}
       </datalist>
       <table className="pay-sheet vendor-sheet one-line">
-        <colgroup>
-          <col style={{ width: '10%' }} />
-          <col style={{ width: '12%' }} />
-          <col style={{ width: '10%' }} />
-          <col style={{ width: '8%' }} />
-          <col style={{ width: '11%' }} />
-          {stages.map(s => (
-            <col key={s.key} style={{ width: '12%' }} />
-          ))}
-          <col />
-          <col style={{ width: 26 }} />
-        </colgroup>
         <thead>
           <tr>
             <th>
@@ -290,12 +281,12 @@ export function VendorSheet({ projectId, payments, all, lines, finance, onOpen }
               업체명 · 항목
             </th>
             <th>
-              계약형태 · 계산서
+              계약형태
             </th>
             <th>
               계좌번호
             </th>
-            <th className="num" title="매입: 업체 계약금(공급가) · 매출: 프로젝트 계약(공급가)">
+            <th className="num" title="부가세 포함 · 매입: 업체 계약금 · 매출: 프로젝트 계약">
               계약금 · 진행
             </th>
             {stages.map((s, i) => (
@@ -332,17 +323,9 @@ export function VendorSheet({ projectId, payments, all, lines, finance, onOpen }
                 </td>
                 <td className="vs-2">
                   <select className="ps-in" defaultValue={v.contractType ?? ''} onChange={e => saveVendor(v, { contract_type: (e.target.value || null) as Payment['contract_type'] })} aria-label="계약형태" disabled={!v.items.length}>
-                    <option value="">계약형태</option>
+                    <option value="">형태 선택</option>
                     {CONTRACT_TYPES.map(t => (
                       <option key={t}>{t}</option>
-                    ))}
-                  </select>
-                  <select className="ps-in" defaultValue={v.invoice ?? '미발행'} onChange={e => e.target.value !== '일부' && saveVendor(v, { tax_invoice: e.target.value as Payment['tax_invoice'] })} aria-label="계산서 발행 여부" disabled={!v.items.length}>
-                    {v.invoice === '일부' && <option value="일부">계산서 일부</option>}
-                    {TAX_INVOICE_STATES.map(t => (
-                      <option key={t} value={t}>
-                        {t === '해당 없음' ? '계산서 없음' : `계산서 ${t}`}
-                      </option>
                     ))}
                   </select>
                 </td>
@@ -351,7 +334,7 @@ export function VendorSheet({ projectId, payments, all, lines, finance, onOpen }
                 </td>
                 <td className="vs-2">
                   <input className="ps-in num" inputMode="numeric" defaultValue={money(v.contract)} placeholder="계약금" onBlur={e => { const n = parseMoney(e.target.value) || null; if (n !== v.contract) saveContract(v, { contract_amount: n }) }} onKeyDown={blurOnEnter} aria-label="계약금" />
-                  <span className="t-cap vs-rate" title="결제 완료(공급가) ÷ 계약금">{rate != null ? `${rate}% ${v.dir === '수금' ? '수금' : '지급'}` : v.paid ? `완료 ${manwon(v.paid)}` : '–'}</span>
+                  <span className="t-cap vs-rate" title="결제 완료 ÷ 계약금 (부가세 포함)">{rate != null ? `${rate}% ${v.dir === '수금' ? '수금' : '지급'}` : v.paid ? `완료 ${manwon(v.paid)}` : '–'}</span>
                 </td>
                 {stages.map(s => {
                   const cur = pick(v, s.key)
@@ -364,6 +347,10 @@ export function VendorSheet({ projectId, payments, all, lines, finance, onOpen }
                         if (!cur) return void (d2 && toast(`${s.label} 금액을 먼저 넣어 주세요.`))
                         saveStage(v, s.label, cur, { paid_date: d2 })
                       }} onKeyDown={blurOnEnter} aria-label={`${s.label} 결제일자`} title={cur?.paid_date ? `결제일 ${cur.paid_date}` : '결제일 (예: 10.30 · 오늘이면 t) — 넣으면 결제 완료'} />
+                      <label className={`vs-inv${cur ? '' : ' off'}`} title={cur ? (v.dir === '수금' ? '이 단계 세금계산서 발행' : '이 단계 세금계산서 받음') : '금액을 먼저 넣어 주세요'}>
+                        <input type="checkbox" defaultChecked={cur?.tax_invoice === '발행'} disabled={!cur} onChange={e => cur && void run(() => api.savePayment({ id: cur.id, tax_invoice: e.target.checked ? '발행' : '미발행', tax_invoice_date: e.target.checked ? cur.tax_invoice_date ?? todayKey() : null }), e.target.checked ? `${v.payee} ${s.label} 계산서 ${v.dir === '수금' ? '발행' : '받음'}으로 표시했습니다.` : '계산서 표시를 지웠습니다.')} aria-label={`${s.label} 계산서 발행 여부`} />
+                        계산서
+                      </label>
                     </td>
                   )
                 })}
@@ -408,16 +395,9 @@ export function VendorSheet({ projectId, payments, all, lines, finance, onOpen }
             </td>
             <td className="vs-2">
               <select className="ps-in" value={d.contractType} onChange={e => setD({ ...d, contractType: e.target.value })} aria-label="새 업체 계약형태">
-                <option value="">계약형태</option>
+                <option value="">형태 선택</option>
                 {CONTRACT_TYPES.map(t => (
                   <option key={t}>{t}</option>
-                ))}
-              </select>
-              <select className="ps-in" value={d.invoice} onChange={e => setD({ ...d, invoice: e.target.value as Payment['tax_invoice'] })} aria-label="새 업체 계산서">
-                {TAX_INVOICE_STATES.map(t => (
-                  <option key={t} value={t}>
-                    {t === '해당 없음' ? '계산서 없음' : `계산서 ${t}`}
-                  </option>
                 ))}
               </select>
             </td>
@@ -452,7 +432,7 @@ export function VendorSheet({ projectId, payments, all, lines, finance, onOpen }
             <td className="num">{money(sumContract)}</td>
             <td colSpan={stages.length + 2} className="t-cap">
               매입 결제 완료 {manwon(sumPaid) || '0'}
-              {sumContract ? ` · 계약 대비 ${Math.round((sumPaid / sumContract) * 100)}%` : ''} (공급가)
+              {sumContract ? ` · 계약 대비 ${Math.round((sumPaid / sumContract) * 100)}%` : ''} (부가세 포함)
             </td>
           </tr>
         </tfoot>

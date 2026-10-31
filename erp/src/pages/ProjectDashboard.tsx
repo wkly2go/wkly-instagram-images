@@ -181,7 +181,7 @@ function Orders({ projects, money, today, admin }: { projects: Project[]; money:
     <section className="section" aria-label="수주 현황">
       <div className="section-h">
         <span className="t-bodyb">수주 현황</span>
-        <span className="cap">{admin ? '수주액 = 프로젝트 시작 월의 계약액 (공급가)' : '상태별 프로젝트 수'}</span>
+        <span className="cap">{admin ? '수주액 = 프로젝트 시작 월의 계약액 (부가세 포함)' : '상태별 프로젝트 수'}</span>
       </div>
       <StackBar label="상태별 프로젝트" parts={(['진행', '기획', 'NIC', '완료', '보류'] as const).map(s => ({ key: s, label: s, value: projects.filter(p => p.status === s).length, color: STATUS_COLOR[s] }))} />
       {admin && (
