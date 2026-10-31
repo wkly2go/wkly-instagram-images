@@ -19,6 +19,17 @@ const parseMoney = (s: string) => Number(s.replace(/[^\d]/g, '')) || 0
 const norm = (s: string) => s.replace(/\s|㈜|\(주\)|주식회사/g, '').toLowerCase()
 const order = (p: Payment) => p.requested_date ?? p.due_date ?? p.paid_date ?? p.created_at.slice(0, 10)
 const vatOf = (amount: number, type: Payment['contract_type'], prev?: Payment) => (prev ? (prev.vat ? Math.round(amount / 11) : 0) : type === '세금계산서' ? Math.round(amount / 11) : 0)
+/** 결제일 칸: '10.30' · '2026-10-30' · 't'(오늘) · 빈칸(지움) → yyyy-mm-dd | null, 못 읽으면 undefined */
+const parseDay = (v: string): string | null | undefined => {
+  const t = v.trim()
+  if (!t) return null
+  if (/^(t|오늘)$/i.test(t)) return todayKey()
+  const full = /^(\d{4})[.\-/ ](\d{1,2})[.\-/ ](\d{1,2})/.exec(t)
+  const short = /^(\d{1,2})[.\-/ ](\d{1,2})$/.exec(t)
+  const [y, m, d] = full ? [full[1], full[2], full[3]] : short ? [todayKey().slice(0, 4), short[1], short[2]] : []
+  if (!y || !m || !d) return undefined
+  return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`
+}
 const live = (p: Payment) => p.status !== '취소' && !p.is_estimate
 
 interface Vendor {
@@ -257,16 +268,16 @@ export function VendorSheet({ projectId, payments, all, lines, finance, onOpen }
       </datalist>
       <table className="pay-sheet vendor-sheet one-line">
         <colgroup>
-          <col style={{ width: 150 }} />
-          <col style={{ width: 250 }} />
-          <col style={{ width: 200 }} />
-          <col style={{ width: 280 }} />
-          <col style={{ width: 170 }} />
+          <col style={{ width: '10%' }} />
+          <col style={{ width: '16%' }} />
+          <col style={{ width: '12%' }} />
+          <col style={{ width: '9%' }} />
+          <col style={{ width: '11%' }} />
           {stages.map(s => (
-            <col key={s.key} style={{ width: 210 }} />
+            <col key={s.key} style={{ width: '10%' }} />
           ))}
-          <col style={{ width: 150 }} />
-          <col style={{ width: 28 }} />
+          <col />
+          <col style={{ width: 26 }} />
         </colgroup>
         <thead>
           <tr>
@@ -280,7 +291,7 @@ export function VendorSheet({ projectId, payments, all, lines, finance, onOpen }
               계약형태 · 계산서
             </th>
             <th>
-              은행 · 예금주 · 계좌번호
+              계좌번호
             </th>
             <th className="num" title="매입: 업체 계약금(공급가) · 매출: 프로젝트 계약(공급가)">
               계약금 · 진행
@@ -331,11 +342,7 @@ export function VendorSheet({ projectId, payments, all, lines, finance, onOpen }
                     ))}
                   </select>
                 </td>
-                <td className="vs-2">
-                  <span className="vs-pair">
-                    {txt(v.bank, x => saveVendor(v, { bank_name: x }), '은행')}
-                    {txt(v.holder, x => saveVendor(v, { account_holder: x }), '예금주')}
-                  </span>
+                <td className="vs-2" title={[v.bank, v.holder].filter(Boolean).join(' · ') || '은행 · 예금주는 … 에서'}>
                   {txt(v.account, x => saveVendor(v, { account_no: x }), '계좌번호')}
                 </td>
                 <td className="vs-2">
@@ -347,7 +354,7 @@ export function VendorSheet({ projectId, payments, all, lines, finance, onOpen }
                   return (
                     <td key={s.key} className={`vs-2 vs-stage ${cur && isDone(cur) ? 'done' : ''}`}>
                       <input className="ps-in num" inputMode="numeric" defaultValue={money(cur?.amount)} placeholder="금액" onBlur={e => saveStage(v, s.label, cur, { amount: parseMoney(e.target.value) })} onKeyDown={blurOnEnter} aria-label={`${s.label} 결제 금액`} />
-                      <input className="ps-in vs-day" type="date" defaultValue={cur?.paid_date ?? ''} disabled={!cur} onBlur={e => saveStage(v, s.label, cur, { paid_date: e.target.value || null })} aria-label={`${s.label} 결제일자`} title="결제일자 (넣으면 결제 완료)" />
+                      <input className="ps-in vs-day" defaultValue={cur?.paid_date ? cur.paid_date.slice(5).replace('-', '.') : ''} placeholder="결제일" disabled={!cur} onBlur={e => { const d2 = parseDay(e.target.value); if (d2 !== undefined) saveStage(v, s.label, cur, { paid_date: d2 }) }} onKeyDown={blurOnEnter} aria-label={`${s.label} 결제일자`} title={cur?.paid_date ? `결제일 ${cur.paid_date}` : '결제일 (예: 10.30 · 오늘이면 t) — 넣으면 결제 완료'} />
                     </td>
                   )
                 })}
@@ -406,10 +413,6 @@ export function VendorSheet({ projectId, payments, all, lines, finance, onOpen }
               </select>
             </td>
             <td className="vs-2">
-              <span className="vs-pair">
-                <input className="ps-in" value={d.bank} onChange={e => setD({ ...d, bank: e.target.value })} onKeyDown={enter} placeholder="은행" aria-label="새 업체 은행명" />
-                <input className="ps-in" value={d.holder} onChange={e => setD({ ...d, holder: e.target.value })} onKeyDown={enter} placeholder="예금주" aria-label="새 업체 예금주" />
-              </span>
               <input className="ps-in" value={d.account} onChange={e => setD({ ...d, account: e.target.value })} onKeyDown={enter} placeholder="계좌번호" aria-label="새 업체 계좌번호" />
             </td>
             <td className="vs-2">

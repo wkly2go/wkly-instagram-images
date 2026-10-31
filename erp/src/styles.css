@@ -2735,3 +2735,14 @@ html.detail-full .detail-col.full .col-resize { display: none; }
 .contract-goal .ps-in { background: var(--white, #fff); border-bottom: 1px solid var(--line, #ddd); }
 .vendor-sheet.one-line td.vs-2 > .vs-pair { display: inline-flex; }
 .vendor-sheet.one-line td.vs-2 > .vs-pair > .ps-in { display: inline-block; width: 50%; border-bottom: 0; }
+/* 협력업체 관리 · 한 화면 맞춤 (계좌번호만, 결제일은 10.30 처럼 짧게) */
+.pay-sheet.vendor-sheet.one-line { width: 100%; min-width: 900px; table-layout: fixed; }
+.vendor-sheet.one-line td.vs-stage > .ps-in:first-child { width: 58%; }
+.vendor-sheet.one-line td.vs-stage > .ps-in.vs-day { width: 42%; text-align: center; font-size: 11px; }
+.vendor-sheet.one-line td.vs-2 > :only-child { width: 100%; }
+.vendor-sheet.one-line th { font-size: 11px; }
+.vendor-sheet.one-line th .t-cap { display: none; }
+/* 프로젝트 상세 맨 위 한 줄: 할 일 · 개요 · 입출금 알람 */
+.proj-top3 { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 0.9fr); gap: 10px; align-items: start; }
+.proj-top3 > .box { margin: 0; }
+@media (max-width: 1100px) { .proj-top3 { grid-template-columns: 1fr; } }
