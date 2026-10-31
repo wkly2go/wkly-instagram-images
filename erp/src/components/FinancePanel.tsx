@@ -56,7 +56,7 @@ export function FinancePanel({ project, clients, projects, viz, part }: { projec
             <Tile label="예상 마진" value={m.margin != null ? manwon(m.margin) : '–'} sub={m.marginRate != null ? `${Math.round(m.marginRate)}%` : '계약을 넣으면 계산'} tone={m.marginRate != null && m.target != null && m.marginRate < m.target ? 'red' : undefined} />
           </div>
           {/* 세분화 (대표 지시 2026-10-31 "재무 항목을 더 세분화하고 시각화") */}
-          <MoneyFlow m={m} payments={data.payments} today={today} />
+          <MoneyFlow payments={data.payments} today={today} />
           {(late > 0 || next) && (
             <div className="t-cap">
               {late > 0 && <span className="t-red">연체 {late}건 · </span>}
@@ -162,7 +162,7 @@ export function ContractGoal({ project, finance }: { project: Project; finance: 
 }
 
 /** 돈의 흐름: 같은 눈금(계약 또는 더 큰 쪽)에 매출 · 매입 막대 + 세부 숫자 */
-function MoneyFlow({ m, payments, today }: { m: ReturnType<typeof projectMoney>; payments: Payment[]; today: string }) {
+function MoneyFlow({ payments, today }: { payments: Payment[]; today: string }) {
   const live = payments.filter(p => p.status !== '취소' && !p.is_estimate)
   const inn = live.filter(p => p.direction === '수금')
   const out = live.filter(p => p.direction === '지급')
