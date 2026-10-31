@@ -2634,3 +2634,22 @@ html.detail-full .detail-col.full .col-resize { display: none; }
 .pay-sheet tr.ps-new td { border-top: 2px solid var(--blue); }
 .pay-sheet tr.ps-new .ps-in { background: #fff3a0; }
 .pay-sheet tfoot td { padding: 6px; font-weight: 700; background: var(--paper, #f6f6f2); font-variant-numeric: tabular-nums; }
+
+/* 프로젝트 재무: 결제 대장 기준 간단한 그림 */
+.fin-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.fin-tile { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border: 1px solid var(--line, #ddd); border-radius: 8px; background: var(--white, #fff); }
+.fin-tile .meter { width: 100%; }
+.fin-num { font-size: 18px; font-variant-numeric: tabular-nums; }
+.fin-bars { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
+.fin-bar { display: grid; grid-template-columns: 110px 1fr 70px; align-items: center; gap: 10px; font-size: 12px; }
+.fb-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; }
+.fb-track { display: flex; gap: 2px; height: 10px; }
+.fb-done, .fb-open { height: 10px; border-radius: 0 4px 4px 0; }
+.fb-done { background: var(--blue); }
+.fb-open { background: color-mix(in srgb, var(--blue) 30%, white); }
+.fb-done[style*="width: 0%"], .fb-open[style*="width: 0%"] { display: none; }
+.fb-val { text-align: right; font-variant-numeric: tabular-nums; }
+.fin-legend { display: flex; align-items: center; gap: 6px; }
+.fin-legend .lg { display: inline-block; width: 10px; height: 10px; border-radius: 2px; }
+.fin-legend .lg.done { background: var(--blue); }
+.fin-legend .lg.open { background: color-mix(in srgb, var(--blue) 30%, white); }

@@ -1,17 +1,13 @@
 import { useState } from 'react'
 import { TextLinks } from './ui'
-import { Pencil, Trash2 } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { manwon, shortDate, todayKey } from '../lib/date'
-import { budgetByCategory, isOverdue, projectMoney, supply } from '../lib/finance'
+import { isDone, isOpen, isOverdue, projectMoney, supply } from '../lib/finance'
 import { Link } from '../lib/router'
-import { EVIDENCE_KINDS, evidenceHasVat, type BudgetLine, type Client, type EvidenceKind, type Payment, type Project, type ProjectFinance } from '../lib/types'
+import type { BudgetLine, Client, Payment, Project, ProjectFinance } from '../lib/types'
 import { Meter } from './charts'
-import { PaymentForm, parseMoney } from './PaymentForm'
-import { Badge, Button, Empty, Field, Modal, type Tone } from './ui'
-import { ask, askText } from './Ask'
-
-const PAY_TONE: Record<Payment['status'], Tone> = { 예정: 'outline', 청구: 'yellow', 대기: 'yellow', 완료: 'acid', 보류: 'paper', 취소: 'paper' }
+import { parseMoney } from './PaymentForm'
+import { Button, Empty, Field, Modal } from './ui'
 
 interface Data {
   finance: ProjectFinance | undefined
@@ -20,14 +16,12 @@ interface Data {
   lines: BudgetLine[]
 }
 
-/** 프로젝트 상세의 재무 칸 (관리자만) */
-export function FinancePanel({ project, clients, projects }: { project: Project; clients: Client[]; projects: Project[] }) {
-  const { api, version, me } = useApp()
-  // 재무는 구성원 모두 열람 · 기입 · 수정 (대표 지시 2026-10-18, 2026-10-30), 삭제만 관리자
-  const admin = true
-  const isAdmin = me.role === 'admin'
-  const { busy, run } = useAction()
+/** 프로젝트 상세의 재무 칸: 결제 대장을 원자료로 쓰고 여기서는 간단한 그림만 (대표 지시 2026-10-31
+ *  "결제 대장을 로데이터로 사용하고 대시보드에서 간단히 시각화된 자료만 보이게") — 입력 · 수정은 결제 대장(한 줄 대장)에서 */
+export function FinancePanel({ project }: { project: Project; clients?: Client[]; projects?: Project[] }) {
+  const { api, version } = useApp()
   const today = todayKey()
+  const [editFin, setEditFin] = useState(false)
   const { data } = useAsync<Data>(
     async () => {
       const [finances, all, lines] = await Promise.all([api.listFinances(), api.listPayments(), api.listBudgetLines(project.id)])
@@ -36,238 +30,90 @@ export function FinancePanel({ project, clients, projects }: { project: Project;
     [project.id, version],
     { finance: undefined, payments: [], all: [], lines: [] },
   )
-  const [editFin, setEditFin] = useState(false)
-  const [form, setForm] = useState<Payment | 'new' | null>(null)
-  // 간편 입력 (대표 지시 2026-10-29 "세금계산서와 영수증 · 현금 지급을 간편하게"): 증빙 버튼 하나로 부가세 · 계산서 · 증빙 종류가 정해짐
-  const [quick, setQuick] = useState({ direction: '지급' as Payment['direction'], title: '', payee: '', amount: '', due: '', evidence: '세금계산서' as EvidenceKind, done: false, invoice: false })
-  const [line, setLine] = useState({ category: '', payee: '', budget: '' })
   const m = projectMoney(data.finance, data.payments, data.lines, today)
-  const cats = budgetByCategory(data.lines, data.payments)
-  const inflow = data.payments.filter(p => p.direction === '수금')
-
-  const addQuick = async () => {
-    const amount = parseMoney(quick.amount)
-    if (!quick.title.trim() || !amount) return
-    const client = clients.find(c => c.name === quick.payee.trim())
-    const ev = quick.evidence
-    const ok = await run(
-      () =>
-        api.savePayment({
-          direction: quick.direction,
-          project_id: project.id,
-          title: quick.title.trim(),
-          payee: quick.payee.trim() || null,
-          client_id: client?.id ?? null,
-          amount,
-          vat: evidenceHasVat(ev) ? Math.round(amount / 11) : 0,
-          contract_type: ev === '간이영수증' || ev === '현금' ? '기타' : ev,
-          tax_invoice: ev === '세금계산서' ? (quick.invoice ? '발행' : '미발행') : '해당 없음',
-          tax_invoice_date: ev === '세금계산서' && quick.invoice ? today : null,
-          status: quick.done ? '완료' : '예정',
-          paid_date: quick.done ? quick.due || today : null,
-          due_date: quick.done ? null : quick.due || null,
-          memo: ev === '간이영수증' || ev === '현금' ? `증빙: ${ev}` : null,
-        }),
-      `추가했습니다. (${evidenceHasVat(ev) ? '부가세 10% 포함으로 계산' : '부가세 없음'} · 눌러서 수정)`,
-    )
-    if (ok) setQuick(q => ({ ...q, title: '', amount: '', due: '', invoice: false }))
+  const ledger = `/projects?view=payments&project=${project.id}`
+  // 공사 구분별 지급 (완료 + 미지급, 취소 · 예상 제외) — 많은 순 6개, 나머지는 '기타'
+  const out = data.payments.filter(p => p.direction === '지급' && p.status !== '취소' && !p.is_estimate)
+  const byCat = new Map<string, { done: number; open: number }>()
+  for (const p of out) {
+    const k = p.category?.trim() || '미분류'
+    const r = byCat.get(k) ?? { done: 0, open: 0 }
+    if (isDone(p)) r.done += supply(p)
+    else r.open += supply(p)
+    byCat.set(k, r)
   }
-  const addLine = async () => {
-    if (!line.category.trim()) return
-    const ok = await run(() => api.saveBudgetLine({ project_id: project.id, category: line.category.trim(), payee: line.payee.trim() || null, budget_amount: parseMoney(line.budget), sort_order: data.lines.length + 1 }))
-    if (ok) setLine({ category: '', payee: '', budget: '' })
+  let cats = [...byCat.entries()].map(([name, r]) => ({ name, ...r, total: r.done + r.open })).sort((a, b) => b.total - a.total)
+  if (cats.length > 7) {
+    const rest = cats.slice(6)
+    cats = [...cats.slice(0, 6), { name: `기타 ${rest.length}개`, done: rest.reduce((n, r) => n + r.done, 0), open: rest.reduce((n, r) => n + r.open, 0), total: rest.reduce((n, r) => n + r.total, 0) }]
   }
+  const max = Math.max(1, ...cats.map(c => c.total))
+  const spent = m.paid + m.payable
+  const late = data.payments.filter(p => isOverdue(p, today)).length
+  const next = data.payments.filter(p => p.direction === '지급' && isOpen(p) && !p.is_estimate && p.due_date && p.due_date >= today).sort((a, b) => (a.due_date ?? '').localeCompare(b.due_date ?? ''))[0]
 
   return (
-    <section className="section" aria-label="재무">
+    <section className="section fin-viz" aria-label="재무">
       <div className="section-h">
         <span className="t-bodyb">재무</span>
-        <span className="cap">공급가액 · VAT 별도</span>
-        {admin && (
-          <Button kind="outline" size="sm" onClick={() => setEditFin(true)}>
-            계약·목표
-          </Button>
-        )}
-      </div>
-      {/* 계약 · 비용 · 마진 숫자 요약은 프로젝트 맨 위 대시보드에 (중복 제거 2026-10-31) */}
-      <div className="section-h" style={{ marginTop: 6 }}>
-        <span className="t-smallb">공사 구분별 실행 예산</span>
-        <span className="cap">집행 = 완료 + 미지급 + 예상</span>
-      </div>
-      {cats.length === 0 && <span className="t-cap">공사 구분(목공·전기·운영비 …)별 예산을 넣으면 초과를 바로 알려 드려요.</span>}
-      {cats.length > 0 && (
-        <div className="table-wrap">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>공사 구분</th>
-                <th>업체</th>
-                <th className="num">예산</th>
-                <th className="num">집행</th>
-                <th style={{ minWidth: 120 }}>집행률</th>
-                <th className="num">초과</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {cats.map(r => (
-                <tr key={r.category}>
-                  <td className="strong nowrap">{r.category}</td>
-                  <td className="nowrap">{r.lines.length ? r.payee ?? '' : <span className="t-cap">예산 없음</span>}</td>
-                  <td className="num">{r.budget ? manwon(r.budget) : '–'}</td>
-                  <td className="num">{manwon(r.spent) || '0'}</td>
-                  <td>
-                    <span className="row" style={{ gap: 6 }}>
-                      <Meter value={r.rate ?? (r.spent ? 100 : 0)} red={r.over > 0} label={`${r.category} 집행률`} />
-                      <span className="t-meta" style={{ width: 40, textAlign: 'right' }}>
-                        {r.rate != null ? `${Math.round(r.rate)}%` : ''}
-                      </span>
-                    </span>
-                  </td>
-                  <td className={`num ${r.over ? 'red' : ''}`}>{r.over ? `+${manwon(r.over)}` : '–'}</td>
-                  <td className="nowrap">
-                    {admin && r.lines.length === 1 && (
-                      <>
-                        <button
-                          type="button"
-                          className="icon-btn sm"
-                          aria-label="예산 수정"
-                          onClick={async () => {
-                            const v = (await askText(`'${r.category}' 예산 (원)`, String(r.budget)))
-                            if (v !== null) run(() => api.saveBudgetLine({ id: r.lines[0].id, budget_amount: Math.max(0, parseMoney(v)) }))
-                          }}
-                        >
-                          <Pencil size={12} />
-                        </button>
-                        {isAdmin && <button type="button" className="icon-btn sm" aria-label="예산 삭제" onClick={async () => (await ask(`'${r.category}' 예산 줄을 삭제할까요?`)) && run(() => api.deleteBudgetLine(r.lines[0].id))}>
-                          <Trash2 size={12} />
-                        </button>}
-                      </>
-                    )}
-                    {r.lines.length > 1 && <span className="t-cap">{r.lines.length}줄</span>}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-      <div className="row wrap" style={admin ? undefined : { display: 'none' }}>
-        <input className="input" style={{ flex: '1 1 120px' }} placeholder="공사 구분" value={line.category} onChange={e => setLine({ ...line, category: e.target.value })} aria-label="새 예산 공사 구분" />
-        <input className="input" style={{ flex: '1 1 120px' }} placeholder="업체 (선택)" value={line.payee} onChange={e => setLine({ ...line, payee: e.target.value })} aria-label="새 예산 업체" />
-        <input className="input" style={{ flex: '1 1 110px' }} inputMode="numeric" placeholder="예산 (원)" value={line.budget} onChange={e => setLine({ ...line, budget: e.target.value })} aria-label="새 예산 금액" />
-        <Button kind="outline" onClick={addLine} disabled={busy || !line.category.trim()}>
-          예산 줄
+        <span className="cap">결제 대장 기준 · 공급가액</span>
+        <Button kind="ghost" size="sm" onClick={() => setEditFin(true)}>
+          계약 · 목표
         </Button>
-      </div>
-
-      <div className="section-h" style={{ marginTop: 6 }}>
-        <span className="t-smallb">결제 내역</span>
-        <span className="cap">{m.contract ? `수금 ${Math.round(((m.received || 0) / m.contract) * 100)}% 완료` : `수금 ${inflow.length}건`}</span>
-        <Link to={`/projects?view=payments&project=${project.id}`} className="t-cap">
-          결제 대장 ›
+        <Link to={ledger} className="btn btn-blue btn-sm">
+          결제 대장에서 입력 ›
         </Link>
       </div>
-      {data.payments.length === 0 ? (
-        <Empty>결제 내역이 없습니다. 아래에서 바로 추가하거나 결제 대장에서 엑셀을 가져오세요.</Empty>
+      {data.payments.length === 0 && m.contract == null ? (
+        <Empty>
+          아직 결제가 없습니다. <Link to={ledger}>결제 대장</Link>에 한 줄씩 적으면 여기에 그림으로 나옵니다.
+        </Empty>
       ) : (
-        <div className="table-wrap">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>구분</th>
-                <th>내용</th>
-                <th>업체</th>
-                <th className="num">금액</th>
-                <th>계산서</th>
-                <th className="num">예정일</th>
-                <th>상태</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.payments.map(p => {
-                const late = isOverdue(p, today)
-                return (
-                  <tr key={p.id} className={`${admin ? 'click' : ''} ${p.status === '취소' ? 'muted' : ''}`} onClick={() => admin && setForm(p)} title={admin ? '눌러서 수정' : undefined}>
-                    <td>
-                      <Badge tone={p.direction === '수금' ? 'blue' : 'gray'}>{p.direction}</Badge>
-                    </td>
-                    <td className="max">
-                      <span className="strong truncate" style={{ display: 'block' }}>
-                        {p.title}
-                      </span>
-                      <span className="t-cap">{[p.category, p.stage, p.is_estimate ? '예상' : null, p.advance_by ? `대지급 ${p.advance_by}` : null].filter(Boolean).join(' · ')}</span>
-                    </td>
-                    <td className="nowrap">{p.payee ?? '–'}</td>
-                    <td className="num" title={`공급가 ${supply(p).toLocaleString('ko-KR')}원 · VAT ${p.vat.toLocaleString('ko-KR')}원`}>
-                      {manwon(p.amount)}
-                    </td>
-                    <td className="nowrap">{p.tax_invoice === '해당 없음' ? '–' : p.tax_invoice === '발행' ? (p.direction === '지급' ? '수취' : '발행') : <span className="t-cap">미발행</span>}</td>
-                    <td className={`num ${late ? 'red' : ''}`}>{shortDate(p.paid_date ?? p.due_date) || '–'}</td>
-                    <td>
-                      <Badge tone={late ? 'red' : p.is_estimate ? 'paper' : PAY_TONE[p.status]}>{late ? '연체' : p.is_estimate ? '예상' : p.status}</Badge>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
+        <>
+          <div className="fin-tiles">
+            <Tile label="계약" value={m.contract != null ? manwon(m.contract) : '–'} sub={m.target != null ? `목표 마진 ${m.target}%` : undefined} />
+            <Tile label="수금" value={manwon(m.received) || '0'} sub={m.collectRate != null ? `${Math.round(m.collectRate)}% · 남은 ${manwon(Math.max(0, (m.contract ?? 0) - m.received)) || '0'}` : `미수 ${manwon(m.receivable) || '0'}`} rate={m.collectRate} />
+            <Tile label="지급" value={manwon(m.paid) || '0'} sub={`미지급 ${manwon(m.payable) || '0'}`} rate={spent ? (m.paid / spent) * 100 : null} />
+            <Tile label="예상 마진" value={m.margin != null ? manwon(m.margin) : '–'} sub={m.marginRate != null ? `${Math.round(m.marginRate)}%` : '계약을 넣으면 계산'} tone={m.marginRate != null && m.target != null && m.marginRate < m.target ? 'red' : undefined} />
+          </div>
+          {cats.length > 0 && (
+            <div className="fin-bars" role="list" aria-label="공사 구분별 지급">
+              {cats.map(c => (
+                <div key={c.name} className="fin-bar" role="listitem" title={`${c.name} · 완료 ${c.done.toLocaleString('ko-KR')}원 · 미지급 ${c.open.toLocaleString('ko-KR')}원`}>
+                  <span className="fb-name">{c.name}</span>
+                  <span className="fb-track">
+                    <span className="fb-done" style={{ width: `${(c.done / max) * 100}%` }} />
+                    <span className="fb-open" style={{ width: `${(c.open / max) * 100}%` }} />
+                  </span>
+                  <span className="fb-val">{manwon(c.total)}</span>
+                </div>
+              ))}
+              <span className="t-cap fin-legend">
+                <i className="lg done" /> 지급 완료 <i className="lg open" /> 미지급
+              </span>
+            </div>
+          )}
+          {(late > 0 || next) && (
+            <div className="t-cap">
+              {late > 0 && <span className="t-red">연체 {late}건 · </span>}
+              {next && <>다음 지급 {shortDate(next.due_date)} {next.payee ?? next.title} {manwon(next.amount)}</>}
+            </div>
+          )}
+        </>
       )}
-      <div className="quick-pay" style={admin ? undefined : { display: 'none' }}>
-        <div className="row wrap">
-          <div className="seg" role="radiogroup" aria-label="구분">
-            {(['지급', '수금'] as const).map(d => (
-              <button key={d} type="button" role="radio" aria-checked={quick.direction === d} className={quick.direction === d ? 'on' : ''} onClick={() => setQuick({ ...quick, direction: d })}>
-                {d}
-              </button>
-            ))}
-          </div>
-          <input className="input" style={{ flex: '2 1 140px' }} placeholder="내용 (예: 목공 자재 · 현장 식대)" value={quick.title} onChange={e => setQuick({ ...quick, title: e.target.value })} aria-label="결제 내용" />
-          <input className="input" style={{ flex: '1 1 110px' }} list="fin-payees" placeholder={quick.direction === '수금' ? '보내는 곳' : '업체 · 받는 사람'} value={quick.payee} onChange={e => setQuick({ ...quick, payee: e.target.value })} aria-label="업체" />
-          <datalist id="fin-payees">
-            {clients.map(c => (
-              <option key={c.id} value={c.name} />
-            ))}
-          </datalist>
-          <input className="input" style={{ flex: '1 1 110px' }} inputMode="numeric" placeholder="총액 (부가세 포함)" value={quick.amount} onChange={e => setQuick({ ...quick, amount: e.target.value })} onKeyDown={e => e.key === 'Enter' && addQuick()} aria-label="금액" />
-          <input className="input" style={{ width: 136 }} type="date" value={quick.due} onChange={e => setQuick({ ...quick, due: e.target.value })} aria-label={quick.done ? '지급일' : '예정일'} title={quick.done ? '지급한 날 (비우면 오늘)' : '지급 예정일 (비우면 차주 월요일)'} />
-        </div>
-        <div className="row wrap">
-          <span className="t-cap">증빙</span>
-          <div className="seg" role="radiogroup" aria-label="증빙">
-            {EVIDENCE_KINDS.map(k => (
-              <button key={k} type="button" role="radio" aria-checked={quick.evidence === k} className={quick.evidence === k ? 'on' : ''} onClick={() => setQuick({ ...quick, evidence: k, done: k === '현금' || k === '카드' ? true : quick.done })}>
-                {k}
-              </button>
-            ))}
-          </div>
-          {quick.evidence === '세금계산서' && (
-            <label className="mat-check">
-              <input type="checkbox" checked={quick.invoice} onChange={e => setQuick({ ...quick, invoice: e.target.checked })} /> 계산서 {quick.direction === '수금' ? '발행함' : '받음'}
-            </label>
-          )}
-          <label className="mat-check">
-            <input type="checkbox" checked={quick.done} onChange={e => setQuick({ ...quick, done: e.target.checked })} /> {quick.direction === '수금' ? '입금 받음' : '이미 지급함'}
-          </label>
-          <span className="grow" />
-          {parseMoney(quick.amount) > 0 && (
-            <span className="t-cap">
-              {evidenceHasVat(quick.evidence) ? `공급가 ${Math.round(parseMoney(quick.amount) / 1.1).toLocaleString('ko-KR')} + 부가세 ${Math.round(parseMoney(quick.amount) / 11).toLocaleString('ko-KR')}` : '부가세 없음'}
-            </span>
-          )}
-          <Button onClick={addQuick} disabled={busy || !quick.title.trim() || !parseMoney(quick.amount)}>
-            {quick.direction} 추가
-          </Button>
-          <Button kind="outline" onClick={() => setForm('new')}>
-            자세히 입력
-          </Button>
-        </div>
-      </div>
-
       {editFin && <FinanceForm project={project} finance={data.finance} hasLines={data.lines.length > 0} onClose={() => setEditFin(false)} />}
-      {form && <PaymentForm key={form === 'new' ? 'new' : form.id} payment={form === 'new' ? null : form} preset={{ project_id: project.id }} projects={projects} clients={clients} payments={data.all} lines={data.lines} lockProject onClose={() => setForm(null)} />}
     </section>
+  )
+}
+
+function Tile({ label, value, sub, rate, tone }: { label: string; value: string; sub?: string; rate?: number | null; tone?: 'red' }) {
+  return (
+    <div className="fin-tile">
+      <span className="t-cap">{label}</span>
+      <b className={`fin-num ${tone === 'red' ? 't-red' : ''}`}>{value}</b>
+      {rate != null && <Meter value={Math.min(100, Math.max(0, rate))} label={`${label} 비율`} />}
+      {sub && <span className="t-cap">{sub}</span>}
+    </div>
   )
 }
 
