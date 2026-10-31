@@ -4,6 +4,8 @@
 //   3줄: 업체별 지급률 · 일정 진행 (기간 경과 대 할 일 완료) · 앞으로 4주 지급 예정
 //   금액은 공급가(VAT 별도) 기준. 마우스를 올리면 값, 누르면 그 업체 · 공사 구분 결제로
 import { useState } from 'react'
+import { AlertTriangle, BellRing, CheckCircle2 } from 'lucide-react'
+import { Link } from '../lib/router'
 import { useApp, useAsync } from '../lib/app'
 import { addDays, addMonths, manwon, shortDate, todayKey, won } from '../lib/date'
 import { budgetByCategory, contractRows, isDone, isOpen, monthlyFlow, projectMoney, supply } from '../lib/finance'
@@ -26,8 +28,13 @@ export function ProjectVizLoader({ project }: { project: Project }) {
     [project.id, version],
     { payments: [] as Payment[], lines: [] as BudgetLine[], finance: undefined as ProjectFinance | undefined, tasks: [] as Task[] },
   )
-  if (!data.payments.length && data.finance?.contract_amount == null && !data.tasks.length) return null
-  return <ProjectViz project={project} payments={data.payments} lines={data.lines} finance={data.finance} tasks={data.tasks} />
+  const money = !!data.payments.length || data.finance?.contract_amount != null
+  return (
+    <div className="pviz-wrap">
+      <ProjectHead project={project} payments={data.payments} lines={data.lines} finance={data.finance} tasks={data.tasks} />
+      {money && <ProjectViz project={project} payments={data.payments} lines={data.lines} finance={data.finance} tasks={data.tasks} />}
+    </div>
+  )
 }
 
 export function ProjectViz({ project, payments, lines, finance, tasks, onVendor }: { project: Project; payments: Payment[]; lines: BudgetLine[]; finance: ProjectFinance | undefined; tasks?: Task[]; onVendor?: (name: string) => void }) {
@@ -314,6 +321,141 @@ function ProgressRow({ label, value, color, note }: { label: string; value: numb
         {value != null ? `${Math.round(value)}%` : '–'}
         {note ? ` · ${note}` : ''}
       </span>
+    </div>
+  )
+}
+
+/** 맨 위: 일정(디데이 · 기간 막대 · 할 일 타임라인) + 입출금 알람 (대표 지시 2026-10-31 "상단에 대시보드, 스케줄 · 자금흐름 · 목표 달성 · 입출금 알람") */
+export function ProjectHead({ project, payments, lines, finance, tasks }: { project: Project; payments: Payment[]; lines: BudgetLine[]; finance: ProjectFinance | undefined; tasks: Task[] }) {
+  const today = todayKey()
+  const m = projectMoney(finance, payments, lines, today)
+  const start = project.start_date
+  const end = project.end_date ?? project.start_date
+  const dd = (a: string, b: string) => Math.round((Date.parse(b) - Date.parse(a)) / 864e5)
+  const dday = start && today < start ? { label: `시작 D-${dd(today, start)}`, tone: 'soon' } : end && today <= end ? { label: start && today >= start ? `진행 중 · 종료 D-${dd(today, end)}` : `종료 D-${dd(today, end)}`, tone: 'live' } : end ? { label: `종료 후 ${dd(end, today)}일`, tone: 'past' } : { label: '기간 미정', tone: 'past' }
+
+  // 타임라인 범위: 프로젝트 기간 + 할 일 날짜 (앞뒤 여유)
+  const withDates = tasks.filter(t => t.due_date || t.start_date)
+  const allDates = [start, end, today, ...withDates.flatMap(t => [t.start_date ?? t.due_date!, t.due_date ?? t.start_date!])].filter((x): x is string => !!x).sort()
+  const lo = addDays(allDates[0] ?? today, -2)
+  const hi = addDays(allDates[allDates.length - 1] ?? today, 2)
+  const span = Math.max(1, dd(lo, hi))
+  const pos = (d: string) => (dd(lo, d) / span) * 100
+  const rows = [...withDates]
+    .sort((a, b) => (a.status === '완료' ? 1 : 0) - (b.status === '완료' ? 1 : 0) || (a.due_date ?? a.start_date ?? '').localeCompare(b.due_date ?? b.start_date ?? ''))
+    .slice(0, 7)
+    .sort((a, b) => (a.start_date ?? a.due_date ?? '').localeCompare(b.start_date ?? b.due_date ?? ''))
+
+  // 입출금 알람
+  type Alarm = { key: string; level: 'red' | 'amber' | 'ok'; text: string; to: string }
+  const pay = `/projects?view=payments&project=${project.id}`
+  const alarms: Alarm[] = []
+  const week = addDays(today, 7)
+  const sumAmt = (l: Payment[]) => manwon(l.reduce((n, p) => n + p.amount, 0)) || '0'
+  const lateIn = payments.filter(p => p.direction === '수금' && isOpen(p) && p.due_date && p.due_date < today)
+  const lateOut = payments.filter(p => p.direction === '지급' && isOpen(p) && p.due_date && p.due_date < today)
+  const soonIn = payments.filter(p => p.direction === '수금' && isOpen(p) && p.due_date && p.due_date >= today && p.due_date <= week)
+  const soonOut = payments.filter(p => p.direction === '지급' && isOpen(p) && p.due_date && p.due_date >= today && p.due_date <= week)
+  const noDate = payments.filter(p => isOpen(p) && !p.due_date)
+  const noAcc = payments.filter(p => p.direction === '지급' && isOpen(p) && !p.account_no && p.contract_type !== '카드' && !p.advance_by)
+  const noInvoice = payments.filter(p => p.direction === '수금' && p.status !== '취소' && !p.is_estimate && p.tax_invoice === '미발행')
+  const overCats = budgetByCategory(lines, payments).filter(c => c.budget > 0 && c.over > 0)
+  const lateTasks = tasks.filter(t => t.status !== '완료' && t.due_date && t.due_date < today)
+  if (lateIn.length) alarms.push({ key: 'li', level: 'red', text: `수금 연체 ${lateIn.length}건 · ${sumAmt(lateIn)}`, to: pay })
+  if (lateOut.length) alarms.push({ key: 'lo', level: 'red', text: `지급 연체 ${lateOut.length}건 · ${sumAmt(lateOut)}`, to: pay })
+  if (m.marginRate != null && m.target != null && m.marginRate < m.target) alarms.push({ key: 'mg', level: 'red', text: `마진율 ${m.marginRate.toFixed(1)}% · 목표 ${m.target}%보다 ${(m.target - m.marginRate).toFixed(1)}%p 낮음`, to: pay })
+  for (const c of overCats.slice(0, 3)) alarms.push({ key: `ov${c.category}`, level: 'red', text: `${c.category} 예산 초과 ${manwon(c.over)}`, to: pay })
+  if (soonIn.length) alarms.push({ key: 'si', level: 'amber', text: `7일 안 수금 예정 ${soonIn.length}건 · ${sumAmt(soonIn)}`, to: pay })
+  if (soonOut.length) alarms.push({ key: 'so', level: 'amber', text: `7일 안 지급 예정 ${soonOut.length}건 · ${sumAmt(soonOut)}`, to: pay })
+  if (noInvoice.length) alarms.push({ key: 'ni', level: 'amber', text: `세금계산서 미발행 수금 ${noInvoice.length}건`, to: pay })
+  if (noAcc.length) alarms.push({ key: 'na', level: 'amber', text: `계좌 없는 미지급 ${noAcc.length}건`, to: pay })
+  if (noDate.length) alarms.push({ key: 'nd', level: 'amber', text: `예정일 없는 결제 ${noDate.length}건`, to: pay })
+  if (lateTasks.length) alarms.push({ key: 'lt', level: 'red', text: `마감 지난 할 일 ${lateTasks.length}건`, to: '/projects?view=mine' })
+  if (m.contract == null) alarms.push({ key: 'nc', level: 'amber', text: '계약액 미입력 — 수금률 · 마진을 계산할 수 없음', to: `/projects?id=${project.id}` })
+
+  const doneN = tasks.filter(t => t.status === '완료').length
+  return (
+    <div className="pviz-row head">
+      <div className="pviz-card">
+        <div className="pviz-h">
+          <b>프로젝트 일정</b>
+          <span className={`pviz-dday ${dday.tone}`}>{dday.label}</span>
+          <span className="t-cap" style={{ marginLeft: 'auto' }}>
+            할 일 {doneN}/{tasks.length} 완료{lateTasks.length ? ` · 지연 ${lateTasks.length}` : ''}
+          </span>
+        </div>
+        <div className="pviz-tl">
+          <div className="pviz-tl-axis">
+            <span>{shortDate(lo)}</span>
+            <span>{shortDate(hi)}</span>
+          </div>
+          {start && end && (
+            <div className="pviz-tl-row proj">
+              <span className="pviz-tl-name">프로젝트 기간</span>
+              <span className="pviz-tl-track">
+                <i className="bar proj" style={{ left: `${pos(start)}%`, width: `${Math.max(1.5, pos(addDays(end, 1)) - pos(start))}%` }} title={`${shortDate(start)} ~ ${shortDate(end)}`} />
+                <b className="now" style={{ left: `${pos(today)}%` }} title="오늘" />
+              </span>
+            </div>
+          )}
+          {rows.map(t => {
+            const s0 = t.start_date ?? t.due_date!
+            const e0 = t.due_date ?? t.start_date!
+            const late = t.status !== '완료' && e0 < today
+            return (
+              <div key={t.id} className="pviz-tl-row">
+                <span className="pviz-tl-name" title={t.title}>
+                  {t.title}
+                </span>
+                <span className="pviz-tl-track">
+                  <i className={`bar ${t.status === '완료' ? 'done' : late ? 'late' : ''}`} style={{ left: `${pos(s0)}%`, width: `${Math.max(1.5, pos(addDays(e0 > s0 ? e0 : s0, 1)) - pos(s0))}%` }} title={`${t.title} · ${shortDate(s0)}${e0 !== s0 ? ` ~ ${shortDate(e0)}` : ''} · ${t.status}`} />
+                  <b className="now" style={{ left: `${pos(today)}%` }} />
+                </span>
+              </div>
+            )
+          })}
+          {!rows.length && <span className="t-cap">날짜가 있는 할 일이 없습니다.</span>}
+        </div>
+      </div>
+      <div className="pviz-card">
+        <div className="pviz-h">
+          <b>입출금 알람</b>
+          <span className="t-cap">{alarms.length ? `${alarms.length}건` : ''}</span>
+          <Link to={pay} className="t-cap" style={{ marginLeft: 'auto' }}>
+            결제 대장 ›
+          </Link>
+        </div>
+        {alarms.length === 0 ? (
+          <span className="pviz-alarm ok">
+            <CheckCircle2 size={14} /> 연체 · 예산 초과 · 확인할 결제가 없습니다.
+          </span>
+        ) : (
+          <ul className="pviz-alarms">
+            {alarms.slice(0, 8).map(a => (
+              <li key={a.key}>
+                <Link to={a.to} className={`pviz-alarm ${a.level}`}>
+                  {a.level === 'red' ? <AlertTriangle size={13} /> : <BellRing size={13} />} {a.text}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+        <div className="pviz-mini">
+          <span>
+            수금 <b>{m.collectRate != null ? `${Math.round(m.collectRate)}%` : '–'}</b>
+          </span>
+          <span>
+            미수 <b>{manwon(m.receivable) || '0'}</b>
+          </span>
+          <span>
+            남은 지급 <b>{manwon(m.payable) || '0'}</b>
+          </span>
+          <span>
+            마진율 <b className={m.marginRate != null && m.target != null && m.marginRate < m.target ? 't-red' : ''}>{m.marginRate != null ? `${m.marginRate.toFixed(1)}%` : '–'}</b>
+            {m.target != null ? ` / 목표 ${m.target}%` : ''}
+          </span>
+        </div>
+      </div>
     </div>
   )
 }

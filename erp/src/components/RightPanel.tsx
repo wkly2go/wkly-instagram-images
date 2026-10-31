@@ -130,13 +130,15 @@ export function DetailColumnHost() {
     return () => document.documentElement.classList.remove('detail-open', 'detail-wide')
   }, [show, d?.wide])
   if (!show || !detailSlot) return null
+  // 작은 화면(노트북)에서 프로젝트 등 넓은 상세는 화면의 60%로 시작 (대표 지시 2026-10-31 "작은 화면은 이런 비율로 시작")
+  const eff = w ?? (d.wide && window.innerWidth <= 1680 ? Math.round(window.innerWidth * 0.6) : null)
   // 왼쪽 가장자리를 끌어 폭 조절 · 두 번 누르면 원래 크기
   const startDrag = (e: React.PointerEvent) => {
     e.preventDefault()
     const col = (e.currentTarget as HTMLElement).parentElement!
     const right = col.getBoundingClientRect().right
     document.documentElement.classList.add('col-resizing')
-    let last = w
+    let last = eff
     const move = (ev: PointerEvent) => {
       last = Math.round(Math.min(Math.max(right - ev.clientX, 280), maxW()))
       setW(last)
@@ -150,15 +152,15 @@ export function DetailColumnHost() {
     window.addEventListener('pointermove', move)
     window.addEventListener('pointerup', up)
   }
-  const big = !!w && w >= window.innerWidth * 0.5
+  const big = !!eff && eff >= window.innerWidth * 0.5
   const toggleBig = () => {
-    const v = big ? null : Math.round(window.innerWidth * 0.6)
+    const v = big ? Math.round(window.innerWidth * 0.4) : Math.round(window.innerWidth * 0.6)
     setW(v)
     saveW(v)
   }
   return createPortal(
     // key 가 바뀌면 새로 그려 결과 칸 맨 뒤(=맨 위)에 붙음 → 수정 칸 등이 열려 있어도 새로 누른 자료가 그 위에 보임
-    <aside key={d.key} className={`detail-col${d.wide ? ' wide' : ''}${w ? ' sized' : ''}`} style={w ? { flex: `0 0 ${Math.min(w, maxW())}px` } : undefined} aria-label={d.title}>
+    <aside key={d.key} className={`detail-col${d.wide ? ' wide' : ''}${eff ? ' sized' : ''}`} style={eff ? { flex: `0 0 ${Math.min(eff, maxW())}px` } : undefined} aria-label={d.title}>
       <div className="col-resize" onPointerDown={startDrag} onDoubleClick={() => (setW(null), saveW(null))} role="separator" aria-orientation="vertical" aria-label="결과 칸 폭 조절" title="끌어서 크기 조절 · 두 번 누르면 원래 크기" />
       <div className="detail-head">
         <span className="grow truncate">{d.title}</span>
