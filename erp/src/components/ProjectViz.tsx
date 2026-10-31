@@ -1,7 +1,7 @@
 // 개별 프로젝트 시각화 (대표 지시 2026-10-31 "제조 KPI 대시보드 참고, 개별 프로젝트의 완성도 있는 시각화 자료와 사용성")
 //   1줄: 목표 대비 KPI 3칸 (수금 · 비용 · 마진율) — 큰 숫자 + 추이 미니 그래프 + 목표 + 차이 배지
 //   2줄: 공사 구분별 예산 대 집행 (가로 막대) · 비용 구성 (도넛, 가운데 합계) · 월별 수금 · 지급
-//   3줄: 업체별 지급률 · 일정 진행 (기간 경과 대 할 일 완료) · 앞으로 4주 지급 예정
+//   3줄: 업체별 지급률 · 앞으로 4주 지급 예정 (일정은 맨 위 '프로젝트 일정'에)
 //   금액은 공급가(VAT 별도) 기준. 마우스를 올리면 값, 누르면 그 업체 · 공사 구분 결제로
 import { useState } from 'react'
 import { AlertTriangle, BellRing, CheckCircle2 } from 'lucide-react'
@@ -32,16 +32,12 @@ export function ProjectVizLoader({ project }: { project: Project }) {
   return (
     <div className="pviz-wrap">
       <ProjectHead project={project} payments={data.payments} lines={data.lines} finance={data.finance} tasks={data.tasks} />
-      {money && <ProjectViz project={project} payments={data.payments} lines={data.lines} finance={data.finance} tasks={data.tasks} />}
+      {money && <ProjectViz project={project} payments={data.payments} lines={data.lines} finance={data.finance} />}
     </div>
   )
 }
 
-export function ProjectViz({ project, payments, lines, finance, tasks, onVendor }: { project: Project; payments: Payment[]; lines: BudgetLine[]; finance: ProjectFinance | undefined; tasks?: Task[]; onVendor?: (name: string) => void }) {
-  const { api, version } = useApp()
-  // 결제 대장 쪽에서 부를 때는 할 일을 따로 불러옴
-  const { data: loaded } = useAsync(async () => (tasks ? tasks : (await api.listTasks().catch(() => [] as Task[])).filter(t => t.project_id === project.id)), [project.id, version, !!tasks], [] as Task[])
-  const ts = tasks ?? loaded
+export function ProjectViz({ project, payments, lines, finance, onVendor }: { project: Project; payments: Payment[]; lines: BudgetLine[]; finance: ProjectFinance | undefined; onVendor?: (name: string) => void }) {
   const today = todayKey()
   const m = projectMoney(finance, payments, lines, today)
   const cats = budgetByCategory(lines, payments)
@@ -75,9 +71,6 @@ export function ProjectViz({ project, payments, lines, finance, tasks, onVendor 
   const start = project.start_date
   const end = project.end_date
   const elapsed = start && end && end > start ? Math.max(0, Math.min(100, ((Date.parse(today) - Date.parse(start)) / (Date.parse(end) - Date.parse(start))) * 100)) : null
-  const doneTasks = ts.filter(t => t.status === '완료').length
-  const lateTasks = ts.filter(t => t.status !== '완료' && t.due_date && t.due_date < today).length
-  const taskRate = ts.length ? (doneTasks / ts.length) * 100 : null
 
   // 앞으로 4주 지급 예정 (주별)
   const weeks = Array.from({ length: 4 }, (_, i) => addDays(today, i * 7))
@@ -148,7 +141,7 @@ export function ProjectViz({ project, payments, lines, finance, tasks, onVendor 
         </div>
       </div>
 
-      <div className="pviz-row three">
+      <div className="pviz-row two">
         <div className="pviz-card">
           <div className="pviz-h">
             <b>업체별 지급률</b>
@@ -172,24 +165,6 @@ export function ProjectViz({ project, payments, lines, finance, tasks, onVendor 
               ))}
             </ul>
           )}
-        </div>
-        <div className="pviz-card">
-          <div className="pviz-h">
-            <b>일정 진행</b>
-            <span className="t-cap">
-              {start ? shortDate(start) : '?'} ~ {end ? shortDate(end) : '?'}
-            </span>
-          </div>
-          <div className="pviz-progress">
-            <ProgressRow label="기간 경과" value={elapsed} color={LIGHT} />
-            <ProgressRow label="할 일 완료" value={taskRate} color={DARK} note={ts.length ? `${doneTasks}/${ts.length}` : '할 일 없음'} />
-            <ProgressRow label="수금" value={m.collectRate} color="#2a78d6" />
-            <ProgressRow label="지급" value={m.paid + m.payable > 0 ? (m.paid / (m.paid + m.payable)) * 100 : null} color="#eb6834" />
-          </div>
-          <span className={`t-cap ${lateTasks ? 't-red' : ''}`}>
-            {elapsed != null && taskRate != null ? (taskRate + 5 < elapsed ? `일정보다 할 일이 ${Math.round(elapsed - taskRate)}%p 늦습니다` : '일정대로 진행 중') : '시작 · 종료일을 넣으면 일정 대비 진행을 봅니다'}
-            {lateTasks ? ` · 마감 지난 할 일 ${lateTasks}건` : ''}
-          </span>
         </div>
         <div className="pviz-card">
           <div className="pviz-h">
@@ -310,20 +285,6 @@ function Donut({ parts }: { parts: { key: string; value: number; color: string }
   )
 }
 
-function ProgressRow({ label, value, color, note }: { label: string; value: number | null; color: string; note?: string }) {
-  return (
-    <div className="pviz-prow">
-      <span className="t-cap pviz-plabel">{label}</span>
-      <span className="pviz-vbar">
-        <i style={{ width: `${Math.max(0, Math.min(100, value ?? 0))}%`, background: color }} />
-      </span>
-      <span className="mono t-cap" style={{ width: 70, textAlign: 'right' }}>
-        {value != null ? `${Math.round(value)}%` : '–'}
-        {note ? ` · ${note}` : ''}
-      </span>
-    </div>
-  )
-}
 
 /** 맨 위: 일정(디데이 · 기간 막대 · 할 일 타임라인) + 입출금 알람 (대표 지시 2026-10-31 "상단에 대시보드, 스케줄 · 자금흐름 · 목표 달성 · 입출금 알람") */
 export function ProjectHead({ project, payments, lines, finance, tasks }: { project: Project; payments: Payment[]; lines: BudgetLine[]; finance: ProjectFinance | undefined; tasks: Task[] }) {
@@ -440,21 +401,6 @@ export function ProjectHead({ project, payments, lines, finance, tasks }: { proj
             ))}
           </ul>
         )}
-        <div className="pviz-mini">
-          <span>
-            수금 <b>{m.collectRate != null ? `${Math.round(m.collectRate)}%` : '–'}</b>
-          </span>
-          <span>
-            미수 <b>{manwon(m.receivable) || '0'}</b>
-          </span>
-          <span>
-            남은 지급 <b>{manwon(m.payable) || '0'}</b>
-          </span>
-          <span>
-            마진율 <b className={m.marginRate != null && m.target != null && m.marginRate < m.target ? 't-red' : ''}>{m.marginRate != null ? `${m.marginRate.toFixed(1)}%` : '–'}</b>
-            {m.target != null ? ` / 목표 ${m.target}%` : ''}
-          </span>
-        </div>
       </div>
     </div>
   )
