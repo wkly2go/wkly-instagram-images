@@ -1,11 +1,11 @@
-import { useMemo, useState } from 'react'
-import { CheckSquare, Folder, Plus, Square } from 'lucide-react'
+import { useMemo, useState, type ReactNode } from 'react'
+import { CheckSquare, ChevronDown, ChevronRight, Folder, Pencil, Plus, Square } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { addDays, shortDate, todayKey } from '../lib/date'
 import { Link } from '../lib/router'
 import type { Approval, Client, Project, Task } from '../lib/types'
 import { guessLinks, SearchPick } from './LogForm'
-import { Badge, Empty } from './ui'
+import { Badge, Empty, Linkify } from './ui'
 
 export const REPORT_KIND = '업무 보고'
 export const reportDate = (a: Approval) => (typeof a.payload?.date === 'string' ? a.payload.date : a.created_at.slice(0, 10))
@@ -149,8 +149,12 @@ export function WorkTodo({ projects, clients, tasks, userId }: { projects: Proje
 }
 
 /** 지연 업무 정리: 마감 지난 할 일을 한 번에 완료 · 마감 연장 · 다른 사람에게 */
-export function OverdueCleanup() {
+export function OverdueCleanup({ renderEdit }: { /** 수정 창 (프로젝트 화면에서 넘겨 줌) */ renderEdit?: (t: Task, projects: Project[], tasks: Task[], close: () => void) => ReactNode } = {}) {
   const { api, me, version, profiles, profileName } = useApp()
+  // 세부 내용 펼치기 (대표 지시 2026-10-31 "세부 내용을 볼 수 있게")
+  const [openId, setOpenId] = useState<string | null>(null)
+  const [editing, setEditing] = useState<Task | null>(null)
+  const { data: projects } = useAsync(() => api.listProjects(), [version], [] as Project[])
   const { busy, run } = useAction()
   const today = todayKey()
   const admin = me.role === 'admin'
@@ -176,13 +180,23 @@ export function OverdueCleanup() {
         )}
       </div>
       {list.length === 0 && <Empty>마감 지난 업무가 없습니다.</Empty>}
-      {list.slice(0, 40).map(t => (
-        <div key={t.id} className="row todo-row wrap">
-          <span className="grow t-small" style={{ minWidth: 160 }}>
-            {t.title}
-            <span className="t-meta t-red"> · {shortDate(t.due_date!)}</span>
-            {all && <span className="t-meta"> · {profileName(t.assignee_id)}</span>}
-          </span>
+      {list.slice(0, 40).map(t => {
+        const open = openId === t.id
+        const pr = projects.find(p => p.id === t.project_id)
+        const late = Math.round((Date.parse(today) - Date.parse(t.due_date!)) / 864e5)
+        return (
+        <div key={t.id} className={`overdue-item${open ? ' open' : ''}`}>
+        <div className="row todo-row wrap">
+          <button type="button" className="grow t-small overdue-title" style={{ minWidth: 160 }} onClick={() => setOpenId(open ? null : t.id)} aria-expanded={open} title="세부 내용 보기">
+            {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+            <span>
+              {t.title}
+              <span className="t-meta t-red"> · {shortDate(t.due_date!)} ({late}일 지남)</span>
+              {pr && <span className="t-meta"> · {pr.name}</span>}
+              {all && <span className="t-meta"> · {profileName(t.assignee_id)}</span>}
+              {!open && t.memo && <span className="t-cap overdue-peek"> — {t.memo.replace(/\s+/g, ' ').slice(0, 80)}</span>}
+            </span>
+          </button>
           <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => run(() => api.saveTask({ id: t.id, status: '완료' }), '완료했습니다.')}>
             완료
           </button>
@@ -210,7 +224,44 @@ export function OverdueCleanup() {
               ))}
           </select>
         </div>
-      ))}
+        {open && (
+          <div className="overdue-detail">
+            <dl className="dl">
+              <dt>프로젝트</dt>
+              <dd>{pr ? <Link to={`/projects?id=${pr.id}`}>{[pr.code, pr.name].filter(Boolean).join(' · ')}</Link> : '–'}</dd>
+              <dt>담당</dt>
+              <dd>{t.assignee_id ? profileName(t.assignee_id) : '미정'}</dd>
+              <dt>기간</dt>
+              <dd>
+                {t.start_date ? `${shortDate(t.start_date)} ~ ` : ''}
+                <span className="t-red">{shortDate(t.due_date!)} 마감 · {late}일 지남</span>
+              </dd>
+              <dt>상태</dt>
+              <dd>{[t.status, t.phase].filter(Boolean).join(' · ')}</dd>
+              {t.remind_at && (
+                <>
+                  <dt>알람</dt>
+                  <dd>{t.remind_at.slice(5, 16).replace('T', ' ').replace('-', '.')}</dd>
+                </>
+              )}
+              <dt>등록</dt>
+              <dd>
+                {t.created_by ? profileName(t.created_by) : '–'} · {shortDate(t.created_at.slice(0, 10))}
+              </dd>
+              <dt>내용</dt>
+              <dd className="pre">{t.memo ? <Linkify text={t.memo} /> : <span className="t-muted">적힌 내용이 없습니다.</span>}</dd>
+            </dl>
+            {renderEdit && (
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => setEditing(t)}>
+                <Pencil size={12} /> 내용 · 마감 수정
+              </button>
+            )}
+          </div>
+        )}
+        </div>
+        )
+      })}
+      {editing && renderEdit?.(editing, projects, data, () => setEditing(null))}
     </div>
   )
 }

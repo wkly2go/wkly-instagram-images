@@ -927,7 +927,7 @@ function MineReports() {
   const { data } = useWorkReports()
   return (
     <>
-      <OverdueCleanup />
+      <OverdueCleanup renderEdit={(t, projects, tasks, close) => <TaskAssignModal key={t.id} task={t} projects={projects} tasks={tasks} onClose={close} />} />
       <PendingReports reports={data} />
     </>
   )
