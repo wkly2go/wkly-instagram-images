@@ -2609,3 +2609,28 @@ html.detail-full .detail-col.full .col-resize { display: none; }
 .sched-log-row .input, .sched-log-row .select { height: 30px; padding: 2px 6px; font-size: var(--fs-sm); min-width: 0; }
 .sched-log-row.done .input:first-child { text-decoration: line-through; color: var(--gray); }
 .sched-log-row.new { border-top: 1px dashed var(--line); padding-top: 6px; }
+
+/* 현장 결제 대장 · 한 줄 입력 (구글 시트 '00.현장 결제 대장' 양식, 노란 칸 = 입력) */
+.pay-focus-title { font-size: 15px; }
+.pay-sheet-wrap { overflow-x: auto; }
+.pay-sheet { border-collapse: collapse; font-size: 12px; min-width: 1700px; width: 100%; }
+.pay-sheet th { background: var(--paper, #f6f6f2); font-weight: 700; text-align: left; padding: 5px 6px; border: 1px solid var(--line, #ddd); white-space: nowrap; position: sticky; top: 0; z-index: 1; }
+.pay-sheet td { border: 1px solid var(--line, #ddd); padding: 0; vertical-align: middle; height: 28px; }
+.pay-sheet td.ck, .pay-sheet th.ck { width: 30px; text-align: center; padding: 0 4px; }
+.pay-sheet td.num, .pay-sheet th.num { text-align: right; }
+.pay-sheet .ps-in { width: 100%; min-width: 96px; height: 28px; border: 0; background: #fff8c5; padding: 0 6px; font: inherit; color: inherit; border-radius: 0; }
+.pay-sheet .ps-in:focus { outline: 2px solid var(--blue); outline-offset: -2px; background: #fff; }
+.pay-sheet .ps-in.num { text-align: right; min-width: 104px; font-variant-numeric: tabular-nums; }
+.pay-sheet .ps-in.w-s { min-width: 72px; }
+.pay-sheet .ps-in.w-m { min-width: 84px; }
+.pay-sheet .ps-in.w-l { min-width: 170px; }
+.pay-sheet .ps-in.red { color: var(--red); }
+.pay-sheet .ps-in.late { color: var(--red); font-weight: 700; }
+.pay-sheet input[type='date'].ps-in { min-width: 118px; }
+.pay-sheet .ps-calc { padding: 0 6px; font-variant-numeric: tabular-nums; color: var(--muted, #666); }
+.pay-sheet tr.sel td { box-shadow: inset 0 0 0 9999px rgba(40, 90, 255, .06); }
+.pay-sheet tr.done .ps-in { background: #fffbe0; }
+.pay-sheet tr.muted { opacity: .5; }
+.pay-sheet tr.ps-new td { border-top: 2px solid var(--blue); }
+.pay-sheet tr.ps-new .ps-in { background: #fff3a0; }
+.pay-sheet tfoot td { padding: 6px; font-weight: 700; background: var(--paper, #f6f6f2); font-variant-numeric: tabular-nums; }

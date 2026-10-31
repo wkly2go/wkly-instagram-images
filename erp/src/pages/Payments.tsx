@@ -8,6 +8,7 @@ import { useRouter, withQuery } from '../lib/router'
 import type { BudgetLine, Client, Payment, Project, ProjectFinance } from '../lib/types'
 import { AccountCell, PayDash, ProgressCell } from '../components/PayDash'
 import { PayGroups } from '../components/PayGroups'
+import { PaySheet } from '../components/PaySheet'
 import { PaymentForm } from '../components/PaymentForm'
 import { Badge, Button, Chip, Empty, Loading, type Tone } from '../components/ui'
 import { PaymentImport } from './PaymentImport'
@@ -36,10 +37,12 @@ export function Payments({ projects, clients }: { projects: Project[]; clients: 
     { payments: [], lines: [], finances: [] },
   )
   const advances = advanceGroups(data.payments)
+  // 현장을 고른 동안에는 위 메뉴를 숨기고 그 현장 결제 대장만 (대표 지시 2026-10-31 "맨 위 상단의 네비게이션은 비노출하고 프로젝트에 집중")
+  const focus = !!query.get('project') && query.get('project') !== 'none'
   const checks = paymentChecks(data.payments, data.lines, projects, todayKey())
   return (
     <div className="col gap-10">
-      <div className="chips" role="tablist" aria-label="결제 대장 메뉴">
+      {!focus && <div className="chips" role="tablist" aria-label="결제 대장 메뉴">
         <Chip active={sub === 'register'} onClick={() => go({ sub: null })}>
           결제 대장
         </Chip>
@@ -58,9 +61,11 @@ export function Payments({ projects, clients }: { projects: Project[]; clients: 
         <Chip active={sub === 'import'} onClick={() => go({ sub: 'import' })}>
           엑셀 가져오기
         </Chip>
-      </div>
+      </div>}
       {loading && !data.payments.length ? (
         <Loading />
+      ) : focus ? (
+        <Register data={data} projects={projects} clients={clients} />
       ) : sub === 'run' ? (
         <Run data={data} projects={projects} />
       ) : sub === 'check' ? (
@@ -92,6 +97,7 @@ function Register({ data, projects, clients }: { data: PayData; projects: Projec
   const cat = query.get('cat') ?? ''
   const [q, setQ] = useState(query.get('q') ?? '')
   const openId = query.get('pid')
+  const layout = query.get('layout') === 'group' ? 'group' : 'sheet'
   const [form, setForm] = useState<Payment | 'new' | null>(null)
   const [preset, setPreset] = useState<Partial<Payment> | null>(null)
   const [sel, setSel] = useState<Set<string>>(new Set())
@@ -168,9 +174,12 @@ function Register({ data, projects, clients }: { data: PayData; projects: Projec
       <div className="filters">
         {inProject ? (
           // 현장을 고른 동안에는 다른 현장 목록을 띄우지 않음 · 전체로 돌아갈 때만 이 버튼 (대표 지시 2026-10-31)
-          <Button kind="ghost" size="sm" onClick={() => go({ project: null, cat: null })} title="모든 현장 결제 대장으로">
-            ← 전체 현장
-          </Button>
+          <>
+            <Button kind="ghost" size="sm" onClick={() => go({ project: null, cat: null, layout: null })} title="모든 현장 결제 대장으로">
+              ← 전체 현장
+            </Button>
+            <b className="pay-focus-title">{[projects.find(p => p.id === inProject)?.code, projectName(inProject)].filter(Boolean).join(' ')} 결제 대장</b>
+          </>
         ) : (
         <select className="select" value={projectId} onChange={e => go({ project: e.target.value || null })} aria-label="프로젝트">
           <option value="">모든 현장</option>
@@ -211,6 +220,16 @@ function Register({ data, projects, clients }: { data: PayData; projects: Projec
             </Chip>
           ))}
         </div>
+        {inProject && (
+          <div className="chips" aria-label="보기">
+            <Chip active={layout === 'sheet'} onClick={() => go({ layout: null })}>
+              한 줄 대장
+            </Chip>
+            <Chip active={layout === 'group'} onClick={() => go({ layout: 'group' })}>
+              업체별 · 계약금 · 중도금 · 잔금
+            </Chip>
+          </div>
+        )}
         <span className="grow" />
         <Button kind="outline" size="sm" onClick={exportCsv} disabled={!rows.length}>
           CSV
@@ -232,7 +251,9 @@ function Register({ data, projects, clients }: { data: PayData; projects: Projec
         {late.length > 0 && <span className="t-red"> · 연체 {late.length}건 {manwon(late.reduce((n, p) => n + p.amount, 0))}</span>}
         {estimate !== 0 && <> · 예상 비용 {manwon(estimate)} (합계 제외)</>} · 실제 금액(VAT 포함) 기준
       </div>
-      {rows.length === 0 ? (
+      {inProject && layout === 'sheet' ? (
+        <PaySheet rows={rows} all={data.payments} projectId={inProject} sel={sel} setSel={setSel} onOpen={p => setForm(p)} />
+      ) : rows.length === 0 ? (
         <Empty>조건에 맞는 결제가 없습니다.</Empty>
       ) : projectId && projectId !== 'none' ? (
         <PayGroups
