@@ -2,6 +2,10 @@
 //   "입금 비율 나눠야 하고 지급률로 표시, 1 · 2 · 3차로 구분, 위아래 합쳐")
 //   - 묶음 머리: 업체 · 계약(또는 합계) · 지급률(수금률) 막대 · 잔액 · 계좌 · [다음 차수] [비율로 나누기]
 //   - 차수 줄: n차 · 비율(계약 또는 합계 대비) · 항목 · 금액 · 상태 · 날짜 · 계산서
+// 2026-10-31 대표 지시 "협력업체 · 클라이언트와의 현금 흐름을 계약금 · 중도금 · 잔금 구조로, 중도금 회차는 변경 가능하게"
+//   - 단계 = 순서로 정함: 1건 일시불 · 2건 계약금/잔금 · 3건 이상 계약금 / 중도금 1~n차 / 잔금 (취소 · 예상 비용 제외)
+//   - [계약금 · 중도금 · 잔금] 버튼: 비율(예 30/40/30, 중도금 2회면 30/20/20/30)로 업체(발주처) 전체를 다시 나눔
+//     이미 끝난(완료) 단계는 그대로 두고 남은 금액만 남은 단계에 나눔 · 남는 줄은 '취소'(지우지 않음) · 모자라면 새 줄(예정)
 import { Fragment } from 'react'
 import { Plus, Split } from 'lucide-react'
 import { useAction, useApp } from '../lib/app'
@@ -15,14 +19,30 @@ import { Badge, Button, type Tone } from './ui'
 
 const PAY_TONE: Record<Payment['status'], Tone> = { 예정: 'outline', 청구: 'yellow', 대기: 'yellow', 완료: 'acid', 보류: 'paper', 취소: 'paper' }
 const order = (p: Payment) => p.requested_date ?? p.due_date ?? p.paid_date ?? p.created_at.slice(0, 10)
-/** 단계에 적힌 차수 (예: '2차 · 50%') */
+/** 단계 글의 순서 값: 계약금 0 · 중도금 n차 n · 잔금 끝 · 예전 'n차' 는 n · 없으면 null */
 const stageNo = (p: Payment) => {
-  const m = /(\d+)\s*차/.exec(p.stage ?? '')
+  const t = p.stage ?? ''
+  if (/계약금/.test(t)) return 0
+  if (/잔금|일시불/.test(t)) return 900
+  const mid = /중도금\s*(\d+)?/.exec(t)
+  if (mid) return Number(mid[1] ?? 1)
+  const m = /(\d+)\s*차/.exec(t)
   return m ? Number(m[1]) : null
 }
-const bySeq = (a: Payment, b: Payment) => (stageNo(a) ?? 999) - (stageNo(b) ?? 999) || order(a).localeCompare(order(b)) || a.created_at.localeCompare(b.created_at)
-/** 단계 글에서 'n차 · 50%' 같은 표시는 빼고 남은 말 (계약금 · 잔금 …) */
-const stageWord = (s: string | null) => (s ?? '').replace(/\d+\s*차/g, '').replace(/\d+(\.\d+)?\s*%/g, '').replace(/[·\s]+/g, ' ').trim()
+const bySeq = (a: Payment, b: Payment) => (stageNo(a) ?? 500) - (stageNo(b) ?? 500) || order(a).localeCompare(order(b)) || a.created_at.localeCompare(b.created_at)
+/** 단계 글에서 구조 표시(계약금 · 중도금 n차 · 잔금 · n차 · 50%)는 빼고 남은 말 */
+const stageWord = (s: string | null) =>
+  (s ?? '')
+    .replace(/계약금|중도금(\s*\d+\s*차)?|잔금|일시불|\d+\s*차/g, '')
+    .replace(/\d+(\.\d+)?\s*%/g, '')
+    .replace(/[·\s]+/g, ' ')
+    .trim()
+/** i 번째(0부터) · 전체 n 건일 때 단계 이름 */
+export const stageLabel = (i: number, n: number) => (n <= 1 ? '일시불' : i === 0 ? '계약금' : i === n - 1 ? '잔금' : n === 3 ? '중도금' : `중도금 ${i}차`)
+/** 단계에 드는 결제: 취소 · 예상 비용 · 환불(마이너스) 제외 */
+/** 복사한 줄의 항목명에서 단계 표시(1차 · 선금 · 잔금 · 50% …)를 뺌 */
+const plainTitle = (t: string) => t.replace(/\d+\s*차|선금|계약금|중도금|잔금|일시불|\d+(\.\d+)?\s*%/g, '').replace(/[·\s]+/g, ' ').trim() || '대금'
+const live = (p: Payment) => p.status !== '취소' && !p.is_estimate && p.amount > 0
 
 interface Group {
   key: string
@@ -82,49 +102,104 @@ export function PayGroups({ rows, all, lines, finance, sel, setSel, onOpen, onNe
   })
   groups.sort((a, b) => (a.dir === b.dir ? b.remain - a.remain : a.dir === '수금' ? -1 : 1))
 
-  // 차수 번호는 그 업체의 모든 결제 순서로 (필터와 상관없이 같은 번호)
-  const seqOf = (g: Group, p: Payment) => {
-    const own = stageNo(p)
-    if (own) return own
-    const list = all.filter(x => x.status !== '취소' && (g.dir === '수금' ? x.direction === '수금' && x.project_id === p.project_id : x.direction === '지급' && contractKey(x) === g.key)).sort(bySeq)
+  /** 그 업체(발주처)의 살아 있는 결제 전부, 단계 순서대로 (필터와 상관없이 같은 단계) */
+  const chain = (g: Group, pid: string) => all.filter(x => live(x) && (g.dir === '수금' ? x.direction === '수금' && x.project_id === pid : x.direction === '지급' && contractKey(x) === g.key)).sort(bySeq)
+  const stageOf = (g: Group, p: Payment) => {
+    if (!live(p)) return null
+    const list = chain(g, p.project_id ?? '')
     const i = list.findIndex(x => x.id === p.id)
-    return i < 0 ? null : i + 1
+    return i < 0 ? null : stageLabel(i, list.length)
+  }
+  /** 단계 글을 순서에 맞게 다시 적음 (비율 · 다른 말은 유지) */
+  const relabel = async (list: Payment[], base: number) => {
+    for (let i = 0; i < list.length; i++) {
+      const x = list[i]
+      const pct = base > 0 ? `${Math.round((supply(x) / base) * 1000) / 10}%` : null
+      const want = [stageLabel(i, list.length), pct, stageWord(x.stage) || null].filter(Boolean).join(' · ')
+      if (x.stage !== want) await api.savePayment({ id: x.id, stage: want })
+    }
   }
 
-  /** 한 건을 비율대로 n차로 나눔: 첫 몫은 그 건에, 나머지는 새 결제(예정)로 */
+  /** 계약금 · 중도금(n회) · 잔금 비율로 업체 전체를 다시 나눔 */
+  const structure = async (g: Group) => {
+    const pid = g.items[0].project_id ?? ''
+    const list = chain(g, pid)
+    if (!list.length) return
+    const totalAmt = list.reduce((n, x) => n + x.amount, 0)
+    const totalVat = list.reduce((n, x) => n + x.vat, 0)
+    const target = g.contract != null && g.contract > 0 ? Math.round(g.contract * (totalAmt && totalAmt - totalVat ? totalAmt / (totalAmt - totalVat) : 1.1)) : totalAmt
+    const cur = list.length >= 2 ? list.map(x => (totalAmt ? Math.round((x.amount / totalAmt) * 100) : 0)).join('/') : '30/40/30'
+    const v = await askText(
+      `계약금 / 중도금 / 잔금 비율을 적어 주세요. 처음 = 계약금, 마지막 = 잔금, 가운데 = 중도금 회차입니다.\n예) 30/40/30 (중도금 1회) · 30/20/20/30 (중도금 2회) · 50/50 (계약금 · 잔금)\n기준 금액 ${target.toLocaleString('ko-KR')}원 (VAT 포함)`,
+      cur,
+    )
+    if (v == null) return
+    const parts = v.split(/[^\d.]+/).map(Number).filter(n => n > 0)
+    if (!parts.length) return
+    const done = list.filter(isDone)
+    const open = list.filter(x => !isDone(x))
+    if (done.length >= parts.length) return void (await run(async () => undefined, '이미 끝난 단계가 나눌 단계보다 많습니다. 비율 칸 수를 늘려 주세요.'))
+    // 끝난 단계는 앞에서부터 그대로, 남은 금액을 남은 비율대로
+    const rest = parts.slice(done.length)
+    const restSum = rest.reduce((a, b) => a + b, 0)
+    const leftAmt = Math.max(0, target - done.reduce((n, x) => n + x.amount, 0))
+    const vatRate = totalAmt ? totalVat / totalAmt : 1 / 11
+    const amounts = rest.map(r => Math.round((leftAmt * r) / restSum))
+    amounts[amounts.length - 1] = leftAmt - amounts.slice(0, -1).reduce((a, b) => a + b, 0)
+    const tpl = open[open.length - 1] ?? list[list.length - 1]
+    await run(async () => {
+      const keep: Payment[] = []
+      for (let i = 0; i < rest.length; i++) {
+        const amount = amounts[i]
+        const vat = Math.round(amount * vatRate)
+        const reuse = open[i]
+        if (reuse) {
+          keep.push(await api.savePayment({ id: reuse.id, amount, vat }))
+        } else {
+          const { id: _id, created_at: _c, updated_at: _u, created_by: _b, ...copy } = tpl
+          void _id
+          void _c
+          void _u
+          void _b
+          keep.push(await api.savePayment({ ...copy, title: plainTitle(copy.title), amount, vat, status: '예정', paid_date: null, due_date: null, requested_date: null, tax_invoice: tpl.tax_invoice === '발행' ? '미발행' : tpl.tax_invoice, tax_invoice_date: null, approval_id: null, stage: null }))
+        }
+      }
+      // 남는 줄은 지우지 않고 '취소'
+      for (const x of open.slice(rest.length)) await api.savePayment({ id: x.id, status: '취소', memo: [x.memo, '단계 재구성으로 취소'].filter(Boolean).join(' · ') })
+      const final = [...done, ...keep]
+      const base = g.contract != null && g.contract > 0 ? g.contract : final.reduce((n, x) => n + supply(x), 0)
+      await relabel(final, base)
+    }, `${parts.length <= 1 ? '일시불' : parts.length === 2 ? '계약금 · 잔금' : `계약금 · 중도금 ${parts.length - 2}회 · 잔금`}으로 나눴습니다. 새 단계는 예정일을 넣어 주세요.`)
+  }
+
+  /** 한 건을 비율대로 나눔: 첫 몫은 그 건에, 나머지는 바로 뒤 새 결제(예정)로 → 업체 전체 단계 이름을 다시 적음 */
   const split = async (g: Group, p: Payment) => {
     const v = await askText(`'${p.title}' ${p.amount.toLocaleString('ko-KR')}원을 몇 대 몇으로 나눌까요? (예: 50/50, 30/40/30)`, '50/50')
     if (v == null) return
     const parts = v.split(/[^\d.]+/).map(Number).filter(n => n > 0)
     if (parts.length < 2) return
     const total = parts.reduce((a, b) => a + b, 0)
-    const pcts = parts.map(n => Math.round((n / total) * 1000) / 10)
     const amounts = parts.map(n => Math.round((p.amount * n) / total))
     amounts[amounts.length - 1] = p.amount - amounts.slice(0, -1).reduce((a, b) => a + b, 0)
     const vats = parts.map(n => Math.round((p.vat * n) / total))
     vats[vats.length - 1] = p.vat - vats.slice(0, -1).reduce((a, b) => a + b, 0)
-    // 업체 전체를 다시 번호 매김: 앞은 그대로, 나눈 몫이 이어지고, 뒤는 밀림
-    const list = all.filter(x => x.status !== '취소' && (g.dir === '수금' ? x.direction === '수금' && x.project_id === p.project_id : x.direction === '지급' && contractKey(x) === g.key)).sort(bySeq)
+    // 나눈 뒤 업체 전체를 계약금 · 중도금 · 잔금 순서로 다시 적음
+    const list = chain(g, p.project_id ?? '')
     const idx = Math.max(0, list.findIndex(x => x.id === p.id))
-    const start = idx + 1
-    const word = stageWord(p.stage)
-    const label = (i: number) => [`${start + i}차`, `${pcts[i]}%`, word || null].filter(Boolean).join(' · ')
     await run(async () => {
-      for (let j = 0; j < list.length; j++) {
-        if (j === idx) continue
-        const no = j < idx ? j + 1 : j + parts.length
-        if (stageNo(list[j]) !== no) await api.savePayment({ id: list[j].id, stage: [`${no}차`, stageWord(list[j].stage) || null].filter(Boolean).join(' · ') })
-      }
-      await api.savePayment({ id: p.id, amount: amounts[0], vat: vats[0], stage: label(0) })
+      const first = await api.savePayment({ id: p.id, amount: amounts[0], vat: vats[0] })
       const { id: _id, created_at: _c, updated_at: _u, created_by: _b, ...rest } = p
       void _id
       void _c
       void _u
       void _b
+      const added: Payment[] = []
       for (let i = 1; i < parts.length; i++) {
-        await api.savePayment({ ...rest, amount: amounts[i], vat: vats[i], stage: label(i), status: '예정', paid_date: null, due_date: null, tax_invoice: p.tax_invoice === '발행' ? '미발행' : p.tax_invoice, tax_invoice_date: null, approval_id: null })
+        added.push(await api.savePayment({ ...rest, title: plainTitle(rest.title), amount: amounts[i], vat: vats[i], stage: null, status: '예정', paid_date: null, due_date: null, tax_invoice: p.tax_invoice === '발행' ? '미발행' : p.tax_invoice, tax_invoice_date: null, approval_id: null }))
       }
-    }, `${parts.length}차로 나눴습니다. 2차부터는 지급예정일을 넣어 주세요.`)
+      const final = [...list.slice(0, idx), first, ...added, ...list.slice(idx + 1)]
+      await relabel(final, g.base)
+    }, `${parts.length}개로 나눴습니다. 새 단계는 예정일을 넣어 주세요.`)
   }
 
   const next = (g: Group) => {
@@ -140,7 +215,7 @@ export function PayGroups({ rows, all, lines, finance, sel, setSel, onOpen, onNe
       account_no: last.account_no,
       account_holder: last.account_holder,
       title: last.title,
-      stage: `${(seqOf(g, last) ?? g.items.length) + 1}차`,
+      stage: null,
       amount: g.remain > 0 ? Math.round(g.remain * (last.amount && supply(last) ? last.amount / supply(last) : 1.1)) : 0,
     })
   }
@@ -154,7 +229,7 @@ export function PayGroups({ rows, all, lines, finance, sel, setSel, onOpen, onNe
             <th>
               <input type="checkbox" aria-label="모두 선택" checked={sel.size > 0 && allIds.every(id => sel.has(id))} onChange={e => setSel(e.target.checked ? new Set(allIds) : new Set())} />
             </th>
-            <th style={{ width: 54 }}>차수</th>
+            <th style={{ width: 84 }}>단계</th>
             <th className="num" style={{ width: 64 }} title="계약(없으면 합계) 대비 이 차수의 비율, 공급가 기준">
               비율
             </th>
@@ -189,8 +264,11 @@ export function PayGroups({ rows, all, lines, finance, sel, setSel, onOpen, onNe
                     </span>
                     {g.dir === '지급' && <AccountCell bank={g.bank} no={g.account} holder={g.holder} payee={g.name} />}
                     <span className="pg-act">
-                      <Button kind="ghost" size="sm" onClick={() => next(g)} title="같은 업체 · 계좌로 다음 차수 결제 추가">
-                        <Plus size={12} /> {g.dir === '수금' ? '다음 입금' : '다음 차수'}
+                      <Button kind="outline" size="sm" disabled={busy} onClick={() => structure(g)} title="계약금 · 중도금(회차) · 잔금 비율로 다시 나누기 (끝난 단계는 그대로)">
+                        <Split size={12} /> 계약금 · 중도금 · 잔금
+                      </Button>
+                      <Button kind="ghost" size="sm" onClick={() => next(g)} title="같은 업체 · 계좌로 결제 한 줄 추가 (순서대로 단계가 붙음)">
+                        <Plus size={12} /> {g.dir === '수금' ? '입금 추가' : '지급 추가'}
                       </Button>
                     </span>
                   </div>
@@ -198,7 +276,7 @@ export function PayGroups({ rows, all, lines, finance, sel, setSel, onOpen, onNe
               </tr>
               {g.items.map(p => {
                 const late = isOverdue(p, today)
-                const seq = seqOf(g, p)
+                const seq = stageOf(g, p)
                 const ratio = g.base > 0 && p.status !== '취소' ? (supply(p) / g.base) * 100 : null
                 const word = stageWord(p.stage)
                 return (
@@ -217,7 +295,7 @@ export function PayGroups({ rows, all, lines, finance, sel, setSel, onOpen, onNe
                       />
                     </td>
                     <td className="nowrap">
-                      <span className={`pg-seq ${isDone(p) ? 'done' : ''}`}>{seq ? `${seq}차` : '–'}</span>
+                      <span className={`pg-seq ${isDone(p) ? 'done' : ''}`}>{seq ?? (p.amount < 0 ? '환불' : '–')}</span>
                     </td>
                     <td className="num strong">{ratio != null ? `${Math.round(ratio * 10) / 10}%` : '–'}</td>
                     <td className="max">
@@ -239,7 +317,7 @@ export function PayGroups({ rows, all, lines, finance, sel, setSel, onOpen, onNe
                       <span className="row" style={{ gap: 6 }}>
                         {p.tax_invoice === '해당 없음' ? '–' : p.tax_invoice}
                         {p.status !== '완료' && p.status !== '취소' && (
-                          <button type="button" className="icon-btn xs" disabled={busy} onClick={() => split(g, p)} aria-label="비율로 나누기" title="이 건을 1차 · 2차 · 3차 비율로 나누기 (예: 50/50)">
+                          <button type="button" className="icon-btn xs" disabled={busy} onClick={() => split(g, p)} aria-label="비율로 나누기" title="이 건을 비율로 여러 단계로 나누기 (예: 50/50) · 단계 이름은 순서대로 계약금 · 중도금 · 잔금">
                             <Split size={12} />
                           </button>
                         )}
