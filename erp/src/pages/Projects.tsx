@@ -203,7 +203,7 @@ export default function Projects() {
             {/* 구분별 카드 (조직 · 진행 현황과 같은 모양): 아트리어 · 더위클리 · 내부 리서치 — 위쪽 색 띠 = 대표 색상 */}
             <div className="div-cards">
               {DIVISION_KEYS.filter(k => !brand || brand === k).map(k => {
-                const rows = sorted(shown.filter(p => projectBrand(p) === k && OPEN.includes(p.status) && (status === 'all' || p.status === status)))
+                const rows = sorted(shown.filter(p => projectBrand(p) === k && (status === 'all' ? OPEN.includes(p.status) : p.status === status)))
                 return (
                   <section key={k} className="div-card" style={{ borderTopColor: DIVISIONS[k].color }}>
                     <div className="row">
@@ -213,6 +213,24 @@ export default function Projects() {
                       <span className="board-count">{rows.length}</span>
                     </div>
                     <ProjectBoard list={rows} data={data} loading={loading} onOpen={id => go({ id })} />
+                    {/* 다른 상태에 있는 이 회사 프로젝트 (2026-10-31 "아트리어 프로젝트가 이 화면에 안 보임" → 기획 · NIC · 보류 · 완료도 바로 보이게) */}
+                    {(() => {
+                      const others = (['진행', '기획', 'NIC', '보류', '완료'] as ProjectStatus[])
+                        .filter(st => status === 'all' ? !OPEN.includes(st) : st !== status)
+                        .map(st => [st, shown.filter(p => projectBrand(p) === k && p.status === st).length] as const)
+                        .filter(([, n]) => n > 0)
+                      if (!others.length) return null
+                      return (
+                        <div className="div-others t-cap">
+                          이 회사의 다른 프로젝트:
+                          {others.map(([st, n]) => (
+                            <button key={st} type="button" className="link-btn" onClick={() => go({ status: st, brand: k })}>
+                              {st} {n}
+                            </button>
+                          ))}
+                        </div>
+                      )
+                    })()}
                     {/* 이 자리에서 바로 만들기 (대표 지시 2026-10-23 "프로젝트를 열어서 바로 생성") */}
                     <QuickProject division={k} onCreated={id => go({ id })} onMore={() => setNewDiv(k)} />
                   </section>

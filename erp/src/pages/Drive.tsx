@@ -497,9 +497,14 @@ function ProjectFoldersSync() {
         <Button size="sm" kind="outline" disabled={running || (!st?.connected && !token)} onClick={runAll}>
           {running ? (state!.total > 1 ? `맞추는 중 ${state!.done}/${state!.total}` : '맞추는 중…') : '프로젝트 폴더 모두 맞추기'}
         </Button>
+        {native && !st?.connected && (
+          <a className="t-cap" href="https://wkly-erp.pages.dev/drive" target="_blank" rel="noreferrer" data-external>
+            처음 연결은 웹 브라우저에서: wkly-erp.pages.dev/drive ›
+          </a>
+        )}
         {st && !st.connected && (
           <span className="t-cap">
-            준비: ① 아래 '구글 로그인 연결'에 클라이언트 ID {st.clientId ? '✓' : '등록'} ② Supabase › Vault 에 GOOGLE_CLIENT_SECRET {st.secret ? '✓' : '등록'} ③ '회사 구글 계정 연결'
+            준비: ① 아래 '구글 로그인 연결'에 클라이언트 ID {st.clientId ? '✓' : '등록'} ② <a href="https://supabase.com/dashboard/project/hophgcpszenrvchvbkav/integrations/vault/secrets" target="_blank" rel="noreferrer" data-external>Supabase › Vault</a> 에 GOOGLE_CLIENT_SECRET {st.secret ? '✓' : '등록'} ③ '회사 구글 계정 연결'
           </span>
         )}
       </div>
