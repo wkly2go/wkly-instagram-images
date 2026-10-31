@@ -9,6 +9,7 @@ import type { BudgetLine, Client, Payment, Project, ProjectFinance } from '../li
 import { AccountCell, PayDash, ProgressCell } from '../components/PayDash'
 import { PayGroups } from '../components/PayGroups'
 import { PaySheet } from '../components/PaySheet'
+import { ContractGoal } from '../components/FinancePanel'
 import { PaymentForm } from '../components/PaymentForm'
 import { Badge, Button, Chip, Empty, Loading, type Tone } from '../components/ui'
 import { PaymentImport } from './PaymentImport'
@@ -252,7 +253,10 @@ function Register({ data, projects, clients }: { data: PayData; projects: Projec
         {estimate !== 0 && <> · 예상 비용 {manwon(estimate)} (합계 제외)</>} · 실제 금액(VAT 포함) 기준
       </div>
       {inProject && layout === 'sheet' ? (
-        <PaySheet rows={rows} all={data.payments} projectId={inProject} sel={sel} setSel={setSel} onOpen={p => setForm(p)} />
+        <div>
+          {projects.find(p => p.id === inProject) && <ContractGoal project={projects.find(p => p.id === inProject)!} finance={data.finances.find(f => f.project_id === inProject)} />}
+          <PaySheet rows={rows} all={data.payments} projectId={inProject} sel={sel} setSel={setSel} onOpen={p => setForm(p)} />
+        </div>
       ) : rows.length === 0 ? (
         <Empty>조건에 맞는 결제가 없습니다.</Empty>
       ) : projectId && projectId !== 'none' ? (

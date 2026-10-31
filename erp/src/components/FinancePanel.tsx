@@ -1,13 +1,12 @@
 import { useState } from 'react'
-import { TextLinks } from './ui'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { manwon, shortDate, todayKey } from '../lib/date'
 import { isDone, isOpen, isOverdue, projectMoney, supply } from '../lib/finance'
 import { Link } from '../lib/router'
 import type { BudgetLine, Client, Payment, Project, ProjectFinance } from '../lib/types'
 import { Meter } from './charts'
-import { parseMoney } from './PaymentForm'
-import { Button, Empty, Field, Modal } from './ui'
+import { PaymentForm, parseMoney } from './PaymentForm'
+import { PaySheet } from './PaySheet'
 
 interface Data {
   finance: ProjectFinance | undefined
@@ -18,10 +17,12 @@ interface Data {
 
 /** 프로젝트 상세의 재무 칸: 결제 대장을 원자료로 쓰고 여기서는 간단한 그림만 (대표 지시 2026-10-31
  *  "결제 대장을 로데이터로 사용하고 대시보드에서 간단히 시각화된 자료만 보이게") — 입력 · 수정은 결제 대장(한 줄 대장)에서 */
-export function FinancePanel({ project }: { project: Project; clients?: Client[]; projects?: Project[] }) {
+export function FinancePanel({ project, clients, projects }: { project: Project; clients: Client[]; projects: Project[] }) {
   const { api, version } = useApp()
   const today = todayKey()
-  const [editFin, setEditFin] = useState(false)
+  // 결제 대장을 프로젝트 화면 안에 바로 (대표 지시 2026-10-31 "결제 대장은 메인 화면으로 이동")
+  const [sel, setSel] = useState<Set<string>>(new Set())
+  const [form, setForm] = useState<Payment | null>(null)
   const { data } = useAsync<Data>(
     async () => {
       const [finances, all, lines] = await Promise.all([api.listFinances(), api.listPayments(), api.listBudgetLines(project.id)])
@@ -57,17 +58,12 @@ export function FinancePanel({ project }: { project: Project; clients?: Client[]
       <div className="section-h">
         <span className="t-bodyb">재무</span>
         <span className="cap">결제 대장 기준 · 공급가액</span>
-        <Button kind="ghost" size="sm" onClick={() => setEditFin(true)}>
-          계약 · 목표
-        </Button>
-        <Link to={ledger} className="btn btn-blue btn-sm">
-          결제 대장에서 입력 ›
+        <Link to={ledger} className="t-cap" title="이 현장 결제 대장만 크게 보기 (이번 주 지급 · 점검 · 업체별 묶음)">
+          크게 보기 ›
         </Link>
       </div>
       {data.payments.length === 0 && m.contract == null ? (
-        <Empty>
-          아직 결제가 없습니다. <Link to={ledger}>결제 대장</Link>에 한 줄씩 적으면 여기에 그림으로 나옵니다.
-        </Empty>
+        <span className="t-cap">아래 결제 대장에 계약 금액과 결제를 한 줄씩 적으면 여기에 그림으로 나옵니다.</span>
       ) : (
         <>
           <div className="fin-tiles">
@@ -101,7 +97,13 @@ export function FinancePanel({ project }: { project: Project; clients?: Client[]
           )}
         </>
       )}
-      {editFin && <FinanceForm project={project} finance={data.finance} hasLines={data.lines.length > 0} onClose={() => setEditFin(false)} />}
+      <div className="section-h" style={{ marginTop: 8 }}>
+        <span className="t-smallb">결제 대장</span>
+        <span className="cap">노란 칸에 바로 입력 · 맨 아래 줄 Enter = 추가</span>
+      </div>
+      <ContractGoal project={project} finance={data.finance} />
+      <PaySheet rows={data.payments} all={data.all} projectId={project.id} sel={sel} setSel={setSel} onOpen={p => setForm(p)} />
+      {form && <PaymentForm key={form.id} payment={form} preset={{ project_id: project.id }} projects={projects} clients={clients} payments={data.all} lines={data.lines} lockProject onClose={() => setForm(null)} />}
     </section>
   )
 }
@@ -117,82 +119,59 @@ function Tile({ label, value, sub, rate, tone }: { label: string; value: string;
   )
 }
 
-function FinanceForm({ project, finance, hasLines, onClose }: { project: Project; finance: ProjectFinance | undefined; hasLines: boolean; onClose: () => void }) {
+/** 결제 대장 맨 위 '계약 · 목표' 줄 (대표 지시 2026-10-31 "계약 목표는 결제 대장의 상세 항목에 포함")
+ *  계약은 VAT 포함으로 적고 공급가(÷1.1)로 저장 · 목표 마진 % · 메모. 칸에서 나가면 저장 */
+export function ContractGoal({ project, finance }: { project: Project; finance: ProjectFinance | undefined }) {
   const { api } = useApp()
-  const { busy, run } = useAction()
-  // 회사 계약금액은 VAT 포함으로 말하므로 기본은 VAT 포함 입력 → 공급가액(÷1.1)으로 저장
-  const [vatIncl, setVatIncl] = useState(true)
-  const shown = (incl: boolean) => (finance?.contract_amount == null ? '' : (incl ? Math.round(finance.contract_amount * 1.1) : finance.contract_amount).toLocaleString('ko-KR'))
-  const [contract, setContract] = useState(shown(true))
-  const contractSupply = () => {
-    if (!contract.trim()) return null
-    if (contract === shown(vatIncl) && finance?.contract_amount != null) return finance.contract_amount
-    const n = Math.max(0, parseMoney(contract))
-    return vatIncl ? Math.round(n / 1.1) : n
+  const { run } = useAction()
+  const base = { contract_amount: finance?.contract_amount ?? null, budget_cost: finance?.budget_cost ?? null, target_margin: finance?.target_margin ?? null, memo: finance?.memo ?? null }
+  const save = (patch: Partial<ProjectFinance>) => {
+    const next = { ...base, ...patch }
+    if (Object.entries(patch).every(([k, v]) => (base as Record<string, unknown>)[k] === v)) return
+    void run(() => api.saveFinance({ project_id: project.id, ...next }), '계약 · 목표를 저장했습니다.')
   }
-  const [budget, setBudget] = useState(finance?.budget_cost?.toLocaleString('ko-KR') ?? '')
-  const [target, setTarget] = useState(finance?.target_margin?.toString() ?? '')
-  const [memo, setMemo] = useState(finance?.memo ?? '')
-  const save = async () => {
-    const t = target.trim() === '' ? null : Number(target)
-    if (t != null && (!isFinite(t) || t < -100 || t > 100)) return
-    const ok = await run(
-      () =>
-        api.saveFinance({
-          project_id: project.id,
-          contract_amount: contractSupply(),
-          budget_cost: budget.trim() ? Math.max(0, parseMoney(budget)) : null,
-          target_margin: t,
-          memo: memo.trim() || null,
-        }),
-      '저장했습니다.',
-    )
-    if (ok) onClose()
-  }
+  const incl = finance?.contract_amount != null ? Math.round(finance.contract_amount * 1.1) : null
   return (
-    <Modal
-      title="계약 · 목표 마진"
-      onClose={onClose}
-      actions={
-        <>
-          <Button kind="ghost" onClick={onClose}>
-            취소
-          </Button>
-          <Button onClick={save} disabled={busy}>
-            저장
-          </Button>
-        </>
-      }
-    >
-      <div className="form-grid">
-        <Field label={vatIncl ? '계약금액 (VAT 포함)' : '계약금액 (공급가액, VAT 별도)'} className="full">
-          <input className="input" inputMode="numeric" autoFocus value={contract} onChange={e => setContract(e.target.value)} placeholder={vatIncl ? '예) 49,500,000' : '예) 45,000,000'} />
-          <span className="row t-cap" style={{ gap: 6, marginTop: 4 }}>
-            <label className="row" style={{ gap: 4 }}>
-              <input
-                type="checkbox"
-                checked={vatIncl}
-                onChange={e => {
-                  setVatIncl(e.target.checked)
-                  if (contract === shown(vatIncl)) setContract(shown(e.target.checked))
-                }}
-              />
-              VAT 포함 금액으로 입력
-            </label>
-            {vatIncl && contract.trim() && <span>→ 공급가액 {(contractSupply() ?? 0).toLocaleString('ko-KR')}원으로 저장 (마진은 공급가액 기준)</span>}
-          </span>
-        </Field>
-        <Field label="목표 마진율 (%)">
-          <input className="input" inputMode="decimal" value={target} onChange={e => setTarget(e.target.value)} placeholder="30" />
-        </Field>
-        <Field label={hasLines ? '예산 총액 (공사 구분별 예산 합계 사용)' : '예산 총액'}>
-          <input className="input" inputMode="numeric" value={budget} disabled={hasLines} onChange={e => setBudget(e.target.value)} placeholder="32,000,000" />
-        </Field>
-        <Field label="메모" className="full">
-          <textarea className="textarea" rows={2} value={memo} onChange={e => setMemo(e.target.value)} />
-          <TextLinks text={memo} />
-        </Field>
-      </div>
-    </Modal>
+    <div className="contract-goal" key={finance?.updated_at ?? 'none'}>
+      <label>
+        <span>계약 (VAT 포함)</span>
+        <input
+          className="ps-in num"
+          inputMode="numeric"
+          defaultValue={incl != null ? incl.toLocaleString('ko-KR') : ''}
+          placeholder="예) 49,500,000"
+          onBlur={e => {
+            const t = e.target.value.trim()
+            const n = t ? Math.max(0, parseMoney(t)) : null
+            save({ contract_amount: n == null ? null : n === incl ? finance!.contract_amount : Math.round(n / 1.1) })
+          }}
+          onKeyDown={e => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+          aria-label="계약 금액 (VAT 포함)"
+        />
+      </label>
+      <span className="t-cap">공급가 {finance?.contract_amount != null ? finance.contract_amount.toLocaleString('ko-KR') : '–'}</span>
+      <label>
+        <span>목표 마진</span>
+        <input
+          className="ps-in num w-s"
+          inputMode="decimal"
+          defaultValue={finance?.target_margin ?? ''}
+          placeholder="30"
+          onBlur={e => {
+            const t = e.target.value.trim()
+            const v = t === '' ? null : Number(t)
+            if (v != null && (!isFinite(v) || v < -100 || v > 100)) return
+            save({ target_margin: v })
+          }}
+          onKeyDown={e => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+          aria-label="목표 마진율 (%)"
+        />
+        <span>%</span>
+      </label>
+      <label className="grow">
+        <span>메모</span>
+        <input className="ps-in" defaultValue={finance?.memo ?? ''} onBlur={e => save({ memo: e.target.value.trim() || null })} onKeyDown={e => e.key === 'Enter' && (e.target as HTMLInputElement).blur()} aria-label="계약 메모" />
+      </label>
+    </div>
   )
 }
