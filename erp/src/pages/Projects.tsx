@@ -765,7 +765,8 @@ function ProjectDetail({ project: p, data, onEdit, onBack, panel = false }: { pr
           </Button>
         )}
       </div>
-      {/* 위에서부터: 기본 정보 → 재무(결제 대장 기준 그림) → 일정 · 업체 지급률 (대표 지시 2026-10-31 "상단으로 이동") */}
+      {/* 순서 (대표 지시 2026-10-31): ① 프로젝트 개요 + 입출금 알람 ② 재무 시각화 · 결제 대장 ③ 프로젝트 일정 ④ 업무일지 · 할 일 */}
+      <div className="pviz-row head proj-top">
       <div className="box">
         <dl className="kv">
           <dt>연번</dt>
@@ -790,8 +791,10 @@ function ProjectDetail({ project: p, data, onEdit, onBack, panel = false }: { pr
           )}
         </dl>
       </div>
-      <FinancePanel project={p} clients={data.clients} projects={data.projects} />
-      <ProjectVizLoader project={p} />
+      <ProjectVizLoader project={p} part="alarm" />
+      </div>
+      <FinancePanel project={p} clients={data.clients} projects={data.projects} part="viz" viz={<ProjectVizLoader project={p} part="money" />} />
+      <ProjectVizLoader project={p} part="schedule" />
       <div className="row top gap-12" style={{ flexWrap: 'wrap' }}>
         <div className="col grow" style={{ flexBasis: 300 }}>
           <SectionHead title="할 일" count={`${tasks.filter(t => t.status === '완료').length}/${tasks.length}`} right={<TaskLegend />} />
@@ -811,14 +814,16 @@ function ProjectDetail({ project: p, data, onEdit, onBack, panel = false }: { pr
           <ContactTimeline logs={extra.logs} projects={[]} showContact contacts={extra.contacts} />
         </div>
       </div>
+      {/* ⑤ 결제 대장 ⑥ 자재 입출고 ⑦ 현장 작업일지 (대표 지시 2026-10-31) */}
+      <FinancePanel project={p} clients={data.clients} projects={data.projects} part="ledger" />
+      {/* 자재 입출고: 입고 · 반품은 결제 대장(지급)에 자동 등록 */}
+      <MaterialMoves project={p} clients={data.clients} />
+      {/* 인테리어(아트리어 · AR)는 현장 작업일지 늘, 다른 프로젝트는 작업일지가 있을 때만 */}
+      <SiteLogsSection project={p} always={projectBrand(p) === 'AR'} />
       {/* 구글 드라이브 자료: 드라이브 파일을 가리켜 늘 최신 · 구글 문서는 편집 화면으로 */}
       <ProjectDriveSection project={p} />
       {/* 회사 메일함에서 이 프로젝트 · 거래처와 연결된 메일 (지메일 · 읽기만) */}
       <ProjectMails project={p} />
-      {/* 인테리어(아트리어 · AR) 프로젝트는 현장 작업일지, 다른 프로젝트는 작업일지가 있을 때만 */}
-      <SiteLogsSection project={p} always={projectBrand(p) === 'AR'} />
-      {/* 자재 입출고: 입고 · 반품은 위 결제 내역(지급)에 자동 등록 */}
-      <MaterialMoves project={p} clients={data.clients} />
       {/* 이 프로젝트의 결재 · 보고 */}
       <SectionHead title="결재 · 보고" count={extra.approvals.length ? String(extra.approvals.length) : undefined} right={<Link to="/approvals">보고서 결제 ›</Link>} />
       {extra.approvals.length === 0 ? (

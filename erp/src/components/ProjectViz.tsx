@@ -18,7 +18,9 @@ const DARK = 'var(--blue)'
 const LIGHT = '#9cc3a6'
 
 /** 프로젝트 상세용: 스스로 불러옴 */
-export function ProjectVizLoader({ project }: { project: Project }) {
+/** part: 'alarm' 입출금 알람만 · 'money' 재무 시각화(KPI · 예산 대 집행 · 업체 지급률)만 · 'schedule' 프로젝트 일정만 · 없으면 전부
+ *  (대표 지시 2026-10-31 순서: ① 개요 + 입출금 알람 ② 재무 시각화 ③ 프로젝트 일정 ④ 업무일지 · 할 일) */
+export function ProjectVizLoader({ project, part }: { project: Project; part?: 'alarm' | 'money' | 'schedule' }) {
   const { api, version } = useApp()
   const { data } = useAsync(
     async () => {
@@ -29,6 +31,8 @@ export function ProjectVizLoader({ project }: { project: Project }) {
     { payments: [] as Payment[], lines: [] as BudgetLine[], finance: undefined as ProjectFinance | undefined, tasks: [] as Task[] },
   )
   const money = !!data.payments.length || data.finance?.contract_amount != null
+  if (part === 'money') return money ? <ProjectViz project={project} payments={data.payments} lines={data.lines} finance={data.finance} /> : null
+  if (part) return <ProjectHead project={project} payments={data.payments} lines={data.lines} finance={data.finance} tasks={data.tasks} only={part} />
   return (
     <div className="pviz-wrap">
       <ProjectHead project={project} payments={data.payments} lines={data.lines} finance={data.finance} tasks={data.tasks} />
@@ -191,7 +195,7 @@ function BudgetBars({ rows }: { rows: ReturnType<typeof budgetByCategory> }) {
   )
 }
 
-export function ProjectHead({ project, payments, lines, finance, tasks }: { project: Project; payments: Payment[]; lines: BudgetLine[]; finance: ProjectFinance | undefined; tasks: Task[] }) {
+export function ProjectHead({ project, payments, lines, finance, tasks, only }: { project: Project; payments: Payment[]; lines: BudgetLine[]; finance: ProjectFinance | undefined; tasks: Task[]; only?: 'alarm' | 'schedule' }) {
   const today = todayKey()
   const m = projectMoney(finance, payments, lines, today)
   const start = project.start_date
@@ -245,8 +249,7 @@ export function ProjectHead({ project, payments, lines, finance, tasks }: { proj
   const [editing, setEditing] = useState<Task | 'new' | null>(null)
   const [logMode, setLogMode] = useState(false)
   const [periodOpen, setPeriodOpen] = useState(false)
-  return (
-    <div className="pviz-row head">
+  const scheduleCard = (
       <div className="pviz-card">
         <div className="pviz-h">
           <b>프로젝트 일정</b>
@@ -298,6 +301,8 @@ export function ProjectHead({ project, payments, lines, finance, tasks }: { proj
         {editing && <TaskAssignModal task={editing === 'new' ? undefined : editing} projects={[project]} tasks={tasks} presetProject={project.id} onClose={() => setEditing(null)} />}
         {periodOpen && <PeriodModal project={project} onClose={() => setPeriodOpen(false)} />}
       </div>
+  )
+  const alarmCard = (
       <div className="pviz-card">
         <div className="pviz-h">
           <b>입출금 알람</b>
@@ -322,6 +327,13 @@ export function ProjectHead({ project, payments, lines, finance, tasks }: { proj
           </ul>
         )}
       </div>
+  )
+  if (only === 'schedule') return scheduleCard
+  if (only === 'alarm') return alarmCard
+  return (
+    <div className="pviz-row head">
+      {scheduleCard}
+      {alarmCard}
     </div>
   )
 }
