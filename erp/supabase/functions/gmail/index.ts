@@ -67,6 +67,9 @@ const decodeEntities = (s: string) => s.replace(/&#39;/g, "'").replace(/&quot;/g
 async function sync(days: number): Promise<{ fetched: number; saved: number }> {
   const { data: st } = await sb.from('app_settings').select('value').eq('key', 'gmail_sync').maybeSingle()
   const last = (st?.value as { synced_at?: string } | null)?.synced_at
+  // 지난번에 다 못 받았으면 그 기간을 이어서
+  const carry = (st?.value as { backfill_days?: number } | null)?.backfill_days ?? 0
+  if (days <= 0 && carry > 0) days = carry
   // 지난번 이후(겹치게 1일) · 처음이면 days 일
   const since = last && days <= 0 ? Math.floor(new Date(last).getTime() / 1000) - 86400 : Math.floor(Date.now() / 1000) - Math.max(1, days || 90) * 86400
   const ids: { id: string }[] = []
@@ -84,7 +87,7 @@ async function sync(days: number): Promise<{ fetched: number; saved: number }> {
     const { data } = await sb.from('mail_index').select('id').in('id', ids.slice(i, i + 500).map(m => m.id))
     for (const r of data ?? []) known.add(r.id as string)
   }
-  const todo = ids.filter(m => !known.has(m.id)).slice(0, 1500)
+  const todo = ids.filter(m => !known.has(m.id)).slice(0, 400)
   const rows: Record<string, unknown>[] = []
   const now = new Date().toISOString()
   for (let i = 0; i < todo.length; i += 20) {
@@ -116,7 +119,11 @@ async function sync(days: number): Promise<{ fetched: number; saved: number }> {
     const { error } = await sb.from('mail_index').upsert(rows.slice(i, i + 200))
     if (error) throw new Error(`메일 목록 저장 실패: ${error.message}`)
   }
-  await sb.from('app_settings').upsert({ key: 'gmail_sync', value: { synced_at: now, fetched: ids.length, saved: rows.length }, updated_at: now })
+  // 아직 못 받은 메일이 남았으면 다음 번에도 같은 기간을 다시 훑음 (이미 받은 것은 건너뜀)
+  const left = ids.length - known.size - rows.length
+  const prev = (st?.value as { backfill_days?: number } | null)?.backfill_days
+  const backfill_days = left > 0 ? Math.max(days, prev ?? 0, 1) : 0
+  await sb.from('app_settings').upsert({ key: 'gmail_sync', value: { synced_at: now, fetched: ids.length, saved: rows.length, left: Math.max(0, left), backfill_days }, updated_at: now })
   return { fetched: ids.length, saved: rows.length }
 }
 
@@ -128,7 +135,8 @@ Deno.serve(async req => {
     if (syncKey) {
       const want = await secret('GDRIVE_SYNC_KEY')
       if (!want || syncKey !== want) return json({ error: '열쇠가 맞지 않습니다.' }, 403)
-      return json(await sync(0))
+      const b = (await req.json().catch(() => ({}))) as { days?: number }
+      return json(await sync(Math.min(365, Math.max(0, b.days ?? 0))))
     }
     const authorization = req.headers.get('Authorization') ?? ''
     if (!authorization.startsWith('Bearer ')) return json({ error: '로그인이 필요합니다.' }, 401)
