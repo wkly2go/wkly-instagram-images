@@ -266,7 +266,7 @@ export function FinancePanel({ project, clients, projects }: { project: Project;
       </div>
 
       {editFin && <FinanceForm project={project} finance={data.finance} hasLines={data.lines.length > 0} onClose={() => setEditFin(false)} />}
-      {form && <PaymentForm key={form === 'new' ? 'new' : form.id} payment={form === 'new' ? null : form} preset={{ project_id: project.id }} projects={projects} clients={clients} payments={data.all} lines={data.lines} onClose={() => setForm(null)} />}
+      {form && <PaymentForm key={form === 'new' ? 'new' : form.id} payment={form === 'new' ? null : form} preset={{ project_id: project.id }} projects={projects} clients={clients} payments={data.all} lines={data.lines} lockProject onClose={() => setForm(null)} />}
     </section>
   )
 }

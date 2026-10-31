@@ -2587,3 +2587,4 @@ td .meter { display: block; margin: 3px 0; }
 .seg > button.on { background: var(--side); color: #fff; }
 .seg.sm > button { padding: 5px 11px; font-size: var(--fs-sm); }
 @media (max-width: 640px) { .pf-grid { grid-template-columns: 1fr; } }
+.pf-fixed { padding: 8px 0; font-size: var(--fs-sub); }
