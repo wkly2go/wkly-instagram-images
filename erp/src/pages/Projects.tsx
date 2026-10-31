@@ -765,8 +765,7 @@ function ProjectDetail({ project: p, data, onEdit, onBack, panel = false }: { pr
           </Button>
         )}
       </div>
-      {/* 맨 위 대시보드: 일정 · 입출금 알람 · 목표 대비 KPI · 예산 대 집행 · 비용 구성 · 월별 흐름 · 업체 지급률 (2026-10-31) */}
-      <ProjectVizLoader project={p} />
+      {/* 위에서부터: 기본 정보 → 재무(결제 대장 기준 그림) → 일정 · 업체 지급률 (대표 지시 2026-10-31 "상단으로 이동") */}
       <div className="box">
         <dl className="kv">
           <dt>연번</dt>
@@ -791,6 +790,8 @@ function ProjectDetail({ project: p, data, onEdit, onBack, panel = false }: { pr
           )}
         </dl>
       </div>
+      <FinancePanel project={p} clients={data.clients} projects={data.projects} />
+      <ProjectVizLoader project={p} />
       <div className="row top gap-12" style={{ flexWrap: 'wrap' }}>
         <div className="col grow" style={{ flexBasis: 300 }}>
           <SectionHead title="할 일" count={`${tasks.filter(t => t.status === '완료').length}/${tasks.length}`} right={<TaskLegend />} />
@@ -816,7 +817,6 @@ function ProjectDetail({ project: p, data, onEdit, onBack, panel = false }: { pr
       <ProjectMails project={p} />
       {/* 인테리어(아트리어 · AR) 프로젝트는 현장 작업일지, 다른 프로젝트는 작업일지가 있을 때만 */}
       <SiteLogsSection project={p} always={projectBrand(p) === 'AR'} />
-      <FinancePanel project={p} clients={data.clients} projects={data.projects} />
       {/* 자재 입출고: 입고 · 반품은 위 결제 내역(지급)에 자동 등록 */}
       <MaterialMoves project={p} clients={data.clients} />
       {/* 이 프로젝트의 결재 · 보고 */}

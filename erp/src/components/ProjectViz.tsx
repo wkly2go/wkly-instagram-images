@@ -8,14 +8,12 @@ import { AlertTriangle, BellRing, CheckCircle2, ListChecks, Plus } from 'lucide-
 import { Link } from '../lib/router'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { addDays, addMonths, manwon, shortDate, todayKey, won } from '../lib/date'
-import { budgetByCategory, contractRows, isDone, isOpen, monthlyFlow, projectMoney, supply } from '../lib/finance'
+import { budgetByCategory, contractRows, isOpen, monthlyFlow, projectMoney } from '../lib/finance'
 import { TASK_STATUSES, type BudgetLine, type Payment, type Project, type ProjectFinance, type Task, type TaskStatus } from '../lib/types'
 import { TaskAssignModal } from '../pages/Schedule'
 import { Button, Modal } from './ui'
-import { FlowChart, shortMan } from './charts'
+import { shortMan } from './charts'
 
-const SLOTS = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#6250d6']
-const OTHER = '#a8a6a0'
 const DARK = 'var(--blue)'
 const LIGHT = '#9cc3a6'
 
@@ -61,27 +59,10 @@ export function ProjectViz({ project, payments, lines, finance, onVendor }: { pr
   const costCap = m.contract != null && m.target != null ? Math.round(m.contract * (1 - m.target / 100)) : null
   const costGap = costCap != null ? m.cost - costCap : null
 
-  // 비용 구성 (공사 구분)
-  const costByCat = new Map<string, number>()
-  for (const p of payments) if (p.direction === '지급' && p.status !== '취소') costByCat.set(p.category?.trim() || '미분류', (costByCat.get(p.category?.trim() || '미분류') ?? 0) + supply(p))
-  const ranked = [...costByCat.entries()].filter(e => e[1] > 0).sort((a, b) => b[1] - a[1])
-  const top = ranked.slice(0, ranked.length > 6 ? 5 : 6)
-  const rest = ranked.slice(top.length).reduce((n, e) => n + e[1], 0)
-  const donut = [...top.map(([k, v], i) => ({ key: k, value: v, color: SLOTS[i] })), ...(rest > 0 ? [{ key: '기타', value: rest, color: OTHER }] : [])]
-
   // 일정: 기간 경과 % 대 할 일 완료 %
   const start = project.start_date
   const end = project.end_date
   const elapsed = start && end && end > start ? Math.max(0, Math.min(100, ((Date.parse(today) - Date.parse(start)) / (Date.parse(end) - Date.parse(start))) * 100)) : null
-
-  // 앞으로 4주 지급 예정 (주별)
-  const weeks = Array.from({ length: 4 }, (_, i) => addDays(today, i * 7))
-  const due = weeks.map((w, i) => {
-    const wEnd = addDays(w, 6)
-    const list = payments.filter(p => p.direction === '지급' && isOpen(p) && p.due_date && (i === 0 ? p.due_date <= wEnd : p.due_date >= w && p.due_date <= wEnd))
-    return { w, wEnd, total: list.reduce((n, p) => n + p.amount, 0), n: list.length }
-  })
-  const dueMax = Math.max(1, ...due.map(d => d.total))
 
   return (
     <section className="pviz" aria-label="프로젝트 시각화">
@@ -115,7 +96,8 @@ export function ProjectViz({ project, payments, lines, finance, onVendor }: { pr
         />
       </div>
 
-      <div className="pviz-row three">
+      {/* 비용 구성 · 월별 수금 · 지급 · 앞으로 4주 지급 예정은 뺌 (대표 지시 2026-10-31 "이것도 삭제") */}
+      <div className="pviz-row">
         <div className="pviz-card">
           <div className="pviz-h">
             <b>공사 구분별 예산 대 집행</b>
@@ -127,23 +109,9 @@ export function ProjectViz({ project, payments, lines, finance, onVendor }: { pr
           </div>
           {cats.length === 0 ? <span className="t-cap">예산 줄이나 지급이 없습니다.</span> : <BudgetBars rows={cats.slice(0, 7)} />}
         </div>
-        <div className="pviz-card">
-          <div className="pviz-h">
-            <b>비용 구성</b>
-            <span className="t-cap">공사 구분 · 공급가</span>
-          </div>
-          {donut.length === 0 ? <span className="t-cap">지급이 없습니다.</span> : <Donut parts={donut} />}
-        </div>
-        <div className="pviz-card">
-          <div className="pviz-h">
-            <b>월별 수금 · 지급</b>
-            <span className="t-cap">완료 기준</span>
-          </div>
-          <FlowChart data={flow} height={190} />
-        </div>
       </div>
 
-      <div className="pviz-row two">
+      <div className="pviz-row">
         <div className="pviz-card">
           <div className="pviz-h">
             <b>업체별 지급률</b>
@@ -167,25 +135,6 @@ export function ProjectViz({ project, payments, lines, finance, onVendor }: { pr
               ))}
             </ul>
           )}
-        </div>
-        <div className="pviz-card">
-          <div className="pviz-h">
-            <b>앞으로 4주 지급 예정</b>
-            <span className="t-cap">실제 금액 · 지난 예정 포함</span>
-          </div>
-          <ul className="pviz-weeks">
-            {due.map((d, i) => (
-              <li key={d.w} title={`${shortDate(d.w)} ~ ${shortDate(d.wEnd)} · ${d.n}건 · ${won(d.total)}`}>
-                <span className="t-cap pviz-wk">{i === 0 ? '이번 주' : `${shortDate(d.w)}~`}</span>
-                <span className="pviz-vbar">
-                  <i style={{ width: `${(d.total / dueMax) * 100}%`, background: '#eb6834' }} />
-                </span>
-                <span className="mono">{d.total ? shortMan(d.total) : '–'}</span>
-                <span className="t-cap">{d.n ? `${d.n}건` : ''}</span>
-              </li>
-            ))}
-          </ul>
-          <span className="t-cap">완료 {payments.filter(p => p.direction === '지급' && isDone(p)).length}건 · 미지급 {payments.filter(p => p.direction === '지급' && isOpen(p)).length}건</span>
         </div>
       </div>
     </section>
@@ -242,53 +191,6 @@ function BudgetBars({ rows }: { rows: ReturnType<typeof budgetByCategory> }) {
   )
 }
 
-function Donut({ parts }: { parts: { key: string; value: number; color: string }[] }) {
-  const [hover, setHover] = useState<number | null>(null)
-  const total = parts.reduce((n, p) => n + p.value, 0)
-  const R = 62
-  const r = 40
-  const C = 75
-  let a0 = -Math.PI / 2
-  const arcs = parts.map(p => {
-    const a1 = a0 + (p.value / total) * Math.PI * 2
-    const gap = parts.length > 1 ? 0.012 : 0
-    const s = a0 + gap
-    const e = Math.max(s, a1 - gap)
-    const large = e - s > Math.PI ? 1 : 0
-    const pt = (rad: number, ang: number) => `${C + rad * Math.cos(ang)},${C + rad * Math.sin(ang)}`
-    const d = parts.length === 1 ? `M${C},${C - R}A${R},${R} 0 1 1 ${C - 0.01},${C - R}L${C - 0.01},${C - r}A${r},${r} 0 1 0 ${C},${C - r}Z` : `M${pt(R, s)}A${R},${R} 0 ${large} 1 ${pt(R, e)}L${pt(r, e)}A${r},${r} 0 ${large} 0 ${pt(r, s)}Z`
-    a0 = a1
-    return { ...p, d }
-  })
-  const h = hover != null ? parts[hover] : null
-  return (
-    <div className="pviz-donut">
-      <svg width={150} height={150} viewBox="0 0 150 150" role="img" aria-label={`비용 구성: ${parts.map(p => `${p.key} ${Math.round((p.value / total) * 100)}%`).join(', ')}`}>
-        {arcs.map((a, i) => (
-          <path key={a.key} d={a.d} fill={a.color} opacity={hover == null || hover === i ? 1 : 0.45} onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(null)} />
-        ))}
-        <text x={C} y={C - 4} textAnchor="middle" fontSize={11} fill="var(--gray)">
-          {h ? h.key : '비용 합계'}
-        </text>
-        <text x={C} y={C + 14} textAnchor="middle" fontSize={15} fontWeight={800} fill="var(--blue)" fontFamily="var(--mono)">
-          {shortMan(h ? h.value : total)}
-        </text>
-      </svg>
-      <ul className="pviz-dlegend">
-        {parts.map((p, i) => (
-          <li key={p.key} onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(null)} className={hover === i ? 'on' : ''}>
-            <i style={{ background: p.color }} />
-            <span className="grow">{p.key}</span>
-            <span className="mono t-cap">{Math.round((p.value / total) * 100)}%</span>
-          </li>
-        ))}
-      </ul>
-    </div>
-  )
-}
-
-
-/** 맨 위: 일정(디데이 · 기간 막대 · 할 일 타임라인) + 입출금 알람 (대표 지시 2026-10-31 "상단에 대시보드, 스케줄 · 자금흐름 · 목표 달성 · 입출금 알람") */
 export function ProjectHead({ project, payments, lines, finance, tasks }: { project: Project; payments: Payment[]; lines: BudgetLine[]; finance: ProjectFinance | undefined; tasks: Task[] }) {
   const today = todayKey()
   const m = projectMoney(finance, payments, lines, today)
