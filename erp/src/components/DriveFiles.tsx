@@ -33,7 +33,7 @@ export function useProjectFolderSync() {
       const token = readToken()
       if (!token) return null
       r = await ensureProjectFolder(token, p)
-      if (r.url !== p.drive_url) await api.saveProject({ id: p.id, drive_url: r.url })
+      if (r.url && r.url !== p.drive_url) await api.saveProject({ id: p.id, drive_url: r.url })
     }
     return r.action === 'created' ? '드라이브 폴더를 만들었습니다.' : r.action === 'linked' ? '같은 연번의 드라이브 폴더를 연결했습니다.' : r.action === 'renamed' ? '드라이브 폴더 이름을 맞췄습니다.' : r.action === 'moved' ? '드라이브 폴더를 새 그룹 연도 폴더로 옮겼습니다.' : null
   }

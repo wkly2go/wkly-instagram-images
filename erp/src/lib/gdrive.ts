@@ -364,6 +364,8 @@ export async function ensureProjectFolder(
   token: string,
   p: { name: string; code?: string | null; division?: string | null; start_date?: string | null; created_at?: string; drive_url?: string | null },
 ): Promise<{ url: string; action: 'created' | 'linked' | 'renamed' | 'moved' | 'ok' }> {
+  // 운영 칸(연번 끝 0000, 예: AR0000 경영업무)은 폴더를 만들지 않음 (대표 지시 2026-10-31 "만드는 자료가 없으면 모두 삭제해")
+  if (!p.drive_url && p.code && /^[A-Z]{2}0000$/.test(p.code)) return { url: '', action: 'ok' }
   const want = projectFolderName(p)
   const existingId = p.drive_url ? driveIdOf(p.drive_url) : null
   if (existingId) {

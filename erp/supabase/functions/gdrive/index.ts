@@ -107,6 +107,8 @@ async function managedParent(f: Meta): Promise<Meta | null> {
 }
 
 async function syncProject(p: Proj): Promise<{ url: string; action: 'created' | 'linked' | 'renamed' | 'moved' | 'ok' }> {
+  // 운영 칸(연번 끝 0000, 예: AR0000 경영업무)은 폴더를 만들지 않음 (대표 지시 2026-10-31 "만드는 자료가 없으면 모두 삭제해")
+  if (!p.drive_url && p.code && /^[A-Z]{2}0000$/.test(p.code)) return { url: '', action: 'ok' }
   const want = folderName(p)
   const existing = p.drive_url ? idOf(p.drive_url) : null
   if (existing) {
@@ -131,7 +133,7 @@ async function syncProject(p: Proj): Promise<{ url: string; action: 'created' | 
 }
 async function syncAndSave(p: Proj) {
   const r = await syncProject(p)
-  if (r.url !== p.drive_url) await sb.from('projects').update({ drive_url: r.url }).eq('id', p.id)
+  if (r.url && r.url !== p.drive_url) await sb.from('projects').update({ drive_url: r.url }).eq('id', p.id)
   return r
 }
 const PROJ_COLS = 'id,name,code,division,start_date,created_at,drive_url'
