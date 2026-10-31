@@ -2678,3 +2678,40 @@ html.detail-full .detail-col.full .col-resize { display: none; }
 .vendor-sheet .vs-rate { display: block; text-align: right; padding: 2px 6px; }
 .vendor-sheet .ps-in.strong { font-weight: 700; }
 .vendor-sheet td.vs-stage > .t-cap { display: block; padding: 6px; }
+
+/* 표 줄 아래로 펼치기 (현장 작업일지 등) */
+.board tr.board-expand > td { padding: 6px 0 12px; background: var(--paper, #f6f6f2); cursor: default; }
+.board tr.board-expand .sitelog-panel { animation: none; }
+
+/* 현장 작업일지: 건별 기입 → 일별 보고서 */
+.site-entry { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px; border: 1px solid var(--line, #ddd); border-radius: 8px; background: var(--paper, #f6f6f2); }
+.site-entry .input, .site-entry .select { height: 32px; }
+.site-entry .se-date { width: 136px; }
+.site-entry .se-what { flex: 1 1 140px; min-width: 110px; }
+.site-entry .se-n { width: 84px; }
+.site-entry .se-m { width: 120px; }
+.site-entry .se-text { flex: 2 1 200px; min-width: 160px; }
+.site-entry .se-sum { flex-basis: 100%; }
+.day-report { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; background: var(--white, #fff); border: 1.5px solid var(--blue); border-radius: var(--r-panel, 8px); }
+.day-report .dr-bar { display: flex; align-items: center; gap: 6px; color: var(--blue); }
+.day-report .dr-head { display: flex; gap: 12px; align-items: flex-start; flex-wrap: wrap; }
+.day-report .dr-head .kv { flex: 1 1 300px; }
+.day-report .dr-signs { display: flex; gap: 4px; }
+.day-report .dr-table { width: 100%; }
+.day-report .dr-table td, .day-report .dr-table th { padding: 4px 6px; }
+.day-report .dr-events { margin: 0; padding-left: 18px; }
+.day-report .dr-events li { display: flex; align-items: center; gap: 6px; }
+/* 협력업체 관리 · 한 화면 (두 줄 칸) */
+.pay-sheet.vendor-sheet { min-width: 0; width: 100%; table-layout: fixed; }
+.vendor-sheet th { white-space: normal; line-height: 1.25; vertical-align: bottom; }
+.vendor-sheet td.vs-2 { padding: 0; vertical-align: top; }
+.vendor-sheet td.vs-2 > .ps-in, .vendor-sheet td.vs-2 > select.ps-in, .vendor-sheet .vs-pair > .ps-in { display: block; width: 100%; min-width: 0; height: 26px; text-overflow: ellipsis; }
+.vendor-sheet td.vs-2 > :first-child { border-bottom: 1px dashed var(--line, #ddd); }
+.vendor-sheet .vs-pair { display: flex; border-bottom: 1px dashed var(--line, #ddd); }
+.vendor-sheet .vs-pair > .ps-in + .ps-in { border-left: 1px dashed var(--line, #ddd); }
+.vendor-sheet .vs-rate { display: block; height: 26px; line-height: 26px; padding: 0 6px; text-align: right; }
+.vendor-sheet .ps-in.vs-day { font-size: 11px; padding: 0 3px; }
+.vendor-sheet .ps-in.vs-day:disabled { background: transparent; }
+.vendor-sheet th.vs-stage-h { min-width: 0; }
+.vendor-sheet td.vs-stage { min-width: 0; }
+.vendor-sheet .vs-addmid { margin-left: 4px; padding: 0 2px; vertical-align: middle; }

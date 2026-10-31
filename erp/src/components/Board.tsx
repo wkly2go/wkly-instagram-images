@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { Fragment, type ReactNode } from 'react'
 import { Empty } from './ui'
 
 /**
@@ -20,7 +20,7 @@ export interface BoardCol<T> {
   hideNarrow?: boolean
 }
 
-export function Board<T>({ rows, cols, rowKey, onRow, selectedId, numbered = true, empty, className = '', rowClass, compact }: {
+export function Board<T>({ rows, cols, rowKey, onRow, selectedId, numbered = true, empty, className = '', rowClass, compact, expand }: {
   rows: T[]
   cols: BoardCol<T>[]
   rowKey: (row: T) => string
@@ -32,6 +32,8 @@ export function Board<T>({ rows, cols, rowKey, onRow, selectedId, numbered = tru
   className?: string
   rowClass?: (row: T) => string | undefined
   compact?: boolean
+  /** 줄 바로 아래로 펼쳐 보일 내용 (없으면 null) */
+  expand?: (row: T) => ReactNode | null
 }) {
   const total = rows.length
   return (
@@ -56,7 +58,9 @@ export function Board<T>({ rows, cols, rowKey, onRow, selectedId, numbered = tru
         <tbody>
           {rows.map((r, i) => {
             const id = rowKey(r)
+            const more = expand?.(r)
             return (
+              <Fragment key={id}>
               <tr
                 key={id}
                 className={`${selectedId === id ? 'sel' : ''} ${rowClass?.(r) ?? ''}`}
@@ -71,6 +75,12 @@ export function Board<T>({ rows, cols, rowKey, onRow, selectedId, numbered = tru
                   </td>
                 ))}
               </tr>
+              {more && (
+                <tr className="board-expand">
+                  <td colSpan={cols.length + (numbered ? 1 : 0)}>{more}</td>
+                </tr>
+              )}
+              </Fragment>
             )
           })}
         </tbody>
