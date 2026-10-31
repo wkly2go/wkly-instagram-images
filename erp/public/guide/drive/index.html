@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>구글 드라이브 연결 가이드</title>
+<style>
+:root{--ink:#1f3b2d;--sub:#5b6b62;--line:#d9e2dc;--bg:#f4f7f5;--card:#fff;--key:#0b5a24;--hi:#e8590c;--hi2:#fff3e6;--blue:#1a73e8;--chrome:#eef2f7}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);font:15px/1.55 -apple-system,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;color:var(--ink)}
+.wrap{max-width:1000px;margin:0 auto;padding:24px 16px 60px}
+h1{font-size:24px;margin:0 0 4px}.lead{color:var(--sub);margin:0 0 20px}
+.step{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px 22px 22px;margin:0 0 22px;width:960px;max-width:100%}
+.step h2{margin:0 0 6px;font-size:19px;display:flex;align-items:center;gap:10px}
+.n{display:inline-grid;place-items:center;width:30px;height:30px;border-radius:50%;background:var(--key);color:#fff;font-size:15px}
+.step p.d{margin:0 0 14px;color:var(--sub)}
+.screen{border:1px solid #c9d3cc;border-radius:10px;overflow:hidden;background:#fff}
+.bar{display:flex;align-items:center;gap:10px;background:var(--chrome);padding:8px 12px;border-bottom:1px solid #d6dde6;font-size:13px;color:#3c4a5c}
+.dots i{display:inline-block;width:10px;height:10px;border-radius:50%;background:#f27a6b;margin-right:5px}.dots i:nth-child(2){background:#f5c451}.dots i:nth-child(3){background:#5fc76b}
+.url{flex:1;background:#fff;border:1px solid #d6dde6;border-radius:14px;padding:3px 12px;color:#55657a}
+.app{display:flex;min-height:300px}
+.side{width:210px;background:#f6f8fb;border-right:1px solid #e1e6ee;padding:12px 8px;font-size:14px}
+.side .t{font-weight:700;padding:6px 10px 10px;color:#2b3a52}
+.side div.m{padding:7px 12px;border-radius:16px;color:#3c4a5c}
+.side div.m.on{background:#dfe9fb;color:#174ea6;font-weight:700}
+.main{flex:1;padding:18px 22px;position:relative}
+.main h3{margin:0 0 12px;font-size:18px;font-weight:600;color:#2b3a52}
+.btn{display:inline-block;border:1px solid #c3cbd6;border-radius:18px;padding:6px 14px;font-size:13px;color:#174ea6;background:#fff}
+.btn.p{background:var(--blue);color:#fff;border-color:var(--blue)}
+.field{margin:0 0 12px}.field label{display:block;font-size:12px;color:#5b6b7a;margin-bottom:3px}
+.inp{border:1px solid #c3cbd6;border-radius:6px;padding:8px 10px;font-size:14px;background:#fff;min-height:36px}
+.hl{outline:3px solid var(--hi);outline-offset:3px;border-radius:8px;position:relative;background:var(--hi2)}
+.tag{position:absolute;right:-12px;top:-14px;background:var(--hi);color:#fff;font-weight:800;font-size:12px;border-radius:12px;padding:2px 8px;white-space:nowrap}
+.note{margin-top:12px;background:#eef6f0;border-left:4px solid var(--key);padding:9px 12px;border-radius:6px;font-size:14px}
+.warn{background:#fff6e5;border-left-color:#e8a10c}
+.modal{position:absolute;inset:20px 60px;background:#fff;border:1px solid #c9d3cc;border-radius:12px;box-shadow:0 10px 40px rgba(31,59,45,.18);padding:18px 20px}
+.row{display:flex;gap:10px;align-items:center}
+.copy{font-size:12px;border:1px solid #c3cbd6;border-radius:6px;padding:2px 8px;color:#174ea6}
+.arrow{color:var(--hi);font-weight:800}
+.tbl{width:100%;border-collapse:collapse;font-size:13px}.tbl td,.tbl th{border-bottom:1px solid #e6ebf1;padding:7px 8px;text-align:left}.tbl th{color:#5b6b7a;font-weight:600}
+.wk{background:#0b5a24;color:#fff}.wk .url{color:#3c4a5c}
+.intra{display:flex}.intra .nav{width:170px;background:#0b5a24;color:#d9efe0;padding:12px;font-size:13px}.intra .nav b{color:#fff;display:block;margin-bottom:10px}
+.det{border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin:0 0 10px;font-size:14px}
+.det.open{background:#f7faf8}
+.sb{display:flex}.sb .nav{width:180px;background:#1c1c1c0d;border-right:1px solid #e3e3e3;padding:12px;font-size:13px;color:#3f4a45}
+.badge{display:inline-block;background:#dcefe2;color:#0b5a24;border-radius:10px;padding:2px 10px;font-weight:700;font-size:13px}
+.footer{color:var(--sub);font-size:13px}
+</style></head><body><div class="wrap">
+<h1>구글 드라이브 연결 가이드</h1>
+<p class="lead">회사 구글 드라이브를 인트라넷과 한 번 연결하는 방법입니다 (관리자 · 약 15분). 주황색 표시를 차례로 누르세요. 아래 그림은 실제 화면을 단순하게 그린 안내도입니다.</p>
+
+<!-- 1 -->
+<section class="step" id="s1"><h2><span class="n">1</span>프로젝트 확인 — TEST (thewklyn.com 조직)</h2>
+<p class="d">Google Cloud 콘솔 맨 위 프로젝트 이름을 눌러, 조직이 <b>thewklyn.com</b>이고 <b>TEST</b>에 체크된 것을 확인한 뒤 창을 닫습니다. 새 프로젝트는 만들지 않습니다.</p>
+<div class="screen"><div class="bar"><span class="dots"><i></i><i></i><i></i></span><span class="url">console.cloud.google.com</span></div>
+<div class="main" style="min-height:260px">
+<div class="row" style="gap:14px;margin-bottom:14px"><b style="color:#3c4a5c">Google Cloud</b><span class="btn hl" style="position:relative">● TEST ▾<span class="tag">① 누르기</span></span><span class="inp" style="flex:1;border-radius:18px;color:#8a97a8">리소스, 문서, 제품 등 검색</span></div>
+<div style="border:1px solid #d6dde6;border-radius:12px;padding:14px;max-width:640px">
+<div class="row" style="justify-content:space-between"><b>리소스 선택</b><span class="btn">새 프로젝트 ✕ 누르지 않기</span></div>
+<div class="btn hl" style="margin:12px 0;position:relative">thewklyn.com ▾<span class="tag">② 조직 확인</span></div>
+<table class="tbl"><tr><th></th><th>이름</th><th>유형</th><th>ID</th></tr>
+<tr class="hl"><td style="color:#1a73e8;font-weight:800">✓</td><td><b>TEST</b></td><td>프로젝트</td><td>test-506316</td></tr>
+<tr><td></td><td>Default Gemini Project</td><td>프로젝트</td><td style="color:#8a97a8">건드리지 않음</td></tr>
+<tr><td></td><td>thewklyn.com</td><td>조직</td><td></td></tr></table></div>
+</div></div>
+<div class="note">TEST가 회사 조직 안에 있어서 '내부' 앱으로 만들 수 있습니다. Drive API는 이미 켜져 있습니다 ✓</div></section>
+
+<!-- 2 -->
+<section class="step" id="s2"><h2><span class="n">2</span>대상 — 사용자 유형 '내부' 확인</h2>
+<p class="d">왼쪽 메뉴 ☰ › <b>Google 인증 플랫폼</b> › <b>대상</b>. 사용자 유형이 <b>내부</b>면 그대로, <b>외부</b>면 '내부로 변경'을 누릅니다.</p>
+<div class="screen"><div class="bar"><span class="dots"><i></i><i></i><i></i></span><span class="url">console.cloud.google.com/auth/audience</span></div>
+<div class="app"><div class="side"><div class="t">Google 인증 플랫폼</div><div class="m">개요</div><div class="m">브랜딩</div><div class="m on hl" style="position:relative">대상<span class="tag">① 누르기</span></div><div class="m">클라이언트</div><div class="m">데이터 액세스</div><div class="m">설정</div></div>
+<div class="main"><h3>대상</h3>
+<div class="field"><label>사용자 유형</label><div class="inp hl" style="max-width:360px;position:relative"><b>내부</b> · 조직 내 사용자만<span class="tag">② '내부'인지 확인</span></div></div>
+<span class="btn">내부로 변경 (외부일 때만)</span>
+</div></div></div>
+<div class="note warn">'외부'인데 바꾸는 버튼이 안 보이면 그 화면을 캡처해 보내 주세요.</div></section>
+
+<!-- 3 -->
+<section class="step" id="s3"><h2><span class="n">3</span>클라이언트 — 새로 만들기</h2>
+<p class="d">같은 왼쪽 메뉴에서 <b>클라이언트</b> › 위쪽 <b>+ 클라이언트 만들기</b>. 이미 다른 클라이언트가 있어도 새로 하나 만듭니다.</p>
+<div class="screen"><div class="bar"><span class="dots"><i></i><i></i><i></i></span><span class="url">console.cloud.google.com/auth/clients</span></div>
+<div class="app"><div class="side"><div class="t">Google 인증 플랫폼</div><div class="m">개요</div><div class="m">브랜딩</div><div class="m">대상</div><div class="m on hl" style="position:relative">클라이언트<span class="tag">①</span></div><div class="m">데이터 액세스</div></div>
+<div class="main"><div class="row" style="justify-content:space-between"><h3 style="margin:0">OAuth 2.0 클라이언트 ID</h3><span class="btn p hl" style="position:relative">+ 클라이언트 만들기<span class="tag">② 누르기</span></span></div>
+<table class="tbl" style="margin-top:14px"><tr><th>이름</th><th>유형</th><th>클라이언트 ID</th></tr><tr><td>(기존 항목)</td><td>…</td><td style="color:#8a97a8">그대로 둠</td></tr></table></div></div></div></section>
+
+<!-- 4 -->
+<section class="step" id="s4"><h2><span class="n">4</span>클라이언트 정보 입력</h2>
+<p class="d">세 칸만 채우고 <b>만들기</b>. 리디렉션 URI는 비워 둡니다.</p>
+<div class="screen"><div class="bar"><span class="dots"><i></i><i></i><i></i></span><span class="url">console.cloud.google.com/auth/clients/create</span></div>
+<div class="main" style="max-width:700px"><h3>OAuth 클라이언트 ID 만들기</h3>
+<div class="field"><label>애플리케이션 유형 *</label><div class="inp hl" style="position:relative">웹 애플리케이션 ▾<span class="tag">① 웹 애플리케이션</span></div></div>
+<div class="field"><label>이름 *</label><div class="inp hl" style="position:relative">WKLY 인트라넷<span class="tag">② 이름</span></div></div>
+<div class="field"><label>승인된 자바스크립트 원본</label><div class="row"><span class="btn">+ URI 추가</span></div><div class="inp hl" style="margin-top:6px;position:relative"><b>https://wkly-erp.pages.dev</b><span class="tag">③ 끝에 / 없이</span></div></div>
+<div class="field"><label>승인된 리디렉션 URI</label><div class="inp" style="color:#8a97a8">(비워 둠)</div></div>
+<span class="btn p hl" style="position:relative">만들기<span class="tag">④</span></span>
+</div></div></section>
+
+<!-- 5 -->
+<section class="step" id="s5"><h2><span class="n">5</span>두 값 복사 (+ JSON 다운로드)</h2>
+<p class="d">뜨는 창에서 두 값을 복사해 메모장에 둡니다. 보안 비밀번호는 이때만 보일 수 있으니 <b>JSON 다운로드</b>도 눌러 두세요.</p>
+<div class="screen"><div class="bar"><span class="dots"><i></i><i></i><i></i></span><span class="url">console.cloud.google.com/auth/clients</span></div>
+<div class="main" style="min-height:300px;background:#eef1f5"><div class="modal" style="position:relative;inset:auto;margin:0 auto;max-width:640px">
+<h3>OAuth 클라이언트 생성됨</h3>
+<div class="field"><label>클라이언트 ID</label><div class="row"><div class="inp hl" style="flex:1;position:relative">1234567890-abcd….apps.googleusercontent.com<span class="tag">→ 6단계 인트라넷</span></div><span class="copy">복사</span></div></div>
+<div class="field"><label>클라이언트 보안 비밀번호</label><div class="row"><div class="inp hl" style="flex:1;position:relative">GOCSPX-••••••••••••<span class="tag">→ 7단계 Supabase</span></div><span class="copy">복사</span></div></div>
+<div class="row" style="justify-content:space-between"><span class="btn hl" style="position:relative">⬇ JSON 다운로드<span class="tag">보관</span></span><span class="btn">확인</span></div>
+</div></div></div>
+<div class="note warn">보안 비밀번호(GOCSPX-…)는 대표님만 보관하세요. 채팅이나 메일로 보내지 않습니다.</div></section>
+
+<!-- 6 -->
+<section class="step" id="s6"><h2><span class="n">6</span>인트라넷에 클라이언트 ID 저장 (웹 브라우저)</h2>
+<p class="d">크롬 등 웹 브라우저로 <b>wkly-erp.pages.dev/drive</b> → 아래 <b>드라이브 설정 (관리자)</b> 펼치기 → <b>구글 로그인 연결</b> 펼치기 → 클라이언트 ID 붙여 넣고 <b>저장</b>. (PC 프로그램에는 이 칸이 없습니다)</p>
+<div class="screen"><div class="bar"><span class="dots"><i></i><i></i><i></i></span><span class="url">wkly-erp.pages.dev/drive</span></div>
+<div class="intra"><div class="nav"><b>WKLY 사내 인트라넷</b>홈<br>보고서 결제<br>채팅<br>프로젝트<br><span style="color:#fff;font-weight:700">드라이브</span><br>업무·근태</div>
+<div class="main"><h3>드라이브</h3>
+<div class="det open hl" style="position:relative">▾ 드라이브 설정 (관리자) · 회사 공용 폴더 · 프로젝트 폴더 · 구글 연결<span class="tag">① 펼치기</span></div>
+<div class="det" style="margin-left:18px">회사 계정 연결 안 됨 · <span class="btn">회사 구글 계정 연결</span> <span class="btn">프로젝트 폴더 모두 맞추기</span></div>
+<div class="det open hl" style="margin-left:18px;position:relative">▾ 구글 로그인 연결 (관리자 · 웹 브라우저용)<span class="tag">② 펼치기</span>
+<div class="row" style="margin-top:10px"><div class="inp hl" style="flex:1;position:relative">1234567890-abcd….apps.googleusercontent.com<span class="tag">③ 붙여 넣기</span></div><span class="btn hl" style="position:relative">저장<span class="tag">④</span></span></div></div>
+</div></div></div></section>
+
+<!-- 7 -->
+<section class="step" id="s7"><h2><span class="n">7</span>Supabase 금고(Vault)에 보안 비밀번호 저장</h2>
+<p class="d">supabase.com/dashboard › 프로젝트 › Integrations › <b>Vault</b> › <b>Secrets</b> › <b>Add new secret</b>. 이름은 대소문자·밑줄까지 똑같이.</p>
+<div class="screen"><div class="bar"><span class="dots"><i></i><i></i><i></i></span><span class="url">supabase.com/dashboard/project/hophgcpszenrvchvbkav/integrations/vault/secrets</span></div>
+<div class="sb"><div class="nav"><b>Integrations</b><br>Vault<br><br><span style="font-weight:700;color:#0b5a24">Secrets</span><br>Keys</div>
+<div class="main" style="min-height:330px"><div class="row" style="justify-content:space-between"><h3 style="margin:0">Vault · Secrets</h3><span class="btn p hl" style="position:relative;background:#3ecf8e;border-color:#3ecf8e">Add new secret<span class="tag">① 누르기</span></span></div>
+<div class="modal" style="position:relative;inset:auto;margin:16px auto 0;max-width:560px">
+<div class="field"><label>Name</label><div class="inp hl" style="position:relative"><b>GOOGLE_CLIENT_SECRET</b><span class="tag">② 정확히</span></div></div>
+<div class="field"><label>Secret</label><div class="inp hl" style="position:relative">GOCSPX-•••••••••••• (5단계 값)<span class="tag">③ 붙여 넣기</span></div></div>
+<div class="field"><label>Description</label><div class="inp" style="color:#8a97a8">(비워도 됨)</div></div>
+<span class="btn p hl" style="position:relative;background:#3ecf8e;border-color:#3ecf8e">Save<span class="tag">④</span></span></div>
+</div></div></div></section>
+
+<!-- 8 -->
+<section class="step" id="s8"><h2><span class="n">8</span>회사 구글 계정 연결 → 폴더 맞추기</h2>
+<p class="d">다시 <b>wkly-erp.pages.dev/drive</b> › 드라이브 설정. 준비 ✓ 두 개 확인 → <b>회사 구글 계정 연결</b> → info@thewklyn.com 선택 · <b>허용</b> → '연결됨'이 뜨면 <b>프로젝트 폴더 모두 맞추기</b>.</p>
+<div class="screen"><div class="bar"><span class="dots"><i></i><i></i><i></i></span><span class="url">wkly-erp.pages.dev/drive</span></div>
+<div class="main" style="min-height:300px">
+<div class="det open">준비: ① 클라이언트 ID <b style="color:#0b5a24">✓</b> ② GOOGLE_CLIENT_SECRET <b style="color:#0b5a24">✓</b> ③ 회사 구글 계정 연결</div>
+<div class="row" style="gap:12px;margin:14px 0"><span class="btn p hl" style="position:relative;background:#0b5a24;border-color:#0b5a24">회사 구글 계정 연결<span class="tag">① 누르기</span></span><span class="arrow">→</span>
+<div style="border:1px solid #c9d3cc;border-radius:10px;padding:10px 14px;font-size:13px;background:#fff"><b>계정 선택</b><div class="hl" style="margin:6px 0;padding:4px 8px;position:relative">info@thewklyn.com<span class="tag">②</span></div><span class="btn p hl" style="position:relative">허용<span class="tag">③</span></span></div></div>
+<div class="row" style="gap:12px"><span class="badge">회사 계정 연결됨 · info@thewklyn.com</span><span class="arrow">→</span><span class="btn hl" style="position:relative">프로젝트 폴더 모두 맞추기<span class="tag">④</span></span></div>
+<div class="note">드라이브에 <b>#2026 › #ARTERIOR_2026 / #WKLY_2026 › 연번_이름</b> 폴더가 만들어져 프로젝트에 연결됩니다. 기존 자료는 이동 · 수정 · 삭제하지 않으며, 이후 5분마다 파일 목록이 인트라넷에 반영됩니다.</div>
+</div></div></section>
+
+<section class="step" id="s9"><h2><span class="n">!</span>막혔을 때</h2>
+<table class="tbl"><tr><th>화면에 뜬 말</th><th>해결</th></tr>
+<tr><td>origin_mismatch</td><td>4단계 원본을 <b>https://wkly-erp.pages.dev</b> (끝 / 없이)로 고치고 5분 뒤 다시</td></tr>
+<tr><td>access_denied · 앱이 차단됨</td><td>2단계 대상이 '내부'인지 확인</td></tr>
+<tr><td>GOOGLE_CLIENT_SECRET을 먼저 넣어 주세요</td><td>7단계 이름 철자(대문자 · 밑줄) 확인</td></tr>
+<tr><td>갱신 토큰을 주지 않았습니다</td><td>myaccount.google.com/connections 에서 'WKLY 인트라넷' 삭제 후 8단계 다시</td></tr>
+<tr><td>팝업이 안 뜸</td><td>주소창 오른쪽 팝업 차단 해제</td></tr></table>
+<p class="footer">연결이 끝나면 "연결했어"라고 알려 주세요. 서버에서 폴더 생성과 동기화를 확인합니다.</p></section>
+</div></body></html>
