@@ -133,7 +133,7 @@ export function WeekPanel() {
           )
         })}
       </div>
-      <span className="t-cap">검색하거나 링크를 열면 이 자리에 인터넷 창이 나옵니다. 닫으면(✕) 다시 주간 일정표.</span>
+
       {editing && <TaskAssignModal key={editing.id} task={editing} projects={data.projects} tasks={data.tasks} onClose={() => setEditing(null)} />}
       {adding && <TaskAssignModal projects={data.projects} tasks={data.tasks} presetDate={adding} presetAssignee={me.id} onClose={() => setAdding(null)} />}
     </div>

@@ -3015,3 +3015,24 @@ input[type='radio'] { border-radius: 50% !important; }
 .vendor-sheet .vs-inv input { margin: 0; accent-color: var(--blue); }
 .vendor-sheet .vs-inv.off { opacity: 0.4; cursor: default; }
 .vendor-sheet .vs-inv:has(input:checked) { color: var(--blue); font-weight: 700; }
+
+/* ───── 전체 점검 (2026-10-31) ───── */
+/* 오른쪽 결과 칸이 열려도 가운데 본 화면이 너무 좁아지지 않게 (프로젝트 목록 글자가 세로로 쌓이던 문제) */
+@media (min-width: 900px) {
+  html.detail-open:not(.detail-full) .body > main { min-width: 340px; }
+}
+/* 전체 화면 공통 다듬기: 섹션 머리 · 카드 · 표 · 입력 · 버튼을 디자인시스템 톤으로 */
+.section-h .t-bodyb { letter-spacing: -0.2px; }
+.board th { background: var(--paper); color: var(--gray); font-weight: 700; }
+.board tbody tr:hover > td { background: #f3f8f4; }
+.input, .select, .textarea { border-color: var(--line); }
+.input:focus, .select:focus, .textarea:focus { outline: 2px solid var(--blue); outline-offset: -1px; border-color: var(--blue); }
+.btn:focus-visible, .chip:focus-visible, .icon-btn:focus-visible, button:focus-visible, a:focus-visible { outline: 2px solid var(--ds-yellow); outline-offset: 1px; box-shadow: 0 0 0 4px var(--blue); }
+.kpi { border-color: var(--line); }
+.detail-col { border-color: var(--line); }
+.detail-head { border-bottom: 1px solid var(--line); }
+.chip { border-color: var(--line); }
+.chip:hover { border-color: var(--blue); }
+.note { border-left: 3px solid var(--blue); background: var(--paper); }
+.note.warn { border-left-color: var(--red); }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }

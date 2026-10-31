@@ -166,7 +166,7 @@ export function DetailColumnHost() {
   }
   return createPortal(
     // key 가 바뀌면 새로 그려 결과 칸 맨 뒤(=맨 위)에 붙음 → 수정 칸 등이 열려 있어도 새로 누른 자료가 그 위에 보임
-    <aside key={d.key} className={`detail-col${d.wide ? ' wide' : ''}${isFull ? ' full' : eff ? ' sized' : ''}`} style={!isFull && eff ? { flex: `0 0 ${Math.min(eff, maxW())}px` } : undefined} aria-label={d.title}>
+    <aside key={d.key} className={`detail-col${d.wide ? ' wide' : ''}${isFull ? ' full' : eff ? ' sized' : ''}`} style={!isFull && eff ? { flex: `0 1 ${Math.min(eff, maxW())}px` } : undefined} aria-label={d.title}>
       <div className="col-resize" onPointerDown={startDrag} onDoubleClick={() => (setW(null), saveW(null))} role="separator" aria-orientation="vertical" aria-label="결과 칸 폭 조절" title="끌어서 크기 조절 · 두 번 누르면 원래 크기" />
       <div className="detail-head">
         <span className="grow truncate">{d.title}</span>
