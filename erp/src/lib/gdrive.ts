@@ -392,3 +392,45 @@ export async function ensureProjectFolder(
   const made = await createFolder(token, want, groupId)
   return { url: folderUrl(made.id), action: 'created' }
 }
+
+/* ------------------------------------------------------------------ */
+/* 취재 자료 올리기 (대표 지시 2026-10-31 "인트라넷에 취재 자료 구분없이 올리기")       */
+/*  - 큰 영상도 올라가게 이어 올리기(resumable) + 진행률                               */
+/* ------------------------------------------------------------------ */
+/** 폴더가 있으면 그 id, 없으면 만듦 */
+export const ensureDriveFolder = (token: string, name: string, parent: string) => ensureFolder(token, name.replace(/[\\/]/g, '·').trim(), parent)
+
+/** 큰 파일 올리기: 이어 올리기 주소를 받아 한 번에 보냄 · onProgress(0~1). 주소를 못 받으면 일반 올리기 */
+export async function uploadLarge(token: string, file: File, folderId: string, onProgress?: (ratio: number) => void): Promise<GFile> {
+  const type = file.type || 'application/octet-stream'
+  const init = await fetch(`https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&supportsAllDrives=true&fields=${FILE_FIELDS}`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json; charset=UTF-8', 'X-Upload-Content-Type': type, 'X-Upload-Content-Length': String(file.size) },
+    body: JSON.stringify({ name: file.name, parents: [folderId] }),
+  })
+  if (init.status === 401) throw new Error('드라이브 접근이 만료됐습니다. 다시 시도해 주세요.')
+  const loc = init.ok ? init.headers.get('Location') : null
+  if (!loc) {
+    const f = await uploadToDrive(token, file, folderId)
+    onProgress?.(1)
+    return f
+  }
+  return new Promise<GFile>((resolve, reject) => {
+    const x = new XMLHttpRequest()
+    x.open('PUT', loc)
+    x.setRequestHeader('Content-Type', type)
+    x.upload.onprogress = e => e.lengthComputable && onProgress?.(e.loaded / e.total)
+    x.onload = () => {
+      if (x.status >= 200 && x.status < 300) {
+        onProgress?.(1)
+        try {
+          resolve(JSON.parse(x.responseText) as GFile)
+        } catch {
+          resolve({ id: '', name: file.name, mimeType: type } as GFile)
+        }
+      } else reject(new Error(`올리지 못했습니다 (${x.status})`))
+    }
+    x.onerror = () => reject(new Error('네트워크가 끊겨 올리지 못했습니다.'))
+    x.send(file)
+  })
+}

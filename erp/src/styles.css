@@ -2556,3 +2556,10 @@ td .meter { display: block; margin: 3px 0; }
 .mail-top { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: var(--fs-small); }
 .mail-top b { flex: 1; min-width: 0; }
 .mail-att { display: inline-flex; align-items: center; gap: 2px; }
+
+/* 취재 자료 올리기 (2026-10-31) */
+.fieldup .section-h .t-bodyb { display: inline-flex; align-items: center; gap: 6px; }
+.fieldup-drop { display: flex; align-items: center; gap: 10px; padding: 18px 14px; border: 2px dashed var(--line); border-radius: 10px; background: var(--white); cursor: pointer; color: var(--gray); font-size: var(--fs-sm); margin-bottom: 8px; }
+.fieldup-drop:hover, .fieldup-drop.on { border-color: var(--blue, #2f6bff); color: var(--ink, inherit); }
+.fieldup-drop b { color: var(--ink, inherit); }
+.fieldup-prog { width: 100%; height: 6px; margin-top: 6px; }
