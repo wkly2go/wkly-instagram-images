@@ -1178,3 +1178,21 @@ export interface MaterialItem {
   unit: string | null
   unit_price: number | null
 }
+
+/** 회사 지메일 메일 목록 (0071 · 읽기 전용 · 제목 · 미리보기 · 첨부 이름만) */
+export interface MailItem {
+  id: string
+  thread_id: string
+  from_name: string | null
+  from_addr: string | null
+  to_addr: string | null
+  subject: string | null
+  snippet: string | null
+  sent_at: string | null
+  labels: string[]
+  has_attachment: boolean
+  attachments: string[]
+  project_ids: string[]
+  client_id: string | null
+}
+export const gmailThreadUrl = (threadId: string) => `https://mail.google.com/mail/u/0/#all/${threadId}`

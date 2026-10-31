@@ -2123,6 +2123,15 @@ export function createDemoApi(): Api {
     async driveAccessToken() {
       return null
     },
+    async listProjectMails() {
+      return []
+    },
+    async gmailStatus() {
+      return { connected: false }
+    },
+    async gmailSync() {
+      return { fetched: 0, saved: 0 }
+    },
     async listDriveIndex(projectId) {
       // 체험 모드: 프로젝트마다 예시 폴더 · 파일 (실제는 서버가 5분마다 드라이브에서 모음)
       const out: DriveIndexFile[] = []

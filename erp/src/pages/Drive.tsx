@@ -81,6 +81,7 @@ export default function Drive() {
         )}
         <ClientIdSetting />
         <ProjectFoldersSync />
+        <GmailSetting />
           </details>
         )}
       </div>
@@ -296,5 +297,40 @@ function ClientIdSetting() {
         사용자 인증 정보 바로가기 <ExternalLink size={11} />
       </a>
     </details>
+  )
+}
+
+/** 관리자: 회사 지메일 읽기 연동 (2026-10-31 "지메일 연동해") — 드라이브와 같은 회사 계정 · 메일은 읽기만 */
+function GmailSetting() {
+  const { api, version, toast } = useApp()
+  const { busy, run } = useAction()
+  const [n, setN] = useState(0)
+  const { data: st } = useAsync(() => api.gmailStatus(), [version, n], null as Awaited<ReturnType<typeof api.gmailStatus>>)
+  return (
+    <div className="web-setting col gap-4">
+      <div className="row wrap" style={{ gap: 6 }}>
+        <span className="t-bodyb">지메일 연동</span>
+        {st?.connected ? <Badge tone="green">읽기 연결됨</Badge> : <Badge tone="outline">지메일 권한 없음</Badge>}
+        <span className="t-cap grow">
+          회사 메일함(info@) 메일을 10분마다 읽어 연번 · 프로젝트 이름 · 거래처 메일 주소로 프로젝트에 연결합니다. 제목 · 보낸 사람 · 미리보기 · 첨부 이름만 저장하고, 메일을 보내거나 지우지 않습니다.
+          {st?.synced_at ? ` 마지막 ${relativeLabel(st.synced_at)} · 새 메일 ${st.saved ?? 0}통` : ''}
+        </span>
+        <Button
+          size="sm"
+          kind="outline"
+          disabled={busy || !st?.connected}
+          onClick={() =>
+            run(async () => {
+              const r = await api.gmailSync(90)
+              toast(`최근 90일 메일 ${r.fetched}통 확인 · 새로 ${r.saved}통 저장`)
+              setN(v => v + 1)
+            })
+          }
+        >
+          지금 불러오기 (90일)
+        </Button>
+      </div>
+      {st && !st.connected && <span className="t-cap">위 '회사 구글 계정 연결'을 웹 브라우저에서 한 번 더 눌러(다시 연결) 지메일 읽기 권한까지 허용하면 켜집니다.</span>}
+    </div>
   )
 }

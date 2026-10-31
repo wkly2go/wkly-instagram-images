@@ -68,6 +68,7 @@ import type { LedgerEntry, LedgerRecurring, LedgerStatus, MaterialItem, Material
   Project,
   Task,
   WorkLog,
+  MailItem,
 } from './types'
 
 /** 구글 드라이브 탭에 거는 회사 공용 폴더 */
@@ -428,6 +429,10 @@ export interface Api {
   driveAccessToken(): Promise<{ token: string; expires_at: number } | null>
   /** 프로젝트 폴더 안 파일 (자동 동기화된 목록). projectId 가 없으면 전체 (최근 고친 순) */
   listDriveIndex(projectId?: string): Promise<DriveIndexFile[]>
+  /** 회사 지메일: 이 프로젝트(또는 그 거래처)와 연결된 메일 */
+  listProjectMails(projectId: string, clientId: string | null): Promise<MailItem[]>
+  gmailStatus(): Promise<{ connected: boolean; synced_at?: string; fetched?: number; saved?: number } | null>
+  gmailSync(days?: number): Promise<{ fetched: number; saved: number }>
   /** 관리자 · 지금 동기화 (full 이면 전체 다시 훑기) */
   driveSync(full?: boolean): Promise<{ mode: 'full' | 'changes'; files: number; changed: number }>
 

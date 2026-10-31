@@ -18,6 +18,7 @@ import { NewApproval } from './Approvals'
 import { MaterialMoves } from '../components/MaterialMoves'
 import { FinancePanel } from '../components/FinancePanel'
 import { ProjectVizLoader } from '../components/ProjectViz'
+import { ProjectMails } from '../components/ProjectMails'
 import { ProjectDashboard } from './ProjectDashboard'
 import { Payments } from './Payments'
 import { Subscriptions } from './Subscriptions'
@@ -789,6 +790,8 @@ function ProjectDetail({ project: p, data, onEdit, onBack, panel = false }: { pr
       </div>
       {/* 구글 드라이브 자료: 드라이브 파일을 가리켜 늘 최신 · 구글 문서는 편집 화면으로 */}
       <ProjectDriveSection project={p} />
+      {/* 회사 메일함에서 이 프로젝트 · 거래처와 연결된 메일 (지메일 · 읽기만) */}
+      <ProjectMails project={p} />
       {/* 인테리어(아트리어 · AR) 프로젝트는 현장 작업일지, 다른 프로젝트는 작업일지가 있을 때만 */}
       <SiteLogsSection project={p} always={projectBrand(p) === 'AR'} />
       <FinancePanel project={p} clients={data.clients} projects={data.projects} />

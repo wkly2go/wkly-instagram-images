@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import type { LedgerStatus, MaterialItem, MaterialMove, MaterialStockRow } from './types'
+import type { LedgerStatus, MailItem, MaterialItem, MaterialMove, MaterialStockRow } from './types'
 import { ApiError, CHAT_FILE_MAX, EXCHANGE_FILE_MAX, groupIps, type AgentDraft, type Api, type DriveEnsureResult, type DriveFolder, type DriveStatus, type ImportResult } from './api'
 import { desktop } from './desktop'
 import type {
@@ -971,6 +971,30 @@ export function createSupabaseApi(url: string, key: string): Api {
       const r = await invokeDrive<{ made: number; fixed: number; fail: string[] }>({ action: 'ensure_all' })
       if (!r) throw new ApiError('회사 구글 계정이 아직 연결되지 않았습니다.')
       return r
+    },
+    async listProjectMails(projectId, clientId) {
+      let q = sb.from('mail_index').select('id,thread_id,from_name,from_addr,to_addr,subject,snippet,sent_at,labels,has_attachment,attachments,project_ids,client_id').order('sent_at', { ascending: false }).limit(80)
+      q = clientId ? q.or(`project_ids.cs.{${projectId}},client_id.eq.${clientId}`) : q.contains('project_ids', [projectId])
+      const { data, error } = await q
+      return error ? [] : (data as MailItem[])
+    },
+    async gmailStatus() {
+      const { data, error } = await sb.functions.invoke('gmail', { body: { action: 'status' } })
+      return error ? null : (data as { connected: boolean; synced_at?: string; fetched?: number; saved?: number })
+    },
+    async gmailSync(days) {
+      const { data, error } = await sb.functions.invoke('gmail', { body: { action: 'sync', days: days ?? 90 } })
+      if (error) {
+        const ctx = (error as { context?: Response }).context
+        let body: { error?: string } = {}
+        try {
+          body = ctx ? await ctx.json() : {}
+        } catch {
+          /* 본문 없음 */
+        }
+        throw new ApiError(body.error || error.message)
+      }
+      return data as { fetched: number; saved: number }
     },
     async listDriveIndex(projectId) {
       let q = sb.from('drive_index').select('id,project_id,name,mime_type,parent_id,path,url,icon_url,size,modified_at,modified_by').order('modified_at', { ascending: false, nullsFirst: false })
