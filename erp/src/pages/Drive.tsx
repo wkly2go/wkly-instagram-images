@@ -98,7 +98,7 @@ export default function Drive() {
           </div>
         )}
         <ProjectFoldersSync />
-        {!native && <ClientIdSetting />}
+        <ClientIdSetting />
           </details>
         )}
       </div>
@@ -504,7 +504,7 @@ function ProjectFoldersSync() {
         )}
         {st && !st.connected && (
           <span className="t-cap">
-            준비: ① 아래 '구글 로그인 연결'에 클라이언트 ID {st.clientId ? '✓' : '등록'} ② <a href="https://supabase.com/dashboard/project/hophgcpszenrvchvbkav/integrations/vault/secrets" target="_blank" rel="noreferrer" data-external>Supabase › Vault</a> 에 GOOGLE_CLIENT_SECRET {st.secret ? '✓' : '등록'} ③ '회사 구글 계정 연결'
+            준비: ① 바로 아래 '구글 로그인 연결'을 펼쳐 클라이언트 ID {st.clientId ? '✓' : '등록'} ② <a href="https://supabase.com/dashboard/project/hophgcpszenrvchvbkav/integrations/vault/secrets" target="_blank" rel="noreferrer" data-external>Supabase › Vault</a> 에 GOOGLE_CLIENT_SECRET {st.secret ? '✓' : '등록'} ③ '회사 구글 계정 연결'
           </span>
         )}
       </div>
