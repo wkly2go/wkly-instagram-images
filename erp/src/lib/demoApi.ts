@@ -2133,6 +2133,9 @@ export function createDemoApi(): Api {
     async listFieldUploads() {
       return []
     },
+    async fieldUploadSession() {
+      return null
+    },
     async saveFieldUpload() {
       throw new ApiError('데모에서는 취재 자료를 올릴 수 없습니다.')
     },

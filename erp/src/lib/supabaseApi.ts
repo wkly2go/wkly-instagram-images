@@ -987,6 +987,10 @@ export function createSupabaseApi(url: string, key: string): Api {
       if (error) throw new ApiError(error.message)
       return data as FieldUpload[]
     },
+    async fieldUploadSession(f) {
+      const { data, error } = await sb.functions.invoke('drive-upload', { body: { ...f, origin: window.location.origin } })
+      return error ? null : ((data as { url?: string })?.url ?? null)
+    },
     async saveFieldUpload(row) {
       const { data: old } = await sb.from('field_uploads').select('*').eq('folder_id', row.folder_id).maybeSingle()
       if (old) {

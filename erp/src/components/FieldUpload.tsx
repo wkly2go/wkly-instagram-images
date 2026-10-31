@@ -55,7 +55,7 @@ export function FieldUploadBox() {
       const orig = await ensureDriveFolder(token, '원본', shoot)
       for (let i = 0; i < files.length; i++) {
         const f = files[i]
-        const g = await uploadLarge(token, f, orig, r => setProg({ done: i, total: files.length, ratio: r }))
+        const g = await uploadLarge(token, f, orig, x => api.fieldUploadSession(x), r => setProg({ done: i, total: files.length, ratio: r }))
         done.push({ id: g.id, name: f.name, mime: f.type || g.mimeType || '', size: f.size })
       }
       await api.saveFieldUpload({ shot_on: shotOn, place: place.trim() || null, memo: memo.trim() || null, project_id: project || null, folder_id: shoot, folder_url: folderUrl(shoot), files: done })

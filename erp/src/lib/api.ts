@@ -435,6 +435,8 @@ export interface Api {
   /** 취재 자료 올리기: 올릴 드라이브 폴더 id · 최근 올린 묶음 · 묶음 저장(같은 폴더면 파일만 더함) */
   fieldUploadFolder(): Promise<string | null>
   listFieldUploads(limit?: number): Promise<FieldUpload[]>
+  /** 큰 파일 이어 올리기 주소 (취재 자료 폴더 안에만) · 못 만들면 null */
+  fieldUploadSession(f: { name: string; mime: string; size: number; parent: string }): Promise<string | null>
   saveFieldUpload(row: Pick<FieldUpload, 'shot_on' | 'place' | 'memo' | 'project_id' | 'folder_id' | 'folder_url' | 'files'>): Promise<FieldUpload>
   gmailStatus(): Promise<{ connected: boolean; synced_at?: string; fetched?: number; saved?: number } | null>
   gmailSync(days?: number): Promise<{ fetched: number; saved: number }>

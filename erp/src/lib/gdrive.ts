@@ -400,16 +400,13 @@ export async function ensureProjectFolder(
 /** 폴더가 있으면 그 id, 없으면 만듦 */
 export const ensureDriveFolder = (token: string, name: string, parent: string) => ensureFolder(token, name.replace(/[\\/]/g, '·').trim(), parent)
 
-/** 큰 파일 올리기: 이어 올리기 주소를 받아 한 번에 보냄 · onProgress(0~1). 주소를 못 받으면 일반 올리기 */
-export async function uploadLarge(token: string, file: File, folderId: string, onProgress?: (ratio: number) => void): Promise<GFile> {
+/**
+ * 큰 파일 올리기: 서버(drive-upload)가 회사 계정으로 이어 올리기 주소를 만들어 주면 브라우저가 바로 PUT (진행률 표시).
+ * 브라우저는 구글 이어 올리기 주소를 직접 읽을 수 없어서 서버를 거침. 주소를 못 받으면 일반 올리기(작은 파일용)
+ */
+export async function uploadLarge(token: string, file: File, folderId: string, session: (f: { name: string; mime: string; size: number; parent: string }) => Promise<string | null>, onProgress?: (ratio: number) => void): Promise<GFile> {
   const type = file.type || 'application/octet-stream'
-  const init = await fetch(`https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&supportsAllDrives=true&fields=${FILE_FIELDS}`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json; charset=UTF-8', 'X-Upload-Content-Type': type, 'X-Upload-Content-Length': String(file.size) },
-    body: JSON.stringify({ name: file.name, parents: [folderId] }),
-  })
-  if (init.status === 401) throw new Error('드라이브 접근이 만료됐습니다. 다시 시도해 주세요.')
-  const loc = init.ok ? init.headers.get('Location') : null
+  const loc = await session({ name: file.name, mime: type, size: file.size, parent: folderId }).catch(() => null)
   if (!loc) {
     const f = await uploadToDrive(token, file, folderId)
     onProgress?.(1)
