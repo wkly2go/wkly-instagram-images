@@ -12,6 +12,8 @@ import { manwon, todayKey } from '../lib/date'
 import { isDone, supply } from '../lib/finance'
 import { CONTRACT_TYPES, TAX_INVOICE_STATES, type BudgetLine, type Payment, type ProjectFinance } from '../lib/types'
 import { Button } from './ui'
+import { openVendor } from './RightSchedule'
+import { showPanel } from './WebSearch'
 
 type Patch = Partial<Payment>
 const money = (n: number | null | undefined) => (n ? n.toLocaleString('ko-KR') : '')
@@ -25,7 +27,7 @@ const parseDay = (v: string): string | null | undefined => {
   if (!t) return null
   if (/^(t|오늘)$/i.test(t)) return todayKey()
   const full = /^(\d{4})[.\-/ ](\d{1,2})[.\-/ ](\d{1,2})/.exec(t)
-  const short = /^(\d{1,2})[.\-/ ](\d{1,2})$/.exec(t)
+  const short = /^(\d{1,2})[.\-/ ](\d{1,2})$/.exec(t) ?? /^(\d{2})(\d{2})$/.exec(t)
   const [y, m, d] = full ? [full[1], full[2], full[3]] : short ? [todayKey().slice(0, 4), short[1], short[2]] : []
   if (!y || !m || !d) return undefined
   return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`
@@ -75,7 +77,7 @@ function slot(items: Payment[]) {
 }
 
 export function VendorSheet({ projectId, payments, all, lines, finance, onOpen }: { projectId: string; payments: Payment[]; all: Payment[]; lines: BudgetLine[]; finance: ProjectFinance | undefined; onOpen: (p: Payment) => void }) {
-  const { api } = useApp()
+  const { api, toast } = useApp()
   const { busy, run } = useAction()
   const today = todayKey()
   const [extraMid, setExtraMid] = useState(0)
@@ -323,7 +325,9 @@ export function VendorSheet({ projectId, payments, all, lines, finance, onOpen }
                   {txt(v.category, x => saveVendor(v, { category: x }), '공사구분', '', 'vs-cat')}
                 </td>
                 <td className="vs-2">
-                  <input className="ps-in strong" list="vs-payee" defaultValue={v.payee} placeholder="업체명" onBlur={e => e.target.value.trim() && e.target.value.trim() !== v.payee && saveVendor(v, { payee: e.target.value.trim() })} onKeyDown={blurOnEnter} aria-label="업체명" />
+                  <button type="button" className="ps-in vs-name" onClick={() => (showPanel(), openVendor({ name: v.payee, clientId: v.items.find(live)?.client_id ?? null }))} title={`${v.payee} 상세 (오른쪽 칸)`}>
+                    {v.payee}
+                  </button>
                   {txt(v.title, x => x && saveVendor(v, { title: x }), '항목')}
                 </td>
                 <td className="vs-2">
@@ -354,7 +358,12 @@ export function VendorSheet({ projectId, payments, all, lines, finance, onOpen }
                   return (
                     <td key={s.key} className={`vs-2 vs-stage ${cur && isDone(cur) ? 'done' : ''}`}>
                       <input className="ps-in num" inputMode="numeric" defaultValue={money(cur?.amount)} placeholder="금액" onBlur={e => saveStage(v, s.label, cur, { amount: parseMoney(e.target.value) })} onKeyDown={blurOnEnter} aria-label={`${s.label} 결제 금액`} />
-                      <input className="ps-in vs-day" defaultValue={cur?.paid_date ? cur.paid_date.slice(5).replace('-', '.') : ''} placeholder="결제일" disabled={!cur} onBlur={e => { const d2 = parseDay(e.target.value); if (d2 !== undefined) saveStage(v, s.label, cur, { paid_date: d2 }) }} onKeyDown={blurOnEnter} aria-label={`${s.label} 결제일자`} title={cur?.paid_date ? `결제일 ${cur.paid_date}` : '결제일 (예: 10.30 · 오늘이면 t) — 넣으면 결제 완료'} />
+                      <input className="ps-in vs-day" defaultValue={cur?.paid_date ? cur.paid_date.slice(5).replace('-', '.') : ''} placeholder="결제일" onBlur={e => {
+                        const d2 = parseDay(e.target.value)
+                        if (d2 === undefined) return void toast('결제일은 10.30 · 10/30 · 1030 · 2026-10-30 · t(오늘)처럼 적어 주세요.')
+                        if (!cur) return void (d2 && toast(`${s.label} 금액을 먼저 넣어 주세요.`))
+                        saveStage(v, s.label, cur, { paid_date: d2 })
+                      }} onKeyDown={blurOnEnter} aria-label={`${s.label} 결제일자`} title={cur?.paid_date ? `결제일 ${cur.paid_date}` : '결제일 (예: 10.30 · 오늘이면 t) — 넣으면 결제 완료'} />
                     </td>
                   )
                 })}
