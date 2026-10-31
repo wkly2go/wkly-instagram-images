@@ -3,6 +3,9 @@
 //  - "현재 구글 드라이브에 있는 자료는 절대 수정 · 삭제하면 안 되고, #2026 을 만들어서 저장"
 //    → 내 드라이브 최상위 '#연도' / '#ARTERIOR_연도'(아트리어) · '#WKLY_연도'(더위클리 · 내부 리서치) / '연번_프로젝트 이름'
 //    → 인트라넷이 만든 그 폴더들만 이름 · 위치를 고침. 그 밖의 폴더 · 파일은 읽기만 (삭제 기능 없음)
+//  - 2026-10-31 "#2026 폴더 제거하고 내용물은 기존 폴더에 저장해"
+//    → 새 폴더는 내 드라이브 최상위의 기존 '#ARTERIOR_연도' · '#WKLY_연도' · '#RESEARCH_연도' 안에 '연번 이름' 으로 만듦 (#연도 상위 폴더 없음)
+//    → 드라이브가 기준: 기존 폴더 이름은 인트라넷이 바꾸지 않고, 드라이브 이름을 인트라넷이 따라감
 //  actions
 //   - status            : 연결 여부 (팀원 누구나)
 //   - connect {code}    : 관리자 · 구글 로그인 코드(팝업, redirect 'postmessage') → 갱신 토큰을 Vault 에 보관
@@ -28,7 +31,7 @@ const sb = createClient(URL_, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth
 
 const FOLDER = 'application/vnd.google-apps.folder'
 const YEAR_RE = /^#\d{4}$/
-const ROOT_RE = /^#(ARTERIOR|WKLY)_\d{4}$/
+const ROOT_RE = /^#(ARTERIOR|WKLY|RESEARCH)_\d{4}$/
 const DRIVE = 'https://www.googleapis.com/drive/v3'
 
 class NotConnected extends Error {}
@@ -70,8 +73,11 @@ interface Proj { id: string; name: string; code: string | null; division: string
 
 const esc = (s: string) => s.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
 const yearOf = (p: Proj) => (p.start_date ?? p.created_at).slice(0, 4)
-const groupName = (p: Proj) => `#${(p.division ?? p.code?.slice(0, 2) ?? 'AR') === 'AR' ? 'ARTERIOR' : 'WKLY'}_${yearOf(p)}`
-const folderName = (p: Proj) => (p.code ? `${p.code}_${p.name}` : p.name).replace(/[\\/]/g, '·').trim()
+const groupName = (p: Proj) => {
+  const d = p.division ?? p.code?.slice(0, 2) ?? 'AR'
+  return `#${d === 'AR' ? 'ARTERIOR' : d === 'RS' ? 'RESEARCH' : 'WKLY'}_${yearOf(p)}`
+}
+const folderName = (p: Proj) => (p.code ? `${p.code} ${p.name}` : p.name).replace(/[\\/]/g, '·').trim()
 const folderUrl = (id: string) => `https://drive.google.com/drive/folders/${id}`
 const idOf = (url: string) => url.match(/\/folders\/([A-Za-z0-9_-]{10,})/)?.[1] ?? url.match(/[?&]id=([A-Za-z0-9_-]{10,})/)?.[1] ?? null
 const meta = (id: string) => drive<Meta>(`files/${encodeURIComponent(id)}?supportsAllDrives=true&fields=id,name,parents,trashed`)
@@ -89,9 +95,9 @@ async function ensure(name: string, parent: string): Promise<string> {
   return ((await find(name, parent)) ?? (await create(name, parent))).id
 }
 async function groupFolder(p: Proj): Promise<string> {
-  return ensure(groupName(p), await ensure(`#${yearOf(p)}`, 'root'))
+  return ensure(groupName(p), 'root')
 }
-/** 인트라넷이 만든 폴더인지 (부모 #그룹_연도, 그 부모 #연도) → 부모 메타 */
+/** 예전에 인트라넷이 만든 폴더인지 (부모 #그룹_연도, 그 부모 #연도) → 부모 메타 · 이런 폴더만 기존 그룹 폴더로 옮김 */
 async function managedParent(f: Meta): Promise<Meta | null> {
   if (!f.parents?.[0]) return null
   const parent = await meta(f.parents[0]).catch(() => null)
@@ -118,7 +124,7 @@ async function syncProject(p: Proj): Promise<{ url: string; action: 'created' | 
   if (p.code) {
     const q = `name contains '${esc(p.code)}' and mimeType = '${FOLDER}' and trashed = false and '${group}' in parents`
     const r = await drive<{ files?: Meta[] }>(`files?${new URLSearchParams({ q, fields: 'files(id,name)', pageSize: '5' })}`)
-    const same = r.files?.find(f => f.name.startsWith(`${p.code}_`))
+    const same = r.files?.find(f => new RegExp(`(^|[\\s_-])${p.code!.replace(/-/g, '\\-')}([\\s_]|$)`).test(f.name))
     if (same) return { url: folderUrl(same.id), action: 'linked' }
   }
   return { url: folderUrl((await create(want, group)).id), action: 'created' }
