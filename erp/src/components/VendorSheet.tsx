@@ -268,13 +268,13 @@ export function VendorSheet({ projectId, payments, all, lines, finance, onOpen }
       </datalist>
       <table className="pay-sheet vendor-sheet one-line">
         <colgroup>
+          <col style={{ width: '8%' }} />
+          <col style={{ width: '14%' }} />
           <col style={{ width: '10%' }} />
-          <col style={{ width: '16%' }} />
-          <col style={{ width: '12%' }} />
-          <col style={{ width: '9%' }} />
+          <col style={{ width: '8%' }} />
           <col style={{ width: '11%' }} />
           {stages.map(s => (
-            <col key={s.key} style={{ width: '10%' }} />
+            <col key={s.key} style={{ width: '12%' }} />
           ))}
           <col />
           <col style={{ width: 26 }} />

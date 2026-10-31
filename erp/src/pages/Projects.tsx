@@ -17,6 +17,7 @@ import { Badge, Button, Chip, Empty, Field, FilterGroup, KindTag, Modal, Section
 import { NewApproval } from './Approvals'
 import { FinancePanel } from '../components/FinancePanel'
 import { ProjectVizLoader } from '../components/ProjectViz'
+import { ProjectBrief } from '../components/ProjectBrief'
 import { ProjectMails } from '../components/ProjectMails'
 import { ProjectDashboard } from './ProjectDashboard'
 import { Payments } from './Payments'
@@ -798,7 +799,9 @@ function ProjectDetail({ project: p, data, onEdit, onBack, panel = false }: { pr
       </nav>
       </div>
       {/* 순서 (대표 지시 2026-10-31): ① 할 일 · 프로젝트 개요 · 입출금 알람 (한 줄) ② 재무 ③ 프로젝트 일정 ④ 협력업체 관리 ⑤ 현장 작업일지 */}
-      {/* 맨 위 한 줄: 할 일 · 프로젝트 개요 · 입출금 알람 (대표 지시 2026-10-31) */}
+      {/* 현장 브리핑: 기입된 자료로 자동 분석 · 해석, [보고서]로 전체 펼침 (대표 지시 2026-10-31) */}
+      <ProjectBrief project={p} />
+      {/* 할 일 · 입출금 알람 (대표 지시 2026-10-31) */}
       <div className="proj-top3">
         <div className="col grow" style={{ flexBasis: 300 }}>
           <SectionHead title="할 일" count={`${tasks.filter(t => t.status === '완료').length}/${tasks.length}`} right={<TaskLegend />} />

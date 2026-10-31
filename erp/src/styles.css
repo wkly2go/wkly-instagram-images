@@ -2840,3 +2840,37 @@ html.detail-full .detail-col.full .col-resize { display: none; }
 .proj-detail .vendor-sheet .ps-in, .proj-detail .vendor-sheet select.ps-in { height: 28px; }
 .proj-detail .proj-overview { padding-bottom: 8px; }
 .proj-detail .proj-sticky .proj-head { padding: 8px 2px 4px; }
+
+/* 현장 브리핑: 한 줄 해석 + 판정 칩 + 펼치는 보고서 */
+.brief { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border-radius: 10px; background: #f1f7f2; border: 1px solid #cfe3d5; }
+.brief.has-red { background: #fff6f2; border-color: #f2cbbd; }
+.brief-top { display: flex; align-items: center; gap: 10px; }
+.brief-head { margin: 0; flex: 1; font-size: 15px; font-weight: 700; color: #1d2b21; line-height: 1.45; }
+.brief.has-red .brief-head { color: #a33a12; }
+.brief-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.brief-chip { display: inline-flex; gap: 6px; align-items: center; padding: 3px 10px; border-radius: 999px; font-size: 12px; background: var(--white); border: 1px solid var(--line); color: #1d2b21; }
+.brief-chip b { font-size: 11px; color: var(--gray); font-weight: 700; }
+.brief-chip.red { border-color: #e9a68c; color: #a33a12; }
+.brief-chip.amber { border-color: #ecd08a; color: #7a5600; }
+.brief-chip.green { border-color: #b9dcc4; color: var(--blue); }
+.brief-report { background: var(--white); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
+.brief-report-bar { display: flex; align-items: center; justify-content: space-between; }
+.brief-title { margin: 0; font-size: 17px; color: #1d2b21; }
+.brief-sec h4 { margin: 0 0 4px; font-size: 13px; color: var(--blue); border-bottom: 1px solid var(--line); padding-bottom: 3px; }
+.brief-sec ul { margin: 0; padding-left: 0; list-style: none; display: flex; flex-direction: column; gap: 3px; }
+.brief-sec li { font-size: 13px; padding-left: 12px; position: relative; line-height: 1.5; }
+.brief-sec li::before { content: ''; position: absolute; left: 0; top: 7px; width: 6px; height: 6px; border-radius: 50%; background: #9cc3a6; }
+.brief-sec li.red::before { background: #d9541e; }
+.brief-sec li.amber::before { background: #e3a400; }
+.brief-sec li span { color: var(--gray); }
+.brief-nums { width: 100%; border-collapse: collapse; font-size: 12px; }
+.brief-nums th { text-align: left; color: var(--gray); font-weight: 400; padding: 4px 6px; background: var(--paper); }
+.brief-nums td { padding: 4px 6px; font-weight: 700; color: #1d2b21; }
+@media print { .brief { background: #fff; border: 0; } }
+/* 일정 빠른 입력 */
+.quick-sched { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; color: var(--blue); }
+.quick-sched .input { flex: 1 1 260px; height: 30px; }
+.quick-sched .qs-preview { flex-basis: 100%; padding-left: 20px; }
+.vendor-sheet.one-line .ps-in.num { font-size: 11.5px; padding: 0 4px; letter-spacing: -0.2px; }
+.vendor-sheet.one-line td.vs-stage > .ps-in:first-child { width: 62%; }
+.vendor-sheet.one-line td.vs-stage > .ps-in.vs-day { width: 38%; }
