@@ -73,7 +73,7 @@ export default function Projects() {
         <ProjectDashboard projects={data.projects} tasks={data.tasks} clients={data.clients} />
       </div>
     ) : null,
-    { wide: true, onClose: selected ? () => go({ id: null }) : undefined },
+    { wide: true, full: !!selected, onClose: selected ? () => go({ id: null }) : undefined },
   )
 
   if (selectedId && !wide) {
