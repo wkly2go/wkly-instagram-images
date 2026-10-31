@@ -17,6 +17,7 @@ import { Badge, Button, Chip, Empty, Field, FilterGroup, KindTag, Modal, Section
 import { NewApproval } from './Approvals'
 import { MaterialMoves } from '../components/MaterialMoves'
 import { FinancePanel } from '../components/FinancePanel'
+import { ProjectVizLoader } from '../components/ProjectViz'
 import { ProjectDashboard } from './ProjectDashboard'
 import { Payments } from './Payments'
 import { Subscriptions } from './Subscriptions'
@@ -723,6 +724,8 @@ function ProjectDetail({ project: p, data, onEdit, onBack, panel = false }: { pr
           </Button>
         )}
       </div>
+      {/* 맨 위 대시보드: 일정 · 입출금 알람 · 목표 대비 KPI · 예산 대 집행 · 비용 구성 · 월별 흐름 · 업체 지급률 (2026-10-31) */}
+      <ProjectVizLoader project={p} />
       <div className="box">
         <dl className="kv">
           <dt>연번</dt>

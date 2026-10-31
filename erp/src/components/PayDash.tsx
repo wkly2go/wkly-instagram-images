@@ -10,6 +10,7 @@ import { Link } from '../lib/router'
 import type { BudgetLine, Payment, Project, ProjectFinance } from '../lib/types'
 import { Meter } from './charts'
 import { Badge } from './ui'
+import { ProjectViz } from './ProjectViz'
 
 const pct = (n: number | null) => (n == null ? '–' : `${Math.round(n)}%`)
 
@@ -148,12 +149,6 @@ function ProjectBoard({ project, payments, lines, fin }: { project: Project; pay
   const today = todayKey()
   const m = projectMoney(fin, payments, lines, today)
   const [target, setTarget] = useState(m.target != null ? String(m.target) : '')
-  const out = m.paid + m.payable
-  const payRate = out > 0 ? (m.paid / out) * 100 : null
-  const material = payments.filter(p => p.direction === '지급' && p.status !== '취소' && !p.is_estimate && (p.category ?? '').includes('자재')).reduce((n, p) => n + p.amount - p.vat, 0)
-  const labor = payments.filter(p => p.direction === '지급' && p.status !== '취소' && !p.is_estimate && (p.category ?? '').replace(/\s/g, '') === '노무비').reduce((n, p) => n + p.amount, 0)
-  // 목표 마진에 맞추려면 쓸 수 있는 비용 한도
-  const costCap = m.contract != null && m.target != null ? Math.round(m.contract * (1 - m.target / 100)) : null
   const saveTarget = () => {
     const v = target.trim() === '' ? null : Number(target)
     if (v != null && (Number.isNaN(v) || v < -100 || v > 100)) return
@@ -175,55 +170,26 @@ function ProjectBoard({ project, payments, lines, fin }: { project: Project; pay
           </Link>
         </span>
       </div>
-      <div className="kpis" style={{ gridTemplateColumns: 'repeat(5, minmax(0, 1fr))' }}>
-        <div className="kpi">
-          <span className="t-cap">계약액</span>
-          <span className="v">{m.contract != null ? manwon(m.contract) : '–'}</span>
-          <span className="sub">{m.contract != null ? `예산 ${m.budget != null ? manwon(m.budget) : '–'}` : '프로젝트 재무에서 입력'}</span>
-        </div>
-        <div className="kpi">
-          <span className="t-cap">수금 {pct(m.collectRate)}</span>
-          <span className="v">{manwon(m.received) || '0'}</span>
-          <Meter value={Math.min(100, m.collectRate ?? 0)} label="수금률" />
-          <span className="sub">미수 {manwon(m.receivable) || '0'}{m.contract != null ? ` · 남은 청구 ${manwon(Math.max(0, m.contract - m.received - m.receivable)) || '0'}` : ''}</span>
-        </div>
-        <div className="kpi">
-          <span className="t-cap">지급 {pct(payRate)}</span>
-          <span className="v">{manwon(m.paid) || '0'}</span>
-          <Meter value={Math.min(100, payRate ?? 0)} label="지급률" />
-          <span className="sub">
-            남은 지급 {manwon(m.payable) || '0'}
-            {m.estimate ? ` · 예상 ${manwon(m.estimate)}` : ''}
-          </span>
-        </div>
-        <div className="kpi">
-          <span className="t-cap">비용 구성</span>
-          <span className="v">{manwon(m.cost) || '0'}</span>
-          <span className="sub">
-            자재 {manwon(material) || '0'} · 노무비 {manwon(labor) || '0'}
-            {costCap != null ? ` · 목표 한도 ${manwon(costCap)}` : ''}
-          </span>
-        </div>
-        <div className="kpi">
-          <span className="row" style={{ gap: 6 }}>
-            <span className="t-cap grow">마진율 / 목표 수익률</span>
-            {ok != null && <Badge tone={ok ? 'acid' : 'yellow'}>{ok ? '달성' : '미달'}</Badge>}
-          </span>
-          <span className="v" style={m.marginRate != null && m.marginRate < 0 ? { color: 'var(--red)' } : undefined}>
-            {m.marginRate != null ? `${m.marginRate.toFixed(1)}%` : '–'}
-          </span>
-          <Meter value={Math.max(0, m.marginRate ?? 0)} max={50} target={m.target} red={(m.marginRate ?? 0) < 0} label="마진율" />
-          <span className="sub row" style={{ gap: 4 }}>
-            목표
-            {admin ? (
-              <input className="input xs" style={{ width: 52 }} inputMode="decimal" value={target} onChange={e => setTarget(e.target.value.replace(/[^\d.-]/g, ''))} onBlur={saveTarget} onKeyDown={e => e.key === 'Enter' && (e.target as HTMLInputElement).blur()} aria-label="목표 수익률 %" />
-            ) : (
-              <b>{m.target ?? '–'}</b>
-            )}
-            % · 마진 {m.margin != null ? manwon(m.margin) : '–'}
-          </span>
-        </div>
+      <div className="pviz-strip">
+        <span>
+          계약 <b>{m.contract != null ? manwon(m.contract) : '미입력'}</b>
+        </span>
+        <span>
+          예산 <b>{m.budget != null ? manwon(m.budget) : '–'}</b>
+        </span>
+        <span className="row" style={{ gap: 4 }}>
+          목표 수익률
+          {admin ? (
+            <input className="input xs" style={{ width: 52 }} inputMode="decimal" value={target} onChange={e => setTarget(e.target.value.replace(/[^\d.-]/g, ''))} onBlur={saveTarget} onKeyDown={e => e.key === 'Enter' && (e.target as HTMLInputElement).blur()} aria-label="목표 수익률 %" />
+          ) : (
+            <b>{m.target ?? '–'}</b>
+          )}
+          %
+        </span>
+        {ok != null && <Badge tone={ok ? 'acid' : 'yellow'}>{ok ? '목표 달성' : '목표 미달'}</Badge>}
+        <span className="t-cap">계약 · 예산은 프로젝트 상세의 재무 칸에서</span>
       </div>
+      <ProjectViz project={project} payments={payments} lines={lines} finance={fin} />
       {m.overdueOut.length + m.overdueIn.length > 0 && (
         <div className="note warn">
           연체 {m.overdueOut.length + m.overdueIn.length}건: {[...m.overdueIn, ...m.overdueOut].slice(0, 4).map(p => `${p.direction === '수금' ? '[수금] ' : ''}${p.payee ?? p.title} ${manwon(p.amount)}`).join(', ')}
