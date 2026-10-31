@@ -2746,3 +2746,57 @@ html.detail-full .detail-col.full .col-resize { display: none; }
 .proj-top3 { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 0.9fr); gap: 10px; align-items: start; }
 .proj-top3 > .box { margin: 0; }
 @media (max-width: 1100px) { .proj-top3 { grid-template-columns: 1fr; } }
+
+/* ───────── 프로젝트 상세 디자인 고도화 (2026-10-31) ─────────
+   카드 단위로 구역을 나누고(흰 바탕 · 옅은 테두리 · 그림자), 머리줄 고정, 숫자 강조, 표 머리 정리 */
+.proj-detail { display: flex; flex-direction: column; gap: 14px; padding-bottom: 24px; }
+.proj-detail .proj-head { position: sticky; top: 0; z-index: 6; background: var(--white); padding: 10px 2px; margin: -4px 0 -2px; border-bottom: 1px solid var(--line); gap: 8px; }
+.proj-detail .proj-head h2, .proj-detail .proj-head .proj-title { font-size: 19px; letter-spacing: -0.2px; }
+.proj-detail > .section,
+.proj-detail > .col,
+.proj-detail > .proj-top3 > *,
+.proj-detail > .proj-side-row > *,
+.proj-detail > .pviz-card,
+.proj-detail .pviz-row > .pviz-card {
+  background: var(--white);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px 16px;
+  box-shadow: 0 1px 2px rgba(18, 40, 24, 0.04), 0 6px 18px rgba(18, 40, 24, 0.04);
+}
+.proj-detail > .proj-top3 { gap: 12px; }
+.proj-detail > .proj-top3 > .box { margin: 0; border-width: 1px; }
+.proj-detail .section-h { border-bottom: 0; padding-bottom: 6px; margin-bottom: 2px; }
+.proj-detail .section-h .t-bodyb { font-size: 15px; letter-spacing: -0.2px; }
+.proj-detail .section-h::before { height: 16px; background: var(--blue); }
+/* 개요 */
+.proj-detail .kv { grid-template-columns: 64px 1fr; gap: 0; font-size: 13px; }
+.proj-detail .kv dt { padding: 7px 0; color: var(--gray); font-size: 12px; border-bottom: 1px solid var(--line); }
+.proj-detail .kv dd { padding: 6px 0; color: #1d2b21; border-bottom: 1px solid var(--line); }
+.proj-detail .kv dt:last-of-type, .proj-detail .kv dd:last-of-type { border-bottom: 0; }
+/* 재무 4칸 */
+.proj-detail .fin-tiles { gap: 10px; }
+.proj-detail .fin-tile { position: relative; border: 0; border-radius: 10px; background: var(--paper); padding: 12px 14px 12px 16px; overflow: hidden; }
+.proj-detail .fin-tile::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--blue); }
+.proj-detail .fin-tile:nth-child(2)::before { background: #1baf7a; }
+.proj-detail .fin-tile:nth-child(3)::before { background: #eb6834; }
+.proj-detail .fin-tile:nth-child(4)::before { background: #2a78d6; }
+.proj-detail .fin-num { font-size: 22px; letter-spacing: -0.4px; color: #1d2b21; }
+/* 일정 · 알람 카드 */
+.proj-detail .pviz-card { gap: 8px; }
+.proj-detail .pviz-h b { font-size: 15px; }
+.proj-detail .pviz-alarm { border-radius: 8px; }
+/* 표 머리 · 줄 */
+.proj-detail .board th, .proj-detail .pay-sheet th { background: var(--paper); color: var(--gray); font-weight: 700; }
+.proj-detail .board tbody tr:hover > td { background: #f3f8f4; }
+.proj-detail .board-wrap { border-radius: 10px; overflow: hidden; }
+/* 협력업체 관리 표: 카드 안에서 테두리 가볍게 */
+.proj-detail .vendor-sheet td, .proj-detail .vendor-sheet th { border-color: #ececE8; }
+.proj-detail .contract-goal { border-radius: 10px 10px 0 0; }
+.proj-detail .pay-sheet-wrap { border: 1px solid var(--line); border-radius: 0 0 10px 10px; }
+/* 작업일지 기입 줄 */
+.proj-detail .site-entry { background: var(--paper); border: 0; border-radius: 10px; }
+.proj-detail .day-report { border-width: 1px; border-radius: 10px; box-shadow: inset 4px 0 0 var(--blue); }
+@media (max-width: 700px) {
+  .proj-detail > .section, .proj-detail > .col, .proj-detail > .proj-top3 > * { padding: 12px; border-radius: 10px; }
+}

@@ -710,8 +710,8 @@ function ProjectDetail({ project: p, data, onEdit, onBack, panel = false }: { pr
   }
 
   return (
-    <>
-      <div className="row wrap">
+    <div className="proj-detail">
+      <div className="row wrap proj-head">
         <button type="button" className="icon-btn" onClick={onBack} aria-label="목록으로">
           <ArrowLeft size={18} />
         </button>
@@ -838,7 +838,7 @@ function ProjectDetail({ project: p, data, onEdit, onBack, panel = false }: { pr
       )}
       {editingTask && <TaskAssignModal key={editingTask.id} task={editingTask} projects={data.projects} tasks={data.tasks} onClose={() => setEditingTask(null)} />}
       {approving && <NewApproval preset={{ kind: '프로젝트', target_id: p.id, title: `프로젝트: ${p.name}` }} onClose={() => setApproving(false)} onCreated={id => navigate(`/approvals?view=mine&id=${id}`)} />}
-    </>
+    </div>
   )
 }
 
