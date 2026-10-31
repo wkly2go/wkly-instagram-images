@@ -2401,3 +2401,16 @@ td .meter { display: block; margin: 3px 0; }
 .pg-seq { display: inline-block; min-width: 34px; padding: 1px 6px; border: 1px solid var(--blue); border-radius: 10px; color: var(--blue); font-weight: 700; font-size: var(--fs-cap); text-align: center; }
 .pg-seq.done { background: var(--blue); color: var(--white); }
 .pay-groups tr.pg-item > td:first-child { border-left: 2px solid var(--blue-tint); }
+
+/* 마감 지난 업무: 눌러서 세부 내용 */
+.overdue-item { border-bottom: 1px solid var(--line); }
+.overdue-item.open { background: var(--paper); }
+.overdue-title { display: flex; align-items: flex-start; gap: 4px; border: 0; background: none; padding: 0; text-align: left; font: inherit; color: inherit; cursor: pointer; }
+.overdue-title > svg { flex: none; margin-top: 3px; color: var(--gray); }
+.overdue-title:hover > span:first-of-type { text-decoration: underline; }
+.overdue-peek { color: var(--gray); }
+.overdue-detail { padding: 6px 12px 12px 22px; display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.overdue-detail .dl { display: grid; grid-template-columns: 64px 1fr; gap: 4px 12px; margin: 0; font-size: var(--fs-small); }
+.overdue-detail dt { color: var(--gray); }
+.overdue-detail dd { margin: 0; }
+.overdue-detail .pre { white-space: pre-wrap; }
