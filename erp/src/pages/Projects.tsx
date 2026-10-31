@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { AlarmClock, ArrowLeft, Building2, CalendarDays, CalendarRange, GanttChart, LayoutDashboard, ListChecks, Network, Repeat, Users, Wallet, Plus, CheckCircle2, ChevronLeft, ChevronRight, CircleSlash, FolderOpen, Pencil, Search, Trash2 } from 'lucide-react'
+import { AlarmClock, ArrowLeft, Building2, CalendarDays, CalendarRange, GanttChart, LayoutDashboard, ListChecks, Network, Repeat, Users, Wallet, Plus, CheckCircle2, ChevronLeft, ChevronRight, CircleSlash, FolderOpen, Pencil, Search, Trash2, Mail, Copy } from 'lucide-react'
 import { ProjectMaterials } from '../components/ProjectMaterials'
 import { SiteLogsSection } from '../components/SiteLogs'
 import { ProjectDriveSection, useProjectFolderSync } from '../components/DriveFiles'
@@ -8,7 +8,7 @@ import type { Approval } from '../lib/types'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { addMonths, dateLabel, monthGrid, shortDate, timeLabel, toDateKey, todayKey, weekRange, weekday, periodLabel } from '../lib/date'
 import { Link, useRouter, withQuery } from '../lib/router'
-import { PROJECT_CATEGORIES, PROJECT_STATUSES, type ChatRoomSummary, type Client, type Contact, type Project, type ProjectStatus, type Task, type TaskStatus, type WorkLog, projectBrand, projectDriveUrl, DIVISIONS, DIVISION_KEYS, type Division } from '../lib/types'
+import { PROJECT_CATEGORIES, PROJECT_STATUSES, type ChatRoomSummary, type Client, type Contact, type Project, type ProjectStatus, type Task, type TaskStatus, type WorkLog, projectBrand, projectDriveUrl, DIVISIONS, DIVISION_KEYS, type Division, mailSubjectPrefix, gmailComposeUrl } from '../lib/types'
 import { ContactTimeline, ExchangeFilesSection, ProjectContactsSection } from '../components/ContactHistory'
 import { OrgSection } from '../components/Org'
 import { Board, type BoardCol } from '../components/Board'
@@ -675,7 +675,7 @@ function TaskLegend() {
 
 
 function ProjectDetail({ project: p, data, onEdit, onBack, panel = false }: { project: Project; data: Data; onEdit: () => void; onBack: () => void; /** 오른쪽 칸 안에 그릴 때 (자료 칸을 따로 띄우지 않음) */ panel?: boolean }) {
-  const { api, me, profileName, version } = useApp()
+  const { api, me, profileName, version, toast } = useApp()
   const { navigate } = useRouter()
   const { busy, run } = useAction()
   const [approving, setApproving] = useState(false)
@@ -722,6 +722,26 @@ function ProjectDetail({ project: p, data, onEdit, onBack, panel = false }: { pr
         <a className="btn btn-outline btn-sm drive-btn" href={projectDriveUrl(p).url} target="_blank" rel="noreferrer" title={projectDriveUrl(p).exact ? '구글 드라이브 프로젝트 폴더 열기' : '폴더 주소가 아직 없어 드라이브에서 연번 · 이름으로 찾기'}>
           <FolderOpen size={13} /> 드라이브{projectDriveUrl(p).exact ? '' : ' 찾기'}
         </a>
+        {/* 메일 쓰기: 제목에 [연번 프로젝트명] 이 자동으로 들어감 → 받은 답장 · 첨부가 이 프로젝트로 자동 분류 */}
+        <a className="btn btn-outline btn-sm" href={gmailComposeUrl(mailSubjectPrefix(p))} target="_blank" rel="noreferrer" data-external title={`제목 앞에 ${mailSubjectPrefix(p).trim()} 가 들어간 새 메일 (답장 · 첨부가 이 프로젝트로 자동 분류)`}>
+          <Mail size={13} /> 메일 쓰기
+        </a>
+        <button
+          type="button"
+          className="icon-btn sm"
+          onClick={async () => {
+            try {
+              await navigator.clipboard.writeText(mailSubjectPrefix(p))
+              toast(`메일 제목 머리 ${mailSubjectPrefix(p).trim()} 를 복사했습니다.`)
+            } catch {
+              toast(mailSubjectPrefix(p))
+            }
+          }}
+          aria-label="메일 제목 머리 복사"
+          title="메일 제목 머리 복사 ([연번 프로젝트명])"
+        >
+          <Copy size={13} />
+        </button>
         <Button kind="outline" size="sm" onClick={openRoom} disabled={busy}>
           {extra.room ? '채팅방' : '채팅방 만들기'}
         </Button>

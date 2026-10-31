@@ -1226,4 +1226,8 @@ export interface MailFile {
   folder_id: string
   sent_at: string | null
 }
+/** 메일 제목 규칙 (대표 지시 2026-10-31 "이메일 작성법에 프로젝트명과 코드를 무조건 기입"):
+ *  [연번 프로젝트명] 제목  → 답장(Re:)에도 그대로 남아 자동 분류 · 드라이브 저장이 정확해짐 */
+export const mailSubjectPrefix = (p: { code?: string | null; name: string }) => `[${[p.code, p.name].filter(Boolean).join(' ')}] `
+export const gmailComposeUrl = (subject: string) => `https://mail.google.com/mail/?view=cm&fs=1&su=${encodeURIComponent(subject)}`
 export const gmailThreadUrl = (threadId: string) => `https://mail.google.com/mail/u/0/#all/${threadId}`
