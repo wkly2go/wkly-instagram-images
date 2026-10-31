@@ -176,41 +176,9 @@ function MoneyFlow({ m, payments, today }: { m: ReturnType<typeof projectMoney>;
   const noInvOut = out.filter(p => p.tax_invoice === '미발행')
   const vatIn = inn.reduce((n, p) => n + p.vat, 0)
   const vatOut = out.reduce((n, p) => n + p.vat, 0)
-  const contract = m.contract ?? 0
-  const receivable = Math.max(0, contract - m.received)
-  const margin = Math.max(0, contract - m.cost)
-  const scale = Math.max(1, contract, m.received + receivable, m.cost)
-  const w = (n: number) => `${Math.max(0, (n / scale) * 100)}%`
-  const seg = (n: number, cls: string, label: string) => (n > 0 ? <i className={cls} style={{ width: w(n) }} title={`${label} ${manwon(n)}`} /> : null)
-  const over = m.cost - contract
   return (
     <div className="mflow">
-      <div className="mflow-row">
-        <span className="mflow-name">매출</span>
-        <span className="mflow-bar">
-          {seg(m.received, 'in-done', '받은 돈')}
-          {seg(receivable, 'in-open', '받을 돈')}
-        </span>
-        <span className="mflow-val">{contract ? manwon(contract) : '계약 없음'}</span>
-      </div>
-      <div className="mflow-row">
-        <span className="mflow-name">매입</span>
-        <span className="mflow-bar">
-          {seg(m.paid, 'out-done', '지급 완료')}
-          {seg(m.payable, 'out-open', '지급 예정')}
-          {seg(m.estimate, 'out-est', '예상 비용')}
-          {seg(margin, 'margin', '남는 마진')}
-        </span>
-        <span className={`mflow-val${over > 0 ? ' t-red' : ''}`}>{over > 0 ? `${manwon(over)} 초과` : `마진 ${manwon(margin) || '0'}`}</span>
-      </div>
-      <div className="mflow-key">
-        <span><i className="in-done" />받은 돈 {manwon(m.received) || '0'}</span>
-        <span><i className="in-open" />받을 돈 {manwon(receivable) || '0'}</span>
-        <span><i className="out-done" />지급 완료 {manwon(m.paid) || '0'}</span>
-        <span><i className="out-open" />지급 예정 {manwon(m.payable) || '0'}</span>
-        {m.estimate > 0 && <span><i className="out-est" />예상 비용 {manwon(m.estimate)}</span>}
-        <span><i className="margin" />남는 마진 {manwon(margin) || '0'}</span>
-      </div>
+      {/* 매출 · 매입 막대 그래프는 뺌 (대표 지시 2026-10-31 "그래프는 삭제") — 세부 숫자만 */}
       <dl className="mflow-grid">
         <div className={lateIn.length ? 'bad' : ''}><dt>수금 연체</dt><dd>{lateIn.length ? `${lateIn.length}건 · ${manwon(sum(lateIn))}` : '없음'}</dd></div>
         <div><dt>7일 안 수금</dt><dd>{soonIn.length ? `${soonIn.length}건 · ${manwon(sum(soonIn))}` : '없음'}</dd></div>
