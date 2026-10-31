@@ -522,6 +522,8 @@ export function WebSearchBox({ inputHidden = false }: { inputHidden?: boolean } 
 function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine; onSearch: (q: string, e: Engine) => void; onClose: () => void }) {
   // 첫 화면을 열어 둔 검색 종류는 켜진 것으로 표시
   const homeOf = engine === 'url' ? (Object.keys(HOME) as Engine[]).find(k => HOME[k] === q) : undefined
+  const [box2, setBox2] = useState(engine === 'url' ? '' : q)
+  useEffect(() => setBox2(engine === 'url' ? '' : q), [q, engine])
   const { api, me, version } = useApp()
   const { data: cx } = useAsync(() => api.getSearchCx(), [version], null as string | null)
   const [err, setErr] = useState('')
@@ -681,7 +683,27 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
           <X size={14} />
         </button>
       </div>
-      {/* 오른쪽 칸의 검색창은 뺌 (대표 지시 2026-10-31 "인터넷은 상위 버튼만") · 검색은 맨 위 검색창(Ctrl K)에서 */}
+      {/* 일반 검색창 (대표 지시 2026-10-31 "일반 검색을 할 수 있게") · 업무 사이트 묶음 버튼은 뺀 채로 */}
+      <form
+        className="web-search web-panel-search"
+        role="search"
+        onSubmit={e => {
+          e.preventDefault()
+          const v = box2.trim()
+          if (!v) return
+          saveRecent([v, ...readRecent().filter(x => x !== v)])
+          const base = engine === 'url' ? (homeOf ?? 'google') : engine
+          onSearch(v, base === 'images' || base === 'youtube' || base === 'naver' || base === 'chatgpt' || base === 'perplexity' ? base : 'google')
+        }}
+      >
+        <Search size={14} />
+        <input value={box2} onChange={e => setBox2(e.target.value)} placeholder={(() => { const b = engine === 'url' ? homeOf : engine; return b === 'naver' ? '네이버 검색 (Enter)' : b === 'youtube' ? '유튜브 검색 (Enter)' : b === 'images' ? '이미지 검색 (Enter)' : b === 'chatgpt' ? 'ChatGPT 에 질문 (Enter)' : b === 'perplexity' ? 'Perplexity 에 질문 (Enter)' : '구글 검색 (Enter)' })()} aria-label="인터넷 검색" enterKeyHint="search" />
+        {box2 && (
+          <button type="button" className="icon-btn sm" onClick={() => setBox2('')} aria-label="검색어 지우기">
+            <X size={12} />
+          </button>
+        )}
+      </form>
       {/* 업무 사이트 묶음 버튼(팝업 · 디자인 · SNS …)도 뺌 (대표 지시 2026-10-31 "이건 제거해") */}
       {!q ? (
         <WeekPanel />
