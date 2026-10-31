@@ -822,11 +822,9 @@ function ProjectDetail({ project: p, data, onEdit, onBack, panel = false }: { pr
       <ProjectDriveSection project={p} />
       {/* 회사 메일함에서 이 프로젝트 · 거래처와 연결된 메일 (지메일 · 읽기만) */}
       <ProjectMails project={p} />
-      {/* 이 프로젝트의 결재 · 보고 */}
-      <SectionHead title="결재 · 보고" count={extra.approvals.length ? String(extra.approvals.length) : undefined} right={<Link to="/approvals">보고서 결제 ›</Link>} />
-      {extra.approvals.length === 0 ? (
-        <span className="t-cap">이 프로젝트로 올린 결재가 없습니다.</span>
-      ) : (
+      {/* 이 프로젝트의 결재 · 보고: 올린 결재가 있을 때만 (대표 지시 2026-10-31 빈 칸 삭제) */}
+      {extra.approvals.length > 0 && <SectionHead title="결재 · 보고" count={String(extra.approvals.length)} right={<Link to="/approvals">보고서 결제 ›</Link>} />}
+      {extra.approvals.length === 0 ? null : (
         <div className="col">
           {extra.approvals.slice(0, 12).map(a => (
             <Link key={a.id} to={`/approvals?id=${a.id}`} className="row dashed link-row" style={{ padding: '5px 0', gap: 6 }}>
