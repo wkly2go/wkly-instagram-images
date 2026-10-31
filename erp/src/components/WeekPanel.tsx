@@ -5,21 +5,23 @@ import { addDays, todayKey } from '../lib/date'
 import { Linkify } from './ui'
 import { useRouter } from '../lib/router'
 import type { Project, Task } from '../lib/types'
-import { mondayOf, TaskAssignModal } from '../pages/Schedule'
+import { TaskAssignModal } from '../pages/Schedule'
 
 /**
  * 오른쪽 칸 주간 일정표 (대표 지시 2026-10-23 "오른쪽에는 주간 일정표, 인터넷 검색이 필요하면 주간 일정표는 사라지고")
  *  - 인터넷 검색 · 링크를 열면 이 자리에 검색 결과가 나오고, 닫으면 다시 주간 일정표
- *  - 월~일 하루씩: 마감 할 일 · 일정 · 프로젝트 시작/종료, 오늘은 노랑
+ *  - 2026-10-31 "항상 오늘 날짜를 위에, 내려갈수록 다음 날로" → 오늘부터 7일 (월~일 고정 아님)
+ *  - 하루씩: 마감 할 일 · 일정 · 프로젝트 시작/종료, 오늘은 노랑
  */
-const WD = ['월', '화', '수', '목', '금', '토', '일']
+const WD = ['일', '월', '화', '수', '목', '금', '토']
+const dow = (d: string) => new Date(`${d}T00:00:00`).getDay()
 type Item = { key: string; label: string; sub?: string; tone: string; to: string; task?: Task }
 
 export function WeekPanel() {
   const { api, me, version, profileName } = useApp()
   const { navigate } = useRouter()
   const today = todayKey()
-  const [from, setFrom] = useState(() => mondayOf(today))
+  const [from, setFrom] = useState(today)
   const [mine, setMine] = useState(false)
   const [adding, setAdding] = useState<string | null>(null)
   // 눌러서 본문 보기 (대표 지시 2026-10-31 "주간 일정표를 클릭해서 본문을 확인할 수 있게")
@@ -70,23 +72,24 @@ export function WeekPanel() {
         <button type="button" className={`chip ${mine ? 'active' : ''}`} onClick={() => setMine(v => !v)}>
           {mine ? '내 일정' : '전체'}
         </button>
-        <button type="button" className="icon-btn sm" onClick={() => setFrom(addDays(from, -7))} aria-label="지난주">
+        <button type="button" className="icon-btn sm" onClick={() => setFrom(addDays(from, -7))} aria-label="앞 7일">
           <ChevronLeft size={14} />
         </button>
-        <button type="button" className="chip" onClick={() => setFrom(mondayOf(today))}>
-          이번 주
+        <button type="button" className={`chip ${from === today ? 'active' : ''}`} onClick={() => setFrom(today)}>
+          오늘부터
         </button>
-        <button type="button" className="icon-btn sm" onClick={() => setFrom(addDays(from, 7))} aria-label="다음 주">
+        <button type="button" className="icon-btn sm" onClick={() => setFrom(addDays(from, 7))} aria-label="다음 7일">
           <ChevronRight size={14} />
         </button>
       </div>
       <div className="week-days">
-        {days.map((d, i) => {
+        {days.map(d => {
           const list = byDay.get(d) ?? []
+          const w = dow(d)
           return (
-            <section key={d} className={`week-day${d === today ? ' today' : ''}${i >= 5 ? ' weekend' : ''}`}>
+            <section key={d} className={`week-day${d === today ? ' today' : ''}${w === 0 || w === 6 ? ' weekend' : ''}`}>
               <div className="week-day-h">
-                <span className="wd">{WD[i]}</span>
+                <span className="wd">{WD[w]}</span>
                 <span className="dd">{md(d)}</span>
                 <span className="grow" />
                 <button type="button" className="icon-btn sm" onClick={() => setAdding(d)} aria-label={`${md(d)} 일정 추가`} title="이 날 일정 · 할 일 추가">

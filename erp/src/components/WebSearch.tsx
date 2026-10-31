@@ -86,12 +86,6 @@ const siteOf = (e: SiteKey): Site | undefined => {
   }
   return undefined
 }
-/** 사이트가 속한 묶음 (세 번째 줄을 어느 묶음으로 보여 줄지) */
-const groupOf = (e: Engine): SiteGroup | null => {
-  if (isGroup(e)) return e
-  if (isSite(e)) return (Object.keys(SITE_GROUPS) as SiteGroup[]).find(g => SITE_GROUPS[g].sites.some(x => x.host === e.slice(5))) ?? null
-  return null
-}
 const ENGINES: [Engine, string][] = [
   ['google', '구글'],
   ['images', '이미지'],
@@ -518,26 +512,8 @@ export function WebSearchBox({ inputHidden = false }: { inputHidden?: boolean } 
 }
 
 function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine; onSearch: (q: string, e: Engine) => void; onClose: () => void }) {
-  const [lastGroup, setLastGroup] = useState<SiteGroup | null>(() => groupOf(engine) ?? 'popup')
-  // 세 번째 줄(상세 사이트)은 두 번째 줄 · 언론 칸을 눌렀을 때만 펼치고, 사이트로 이동하면 접음
-  const [sitesOpen, setSitesOpen] = useState<SiteGroup | null>(null)
-  // 링크를 열어 둔 상태면 검색어가 없는 것으로 봄
-  const term = engine === 'url' ? '' : q
-  // 패널 안 검색창 (대표 지시 2026-10-28 "검색창이 사라졌어")
-  const [box2, setBox2] = useState(term)
-  useEffect(() => setBox2(engine === 'url' ? '' : q), [q, engine])
   // 첫 화면을 열어 둔 검색 종류는 켜진 것으로 표시
   const homeOf = engine === 'url' ? (Object.keys(HOME) as Engine[]).find(k => HOME[k] === q) : undefined
-  const pickGroup = (k: SiteGroup) => {
-    setSitesOpen(sitesOpen === k ? null : k)
-    if (term) onSearch(term, k)
-    else setLastGroup(k)
-  }
-  // 프로젝트를 열면 오른쪽 칸에 그 프로젝트 자료를 먼저 보여 줌 (인터넷 ↔ 프로젝트 자료 전환)
-  useEffect(() => {
-    const g = groupOf(engine)
-    if (g) setLastGroup(g)
-  }, [engine])
   const { api, me, version } = useApp()
   const { data: cx } = useAsync(() => api.getSearchCx(), [version], null as string | null)
   const [err, setErr] = useState('')
@@ -671,7 +647,6 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
 
   const recent = readRecent()
   const slot = webSlot
-  const shownGroup = groupOf(engine) ?? lastGroup
   return createPortal(
     <aside className={`web-panel${native ? ' is-native' : ''}${q ? ' has-q' : ''}`} aria-label="인터넷 검색">
       <div className="web-resize" onPointerDown={startDrag} role="separator" aria-orientation="vertical" aria-label="검색 창 폭 조절" title="끌어서 폭 조절" />
@@ -698,48 +673,8 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
           <X size={14} />
         </button>
       </div>
-      <form
-        className="web-search web-panel-search"
-        role="search"
-        onSubmit={e => {
-          e.preventDefault()
-          const v = box2.trim()
-          if (!v) return
-          saveRecent([v, ...readRecent().filter(x => x !== v)])
-          onSearch(v, engine === 'url' || !engine ? 'google' : engine)
-        }}
-      >
-        <Search size={14} />
-        <input value={box2} onChange={e => setBox2(e.target.value)} placeholder={engine === 'chatgpt' ? 'ChatGPT 에 질문 (Enter)' : engine === 'perplexity' ? 'Perplexity 에 질문 (Enter)' : '구글 · 인터넷 검색 (Enter)'} aria-label="인터넷 검색" enterKeyHint="search" />
-        {box2 && (
-          <button type="button" className="icon-btn sm" onClick={() => setBox2('')} aria-label="검색어 지우기">
-            <X size={12} />
-          </button>
-        )}
-      </form>
-      {q && <div className="web-sites" role="group" aria-label="업무 사이트만 검색">
-        <div className="web-tabs" role="tablist">
-          {(Object.keys(SITE_GROUPS) as SiteGroup[]).filter(k => k !== 'press').map(k => (
-            <button key={k} type="button" role="tab" aria-selected={engine === k} className={`web-tab${shownGroup === k ? ' on' : ''}${sitesOpen === k ? ' open' : ''}`} onClick={() => pickGroup(k)} aria-expanded={sitesOpen === k} title={`업무 사이트만: ${SITE_GROUPS[k].sites.map(x => x.label).join(' · ')}`}>
-              {SITE_GROUPS[k].label}
-            </button>
-          ))}
-        </div>
-      </div>}
-      {q && sitesOpen && (
-        <div className="web-sites web-shops" role="tablist" aria-label={`${SITE_GROUPS[sitesOpen].label} 사이트에서 바로 검색`}>
-          <div className="web-tabs">
-            {SITE_GROUPS[sitesOpen].sites.map(st => (
-              <button key={st.host} type="button" role="tab" aria-selected={engine === `site:${st.host}`} className={`web-tab${engine === `site:${st.host}` ? ' on' : ''}`} onClick={() => {
-                  onSearch(term, `site:${st.host}`)
-                  setSitesOpen(null)
-                }} title={st.search ? `${st.label}에서 바로 검색` : `구글로 ${st.host} 안에서만 검색`}>
-                {st.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* 오른쪽 칸의 검색창은 뺌 (대표 지시 2026-10-31 "인터넷은 상위 버튼만") · 검색은 맨 위 검색창(Ctrl K)에서 */}
+      {/* 업무 사이트 묶음 버튼(팝업 · 디자인 · SNS …)도 뺌 (대표 지시 2026-10-31 "이건 제거해") */}
       {!q ? (
         <WeekPanel />
       ) : native ? (
