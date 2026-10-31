@@ -798,7 +798,8 @@ function ProjectDetail({ project: p, data, onEdit, onBack, panel = false }: { pr
         <div className="col grow" style={{ flexBasis: 300 }}>
           <SectionHead title="할 일" count={`${tasks.filter(t => t.status === '완료').length}/${tasks.length}`} right={<TaskLegend />} />
           <TaskBoard
-            list={tasks}
+            // 할 일(안 끝난 것)을 맨 위에, 완료는 아래로 (대표 지시 2026-10-31)
+            list={[...tasks.filter(t => t.status !== '완료'), ...tasks.filter(t => t.status === '완료')]}
             projects={data.projects}
             onStatus={t => run(() => api.saveTask({ id: t.id, status: NEXT[t.status] }))}
             onDelete={async t => (await ask('이 할 일을 삭제할까요?')) && run(() => api.deleteTask(t.id))}
