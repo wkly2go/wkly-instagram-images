@@ -225,8 +225,11 @@ export async function listChildren(token: string, folderId: string, opts: { fold
     out.push(...(r.files ?? []))
     pageToken = r.nextPageToken
   } while (pageToken && out.length < 1000)
-  return out
+  return visible(out)
 }
+/** 숨김 파일 (대표 지시 2026-10-31 "드라이브 숨겨진 파일 안 보이게 해"): 점(.)으로 시작 · 맥 ._ 꼬리 파일 · .DS_Store · Thumbs.db · desktop.ini · Icon */
+export const isHiddenName = (name: string | null | undefined) => !!name && (name.startsWith('.') || /^(thumbs\.db|desktop\.ini|icon\r?)$/i.test(name.trim()))
+export const visible = <T extends { name: string }>(list: T[]) => list.filter(f => !isHiddenName(f.name))
 /** 새 폴더 */
 export function newFolder(token: string, name: string, parent: string) {
   return driveApi<GFile>(token, `files?supportsAllDrives=true&fields=${LIST_FIELDS}`, { method: 'POST', ...json({ name, mimeType: FOLDER_MIME, parents: [parent] }) })

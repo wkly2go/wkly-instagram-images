@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react'
 import { ArrowLeft, ArrowRight, ArrowUp, ChevronDown, ChevronRight, Clipboard, Copy, Download, ExternalLink, FileText, FolderPlus, Folder, FolderOpen, HardDrive, LayoutGrid, Link2, List, Pencil, RefreshCw, Scissors, Search, Star, Clock, Users, Trash2, Upload } from 'lucide-react'
 import { useApp } from '../lib/app'
-import { copyInto, driveApi, DriveAuthError, editUrl, FOLDER_MIME, LIST_FIELDS, listChildren, moveFile, newFolder, renameFile, trashFile, uploadToDrive, YEAR_RE, type GFile } from '../lib/gdrive'
+import { copyInto, driveApi, DriveAuthError, editUrl, FOLDER_MIME, LIST_FIELDS, listChildren, moveFile, newFolder, renameFile, trashFile, uploadToDrive, visible, isHiddenName, YEAR_RE, type GFile } from '../lib/gdrive'
 import type { DriveIndexFile } from '../lib/types'
 import { openLink } from './WebSearch'
 import { ask } from './Ask'
@@ -137,8 +137,8 @@ export function indexSource(d: IndexData): ExSource {
       { loc: { kind: 'idx', id: 'recent', name: '최근 바뀐 파일' }, icon: Clock },
       { loc: { kind: 'idx', id: 'company', name: '회사 공용 폴더' }, icon: Star, expandable: true },
     ],
-    list,
-    folders: async loc => (await list(loc)).filter(f => f.mimeType === FOLDER_MIME),
+    list: async loc => visible(await list(loc)),
+    folders: async loc => visible(await list(loc)).filter(f => f.mimeType === FOLDER_MIME),
     emptyHint: loc => {
       const id = loc.id ?? ''
       const url = id.startsWith('proj:') ? d.projects.find(p => p.id === id.slice(5))?.url : id.startsWith('co:') ? d.company[Number(id.slice(3))]?.url : null
@@ -165,7 +165,7 @@ function googleSource(token: string): ExSource {
       else if (loc.kind === 'starred') p.set('q', 'starred and trashed = false')
       else p.set('q', `name contains '${esc(loc.name)}' and trashed = false`)
       const r = await driveApi<{ files?: GFile[] }>(token, `files?${p}`)
-      return r.files ?? []
+      return visible(r.files ?? [])
     },
     folders: loc => listChildren(token, loc.id ?? 'root', { foldersOnly: true, driveId: loc.driveId }),
   }
@@ -388,7 +388,9 @@ export function DriveExplorer({ token, source, companyFolders, start, onOpenDoc,
       setBusy('')
     }
   }
-  const uploadFiles = (files: File[]) => {
+  const uploadFiles = (all: File[]) => {
+    // 숨김 파일(._ · .DS_Store 등)은 올리지 않음
+    const files = all.filter(f => !isHiddenName(f.name))
     if (!files.length || !guard('파일 올리기')) return
     void work(`${files.length}개 올리는 중`, async () => {
       for (const file of files) await uploadToDrive(tk, file, here.id!)
