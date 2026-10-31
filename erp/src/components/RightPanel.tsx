@@ -8,7 +8,7 @@ import { Maximize2, Minimize2, X } from 'lucide-react'
  * 목록에서 자료 · 링크를 누르면 본 화면 오른쪽에 결과 칸이 왼쪽→오른쪽으로 펼쳐지며 나타나고,
  * 가운데 두 칸(본 화면 · 결과)은 폭이 함께 늘고 줄어든다.
  */
-export type PanelDetail = { key: string; title: string; node: ReactNode; wide?: boolean; onClose?: () => void }
+export type PanelDetail = { key: string; title: string; node: ReactNode; wide?: boolean; full?: boolean; onClose?: () => void }
 
 let current: PanelDetail | null = null
 const listeners = new Set<() => void>()
@@ -25,10 +25,10 @@ const subscribe = (cb: () => void) => {
 export const usePanelDetail = () => useSyncExternalStore(subscribe, () => current)
 
 /** key 가 있으면 오른쪽 칸에 node 를 띄우고, key 가 바뀌거나 화면을 떠나면 내린다 */
-export function useRightPanel(key: string | null, title: string, node: ReactNode, opts?: { wide?: boolean; onClose?: () => void }) {
+export function useRightPanel(key: string | null, title: string, node: ReactNode, opts?: { wide?: boolean; full?: boolean; onClose?: () => void }) {
   useEffect(() => {
     if (!key) return
-    current = { key, title, node, wide: opts?.wide, onClose: opts?.onClose }
+    current = { key, title, node, wide: opts?.wide, full: opts?.full, onClose: opts?.onClose }
     emit()
   })
   useEffect(() => {
@@ -112,8 +112,13 @@ export function DetailColumnHost() {
   const d = usePanelDetail()
   const wide = usePanelWide()
   const [closed, setClosed] = useState<string | null>(null)
+  // 프로젝트 등 넓은 상세는 전체 화면으로 시작 (대표 지시 2026-10-31 "원하는 프로젝트를 클릭 시 전체 화면으로 전환해")
+  const [full, setFull] = useState(true)
   const suppressed = useSuppressed()
   const show = !!d && wide && closed !== d.key && !suppressed
+  const isFull = show && !!d?.full && full
+  // 다른 프로젝트를 열면 다시 전체 화면으로
+  useEffect(() => setFull(true), [d?.key])
   // 닫은 뒤 같은 항목(목록 줄 · 보고 · 사람 등)을 다시 누르면 다시 열림
   useEffect(() => {
     if (!closed) return
@@ -127,8 +132,9 @@ export function DetailColumnHost() {
   useEffect(() => {
     document.documentElement.classList.toggle('detail-open', show)
     document.documentElement.classList.toggle('detail-wide', show && !!d?.wide)
-    return () => document.documentElement.classList.remove('detail-open', 'detail-wide')
-  }, [show, d?.wide])
+    document.documentElement.classList.toggle('detail-full', isFull)
+    return () => document.documentElement.classList.remove('detail-open', 'detail-wide', 'detail-full')
+  }, [show, d?.wide, isFull])
   if (!show || !detailSlot) return null
   // 작은 화면(노트북)에서 프로젝트 등 넓은 상세는 화면의 60%로 시작 (대표 지시 2026-10-31 "작은 화면은 이런 비율로 시작")
   const eff = w ?? (d.wide && window.innerWidth <= 1680 ? Math.round(window.innerWidth * 0.6) : null)
@@ -160,13 +166,19 @@ export function DetailColumnHost() {
   }
   return createPortal(
     // key 가 바뀌면 새로 그려 결과 칸 맨 뒤(=맨 위)에 붙음 → 수정 칸 등이 열려 있어도 새로 누른 자료가 그 위에 보임
-    <aside key={d.key} className={`detail-col${d.wide ? ' wide' : ''}${eff ? ' sized' : ''}`} style={eff ? { flex: `0 0 ${Math.min(eff, maxW())}px` } : undefined} aria-label={d.title}>
+    <aside key={d.key} className={`detail-col${d.wide ? ' wide' : ''}${isFull ? ' full' : eff ? ' sized' : ''}`} style={!isFull && eff ? { flex: `0 0 ${Math.min(eff, maxW())}px` } : undefined} aria-label={d.title}>
       <div className="col-resize" onPointerDown={startDrag} onDoubleClick={() => (setW(null), saveW(null))} role="separator" aria-orientation="vertical" aria-label="결과 칸 폭 조절" title="끌어서 크기 조절 · 두 번 누르면 원래 크기" />
       <div className="detail-head">
         <span className="grow truncate">{d.title}</span>
-        <button type="button" className="icon-btn sm" onClick={toggleBig} aria-label={big ? '원래 크기로' : '크게 보기'} title={big ? '원래 크기로' : '크게 보기'}>
-          {big ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
-        </button>
+        {d.full ? (
+          <button type="button" className="icon-btn sm" onClick={() => setFull(v => !v)} aria-label={isFull ? '목록과 나란히 보기' : '전체 화면'} title={isFull ? '목록과 나란히 보기' : '전체 화면'}>
+            {isFull ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+          </button>
+        ) : (
+          <button type="button" className="icon-btn sm" onClick={toggleBig} aria-label={big ? '원래 크기로' : '크게 보기'} title={big ? '원래 크기로' : '크게 보기'}>
+            {big ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+          </button>
+        )}
         <button type="button" className="icon-btn sm" onClick={() => (d.onClose ? d.onClose() : setClosed(d.key))} aria-label="결과 칸 닫기" title="닫기">
           <X size={14} />
         </button>

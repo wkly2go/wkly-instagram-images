@@ -97,7 +97,9 @@ function Register({ data, projects, clients }: { data: PayData; projects: Projec
   const [sel, setSel] = useState<Set<string>>(new Set())
   const projectName = (id: string | null) => projects.find(p => p.id === id)?.name ?? ''
 
-  const categories = useMemo(() => [...new Set(data.payments.map(p => p.category).filter((c): c is string => !!c))].sort((a, b) => a.localeCompare(b, 'ko')), [data.payments])
+  // 현장을 고르면 그 현장 것만 (대표 지시 2026-10-31 "업체들도 해당 프로젝트에 속한 부분만")
+  const inProject = projectId && projectId !== 'none' ? projectId : null
+  const categories = useMemo(() => [...new Set(data.payments.filter(p => !inProject || p.project_id === inProject).map(p => p.category).filter((c): c is string => !!c))].sort((a, b) => a.localeCompare(b, 'ko')), [data.payments, inProject])
   const rows = useMemo(() => {
     const words = q.trim().toLowerCase().split(/\s+/).filter(Boolean)
     const list = data.payments.filter(p => {
@@ -164,6 +166,12 @@ function Register({ data, projects, clients }: { data: PayData; projects: Projec
     <>
       <PayDash projectId={projectId === 'none' ? '' : projectId} projects={projects} payments={data.payments} lines={data.lines} finances={data.finances} onPick={id => go({ project: id })} />
       <div className="filters">
+        {inProject ? (
+          // 현장을 고른 동안에는 다른 현장 목록을 띄우지 않음 · 전체로 돌아갈 때만 이 버튼 (대표 지시 2026-10-31)
+          <Button kind="ghost" size="sm" onClick={() => go({ project: null, cat: null })} title="모든 현장 결제 대장으로">
+            ← 전체 현장
+          </Button>
+        ) : (
         <select className="select" value={projectId} onChange={e => go({ project: e.target.value || null })} aria-label="프로젝트">
           <option value="">모든 현장</option>
           <option value="none">현장 없음</option>
@@ -173,6 +181,7 @@ function Register({ data, projects, clients }: { data: PayData; projects: Projec
             </option>
           ))}
         </select>
+        )}
         <select className="select" value={dir} onChange={e => go({ dir: e.target.value || null })} aria-label="구분">
           <option value="">지급·수금</option>
           <option value="지급">지급</option>
@@ -369,6 +378,7 @@ function Register({ data, projects, clients }: { data: PayData; projects: Projec
           clients={clients}
           payments={data.payments}
           lines={data.lines}
+          lockProject={!!inProject}
           onClose={() => {
             setForm(null)
             setPreset(null)

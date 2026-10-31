@@ -22,6 +22,7 @@ export function PaymentForm({
   clients,
   payments,
   lines = [],
+  lockProject = false,
   onClose,
 }: {
   payment: Payment | null
@@ -31,6 +32,8 @@ export function PaymentForm({
   /** 업체·공사 구분 자동완성과 지난 계좌 찾기용 */
   payments: Payment[]
   lines?: BudgetLine[]
+  /** 현장 화면에서 열었을 때: 현장 고정 · 업체 · 공사 구분도 그 현장 것만 (대표 지시 2026-10-31) */
+  lockProject?: boolean
   onClose: () => void
 }) {
   const { api, me } = useApp()
@@ -54,8 +57,20 @@ export function PaymentForm({
   const set = (p: Partial<Payment>) => setF(prev => ({ ...prev, ...p }))
   const isPay = f.direction === '지급'
 
-  const categories = useMemo(() => [...new Set([...lines.map(l => l.category), ...payments.map(p => p.category).filter((c): c is string => !!c)])].sort((a, b) => a.localeCompare(b, 'ko')), [lines, payments])
-  const payees = useMemo(() => [...new Set([...clients.map(c => c.name), ...payments.map(p => p.payee).filter((c): c is string => !!c)])].sort((a, b) => a.localeCompare(b, 'ko')), [clients, payments])
+  // 현장을 고르면 그 현장의 공사 구분 · 업체만 (없으면 전체)
+  const pid = f.project_id ?? null
+  const scoped = useMemo(() => (pid ? payments.filter(p => p.project_id === pid) : payments), [payments, pid])
+  const scopedLines = useMemo(() => (pid ? lines.filter(l => l.project_id === pid) : lines), [lines, pid])
+  const categories = useMemo(() => [...new Set([...scopedLines.map(l => l.category), ...scoped.map(p => p.category).filter((c): c is string => !!c)])].sort((a, b) => a.localeCompare(b, 'ko')), [scopedLines, scoped])
+  const projectClient = pid ? projects.find(p => p.id === pid)?.client_id ?? null : null
+  const payees = useMemo(
+    () =>
+      [...new Set([...(pid ? clients.filter(c => c.id === projectClient || scoped.some(p => p.client_id === c.id)) : clients).map(c => c.name), ...scoped.map(p => p.payee).filter((c): c is string => !!c)])].sort((a, b) =>
+        a.localeCompare(b, 'ko'),
+      ),
+    [clients, scoped, pid, projectClient],
+  )
+  const projectOf = projects.find(p => p.id === pid)
   /** 같은 업체에 예전에 보낸 계좌 */
   const lastAccount = useMemo(() => {
     if (!f.payee || f.account_no) return null
@@ -137,6 +152,12 @@ export function PaymentForm({
               </datalist>
               <span className="money-hint">{f.client_id ? `거래처 연결됨 · ${clients.find(c => c.id === f.client_id)?.name ?? ''}` : f.payee ? '거래처 목록에 없는 이름' : ' '}</span>
             </Field>
+            {lockProject && projectOf ? (
+              <div className="col gap-4">
+                <span className="pf-label">프로젝트 (현장)</span>
+                <b className="pf-fixed">{[projectOf.code, projectOf.name].filter(Boolean).join(' ')}</b>
+              </div>
+            ) : (
             <Field label="프로젝트 (현장)">
               <select className="select" value={f.project_id ?? ''} onChange={e => set({ project_id: e.target.value || null, budget_line_id: null })}>
                 <option value="">없음</option>
@@ -147,6 +168,7 @@ export function PaymentForm({
                 ))}
               </select>
             </Field>
+            )}
             <Field label="금액 (VAT 포함 실제 금액 · 환불은 −)" className="full">
               <input className="input pf-amount" inputMode="numeric" value={amountText} onChange={e => setAmount(e.target.value)} onBlur={() => setAmountText(fmt(f.amount) || (f.amount === 0 ? '' : amountText))} placeholder="0" />
             </Field>

@@ -183,24 +183,45 @@ export function Gantt({ projects, tasks }: { projects: Project[]; tasks: Task[] 
   const [showNic, setShowNic] = useState(false)
   const nicCount = active.filter(p => p.status === 'NIC').length
 
-  const items = project ? tasks.filter(t => t.project_id === project.id && spanOf(t)) : []
+  // 같은 내용(제목 · 담당자가 같은 할 일)은 한 줄로 합침 (대표 지시 2026-10-31 "동일 내용 합치고")
+  const items = useMemo(() => {
+    if (!project) return [] as Task[]
+    const m = new Map<string, Task[]>()
+    for (const t of tasks) {
+      if (t.project_id !== project.id || !spanOf(t)) continue
+      const k = `${t.title.replace(/\s+/g, ' ').trim()}|${t.assignee_id ?? ''}`
+      m.set(k, [...(m.get(k) ?? []), t])
+    }
+    return [...m.values()].map(list => {
+      if (list.length === 1) return list[0]
+      const spans = list.map(t => spanOf(t)!)
+      const start = spans.map(x => x[0]).sort()[0]
+      const end = spans.map(x => x[1]).sort().reverse()[0]
+      const open = list.find(t => t.status !== '완료') ?? list[0]
+      return { ...open, start_date: start, due_date: end, status: list.every(t => t.status === '완료') ? '완료' : open.status, title: `${open.title} (${list.length}건)` } as Task
+    })
+  }, [tasks, project])
+  // 프로젝트를 고르면 일 단위 (대표 지시 2026-10-31 "주 단위를 일간으로") · 전체 프로젝트는 주 단위
+  const daily = !!project
   const dates = project
     ? [project.start_date, project.end_date, ...items.flatMap(t => spanOf(t)!)]
     : active.flatMap(p => [p.start_date, p.end_date])
   const known = dates.filter((d): d is string => !!d).sort()
-  const from = mondayOf(known[0] ?? addDays(today, -14))
-  const lastDay = known[known.length - 1] ?? addDays(today, 56)
-  const weeks = Math.min(60, Math.max(8, weeksBetween(from, mondayOf(lastDay)) + 1))
-  const cols = Array.from({ length: weeks }, (_, i) => addDays(from, i * 7))
-  const todayCol = weeksBetween(from, mondayOf(today))
+  const daysBetween = (a: string, b: string) => Math.round((ms(b) - ms(a)) / DAY)
+  const first = known[0] ?? addDays(today, -14)
+  const from = daily ? addDays(first < today ? first : today, -1) : mondayOf(first)
+  const lastDay = [known[known.length - 1] ?? addDays(today, 56), today].sort().reverse()[0]
+  const weeks = daily ? Math.min(150, Math.max(14, daysBetween(from, lastDay) + 2)) : Math.min(60, Math.max(8, weeksBetween(from, mondayOf(lastDay)) + 1))
+  const cols = Array.from({ length: weeks }, (_, i) => addDays(from, daily ? i : i * 7))
+  const todayCol = daily ? daysBetween(from, today) : weeksBetween(from, mondayOf(today))
   const months: { label: string; span: number }[] = []
   for (const c of cols) {
     const label = `${Number(c.slice(5, 7))}월`
     if (months.length && months[months.length - 1].label === label) months[months.length - 1].span++
     else months.push({ label, span: 1 })
   }
-  const colOf = (d: string) => Math.max(0, Math.min(weeks - 1, weeksBetween(from, mondayOf(d))))
-  const grid = { gridTemplateColumns: `minmax(150px, 200px) repeat(${weeks}, minmax(30px, 1fr))` }
+  const colOf = (d: string) => Math.max(0, Math.min(weeks - 1, daily ? daysBetween(from, d) : weeksBetween(from, mondayOf(d))))
+  const grid = { gridTemplateColumns: `minmax(150px, 200px) repeat(${weeks}, minmax(${daily ? 26 : 30}px, 1fr))` }
 
   const groups = useMemo(() => {
     const m = new Map<string, Task[]>()
@@ -213,7 +234,7 @@ export function Gantt({ projects, tasks }: { projects: Project[]; tasks: Task[] 
   const cells = (row: number) => (
     <>
       {cols.map((c, i) => (
-        <span key={c} className={`g-cell ${i === todayCol ? 'today' : ''}`} style={{ gridRow: row, gridColumn: i + 2 }} />
+        <span key={c} className={`g-cell ${i === todayCol ? 'today' : ''}${daily && (weekday(c) === '토' || weekday(c) === '일') ? ' wkend' : ''}`} style={{ gridRow: row, gridColumn: i + 2 }} />
       ))}
     </>
   )
@@ -277,8 +298,15 @@ export function Gantt({ projects, tasks }: { projects: Project[]; tasks: Task[] 
             { el: [], at: 0 },
           ).el}
           {cols.map((c, i) => (
-            <span key={c} className={`g-head g-week ${i === todayCol ? 'today' : ''}`} style={{ gridRow: 2, gridColumn: i + 2 }} title={`${shortDate(c)} 주`}>
-              {i + 1}주
+            <span key={c} className={`g-head g-week ${i === todayCol ? 'today' : ''}${daily && weekday(c) === '일' ? ' t-red' : ''}`} style={{ gridRow: 2, gridColumn: i + 2 }} title={daily ? `${shortDate(c)} (${weekday(c)})` : `${shortDate(c)} 주`}>
+              {daily ? (
+                <>
+                  {Number(c.slice(8, 10))}
+                  <small className="g-wd">{weekday(c)}</small>
+                </>
+              ) : (
+                `${i + 1}주`
+              )}
             </span>
           ))}
           {project
@@ -295,7 +323,7 @@ export function Gantt({ projects, tasks }: { projects: Project[]; tasks: Task[] 
                       const late = t.status !== '완료' && !!t.due_date && t.due_date < today
                       return (
                         <div key={t.id} style={{ display: 'contents' }}>
-                          <button type="button" className="g-label g-task" style={{ gridRow: r, gridColumn: 1 }} onClick={() => setEditing(t)} title="눌러서 고치기">
+                          <button type="button" className="g-label g-task" style={{ gridRow: r, gridColumn: 1 }} onClick={() => setEditing(tasks.find(x => x.id === t.id) ?? t)} title="눌러서 고치기">
                             <span className="truncate">{t.title}</span>
                             <span className="t-cap">{profileName(t.assignee_id)}</span>
                           </button>
@@ -304,7 +332,7 @@ export function Gantt({ projects, tasks }: { projects: Project[]; tasks: Task[] 
                             type="button"
                             className={`g-bar s-${t.status === '완료' ? 'done' : t.status === '진행 중' ? 'doing' : 'todo'} ${late ? 'late' : ''}`}
                             style={{ gridRow: r, gridColumn: `${colOf(s) + 2} / ${colOf(e) + 3}` }}
-                            onClick={() => setEditing(t)}
+                            onClick={() => setEditing(tasks.find(x => x.id === t.id) ?? t)}
                             title={`${t.title} · ${profileName(t.assignee_id)} · ${shortDate(s)}~${shortDate(e)} · ${late ? '지연' : t.status}`}
                           >
                             {t.title}
@@ -385,7 +413,7 @@ export function Gantt({ projects, tasks }: { projects: Project[]; tasks: Task[] 
         <span className="t-cap">
           날짜가 없는 업무 {unscheduled.length}건은 일정표에 나오지 않습니다:{' '}
           {unscheduled.map((t, i) => (
-            <button key={t.id} type="button" className="name-btn t-cap" onClick={() => setEditing(t)}>
+            <button key={t.id} type="button" className="name-btn t-cap" onClick={() => setEditing(tasks.find(x => x.id === t.id) ?? t)}>
               {t.title}
               {i < unscheduled.length - 1 ? ',' : ''}
             </button>
@@ -594,7 +622,7 @@ export function SentTasks({ projects, tasks }: { projects: Project[]; tasks: Tas
       {sent.map(t => {
         const late = !!t.due_date && t.due_date < today
         return (
-          <button key={t.id} type="button" className="item-row" style={{ textAlign: 'left', width: '100%', background: 'none', border: 0, cursor: 'pointer' }} onClick={() => setEditing(t)}>
+          <button key={t.id} type="button" className="item-row" style={{ textAlign: 'left', width: '100%', background: 'none', border: 0, cursor: 'pointer' }} onClick={() => setEditing(tasks.find(x => x.id === t.id) ?? t)}>
             <span className="col gap-2 grow">
               <span className="t-smallb truncate">{t.title}</span>
               <span className="t-cap truncate">
@@ -732,7 +760,7 @@ export function WeekView({ projects, tasks }: { projects: Project[]; tasks: Task
         ))}
         {spans.length > 0 && <span className="wk-label" style={{ gridRow: 2 }}>기간 업무</span>}
         {spans.map(({ t, s, e, endsHere, lane }) => (
-          <button key={t.id} type="button" className={`wk-span ${stateOf(t)}`} style={{ gridColumn: `${s + 1} / ${e + 2}`, gridRow: 3 + lane }} onClick={() => setEditing(t)} title={`${t.title}\n${who(t)}\n${t.start_date ?? ''} ~ ${t.due_date ?? ''}`}>
+          <button key={t.id} type="button" className={`wk-span ${stateOf(t)}`} style={{ gridColumn: `${s + 1} / ${e + 2}`, gridRow: 3 + lane }} onClick={() => setEditing(tasks.find(x => x.id === t.id) ?? t)} title={`${t.title}\n${who(t)}\n${t.start_date ?? ''} ~ ${t.due_date ?? ''}`}>
             <b>{t.title}</b>
             <span className="t-meta">
               {profileName(t.assignee_id)}
@@ -761,7 +789,7 @@ export function WeekView({ projects, tasks }: { projects: Project[]; tasks: Task
                 const st = stateOf(t)
                 const time = hhmm(t.remind_at)
                 return (
-                  <button key={t.id} type="button" className={`wk-task ${st}`} onClick={() => setEditing(t)} title={[t.title, who(t), t.memo].filter(Boolean).join('\n')}>
+                  <button key={t.id} type="button" className={`wk-task ${st}`} onClick={() => setEditing(tasks.find(x => x.id === t.id) ?? t)} title={[t.title, who(t), t.memo].filter(Boolean).join('\n')}>
                     <span className="wk-title">
                       {time && t.remind_at!.slice(0, 10) <= d && <span className="wk-time">{time}</span>}
                       {t.title}
@@ -775,7 +803,7 @@ export function WeekView({ projects, tasks }: { projects: Project[]; tasks: Task
               {v.ranged.map(t => {
                 const st = stateOf(t)
                 return (
-                  <button key={t.id} type="button" className={`wk-task ranged ${st}`} onClick={() => setEditing(t)} title={[t.title, who(t), `${t.start_date ?? ''} ~ ${t.due_date ?? ''}`, t.memo].filter(Boolean).join('\n')}>
+                  <button key={t.id} type="button" className={`wk-task ranged ${st}`} onClick={() => setEditing(tasks.find(x => x.id === t.id) ?? t)} title={[t.title, who(t), `${t.start_date ?? ''} ~ ${t.due_date ?? ''}`, t.memo].filter(Boolean).join('\n')}>
                     <span className="wk-title">{t.title}</span>
                     <span className="wk-who">
                       {who(t)} · {t.start_date ? `${Number(t.start_date.slice(5, 7))}/${Number(t.start_date.slice(8))}` : ''}~{t.due_date ? `${Number(t.due_date.slice(5, 7))}/${Number(t.due_date.slice(8))}` : ''}
