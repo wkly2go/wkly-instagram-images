@@ -169,6 +169,23 @@ async function upsertRows(rows: Row[]) {
   }
 }
 
+/**
+ * 드라이브가 기준 (대표 지시 2026-10-31 "인트라넷은 구글 드라이브에 연동돼야 해"):
+ * 프로젝트 폴더 이름이 바뀌면 인트라넷 프로젝트 이름도 따라감.
+ * 앞의 상태 표시(-대기- 등)와 연번(AR2609 · AR2609-03_)은 빼고 이름만 씀. 드라이브는 읽기만.
+ */
+const nameFromFolder = (title: string) =>
+  title
+    .trim()
+    .replace(/^-[^-\s]{1,8}-\s*/, '')
+    .replace(/^[A-Z]{2}\d{4}(-\d{1,3})?[_\s]+/, '')
+    .trim()
+async function pullName(projectId: string, folderTitle: string) {
+  const name = nameFromFolder(folderTitle)
+  if (!name || name.length > 200) return
+  await sb.from('projects').update({ name, updated_at: new Date().toISOString() }).eq('id', projectId).neq('name', name)
+}
+
 /** 프로젝트 폴더 전체 훑기: 하위 폴더까지 (깊이 · 개수 제한) → 없어진 파일은 목록에서 뺌 */
 async function scanProject(projectId: string, folderId: string, now: string): Promise<number> {
   const rows: Row[] = []
@@ -215,7 +232,11 @@ async function syncAll(force: boolean): Promise<{ mode: 'full' | 'changes'; file
     // 시작 표시를 먼저 받아 두면 훑는 동안 바뀐 것도 다음 번에 잡힘
     const start = await drive<{ startPageToken: string }>('changes/startPageToken?supportsAllDrives=true')
     let files = 0
-    for (const [folder, project] of folders) files += await scanProject(project, folder, now).catch(() => 0)
+    for (const [folder, project] of folders) {
+      files += await scanProject(project, folder, now).catch(() => 0)
+      const meta = await drive<DFile>(`files/${encodeURIComponent(folder)}?supportsAllDrives=true&fields=id,name,trashed`).catch(() => null)
+      if (meta && !meta.trashed) await pullName(project, meta.name).catch(() => undefined)
+    }
     // 연결이 끊긴 프로젝트(폴더 주소가 바뀌거나 지워짐)의 예전 목록 정리
     const keep = [...folders.values()]
     if (keep.length) await sb.from('drive_index').delete().not('project_id', 'in', `(${keep.join(',')})`)
@@ -258,6 +279,11 @@ async function syncAll(force: boolean): Promise<{ mode: 'full' | 'changes'; file
     const qs = new URLSearchParams({ pageToken: token, fields: `nextPageToken,newStartPageToken,changes(fileId,removed,file(${F_FIELDS}))`, pageSize: '1000', includeRemoved: 'true', supportsAllDrives: 'true', includeItemsFromAllDrives: 'true' })
     const r = await drive<{ nextPageToken?: string; newStartPageToken?: string; changes?: { fileId: string; removed?: boolean; file?: DFile }[] }>(`changes?${qs}`)
     for (const c of r.changes ?? []) {
+      // 프로젝트 폴더 자체의 이름이 바뀌었으면 프로젝트 이름도
+      if (!c.removed && c.file && !c.file.trashed && folders.has(c.fileId)) {
+        await pullName(folders.get(c.fileId)!, c.file.name).catch(() => undefined)
+        continue
+      }
       if (c.removed || !c.file || c.file.trashed) {
         gone.push(c.fileId)
         continue

@@ -115,7 +115,8 @@ export async function googleConnectCode(clientId: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const c = g.accounts.oauth2.initCodeClient({
       client_id: clientId,
-      scope: DRIVE_SCOPES,
+      // 드라이브 + 지메일 읽기 (2026-10-31 "지메일 연동해" · 메일은 읽기만, 보내지 않음)
+      scope: `${DRIVE_SCOPES} https://www.googleapis.com/auth/gmail.readonly`,
       ux_mode: 'popup',
       access_type: 'offline',
       prompt: 'consent',
