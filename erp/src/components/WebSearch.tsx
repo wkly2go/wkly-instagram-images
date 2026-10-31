@@ -1,4 +1,5 @@
 import { WeekPanel } from './WeekPanel'
+import { RightSchedule } from './RightSchedule'
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { createPortal } from 'react-dom'
 import { ChevronDown, ChevronLeft, ChevronRight, ExternalLink, MonitorDown, PanelRightClose, PanelRightOpen, Search, X } from 'lucide-react'
@@ -262,7 +263,11 @@ export function openLink(url: string) {
   else window.open(url, '_blank', 'noopener')
 }
 /** 인트라넷 안의 바깥 링크(<a href="https://…">) 클릭을 가로채 오른쪽 창으로. Ctrl · ⌘ · Shift 클릭은 원래대로 새 탭 */
+/** 인터넷 창을 쓰지 않음 — 오른쪽 칸은 주간 일정표 · 프로젝트 일정만 */
+const NO_WEB = true
 function onLinkClick(e: MouseEvent) {
+  // 인터넷 창 삭제 (대표 지시 2026-10-31): 링크는 브라우저 새 탭으로 그대로 열림
+  if (NO_WEB) return
   if (e.defaultPrevented || e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return
   const a = (e.target as Element | null)?.closest?.('a[href]') as HTMLAnchorElement | null
   if (!a || a.hasAttribute('download') || a.dataset.external !== undefined || a.closest('.web-panel')) return
@@ -411,6 +416,7 @@ export function WebPanelHost() {
 export function runWebSearch(q: string) {
   const v = q.trim()
   if (!v) return
+  if (NO_WEB) return void window.open(`https://www.google.com/search?q=${encodeURIComponent(v)}`, '_blank', 'noopener')
   saveRecent([v, ...readRecent().filter(x => x !== v)])
   setOpenState({ q: v, engine: 'google' })
 }
@@ -443,7 +449,7 @@ export function TopMenu({ showDownload }: { showDownload: boolean }) {
       {on && (
         <div className="top-menu-pop" role="menu">
           <button type="button" role="menuitem" onClick={() => (open ? hidePanel() : showPanel(), setOn(false))}>
-            {open ? <PanelRightClose size={14} /> : <PanelRightOpen size={14} />} {open ? '오른쪽 칸 숨기기 (본 화면 넓게)' : '오른쪽 칸 보이기 (주간 일정표 · 인터넷)'}
+            {open ? <PanelRightClose size={14} /> : <PanelRightOpen size={14} />} {open ? '오른쪽 칸 숨기기 (본 화면 넓게)' : '오른쪽 칸 보이기 (주간 일정표 · 프로젝트 일정)'}
           </button>
           <div className="top-menu-row" role="group" aria-label="글자 크기">
             <span className="grow">글자 크기 {zoom}</span>
@@ -660,6 +666,18 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
   return createPortal(
     <aside className={`web-panel${native ? ' is-native' : ''}${q ? ' has-q' : ''}`} aria-label="인터넷 검색">
       <div className="web-resize" onPointerDown={startDrag} role="separator" aria-orientation="vertical" aria-label="검색 창 폭 조절" title="끌어서 폭 조절" />
+      {NO_WEB ? (
+        <>
+          <div className="web-bar right-bar">
+            <span className="grow" />
+            <button type="button" className="icon-btn sm web-hide" onClick={hidePanel} aria-label="오른쪽 칸 숨기기" title="오른쪽 칸 숨기기 (본 화면 넓게) · 위 '보기'에서 다시 열기">
+              <PanelRightClose size={13} />
+            </button>
+          </div>
+          <RightSchedule />
+        </>
+      ) : (
+      <>
       <div className="web-bar">
         <div className="web-tabs grow" role="tablist" aria-label="검색 종류">
           {ENGINES.map(([k, l]) => (
@@ -751,6 +769,8 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
         </div>
       )}
       {q && !native && me.role === 'admin' && <CxSetting cx={cx} />}
+      </>
+      )}
     </aside>,
     slot ?? document.body,
   )

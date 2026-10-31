@@ -2874,3 +2874,46 @@ html.detail-full .detail-col.full .col-resize { display: none; }
 .vendor-sheet.one-line .ps-in.num { font-size: 11.5px; padding: 0 4px; letter-spacing: -0.2px; }
 .vendor-sheet.one-line td.vs-stage > .ps-in:first-child { width: 62%; }
 .vendor-sheet.one-line td.vs-stage > .ps-in.vs-day { width: 38%; }
+/* 재무 세분화: 돈의 흐름 막대 + 세부 숫자 */
+.mflow { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
+.mflow-row { display: grid; grid-template-columns: 34px 1fr 96px; align-items: center; gap: 8px; font-size: 12px; }
+.mflow-name { color: var(--gray); font-weight: 700; }
+.mflow-bar { display: flex; gap: 2px; height: 14px; background: var(--paper); border-radius: 4px; overflow: hidden; }
+.mflow-bar i, .mflow-key i { display: block; height: 100%; }
+.mflow-val { text-align: right; font-weight: 700; color: #1d2b21; font-variant-numeric: tabular-nums; }
+.mflow .in-done { background: #0b5a24; }
+.mflow .in-open { background: #9cc3a6; }
+.mflow .out-done { background: #c4561d; }
+.mflow .out-open { background: #f0a77e; }
+.mflow .out-est { background: repeating-linear-gradient(45deg, #f0a77e 0 3px, #fbe3d4 3px 6px); }
+.mflow .margin { background: #2a78d6; opacity: 0.85; }
+.mflow-key { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 11px; color: var(--gray); padding-left: 42px; }
+.mflow-key span { display: inline-flex; align-items: center; gap: 4px; }
+.mflow-key i { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
+.mflow-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin: 4px 0 0; }
+.mflow-grid > div { background: var(--paper); border-radius: 8px; padding: 6px 8px; }
+.mflow-grid dt { font-size: 11px; color: var(--gray); }
+.mflow-grid dd { margin: 0; font-size: 13px; font-weight: 700; color: #1d2b21; }
+.mflow-grid .bad { background: #fdece5; } .mflow-grid .bad dd { color: #a33a12; }
+.mflow-grid .warn { background: #fdf5dc; } .mflow-grid .warn dd { color: #7a5600; }
+@media (max-width: 760px) { .mflow-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+/* 오른쪽 칸: 주간 일정표 ↔ 프로젝트 일정 */
+.right-sched { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+.right-tabs { display: flex; gap: 2px; padding: 2px; background: var(--paper); border-radius: 8px; }
+.right-tabs button { flex: 1; padding: 6px 8px; border: 0; border-radius: 6px; background: transparent; font: inherit; font-size: 12px; font-weight: 700; color: var(--gray); cursor: pointer; }
+.right-tabs button.on { background: var(--white); color: var(--blue); box-shadow: 0 1px 2px rgba(18, 40, 24, 0.12); }
+.right-proj .pviz-card { padding: 8px; border: 1px solid var(--line); border-radius: 10px; }
+.right-proj .pviz-tl-name { width: 88px; flex-basis: 88px; }
+.right-plist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.right-pitem { width: 100%; text-align: left; display: flex; flex-direction: column; gap: 3px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--white); cursor: pointer; font: inherit; }
+.right-pitem:hover { border-color: #9cc3a6; }
+.rp-top { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+.rp-top b { flex: 1; min-width: 0; color: #1d2b21; }
+.rp-dday { flex: none; font-size: 11px; font-weight: 700; color: var(--blue); background: var(--blue-tint); border-radius: 999px; padding: 1px 7px; }
+.rp-dday.late { color: #a33a12; background: #fdece5; }
+.rp-bar { height: 4px; background: var(--paper); border-radius: 2px; overflow: hidden; }
+.rp-bar i { display: block; height: 100%; background: #9cc3a6; }
+.rp-task { font-size: 12px; color: #1d2b21; }
+.rp-task em { font-style: normal; color: var(--gray); font-variant-numeric: tabular-nums; margin-right: 4px; }
+.right-bar { min-height: 0; padding: 0; }
+.vendor-sheet.one-line td.vs-2 > select.ps-in:first-child { padding: 0 2px; font-size: 11.5px; }
