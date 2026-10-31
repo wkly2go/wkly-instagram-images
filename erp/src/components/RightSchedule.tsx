@@ -2,15 +2,30 @@
 //   "인터넷 창은 삭제하고 주간 일정표 위치에 프로젝트 스케줄을 이동시켜서 둘 중 하나 선택할 수 있게")
 //   - 프로젝트를 열어 둔 동안: 그 프로젝트 일정(타임라인 · 한 줄 일정 넣기 · 일지로 편집)
 //   - 프로젝트를 열지 않았을 때: 진행 · 기획 중 프로젝트들의 기간 · 다가오는 일정 목록 (누르면 그 프로젝트로)
-import { useState } from 'react'
+import { useState, useSyncExternalStore } from 'react'
+import { X } from 'lucide-react'
 import { useApp, useAsync } from '../lib/app'
 import { addDays, shortDate, todayKey } from '../lib/date'
 import { useRouter } from '../lib/router'
-import type { Project, Task } from '../lib/types'
+import type { Client, Payment, Project, Task } from '../lib/types'
+import { ClientDetail } from '../pages/Clients'
+import { useAction } from '../lib/app'
+import { manwon } from '../lib/date'
 import { ProjectVizLoader } from './ProjectViz'
 import { WeekPanel } from './WeekPanel'
 
 const KEY = 'wkly-right-tab'
+
+/** 협력업체 관리에서 업체를 누르면 오른쪽 칸에 업체 상세 (대표 지시 2026-10-31) */
+type VendorOpen = { name: string; clientId: string | null } | null
+let vendorOpen: VendorOpen = null
+const vListeners = new Set<() => void>()
+export function openVendor(v: VendorOpen) {
+  vendorOpen = v
+  for (const l of vListeners) l()
+}
+const useVendorOpen = () => useSyncExternalStore(cb => (vListeners.add(cb), () => void vListeners.delete(cb)), () => vendorOpen)
+const norm = (s: string) => s.replace(/\s|㈜|\(주\)|주식회사/g, '').toLowerCase()
 type Tab = 'week' | 'project'
 const dd = (a: string, b: string) => Math.round((Date.parse(b) - Date.parse(a)) / 864e5)
 
@@ -40,7 +55,9 @@ export function RightSchedule() {
     [version],
     { projects: [] as Project[], tasks: [] as Task[] },
   )
+  const vendor = useVendorOpen()
   const pid = path.startsWith('/projects') ? query.get('id') : null
+  if (vendor) return <VendorPane v={vendor} onClose={() => openVendor(null)} />
   const project = pid ? data.projects.find(p => p.id === pid) : undefined
 
   return (
@@ -109,5 +126,60 @@ function AllProjects({ projects, tasks, onOpen }: { projects: Project[]; tasks: 
         )
       })}
     </ul>
+  )
+}
+
+/** 오른쪽 칸 업체 상세: 거래처로 등록돼 있으면 거래처 상세 그대로, 아니면 결제 기록 요약 + 거래처로 등록 */
+function VendorPane({ v, onClose }: { v: NonNullable<VendorOpen>; onClose: () => void }) {
+  const { api, version } = useApp()
+  const { navigate } = useRouter()
+  const { busy, run } = useAction()
+  const { data } = useAsync(
+    async () => {
+      const [clients, payments, projects] = await Promise.all([api.listClients(), api.listPayments().catch(() => [] as Payment[]), api.listProjects()])
+      return { clients, payments, projects }
+    },
+    [version],
+    { clients: [] as Client[], payments: [] as Payment[], projects: [] as Project[] },
+  )
+  const client = data.clients.find(c => c.id === v.clientId) ?? data.clients.find(c => norm(c.name) === norm(v.name))
+  const mine = data.payments.filter(p => p.status !== '취소' && (p.payee && norm(p.payee) === norm(v.name)))
+  const byProject = new Map<string, Payment[]>()
+  for (const p of mine) byProject.set(p.project_id ?? '-', [...(byProject.get(p.project_id ?? '-') ?? []), p])
+  const pname = (id: string) => data.projects.find(p => p.id === id)?.name ?? '현장 없음'
+  return (
+    <div className="right-sched vendor-pane">
+      <div className="vp-bar">
+        <b className="grow truncate">{client?.name ?? v.name}</b>
+        <button type="button" className="icon-btn sm" onClick={onClose} aria-label="업체 상세 닫기" title="닫고 일정으로">
+          <X size={14} />
+        </button>
+      </div>
+      {client ? (
+        <ClientDetail key={client.id} client={client} clients={data.clients} onEdit={() => navigate(`/clients?id=${client.id}`)} onBack={onClose} />
+      ) : (
+        <div className="col gap-6">
+          <span className="t-cap">거래처로 등록되지 않은 업체입니다. 등록하면 연락처 · 주고받은 자료 · 리서치가 이 칸에 함께 나옵니다.</span>
+          <button type="button" className="btn btn-blue btn-sm" disabled={busy} onClick={() => void run(() => api.saveClient({ name: v.name, category: '협력사' }), `${v.name}을(를) 협력사로 등록했습니다.`)}>
+            협력사로 등록
+          </button>
+        </div>
+      )}
+      <div className="vp-sec">
+        <b>결제 기록</b> <span className="t-cap">{mine.length}건 · 합계 {manwon(mine.reduce((n, p) => n + p.amount, 0)) || '0'}</span>
+        {[...byProject.entries()].map(([pid, list]) => (
+          <div key={pid} className="vp-proj">
+            <button type="button" className="link-btn strong" onClick={() => pid !== '-' && navigate(`/projects?id=${pid}`)}>
+              {pname(pid)}
+            </button>
+            {list.map(p => (
+              <span key={p.id} className="vp-pay">
+                <em>{p.paid_date ?? p.due_date ?? p.requested_date ?? ''}</em> {p.stage ?? p.title} <b>{manwon(p.amount)}</b> <span className={p.status === '완료' ? 't-blue' : 't-cap'}>{p.status}</span>
+              </span>
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
   )
 }

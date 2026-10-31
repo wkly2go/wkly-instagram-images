@@ -143,7 +143,7 @@ export default function Clients() {
   )
 }
 
-function ClientDetail({ client: c, clients, onEdit, onBack }: { client: Client; clients: Client[]; onEdit: () => void; onBack: () => void }) {
+export function ClientDetail({ client: c, clients, onEdit, onBack }: { client: Client; clients: Client[]; onEdit: () => void; onBack: () => void }) {
   const { api, me, version } = useApp()
   const { navigate } = useRouter()
   const { run } = useAction()

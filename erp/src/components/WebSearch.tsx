@@ -252,7 +252,7 @@ function hidePanel() {
     /* 저장 불가: 이번만 숨김 */
   }
 }
-const showPanel = () => setOpenState(DOCKED)
+export const showPanel = () => setOpenState(DOCKED)
 
 /** 오른쪽 창을 쓸 수 있는 화면: 마우스로 쓰는 넓은 화면 (휴대폰 · 태블릿은 새 탭으로) */
 const panelUsable = () => typeof window !== 'undefined' && window.innerWidth >= 900 && !window.matchMedia?.('(pointer: coarse)').matches

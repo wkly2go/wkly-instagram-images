@@ -2982,3 +2982,14 @@ input[type='radio'] { border-radius: 50% !important; }
 .profile .today-is { border: 0; }
 .profile .side-tools .quick-btn { border-color: rgba(255, 255, 255, 0.28); }
 .proj-overview > span { font-family: var(--font); font-weight: 600; font-size: 12px; }
+/* 협력업체 이름 → 오른쪽 칸 업체 상세 */
+.vendor-sheet .ps-in.vs-name { text-align: left; font-weight: 800; color: var(--blue); cursor: pointer; border: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 3px; }
+.vendor-sheet .ps-in.vs-name:hover { text-decoration-color: var(--blue); background: var(--paper); }
+.vendor-pane { gap: 10px; }
+.vendor-pane .vp-bar { display: flex; align-items: center; gap: 6px; padding-bottom: 6px; border-bottom: 2px solid var(--blue); font-size: 15px; }
+.vendor-pane .vp-sec { display: flex; flex-direction: column; gap: 6px; padding-top: 8px; border-top: 1px solid var(--line); font-size: 12px; }
+.vendor-pane .vp-proj { display: flex; flex-direction: column; gap: 2px; padding: 6px 8px; background: var(--paper); }
+.vendor-pane .vp-pay { display: flex; gap: 6px; align-items: baseline; }
+.vendor-pane .vp-pay em { font-style: normal; font-family: var(--mono); color: var(--gray); font-size: 11px; }
+.vendor-pane .vp-pay b { margin-left: auto; font-family: var(--mono); }
+.vendor-pane .split, .vendor-pane .detail { min-width: 0; }
