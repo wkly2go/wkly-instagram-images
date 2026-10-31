@@ -1,6 +1,6 @@
 // 협력업체 관리 (대표 지시 2026-10-31 "결제 대장은 협력업체 관리로 변경")
 //   업체 1곳 = 1줄: 매입/매출 · 공사구분 · 업체명 · 항목 · 계약형태 · 은행명 · 계좌번호 · 예금주 · 계약금
-//   · 결제 금액(선금 · 중도금 n차 · 잔금 — 칸마다 금액 · 결제 요청일자 · 결제일자, 중도금은 [+ 중도금]으로 칸 추가)
+//   · 결제 금액(선금 · 중도금 n차 · 잔금 — 칸마다 금액 · 결제일자, 중도금은 [+]로 칸 추가 · 결제 요청일은 2026-10-31 지시로 뺌)
 //   · 계산서 발행 여부 · 비고
 //   저장 위치: 단계마다 결제(payments) 한 건 (stage = 선금 / 중도금 n차 / 잔금), 계약금 · 비고는 업체 계약 줄(budget_lines)
 //   매출(수금)의 계약금은 프로젝트 계약(project_finances)
@@ -238,6 +238,11 @@ export function VendorSheet({ projectId, payments, all, lines, finance, onOpen }
   const sumContract = vendors.filter(v => v.dir === '지급').reduce((n, v) => n + (v.contract ?? 0), 0)
   const sumPaid = vendors.filter(v => v.dir === '지급').reduce((n, v) => n + v.paid, 0)
 
+  // 한 화면에 (대표 지시 2026-10-31 "한 화면에서 관리, 결제 요청일 삭제, 자재 입출고처럼 한눈에")
+  //   칸을 두 줄로 묶음: 구분/공사구분 · 업체명/항목 · 계약형태/계산서 · 은행·예금주/계좌번호 · 단계(금액/결제일)
+  const txt = (val: string | null | undefined, onSave: (v: string | null) => void, label: string, cls = '', list?: string) => (
+    <input className={`ps-in ${cls}`} list={list} defaultValue={val ?? ''} placeholder={label} title={label} onBlur={e => e.target.value.trim() !== (val ?? '') && onSave(e.target.value.trim() || null)} onKeyDown={blurOnEnter} aria-label={label} />
+  )
   return (
     <div className="table-wrap pay-sheet-wrap">
       <datalist id="vs-cat">
@@ -251,35 +256,59 @@ export function VendorSheet({ projectId, payments, all, lines, finance, onOpen }
         ))}
       </datalist>
       <table className="pay-sheet vendor-sheet">
+        <colgroup>
+          <col style={{ width: 92 }} />
+          <col style={{ width: '15%' }} />
+          <col style={{ width: 92 }} />
+          <col style={{ width: '13%' }} />
+          <col style={{ width: 90 }} />
+          {stages.map(s => (
+            <col key={s.key} style={{ width: 96 }} />
+          ))}
+          <col style={{ minWidth: 90 }} />
+          <col style={{ width: 26 }} />
+        </colgroup>
         <thead>
           <tr>
-            <th rowSpan={2}>매입/매출</th>
-            <th rowSpan={2}>공사구분</th>
-            <th rowSpan={2}>업체명</th>
-            <th rowSpan={2}>항목</th>
-            <th rowSpan={2}>계약형태</th>
-            <th rowSpan={2}>은행명</th>
-            <th rowSpan={2}>계좌번호</th>
-            <th rowSpan={2}>예금주</th>
-            <th rowSpan={2} className="num" title="매입: 업체 계약금(공급가) · 매출: 프로젝트 계약(공급가)">
+            <th>
+              구분
+              <br />
+              공사구분
+            </th>
+            <th>
+              업체명
+              <br />
+              항목
+            </th>
+            <th>
+              계약형태
+              <br />
+              계산서
+            </th>
+            <th>
+              은행 · 예금주
+              <br />
+              계좌번호
+            </th>
+            <th className="num" title="매입: 업체 계약금(공급가) · 매출: 프로젝트 계약(공급가)">
               계약금
+              <br />
+              진행
             </th>
-            <th colSpan={stages.length} className="vs-group">
-              결제 금액 · 결제 요청일자 · 결제일자
-              <button type="button" className="link-btn t-cap vs-addmid" onClick={() => setExtraMid(n => n + 1)} title="중도금 칸 하나 더">
-                <Plus size={11} /> 중도금
-              </button>
-            </th>
-            <th rowSpan={2}>계산서</th>
-            <th rowSpan={2}>비고</th>
-            <th rowSpan={2} className="ck" />
-          </tr>
-          <tr>
-            {stages.map(s => (
+            {stages.map((s, i) => (
               <th key={s.key} className="vs-stage-h">
                 {s.label}
+                {i === stages.length - 2 && (
+                  <button type="button" className="link-btn vs-addmid" onClick={() => setExtraMid(n => n + 1)} title="중도금 칸 하나 더" aria-label="중도금 추가">
+                    <Plus size={11} />
+                  </button>
+                )}
+                <br />
+                <span className="t-cap">금액 · 결제일</span>
               </th>
             ))}
+            <th>비고</th>
+            <th className="ck" />
           </tr>
         </thead>
         <tbody>
@@ -287,69 +316,57 @@ export function VendorSheet({ projectId, payments, all, lines, finance, onOpen }
             const rate = v.contract ? Math.round((v.paid / v.contract) * 100) : null
             return (
               <tr key={`${v.key}:${v.items.map(p => p.updated_at).join()}:${v.line?.updated_at ?? ''}`}>
-                <td>
-                  <select className="ps-in w-s" defaultValue={v.dir} onChange={e => saveVendor(v, { direction: e.target.value as Payment['direction'] })} aria-label="매입/매출" disabled={!v.items.length}>
+                <td className="vs-2">
+                  <select className="ps-in" defaultValue={v.dir} onChange={e => saveVendor(v, { direction: e.target.value as Payment['direction'] })} aria-label="매입/매출" disabled={!v.items.length}>
                     <option value="지급">매입</option>
                     <option value="수금">매출</option>
                   </select>
+                  {txt(v.category, x => saveVendor(v, { category: x }), '공사구분', '', 'vs-cat')}
                 </td>
-                <td>
-                  <input className="ps-in w-m" list="vs-cat" defaultValue={v.category ?? ''} onBlur={e => e.target.value.trim() !== (v.category ?? '') && saveVendor(v, { category: e.target.value.trim() || null })} onKeyDown={blurOnEnter} aria-label="공사구분" />
+                <td className="vs-2">
+                  <input className="ps-in strong" list="vs-payee" defaultValue={v.payee} placeholder="업체명" onBlur={e => e.target.value.trim() && e.target.value.trim() !== v.payee && saveVendor(v, { payee: e.target.value.trim() })} onKeyDown={blurOnEnter} aria-label="업체명" />
+                  {txt(v.title, x => x && saveVendor(v, { title: x }), '항목')}
                 </td>
-                <td>
-                  <input className="ps-in w-m strong" list="vs-payee" defaultValue={v.payee} onBlur={e => e.target.value.trim() && e.target.value.trim() !== v.payee && saveVendor(v, { payee: e.target.value.trim() })} onKeyDown={blurOnEnter} aria-label="업체명" />
-                </td>
-                <td>
-                  <input className="ps-in w-l" defaultValue={v.title} onBlur={e => e.target.value.trim() && e.target.value.trim() !== v.title && saveVendor(v, { title: e.target.value.trim() })} onKeyDown={blurOnEnter} aria-label="항목" />
-                </td>
-                <td>
-                  <select className="ps-in w-m" defaultValue={v.contractType ?? ''} onChange={e => saveVendor(v, { contract_type: (e.target.value || null) as Payment['contract_type'] })} aria-label="계약형태" disabled={!v.items.length}>
-                    <option value="">–</option>
+                <td className="vs-2">
+                  <select className="ps-in" defaultValue={v.contractType ?? ''} onChange={e => saveVendor(v, { contract_type: (e.target.value || null) as Payment['contract_type'] })} aria-label="계약형태" disabled={!v.items.length}>
+                    <option value="">계약형태</option>
                     {CONTRACT_TYPES.map(t => (
                       <option key={t}>{t}</option>
                     ))}
                   </select>
+                  <select className="ps-in" defaultValue={v.invoice ?? '미발행'} onChange={e => e.target.value !== '일부' && saveVendor(v, { tax_invoice: e.target.value as Payment['tax_invoice'] })} aria-label="계산서 발행 여부" disabled={!v.items.length}>
+                    {v.invoice === '일부' && <option value="일부">계산서 일부</option>}
+                    {TAX_INVOICE_STATES.map(t => (
+                      <option key={t} value={t}>
+                        {t === '해당 없음' ? '계산서 없음' : `계산서 ${t}`}
+                      </option>
+                    ))}
+                  </select>
                 </td>
-                <td>
-                  <input className="ps-in w-s" defaultValue={v.bank ?? ''} onBlur={e => e.target.value.trim() !== (v.bank ?? '') && saveVendor(v, { bank_name: e.target.value.trim() || null })} onKeyDown={blurOnEnter} aria-label="은행명" />
+                <td className="vs-2">
+                  <span className="vs-pair">
+                    {txt(v.bank, x => saveVendor(v, { bank_name: x }), '은행')}
+                    {txt(v.holder, x => saveVendor(v, { account_holder: x }), '예금주')}
+                  </span>
+                  {txt(v.account, x => saveVendor(v, { account_no: x }), '계좌번호')}
                 </td>
-                <td>
-                  <input className="ps-in" defaultValue={v.account ?? ''} onBlur={e => e.target.value.trim() !== (v.account ?? '') && saveVendor(v, { account_no: e.target.value.trim() || null })} onKeyDown={blurOnEnter} aria-label="계좌번호" />
-                </td>
-                <td>
-                  <input className="ps-in w-s" defaultValue={v.holder ?? ''} onBlur={e => e.target.value.trim() !== (v.holder ?? '') && saveVendor(v, { account_holder: e.target.value.trim() || null })} onKeyDown={blurOnEnter} aria-label="예금주" />
-                </td>
-                <td className="vs-contract">
+                <td className="vs-2">
                   <input className="ps-in num" inputMode="numeric" defaultValue={money(v.contract)} placeholder="계약금" onBlur={e => { const n = parseMoney(e.target.value) || null; if (n !== v.contract) saveContract(v, { contract_amount: n }) }} onKeyDown={blurOnEnter} aria-label="계약금" />
-                  <span className="t-cap vs-rate" title="결제 완료(공급가) ÷ 계약금">{rate != null ? `${rate}% ${v.dir === '수금' ? '수금' : '지급'}` : v.paid ? `완료 ${manwon(v.paid)}` : ''}</span>
+                  <span className="t-cap vs-rate" title="결제 완료(공급가) ÷ 계약금">{rate != null ? `${rate}% ${v.dir === '수금' ? '수금' : '지급'}` : v.paid ? `완료 ${manwon(v.paid)}` : '–'}</span>
                 </td>
                 {stages.map(s => {
                   const cur = pick(v, s.key)
                   return (
-                    <td key={s.key} className={`vs-stage ${cur && isDone(cur) ? 'done' : ''}`}>
+                    <td key={s.key} className={`vs-2 vs-stage ${cur && isDone(cur) ? 'done' : ''}`}>
                       <input className="ps-in num" inputMode="numeric" defaultValue={money(cur?.amount)} placeholder="금액" onBlur={e => saveStage(v, s.label, cur, { amount: parseMoney(e.target.value) })} onKeyDown={blurOnEnter} aria-label={`${s.label} 결제 금액`} />
-                      <label className="vs-date">
-                        <span>요청</span>
-                        <input className="ps-in" type="date" defaultValue={cur?.requested_date ?? ''} disabled={!cur} onBlur={e => saveStage(v, s.label, cur, { requested_date: e.target.value || null })} aria-label={`${s.label} 결제 요청일자`} />
-                      </label>
-                      <label className="vs-date">
-                        <span>결제</span>
-                        <input className="ps-in" type="date" defaultValue={cur?.paid_date ?? ''} disabled={!cur} onBlur={e => saveStage(v, s.label, cur, { paid_date: e.target.value || null })} aria-label={`${s.label} 결제일자`} />
-                      </label>
+                      <input className="ps-in vs-day" type="date" defaultValue={cur?.paid_date ?? ''} disabled={!cur} onBlur={e => saveStage(v, s.label, cur, { paid_date: e.target.value || null })} aria-label={`${s.label} 결제일자`} title="결제일자 (넣으면 결제 완료)" />
                     </td>
                   )
                 })}
-                <td>
-                  <select className="ps-in w-m" defaultValue={v.invoice ?? '미발행'} onChange={e => e.target.value !== '일부' && saveVendor(v, { tax_invoice: e.target.value as Payment['tax_invoice'] })} aria-label="계산서 발행 여부" disabled={!v.items.length}>
-                    {v.invoice === '일부' && <option value="일부">일부 발행</option>}
-                    {TAX_INVOICE_STATES.map(t => (
-                      <option key={t}>{t}</option>
-                    ))}
-                  </select>
-                </td>
-                <td>
+                <td className="vs-2">
                   <input
-                    className="ps-in w-l"
+                    className="ps-in"
+                    placeholder="비고"
                     defaultValue={(v.dir === '수금' ? v.items.find(live)?.memo : v.line?.memo) ?? ''}
                     onBlur={e => {
                       const t = e.target.value.trim() || null
@@ -374,68 +391,69 @@ export function VendorSheet({ projectId, payments, all, lines, finance, onOpen }
           })}
           {/* 새 업체 */}
           <tr className="ps-new">
-            <td>
-              <select className="ps-in w-s" value={d.dir} onChange={e => setD({ ...d, dir: e.target.value as Payment['direction'] })} aria-label="새 업체 매입/매출">
+            <td className="vs-2">
+              <select className="ps-in" value={d.dir} onChange={e => setD({ ...d, dir: e.target.value as Payment['direction'] })} aria-label="새 업체 매입/매출">
                 <option value="지급">매입</option>
                 <option value="수금">매출</option>
               </select>
+              <input className="ps-in" list="vs-cat" value={d.category} onChange={e => setD({ ...d, category: e.target.value })} onKeyDown={enter} placeholder="공사구분" aria-label="새 업체 공사구분" />
             </td>
-            <td><input className="ps-in w-m" list="vs-cat" value={d.category} onChange={e => setD({ ...d, category: e.target.value })} onKeyDown={enter} placeholder="공사구분" aria-label="새 업체 공사구분" /></td>
-            <td><input className="ps-in w-m" list="vs-payee" value={d.payee} onChange={e => setD({ ...d, payee: e.target.value })} onBlur={e => remember(e.target.value)} onKeyDown={enter} placeholder="업체명" aria-label="새 업체명" /></td>
-            <td><input className="ps-in w-l" value={d.title} onChange={e => setD({ ...d, title: e.target.value })} onKeyDown={enter} placeholder="항목" aria-label="새 업체 항목" /></td>
-            <td>
-              <select className="ps-in w-m" value={d.contractType} onChange={e => setD({ ...d, contractType: e.target.value })} aria-label="새 업체 계약형태">
-                <option value="">–</option>
+            <td className="vs-2">
+              <input className="ps-in strong" list="vs-payee" value={d.payee} onChange={e => setD({ ...d, payee: e.target.value })} onBlur={e => remember(e.target.value)} onKeyDown={enter} placeholder="+ 새 업체명" aria-label="새 업체명" />
+              <input className="ps-in" value={d.title} onChange={e => setD({ ...d, title: e.target.value })} onKeyDown={enter} placeholder="항목" aria-label="새 업체 항목" />
+            </td>
+            <td className="vs-2">
+              <select className="ps-in" value={d.contractType} onChange={e => setD({ ...d, contractType: e.target.value })} aria-label="새 업체 계약형태">
+                <option value="">계약형태</option>
                 {CONTRACT_TYPES.map(t => (
                   <option key={t}>{t}</option>
                 ))}
               </select>
-            </td>
-            <td><input className="ps-in w-s" value={d.bank} onChange={e => setD({ ...d, bank: e.target.value })} onKeyDown={enter} aria-label="새 업체 은행명" /></td>
-            <td><input className="ps-in" value={d.account} onChange={e => setD({ ...d, account: e.target.value })} onKeyDown={enter} aria-label="새 업체 계좌번호" /></td>
-            <td><input className="ps-in w-s" value={d.holder} onChange={e => setD({ ...d, holder: e.target.value })} onKeyDown={enter} aria-label="새 업체 예금주" /></td>
-            <td><input className="ps-in num" inputMode="numeric" value={d.contract ? parseMoney(d.contract).toLocaleString('ko-KR') : ''} onChange={e => setD({ ...d, contract: e.target.value })} onKeyDown={enter} placeholder="계약금" aria-label="새 업체 계약금" disabled={d.dir === '수금'} /></td>
-            {stages.map((s, i) => (
-              <td key={s.key} className="vs-stage">
-                {i === 0 ? (
-                  <>
-                    <input className="ps-in num" inputMode="numeric" value={d.pre ? parseMoney(d.pre).toLocaleString('ko-KR') : ''} onChange={e => setD({ ...d, pre: e.target.value })} onKeyDown={enter} placeholder="선금" aria-label="새 업체 선금" />
-                    <label className="vs-date">
-                      <span>요청</span>
-                      <input className="ps-in" type="date" value={d.preReq} onChange={e => setD({ ...d, preReq: e.target.value })} aria-label="새 업체 선금 결제 요청일자" />
-                    </label>
-                  </>
-                ) : (
-                  <span className="t-cap">추가 후 입력</span>
-                )}
-              </td>
-            ))}
-            <td>
-              <select className="ps-in w-m" value={d.invoice} onChange={e => setD({ ...d, invoice: e.target.value as Payment['tax_invoice'] })} aria-label="새 업체 계산서">
+              <select className="ps-in" value={d.invoice} onChange={e => setD({ ...d, invoice: e.target.value as Payment['tax_invoice'] })} aria-label="새 업체 계산서">
                 {TAX_INVOICE_STATES.map(t => (
-                  <option key={t}>{t}</option>
+                  <option key={t} value={t}>
+                    {t === '해당 없음' ? '계산서 없음' : `계산서 ${t}`}
+                  </option>
                 ))}
               </select>
             </td>
-            <td><input className="ps-in w-l" value={d.memo} onChange={e => setD({ ...d, memo: e.target.value })} onKeyDown={enter} placeholder="비고" aria-label="새 업체 비고" /></td>
+            <td className="vs-2">
+              <span className="vs-pair">
+                <input className="ps-in" value={d.bank} onChange={e => setD({ ...d, bank: e.target.value })} onKeyDown={enter} placeholder="은행" aria-label="새 업체 은행명" />
+                <input className="ps-in" value={d.holder} onChange={e => setD({ ...d, holder: e.target.value })} onKeyDown={enter} placeholder="예금주" aria-label="새 업체 예금주" />
+              </span>
+              <input className="ps-in" value={d.account} onChange={e => setD({ ...d, account: e.target.value })} onKeyDown={enter} placeholder="계좌번호" aria-label="새 업체 계좌번호" />
+            </td>
+            <td className="vs-2">
+              <input className="ps-in num" inputMode="numeric" value={d.contract ? parseMoney(d.contract).toLocaleString('ko-KR') : ''} onChange={e => setD({ ...d, contract: e.target.value })} onKeyDown={enter} placeholder="계약금" aria-label="새 업체 계약금" disabled={d.dir === '수금'} />
+            </td>
+            {stages.map((s, i) => (
+              <td key={s.key} className="vs-2 vs-stage">
+                {i === 0 ? (
+                  <input className="ps-in num" inputMode="numeric" value={d.pre ? parseMoney(d.pre).toLocaleString('ko-KR') : ''} onChange={e => setD({ ...d, pre: e.target.value })} onKeyDown={enter} placeholder="선금" aria-label="새 업체 선금" />
+                ) : null}
+              </td>
+            ))}
+            <td className="vs-2">
+              <input className="ps-in" value={d.memo} onChange={e => setD({ ...d, memo: e.target.value })} onKeyDown={enter} placeholder="비고" aria-label="새 업체 비고" />
+            </td>
             <td className="ck">
-              <Button size="sm" disabled={busy || !d.payee.trim() || (!parseMoney(d.pre) && !parseMoney(d.contract) && !d.memo.trim())} onClick={() => void add()}>
-                추가
+              <Button size="sm" disabled={busy || !d.payee.trim() || (!parseMoney(d.pre) && !parseMoney(d.contract) && !d.memo.trim())} onClick={() => void add()} aria-label="업체 추가">
+                <Plus size={12} />
               </Button>
             </td>
           </tr>
         </tbody>
         <tfoot>
           <tr>
-            <td colSpan={8} className="t-cap">
-              {vendors.length}곳 · 노란 칸에 바로 적으면 저장 · 결제일자를 넣으면 그 단계 완료 · 금액을 지우면 그 단계 취소
+            <td colSpan={4} className="t-cap">
+              {vendors.length}곳 · 노란 칸에 바로 적으면 저장 · 결제일을 넣으면 그 단계 완료 · 금액을 지우면 그 단계 취소
             </td>
             <td className="num">{money(sumContract)}</td>
-            <td colSpan={stages.length} className="t-cap">
+            <td colSpan={stages.length + 2} className="t-cap">
               매입 결제 완료 {manwon(sumPaid) || '0'}
               {sumContract ? ` · 계약 대비 ${Math.round((sumPaid / sumContract) * 100)}%` : ''} (공급가)
             </td>
-            <td colSpan={3} />
           </tr>
         </tfoot>
       </table>

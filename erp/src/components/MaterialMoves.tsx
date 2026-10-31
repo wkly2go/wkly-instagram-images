@@ -16,7 +16,8 @@ import { ask } from './Ask'
 const KIND_ICON = { 입고: PackagePlus, 출고: PackageMinus, 반품: Undo2 }
 const empty = (kind: MaterialMoveKind = '입고') => ({ kind, name: '', spec: '', unit: '', qty: '', price: '', supplier: '', evidence: '세금계산서' as EvidenceKind, paid: false, invoice: false, date: todayKey(), materialId: '' })
 
-export function MaterialMoves({ project, clients }: { project: Project; clients: Client[] }) {
+/** day · embedded: 현장 작업일지 안에 넣을 때 (대표 지시 2026-10-31 "작업일지에 자재 입출고 포함, 별도로 만들지 마") — 그날 기록만 보이고 날짜는 일지 날짜 */
+export function MaterialMoves({ project, clients, day, embedded }: { project: Project; clients: Client[]; day?: string; embedded?: boolean }) {
   const { api, version, me, profileName } = useApp()
   const { busy, run } = useAction()
   const { data } = useAsync(
@@ -29,7 +30,7 @@ export function MaterialMoves({ project, clients }: { project: Project; clients:
   )
   const [f, setF] = useState(empty)
   const [showAll, setShowAll] = useState(false)
-  useEffect(() => setF(empty()), [project.id])
+  useEffect(() => setF({ ...empty(), date: day ?? todayKey() }), [project.id, day])
 
   // 고르기 후보: 이 프로젝트에서 쓴 자재 먼저, 그다음 마감재 DB
   const options = useMemo(() => {
@@ -95,13 +96,20 @@ export function MaterialMoves({ project, clients }: { project: Project; clients:
   }
 
   const live = data.moves.filter(m => m.status === '입고')
-  const shown = showAll ? data.moves : data.moves.slice(0, 8)
+  const dayMoves = day ? data.moves.filter(m => m.received_on === day) : data.moves
+  const shown = showAll || day ? dayMoves : dayMoves.slice(0, 8)
   const totalIn = live.filter(m => m.kind === '입고').reduce((n, m) => n + m.qty * m.unit_price, 0) - live.filter(m => m.kind === '반품').reduce((n, m) => n + m.qty * m.unit_price, 0)
   const stockRows = data.stock.filter(s => s.qty_in || s.qty_out).sort((a, b) => a.name.localeCompare(b.name, 'ko'))
 
   return (
-    <section className="section mat-moves" aria-label="자재 입출고">
-      <SectionHead title="자재 입출고" count={live.length ? String(live.length) : undefined} right={<span className="t-cap">{totalIn ? `자재비 ${manwon(totalIn)} (공급가)` : '입고하면 지급에 자동 등록'}</span>} />
+    <section className={`${embedded ? '' : 'section '}mat-moves`} aria-label="자재 입출고">
+      {embedded ? (
+        <div className="site-sec">
+          다. 자재 입출고 (입고 · 출고 · 반품) <span className="t-cap">입고 · 반품은 협력업체 관리(지급)에 자동 등록{totalIn ? ` · 현장 자재비 ${manwon(totalIn)} (공급가)` : ''}</span>
+        </div>
+      ) : (
+        <SectionHead title="자재 입출고" count={live.length ? String(live.length) : undefined} right={<span className="t-cap">{totalIn ? `자재비 ${manwon(totalIn)} (공급가)` : '입고하면 지급에 자동 등록'}</span>} />
+      )}
 
       {/* 한 줄 입력 */}
       <div className="mat-form">
@@ -235,7 +243,7 @@ export function MaterialMoves({ project, clients }: { project: Project; clients:
               </div>
             )
           })}
-          {data.moves.length > 8 && (
+          {!day && data.moves.length > 8 && (
             <button type="button" className="link-btn t-cap" onClick={() => setShowAll(v => !v)}>
               {showAll ? '접기' : `${data.moves.length - 8}건 더 보기`}
             </button>

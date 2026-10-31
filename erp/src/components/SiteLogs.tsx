@@ -1,11 +1,11 @@
+import { DayReport, SiteEntryBar } from './SiteDaily'
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
-import { Camera, ExternalLink, Pencil, Plus, Printer, Trash2, X } from 'lucide-react'
+import { Camera, ExternalLink, Pencil, Printer, Trash2, X } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
-import { shortDate, todayKey, weekday } from '../lib/date'
-import { SITE_MATERIAL_ITEMS, SITE_SIGNERS, SITE_TRADES, type Project, type SiteLabor, type SiteLog, type SiteMaterial, type SiteSigner } from '../lib/types'
+import { shortDate, weekday } from '../lib/date'
+import { SITE_SIGNERS, SITE_TRADES, type Client, type MaterialMove, type Project, type SiteLabor, type SiteLog, type SiteMaterial, type SiteSigner } from '../lib/types'
 import { Board } from './Board'
 import { Button, SectionHead } from './ui'
-import { useSuppressDetail } from './RightPanel'
 import { ask } from './Ask'
 
 /**
@@ -21,76 +21,56 @@ const num = (v: string) => (v === '' ? 0 : Math.max(0, Number(v.replace(/[^\d.]/
 const laborKey = (l: Pick<SiteLabor, 'group' | 'trade'>) => `${l.group}|${l.trade}`
 const dayTotal = (l: SiteLabor) => (l.day || 0) + (l.night || 0)
 
-function blankLabor(): SiteLabor[] {
-  return SITE_TRADES.map(([group, trade, contract]) => ({ group, trade, contract, day: 0, night: 0, vendor: '', note: '' }))
-}
-function blankMaterials(): SiteMaterial[] {
-  return SITE_MATERIAL_ITEMS.map(item => ({ item, spec: '', qty: 0, amount: 0, vendor: '' }))
-}
-
 /** 프로젝트 상세 안 '현장 작업일지' 칸. always 가 아니면 작업일지가 있을 때만 보임 */
-export function SiteLogsSection({ project, always }: { project: Project; always?: boolean }) {
+export function SiteLogsSection({ project, always, clients = [] }: { project: Project; always?: boolean; clients?: Client[] }) {
   const { api, version } = useApp()
-  const { busy, run } = useAction()
   const { data: logs } = useAsync(() => api.listSiteLogs(project.id), [project.id, version], [] as SiteLog[])
-  const [open, setOpen] = useState<SiteLog | 'new' | null>(null)
-  const [preview, setPreview] = useState<SiteLog | null>(null)
-  useSuppressDetail(!!open || !!preview)
+  const { data: moves } = useAsync(() => api.listMaterialMoves(project.id).catch(() => [] as MaterialMove[]), [project.id, version], [] as MaterialMove[])
+  const [editId, setEditId] = useState<string | null>(null)
+  // 별도 화면 대신 그 줄 바로 아래로 펼쳐서 작성 · 보기 (대표 지시 2026-10-31 "이 화면에서 작성, 아래로 펼쳐지는 형태로")
+  const [openId, setOpenId] = useState<string | null>(null)
+  const [previewId, setPreviewId] = useState<string | null>(null)
+  const setOpen = (l: SiteLog | null) => (setPreviewId(null), setEditId(null), setOpenId(l ? (openId === l.id ? null : l.id) : null))
+  const setPreview = (l: SiteLog | null) => (setOpenId(null), setEditId(null), setPreviewId(l ? (previewId === l.id ? null : l.id) : null))
+  const matOf = (d: string) => moves.filter(m => m.received_on === d && m.status !== '취소' && m.kind !== '출고').reduce((n, m) => n + (m.kind === '반품' ? -1 : 1) * m.qty * m.unit_price, 0)
   if (!always && logs.length === 0) return null
-  const create = async () => {
-    const today = todayKey()
-    const exist = logs.find(l => l.log_date === today)
-    if (exist) return setOpen(exist)
-    const prev = logs[0]
-    let created: SiteLog | null = null
-    const ok = await run(async () => {
-      created = await api.saveSiteLog({
-        project_id: project.id,
-        log_date: today,
-        weather: null,
-        site_manager: prev?.site_manager ?? null,
-        staff: prev?.staff ?? null,
-        // 직전 장의 공종 · 계약 · 협력사는 이어받고 인원 · 금액만 비움
-        labor: prev ? prev.labor.map(l => ({ ...l, day: 0, night: 0, note: '' })) : blankLabor(),
-        materials: prev ? prev.materials.map(m => ({ ...m, qty: 0, amount: 0 })) : blankMaterials(),
-        today_work: null,
-        next_work: prev?.next_work ?? null,
-        photos: [],
-        events: null,
-        signs: {},
-      })
-    }, '오늘 작업일지를 만들었습니다.')
-    if (ok && created) setOpen(created)
-  }
   return (
     <div className="col gap-6">
       <SectionHead
         title="현장 작업일지"
         count={logs.length ? `${logs.length}장` : undefined}
-        right={
-          <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={create}>
-            <Plus size={12} /> 오늘 작업일지
-          </button>
-        }
+        right={<span className="t-cap">한 건씩 기록하면 날짜별 보고서로 묶입니다</span>}
       />
+      <SiteEntryBar project={project} logs={logs} clients={clients} moves={moves} />
       <Board<SiteLog>
         rows={logs}
         rowKey={l => l.id}
         compact
         // 드라이브에 저장된 일지는 화면 안에서 드라이브 문서로 보기, 아직이면 바로 일지 열기
-        onRow={l => (driveId(l) ? (setOpen(null), setPreview(l)) : (setPreview(null), setOpen(l)))}
-        empty="아직 작업일지가 없습니다. '오늘 작업일지'를 누르면 엑셀 양식과 같은 일지가 만들어집니다."
+        // 줄을 누르면 바로 아래로 펼쳐 작성 (드라이브 문서 보기는 '보기')
+        onRow={l => setOpen(l)}
+        selectedId={openId ?? previewId}
+        expand={l =>
+          editId === l.id ? (
+            <SiteLogSheet key={l.id + l.updated_at} log={l} all={logs} project={project} onClose={() => (setEditId(null), setOpenId(l.id))} />
+          ) : openId === l.id ? (
+            <DayReport project={project} log={l} moves={moves} onEdit={() => (setOpenId(null), setEditId(l.id))} />
+          ) : previewId === l.id ? (
+            <DrivePreview key={l.id} log={l} onEdit={() => (setPreviewId(null), setEditId(l.id))} onClose={() => setPreviewId(null)} />
+          ) : null
+        }
+        empty="아직 기록이 없습니다. 위 칸에 작업 · 인원 · 자재 · 특이사항을 한 건씩 기록하면 날짜별 보고서로 묶입니다."
         cols={[
           { key: 'date', label: '작성일자', width: 90, cell: l => <span className="t-meta">{shortDate(l.log_date)} ({weekday(l.log_date)})</span> },
           { key: 'weather', label: '날씨', width: 56, cell: l => l.weather || '-' },
           {
             key: 'work',
-            label: '금일 공정',
+            label: '금일 작업',
             kind: 'title',
-            cell: l => <span className="t-small">{(l.today_work ?? '').split('\n')[0] || '-'}</span>,
+            cell: l => <span className="t-small">{[...l.labor.filter(x => (x.day || 0) + (x.night || 0) > 0 || x.note?.trim()).map(x => x.note ? `${x.trade} ${x.note}` : x.trade), ...(l.today_work ?? '').split('\n').filter(Boolean)].join(' · ') || '-'}</span>,
           },
           { key: 'crew', label: '인원(주/야)', width: 80, kind: 'num', cell: l => `${l.labor.reduce((n, x) => n + (x.day || 0), 0)} / ${l.labor.reduce((n, x) => n + (x.night || 0), 0)}` },
-          { key: 'mat', label: '자재 지급', width: 90, kind: 'num', cell: l => won(l.materials.reduce((n, m) => n + (m.amount || 0), 0)) },
+          { key: 'mat', label: '자재', width: 90, kind: 'num', cell: l => won(matOf(l.log_date) + l.materials.reduce((n, m) => n + (m.amount || 0), 0)) },
           {
             key: 'drive',
             label: '드라이브',
@@ -99,10 +79,10 @@ export function SiteLogsSection({ project, always }: { project: Project; always?
             cell: l =>
               l.drive_url ? (
                 <span className="row" style={{ gap: 4, justifyContent: 'center' }} onClick={e => e.stopPropagation()}>
-                  <button type="button" className="link-btn t-cap" onClick={() => (setOpen(null), setPreview(l))}>
+                  <button type="button" className="link-btn t-cap" onClick={() => setPreview(l)}>
                     {l.synced_at && l.updated_at > l.synced_at ? '저장 대기' : '보기'}
                   </button>
-                  <button type="button" className="icon-btn sm" aria-label="일지 수정" title="수정" onClick={() => (setPreview(null), setOpen(l))}>
+                  <button type="button" className="icon-btn sm" aria-label="일지 수정" title="수정" onClick={() => setOpen(l)}>
                     <Pencil size={11} />
                   </button>
                 </span>
@@ -125,8 +105,6 @@ export function SiteLogsSection({ project, always }: { project: Project; always?
           },
         ]}
       />
-      {preview && <DrivePreview key={preview.id} log={preview} onEdit={() => (setPreview(null), setOpen(preview))} onClose={() => setPreview(null)} />}
-      {open && open !== 'new' && <SiteLogSheet key={open.id} log={open} all={logs} project={project} onClose={() => setOpen(null)} />}
     </div>
   )
 }
@@ -401,6 +379,7 @@ function SiteLogSheet({ log, all, project, onClose }: { log: SiteLog; all: SiteL
         <button type="button" className="link-btn t-cap no-print" onClick={() => set({ materials: [...d.materials, { item: '', spec: '', qty: 0, amount: 0, vendor: '' }] })}>
           + 줄 추가
         </button>
+
 
         <div className="site-work">
           <label>

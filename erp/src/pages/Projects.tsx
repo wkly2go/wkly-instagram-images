@@ -15,7 +15,6 @@ import { Board, type BoardCol } from '../components/Board'
 import { Shell } from '../components/Shell'
 import { Badge, Button, Chip, Empty, Field, FilterGroup, KindTag, Modal, SectionHead, StatusBadge, ViewTabs } from '../components/ui'
 import { NewApproval } from './Approvals'
-import { MaterialMoves } from '../components/MaterialMoves'
 import { FinancePanel } from '../components/FinancePanel'
 import { ProjectVizLoader } from '../components/ProjectViz'
 import { ProjectMails } from '../components/ProjectMails'
@@ -814,12 +813,10 @@ function ProjectDetail({ project: p, data, onEdit, onBack, panel = false }: { pr
           <ContactTimeline logs={extra.logs} projects={[]} showContact contacts={extra.contacts} />
         </div>
       </div>
-      {/* ⑤ 결제 대장 ⑥ 자재 입출고 ⑦ 현장 작업일지 (대표 지시 2026-10-31) */}
+      {/* ⑤ 협력업체 관리 ⑥ 현장 작업일지(자재 입출고 포함 — 별도 칸 없음, 대표 지시 2026-10-31) */}
       <FinancePanel project={p} clients={data.clients} projects={data.projects} part="ledger" />
-      {/* 자재 입출고: 입고 · 반품은 결제 대장(지급)에 자동 등록 */}
-      <MaterialMoves project={p} clients={data.clients} />
       {/* 인테리어(아트리어 · AR)는 현장 작업일지 늘, 다른 프로젝트는 작업일지가 있을 때만 */}
-      <SiteLogsSection project={p} always={projectBrand(p) === 'AR'} />
+      <SiteLogsSection project={p} always={projectBrand(p) === 'AR'} clients={data.clients} />
       {/* 구글 드라이브 자료: 드라이브 파일을 가리켜 늘 최신 · 구글 문서는 편집 화면으로 */}
       <ProjectDriveSection project={p} />
       {/* 회사 메일함에서 이 프로젝트 · 거래처와 연결된 메일 (지메일 · 읽기만) */}
