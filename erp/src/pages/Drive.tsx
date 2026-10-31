@@ -97,8 +97,8 @@ export default function Drive() {
             <span className="t-cap">드라이브에서 폴더를 열고 주소창의 주소를 그대로 붙여 넣으세요. 팀원에게 그 폴더 공유 권한이 있어야 열립니다.</span>
           </div>
         )}
-        <ProjectFoldersSync />
         <ClientIdSetting />
+        <ProjectFoldersSync />
           </details>
         )}
       </div>
@@ -547,8 +547,8 @@ function ClientIdSetting() {
   const [v, setV] = useState('')
   useEffect(() => setV(cur ?? ''), [cur])
   return (
-    <details className="web-setting">
-      <summary className="t-cap">구글 로그인 연결 (관리자 · 웹 브라우저용){cur ? ' · 연결됨' : ''}</summary>
+    <details className="web-setting client-id-setting" open={!cur}>
+      <summary className="t-bodyb">① 구글 로그인 연결 · 클라이언트 ID 입력{cur ? ' · 저장됨 ✓' : ' (여기에 붙여 넣기)'}</summary>
       <ol className="t-cap">
         <li>
           <a href="https://console.cloud.google.com/apis/library/drive.googleapis.com" target="_blank" rel="noreferrer" data-external>
