@@ -1212,4 +1212,18 @@ export interface FieldUpload {
   agent_note: string | null
   created_at: string
 }
+/** 메일 첨부를 드라이브 수신방에 저장한 것 */
+export interface MailFile {
+  id: string
+  mail_id: string
+  thread_id: string | null
+  name: string
+  kind: '첨부' | '세금계산서' | '계약서'
+  vendor: string
+  client_id: string | null
+  project_ids: string[]
+  drive_url: string
+  folder_id: string
+  sent_at: string | null
+}
 export const gmailThreadUrl = (threadId: string) => `https://mail.google.com/mail/u/0/#all/${threadId}`
