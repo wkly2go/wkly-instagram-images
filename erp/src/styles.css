@@ -2800,3 +2800,43 @@ html.detail-full .detail-col.full .col-resize { display: none; }
 @media (max-width: 700px) {
   .proj-detail > .section, .proj-detail > .col, .proj-detail > .proj-top3 > * { padding: 12px; border-radius: 10px; }
 }
+/* 프로젝트 개요: 머리줄 아래 고정 네비게이션 */
+.proj-detail .proj-sticky { position: sticky; top: 0; z-index: 6; background: var(--white); border-bottom: 1px solid var(--line); margin: -4px 0 -2px; box-shadow: 0 6px 12px -10px rgba(18, 40, 24, 0.25); }
+.proj-detail .proj-sticky .proj-head { position: static; border-bottom: 0; margin: 0; padding: 10px 2px 6px; }
+.proj-overview { display: flex; gap: 6px; flex-wrap: nowrap; overflow-x: auto; padding: 0 2px 10px; scrollbar-width: none; }
+.proj-overview::-webkit-scrollbar { display: none; }
+.proj-overview > span { flex: none; display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--paper); font-size: 12px; color: #1d2b21; white-space: nowrap; }
+.proj-overview > span em { font-style: normal; font-size: 11px; color: var(--gray); }
+.proj-overview > span.po-desc { flex: 1 1 auto; min-width: 120px; max-width: 420px; overflow: hidden; text-overflow: ellipsis; display: inline-block; line-height: 20px; }
+.proj-overview a { color: var(--blue); }
+.proj-top3 { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); }
+/* 공간 효율 (대표 지시 2026-10-31 "페이지를 가장 효율적으로") — 여백 · 높이 줄이고 촘촘하게 */
+.proj-detail { gap: 10px; }
+.proj-detail > .section,
+.proj-detail > .col,
+.proj-detail > .proj-top3 > *,
+.proj-detail > .proj-side-row > *,
+.proj-detail > .pviz-card,
+.proj-detail .pviz-row > .pviz-card { padding: 10px 12px; border-radius: 10px; box-shadow: 0 1px 2px rgba(18, 40, 24, 0.05); }
+.proj-detail > .proj-top3 { gap: 10px; }
+.proj-detail .section-h { padding-bottom: 4px; margin-bottom: 0; min-height: 26px; }
+.proj-detail .section-h .t-bodyb, .proj-detail .pviz-h b { font-size: 14px; }
+.proj-detail .section { gap: 6px; }
+/* 재무 4칸: 한 줄 · 낮게 */
+.proj-detail .fin-tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.proj-detail .fin-tile { padding: 8px 10px 8px 14px; gap: 2px; }
+.proj-detail .fin-num { font-size: 18px; line-height: 1.2; }
+.proj-detail .fin-tile .meter { display: none; }
+@media (max-width: 760px) { .proj-detail .fin-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+/* 일정 · 알람 */
+.proj-detail .pviz-card { gap: 6px; }
+.proj-detail .pviz-tl-row { min-height: 18px; }
+.proj-detail .pviz-alarms { gap: 4px; }
+/* 표 · 기입 줄 */
+.proj-detail .board td { padding-top: 6px; padding-bottom: 6px; }
+.proj-detail .site-entry { padding: 6px; gap: 4px; }
+.proj-detail .site-entry .input, .proj-detail .site-entry .select { height: 30px; }
+.proj-detail .contract-goal { padding: 4px 8px; }
+.proj-detail .vendor-sheet .ps-in, .proj-detail .vendor-sheet select.ps-in { height: 28px; }
+.proj-detail .proj-overview { padding-bottom: 8px; }
+.proj-detail .proj-sticky .proj-head { padding: 8px 2px 4px; }

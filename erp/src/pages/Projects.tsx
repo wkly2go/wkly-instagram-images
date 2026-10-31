@@ -711,6 +711,7 @@ function ProjectDetail({ project: p, data, onEdit, onBack, panel = false }: { pr
 
   return (
     <div className="proj-detail">
+      <div className="proj-sticky">
       <div className="row wrap proj-head">
         <button type="button" className="icon-btn" onClick={onBack} aria-label="목록으로">
           <ArrowLeft size={18} />
@@ -764,6 +765,38 @@ function ProjectDetail({ project: p, data, onEdit, onBack, panel = false }: { pr
           </Button>
         )}
       </div>
+      {/* 프로젝트 개요: 머리줄 아래 네비게이션처럼 고정 (대표 지시 2026-10-31) */}
+      <nav className="proj-overview" aria-label="프로젝트 개요">
+        <span>
+          <em>연번</em>
+          {p.code ?? '-'}
+        </span>
+        <span>
+          <em>거래처</em>
+          {client ? <Link to={`/clients?id=${client.id}`}>{client.name}</Link> : '자체'}
+        </span>
+        <span>
+          <em>담당</em>
+          {p.owner_id ? profileName(p.owner_id) : '-'}
+        </span>
+        <span>
+          <em>기간</em>
+          {p.start_date && p.end_date ? `${dateLabel(p.start_date)} – ${dateLabel(p.end_date)}` : p.start_date ? `${dateLabel(p.start_date)} 시작` : p.end_date ? `${dateLabel(p.end_date)} 마감` : '기간 미정'}
+        </span>
+        {p.location && (
+          <span>
+            <em>장소</em>
+            {p.location}
+          </span>
+        )}
+        {p.description && (
+          <span className="po-desc" title={p.description}>
+            <em>설명</em>
+            {p.description.split('\n')[0]}
+          </span>
+        )}
+      </nav>
+      </div>
       {/* 순서 (대표 지시 2026-10-31): ① 할 일 · 프로젝트 개요 · 입출금 알람 (한 줄) ② 재무 ③ 프로젝트 일정 ④ 협력업체 관리 ⑤ 현장 작업일지 */}
       {/* 맨 위 한 줄: 할 일 · 프로젝트 개요 · 입출금 알람 (대표 지시 2026-10-31) */}
       <div className="proj-top3">
@@ -779,30 +812,6 @@ function ProjectDetail({ project: p, data, onEdit, onBack, panel = false }: { pr
           />
           <TaskAdder projectId={p.id} defaultAssignee={me.id} />
         </div>
-      <div className="box">
-        <dl className="kv">
-          <dt>연번</dt>
-          <dd>{p.code ?? '-'} <span className="t-cap">· 드라이브 폴더 이름과 같은 번호</span></dd>
-          <dt>거래처</dt>
-          <dd>{client ? <Link to={`/clients?id=${client.id}`}>{client.name}</Link> : '자체'}</dd>
-          <dt>담당</dt>
-          <dd>{p.owner_id ? profileName(p.owner_id) : '-'}</dd>
-          <dt>기간</dt>
-          <dd>{p.start_date && p.end_date ? `${dateLabel(p.start_date)} – ${dateLabel(p.end_date)}` : p.start_date ? `${dateLabel(p.start_date)} 시작 · 종료일 미정` : p.end_date ? `${dateLabel(p.end_date)} 마감 · 시작일 미정` : '기간 미정'}</dd>
-          {p.location && (
-            <>
-              <dt>장소</dt>
-              <dd>{p.location}</dd>
-            </>
-          )}
-          {p.description && (
-            <>
-              <dt>설명</dt>
-              <dd className="pre">{p.description}</dd>
-            </>
-          )}
-        </dl>
-      </div>
       <ProjectVizLoader project={p} part="alarm" />
       </div>
       <FinancePanel project={p} clients={data.clients} projects={data.projects} part="viz" />
