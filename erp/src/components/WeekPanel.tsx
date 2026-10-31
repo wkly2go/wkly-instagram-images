@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { ChevronLeft, ChevronRight, Pencil, Plus } from 'lucide-react'
 import { useApp, useAsync } from '../lib/app'
 import { addDays, todayKey } from '../lib/date'
@@ -6,6 +6,7 @@ import { Linkify } from './ui'
 import { useRouter } from '../lib/router'
 import type { Project, Task } from '../lib/types'
 import { TaskAssignModal } from '../pages/Schedule'
+import { hidePanelNative } from './WebSearch'
 
 /**
  * 오른쪽 칸 주간 일정표 (대표 지시 2026-10-23 "오른쪽에는 주간 일정표, 인터넷 검색이 필요하면 주간 일정표는 사라지고")
@@ -21,6 +22,12 @@ export function WeekPanel() {
   const { api, me, version, profileName } = useApp()
   const { navigate } = useRouter()
   const today = todayKey()
+  // PC 프로그램: 일정표가 보이는 동안 인터넷 칸이 겹쳐 남지 않게 (처음 · 창으로 돌아올 때)
+  useEffect(() => {
+    hidePanelNative()
+    window.addEventListener('focus', hidePanelNative)
+    return () => window.removeEventListener('focus', hidePanelNative)
+  }, [])
   const [from, setFrom] = useState(today)
   const [mine, setMine] = useState(false)
   const [adding, setAdding] = useState<string | null>(null)

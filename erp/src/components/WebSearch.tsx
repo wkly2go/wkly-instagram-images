@@ -355,6 +355,14 @@ export function visibleRect(box: Element, clip?: Element | null): Rect {
   return { x: Math.round(left), y: Math.round(top), width: Math.round(right - left), height: Math.round(bottom - top) }
 }
 
+/** 일정표가 보일 때: 오른쪽 인터넷 칸(PC 프로그램 웹 칸)을 확실히 감추고 닫음 */
+export function hidePanelNative() {
+  const app = desktop()
+  if (!app?.searchOpen || nativeOwner !== 'panel') return
+  nativeShowing = null
+  app.searchBounds?.({ x: 0, y: 0, width: 0, height: 0 })
+  app.searchClose?.()
+}
 /** 드라이브 탭: 웹 칸을 이 자리(rect)에 이 주소로 */
 export function claimNative(url: string, rect: Rect) {
   const app = desktop()
@@ -573,10 +581,10 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
     if (!native || nativeOwner !== 'panel') return
     app!.searchZoom?.(nativeZoom())
     if (!q) {
-      if (nativeShowing) {
-        nativeShowing = null
-        app!.searchClose?.()
-      }
+      // 일정표가 보이는 동안은 인터넷 칸이 절대 겹치지 않게: 늘 0 크기로 감추고 닫음 (대표 지시 2026-10-31 "인터넷 창이 겹치는 오류")
+      nativeShowing = null
+      app!.searchBounds?.({ x: 0, y: 0, width: 0, height: 0 })
+      app!.searchClose?.()
       return
     }
     const url = urlFor(engine, q)
