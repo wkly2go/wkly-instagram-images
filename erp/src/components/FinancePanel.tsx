@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { useAction, useApp, useAsync } from '../lib/app'
-import { addDays, manwon, shortDate, todayKey } from '../lib/date'
-import { isOpen, isOverdue, projectMoney } from '../lib/finance'
+import { manwon, todayKey } from '../lib/date'
+import { projectMoney } from '../lib/finance'
 import { Link } from '../lib/router'
 import type { BudgetLine, Client, Payment, Project, ProjectFinance } from '../lib/types'
 import { Meter } from './charts'
@@ -33,8 +33,6 @@ export function FinancePanel({ project, clients, projects, viz, part }: { projec
   const m = projectMoney(data.finance, data.payments, data.lines, today)
   const ledger = `/projects?view=payments&project=${project.id}`
   const spent = m.paid + m.payable
-  const late = data.payments.filter(p => isOverdue(p, today)).length
-  const next = data.payments.filter(p => p.direction === '지급' && isOpen(p) && !p.is_estimate && p.due_date && p.due_date >= today).sort((a, b) => (a.due_date ?? '').localeCompare(b.due_date ?? ''))[0]
 
   const vizBox = (
     <section className="section fin-viz" aria-label="재무">
@@ -56,13 +54,7 @@ export function FinancePanel({ project, clients, projects, viz, part }: { projec
             <Tile label="예상 마진" value={m.margin != null ? manwon(m.margin) : '–'} sub={m.marginRate != null ? `${Math.round(m.marginRate)}%` : '계약을 넣으면 계산'} tone={m.marginRate != null && m.target != null && m.marginRate < m.target ? 'red' : undefined} />
           </div>
           {/* 세분화 (대표 지시 2026-10-31 "재무 항목을 더 세분화하고 시각화") */}
-          <MoneyFlow payments={data.payments} today={today} />
-          {(late > 0 || next) && (
-            <div className="t-cap">
-              {late > 0 && <span className="t-red">연체 {late}건 · </span>}
-              {next && <>다음 지급 {shortDate(next.due_date)} {next.payee ?? next.title} {manwon(next.amount)}</>}
-            </div>
-          )}
+          {/* 연체 · 7일 안 입출금 · 계산서 · 부가세 · 업체 수는 입출금 알람으로 옮김 (대표 지시 2026-10-31) */}
         </>
       )}
       {viz}
@@ -161,34 +153,3 @@ export function ContractGoal({ project, finance }: { project: Project; finance: 
   )
 }
 
-/** 돈의 흐름: 같은 눈금(계약 또는 더 큰 쪽)에 매출 · 매입 막대 + 세부 숫자 */
-function MoneyFlow({ payments, today }: { payments: Payment[]; today: string }) {
-  const live = payments.filter(p => p.status !== '취소' && !p.is_estimate)
-  const inn = live.filter(p => p.direction === '수금')
-  const out = live.filter(p => p.direction === '지급')
-  const week = addDays(today, 7)
-  const sum = (l: Payment[]) => l.reduce((n, p) => n + p.amount, 0)
-  const lateIn = inn.filter(p => isOpen(p) && p.due_date && p.due_date < today)
-  const soonIn = inn.filter(p => isOpen(p) && p.due_date && p.due_date >= today && p.due_date <= week)
-  const lateOut = out.filter(p => isOpen(p) && p.due_date && p.due_date < today)
-  const soonOut = out.filter(p => isOpen(p) && p.due_date && p.due_date >= today && p.due_date <= week)
-  const noInvIn = inn.filter(p => p.tax_invoice === '미발행')
-  const noInvOut = out.filter(p => p.tax_invoice === '미발행')
-  const vatIn = inn.reduce((n, p) => n + p.vat, 0)
-  const vatOut = out.reduce((n, p) => n + p.vat, 0)
-  return (
-    <div className="mflow">
-      {/* 매출 · 매입 막대 그래프는 뺌 (대표 지시 2026-10-31 "그래프는 삭제") — 세부 숫자만 */}
-      <dl className="mflow-grid">
-        <div className={lateIn.length ? 'bad' : ''}><dt>수금 연체</dt><dd>{lateIn.length ? `${lateIn.length}건 · ${manwon(sum(lateIn))}` : '없음'}</dd></div>
-        <div><dt>7일 안 수금</dt><dd>{soonIn.length ? `${soonIn.length}건 · ${manwon(sum(soonIn))}` : '없음'}</dd></div>
-        <div className={lateOut.length ? 'bad' : ''}><dt>지급 연체</dt><dd>{lateOut.length ? `${lateOut.length}건 · ${manwon(sum(lateOut))}` : '없음'}</dd></div>
-        <div><dt>7일 안 지급</dt><dd>{soonOut.length ? `${soonOut.length}건 · ${manwon(sum(soonOut))}` : '없음'}</dd></div>
-        <div className={noInvIn.length ? 'warn' : ''}><dt>계산서 미발행 (매출)</dt><dd>{noInvIn.length ? `${noInvIn.length}건` : '없음'}</dd></div>
-        <div className={noInvOut.length ? 'warn' : ''}><dt>계산서 미수취 (매입)</dt><dd>{noInvOut.length ? `${noInvOut.length}건` : '없음'}</dd></div>
-        <div><dt>부가세 (매출 − 매입)</dt><dd>{manwon(vatIn - vatOut) || '0'}</dd></div>
-        <div><dt>매입 업체 · 건수</dt><dd>{new Set(out.map(p => (p.payee ?? p.title).trim())).size}곳 · {out.length}건</dd></div>
-      </dl>
-    </div>
-  )
-}
