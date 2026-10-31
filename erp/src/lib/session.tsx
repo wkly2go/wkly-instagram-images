@@ -1,9 +1,8 @@
 /**
  * 로그인 규칙 (PC 프로그램 · 브라우저 · 휴대폰 모두 같음)
  *  - 로그인은 그날만 유지: 날짜가 바뀌면 다시 로그인
- *  - 1시간 동안 조작이 없으면 화면 잠금 → 비밀번호를 다시 넣어야 열림
- *    (PC 프로그램은 컴퓨터 전체 사용 기준 · 화면 잠금 · 절전 때도 잠금)
- *  - 잠금 상태는 이 컴퓨터의 모든 인트라넷 창(빠른 창 포함)에 같이 적용
+ *  - 화면 잠금은 쓰지 않음 (대표 지시 2026-10-31 "화면 잠그는 현상 없애, 너무 불편해")
+ *    예전에 걸린 잠금 표시도 열 때 지움
  */
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { Lock } from 'lucide-react'
@@ -43,11 +42,12 @@ export function markLogin() {
 
 /** 로그인한 동안 규칙 적용. 잠겨 있으면 true */
 export function useSessionPolicy(api: Api, userId: string | null | undefined): { locked: boolean; unlock: () => void } {
-  const [locked, setLocked] = useState(() => get(LOCK_KEY) === '1')
-  const lock = useCallback(() => {
-    set(LOCK_KEY, '1')
-    setLocked(true)
-  }, [])
+  // 화면 잠금 없음: 예전에 걸린 잠금 표시도 지움
+  const [locked, setLocked] = useState(() => {
+    set(LOCK_KEY, null)
+    return false
+  })
+  const lock = useCallback(() => undefined, [])
   const unlock = useCallback(() => {
     markLogin()
     setLocked(false)
@@ -74,7 +74,7 @@ export function useSessionPolicy(api: Api, userId: string | null | undefined): {
     const checkIdle = () => {
       if (bridge) return
       const last = Number(get(LAST_KEY) ?? 0)
-      if (last && Date.now() - last > IDLE_LOCK_MS) lock()
+      if (last && Date.now() - last > IDLE_LOCK_MS) lock() // lock 은 아무것도 안 함 (잠금 없음)
     }
     let lastWrite = 0
     const active = () => {
@@ -94,7 +94,7 @@ export function useSessionPolicy(api: Api, userId: string | null | undefined): {
     const id = window.setInterval(tick, 30_000)
     const onVisible = () => document.visibilityState === 'visible' && tick()
     const onStorage = (e: StorageEvent) => {
-      if (e.key === LOCK_KEY) setLocked(e.newValue === '1')
+      if (e.key === LOCK_KEY && e.newValue === '1') set(LOCK_KEY, null)
     }
     const events = ['pointerdown', 'keydown', 'wheel', 'touchstart', 'mousemove'] as const
     for (const ev of events) window.addEventListener(ev, active, { passive: true, capture: true })
