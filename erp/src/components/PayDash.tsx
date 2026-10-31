@@ -10,7 +10,6 @@ import { Link } from '../lib/router'
 import type { BudgetLine, Payment, Project, ProjectFinance } from '../lib/types'
 import { Meter } from './charts'
 import { Badge } from './ui'
-import { ProjectViz } from './ProjectViz'
 
 const pct = (n: number | null) => (n == null ? '–' : `${Math.round(n)}%`)
 
@@ -189,7 +188,9 @@ function ProjectBoard({ project, payments, lines, fin }: { project: Project; pay
         {ok != null && <Badge tone={ok ? 'acid' : 'yellow'}>{ok ? '목표 달성' : '목표 미달'}</Badge>}
         <span className="t-cap">계약 · 예산은 프로젝트 상세의 재무 칸에서</span>
       </div>
-      <ProjectViz project={project} payments={payments} lines={lines} finance={fin} />
+      <Link to={`/projects?id=${project.id}`} className="pviz-link">
+        이 현장의 일정 · 입출금 알람 · 예산 대 집행 · 비용 구성 대시보드는 프로젝트 상세 맨 위에서 보기 ›
+      </Link>
       {m.overdueOut.length + m.overdueIn.length > 0 && (
         <div className="note warn">
           연체 {m.overdueOut.length + m.overdueIn.length}건: {[...m.overdueIn, ...m.overdueOut].slice(0, 4).map(p => `${p.direction === '수금' ? '[수금] ' : ''}${p.payee ?? p.title} ${manwon(p.amount)}`).join(', ')}

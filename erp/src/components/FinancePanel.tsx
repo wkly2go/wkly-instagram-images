@@ -43,7 +43,6 @@ export function FinancePanel({ project, clients, projects }: { project: Project;
   const [line, setLine] = useState({ category: '', payee: '', budget: '' })
   const m = projectMoney(data.finance, data.payments, data.lines, today)
   const cats = budgetByCategory(data.lines, data.payments)
-  const ok = m.marginRate != null && m.target != null ? m.marginRate >= m.target : null
   const inflow = data.payments.filter(p => p.direction === '수금')
 
   const addQuick = async () => {
@@ -90,37 +89,7 @@ export function FinancePanel({ project, clients, projects }: { project: Project;
           </Button>
         )}
       </div>
-      <div className="kpis" style={{ gridTemplateColumns: 'repeat(4, minmax(0, 1fr))' }}>
-        <div className="kpi">
-          <span className="t-cap">계약액</span>
-          <span className="v">{m.contract != null ? manwon(m.contract) : '–'}</span>
-          <span className="sub">{m.contract != null ? `수금 ${manwon(m.received) || '0'} · 미수 ${manwon(m.receivable) || '0'}` : '계약·목표에서 입력'}</span>
-        </div>
-        <div className="kpi">
-          <span className="t-cap">비용 {m.byBudget ? '(예산)' : '(지급 합계)'}</span>
-          <span className="v">{manwon(m.cost) || '0'}</span>
-          <span className="sub">{m.byBudget ? '지급 내역이 아직 없음' : `완료 ${manwon(m.paid) || '0'} · 미지급 ${manwon(m.payable) || '0'}${m.estimate ? ` · 예상 ${manwon(m.estimate)}` : ''}`}</span>
-        </div>
-        <div className="kpi">
-          <span className="t-cap">마진</span>
-          <span className="v" style={m.margin != null && m.margin < 0 ? { color: 'var(--red)' } : undefined}>
-            {m.margin != null ? manwon(m.margin) : '–'}
-          </span>
-          <span className="sub">{m.overdueOut.length || m.overdueIn.length ? <span className="t-red">연체 {m.overdueOut.length + m.overdueIn.length}건</span> : '연체 없음'}</span>
-        </div>
-        <div className="kpi">
-          <span className="row" style={{ gap: 6 }}>
-            <span className="t-cap grow">마진율</span>
-            {ok != null && <Badge tone={ok ? 'acid' : 'yellow'}>{ok ? '달성' : '미달'}</Badge>}
-          </span>
-          <span className="v">{m.marginRate != null ? `${m.marginRate.toFixed(1)}%` : '–'}</span>
-          <Meter value={Math.max(0, m.marginRate ?? 0)} max={50} target={m.target} red={(m.marginRate ?? 0) < 0} label="마진율" />
-          <span className="sub">
-            목표 {m.target != null ? `${m.target}%` : '–'} · 예산 {m.budget != null ? manwon(m.budget) : '–'}
-          </span>
-        </div>
-      </div>
-
+      {/* 계약 · 비용 · 마진 숫자 요약은 프로젝트 맨 위 대시보드에 (중복 제거 2026-10-31) */}
       <div className="section-h" style={{ marginTop: 6 }}>
         <span className="t-smallb">공사 구분별 실행 예산</span>
         <span className="cap">집행 = 완료 + 미지급 + 예상</span>
