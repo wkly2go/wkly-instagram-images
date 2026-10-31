@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { ChevronRight, ExternalLink, Eye, FileText, Folder, FolderOpen, Link2, LogIn, Pencil, Trash2, Upload, X, FolderPlus } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
-import { useRouter } from '../lib/router'
 import { dateLabel } from '../lib/date'
 import { projectDriveUrl, type DriveIndexFile, type Project, type ProjectDriveFile } from '../lib/types'
-import { serverDriveToken, driveApi, driveIdOf, editUrl, embedUrl, ensureProjectFolder, FILE_FIELDS, fileMeta, FOLDER_MIME, googleLogin, kindOfUrl, nativeGoogle, onTokenChange, previewUrl, readToken, uploadToDrive, type GFile } from '../lib/gdrive'
+import { serverDriveToken, driveApi, driveIdOf, editUrl, ensureProjectFolder, FILE_FIELDS, fileMeta, FOLDER_MIME, googleLogin, kindOfUrl, nativeGoogle, onTokenChange, previewUrl, readToken, uploadToDrive, type GFile } from '../lib/gdrive'
 import { openLink } from './WebSearch'
 import { Button, Empty, Modal, SectionHead } from './ui'
 import { ask } from './Ask'
@@ -15,11 +14,8 @@ import { ask } from './Ask'
  *  - 웹 브라우저: 드라이브 탭의 편집 칸(구글 편집기를 화면 안에)에서 편집 · 안 보이면 새 창 버튼 (대표 지시 2026-10-20 "구글 드라이브 앱내에서 편집 가능하도록")
  */
 export function useOpenDoc() {
-  const { navigate } = useRouter()
-  return (url: string) => {
-    if (nativeGoogle() || embedUrl(url)) navigate(`/drive?doc=${encodeURIComponent(editUrl(url))}`)
-    else openLink(editUrl(url))
-  }
+  // 드라이브 탭은 탐색기만 (2026-10-31) → 문서는 오른쪽 칸(PC 프로그램) · 새 창(웹)에서 편집
+  return (url: string) => openLink(editUrl(url))
 }
 
 /**
