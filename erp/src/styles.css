@@ -973,7 +973,8 @@ button.kpi:hover, a.kpi:hover { border-color: var(--blue); }
 /* 해상도별: 검색 창 폭을 화면에 맞춰 줄이고(최대 36vw), 프로필 칸은 1100px 미만에서만 접음 */
 @media (min-width: 1300px) and (max-width: 1599px) { .web-panel { max-width: 36vw; } }
 @media (min-width: 1100px) and (max-width: 1299px) { .web-panel { max-width: 30vw; } }
-@media (min-width: 900px) and (max-width: 1099px) { html.web-open .body > .profile { display: none; } .web-panel { max-width: 40vw; } }
+/* 왼쪽 메뉴는 항상 고정 (대표 지시 2026-10-31 "이거는 항상 고정") */
+@media (min-width: 900px) and (max-width: 1099px) { .web-panel { max-width: 40vw; } }
 /* 검색 창 위쪽: 한 줄 도구 막대 (검색어 · 종류 · 뒤로/앞으로 · 브라우저 · 닫기) */
 .web-bar { display: flex; align-items: center; gap: 6px; min-width: 0; }
 /* 첫 줄은 한 줄 고정: 넘치면 버튼이 줄어들고 가로로 스크롤 (두 줄로 늘지 않음) */
@@ -1237,7 +1238,6 @@ button.kpi:hover, a.kpi:hover { border-color: var(--blue); }
 .detail-body > .chat-panel { height: 100%; min-height: 0; }
 .detail-body > .memo-pad { width: auto; border-left: 0; padding: 0; background: none; overflow: visible; }
 html.detail-open .web-panel { max-width: 28vw; }
-@media (max-width: 1199px) { html.detail-open .body > .profile { display: none; } }
 /* 입력 창(예전 팝업)도 결과 칸 자리에 펼쳐짐: 열려 있는 동안 결과 칸은 잠시 숨김 */
 /* 결과 칸은 겹쳐 쌓임: 맨 나중에 연 것만 보이고, 닫으면 아래 것이 다시 보임 */
 .detail-slot > .detail-col:not(:last-child) { display: none; }
@@ -2592,6 +2592,10 @@ td .meter { display: block; margin: 3px 0; }
 .g-week .g-wd { display: block; font-size: 0.8em; font-weight: 400; opacity: 0.7; }
 /* 프로젝트 상세 전체 화면 (2026-10-31) */
 html.detail-full .body > main { display: none; }
-html.detail-full .body > .profile { display: none; }
 html.detail-full .detail-col.full { flex: 1 1 auto; max-width: none; }
 html.detail-full .detail-col.full .col-resize { display: none; }
+
+/* 왼쪽 메뉴 고정: 화면을 내려도 그 자리 (PC) */
+@media (min-width: 900px) {
+  .body > .profile { position: sticky; top: 0; align-self: flex-start; max-height: 100vh; overflow-y: auto; flex-shrink: 0; }
+}
