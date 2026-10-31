@@ -12,6 +12,7 @@ import { Shell } from '../components/Shell'
 import { openLink } from '../components/WebSearch'
 import { Badge, Button, SectionHead } from '../components/ui'
 import { ask } from '../components/Ask'
+import { FieldUploadBox } from '../components/FieldUpload'
 
 /**
  * 구글 드라이브 탭 (대표 지시 2026-10-20)
@@ -35,6 +36,7 @@ export default function Drive() {
   return (
     <Shell active="drive">
       <div className="col gap-10">
+        <FieldUploadBox />
         <ExplorerOnly folders={folders} />
 
         {admin && (

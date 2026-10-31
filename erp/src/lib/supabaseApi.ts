@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import type { LedgerStatus, MailItem, MaterialItem, MaterialMove, MaterialStockRow } from './types'
+import type { FieldUpload, LedgerStatus, MailItem, MaterialItem, MaterialMove, MaterialStockRow } from './types'
 import { ApiError, CHAT_FILE_MAX, EXCHANGE_FILE_MAX, groupIps, type AgentDraft, type Api, type DriveEnsureResult, type DriveFolder, type DriveStatus, type ImportResult } from './api'
 import { desktop } from './desktop'
 import type {
@@ -977,6 +977,36 @@ export function createSupabaseApi(url: string, key: string): Api {
       q = clientId ? q.or(`project_ids.cs.{${projectId}},client_id.eq.${clientId}`) : q.contains('project_ids', [projectId])
       const { data, error } = await q
       return error ? [] : (data as MailItem[])
+    },
+    async fieldUploadFolder() {
+      const { data } = await sb.from('app_settings').select('value').eq('key', 'field_upload_folder').maybeSingle()
+      return typeof data?.value === 'string' ? data.value : null
+    },
+    async listFieldUploads(limit = 20) {
+      const { data, error } = await sb.from('field_uploads').select('*').order('created_at', { ascending: false }).limit(limit)
+      if (error) throw new ApiError(error.message)
+      return data as FieldUpload[]
+    },
+    async fieldUploadSession(f) {
+      const { data, error } = await sb.functions.invoke('drive-upload', { body: { ...f, origin: window.location.origin } })
+      return error ? null : ((data as { url?: string })?.url ?? null)
+    },
+    async saveFieldUpload(row) {
+      const { data: old } = await sb.from('field_uploads').select('*').eq('folder_id', row.folder_id).maybeSingle()
+      if (old) {
+        const files = [...((old as FieldUpload).files ?? []), ...row.files]
+        const { data, error } = await sb
+          .from('field_uploads')
+          .update({ files, file_count: files.length, memo: row.memo || (old as FieldUpload).memo, project_id: row.project_id ?? (old as FieldUpload).project_id, status: '새 자료', updated_at: new Date().toISOString() })
+          .eq('id', (old as FieldUpload).id)
+          .select('*')
+          .single()
+        if (error) throw new ApiError(error.message)
+        return data as FieldUpload
+      }
+      const { data, error } = await sb.from('field_uploads').insert({ ...row, file_count: row.files.length }).select('*').single()
+      if (error) throw new ApiError(error.message)
+      return data as FieldUpload
     },
     async gmailStatus() {
       const { data, error } = await sb.functions.invoke('gmail', { body: { action: 'status' } })

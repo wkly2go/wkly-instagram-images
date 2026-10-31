@@ -2126,6 +2126,19 @@ export function createDemoApi(): Api {
     async listProjectMails() {
       return []
     },
+    // 데모: 드라이브 연결 없음 → 올리기 안 됨
+    async fieldUploadFolder() {
+      return null
+    },
+    async listFieldUploads() {
+      return []
+    },
+    async fieldUploadSession() {
+      return null
+    },
+    async saveFieldUpload() {
+      throw new ApiError('데모에서는 취재 자료를 올릴 수 없습니다.')
+    },
     async gmailStatus() {
       return { connected: false }
     },

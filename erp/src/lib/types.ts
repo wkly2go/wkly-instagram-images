@@ -1195,4 +1195,21 @@ export interface MailItem {
   project_ids: string[]
   client_id: string | null
 }
+/** 취재 자료 올리기 (드라이브 폴더 1곳 = 1줄) · 사람은 올리기만, 에이전트가 분류 */
+export interface FieldUpload {
+  id: string
+  shot_on: string
+  place: string | null
+  memo: string | null
+  project_id: string | null
+  folder_id: string
+  folder_url: string
+  file_count: number
+  files: { id: string; name: string; mime: string; size: number }[]
+  uploaded_by: string | null
+  status: '새 자료' | '분류 완료' | '사용 완료'
+  category: string | null
+  agent_note: string | null
+  created_at: string
+}
 export const gmailThreadUrl = (threadId: string) => `https://mail.google.com/mail/u/0/#all/${threadId}`
