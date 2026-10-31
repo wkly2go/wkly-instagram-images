@@ -2414,3 +2414,100 @@ td .meter { display: block; margin: 3px 0; }
 .overdue-detail dt { color: var(--gray); }
 .overdue-detail dd { margin: 0; }
 .overdue-detail .pre { white-space: pre-wrap; }
+
+/* 입출금 장부 › 통계 (2026-10-31) */
+.lstats-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--white); }
+.lstats-filters .select.sm, .lstats-filters .input.sm { font-size: var(--fs-cap); width: auto; min-width: 120px; }
+.lstats-filters .search.sm { display: inline-flex; align-items: center; gap: 4px; flex: 1 1 160px; max-width: 240px; }
+.lstats-filters .search.sm .input { font-size: var(--fs-cap); }
+.lstats-chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border: 1px solid var(--blue); border-radius: 12px; background: var(--blue-tint); color: var(--blue); font-size: var(--fs-cap); font-weight: 700; cursor: pointer; }
+.lstats-kpis { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
+.lstats-kpi { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--white); border-top: 3px solid var(--gray); }
+.lstats-kpi b { font: 800 22px/1.2 var(--display); color: var(--blue); }
+.lstats-kpi.in { border-top-color: #2a78d6; }
+.lstats-kpi.out { border-top-color: #eb6834; }
+.lstats-kpi.net { border-top-color: var(--blue); background: var(--blue-tint); }
+.lstats-kpi.minus b { color: var(--red); }
+.lstats-ch { font-size: var(--fs-cap); color: var(--gray); }
+.lstats-ch.good { color: var(--blue); font-weight: 700; }
+.lstats-ch.bad { color: var(--red); font-weight: 700; }
+.lstats-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.lstats-grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.lstats-card { border: 1px solid var(--line); border-radius: 10px; background: var(--white); padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.lstats-h { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.lstats-h b { font-size: var(--fs-small); }
+.lstats-legend { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 11px; color: var(--gray); min-height: 16px; }
+.lstats-legend span { display: inline-flex; align-items: center; gap: 4px; }
+.lstats-legend i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+.lstats-legend i.ln { width: 14px; height: 2px; border-radius: 1px; }
+.lstats-legend i.ln.dash { background: repeating-linear-gradient(90deg, var(--red) 0 4px, transparent 4px 7px); }
+.lstats .chart { position: relative; }
+.tip-row { display: flex; align-items: center; gap: 4px; }
+.tip-row i { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
+.lstats-share { display: flex; height: 10px; border-radius: 5px; overflow: hidden; gap: 2px; background: var(--white); }
+.lstats-share i { display: block; min-width: 2px; }
+.lstats-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.lstats-list button { display: flex; align-items: center; gap: 8px; width: 100%; padding: 5px 2px; border: 0; border-bottom: 1px solid var(--line); background: none; font: inherit; font-size: var(--fs-small); text-align: left; cursor: pointer; }
+.lstats-list button:hover { background: var(--paper); }
+.lstats-list i { width: 10px; height: 10px; border-radius: 2px; flex: none; }
+.lstats-rank-name { width: 34%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lstats-rank-bar { flex: 1; height: 8px; background: var(--blue-tint); border-radius: 4px; overflow: hidden; }
+.lstats-rank-bar i { display: block; height: 100%; width: 0; background: var(--blue); border-radius: 4px; }
+@media (max-width: 1200px) { .lstats-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } .lstats-grid { grid-template-columns: 1fr; } }
+@media (max-width: 700px) { .lstats-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .lstats-grid.two { grid-template-columns: 1fr; } }
+
+/* 주간 일정표: 눌러서 본문 */
+.week-entry.open { border: 1px solid var(--line); border-radius: 8px; background: var(--white); margin: 2px 0; }
+.week-entry.open > .week-item { border-bottom: 1px dashed var(--line); }
+.week-title-full { white-space: normal; word-break: break-word; font-weight: 700; }
+.week-detail { padding: 6px 10px 8px; display: flex; flex-direction: column; gap: 6px; font-size: var(--fs-cap); }
+.week-detail dl { display: grid; grid-template-columns: 52px 1fr; gap: 2px 8px; margin: 0; }
+.week-detail dt { color: var(--gray); }
+.week-detail dd { margin: 0; }
+.week-body { white-space: pre-wrap; word-break: break-word; font-size: var(--fs-small); line-height: 1.55; max-height: 260px; overflow: auto; padding: 6px 8px; background: var(--paper); border-radius: 6px; }
+.week-detail-act { align-self: flex-end; }
+
+/* 개별 프로젝트 시각화 (2026-10-31) */
+.pviz { display: flex; flex-direction: column; gap: 10px; margin: 8px 0; }
+.pviz-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; padding: 6px 2px; font-size: var(--fs-small); color: var(--gray); }
+.pviz-strip b { color: var(--blue); }
+.pviz-row { display: grid; gap: 10px; }
+.pviz-row.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.pviz-card { border: 1px solid var(--line); border-radius: 10px; background: var(--white); padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; min-width: 0; position: relative; }
+.pviz-h { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.pviz-h b { font-size: var(--fs-small); }
+.pviz-key { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--gray); }
+.pviz-key i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; margin-left: 6px; }
+.pviz-kpi-body { display: flex; align-items: flex-end; justify-content: space-between; gap: 8px; }
+.pviz-big { font: 800 26px/1.1 var(--display); color: var(--blue); white-space: nowrap; }
+.pviz-spark { flex: none; }
+.pviz-kpi-foot { display: flex; align-items: stretch; gap: 6px; }
+.pviz-target { flex: 1; padding: 4px 8px; background: var(--paper); border-radius: 6px; font-size: var(--fs-cap); color: var(--gray); }
+.pviz-badge { padding: 4px 10px; border-radius: 6px; font-size: var(--fs-cap); font-weight: 800; color: var(--white); white-space: nowrap; }
+.pviz-badge.good { background: #1baf7a; }
+.pviz-badge.bad { background: var(--red); }
+.pviz-budget, .pviz-vendors, .pviz-weeks, .pviz-dlegend { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.pviz-budget li, .pviz-weeks li { display: flex; align-items: center; gap: 8px; font-size: var(--fs-cap); }
+.pviz-bname { width: 30%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pviz-bpair { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.pviz-bpair i { display: block; height: 7px; border-radius: 0 4px 4px 0; }
+.pviz-bpair i.b { background: #9cc3a6; }
+.pviz-bpair i.s { background: var(--blue); }
+.pviz-bpair i.s.over { background: var(--red); }
+.pviz-vendors button { display: flex; align-items: center; gap: 8px; width: 100%; border: 0; background: none; padding: 2px 0; font: inherit; font-size: var(--fs-cap); text-align: left; cursor: pointer; }
+.pviz-vendors button:disabled { cursor: default; }
+.pviz-vname { width: 30%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pviz-vbar { flex: 1; height: 9px; background: var(--blue-tint); border-radius: 5px; overflow: hidden; }
+.pviz-vbar i { display: block; height: 100%; background: var(--blue); border-radius: 5px; }
+.pviz-vpct { width: 38px; text-align: right; font-size: var(--fs-cap); }
+.pviz-vrem { width: 64px; text-align: right; }
+.pviz-wk { width: 56px; }
+.pviz-donut { display: flex; align-items: center; gap: 12px; }
+.pviz-dlegend { flex: 1; min-width: 0; }
+.pviz-dlegend li { display: flex; align-items: center; gap: 6px; font-size: var(--fs-cap); padding: 1px 4px; border-radius: 4px; }
+.pviz-dlegend li.on { background: var(--paper); }
+.pviz-dlegend i { width: 10px; height: 10px; border-radius: 2px; flex: none; }
+.pviz-progress { display: flex; flex-direction: column; gap: 8px; }
+.pviz-prow { display: flex; align-items: center; gap: 8px; }
+.pviz-plabel { width: 60px; }
+@media (max-width: 1100px) { .pviz-row.three { grid-template-columns: 1fr; } }

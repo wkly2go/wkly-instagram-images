@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
-import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Pencil, Plus } from 'lucide-react'
 import { useApp, useAsync } from '../lib/app'
 import { addDays, todayKey } from '../lib/date'
+import { Linkify } from './ui'
 import { useRouter } from '../lib/router'
 import type { Project, Task } from '../lib/types'
 import { mondayOf, TaskAssignModal } from '../pages/Schedule'
@@ -12,6 +13,7 @@ import { mondayOf, TaskAssignModal } from '../pages/Schedule'
  *  - 월~일 하루씩: 마감 할 일 · 일정 · 프로젝트 시작/종료, 오늘은 노랑
  */
 const WD = ['월', '화', '수', '목', '금', '토', '일']
+type Item = { key: string; label: string; sub?: string; tone: string; to: string; task?: Task }
 
 export function WeekPanel() {
   const { api, me, version, profileName } = useApp()
@@ -20,6 +22,9 @@ export function WeekPanel() {
   const [from, setFrom] = useState(() => mondayOf(today))
   const [mine, setMine] = useState(false)
   const [adding, setAdding] = useState<string | null>(null)
+  // 눌러서 본문 보기 (대표 지시 2026-10-31 "주간 일정표를 클릭해서 본문을 확인할 수 있게")
+  const [openKey, setOpenKey] = useState<string | null>(null)
+  const [editing, setEditing] = useState<Task | null>(null)
   const { data } = useAsync(
     async () => {
       const [tasks, projects] = await Promise.all([api.listTasks().catch(() => [] as Task[]), api.listProjects().catch(() => [] as Project[])])
@@ -30,8 +35,8 @@ export function WeekPanel() {
   )
   const days = Array.from({ length: 7 }, (_, i) => addDays(from, i))
   const byDay = useMemo(() => {
-    const m = new Map<string, { key: string; label: string; sub?: string; tone: string; to: string }[]>()
-    const push = (d: string | null | undefined, it: { key: string; label: string; sub?: string; tone: string; to: string }) => {
+    const m = new Map<string, Item[]>()
+    const push = (d: string | null | undefined, it: Item) => {
       if (!d || d < days[0] || d > days[6]) return
       m.set(d, [...(m.get(d) ?? []), it])
     }
@@ -42,7 +47,7 @@ export function WeekPanel() {
       const to = t.project_id ? `/projects?id=${t.project_id}` : '/projects?view=mine'
       const who = t.assignee_id ? profileName(t.assignee_id) : '미정'
       const time = t.remind_at ? new Date(t.remind_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Seoul' }) : ''
-      push(t.due_date ?? t.start_date, { key: `t${t.id}`, label: t.title, sub: [time, who].filter(Boolean).join(' · '), tone: done ? 'done' : late ? 'late' : t.phase === '일정' ? 'event' : 'task', to })
+      push(t.due_date ?? t.start_date, { key: `t${t.id}`, label: t.title, sub: [time, who].filter(Boolean).join(' · '), tone: done ? 'done' : late ? 'late' : t.phase === '일정' ? 'event' : 'task', to, task: t })
     }
     for (const p of data.projects) {
       if (mine && p.owner_id !== me.id) continue
@@ -91,18 +96,35 @@ export function WeekPanel() {
               {list.length === 0 ? (
                 <span className="t-cap week-empty">일정 없음</span>
               ) : (
-                list.map(it => (
-                  <button key={it.key} type="button" className={`week-item ${it.tone}`} onClick={() => navigate(it.to)} title={it.label}>
-                    <span className="truncate">{it.label}</span>
-                    {it.sub && <span className="t-meta truncate">{it.sub}</span>}
-                  </button>
-                ))
+                list.map(it => {
+                  const open = openKey === it.key
+                  const t = it.task
+                  return (
+                    <div key={it.key} className={`week-entry${open ? ' open' : ''}`}>
+                      <button type="button" className={`week-item ${it.tone}`} onClick={() => (t ? setOpenKey(open ? null : it.key) : navigate(it.to))} title={t ? '눌러서 본문 보기' : it.label} aria-expanded={t ? open : undefined}>
+                        <span className={open ? 'week-title-full' : 'truncate'}>{it.label}</span>
+                        {it.sub && <span className="t-meta truncate">{it.sub}</span>}
+                      </button>
+                      {open && t && (
+                        <div className="week-detail">
+                          <div className="week-body">{t.memo ? <Linkify text={t.memo} /> : <span className="t-muted">적힌 본문이 없습니다.</span>}</div>
+                          <span className="week-detail-act">
+                            <button type="button" className="link-btn t-cap" onClick={() => setEditing(t)}>
+                              <Pencil size={11} /> 수정
+                            </button>
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })
               )}
             </section>
           )
         })}
       </div>
       <span className="t-cap">검색하거나 링크를 열면 이 자리에 인터넷 창이 나옵니다. 닫으면(✕) 다시 주간 일정표.</span>
+      {editing && <TaskAssignModal key={editing.id} task={editing} projects={data.projects} tasks={data.tasks} onClose={() => setEditing(null)} />}
       {adding && <TaskAssignModal projects={data.projects} tasks={data.tasks} presetDate={adding} presetAssignee={me.id} onClose={() => setAdding(null)} />}
     </div>
   )

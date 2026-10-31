@@ -17,6 +17,7 @@ import { Badge, Button, Chip, Empty, Field, FilterGroup, KindTag, Modal, Section
 import { NewApproval } from './Approvals'
 import { MaterialMoves } from '../components/MaterialMoves'
 import { FinancePanel } from '../components/FinancePanel'
+import { ProjectVizLoader } from '../components/ProjectViz'
 import { ProjectDashboard } from './ProjectDashboard'
 import { Payments } from './Payments'
 import { Subscriptions } from './Subscriptions'
@@ -770,6 +771,8 @@ function ProjectDetail({ project: p, data, onEdit, onBack, panel = false }: { pr
       <ProjectDriveSection project={p} />
       {/* 인테리어(아트리어 · AR) 프로젝트는 현장 작업일지, 다른 프로젝트는 작업일지가 있을 때만 */}
       <SiteLogsSection project={p} always={projectBrand(p) === 'AR'} />
+      {/* 프로젝트 시각화: 목표 대비 KPI · 예산 대 집행 · 비용 구성 · 월별 흐름 · 업체 지급률 · 일정 진행 */}
+      <ProjectVizLoader project={p} />
       <FinancePanel project={p} clients={data.clients} projects={data.projects} />
       {/* 자재 입출고: 입고 · 반품은 위 결제 내역(지급)에 자동 등록 */}
       <MaterialMoves project={p} clients={data.clients} />
