@@ -7,6 +7,7 @@ import { addDays, manwon, shortDate, todayKey } from '../lib/date'
 import { budgetByCategory, isOpen, projectMoney } from '../lib/finance'
 import { TASK_STATUSES, type BudgetLine, type Payment, type Project, type ProjectFinance, type Task, type TaskStatus } from '../lib/types'
 import { TaskAssignModal } from '../pages/Schedule'
+import { QuickSchedule } from './ProjectBrief'
 import { Button, Modal } from './ui'
 
 
@@ -103,6 +104,8 @@ export function ProjectHead({ project, payments, lines, finance, tasks, only }: 
             <Plus size={12} /> 일정
           </button>
         </div>
+        {/* 한 줄로 일정 넣기 (예: 11/5 목공 마감 @박서연) */}
+        <QuickSchedule project={project} />
         {logMode ? <ScheduleLog project={project} tasks={tasks} /> : (
         <div className="pviz-tl">
           <div className="pviz-tl-axis">
