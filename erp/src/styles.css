@@ -2539,3 +2539,5 @@ td .meter { display: block; margin: 3px 0; }
 .pviz-mini { display: flex; flex-wrap: wrap; gap: 4px 14px; padding-top: 6px; border-top: 1px dashed var(--line); font-size: var(--fs-cap); color: var(--gray); }
 .pviz-mini b { color: var(--blue); }
 @media (max-width: 1100px) { .pviz-row.head { grid-template-columns: 1fr; } }
+.div-others { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; padding: 6px 2px 0; color: var(--gray); }
+.div-others .link-btn { font-size: var(--fs-cap); font-weight: 700; }
