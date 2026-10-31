@@ -239,7 +239,7 @@ export function VendorSheet({ projectId, payments, all, lines, finance, onOpen }
   const sumPaid = vendors.filter(v => v.dir === '지급').reduce((n, v) => n + v.paid, 0)
 
   // 한 화면에 (대표 지시 2026-10-31 "한 화면에서 관리, 결제 요청일 삭제, 자재 입출고처럼 한눈에")
-  //   칸을 두 줄로 묶음: 구분/공사구분 · 업체명/항목 · 계약형태/계산서 · 은행·예금주/계좌번호 · 단계(금액/결제일)
+  //   업체 1곳 = 한 줄 · 흰 바탕 (대표 지시 2026-10-31 "세부 내용은 한 줄로, 백색으로") — 칸 안에 두 값을 나란히
   const txt = (val: string | null | undefined, onSave: (v: string | null) => void, label: string, cls = '', list?: string) => (
     <input className={`ps-in ${cls}`} list={list} defaultValue={val ?? ''} placeholder={label} title={label} onBlur={e => e.target.value.trim() !== (val ?? '') && onSave(e.target.value.trim() || null)} onKeyDown={blurOnEnter} aria-label={label} />
   )
@@ -255,45 +255,35 @@ export function VendorSheet({ projectId, payments, all, lines, finance, onOpen }
           <option key={c} value={c} />
         ))}
       </datalist>
-      <table className="pay-sheet vendor-sheet">
+      <table className="pay-sheet vendor-sheet one-line">
         <colgroup>
-          <col style={{ width: 92 }} />
-          <col style={{ width: '15%' }} />
-          <col style={{ width: 92 }} />
-          <col style={{ width: '13%' }} />
-          <col style={{ width: 90 }} />
+          <col style={{ width: 150 }} />
+          <col style={{ width: 250 }} />
+          <col style={{ width: 200 }} />
+          <col style={{ width: 280 }} />
+          <col style={{ width: 170 }} />
           {stages.map(s => (
-            <col key={s.key} style={{ width: 96 }} />
+            <col key={s.key} style={{ width: 210 }} />
           ))}
-          <col style={{ minWidth: 90 }} />
-          <col style={{ width: 26 }} />
+          <col style={{ width: 150 }} />
+          <col style={{ width: 28 }} />
         </colgroup>
         <thead>
           <tr>
             <th>
-              구분
-              <br />
-              공사구분
+              구분 · 공사구분
             </th>
             <th>
-              업체명
-              <br />
-              항목
+              업체명 · 항목
             </th>
             <th>
-              계약형태
-              <br />
-              계산서
+              계약형태 · 계산서
             </th>
             <th>
-              은행 · 예금주
-              <br />
-              계좌번호
+              은행 · 예금주 · 계좌번호
             </th>
             <th className="num" title="매입: 업체 계약금(공급가) · 매출: 프로젝트 계약(공급가)">
-              계약금
-              <br />
-              진행
+              계약금 · 진행
             </th>
             {stages.map((s, i) => (
               <th key={s.key} className="vs-stage-h">
@@ -302,9 +292,7 @@ export function VendorSheet({ projectId, payments, all, lines, finance, onOpen }
                   <button type="button" className="link-btn vs-addmid" onClick={() => setExtraMid(n => n + 1)} title="중도금 칸 하나 더" aria-label="중도금 추가">
                     <Plus size={11} />
                   </button>
-                )}
-                <br />
-                <span className="t-cap">금액 · 결제일</span>
+                )} <span className="t-cap">금액 · 결제일</span>
               </th>
             ))}
             <th>비고</th>
