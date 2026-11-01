@@ -5,7 +5,7 @@ import { useAction, useApp, useAsync } from '../lib/app'
 import { shortDate, weekday } from '../lib/date'
 import { SITE_SIGNERS, SITE_TRADES, type Client, type MaterialMove, type Project, type SiteLabor, type SiteLog, type SiteMaterial, type SiteSigner } from '../lib/types'
 import { Board } from './Board'
-import { Button, SectionHead } from './ui'
+import { Button, Help, SectionHead } from './ui'
 import { ask } from './Ask'
 
 /**
@@ -39,7 +39,7 @@ export function SiteLogsSection({ project, always, clients = [] }: { project: Pr
       <SectionHead
         title="현장 작업일지"
         count={logs.length ? `${logs.length}장` : undefined}
-        right={<span className="t-cap">한 건씩 기록하면 날짜별 보고서로 묶입니다</span>}
+        right={<Help text="작업 · 인원 · 자재 입고/출고/반품 · 특이사항을 한 건씩 기록하면 날짜별 보고서로 묶입니다. 날짜 줄을 누르면 그날 보고서가 아래로 펼쳐집니다(결재 · 인쇄)." />}
       />
       <SiteEntryBar project={project} logs={logs} clients={clients} moves={moves} />
       <Board<SiteLog>
@@ -59,7 +59,7 @@ export function SiteLogsSection({ project, always, clients = [] }: { project: Pr
             <DrivePreview key={l.id} log={l} onEdit={() => (setPreviewId(null), setEditId(l.id))} onClose={() => setPreviewId(null)} />
           ) : null
         }
-        empty="아직 기록이 없습니다. 위 칸에 작업 · 인원 · 자재 · 특이사항을 한 건씩 기록하면 날짜별 보고서로 묶입니다."
+        empty="아직 기록이 없습니다. 위 칸에 오늘 한 일을 한 건 적어 보세요."
         cols={[
           { key: 'date', label: '작성일자', width: 90, cell: l => <span className="t-meta">{shortDate(l.log_date)} ({weekday(l.log_date)})</span> },
           { key: 'weather', label: '날씨', width: 56, cell: l => l.weather || '-' },

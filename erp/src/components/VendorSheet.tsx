@@ -5,8 +5,8 @@
 //   저장 위치: 단계마다 결제(payments) 한 건 (stage = 선금 / 중도금 n차 / 잔금), 계약금 · 비고는 업체 계약 줄(budget_lines)
 //   매출(수금)의 계약금은 프로젝트 계약(project_finances)
 //   노란 칸에 바로 적으면 저장 · 결제일자를 넣으면 그 단계는 완료 · 금액을 지우면 그 단계는 취소(지우지 않음)
-import { useMemo, useState } from 'react'
-import { MoreHorizontal, Plus } from 'lucide-react'
+import { Fragment, useMemo, useState } from 'react'
+import { Plus } from 'lucide-react'
 import { useAction, useApp } from '../lib/app'
 import { manwon, todayKey } from '../lib/date'
 import { isDone } from '../lib/finance'
@@ -21,17 +21,6 @@ const parseMoney = (s: string) => Number(s.replace(/[^\d]/g, '')) || 0
 const norm = (s: string) => s.replace(/\s|㈜|\(주\)|주식회사/g, '').toLowerCase()
 const order = (p: Payment) => p.requested_date ?? p.due_date ?? p.paid_date ?? p.created_at.slice(0, 10)
 const vatOf = (amount: number, type: Payment['contract_type'], prev?: Payment) => (prev ? (prev.vat ? Math.round(amount / 11) : 0) : type === '세금계산서' ? Math.round(amount / 11) : 0)
-/** 결제일 칸: '10.30' · '2026-10-30' · 't'(오늘) · 빈칸(지움) → yyyy-mm-dd | null, 못 읽으면 undefined */
-const parseDay = (v: string): string | null | undefined => {
-  const t = v.trim()
-  if (!t) return null
-  if (/^(t|오늘)$/i.test(t)) return todayKey()
-  const full = /^(\d{4})[.\-/ ](\d{1,2})[.\-/ ](\d{1,2})/.exec(t)
-  const short = /^(\d{1,2})[.\-/ ](\d{1,2})$/.exec(t) ?? /^(\d{2})(\d{2})$/.exec(t)
-  const [y, m, d] = full ? [full[1], full[2], full[3]] : short ? [todayKey().slice(0, 4), short[1], short[2]] : []
-  if (!y || !m || !d) return undefined
-  return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`
-}
 const live = (p: Payment) => p.status !== '취소' && !p.is_estimate
 
 interface Vendor {
@@ -77,7 +66,7 @@ function slot(items: Payment[]) {
 }
 
 export function VendorSheet({ projectId, payments, all, lines, finance, onOpen }: { projectId: string; payments: Payment[]; all: Payment[]; lines: BudgetLine[]; finance: ProjectFinance | undefined; onOpen: (p: Payment) => void }) {
-  const { api, toast } = useApp()
+  const { api } = useApp()
   const { busy, run } = useAction()
   const today = todayKey()
   const [extraMid, setExtraMid] = useState(0)
@@ -256,11 +245,31 @@ export function VendorSheet({ projectId, payments, all, lines, finance, onOpen }
 
   // 한 화면에 (대표 지시 2026-10-31 "한 화면에서 관리, 결제 요청일 삭제, 자재 입출고처럼 한눈에")
   //   업체 1곳 = 한 줄 · 흰 바탕 (대표 지시 2026-10-31 "세부 내용은 한 줄로, 백색으로") — 칸 안에 두 값을 나란히
-  const txt = (val: string | null | undefined, onSave: (v: string | null) => void, label: string, cls = '', list?: string) => (
-    <input className={`ps-in ${cls}`} list={list} defaultValue={val ?? ''} placeholder={label} title={label} onBlur={e => e.target.value.trim() !== (val ?? '') && onSave(e.target.value.trim() || null)} onKeyDown={blurOnEnter} aria-label={label} />
+  // 요약 줄 + 펼침 입력 (대표 지시 2026-11-01 "협력업체 기입란 반응형에서 다른 방법으로")
+  //   - 표는 읽기용 한 줄(화면 폭에 맞춤, 가로 스크롤 없음): 구분 · 업체 · 항목 · 계약금 · 진행 · 단계별 금액(결제 ✓ · 계산서 ●) · 비고
+  //   - 줄을 누르면 바로 아래로 입력 폼이 펼쳐짐: 업체 정보 · 계좌 · 계약금 · 단계별(금액 · 결제일 · 계산서)
+  const [openKey, setOpenKey] = useState<string | null>(null)
+  const [adding, setAdding] = useState(false)
+  const stageSum = (cur: Payment | undefined) =>
+    !cur ? (
+      <span className="vs-empty">–</span>
+    ) : (
+      <span className={`vs-amt${isDone(cur) ? ' done' : cur.due_date && cur.due_date < todayKey() ? ' late' : ''}`} title={[cur.stage, cur.paid_date ? `결제 ${cur.paid_date}` : '미결제', cur.tax_invoice === '발행' ? '계산서 발행' : cur.tax_invoice === '미발행' ? '계산서 미발행' : ''].filter(Boolean).join(' · ')}>
+        {manwon(cur.amount)}
+        <em>
+          {cur.paid_date ? `✓${cur.paid_date.slice(5).replace('-', '.')}` : cur.due_date && cur.due_date < todayKey() ? `연체 ${cur.due_date.slice(5).replace('-', '.')}` : cur.due_date ? `${cur.due_date.slice(5).replace('-', '.')} 예정` : '예정'}
+          {cur.tax_invoice === '발행' ? ' · 계' : ''}
+        </em>
+      </span>
+    )
+  const field = (label: string, node: React.ReactNode, wide = false) => (
+    <label className={`vf-field${wide ? ' wide' : ''}`}>
+      <span>{label}</span>
+      {node}
+    </label>
   )
   return (
-    <div className="table-wrap pay-sheet-wrap">
+    <div className="vendor-list">
       <datalist id="vs-cat">
         {categories.map(c => (
           <option key={c} value={c} />
@@ -271,172 +280,209 @@ export function VendorSheet({ projectId, payments, all, lines, finance, onOpen }
           <option key={c} value={c} />
         ))}
       </datalist>
-      <table className="pay-sheet vendor-sheet one-line">
+      <table className="vendor-sum">
+        <colgroup>
+          <col style={{ width: 54 }} />
+          <col style={{ width: '24%' }} />
+          <col style={{ width: '11%' }} />
+          <col style={{ width: '9%' }} />
+          {stages.map(s => (
+            <col key={s.key} />
+          ))}
+          <col style={{ width: 28 }} />
+        </colgroup>
         <thead>
           <tr>
-            <th>
-              구분 · 공사구분
-            </th>
-            <th>
-              업체명 · 항목
-            </th>
-            <th>
-              계약형태
-            </th>
-            <th>
-              계좌번호
-            </th>
-            <th className="num" title="부가세 포함 · 매입: 업체 계약금 · 매출: 프로젝트 계약">
-              계약금 · 진행
-            </th>
-            {stages.map((s, i) => (
-              <th key={s.key} className="vs-stage-h">
+            <th>구분</th>
+            <th>업체 · 항목</th>
+            <th className="num">계약금</th>
+            <th>진행</th>
+            {stages.map(s => (
+              <th key={s.key} className="num">
                 {s.label}
-                {i === stages.length - 2 && (
-                  <button type="button" className="link-btn vs-addmid" onClick={() => setExtraMid(n => n + 1)} title="중도금 칸 하나 더" aria-label="중도금 추가">
-                    <Plus size={11} />
-                  </button>
-                )} <span className="t-cap">금액 · 결제일</span>
               </th>
             ))}
-            <th>비고</th>
-            <th className="ck" />
+            <th />
           </tr>
         </thead>
         <tbody>
           {vendors.map(v => {
             const rate = v.contract ? Math.round((v.paid / v.contract) * 100) : null
+            const open = openKey === v.key
+            const rowKey = `${v.key}:${v.items.map(p => p.updated_at).join()}:${v.line?.updated_at ?? ''}`
             return (
-              <tr key={`${v.key}:${v.items.map(p => p.updated_at).join()}:${v.line?.updated_at ?? ''}`}>
-                <td className="vs-2">
-                  <select className="ps-in" defaultValue={v.dir} onChange={e => saveVendor(v, { direction: e.target.value as Payment['direction'] })} aria-label="매입/매출" disabled={!v.items.length}>
-                    <option value="지급">매입</option>
-                    <option value="수금">매출</option>
-                  </select>
-                  {txt(v.category, x => saveVendor(v, { category: x }), '공사구분', '', 'vs-cat')}
-                </td>
-                <td className="vs-2">
-                  <button type="button" className="ps-in vs-name" onClick={() => (showPanel(), openVendor({ name: v.payee, clientId: v.items.find(live)?.client_id ?? null }))} title={`${v.payee} 상세 (오른쪽 칸)`}>
-                    {v.payee}
-                  </button>
-                  {txt(v.title, x => x && saveVendor(v, { title: x }), '항목')}
-                </td>
-                <td className="vs-2">
-                  <select className="ps-in" defaultValue={v.contractType ?? ''} onChange={e => saveVendor(v, { contract_type: (e.target.value || null) as Payment['contract_type'] })} aria-label="계약형태" disabled={!v.items.length}>
-                    <option value="">형태 선택</option>
-                    {CONTRACT_TYPES.map(t => (
-                      <option key={t}>{t}</option>
-                    ))}
-                  </select>
-                </td>
-                <td className="vs-2" title={[v.bank, v.holder].filter(Boolean).join(' · ') || '은행 · 예금주는 … 에서'}>
-                  {txt(v.account, x => saveVendor(v, { account_no: x }), '계좌번호')}
-                </td>
-                <td className="vs-2">
-                  <input className="ps-in num" inputMode="numeric" defaultValue={money(v.contract)} placeholder="계약금" onBlur={e => { const n = parseMoney(e.target.value) || null; if (n !== v.contract) saveContract(v, { contract_amount: n }) }} onKeyDown={blurOnEnter} aria-label="계약금" />
-                  <span className="t-cap vs-rate" title="결제 완료 ÷ 계약금 (부가세 포함)">{rate != null ? `${rate}% ${v.dir === '수금' ? '수금' : '지급'}` : v.paid ? `완료 ${manwon(v.paid)}` : '–'}</span>
-                </td>
-                {stages.map(s => {
-                  const cur = pick(v, s.key)
-                  return (
-                    <td key={s.key} className={`vs-2 vs-stage ${cur && isDone(cur) ? 'done' : ''}`}>
-                      <input className="ps-in num" inputMode="numeric" defaultValue={money(cur?.amount)} placeholder="금액" onBlur={e => saveStage(v, s.label, cur, { amount: parseMoney(e.target.value) })} onKeyDown={blurOnEnter} aria-label={`${s.label} 결제 금액`} />
-                      <input className="ps-in vs-day" defaultValue={cur?.paid_date ? cur.paid_date.slice(5).replace('-', '.') : ''} placeholder="결제일" onBlur={e => {
-                        const d2 = parseDay(e.target.value)
-                        if (d2 === undefined) return void toast('결제일은 10.30 · 10/30 · 1030 · 2026-10-30 · t(오늘)처럼 적어 주세요.')
-                        if (!cur) return void (d2 && toast(`${s.label} 금액을 먼저 넣어 주세요.`))
-                        saveStage(v, s.label, cur, { paid_date: d2 })
-                      }} onKeyDown={blurOnEnter} aria-label={`${s.label} 결제일자`} title={cur?.paid_date ? `결제일 ${cur.paid_date}` : '결제일 (예: 10.30 · 오늘이면 t) — 넣으면 결제 완료'} />
-                      <label className={`vs-inv${cur ? '' : ' off'}`} title={cur ? (v.dir === '수금' ? '이 단계 세금계산서 발행' : '이 단계 세금계산서 받음') : '금액을 먼저 넣어 주세요'}>
-                        <input type="checkbox" defaultChecked={cur?.tax_invoice === '발행'} disabled={!cur} onChange={e => cur && void run(() => api.savePayment({ id: cur.id, tax_invoice: e.target.checked ? '발행' : '미발행', tax_invoice_date: e.target.checked ? cur.tax_invoice_date ?? todayKey() : null }), e.target.checked ? `${v.payee} ${s.label} 계산서 ${v.dir === '수금' ? '발행' : '받음'}으로 표시했습니다.` : '계산서 표시를 지웠습니다.')} aria-label={`${s.label} 계산서 발행 여부`} />
-                        계산서
-                      </label>
-                    </td>
-                  )
-                })}
-                <td className="vs-2">
-                  <input
-                    className="ps-in"
-                    placeholder="비고"
-                    defaultValue={(v.dir === '수금' ? v.items.find(live)?.memo : v.line?.memo) ?? ''}
-                    onBlur={e => {
-                      const t = e.target.value.trim() || null
-                      if (v.dir === '수금') {
-                        const first = v.items.find(live)
-                        if (first && t !== first.memo) void run(() => api.savePayment({ id: first.id, memo: t }))
-                      } else if (t !== (v.line?.memo ?? null)) saveContract(v, { memo: t })
-                    }}
-                    onKeyDown={blurOnEnter}
-                    aria-label="비고"
-                  />
-                </td>
-                <td className="ck">
-                  {v.items.length > 0 && (
-                    <button type="button" className="icon-btn xs" onClick={() => onOpen(v.items.find(live) ?? v.items[0])} aria-label="자세히" title="자세히 (대지급 · 예상 비용 · 삭제)">
-                      <MoreHorizontal size={13} />
+              <Fragment key={rowKey}>
+                <tr className={`vs-row${open ? ' open' : ''}`} onClick={() => setOpenKey(open ? null : v.key)}>
+                  <td>
+                    <span className={`vs-dir ${v.dir === '수금' ? 'in' : 'out'}`}>{v.dir === '수금' ? '매출' : '매입'}</span>
+                  </td>
+                  <td className="vs-who">
+                    <button type="button" className="vs-name-link" onClick={e => (e.stopPropagation(), showPanel(), openVendor({ name: v.payee, clientId: v.items.find(live)?.client_id ?? null }))} title={`${v.payee} 상세 (오른쪽 칸)`}>
+                      {v.payee}
                     </button>
-                  )}
-                </td>
-              </tr>
+                    <span className="t-cap">{[v.category, v.title !== v.payee ? v.title : null, v.contractType].filter(Boolean).join(' · ')}</span>
+                  </td>
+                  <td className="num mono">{v.contract ? manwon(v.contract) : <span className="vs-empty">–</span>}</td>
+                  <td>
+                    <span className="vs-prog" title={rate != null ? `${rate}% ${v.dir === '수금' ? '수금' : '지급'}` : ''}>
+                      <i style={{ width: `${Math.min(100, rate ?? 0)}%` }} />
+                    </span>
+                    <span className="t-cap mono">{rate != null ? `${rate}%` : v.paid ? manwon(v.paid) : '–'}</span>
+                  </td>
+                  {stages.map(s => (
+                    <td key={s.key} className="num">
+                      {stageSum(pick(v, s.key))}
+                    </td>
+                  ))}
+                  <td className="vs-caret">{open ? '▴' : '▾'}</td>
+                </tr>
+                {open && (
+                  <tr className="vs-edit">
+                    <td colSpan={5 + stages.length}>
+                      <div className="vf">
+                        <div className="vf-grid">
+                          {field(
+                            '구분',
+                            <select className="input" defaultValue={v.dir} onChange={e => saveVendor(v, { direction: e.target.value as Payment['direction'] })} disabled={!v.items.length}>
+                              <option value="지급">매입</option>
+                              <option value="수금">매출</option>
+                            </select>,
+                          )}
+                          {field('공사구분', <input className="input" list="vs-cat" defaultValue={v.category ?? ''} onBlur={e => e.target.value.trim() !== (v.category ?? '') && saveVendor(v, { category: e.target.value.trim() || null })} onKeyDown={blurOnEnter} />)}
+                          {field('업체명', <input className="input" list="vs-payee" defaultValue={v.payee} onBlur={e => e.target.value.trim() && e.target.value.trim() !== v.payee && saveVendor(v, { payee: e.target.value.trim() })} onKeyDown={blurOnEnter} />)}
+                          {field('항목', <input className="input" defaultValue={v.title} onBlur={e => e.target.value.trim() && e.target.value.trim() !== v.title && saveVendor(v, { title: e.target.value.trim() })} onKeyDown={blurOnEnter} />, true)}
+                          {field(
+                            '계약형태',
+                            <select className="input" defaultValue={v.contractType ?? ''} onChange={e => saveVendor(v, { contract_type: (e.target.value || null) as Payment['contract_type'] })} disabled={!v.items.length}>
+                              <option value="">선택</option>
+                              {CONTRACT_TYPES.map(t => (
+                                <option key={t}>{t}</option>
+                              ))}
+                            </select>,
+                          )}
+                          {field('계약금', <input className="input num" inputMode="numeric" defaultValue={money(v.contract)} onBlur={e => { const n = parseMoney(e.target.value) || null; if (n !== v.contract) saveContract(v, { contract_amount: n }) }} onKeyDown={blurOnEnter} />)}
+                          {field('은행', <input className="input" defaultValue={v.bank ?? ''} onBlur={e => e.target.value.trim() !== (v.bank ?? '') && saveVendor(v, { bank_name: e.target.value.trim() || null })} onKeyDown={blurOnEnter} />)}
+                          {field('계좌번호', <input className="input mono" defaultValue={v.account ?? ''} onBlur={e => e.target.value.trim() !== (v.account ?? '') && saveVendor(v, { account_no: e.target.value.trim() || null })} onKeyDown={blurOnEnter} />)}
+                          {field('예금주', <input className="input" defaultValue={v.holder ?? ''} onBlur={e => e.target.value.trim() !== (v.holder ?? '') && saveVendor(v, { account_holder: e.target.value.trim() || null })} onKeyDown={blurOnEnter} />)}
+                          {field(
+                            '비고',
+                            <input
+                              className="input"
+                              defaultValue={(v.dir === '수금' ? v.items.find(live)?.memo : v.line?.memo) ?? ''}
+                              onBlur={e => {
+                                const t = e.target.value.trim() || null
+                                if (v.dir === '수금') {
+                                  const first = v.items.find(live)
+                                  if (first && t !== first.memo) void run(() => api.savePayment({ id: first.id, memo: t }))
+                                } else if (t !== (v.line?.memo ?? null)) saveContract(v, { memo: t })
+                              }}
+                              onKeyDown={blurOnEnter}
+                            />,
+                            true,
+                          )}
+                        </div>
+                        <div className="vf-stages">
+                          {stages.map(s => {
+                            const cur = pick(v, s.key)
+                            return (
+                              <div key={s.key} className={`vf-stage${cur && isDone(cur) ? ' done' : ''}`}>
+                                <b>{s.label}</b>
+                                {field('금액', <input className="input num" inputMode="numeric" defaultValue={money(cur?.amount)} onBlur={e => saveStage(v, s.label, cur, { amount: parseMoney(e.target.value) })} onKeyDown={blurOnEnter} />)}
+                                {field('결제일', <input className="input" type="date" defaultValue={cur?.paid_date ?? ''} disabled={!cur} onChange={e => cur && saveStage(v, s.label, cur, { paid_date: e.target.value || null })} title={cur ? '넣으면 결제 완료' : '금액을 먼저 넣어 주세요'} />)}
+                                <label className={`vs-inv${cur ? '' : ' off'}`}>
+                                  <input type="checkbox" defaultChecked={cur?.tax_invoice === '발행'} disabled={!cur} onChange={e => cur && void run(() => api.savePayment({ id: cur.id, tax_invoice: e.target.checked ? '발행' : '미발행', tax_invoice_date: e.target.checked ? cur.tax_invoice_date ?? todayKey() : null }), e.target.checked ? `${v.payee} ${s.label} 계산서 ${v.dir === '수금' ? '발행' : '받음'}으로 표시했습니다.` : '계산서 표시를 지웠습니다.')} />
+                                  계산서 {v.dir === '수금' ? '발행' : '받음'}
+                                </label>
+                              </div>
+                            )
+                          })}
+                          <button type="button" className="vf-addmid" onClick={() => setExtraMid(n => n + 1)}>
+                            <Plus size={12} /> 중도금
+                          </button>
+                        </div>
+                        <div className="vf-foot">
+                          <span className="t-cap">자동 저장</span>
+                          {v.items.length > 0 && (
+                            <button type="button" className="link-btn t-cap" onClick={() => onOpen(v.items.find(live) ?? v.items[0])}>
+                              대지급 · 예상 비용 · 삭제 ›
+                            </button>
+                          )}
+                          <Button kind="outline" size="sm" onClick={() => setOpenKey(null)}>
+                            접기
+                          </Button>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
             )
           })}
-          {/* 새 업체 */}
-          <tr className="ps-new">
-            <td className="vs-2">
-              <select className="ps-in" value={d.dir} onChange={e => setD({ ...d, dir: e.target.value as Payment['direction'] })} aria-label="새 업체 매입/매출">
-                <option value="지급">매입</option>
-                <option value="수금">매출</option>
-              </select>
-              <input className="ps-in" list="vs-cat" value={d.category} onChange={e => setD({ ...d, category: e.target.value })} onKeyDown={enter} placeholder="공사구분" aria-label="새 업체 공사구분" />
-            </td>
-            <td className="vs-2">
-              <input className="ps-in strong" list="vs-payee" value={d.payee} onChange={e => setD({ ...d, payee: e.target.value })} onBlur={e => remember(e.target.value)} onKeyDown={enter} placeholder="+ 새 업체명" aria-label="새 업체명" />
-              <input className="ps-in" value={d.title} onChange={e => setD({ ...d, title: e.target.value })} onKeyDown={enter} placeholder="항목" aria-label="새 업체 항목" />
-            </td>
-            <td className="vs-2">
-              <select className="ps-in" value={d.contractType} onChange={e => setD({ ...d, contractType: e.target.value })} aria-label="새 업체 계약형태">
-                <option value="">형태 선택</option>
-                {CONTRACT_TYPES.map(t => (
-                  <option key={t}>{t}</option>
-                ))}
-              </select>
-            </td>
-            <td className="vs-2">
-              <input className="ps-in" value={d.account} onChange={e => setD({ ...d, account: e.target.value })} onKeyDown={enter} placeholder="계좌번호" aria-label="새 업체 계좌번호" />
-            </td>
-            <td className="vs-2">
-              <input className="ps-in num" inputMode="numeric" value={d.contract ? parseMoney(d.contract).toLocaleString('ko-KR') : ''} onChange={e => setD({ ...d, contract: e.target.value })} onKeyDown={enter} placeholder="계약금" aria-label="새 업체 계약금" disabled={d.dir === '수금'} />
-            </td>
-            {stages.map((s, i) => (
-              <td key={s.key} className="vs-2 vs-stage">
-                {i === 0 ? (
-                  <input className="ps-in num" inputMode="numeric" value={d.pre ? parseMoney(d.pre).toLocaleString('ko-KR') : ''} onChange={e => setD({ ...d, pre: e.target.value })} onKeyDown={enter} placeholder="선금" aria-label="새 업체 선금" />
-                ) : null}
+          {vendors.length === 0 && (
+            <tr>
+              <td colSpan={5 + stages.length} className="vs-none">
+                아직 업체가 없습니다. 아래 「+ 업체 추가」로 넣어 주세요.
               </td>
-            ))}
-            <td className="vs-2">
-              <input className="ps-in" value={d.memo} onChange={e => setD({ ...d, memo: e.target.value })} onKeyDown={enter} placeholder="비고" aria-label="새 업체 비고" />
-            </td>
-            <td className="ck">
-              <Button size="sm" disabled={busy || !d.payee.trim() || (!parseMoney(d.pre) && !parseMoney(d.contract) && !d.memo.trim())} onClick={() => void add()} aria-label="업체 추가">
-                <Plus size={12} />
-              </Button>
-            </td>
-          </tr>
+            </tr>
+          )}
         </tbody>
         <tfoot>
           <tr>
-            <td colSpan={4} className="t-cap">
-              {vendors.length}곳 · 노란 칸에 바로 적으면 저장 · 결제일을 넣으면 그 단계 완료 · 금액을 지우면 그 단계 취소
+            <td colSpan={2} className="t-cap">
+              {vendors.length}곳
             </td>
-            <td className="num">{money(sumContract)}</td>
-            <td colSpan={stages.length + 2} className="t-cap">
+            <td className="num mono">{money(sumContract) ? manwon(sumContract) : '–'}</td>
+            <td colSpan={2 + stages.length} className="t-cap">
               매입 결제 완료 {manwon(sumPaid) || '0'}
-              {sumContract ? ` · 계약 대비 ${Math.round((sumPaid / sumContract) * 100)}%` : ''} (부가세 포함)
+              {sumContract ? ` · 계약 대비 ${Math.round((sumPaid / sumContract) * 100)}%` : ''}
             </td>
           </tr>
         </tfoot>
       </table>
+      {adding ? (
+        <div className="vf vf-new">
+          <div className="vf-grid">
+            {field(
+              '구분',
+              <select className="input" value={d.dir} onChange={e => setD({ ...d, dir: e.target.value as Payment['direction'] })}>
+                <option value="지급">매입</option>
+                <option value="수금">매출</option>
+              </select>,
+            )}
+            {field('공사구분', <input className="input" list="vs-cat" value={d.category} onChange={e => setD({ ...d, category: e.target.value })} onKeyDown={enter} />)}
+            {field('업체명', <input className="input" list="vs-payee" value={d.payee} onChange={e => setD({ ...d, payee: e.target.value })} onBlur={e => remember(e.target.value)} onKeyDown={enter} autoFocus />)}
+            {field('항목', <input className="input" value={d.title} onChange={e => setD({ ...d, title: e.target.value })} onKeyDown={enter} />, true)}
+            {field(
+              '계약형태',
+              <select className="input" value={d.contractType} onChange={e => setD({ ...d, contractType: e.target.value })}>
+                <option value="">선택</option>
+                {CONTRACT_TYPES.map(t => (
+                  <option key={t}>{t}</option>
+                ))}
+              </select>,
+            )}
+            {field('계약금', <input className="input num" inputMode="numeric" value={d.contract ? parseMoney(d.contract).toLocaleString('ko-KR') : ''} onChange={e => setD({ ...d, contract: e.target.value })} onKeyDown={enter} disabled={d.dir === '수금'} />)}
+            {field('선금', <input className="input num" inputMode="numeric" value={d.pre ? parseMoney(d.pre).toLocaleString('ko-KR') : ''} onChange={e => setD({ ...d, pre: e.target.value })} onKeyDown={enter} />)}
+            {field('은행', <input className="input" value={d.bank} onChange={e => setD({ ...d, bank: e.target.value })} onKeyDown={enter} />)}
+            {field('계좌번호', <input className="input mono" value={d.account} onChange={e => setD({ ...d, account: e.target.value })} onKeyDown={enter} />)}
+            {field('예금주', <input className="input" value={d.holder} onChange={e => setD({ ...d, holder: e.target.value })} onKeyDown={enter} />)}
+            {field('비고', <input className="input" value={d.memo} onChange={e => setD({ ...d, memo: e.target.value })} onKeyDown={enter} />, true)}
+          </div>
+          <div className="vf-foot">
+            <span className="t-cap">업체명과 계약금 · 선금 · 비고 중 하나만 있으면 추가됩니다. 예전에 쓴 업체명이면 계좌가 채워집니다.</span>
+            <Button kind="ghost" size="sm" onClick={() => setAdding(false)}>
+              취소
+            </Button>
+            <Button size="sm" disabled={busy || !d.payee.trim() || (!parseMoney(d.pre) && !parseMoney(d.contract) && !d.memo.trim())} onClick={() => void add().then(() => setAdding(false))}>
+              추가
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <button type="button" className="vs-add" onClick={() => setAdding(true)}>
+          <Plus size={13} /> 업체 추가
+        </button>
+      )}
     </div>
   )
 }

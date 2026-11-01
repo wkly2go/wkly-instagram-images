@@ -7,6 +7,7 @@ import type { BudgetLine, Client, Payment, Project, ProjectFinance } from '../li
 import { Meter } from './charts'
 import { PaymentForm, parseMoney } from './PaymentForm'
 import { VendorSheet } from './VendorSheet'
+import { Help } from './ui'
 
 interface Data {
   finance: ProjectFinance | undefined
@@ -38,7 +39,7 @@ export function FinancePanel({ project, clients, projects, viz, part }: { projec
     <section className="section fin-viz" aria-label="재무">
       <div className="section-h">
         <span className="t-bodyb">재무</span>
-        <span className="cap">협력업체 관리 기준 · 부가세 포함</span>
+
         <Link to={ledger} className="t-cap" title="이 현장 결제 대장만 크게 보기 (이번 주 지급 · 점검 · 업체별 묶음)">
           크게 보기 ›
         </Link>
@@ -65,7 +66,7 @@ export function FinancePanel({ project, clients, projects, viz, part }: { projec
     <section className="section" aria-label="협력업체 관리">
       <div className="section-h">
         <span className="t-bodyb">협력업체 관리</span>
-        <span className="cap">업체 1곳 = 1줄 · 선금 · 중도금 · 잔금 · 노란 칸에 바로 입력</span>
+        <Help text="업체 한 곳이 한 줄입니다. 줄을 누르면 아래로 입력 칸이 펼쳐지고, 칸에서 나가면 바로 저장됩니다. 결제일을 넣으면 그 단계는 완료, 금액을 지우면 그 단계는 취소로 남습니다. 업체명을 누르면 오른쪽 칸에 업체 상세가 열립니다." />
         <Link to={ledger} className="t-cap">
           결제 건별 보기 ›
         </Link>
