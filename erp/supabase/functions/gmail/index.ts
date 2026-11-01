@@ -4,7 +4,7 @@
 //  - 10분마다(x-sync-key) 새 메일의 제목 · 보낸 사람 · 받는 사람 · 날짜 · 미리보기 · 첨부 이름만 mail_index 에 저장
 //    → DB 트리거가 연번 · 프로젝트 이름 · 거래처 · 연락처로 프로젝트에 연결
 //  - 2026-10-31 "이메일 자료 구글 드라이브에 자동으로 분류하고 정리해, 각 업체별로 수신방에 폴더를 만들어서 저장해"
-//    → 첨부를 내 드라이브 / 수신방 / <거래처> / YYMMDD_메일 제목 / 파일 로 복사 (세금계산서는 수신방 / 세금계산서 / YYYY-MM / <거래처>)
+//    → 첨부를 내 드라이브 / 수신방 / <YYMMDD> / <거래처> / 메일 제목 / 파일 로 복사 (2026-11-01 날짜별 폴더) (세금계산서는 수신방 / 세금계산서 / YYYY-MM / <거래처>)
 //    → 프로젝트와 연결된 메일은 프로젝트 폴더 01.협의자료/01.수신 에 바로가기, 계약서는 04.계약서 에도 바로가기
 //    → 기록은 mail_files (거래처 · 프로젝트 화면 · 에이전트가 이 표로 파일을 찾음). 메일은 읽기만
 //  actions: sync {days?} (관리자 · 처음엔 90일), files (관리자 · 첨부 저장만), status (팀원)
@@ -263,7 +263,7 @@ async function saveFiles(deadline: number): Promise<{ mails: number; files: numb
         if (!parent) {
           parent = tax
             ? await ensureFolder(vendor, (await ensureFolder(day.slice(0, 7), (await ensureFolder('세금계산서', root))!))!)
-            : await ensureFolder(clean(`${yymmdd}_${m.subject ?? '제목 없음'}`, 70), (await ensureFolder(vendor, root))!)
+            : await ensureFolder(clean(m.subject ?? '제목 없음', 70), (await ensureFolder(vendor, (await ensureFolder(yymmdd, root))!))!) // 날짜별 폴더 (2026-11-01): 수신방/<YYMMDD>/<거래처>/<메일 제목>
         }
         const att = await gmail<{ data?: string }>(`messages/${m.id}/attachments/${part.body!.attachmentId}`).catch(() => null)
         if (!att?.data) continue

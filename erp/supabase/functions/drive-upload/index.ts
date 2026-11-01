@@ -3,7 +3,7 @@
 //  - 요청 Origin 을 그대로 붙여 만들면 그 주소로 브라우저가 바로 PUT 할 수 있음 (CORS)
 //  - 팀원만 · 취재 자료 폴더(app_settings.field_upload_folder) 아래 '<촬영 폴더>/원본' 에만 만들 수 있음
 //  - 2026-11-01 "여기로 자료 끌어다 놓으면 자동으로 수신방에 분류 저장" (프로젝트 › 구글 드라이브 자료)
-//    mode 'inbox'      : 수신방/<거래처>/<연번 프로젝트>/<분류> 폴더를 찾거나 만들고 그곳 이어 올리기 주소
+//    mode 'inbox'      : 수신방/<YYMMDD>/<연번 프로젝트>/<분류> 폴더를 찾거나 만들고 그곳 이어 올리기 주소
 //    mode 'inbox_done' : 올린 파일을 수신방 기록(mail_files)에 남기고 프로젝트 01.협의자료/01.수신 에 바로가기
 import { createClient } from 'npm:@supabase/supabase-js@2.117.3'
 
@@ -119,8 +119,10 @@ Deno.serve(async req => {
         if (typeof b.size !== 'number') return json({ error: '파일 크기가 없습니다.' }, 400)
         const kind = kindOf(b.name, b.mime ?? '')
         const root = await inboxRoot(token)
-        const v = (await ensure(token, vendor, root))!
-        const pf = (await ensure(token, clean(p.code ? `${p.code} ${p.name}` : p.name, 70), v))!
+        // 날짜별 폴더 (2026-11-01 "날짜별로 폴더를 만들어서 저장"): 수신방/<YYMMDD>/<연번 프로젝트>/<분류>
+        const day = new Date(Date.now() + 9 * 3600_000).toISOString().slice(2, 10).replace(/-/g, '')
+        const df = (await ensure(token, day, root))!
+        const pf = (await ensure(token, clean(p.code ? `${p.code} ${p.name}` : p.name, 70), df))!
         const folder = (await ensure(token, kind, pf))!
         const url = await session(token, origin, { name: b.name, mime: b.mime, size: b.size }, folder)
         if (!url) return json({ error: '올리기 주소를 받지 못했습니다.' }, 502)
