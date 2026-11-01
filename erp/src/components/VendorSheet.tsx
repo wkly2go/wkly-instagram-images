@@ -257,7 +257,7 @@ export function VendorSheet({ projectId, payments, all, lines, finance, onOpen }
       <span className={`vs-amt${isDone(cur) ? ' done' : cur.due_date && cur.due_date < todayKey() ? ' late' : ''}`} title={[cur.stage, cur.paid_date ? `결제 ${cur.paid_date}` : '미결제', cur.tax_invoice === '발행' ? '계산서 발행' : cur.tax_invoice === '미발행' ? '계산서 미발행' : ''].filter(Boolean).join(' · ')}>
         {manwon(cur.amount)}
         <em>
-          {cur.paid_date ? `✓${cur.paid_date.slice(5).replace('-', '.')}` : cur.due_date && cur.due_date < todayKey() ? `연체 ${cur.due_date.slice(5).replace('-', '.')}` : cur.due_date ? `${cur.due_date.slice(5).replace('-', '.')} 예정` : '예정'}
+          {isDone(cur) ? `완료 ${(cur.paid_date ?? '').slice(5).replace('-', '.')}` : cur.due_date && cur.due_date < todayKey() ? `연체 ${cur.due_date.slice(5).replace('-', '.')}` : cur.due_date ? `${cur.due_date.slice(5).replace('-', '.')} 예정` : '예정'}
           {cur.tax_invoice === '발행' ? ' · 계' : ''}
         </em>
       </span>
@@ -320,7 +320,10 @@ export function VendorSheet({ projectId, payments, all, lines, finance, onOpen }
                     <button type="button" className="vs-name-link" onClick={e => (e.stopPropagation(), showPanel(), openVendor({ name: v.payee, clientId: v.items.find(live)?.client_id ?? null }))} title={`${v.payee} 상세 (오른쪽 칸)`}>
                       {v.payee}
                     </button>
-                    <span className="t-cap">{[v.category, v.title !== v.payee ? v.title : null, v.contractType].filter(Boolean).join(' · ')}</span>
+                    <span className="t-cap">
+                      {rate != null && rate >= 100 && <b className="vs-alldone">완료</b>}
+                      {[v.category, v.title !== v.payee ? v.title : null, v.contractType].filter(Boolean).join(' · ')}
+                    </span>
                   </td>
                   <td className="num mono">{v.contract ? manwon(v.contract) : <span className="vs-empty">–</span>}</td>
                   <td>
@@ -329,11 +332,15 @@ export function VendorSheet({ projectId, payments, all, lines, finance, onOpen }
                     </span>
                     <span className="t-cap mono">{rate != null ? `${rate}%` : v.paid ? manwon(v.paid) : '–'}</span>
                   </td>
-                  {stages.map(s => (
-                    <td key={s.key} className="num">
-                      {stageSum(pick(v, s.key))}
-                    </td>
-                  ))}
+                  {stages.map(s => {
+                    const cur = pick(v, s.key)
+                    const st = !cur ? '' : isDone(cur) ? ' st-done' : cur.due_date && cur.due_date < todayKey() ? ' st-late' : ' st-plan'
+                    return (
+                      <td key={s.key} className={`num${st}`}>
+                        {stageSum(cur)}
+                      </td>
+                    )
+                  })}
                   <td className="vs-caret">{open ? '▴' : '▾'}</td>
                 </tr>
                 {open && (
@@ -386,7 +393,10 @@ export function VendorSheet({ projectId, payments, all, lines, finance, onOpen }
                             const cur = pick(v, s.key)
                             return (
                               <div key={s.key} className={`vf-stage${cur && isDone(cur) ? ' done' : ''}`}>
-                                <b>{s.label}</b>
+                                <b>
+                                  {s.label}
+                                  {cur && isDone(cur) && <span className="vf-done">결제 완료</span>}
+                                </b>
                                 {field('금액', <input className="input num" inputMode="numeric" defaultValue={money(cur?.amount)} onBlur={e => saveStage(v, s.label, cur, { amount: parseMoney(e.target.value) })} onKeyDown={blurOnEnter} />)}
                                 {field('결제일', <input className="input" type="date" defaultValue={cur?.paid_date ?? ''} disabled={!cur} onChange={e => cur && saveStage(v, s.label, cur, { paid_date: e.target.value || null })} title={cur ? '넣으면 결제 완료' : '금액을 먼저 넣어 주세요'} />)}
                                 <label className={`vs-inv${cur ? '' : ' off'}`}>

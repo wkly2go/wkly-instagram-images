@@ -3095,3 +3095,14 @@ input[type='radio'] { border-radius: 50% !important; }
 .pviz-alarm.red { font-weight: 800; box-shadow: inset 4px 0 0 var(--red); }
 .pviz-alarm.amber { box-shadow: inset 4px 0 0 #e3a400; }
 .pviz-alarm.ok { background: var(--paper); color: var(--gray); font-weight: 400; }
+/* 결제 상태 색 구분 (2026-11-01 "결제 완료면 완료 표시, 색으로 구분") — 완료 초록 · 예정 회색 · 연체 빨강 */
+.vendor-sum td.st-done { background: #e6f2ea; box-shadow: inset 3px 0 0 var(--blue); }
+.vendor-sum td.st-late { background: #fdecec; box-shadow: inset 3px 0 0 var(--red); }
+.vendor-sum td.st-plan { background: var(--white); }
+.vendor-sum td.st-done .vs-amt, .vendor-sum td.st-done .vs-amt em { color: var(--blue); }
+.vendor-sum td.st-done .vs-amt em { font-weight: 800; }
+.vendor-sum td.st-late .vs-amt, .vendor-sum td.st-late .vs-amt em { color: var(--red); font-weight: 800; }
+.vendor-sum td.st-plan .vs-amt em { color: var(--gray); }
+.vs-alldone { display: inline-block; margin-right: 5px; padding: 0 5px; background: var(--blue); color: #fff; font-size: 10px; font-weight: 800; }
+.vf-done { margin-left: 6px; padding: 1px 6px; background: var(--blue); color: #fff; font-size: 10.5px; font-weight: 800; }
+.vf-stage.done { background: #f1f8f3; }
