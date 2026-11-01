@@ -2136,6 +2136,10 @@ export function createDemoApi(): Api {
     async listFieldUploads() {
       return []
     },
+    async inboxUploadStart(): Promise<{ url: string; folder_id: string; kind: string }> {
+      throw new Error('체험 모드에서는 드라이브에 올릴 수 없습니다.')
+    },
+    async inboxUploadDone() {},
     async fieldUploadSession() {
       return null
     },

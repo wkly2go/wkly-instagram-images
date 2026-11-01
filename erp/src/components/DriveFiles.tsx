@@ -39,6 +39,7 @@ import {
   onTokenChange,
   previewUrl,
   readToken,
+  uploadLarge,
   uploadToDrive,
   type GFile,
 } from "../lib/gdrive";
@@ -283,8 +284,55 @@ export function ProjectDriveSection({ project }: { project: Project }) {
       : openDoc(f.url);
   const openDocFolder = (url: string) => openDoc(url);
 
+  // 끌어다 놓으면 수신방 › 거래처 › 프로젝트 › 분류 로 저장 (대표 지시 2026-11-01)
+  const [drag, setDrag] = useState(false);
+  const [inboxProg, setInboxProg] = useState<{ done: number; total: number; ratio: number } | null>(null);
+  const toInbox = async (list: FileList | File[] | null) => {
+    const arr = Array.from(list ?? []).filter((f) => f.size > 0 || f.type);
+    if (!arr.length || inboxProg) return;
+    setErr("");
+    const kinds: string[] = [];
+    try {
+      for (let i = 0; i < arr.length; i++) {
+        const f = arr[i];
+        setInboxProg({ done: i, total: arr.length, ratio: 0 });
+        const mime = f.type || "application/octet-stream";
+        const s = await api.inboxUploadStart(project.id, { name: f.name, mime, size: f.size });
+        const g = await uploadLarge("", f, s.folder_id, async () => s.url, (r) => setInboxProg({ done: i, total: arr.length, ratio: r }));
+        if (!g.id) throw new Error(`${f.name}: 올린 뒤 파일 정보를 받지 못했습니다.`);
+        await api.inboxUploadDone(project.id, { file_id: g.id, folder_id: s.folder_id, kind: s.kind, name: f.name });
+        kinds.push(s.kind);
+      }
+      const by = [...new Set(kinds)].map((k) => `${k} ${kinds.filter((x) => x === k).length}`).join(" · ");
+      toast(`수신방에 ${arr.length}개 분류 저장했습니다 (${by}).`);
+      reload();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "수신방에 올리지 못했습니다.");
+    } finally {
+      setInboxProg(null);
+    }
+  };
+  const inboxInput = useRef<HTMLInputElement>(null);
+
   return (
-    <section className="col gap-6">
+    <section
+      className={`col gap-6 drive-drop${drag ? " on" : ""}`}
+      onDragOver={(e) => {
+        if (![...e.dataTransfer.types].includes("Files")) return;
+        e.preventDefault();
+        setDrag(true);
+      }}
+      onDragLeave={(e) => {
+        if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
+        setDrag(false);
+      }}
+      onDrop={(e) => {
+        if (!e.dataTransfer.files.length) return;
+        e.preventDefault();
+        setDrag(false);
+        void toInbox(e.dataTransfer.files);
+      }}
+    >
       <SectionHead
         title="구글 드라이브 자료"
         count={files.length || undefined}
@@ -375,9 +423,31 @@ export function ProjectDriveSection({ project }: { project: Project }) {
           첨부
         </Button>
       </div>
-      <span className="t-cap">
-        프로젝트 폴더나 드라이브 '수신방'에 파일을 넣으면 5분 안에 수신방 › 거래처 › 프로젝트 › 분류(계약서 · 견적서 · 도면 · 일정표 · 사진)로 자동 정리됩니다.
-      </span>
+      <button
+        type="button"
+        className="drop-strip"
+        onClick={() => inboxInput.current?.click()}
+        disabled={!!inboxProg}
+      >
+        <Upload size={14} />
+        {inboxProg ? (
+          <span>
+            수신방에 올리는 중 {inboxProg.done + 1}/{inboxProg.total} · {Math.round(inboxProg.ratio * 100)}%
+          </span>
+        ) : (
+          <span>
+            <b>파일을 여기로 끌어다 놓기</b> (또는 눌러서 고르기) → 수신방 › 거래처 › 프로젝트 › 분류(계약서 · 견적서 · 도면 · 일정표 · 사진)로 자동 저장
+          </span>
+        )}
+      </button>
+      <input
+        ref={inboxInput}
+        type="file"
+        multiple
+        hidden
+        onChange={(e) => (void toInbox(e.target.files), (e.target.value = ""))}
+      />
+      <span className="t-cap">드라이브의 프로젝트 폴더나 '수신방'에 직접 넣은 파일도 5분 안에 같은 방식으로 정리됩니다.</span>
       {/* 따로 첨부한 링크가 없으면 아무것도 안 보임 — 폴더 파일은 아래 '프로젝트 폴더 파일'에 (대표 지시 2026-10-31) */}
       {files.length === 0 ? null : (
         <div className="drive-list">
