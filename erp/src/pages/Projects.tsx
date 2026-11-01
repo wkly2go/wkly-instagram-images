@@ -768,6 +768,7 @@ function ProjectDetail({ project: p, data, onEdit, onBack, panel = false }: { pr
       </div>
       {/* 프로젝트 개요: 머리줄 아래 네비게이션처럼 고정 (대표 지시 2026-10-31) */}
       <nav className="proj-overview" aria-label="프로젝트 개요">
+        <span className="po-vat" title="이 화면의 계약 · 수금 · 지급 · 마진 · 업체 금액은 모두 부가세 포함입니다">금액 = 부가세 포함</span>
         <span>
           <em>연번</em>
           {p.code ?? '-'}

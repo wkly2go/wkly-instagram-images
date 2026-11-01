@@ -279,3 +279,12 @@ export function FilterGroup({ label, children }: { label: string; children: Reac
     </div>
   )
 }
+
+/** 반복되는 사용법 문구 대신 '?' 하나 — 마우스를 올리거나 누르면 설명 (대표 지시 2026-11-01 "반복 문구 사용성 개선") */
+export function Help({ text }: { text: string }) {
+  return (
+    <span className="help-q" tabIndex={0} role="note" aria-label={text} title={text}>
+      ?
+    </span>
+  )
+}
