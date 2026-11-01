@@ -324,8 +324,9 @@ async function syncAll(force: boolean): Promise<{ mode: 'full' | 'changes'; file
 }
 
 // ---------------------------------------------------------------- 드라이브에 넣은 자료 → 수신방 (대표 지시 2026-11-01)
-//  ① 프로젝트 폴더에 새로 넣은 파일 → 수신방/<거래처>/<연번 프로젝트>/<분류> 에 바로가기 (원본은 그대로)
-//  ② 수신방 맨 위에 바로 넣은 파일 → 이름으로 프로젝트 · 거래처를 찾아 수신방/<거래처>/<연번 프로젝트>/<분류> 로 옮김 (못 찾으면 미분류)
+//  날짜별 폴더 (대표 지시 2026-11-01 "날짜별로 폴더를 만들어서 저장"): 수신방/<YYMMDD>/<연번 프로젝트>/<분류> · 못 찾으면 수신방/<YYMMDD>/미분류
+//  ① 프로젝트 폴더에 새로 넣은 파일 → 수신방/<YYMMDD>/<연번 프로젝트>/<분류> 에 바로가기 (원본은 그대로)
+//  ② 수신방 맨 위에 바로 넣은 파일 → 이름으로 프로젝트 · 거래처를 찾아 수신방/<YYMMDD>/<연번 프로젝트>/<분류> 로 옮김 (못 찾으면 미분류)
 const SHORTCUT = 'application/vnd.google-apps.shortcut'
 const INBOX_FROM = '2026-11-01T00:00:00Z' // 이때부터 들어온 파일만 (예전 자료는 그대로)
 const clean = (s: string, n = 80) => s.replace(/[\\/:*?"<>|\r\n\t]+/g, '·').replace(/\s+/g, ' ').trim().slice(0, n) || '이름 없음'
@@ -398,7 +399,7 @@ async function fileInbox(deadline: number): Promise<{ filed: number; sorted: num
     if (Date.now() > deadline) break
     const p = await guessProject(f.name)
     const kind = kindOf(f.name, f.mimeType ?? null)
-    const dest = p ? await sub(kind, await sub(projFolderName(p), await sub(clean(p.client ?? '거래처 미정', 60), root))) : await sub('미분류', root)
+    const dest = p ? await sub(kind, await sub(projFolderName(p), await sub(today6(), root))) : await sub('미분류', await sub(today6(), root))
     await drive(`files/${encodeURIComponent(f.id)}?addParents=${dest}&removeParents=${root}&supportsAllDrives=true&fields=id`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: '{}' })
     if (p) {
       const inbox = await projectInbox(p)
@@ -421,7 +422,7 @@ async function fileInbox(deadline: number): Promise<{ filed: number; sorted: num
     .order('first_seen_at', { ascending: true })
     .limit(200)
   const ps = await projectsInfo()
-  for (const f of (fresh ?? []) as { id: string; project_id: string; name: string; mime_type: string | null; path: string | null; url: string | null; size: number | null; modified_at: string | null }[]) {
+  for (const f of (fresh ?? []) as { id: string; project_id: string; name: string; mime_type: string | null; path: string | null; url: string | null; size: number | null; modified_at: string | null; first_seen_at: string }[]) {
     if (Date.now() > deadline || filed >= 40) break
     if (seen.has(f.id)) continue
     if (/^01\.협의자료\/01\.수신/.test(f.path ?? '')) continue // 메일에서 온 바로가기 자리
@@ -429,7 +430,8 @@ async function fileInbox(deadline: number): Promise<{ filed: number; sorted: num
     if (!p) continue
     const kind = kindOf(f.name, f.mime_type)
     const vendor = clean(p.client ?? '거래처 미정', 60)
-    const dest = await sub(kind, await sub(projFolderName(p), await sub(vendor, root)))
+    const day = new Date(Date.parse(f.first_seen_at) + 9 * 3600_000).toISOString().slice(2, 10).replace(/-/g, '')
+    const dest = await sub(kind, await sub(projFolderName(p), await sub(day, root)))
     // 기록을 먼저 남기고(한 번만) 바로가기 → 같은 파일에 바로가기가 두 번 생기지 않게
     const { data: ins, error } = await sb.from('mail_files').upsert(
       { source: 'drive', source_file_id: f.id, name: f.name, mime: f.mime_type, size: f.size, kind, vendor, client_id: p.client_id, project_ids: [p.id], drive_file_id: f.id, drive_url: f.url ?? `https://drive.google.com/file/d/${f.id}/view`, folder_id: dest, sent_at: f.modified_at ?? new Date().toISOString() },
