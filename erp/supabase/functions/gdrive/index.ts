@@ -3,6 +3,7 @@
 //  - "현재 구글 드라이브에 있는 자료는 절대 수정 · 삭제하면 안 되고, #2026 을 만들어서 저장"
 //    → 내 드라이브 최상위 '#연도' / '#ARTERIOR_연도'(아트리어) · '#WKLY_연도'(더위클리 · 내부 리서치) / '연번_프로젝트 이름'
 //    → 인트라넷이 만든 그 폴더들만 이름 · 위치를 고침. 그 밖의 폴더 · 파일은 읽기만 (삭제 기능 없음)
+//    → 예외(2026-11-01): 수신방 맨 위에 넣은 파일만 수신방 안 분류 폴더로 옮김 · 프로젝트 폴더 파일은 바로가기만 만듦
 //  - 2026-10-31 "#2026 폴더 제거하고 내용물은 기존 폴더에 저장해"
 //    → 새 폴더는 내 드라이브 최상위의 기존 '#ARTERIOR_연도' · '#WKLY_연도' · '#RESEARCH_연도' 안에 '연번 이름' 으로 만듦 (#연도 상위 폴더 없음)
 //    → 드라이브가 기준: 기존 폴더 이름은 인트라넷이 바꾸지 않고, 드라이브 이름을 인트라넷이 따라감
@@ -15,6 +16,7 @@
 //                         ("구글 계정은 회사 계정을 모두 공유" 결정에 따름 · 갱신 토큰 · 비밀번호는 서버에만)
 //   - sync              : 5분 예약(x-sync-key) · 관리자 · 프로젝트 폴더 안 파일 목록을 drive_index 에 맞춤 (드라이브는 읽기만)
 //                         처음 · 하루 한 번은 전체 훑기, 그 사이엔 changes API 로 바뀐 것만
+//                         + 새로 넣은 자료를 수신방에 분류 · 정리 (fileInbox)
 //  필요한 값: app_settings.google_oauth_client_id (관리자 등록) · Vault GOOGLE_CLIENT_SECRET (대표가 직접 등록)
 import { createClient } from 'npm:@supabase/supabase-js@2.117.3'
 
@@ -152,7 +154,7 @@ interface DFile {
   lastModifyingUser?: { displayName?: string }
 }
 const F_FIELDS = 'id,name,mimeType,parents,trashed,webViewLink,iconLink,size,modifiedTime,lastModifyingUser(displayName)'
-interface Row { id: string; project_id: string; name: string; mime_type: string | null; parent_id: string | null; path: string | null; url: string | null; icon_url: string | null; size: number | null; modified_at: string | null; modified_by: string | null; synced_at: string }
+interface Row { id: string; project_id: string; name: string; mime_type: string | null; parent_id: string | null; path: string | null; url: string | null; icon_url: string | null; size: number | null; modified_at: string | null; modified_by: string | null; synced_at: string; first_seen_at?: string }
 const toRow = (f: DFile, project: string, path: string, now: string): Row => ({
   id: f.id,
   project_id: project,
@@ -195,7 +197,8 @@ async function pullName(projectId: string, folderTitle: string) {
 }
 
 /** 프로젝트 폴더 전체 훑기: 하위 폴더까지 (깊이 · 개수 제한) → 없어진 파일은 목록에서 뺌 */
-async function scanProject(projectId: string, folderId: string, now: string): Promise<number> {
+/** old = 처음 연결된 폴더: 그 안 기존 파일은 '새로 넣은 자료'가 아님 (수신방 정리 대상에서 뺌) */
+async function scanProject(projectId: string, folderId: string, now: string, old = false): Promise<number> {
   const rows: Row[] = []
   const queue: [string, string, number][] = [[folderId, '', 0]]
   while (queue.length && rows.length < MAX_PER_PROJECT) {
@@ -205,7 +208,7 @@ async function scanProject(projectId: string, folderId: string, now: string): Pr
       const qs = new URLSearchParams({ q: `'${dir}' in parents and trashed = false`, fields: `nextPageToken,files(${F_FIELDS})`, pageSize: '1000', supportsAllDrives: 'true', includeItemsFromAllDrives: 'true', ...(pageToken ? { pageToken } : {}) })
       const r = await drive<{ nextPageToken?: string; files?: DFile[] }>(`files?${qs}`)
       for (const f of r.files ?? []) {
-        rows.push(toRow(f, projectId, path, now))
+        rows.push(old ? { ...toRow(f, projectId, path, now), first_seen_at: '2000-01-01T00:00:00Z' } : toRow(f, projectId, path, now))
         if (f.mimeType === FOLDER && depth + 1 < MAX_DEPTH) queue.push([f.id, path ? `${path}/${f.name}` : f.name, depth + 1])
       }
       pageToken = r.nextPageToken
@@ -240,8 +243,11 @@ async function syncAll(force: boolean): Promise<{ mode: 'full' | 'changes'; file
     // 시작 표시를 먼저 받아 두면 훑는 동안 바뀐 것도 다음 번에 잡힘
     const start = await drive<{ startPageToken: string }>('changes/startPageToken?supportsAllDrives=true')
     let files = 0
+    const known = new Set(state.folders ?? [])
+    // 상태를 먼저 저장: 함수 제한 시간에 끊겨도 다음 번엔 바뀐 것만 훑음 (예전엔 매번 전체 훑기에서 끊겨 상태가 저장되지 않았음)
+    await writeState({ token: start.startPageToken, full_at: now, folders: [...folders.keys()], synced_at: now, files: 0, changed: 0 })
     for (const [folder, project] of folders) {
-      files += await scanProject(project, folder, now).catch(() => 0)
+      files += await scanProject(project, folder, now, !known.has(folder)).catch(() => 0)
       const meta = await drive<DFile>(`files/${encodeURIComponent(folder)}?supportsAllDrives=true&fields=id,name,trashed`).catch(() => null)
       if (meta && !meta.trashed) await pullName(project, meta.name).catch(() => undefined)
     }
@@ -257,7 +263,7 @@ async function syncAll(force: boolean): Promise<{ mode: 'full' | 'changes'; file
   let added = 0
   for (const [folder, project] of folders)
     if (!seen.has(folder)) {
-      added += await scanProject(project, folder, now).catch(() => 0)
+      added += await scanProject(project, folder, now, true).catch(() => 0)
       seen.add(folder)
     }
 
@@ -317,6 +323,125 @@ async function syncAll(force: boolean): Promise<{ mode: 'full' | 'changes'; file
   return { mode: 'changes', files: rows.length + added, changed }
 }
 
+// ---------------------------------------------------------------- 드라이브에 넣은 자료 → 수신방 (대표 지시 2026-11-01)
+//  ① 프로젝트 폴더에 새로 넣은 파일 → 수신방/<거래처>/<연번 프로젝트>/<분류> 에 바로가기 (원본은 그대로)
+//  ② 수신방 맨 위에 바로 넣은 파일 → 이름으로 프로젝트 · 거래처를 찾아 수신방/<거래처>/<연번 프로젝트>/<분류> 로 옮김 (못 찾으면 미분류)
+const SHORTCUT = 'application/vnd.google-apps.shortcut'
+const INBOX_FROM = '2026-11-01T00:00:00Z' // 이때부터 들어온 파일만 (예전 자료는 그대로)
+const clean = (s: string, n = 80) => s.replace(/[\\/:*?"<>|\r\n\t]+/g, '·').replace(/\s+/g, ' ').trim().slice(0, n) || '이름 없음'
+const kindOf = (name: string, mime: string | null): string => {
+  if (/세금\s?계산서|tax\s?invoice/i.test(name)) return '세금계산서'
+  if (/계약서|계약|약정|agreement|contract/i.test(name)) return '계약서'
+  if (/견적|quotation|estimate|quote|실행\s?율|실행\s?내역/i.test(name)) return '견적서'
+  if (/도면|평면|입면|단면|상세도|\.(dwg|dxf)$/i.test(name)) return '도면'
+  if (/일정|스케줄|schedule|공정표/i.test(name)) return '일정표'
+  if ((mime ?? '').startsWith('image/') || (mime ?? '').startsWith('video/')) return '사진'
+  return '첨부'
+}
+const fcache = new Map<string, string>()
+async function sub(name: string, parent: string): Promise<string> {
+  const k = `${parent}/${name}`
+  if (!fcache.has(k)) fcache.set(k, await ensure(name, parent))
+  return fcache.get(k)!
+}
+async function inboxRoot(): Promise<string> {
+  const { data } = await sb.from('app_settings').select('value').eq('key', 'mail_inbox_folder').maybeSingle()
+  if (typeof data?.value === 'string' && data.value) return data.value
+  const id = await ensure('수신방', 'root')
+  await sb.from('app_settings').upsert({ key: 'mail_inbox_folder', value: id, updated_at: new Date().toISOString() })
+  return id
+}
+interface PInfo { id: string; code: string | null; name: string; client_id: string | null; client: string | null; drive_url: string | null }
+let pinfo: PInfo[] | null = null
+async function projectsInfo(): Promise<PInfo[]> {
+  if (pinfo) return pinfo
+  const { data } = await sb.from('projects').select('id,code,name,client_id,drive_url,clients(name)')
+  pinfo = ((data ?? []) as unknown as (Omit<PInfo, 'client'> & { clients: { name: string } | null })[]).map(p => ({ ...p, client: p.clients?.name ?? null }))
+  return pinfo
+}
+const projFolderName = (p: PInfo) => clean(p.code ? `${p.code} ${p.name}` : p.name, 70)
+/** 파일 이름으로 프로젝트 찾기: 연번 → 프로젝트 이름 → 거래처 이름 (하나만 맞을 때) */
+async function guessProject(name: string): Promise<PInfo | null> {
+  const ps = await projectsInfo()
+  const norm = (s: string) => s.replace(/\s|_|-|·/g, '').toLowerCase()
+  const n = norm(name)
+  const code = name.match(/[A-Z]{2}\d{4}(-\d{1,3})?/)?.[0]
+  if (code) {
+    const hit = ps.filter(p => p.code === code)
+    if (hit.length === 1) return hit[0]
+  }
+  const byName = ps.filter(p => norm(p.name).length >= 4 && n.includes(norm(p.name)))
+  if (byName.length === 1) return byName[0]
+  const words = ps.filter(p => p.name.split(/\s+/).some(w => w.length >= 3 && n.includes(norm(w))))
+  if (words.length === 1) return words[0]
+  const byClient = ps.filter(p => p.client && norm(p.client).length >= 2 && n.includes(norm(p.client.replace(/㈜|\(주\)|주식회사/g, ''))))
+  return byClient.length === 1 ? byClient[0] : null
+}
+async function projectInbox(p: PInfo): Promise<string | null> {
+  const root = p.drive_url ? idOf(p.drive_url) : null
+  if (!root) return null
+  const talk = await find('01.협의자료', root).catch(() => null)
+  return talk ? sub('01.수신', talk.id).catch(() => null) : null
+}
+async function shortcutTo(target: string, name: string, parent: string) {
+  await drive('files?fields=id&supportsAllDrives=true', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, mimeType: SHORTCUT, parents: [parent], shortcutDetails: { targetId: target } }) })
+}
+const today6 = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(2, 10).replace(/-/g, '')
+
+async function fileInbox(deadline: number): Promise<{ filed: number; sorted: number }> {
+  const root = await inboxRoot()
+  let filed = 0
+  let sorted = 0
+  // ② 수신방 맨 위에 넣은 파일 → 분리해서 옮김
+  const top = await drive<{ files?: DFile[] }>(`files?${new URLSearchParams({ q: `'${root}' in parents and trashed = false and mimeType != '${FOLDER}' and mimeType != '${SHORTCUT}'`, fields: `files(${F_FIELDS})`, pageSize: '50' })}`).catch(() => ({ files: [] as DFile[] }))
+  for (const f of top.files ?? []) {
+    if (Date.now() > deadline) break
+    const p = await guessProject(f.name)
+    const kind = kindOf(f.name, f.mimeType ?? null)
+    const dest = p ? await sub(kind, await sub(projFolderName(p), await sub(clean(p.client ?? '거래처 미정', 60), root))) : await sub('미분류', root)
+    await drive(`files/${encodeURIComponent(f.id)}?addParents=${dest}&removeParents=${root}&supportsAllDrives=true&fields=id`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+    if (p) {
+      const inbox = await projectInbox(p)
+      if (inbox) await shortcutTo(f.id, `${today6()}_${f.name}`, inbox).catch(() => undefined)
+      await sb.from('mail_files').upsert(
+        { source: 'drive', source_file_id: f.id, name: f.name, mime: f.mimeType ?? null, size: f.size ? Number(f.size) : null, kind, vendor: p.client ?? '거래처 미정', client_id: p.client_id, project_ids: [p.id], drive_file_id: f.id, drive_url: f.webViewLink ?? `https://drive.google.com/file/d/${f.id}/view`, folder_id: dest, sent_at: f.modifiedTime ?? new Date().toISOString() },
+        { onConflict: 'source_file_id', ignoreDuplicates: true },
+      )
+    }
+    sorted++
+  }
+  // ① 프로젝트 폴더에 새로 넣은 파일 → 수신방에 바로가기
+  const { data: done } = await sb.from('mail_files').select('source_file_id').eq('source', 'drive').gte('created_at', INBOX_FROM)
+  const seen = new Set((done ?? []).map(r => r.source_file_id as string))
+  const { data: fresh } = await sb
+    .from('drive_index')
+    .select('id,project_id,name,mime_type,path,url,size,modified_at,first_seen_at')
+    .gte('first_seen_at', INBOX_FROM)
+    .not('mime_type', 'in', `("${FOLDER}","${SHORTCUT}")`)
+    .order('first_seen_at', { ascending: true })
+    .limit(200)
+  const ps = await projectsInfo()
+  for (const f of (fresh ?? []) as { id: string; project_id: string; name: string; mime_type: string | null; path: string | null; url: string | null; size: number | null; modified_at: string | null }[]) {
+    if (Date.now() > deadline || filed >= 40) break
+    if (seen.has(f.id)) continue
+    if (/^01\.협의자료\/01\.수신/.test(f.path ?? '')) continue // 메일에서 온 바로가기 자리
+    const p = ps.find(x => x.id === f.project_id)
+    if (!p) continue
+    const kind = kindOf(f.name, f.mime_type)
+    const vendor = clean(p.client ?? '거래처 미정', 60)
+    const dest = await sub(kind, await sub(projFolderName(p), await sub(vendor, root)))
+    // 기록을 먼저 남기고(한 번만) 바로가기 → 같은 파일에 바로가기가 두 번 생기지 않게
+    const { data: ins, error } = await sb.from('mail_files').upsert(
+      { source: 'drive', source_file_id: f.id, name: f.name, mime: f.mime_type, size: f.size, kind, vendor, client_id: p.client_id, project_ids: [p.id], drive_file_id: f.id, drive_url: f.url ?? `https://drive.google.com/file/d/${f.id}/view`, folder_id: dest, sent_at: f.modified_at ?? new Date().toISOString() },
+      { onConflict: 'source_file_id', ignoreDuplicates: true },
+    ).select('id')
+    if (error || !ins?.length) continue
+    await shortcutTo(f.id, f.name, dest).catch(() => undefined)
+    filed++
+  }
+  return { filed, sorted }
+}
+
 Deno.serve(async req => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
   if (req.method !== 'POST') return json({ error: 'POST 요청만 받습니다.' }, 405)
@@ -326,7 +451,10 @@ Deno.serve(async req => {
     const want = await secret('GDRIVE_SYNC_KEY')
     if (!want || syncKey !== want) return json({ error: '열쇠가 맞지 않습니다.' }, 403)
     try {
-      return json(await syncAll(false))
+      // 수신방 정리를 먼저 (짧게) → 그다음 목록 동기화 (오래 걸릴 수 있음)
+      const inbox = await fileInbox(Date.now() + 40_000).catch(e => ({ error: e instanceof Error ? e.message : '수신방 정리 실패' }))
+      const r = await syncAll(false)
+      return json({ ...r, inbox })
     } catch (e) {
       if (e instanceof NotConnected) return json({ error: e.message, not_connected: true }, 409)
       return json({ error: e instanceof Error ? e.message : '동기화 실패' }, 500)
@@ -385,7 +513,10 @@ Deno.serve(async req => {
     }
     if (body.action === 'sync') {
       if (admin !== true) return json({ error: '관리자만 할 수 있습니다.' }, 403)
-      return json(await syncAll(body.full === true))
+      // 수신방 정리를 먼저 (짧게) → 그다음 목록 동기화 (오래 걸릴 수 있음)
+      const inbox = await fileInbox(Date.now() + 40_000).catch(e => ({ error: e instanceof Error ? e.message : '수신방 정리 실패' }))
+      const r = await syncAll(body.full === true)
+      return json({ ...r, inbox })
     }
     if (body.action === 'ensure_all') {
       if (admin !== true) return json({ error: '관리자만 할 수 있습니다.' }, 403)

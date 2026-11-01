@@ -20,6 +20,7 @@ import { dateLabel } from "../lib/date";
 import {
   projectDriveUrl,
   type DriveIndexFile,
+  type MailFile,
   type Project,
   type ProjectDriveFile,
 } from "../lib/types";
@@ -374,12 +375,9 @@ export function ProjectDriveSection({ project }: { project: Project }) {
           첨부
         </Button>
       </div>
-      {native && (
-        <span className="t-cap">
-          PC 프로그램: '프로젝트 폴더'를 누르면 드라이브 탭에서 바로 열립니다.
-          파일에서 '링크 복사' 뒤 위 칸에 붙여 넣으면 첨부됩니다.
-        </span>
-      )}
+      <span className="t-cap">
+        프로젝트 폴더나 드라이브 '수신방'에 파일을 넣으면 5분 안에 수신방 › 거래처 › 프로젝트 › 분류(계약서 · 견적서 · 도면 · 일정표 · 사진)로 자동 정리됩니다.
+      </span>
       {/* 따로 첨부한 링크가 없으면 아무것도 안 보임 — 폴더 파일은 아래 '프로젝트 폴더 파일'에 (대표 지시 2026-10-31) */}
       {files.length === 0 ? null : (
         <div className="drive-list">
@@ -474,6 +472,7 @@ export function ProjectDriveSection({ project }: { project: Project }) {
           />
         </div>
       )}
+      <InboxFiles project={project} />
       <FolderFiles project={project} onOpen={openDoc} />
       {err && <span className="err">{err}</span>}
       {picking && token && (
@@ -514,6 +513,49 @@ export function ProjectDriveSection({ project }: { project: Project }) {
  * 프로젝트 폴더 안 파일 — 서버가 5분마다 회사 계정 드라이브와 맞춘 목록 (구글 로그인 없이 누구나 봄 · 드라이브는 읽기만)
  *  - 폴더 경로 · 고친 사람 · 고친 날 · 이름 찾기
  */
+/** 수신방에 자동 정리된 자료 (드라이브에 넣은 것 · 메일 첨부) · 분류별 (대표 지시 2026-11-01) */
+const INBOX_KINDS = ["계약서", "견적서", "세금계산서", "도면", "일정표", "사진", "첨부"] as const;
+function InboxFiles({ project }: { project: Project }) {
+  const { api, version } = useApp();
+  const { data } = useAsync(
+    () => api.listMailFiles(project.id, project.client_id ?? null),
+    [project.id, project.client_id, version],
+    [] as MailFile[],
+  );
+  const [kind, setKind] = useState<string | null>(null);
+  const mine = data.filter((f) => f.project_ids.includes(project.id));
+  if (!mine.length) return null;
+  const kinds = INBOX_KINDS.filter((k) => mine.some((f) => f.kind === k));
+  const shown = kind ? mine.filter((f) => f.kind === kind) : mine;
+  return (
+    <div className="inbox-files">
+      <div className="row gap-6 wrap">
+        <span className="t-smallb">수신방 자동 정리 {mine.length}</span>
+        <button type="button" className={`chip${kind === null ? " active" : ""}`} onClick={() => setKind(null)}>
+          전체
+        </button>
+        {kinds.map((k) => (
+          <button key={k} type="button" className={`chip${kind === k ? " active" : ""}`} onClick={() => setKind(k)}>
+            {k} {mine.filter((f) => f.kind === k).length}
+          </button>
+        ))}
+      </div>
+      <ul className="inbox-list">
+        {shown.slice(0, 30).map((f) => (
+          <li key={f.id}>
+            <button type="button" className="link-btn" onClick={() => openLink(f.drive_url)} title={`${f.vendor} · ${f.kind}`}>
+              <FileText size={12} /> <span className="truncate">{f.name}</span>
+            </button>
+            <span className="t-meta">
+              {f.kind} · {f.source === "drive" ? "드라이브" : "메일"} · {f.sent_at ? dateLabel(f.sent_at.slice(0, 10)) : ""}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function FolderFiles({
   project,
   onOpen,

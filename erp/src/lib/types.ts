@@ -1212,13 +1212,15 @@ export interface FieldUpload {
   agent_note: string | null
   created_at: string
 }
-/** 메일 첨부를 드라이브 수신방에 저장한 것 */
+/** 메일 첨부 · 드라이브에 넣은 자료를 수신방에 분류해 저장한 것 */
 export interface MailFile {
   id: string
-  mail_id: string
+  mail_id: string | null
   thread_id: string | null
   name: string
-  kind: '첨부' | '세금계산서' | '계약서'
+  kind: '첨부' | '세금계산서' | '계약서' | '견적서' | '도면' | '일정표' | '사진'
+  /** mail = 메일 첨부 · drive = 드라이브에 넣은 자료 (2026-11-01) */
+  source?: 'mail' | 'drive'
   vendor: string
   client_id: string | null
   project_ids: string[]
