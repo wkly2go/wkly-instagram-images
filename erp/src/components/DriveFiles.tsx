@@ -7,7 +7,6 @@ import {
   FileText,
   Folder,
   FolderOpen,
-  Link2,
   LogIn,
   Pencil,
   Trash2,
@@ -34,7 +33,6 @@ import {
   fileMeta,
   FOLDER_MIME,
   googleLogin,
-  kindOfUrl,
   nativeGoogle,
   onTokenChange,
   previewUrl,
@@ -156,7 +154,6 @@ export function ProjectDriveSection({ project }: { project: Project }) {
     [version],
     null as string | null,
   );
-  const [link, setLink] = useState("");
   const [picking, setPicking] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
   const [err, setErr] = useState("");
@@ -222,34 +219,6 @@ export function ProjectDriveSection({ project }: { project: Project }) {
     } catch (e) {
       setErr(e instanceof Error ? e.message : "구글 로그인 실패");
     }
-  };
-  const attachLink = async () => {
-    const url = link.trim();
-    const id = driveIdOf(url);
-    if (!id || !/^https:\/\/(drive|docs)\.google\.com\//.test(url))
-      return setErr(
-        "구글 드라이브 · 문서 주소를 붙여 넣어 주세요 (https://drive.google.com/… 또는 https://docs.google.com/…).",
-      );
-    setErr("");
-    let meta: GFile | null = null;
-    if (token) meta = await fileMeta(token, id).catch(() => null);
-    const k = kindOfUrl(url);
-    const ok = await run(
-      () =>
-        api.addProjectDriveFiles(project.id, [
-          {
-            drive_id: id,
-            name: meta?.name ?? `${k.label} (${id.slice(0, 6)}…)`,
-            mime_type: meta?.mimeType ?? k.mime,
-            url: meta?.webViewLink ?? url,
-            icon_url: meta?.iconLink ?? null,
-          },
-        ]),
-      meta || !token
-        ? "첨부했습니다."
-        : "첨부했습니다. (이름은 구글 로그인 후 자동으로 맞춰집니다)",
-    );
-    if (ok) setLink("");
   };
   const onUpload = async (list: FileList | null) => {
     if (!list?.length || !token) return;
@@ -409,20 +378,7 @@ export function ProjectDriveSection({ project }: { project: Project }) {
           </span>
         }
       />
-      <div className="row gap-6">
-        <Link2 size={14} className="t-gray" />
-        <input
-          className="input grow"
-          value={link}
-          onChange={(e) => setLink(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && void attachLink()}
-          placeholder="드라이브 · 구글 문서 링크 붙여 넣기 (드라이브에서 '링크 복사')"
-          aria-label="드라이브 링크"
-        />
-        <Button size="sm" disabled={busy || !link.trim()} onClick={attachLink}>
-          첨부
-        </Button>
-      </div>
+      {/* 링크 붙여 넣기 칸은 뺌 (대표 지시 2026-11-01 "불필요") — 끌어다 놓기로 수신방에 저장 */}
       <button
         type="button"
         className="drop-strip"

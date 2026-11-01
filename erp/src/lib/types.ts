@@ -392,6 +392,9 @@ export interface Task {
   reminded_at: string | null
   /** 자료실 리서치에서 만든 할 일 */
   source_research_id: string | null
+  /** 메일 · 첨부자료에서 만든 일정 (사람이 직접 적은 것은 없음) · 출처 이름 (2026-11-01) */
+  origin?: '메일' | '첨부자료' | null
+  origin_ref?: string | null
   created_by: string | null
   created_at: string
   updated_at: string
