@@ -50,10 +50,10 @@ export function ProjectHead({ project, payments, lines, finance, tasks, only }: 
   const hi = addDays(allDates[allDates.length - 1] ?? today, 2)
   const span = Math.max(1, dd(lo, hi))
   const pos = (d: string) => (dd(lo, d) / span) * 100
-  const rows = [...withDates]
-    .sort((a, b) => (a.status === '완료' ? 1 : 0) - (b.status === '완료' ? 1 : 0) || (a.due_date ?? a.start_date ?? '').localeCompare(b.due_date ?? b.start_date ?? ''))
-    .slice(0, 7)
-    .sort((a, b) => (a.start_date ?? a.due_date ?? '').localeCompare(b.start_date ?? b.due_date ?? ''))
+  // 할 일과 프로젝트 일정을 하나로 (대표 지시 2026-11-01): 날짜 있는 것 전부 · 날짜 없는 것은 맨 아래
+  const rows = [...withDates].sort((a, b) => (a.start_date ?? a.due_date ?? '').localeCompare(b.start_date ?? b.due_date ?? ''))
+  const undated = tasks.filter(t => !t.due_date && !t.start_date)
+  const origins = [...new Map(tasks.filter(t => t.origin).map(t => [`${t.origin}|${t.origin_ref ?? ''}`, { origin: t.origin!, ref: t.origin_ref ?? '', n: tasks.filter(x => x.origin === t.origin && (x.origin_ref ?? '') === (t.origin_ref ?? '')).length }])).values()]
 
   // 입출금 알람
   type Alarm = { key: string; level: 'red' | 'amber' | 'ok'; text: string; to: string }
@@ -98,6 +98,15 @@ export function ProjectHead({ project, payments, lines, finance, tasks, only }: 
   const [editing, setEditing] = useState<Task | 'new' | null>(null)
   const [logMode, setLogMode] = useState(false)
   const [periodOpen, setPeriodOpen] = useState(false)
+  const { api, profileName, bump, toast } = useApp()
+  const toggle = async (t: Task) => {
+    try {
+      await api.saveTask({ id: t.id, status: t.status === '완료' ? '할 일' : '완료' })
+      bump()
+    } catch (e) {
+      toast(e instanceof Error ? e.message : '바꾸지 못했습니다.')
+    }
+  }
   const scheduleCard = (
       <div className="pviz-card">
         <div className="pviz-h">
@@ -130,23 +139,47 @@ export function ProjectHead({ project, payments, lines, finance, tasks, only }: 
               </span>
             </div>
           )}
-          {rows.map(t => {
-            const s0 = t.start_date ?? t.due_date!
-            const e0 = t.due_date ?? t.start_date!
-            const late = t.status !== '완료' && e0 < today
+          {[...rows, ...undated].map(t => {
+            const s0 = t.start_date ?? t.due_date
+            const e0 = t.due_date ?? t.start_date
+            const late = t.status !== '완료' && !!e0 && e0 < today
             return (
-              <div key={t.id} className="pviz-tl-row click" onClick={() => setEditing(t)} title="눌러서 고치기">
-                <span className="pviz-tl-name" title={t.title}>
-                  {t.title}
-                </span>
-                <span className="pviz-tl-track">
-                  <i className={`bar ${t.status === '완료' ? 'done' : late ? 'late' : ''}`} style={{ left: `${pos(s0)}%`, width: `${Math.max(1.5, pos(addDays(e0 > s0 ? e0 : s0, 1)) - pos(s0))}%` }} title={`${t.title} · ${shortDate(s0)}${e0 !== s0 ? ` ~ ${shortDate(e0)}` : ''} · ${t.status}`} />
-                  <b className="now" style={{ left: `${pos(today)}%` }} />
-                </span>
+              <div key={t.id} className={`sched-item${t.status === '완료' ? ' done' : ''}${late ? ' late' : ''}`}>
+                <button type="button" className="sched-check" onClick={() => void toggle(t)} aria-label={t.status === '완료' ? '다시 열기' : '완료로'} title={t.status === '완료' ? '다시 열기' : '완료로 표시'}>
+                  {t.status === '완료' ? <CheckCircle2 size={14} /> : <span className="sched-box" />}
+                </button>
+                <button type="button" className="sched-main" onClick={() => setEditing(t)} title="눌러서 고치기">
+                  <span className="sched-title">
+                    {t.title}
+                    {t.origin && <em className="sched-origin" title={t.origin_ref ?? ''}>{t.origin}</em>}
+                  </span>
+                  <span className="sched-sub">
+                    <b>{s0 ? (e0 && e0 !== s0 ? `${shortDate(s0)}~${shortDate(e0)}` : shortDate(s0)) : '날짜 없음'}</b>
+                    {t.assignee_id ? ` · ${profileName(t.assignee_id)}` : ''}
+                    {t.status === '진행 중' ? ' · 진행 중' : ''}
+                    {late ? ' · 지연' : ''}
+                  </span>
+                  {s0 && e0 && (
+                    <span className="pviz-tl-track mini">
+                      <i className={`bar ${t.status === '완료' ? 'done' : late ? 'late' : ''}`} style={{ left: `${pos(s0)}%`, width: `${Math.max(1.5, pos(addDays(e0 > s0 ? e0 : s0, 1)) - pos(s0))}%` }} />
+                      <b className="now" style={{ left: `${pos(today)}%` }} />
+                    </span>
+                  )}
+                </button>
               </div>
             )
           })}
-          {!rows.length && <span className="t-cap">날짜가 있는 할 일이 없습니다. [+ 일정] 또는 [일지로 편집]으로 넣어 주세요.</span>}
+          {origins.length > 0 && (
+            <div className="sched-origins">
+              <span className="t-cap">출처 기록</span>
+              {origins.map(o => (
+                <span key={o.origin + o.ref} className="t-cap">
+                  <em className="sched-origin">{o.origin}</em> {o.ref || '이름 없음'} · {o.n}건
+                </span>
+              ))}
+            </div>
+          )}
+          {!rows.length && !undated.length && <span className="t-cap">일정이 없습니다. [+ 일정] 또는 [일지로 편집]으로 넣어 주세요.</span>}
         </div>
         )}
         {editing && <TaskAssignModal task={editing === 'new' ? undefined : editing} projects={[project]} tasks={tasks} presetProject={project.id} onClose={() => setEditing(null)} />}
