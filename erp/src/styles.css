@@ -3117,3 +3117,23 @@ input[type='radio'] { border-radius: 50% !important; }
 .vs-alldone { background: none; color: #0f8a3c; padding: 0; margin-right: 6px; font-size: 11px; }
 .vf-done { background: none; color: #0f8a3c; padding: 0; font-size: 11.5px; }
 .vf-stage.done { background: var(--white); box-shadow: none; border-color: var(--line); }
+
+/* 왼쪽 사이드바: 한 가지 색 (위 · 아래 초록 톤 통일) + 아래 빈 곳에 오늘 브리핑 (2026-11-01) */
+.body, html, body { --page-bg: var(--side); }
+.body { background: var(--side); }
+.body > .profile { align-self: stretch; min-height: 100%; }
+.side-brief { margin-top: 4px; padding-top: 10px; border-top: 1px solid rgba(255, 255, 255, 0.16); display: flex; flex-direction: column; gap: 2px; }
+.side-brief .sb-title { font-size: 12px; color: #fff; margin-bottom: 4px; }
+.side-brief .sb-row { display: flex; align-items: baseline; gap: 6px; padding: 4px 2px; color: var(--side-text); font-size: 12px; text-decoration: none; }
+.side-brief .sb-row:hover { background: rgba(255, 255, 255, 0.08); text-decoration: none; }
+.side-brief .sb-row span { flex: 1; min-width: 0; }
+.side-brief .sb-row em { font-style: normal; font-family: var(--mono); font-weight: 700; color: #fff; white-space: nowrap; }
+.side-brief .sb-row.red em { color: #ff8a80; }
+.side-brief .sb-row.yellow em { color: var(--ds-yellow); }
+.side-brief .sb-next { display: flex; flex-direction: column; gap: 2px; margin-top: 6px; padding: 6px 8px; background: rgba(255, 255, 255, 0.08); color: var(--side-text); font-size: 11px; text-decoration: none; }
+.side-brief .sb-next b { color: #fff; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.side-brief .sb-next:hover { background: rgba(255, 255, 255, 0.14); text-decoration: none; }
+html.side-rail .side-brief { display: none; }
+.side-brief .sb-row { flex-wrap: wrap; column-gap: 6px; row-gap: 0; }
+.side-brief .sb-row span { white-space: nowrap; flex: 1 0 auto; }
+.side-brief .sb-row em { margin-left: auto; font-size: 11.5px; }

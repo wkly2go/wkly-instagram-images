@@ -375,7 +375,61 @@ function ProfilePanel({ summary, active }: { summary: Summary; active: TabKey })
           </button>
         )}
       </div>
+      {/* 사이드바 아래 빈 곳에 오늘 브리핑 (대표 지시 2026-11-01 "이곳에도 정보를 전달할 수 있도록") */}
+      <SideBrief />
     </aside>
+  )
+}
+
+/** 오늘 브리핑: 내 할 일(지연 · 오늘 · 이번 주) · 다음 일정 · (관리자) 이번 주 지급 · 수금 연체 — 누르면 해당 화면 */
+function SideBrief() {
+  const { api, me, version } = useApp()
+  const today = todayKey()
+  const week = addDays(today, 7)
+  const { data } = useAsync(
+    async () => {
+      const [tasks, payments] = await Promise.all([api.listTasks().catch(() => []), me.role === 'admin' ? api.listPayments().catch(() => []) : Promise.resolve([])])
+      return { tasks, payments }
+    },
+    [version, me.id],
+    { tasks: [] as Awaited<ReturnType<typeof api.listTasks>>, payments: [] as Awaited<ReturnType<typeof api.listPayments>> },
+  )
+  const mine = data.tasks.filter(t => t.assignee_id === me.id && t.status !== '완료')
+  const late = mine.filter(t => t.due_date && t.due_date < today)
+  const todayN = mine.filter(t => t.due_date === today)
+  const weekN = mine.filter(t => t.due_date && t.due_date > today && t.due_date <= week)
+  const next = [...mine].filter(t => t.due_date && t.due_date >= today).sort((a, b) => (a.due_date ?? '').localeCompare(b.due_date ?? ''))[0]
+  const open = (p: { status: string; is_estimate: boolean }) => p.status !== '완료' && p.status !== '취소' && !p.is_estimate
+  const payWeek = data.payments.filter(p => p.direction === '지급' && open(p) && p.due_date && p.due_date >= today && p.due_date <= week)
+  const lateIn = data.payments.filter(p => p.direction === '수금' && open(p) && p.due_date && p.due_date < today)
+  const man = (n: number) => (n >= 10000 ? `${Math.round(n / 10000).toLocaleString('ko-KR')}만` : `${n.toLocaleString('ko-KR')}원`)
+  const rows: { label: string; value: string; to: string; tone?: 'red' | 'yellow' }[] = [
+    { label: '지연된 내 할 일', value: `${late.length}건`, to: '/projects?view=mine', tone: late.length ? 'red' : undefined },
+    { label: '오늘 마감', value: `${todayN.length}건`, to: '/projects?view=mine', tone: todayN.length ? 'yellow' : undefined },
+    { label: '이번 주 마감', value: `${weekN.length}건`, to: '/projects?view=mine' },
+  ]
+  if (me.role === 'admin') {
+    rows.push({ label: '7일 안 지급', value: payWeek.length ? `${payWeek.length}건 · ${man(payWeek.reduce((n, p) => n + p.amount, 0))}` : '없음', to: '/projects?view=payments&sub=run' })
+    rows.push({ label: '수금 연체', value: lateIn.length ? `${lateIn.length}건 · ${man(lateIn.reduce((n, p) => n + p.amount, 0))}` : '없음', to: '/projects?view=payments&sub=check', tone: lateIn.length ? 'red' : undefined })
+  }
+  return (
+    <section className="side-brief" aria-label="오늘 브리핑">
+      <b className="sb-title">오늘 브리핑</b>
+      {rows.map(r => (
+        <Link key={r.label} to={r.to} className={`sb-row${r.tone ? ` ${r.tone}` : ''}`}>
+          <span>{r.label}</span>
+          <em>{r.value}</em>
+        </Link>
+      ))}
+      {next && (
+        <Link to={next.project_id ? `/projects?id=${next.project_id}` : '/projects?view=mine'} className="sb-next" title={next.title}>
+          <span>다음 일정</span>
+          <b>
+            {next.due_date === today ? '오늘' : next.due_date!.slice(5).replace('-', '.')} {next.title}
+          </b>
+        </Link>
+      )}
+    </section>
   )
 }
 
