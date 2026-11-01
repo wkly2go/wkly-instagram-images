@@ -975,13 +975,17 @@ export function createSupabaseApi(url: string, key: string): Api {
     },
     async listProjectMails(projectId, clientId) {
       let q = sb.from('mail_index').select('id,thread_id,from_name,from_addr,to_addr,subject,snippet,sent_at,labels,has_attachment,attachments,project_ids,client_id').order('sent_at', { ascending: false }).limit(80)
-      q = clientId ? q.or(`project_ids.cs.{${projectId}},client_id.eq.${clientId}`) : q.contains('project_ids', [projectId])
+      // 이 프로젝트로 연결된 것만 (같은 거래처의 다른 프로젝트 메일은 빼기 · 대표 지시 2026-11-01)
+      void clientId
+      q = q.contains('project_ids', [projectId])
       const { data, error } = await q
       return error ? [] : (data as MailItem[])
     },
     async listMailFiles(projectId, clientId) {
-      let q = sb.from('mail_files').select('id,mail_id,thread_id,name,kind,vendor,client_id,project_ids,drive_url,folder_id,sent_at').order('sent_at', { ascending: false }).limit(60)
-      q = clientId ? q.or(`project_ids.cs.{${projectId}},client_id.eq.${clientId}`) : q.contains('project_ids', [projectId])
+      let q = sb.from('mail_files').select('id,mail_id,thread_id,name,kind,source,vendor,client_id,project_ids,drive_url,folder_id,sent_at').order('sent_at', { ascending: false }).limit(60)
+      // 이 프로젝트로 연결된 것만 (같은 거래처의 다른 프로젝트 메일은 빼기 · 대표 지시 2026-11-01)
+      void clientId
+      q = q.contains('project_ids', [projectId])
       const { data, error } = await q
       return error ? [] : (data as MailFile[])
     },

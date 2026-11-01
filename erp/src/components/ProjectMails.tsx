@@ -12,7 +12,9 @@ import { SectionHead } from './ui'
 export function ProjectMails({ project }: { project: Project }) {
   const { api, version } = useApp()
   const { data } = useAsync(() => api.listProjectMails(project.id, project.client_id ?? null), [project.id, project.client_id, version], [] as MailItem[])
-  const { data: saved } = useAsync(() => api.listMailFiles(project.id, project.client_id ?? null), [project.id, project.client_id, version], [] as MailFile[])
+  const { data: savedAll } = useAsync(() => api.listMailFiles(project.id, project.client_id ?? null), [project.id, project.client_id, version], [] as MailFile[])
+  // 드라이브에 넣은 자료는 '구글 드라이브 자료' 칸에서 보여 줌
+  const saved = savedAll.filter(f => f.source !== 'drive')
   const [all, setAll] = useState(false)
   // 같은 대화는 최신 한 통만
   const threads = [...new Map(data.map(m => [m.thread_id, m])).values()]
@@ -20,7 +22,7 @@ export function ProjectMails({ project }: { project: Project }) {
   const shown = all ? threads : threads.slice(0, 6)
   return (
     <section className="section" aria-label="메일">
-      <SectionHead title="메일" count={String(threads.length)} right={<span className="t-cap">회사 메일함 · 연번 · 이름 · 거래처로 자동 연결</span>} />
+      <SectionHead title="메일" count={String(threads.length)} right={<span className="t-cap">회사 메일함 · 연번 · 프로젝트 이름으로 자동 연결</span>} />
       <ul className="mail-list">
         {shown.map(m => (
           <li key={m.id}>
