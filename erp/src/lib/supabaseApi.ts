@@ -998,6 +998,16 @@ export function createSupabaseApi(url: string, key: string): Api {
       if (error) throw new ApiError(error.message)
       return data as FieldUpload[]
     },
+    async inboxUploadStart(projectId, f) {
+      const { data, error } = await sb.functions.invoke('drive-upload', { body: { mode: 'inbox', project_id: projectId, ...f, origin: window.location.origin } })
+      const d = data as { url?: string; folder_id?: string; kind?: string; error?: string } | null
+      if (error || !d?.url || !d.folder_id || !d.kind) throw new ApiError(d?.error ?? '수신방 올리기 준비에 실패했습니다.')
+      return { url: d.url, folder_id: d.folder_id, kind: d.kind }
+    },
+    async inboxUploadDone(projectId, f) {
+      const { data, error } = await sb.functions.invoke('drive-upload', { body: { mode: 'inbox_done', project_id: projectId, ...f } })
+      if (error || (data as { error?: string } | null)?.error) throw new ApiError((data as { error?: string } | null)?.error ?? '수신방 기록에 실패했습니다.')
+    },
     async fieldUploadSession(f) {
       const { data, error } = await sb.functions.invoke('drive-upload', { body: { ...f, origin: window.location.origin } })
       return error ? null : ((data as { url?: string })?.url ?? null)
