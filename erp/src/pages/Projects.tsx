@@ -677,13 +677,15 @@ function TaskLegend() {
 
 
 function ProjectDetail({ project: p, data, onEdit, onBack, panel = false }: { project: Project; data: Data; onEdit: () => void; onBack: () => void; /** 오른쪽 칸 안에 그릴 때 (자료 칸을 따로 띄우지 않음) */ panel?: boolean }) {
-  const { api, me, profileName, version, toast } = useApp()
+  const { api, me, profileName, profiles, version, toast } = useApp()
   const { navigate } = useRouter()
   const { busy, run } = useAction()
   const [approving, setApproving] = useState(false)
   const [editingTask, setEditingTask] = useState<Task | null>(null)
   const tasks = data.tasks.filter(t => t.project_id === p.id)
-  const myTodos = tasks.filter(t => !t.origin && !!t.assignee_id && t.created_by === t.assignee_id)
+  // 할 일 = 담당자가 직접 적은 것 + 에이전트(AI 팀원)가 적은 것 (대표 지시 2026-11-01) · 메일 · 첨부자료 일정은 오른쪽 프로젝트 일정에
+  const agentIds = new Set(profiles.filter(x => x.is_agent).map(x => x.id))
+  const myTodos = tasks.filter(t => !t.origin && ((!!t.assignee_id && t.created_by === t.assignee_id) || (!!t.created_by && agentIds.has(t.created_by))))
   const client = data.clients.find(c => c.id === p.client_id)
   // 이 프로젝트에 연결된 자료는 오른쪽 칸(검색 창 자리)에 표시
   useRightPanel(panel ? null : `project:${p.id}`, '프로젝트 자료', <ProjectMaterials projectId={p.id} />)
@@ -807,7 +809,7 @@ function ProjectDetail({ project: p, data, onEdit, onBack, panel = false }: { pr
       <div className="proj-top3">
         <div className="col grow" style={{ flexBasis: 300 }}>
           {/* 할 일 = 담당자가 직접 적은 것만 (대표 지시 2026-11-01) · 메일 · 첨부자료 · 남이 지시한 일정은 오른쪽 '프로젝트 일정'에 */}
-          <SectionHead title="할 일" count={`${myTodos.filter(t => t.status === '완료').length}/${myTodos.length}`} right={<span className="t-cap">담당자가 직접 적은 것 · 전체 일정은 오른쪽 프로젝트 일정</span>} />
+          <SectionHead title="할 일" count={`${myTodos.filter(t => t.status === '완료').length}/${myTodos.length}`} right={<span className="t-cap">담당자 · 에이전트가 적은 것 · 전체 일정은 오른쪽 프로젝트 일정</span>} />
           <TaskBoard
             // 할 일(안 끝난 것)을 맨 위에, 완료는 아래로 (대표 지시 2026-10-31)
             list={[...myTodos.filter(t => t.status !== '완료'), ...myTodos.filter(t => t.status === '완료')]}
