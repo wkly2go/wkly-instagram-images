@@ -967,6 +967,15 @@ export function createDemoApi(): Api {
       persist()
       emit('chat_rooms')
     },
+    async createGroupRoom(members) {
+      const self = requireMe()
+      const all = [...new Set([self, ...members])]
+      const room: ChatRoom = { id: uid(), name: `group:${all.slice().sort().join(':')}`, description: null, project_id: null, is_archived: false, created_by: self, created_at: now(), members: all }
+      store.chat_rooms.push(room)
+      persist()
+      emit('chat_rooms')
+      return room
+    },
     async openDm(otherId) {
       const self = requireMe()
       if (otherId === self) throw new ApiError('대화 상대를 골라 주세요.')
