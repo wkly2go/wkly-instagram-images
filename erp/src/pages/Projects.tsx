@@ -603,9 +603,35 @@ function TaskList({ tasks, projects, mineOnly }: { tasks: Task[]; projects: Proj
 
 /** 할 일 게시판: 번호 · 상태 · 할 일 · 프로젝트 · 담당 · 마감 · 알람 · 고치기 */
 function TaskBoard({ list, late, projects, onStatus, onEdit, onDelete }: { list: Task[]; late?: boolean; projects: Project[]; onStatus: (t: Task) => void; onEdit?: (t: Task) => void; onDelete?: (t: Task) => void }) {
-  const { me, profileName, profileOf } = useApp()
+  const { me, profileName, profileOf, api, bump, toast } = useApp()
   const today = todayKey()
+  // 체크박스로 바로 완료 · 다시 열기 (대표 지시 2026-11-02 "할 일 목록에 체크박스")
+  const toggle = async (t: Task) => {
+    try {
+      await api.saveTask({ id: t.id, status: t.status === '완료' ? '할 일' : '완료' })
+      bump()
+    } catch (e) {
+      toast(e instanceof Error ? e.message : '바꾸지 못했습니다.')
+    }
+  }
   const cols: BoardCol<Task>[] = [
+    {
+      key: 'check',
+      label: '',
+      width: 34,
+      kind: 'center',
+      cell: t => (
+        <input
+          type="checkbox"
+          className="task-check"
+          checked={t.status === '완료'}
+          onClick={e => e.stopPropagation()}
+          onChange={() => void toggle(t)}
+          aria-label={t.status === '완료' ? `${t.title} 다시 열기` : `${t.title} 완료`}
+          title={t.status === '완료' ? '체크 해제 → 다시 할 일' : '체크 → 완료'}
+        />
+      ),
+    },
     {
       key: 'status',
       label: '상태',
