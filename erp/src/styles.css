@@ -3258,3 +3258,12 @@ html, body, .body { background: var(--bg-bw); }
 .tax-drop { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-height: 34px; padding: 4px 8px; border: 1px dashed #b9b9b1; }
 .tax-drop.on { border-color: var(--blue); background: var(--blue-tint); }
 .tax-drop .link-btn { display: inline-flex; align-items: center; gap: 4px; }
+
+/* 채팅 팀원 초대 (2026-11-02) */
+.room-invite { display: inline-flex; align-items: center; gap: 4px; }
+.invite-list { display: flex; flex-direction: column; max-height: 320px; overflow: auto; border: 1px solid var(--line); }
+.invite-item { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-bottom: 1px solid var(--line); cursor: pointer; font-size: var(--fs-body); color: var(--ink); }
+.invite-item:last-child { border-bottom: 0; }
+.invite-item:hover { background: var(--paper); }
+.invite-item.on { background: var(--blue-tint); }
+.invite-item input { width: 16px; height: 16px; accent-color: var(--blue); margin: 0; }

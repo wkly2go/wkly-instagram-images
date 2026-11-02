@@ -259,6 +259,11 @@ export function createSupabaseApi(url: string, key: string): Api {
       return must(await sb.from('chat_rooms').insert(r).select().single()) as ChatRoom
     },
     deleteRoom: id => remove('chat_rooms', id),
+    async createGroupRoom(members) {
+      const { data: u } = await sb.auth.getUser()
+      const all = [...new Set([u.user?.id, ...members].filter((x): x is string => !!x))]
+      return must(await sb.from('chat_rooms').insert({ name: `group:${Date.now().toString(36)}:${all.slice().sort().join(":")}`, members: all, created_by: u.user?.id }).select().single()) as ChatRoom
+    },
     async openDm(otherId) {
       return must(await sb.rpc('chat_open_dm', { p_other: otherId })) as string
     },
