@@ -274,6 +274,10 @@ export interface Client {
   address: string | null
   website: string | null
   memo: string | null
+  /** 세금계산서 발행 정보 (2026-11-02): 받을 메일 · 사업자등록증 파일 */
+  tax_email?: string | null
+  biz_cert_url?: string | null
+  biz_cert_name?: string | null
   created_by: string | null
   created_at: string
   updated_at: string

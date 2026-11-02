@@ -3247,3 +3247,14 @@ html, body, .body { background: var(--bg-bw); }
 
 /* 할 일 체크박스 (2026-11-02) */
 .task-check { width: 16px; height: 16px; margin: 0; accent-color: var(--blue); cursor: pointer; vertical-align: middle; }
+
+/* 매출 세금계산서 발행 정보 (2026-11-02) */
+.tax-info { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; margin: 8px 0; border: 1px solid var(--line); border-left: 3px solid var(--blue); background: var(--white); }
+.tax-h { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.tax-h b { font-size: var(--fs-body); color: var(--blue); }
+.tax-ok { font-size: var(--fs-cap); font-weight: 700; color: #0f8a3c; }
+.tax-miss { font-size: var(--fs-cap); font-weight: 700; color: var(--red); }
+.tax-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px 12px; }
+.tax-drop { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-height: 34px; padding: 4px 8px; border: 1px dashed #b9b9b1; }
+.tax-drop.on { border-color: var(--blue); background: var(--blue-tint); }
+.tax-drop .link-btn { display: inline-flex; align-items: center; gap: 4px; }

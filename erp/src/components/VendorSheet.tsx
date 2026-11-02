@@ -14,6 +14,7 @@ import { CONTRACT_TYPES, type BudgetLine, type Payment, type ProjectFinance } fr
 import { Button } from './ui'
 import { openVendor } from './RightSchedule'
 import { showPanel } from './WebSearch'
+import { TaxInfo } from './TaxInfo'
 
 type Patch = Partial<Payment>
 const money = (n: number | null | undefined) => (n ? n.toLocaleString('ko-KR') : '')
@@ -389,6 +390,7 @@ export function VendorSheet({ projectId, payments, all, lines, finance, onOpen }
                             true,
                           )}
                         </div>
+                        {v.dir === '수금' && <TaxInfo projectId={projectId} payee={v.payee} />}
                         <div className="vf-stages">
                           {stages.map(s => {
                             const cur = pick(v, s.key)
