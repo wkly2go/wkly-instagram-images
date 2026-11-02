@@ -98,7 +98,7 @@ function Tile({ label, value, sub, rate, tone }: { label: string; value: string;
 }
 
 /** 결제 대장 맨 위 '계약 · 목표' 줄 (대표 지시 2026-10-31 "계약 목표는 결제 대장의 상세 항목에 포함")
- *  계약은 VAT 포함으로 적고 공급가(÷1.1)로 저장 · 목표 마진 % · 메모. 칸에서 나가면 저장 */
+ *  매출 계약은 부가세 별도(공급가)로 적고 그대로 저장 (대표 지시 2026-11-02) · 목표 마진 % · 메모. 칸에서 나가면 저장 */
 export function ContractGoal({ project, finance }: { project: Project; finance: ProjectFinance | undefined }) {
   const { api } = useApp()
   const { run } = useAction()
@@ -108,26 +108,26 @@ export function ContractGoal({ project, finance }: { project: Project; finance: 
     if (Object.entries(patch).every(([k, v]) => (base as Record<string, unknown>)[k] === v)) return
     void run(() => api.saveFinance({ project_id: project.id, ...next }), '계약 · 목표를 저장했습니다.')
   }
-  const incl = finance?.contract_amount != null ? Math.round(finance.contract_amount * 1.1) : null
+  const supply = finance?.contract_amount ?? null
   return (
     <div className="contract-goal" key={finance?.updated_at ?? 'none'}>
       <label>
-        <span>계약 (VAT 포함)</span>
+        <span>매출 계약 (VAT 별도)</span>
         <input
           className="ps-in num"
           inputMode="numeric"
-          defaultValue={incl != null ? incl.toLocaleString('ko-KR') : ''}
-          placeholder="예) 49,500,000"
+          defaultValue={supply != null ? supply.toLocaleString('ko-KR') : ''}
+          placeholder="예) 45,000,000"
           onBlur={e => {
             const t = e.target.value.trim()
             const n = t ? Math.max(0, parseMoney(t)) : null
-            save({ contract_amount: n == null ? null : n === incl ? finance!.contract_amount : Math.round(n / 1.1) })
+            save({ contract_amount: n })
           }}
           onKeyDown={e => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
-          aria-label="계약 금액 (VAT 포함)"
+          aria-label="매출 계약 금액 (VAT 별도)"
         />
       </label>
-      <span className="t-cap">공급가 {finance?.contract_amount != null ? finance.contract_amount.toLocaleString('ko-KR') : '–'}</span>
+      <span className="t-cap">VAT 포함 {supply != null ? Math.round(supply * 1.1).toLocaleString('ko-KR') : '–'}</span>
       <label>
         <span>목표 마진</span>
         <input

@@ -105,9 +105,9 @@ export function VendorSheet({ projectId, payments, all, lines, finance, onOpen }
         items,
         line,
         ...s,
-        // 계약금은 부가세 포함으로 보여 주고 받음 (저장은 공급가)
-        contract: dir === '수금' ? (finance?.contract_amount != null ? Math.round(finance.contract_amount * 1.1) : null) : line?.contract_amount != null ? Math.round(line.contract_amount * 1.1) : null,
-        paid: liveItems.filter(isDone).reduce((n, p) => n + p.amount, 0),
+        // 매출은 부가세 별도(공급가) · 매입은 부가세 포함으로 보여 주고 받음 (저장은 공급가) — 2026-11-02
+        contract: dir === '수금' ? (finance?.contract_amount ?? null) : line?.contract_amount != null ? Math.round(line.contract_amount * 1.1) : null,
+        paid: liveItems.filter(isDone).reduce((n, p) => n + (dir === '수금' ? p.amount - (p.vat ?? 0) : p.amount), 0),
       })
     }
     // 계약만 있고 아직 결제가 없는 업체
@@ -136,8 +136,9 @@ export function VendorSheet({ projectId, payments, all, lines, finance, onOpen }
   /** 계약금 · 비고: 매입은 업체 계약 줄, 매출은 프로젝트 계약 */
   const saveContract = (v: Vendor, patchIncl: { contract_amount?: number | null; memo?: string | null }) =>
     void run(async () => {
-      // 화면은 부가세 포함, 저장은 공급가(÷1.1)
-      const patch = { ...patchIncl, ...(patchIncl.contract_amount !== undefined ? { contract_amount: patchIncl.contract_amount == null ? null : Math.round(patchIncl.contract_amount / 1.1) } : {}) }
+      // 매출은 화면 = 공급가 그대로, 매입은 화면 부가세 포함 → 저장 공급가(÷1.1)
+      const toSupply = (n: number) => (v.dir === '수금' ? n : Math.round(n / 1.1))
+      const patch = { ...patchIncl, ...(patchIncl.contract_amount !== undefined ? { contract_amount: patchIncl.contract_amount == null ? null : toSupply(patchIncl.contract_amount) } : {}) }
       if (v.dir === '수금' && patch.contract_amount !== undefined) {
         await api.saveFinance({ project_id: projectId, contract_amount: patch.contract_amount, budget_cost: finance?.budget_cost ?? null, target_margin: finance?.target_margin ?? null, memo: finance?.memo ?? null })
         return
