@@ -3222,15 +3222,15 @@ body { color: var(--ink); }
 .sched-origins { display: flex; flex-direction: column; gap: 3px; padding: 8px 0 2px; }
 
 /* 배경 노랑 (대표 지시 2026-11-02 "배경을 노랑으로"): 본 화면 · 오른쪽 칸 사이 바탕은 디자인시스템 노랑, 왼쪽 사이드바 · 위쪽 바는 초록 그대로 */
-.body, html, body { --page-bg: var(--ds-yellow, #ffff00); }
-html, body, .body { background: var(--ds-yellow, #ffff00); }
+.body, html, body { --page-bg: var(--bg-bw); }
+html, body, .body { background: var(--bg-bw); }
 .body > .profile { background: var(--side); }
 /* 칸 바탕도 노랑 · 그 위 카드(섹션)는 흰색 그대로 */
-.body > main, .detail-col, .web-panel, .right-sched { background: var(--ds-yellow, #ffff00) !important; }
+.body > main, .detail-col, .web-panel, .right-sched { background: var(--bg-bw) !important; }
 .right-sched .pviz-card, .right-sched .right-tabs { background: var(--white); }
 
 /* 빠른 창 가독성 (대표 지시 2026-11-02): 어두운 초록 바탕 위 회색 글자 → 흰 바탕 + 진한 글자 · 글자 한 단계 크게 */
-.quick { --fs-cap: calc(12px * var(--fs-k)); --fs-sm: calc(13px * var(--fs-k)); --fs-body: calc(14px * var(--fs-k)); background: var(--ds-yellow, #ffff00); }
+.quick { --fs-cap: calc(12px * var(--fs-k)); --fs-sm: calc(13px * var(--fs-k)); --fs-body: calc(14px * var(--fs-k)); background: var(--bg-bw); }
 .quick .card { background: var(--white) !important; border-color: var(--line); }
 .quick .inner, .quick .inner.quick-chat { background: var(--white) !important; color: var(--ink) !important; }
 .quick .inner .t-cap, .quick .inner .t-meta, .quick .inner .label > span, .quick .inner .cell-sub { color: #4a4a45 !important; }
@@ -3241,3 +3241,6 @@ html, body, .body { background: var(--ds-yellow, #ffff00); }
 .quick .inner .input::placeholder, .quick .inner .textarea::placeholder { color: #8a8a83; }
 .quick .inner .btn { font-size: var(--fs-sm); }
 .quick .inner .dashed, .quick .inner li, .quick .inner .row { color: var(--ink); }
+
+/* 배경 흑백 (대표 지시 2026-11-02 "백그라운드 bw 로 변경"): 노랑 → 무채색 연회색 바탕 + 흰 카드 (검정 · 다크 금지 규칙에 맞춰 밝은 회색) */
+:root { --bg-bw: #e6e6e6; }
