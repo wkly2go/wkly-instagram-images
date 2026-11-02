@@ -209,6 +209,8 @@ export function ClientDetail({ client: c, clients, onEdit, onBack }: { client: C
           {(
             [
               ['사업자번호', c.business_no],
+              ['세금계산서 메일', c.tax_email ?? null],
+              ['사업자등록증', c.biz_cert_url ?? null],
               ['대표 연락처', c.phone],
               ['이메일', c.email],
               ['주소', c.address],
@@ -220,7 +222,7 @@ export function ClientDetail({ client: c, clients, onEdit, onBack }: { client: C
             .map(([k, v]) => (
               <div key={k} style={{ display: 'contents' }}>
                 <dt>{k}</dt>
-                <dd className="pre">{k === '웹사이트' ? <a href={/^https?:\/\//.test(v!) ? v! : `https://${v}`} target="_blank" rel="noreferrer">{v}</a> : v}</dd>
+                <dd className="pre">{k === '사업자등록증' ? <a href={v!} target="_blank" rel="noreferrer">{c.biz_cert_name ?? '파일 열기'}</a> : k === '웹사이트' ? <a href={/^https?:\/\//.test(v!) ? v! : `https://${v}`} target="_blank" rel="noreferrer">{v}</a> : v}</dd>
               </div>
             ))}
         </dl>
@@ -448,6 +450,7 @@ function ClientForm({ client, onClose, onSaved }: { client: Client | null; onClo
           </select>
         </Field>
         {text('business_no', '사업자번호')}
+        {text('tax_email', '세금계산서 메일', false, 'email')}
         {text('phone', '대표 연락처', false, 'tel')}
         {text('email', '이메일', true, 'email')}
         {text('address', '주소', true)}
