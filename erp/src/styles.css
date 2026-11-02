@@ -3267,3 +3267,10 @@ html, body, .body { background: var(--bg-bw); }
 .invite-item:hover { background: var(--paper); }
 .invite-item.on { background: var(--blue-tint); }
 .invite-item input { width: 16px; height: 16px; accent-color: var(--blue); margin: 0; }
+
+/* 원본 보기 (2026-11-02) */
+.file-viewer { position: fixed; inset: 0; z-index: 9000; display: flex; align-items: center; justify-content: center; padding: 24px; background: var(--scrim); }
+.fv-box { display: flex; flex-direction: column; width: min(1200px, 100%); height: min(92vh, 100%); background: var(--white); border: 1px solid var(--line); }
+.fv-bar { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--line); font-size: var(--fs-body); color: var(--ink); }
+.fv-bar .btn { display: inline-flex; align-items: center; gap: 4px; text-decoration: none; }
+.fv-frame { flex: 1; width: 100%; border: 0; background: var(--paper); }

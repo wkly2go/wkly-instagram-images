@@ -156,6 +156,8 @@ export function ProjectDriveSection({ project }: { project: Project }) {
   );
   const [picking, setPicking] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
+  // 누르면 화면 안에서 원본 보기 (대표 지시 2026-11-02 "클릭해서 원본 보기")
+  const [viewer, setViewer] = useState<{ url: string; name: string } | null>(null);
   const [err, setErr] = useState("");
   const upload = useRef<HTMLInputElement>(null);
   const folder = projectDriveUrl(project);
@@ -498,8 +500,9 @@ export function ProjectDriveSection({ project }: { project: Project }) {
           />
         </div>
       )}
-      <InboxFiles project={project} />
-      <FolderFiles project={project} onOpen={openDoc} />
+      <InboxFiles project={project} onView={(url, name) => setViewer({ url, name })} />
+      <FolderFiles project={project} onOpen={openDoc} onView={(url, name) => setViewer({ url, name })} />
+      {viewer && <FileViewer url={viewer.url} name={viewer.name} onClose={() => setViewer(null)} />}
       {err && <span className="err">{err}</span>}
       {picking && token && (
         <DrivePicker
@@ -541,7 +544,7 @@ export function ProjectDriveSection({ project }: { project: Project }) {
  */
 /** 수신방에 자동 정리된 자료 (드라이브에 넣은 것 · 메일 첨부) · 분류별 (대표 지시 2026-11-01) */
 const INBOX_KINDS = ["계약서", "견적서", "세금계산서", "도면", "일정표", "사진", "첨부"] as const;
-function InboxFiles({ project }: { project: Project }) {
+function InboxFiles({ project, onView }: { project: Project; onView: (url: string, name: string) => void }) {
   const { api, version } = useApp();
   const { data } = useAsync(
     () => api.listMailFiles(project.id, project.client_id ?? null),
@@ -569,7 +572,7 @@ function InboxFiles({ project }: { project: Project }) {
       <ul className="inbox-list">
         {shown.slice(0, 30).map((f) => (
           <li key={f.id}>
-            <button type="button" className="link-btn" onClick={() => openLink(f.drive_url)} title={`${f.vendor} · ${f.kind}`}>
+            <button type="button" className="link-btn" onClick={() => onView(f.drive_url, f.name)} title={`${f.vendor} · ${f.kind} · 눌러서 원본 보기`}>
               <FileText size={12} /> <span className="truncate">{f.name}</span>
             </button>
             <span className="t-meta">
@@ -585,9 +588,11 @@ function InboxFiles({ project }: { project: Project }) {
 function FolderFiles({
   project,
   onOpen,
+  onView,
 }: {
   project: Project;
   onOpen: (url: string) => void;
+  onView: (url: string, name: string) => void;
 }) {
   const { api, version } = useApp();
   const { data: rows } = useAsync(
@@ -650,8 +655,8 @@ function FolderFiles({
                 <button
                   type="button"
                   className="link-btn drive-name grow"
-                  onClick={() => f.url && onOpen(f.url)}
-                  title={f.path ? `${f.path}/${f.name}` : f.name}
+                  onClick={() => f.url && (f.mime_type === FOLDER_MIME || !previewUrl(f.url) ? onOpen(f.url) : onView(f.url, f.name))}
+                  title={`${f.path ? `${f.path}/${f.name}` : f.name} · 눌러서 원본 보기`}
                 >
                   {f.path && <span className="t-cap">{f.path} / </span>}
                   {f.name}
@@ -864,5 +869,42 @@ function DrivePicker({
       </div>
       {err && <span className="err">{err}</span>}
     </Modal>
+  );
+}
+
+/** 원본 보기: 화면 위에 크게 띄움 (이미지 · PDF · 문서 · AI 등 드라이브 미리보기) · 새 창 · 내려받기 */
+function FileViewer({ url, name, onClose }: { url: string; name: string; onClose: () => void }) {
+  const src = previewUrl(url);
+  const id = driveIdOf(url);
+  useEffect(() => {
+    const k = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", k);
+    return () => window.removeEventListener("keydown", k);
+  }, [onClose]);
+  return (
+    <div className="file-viewer" role="dialog" aria-label={`${name} 원본 보기`} onClick={onClose}>
+      <div className="fv-box" onClick={(e) => e.stopPropagation()}>
+        <div className="fv-bar">
+          <FileText size={14} />
+          <b className="grow truncate">{name}</b>
+          <button type="button" className="btn btn-outline btn-sm" onClick={() => openLink(url)}>
+            <ExternalLink size={12} /> 새 창
+          </button>
+          {id && (
+            <a className="btn btn-outline btn-sm" href={`https://drive.google.com/uc?export=download&id=${id}`} target="_blank" rel="noreferrer">
+              내려받기
+            </a>
+          )}
+          <button type="button" className="icon-btn sm" onClick={onClose} aria-label="닫기" title="닫기 (Esc)">
+            <X size={14} />
+          </button>
+        </div>
+        {src ? (
+          <iframe className="fv-frame" src={src} title={`${name} 원본`} allow="autoplay" />
+        ) : (
+          <div className="fv-frame center t-cap">이 파일은 미리 볼 수 없습니다. [새 창]으로 열어 주세요.</div>
+        )}
+      </div>
+    </div>
   );
 }

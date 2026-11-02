@@ -2176,7 +2176,7 @@ export function createDemoApi(): Api {
           const fid = `demo-${p.id}-${j}`
           out.push({ id: fid, project_id: p.id, name: folder, mime_type: F, parent_id: null, path: null, url: 'https://drive.google.com/drive/my-drive', icon_url: null, size: null, modified_at: day(i + j), modified_by: null })
           files.forEach(([name, mime, size], k) =>
-            out.push({ id: `${fid}-${k}`, project_id: p.id, name, mime_type: mime, parent_id: fid, path: folder, url: 'https://drive.google.com/drive/my-drive', icon_url: null, size: size || null, modified_at: day(i + j + k * 0.3), modified_by: null }),
+            out.push({ id: `${fid}-${k}`, project_id: p.id, name, mime_type: mime, parent_id: fid, path: folder, url: `https://drive.google.com/file/d/demo${j}${k}xxxxxxxx/view`, icon_url: null, size: size || null, modified_at: day(i + j + k * 0.3), modified_by: null }),
           )
         })
         out.push({ id: `demo-${p.id}-brief`, project_id: p.id, name: `${p.name} 기획안`, mime_type: 'application/vnd.google-apps.document', parent_id: null, path: null, url: 'https://drive.google.com/drive/my-drive', icon_url: null, size: null, modified_at: day(i), modified_by: null })
