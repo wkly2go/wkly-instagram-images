@@ -35,22 +35,27 @@ export interface Money {
 }
 
 /** 프로젝트 하나의 돈 흐름. payments·lines 는 그 프로젝트 것만 넘긴다. */
-/** 모든 프로젝트 계약 · 돈 계산은 부가세 포함 기준 (대표 지시 2026-10-31) — 계약 · 예산은 공급가로 저장돼 있어 ×1.1 */
+/** 금액 기준 (대표 지시 2026-11-02 "매출은 부가세 별도로"): 매출(계약 · 수금)은 부가세 별도(공급가), 매입(지급)은 부가세 포함으로 보여 줌.
+ *  마진은 양쪽 모두 공급가로 계산 (매출 공급가 − 매입 공급가). 계약 · 예산은 공급가로 저장돼 있음 */
 export const VAT_INCL = (supplyAmount: number) => Math.round(supplyAmount * 1.1)
 export function projectMoney(fin: ProjectFinance | undefined, payments: Payment[], lines: BudgetLine[], today: string): Money {
   const inflow = payments.filter(p => p.direction === '수금' && !p.is_estimate && p.status !== '취소')
   const outflow = payments.filter(isCost)
   const amt = (l: Payment[]) => sum(l, p => p.amount)
-  const received = amt(inflow.filter(isDone))
-  const receivable = amt(inflow.filter(isOpen))
+  const sup = (l: Payment[]) => sum(l, supply)
+  // 매출: 부가세 별도
+  const received = sup(inflow.filter(isDone))
+  const receivable = sup(inflow.filter(isOpen))
+  // 매입: 부가세 포함 (실제 나가는 돈)
   const paid = amt(outflow.filter(isDone))
   const payable = amt(outflow.filter(isOpen))
   const estimate = amt(outflow.filter(p => p.is_estimate))
   const budgetSupply = lines.length ? lines.reduce((n, l) => n + l.budget_amount, 0) : fin?.budget_cost ?? null
   const budget = budgetSupply == null ? null : VAT_INCL(budgetSupply)
-  const contract = fin?.contract_amount != null ? VAT_INCL(fin.contract_amount) : null
+  const contract = fin?.contract_amount ?? null
   const byBudget = outflow.length === 0 && budget != null
-  const cost = byBudget ? (budget ?? 0) : paid + payable + estimate
+  // 마진용 비용은 공급가
+  const cost = byBudget ? (budgetSupply ?? 0) : sup(outflow)
   const margin = contract != null ? contract - cost : null
   return {
     contract,
