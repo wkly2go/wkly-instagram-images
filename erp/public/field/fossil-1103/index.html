@@ -156,6 +156,23 @@ textarea,.txt{width:100%;border:1px solid var(--line);border-radius:10px;backgro
 .card.live{box-shadow:0 0 0 2px #2F6FDB inset}
 .flash{animation:fl 1.2s ease-out}
 @keyframes fl{0%{box-shadow:0 0 0 3px var(--tape)}100%{box-shadow:0 0 0 0 transparent}}
+/* recorder */
+.micfab{position:fixed;right:calc(14px + env(safe-area-inset-right,0px));bottom:calc(72px + env(safe-area-inset-bottom,0px));z-index:26;border:2px solid var(--ink);background:var(--surface);color:var(--ink);border-radius:999px;min-height:52px;min-width:52px;padding:0 14px;display:flex;align-items:center;gap:8px;font-weight:700;font-size:14px;box-shadow:0 6px 18px rgba(0,0,0,.18)}
+.micfab svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:2}
+.micfab.on{background:#D32F2F;border-color:#D32F2F;color:#fff}
+.micfab.on .dot{width:10px;height:10px;border-radius:50%;background:#fff;animation:bl 1s steps(2) infinite}
+@keyframes bl{50%{opacity:.2}}
+.rtimer{font-family:var(--f-mono);font-size:44px;font-weight:600;text-align:center;font-variant-numeric:tabular-nums}
+.lvl{height:10px;border-radius:5px;background:var(--sunk);overflow:hidden}
+.lvl i{display:block;height:100%;width:0;background:var(--ok);transition:width .1s}
+.recbtn{min-height:64px;font-size:18px}
+.recbtn.stop{background:#D32F2F;border-color:#D32F2F;color:#fff}
+.aud{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px;display:flex;flex-direction:column;gap:8px}
+.aud h4{margin:0;font-size:15px}
+.aud audio{width:100%;height:40px}
+.mark{display:flex;gap:8px;align-items:flex-start;font-size:14px}
+.mark .mono{font-size:12px;background:var(--tape-soft);border-radius:4px;padding:1px 6px;font-weight:600;flex:none}
+.mark input{flex:1;min-width:0;border:1px solid var(--line);border-radius:8px;padding:6px 8px;background:var(--surface)}
 /* tabs */
 .tabs{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px);padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
 .tabs nav{display:grid;grid-template-columns:repeat(7,1fr);max-width:760px;margin:0 auto}
@@ -262,6 +279,11 @@ textarea,.txt{width:100%;border:1px solid var(--line);border-radius:10px;backgro
   <div class="row"><button class="btn" id="dsDel" style="flex:1">삭제</button><button class="btn" id="dsCancel" style="flex:1">취소</button><button class="btn tape" id="dsOk" style="flex:2">기입</button></div>
 </div>
 
+<button class="micfab" id="micFab" aria-label="회의 녹음"><span class="dot" hidden></span><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3"/></svg><span id="micTxt">녹음</span></button>
+<section class="modal" id="recPanel" hidden aria-label="회의 녹음">
+  <div class="mhead"><button class="btn ghost" id="recClose"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>닫기</button><h3>회의 녹음</h3></div>
+  <div class="mscroll"><div class="form" id="recForm"></div></div>
+</section>
 <div class="toast" id="toast" hidden></div>
 
 <script>
@@ -477,12 +499,12 @@ X.forEach(z=>ITEMS[z.c]={sec:"x",code:z.c,grp:"크리스마스 영역 (별도 �
 Q.forEach(r=>ITEMS[r[0]]={sec:"q",code:r[0],grp:r[5]?"추가 질의 (현장 도면 검토로 새로 뽑은 항목)":"기존 협의 질문",t:r[2],src:r[1],pri:r[3],due:r[4],isNew:!!r[5],f:[]});
 
 /* ---------- state + storage ---------- */
-let recs={},photos={},cq={};
+let recs={},photos={},cq={},audios={};
 const LSK="fossil-survey-11-03";
-try{const o=JSON.parse(localStorage.getItem(LSK)||"{}");recs=o.recs||{};photos=o.photos||{};cq=o.cq||{}}catch(e){}
+try{const o=JSON.parse(localStorage.getItem(LSK)||"{}");recs=o.recs||{};photos=o.photos||{};cq=o.cq||{};audios=o.audios||{}}catch(e){}
 Object.values(cq).forEach(addCQ);
 function addCQ(c){ITEMS[c.id]={sec:"q",code:c.id,grp:"현장에서 추가한 질의",t:c.t,src:c.to||"",pri:c.pri||"중",due:"",f:[],custom:true}}
-function lsSave(){try{localStorage.setItem(LSK,JSON.stringify({recs,photos,cq}))}catch(e){}}
+function lsSave(){try{localStorage.setItem(LSK,JSON.stringify({recs,photos,cq,audios}))}catch(e){}}
 let me="";try{me=localStorage.getItem(LSK+":me")||""}catch(e){}
 let db=null,assets=null,downloads=null,live=false;
 function setSync(s,t){const e=$("#sync");e.dataset.s=s;e.querySelector("span").textContent=t}
@@ -575,7 +597,7 @@ function sbWrite(path,obj){
      if(kind==="rec"&&obj!==null){const m=await r.json().catch(()=>null);if(m&&recs[id]){const merged=mergeRec(recs[id],m);if(JSON.stringify(merged)!==JSON.stringify(recs[id])){recs[id]=merged;lastSaved[id]=flat(merged,"",{});lsSave();queueRender()}}}}))
    .catch(e=>{sbDirty.add(path);setSync("err","전송 대기 · 이 기기에 보관");console.warn(e)});
 }
-function sbCurrent(path){const [k,id]=path.split("/");const src=k==="rec"?recs:k==="photos"?photos:cq;return src[id]===undefined?null:src[id]}
+function sbCurrent(path){const [k,id]=path.split("/");const src=k==="rec"?recs:k==="photos"?photos:k==="audio"?audios:cq;return src[id]===undefined?null:src[id]}
 let rtOn=false,chan=null,peers=[],focusItem="",clientId="";
 try{clientId=localStorage.getItem(LSK+":cid")||"";if(!clientId){clientId="c"+Math.random().toString(36).slice(2,10);localStorage.setItem(LSK+":cid",clientId)}}catch(e){clientId="c"+Math.random().toString(36).slice(2,10)}
 function sbRealtime(){
@@ -616,6 +638,7 @@ async function sbBoot(){
   await sbPull();setInterval(()=>{if(!rtOn||Date.now()%20000<5000)sbPull()},5000);
   document.addEventListener("visibilitychange",()=>{if(!document.hidden)sbPull()});
   retryUploads();
+  setTimeout(()=>{recoverParts().then(retryAudio)},1500);
 }
 let sbBusy=false;
 async function sbPull(){
@@ -623,12 +646,13 @@ async function sbPull(){
   try{
     const r=await fetch(`${SB.url}/rest/v1/field_survey?project=eq.${SB.proj}&updated_at=gte.${encodeURIComponent(sbSince)}&select=kind,id,data,updated_at&order=updated_at.asc&limit=1000`,{headers:sbH()});
     if(!r.ok)throw new Error("HTTP "+r.status);
-    const rows=await r.json();const ids={rec:new Set(),photos:new Set(),cq:new Set()};
+    const rows=await r.json();const ids={rec:new Set(),photos:new Set(),cq:new Set(),audio:new Set()};
     const changed=applyRows(rows,ids);
     if(sbFirst){sbFirst=false;
       Object.keys(recs).forEach(k=>{if(!ids.rec.has(k))sbWrite("rec/"+k,recs[k])});
       Object.keys(photos).forEach(k=>{if(!ids.photos.has(k))sbWrite("photos/"+k,photos[k])});
       Object.keys(cq).forEach(k=>{if(!ids.cq.has(k))sbWrite("cq/"+k,cq[k])});
+      Object.keys(audios).forEach(k=>{if(!ids.audio.has(k))sbWrite("audio/"+k,audios[k])});
     }
     [...sbDirty].forEach(p=>sbWrite(p,sbCurrent(p)));
     if(!sbDirty.size)setSync("live",rtOn?"실시간 공유":"공유 (5초 간격)");
@@ -636,12 +660,13 @@ async function sbPull(){
   }catch(e){setSync("err","연결 안 됨 · 이 기기에 보관");console.warn(e)}
   finally{sbBusy=false}
 }
-function applyRows(rows,ids){let changed=false;ids=ids||{rec:new Set(),photos:new Set(),cq:new Set()};
+function applyRows(rows,ids){let changed=false;ids=ids||{rec:new Set(),photos:new Set(),cq:new Set(),audio:new Set()};
     rows.forEach(row=>{
       if(row.updated_at>sbSince)sbSince=row.updated_at;
       const v=row.data||{},id=row.id;ids[row.kind]&&ids[row.kind].add(id);
       if(row.kind==="rec"){const l=recs[id];if(v._del){if(l&&(l.at||0)<=v.at){delete recs[id];changed=true}}else{const m=mergeRec(l,v);if(JSON.stringify(m)!==JSON.stringify(l)){recs[id]=m;lastSaved[id]=flat(m,"",{});changed=true;markFlash(id)}}}
       else if(row.kind==="photos"){const l=photos[id];if(v._del){if(l){delete photos[id];changed=true}}else if(!l||(v.at||0)>(l.at||0)){photos[id]=v;changed=true;if(v.item)markFlash(v.item)}}
+      else if(row.kind==="audio"){const l=audios[id];if(recState&&recState.id===id){}else if(v._del){if(l){delete audios[id];changed=true}}else if(!l||(v.at||0)>(l.at||0)){audios[id]=v;changed=true}}
       else if(row.kind==="cq"){if(v._del){if(cq[id]){delete cq[id];delete ITEMS[id];changed=true}}else if(!cq[id]||JSON.stringify(cq[id])!==JSON.stringify(v)){cq[id]=v;addCQ(v);changed=true}}
     });
     return changed;
@@ -682,6 +707,7 @@ function render(){
   else if(tab==="plan")v.innerHTML=planHTML();
   else v.innerHTML=listHTML(tab);
   if(typeof renderPeers==="function"){renderPeers();applyFlash()}
+  if(typeof renderRec==="function"&&!$("#recPanel").hidden&&!(document.activeElement&&document.activeElement.dataset&&document.activeElement.dataset.mk)&&![...document.querySelectorAll("#recForm audio")].some(a=>!a.paused))renderRec();
 }
 function updateCounts(){renderTabs();if(tab in filt)renderFilters()}
 function renderFilters(){
@@ -1030,6 +1056,102 @@ async function exportZIP(){
   for(const p of ps){const b=await annotatedBlob(p);if(b)z.file(root+secFolder(p)+"/"+fileName(p),b);const o=await idbGet(p.id);if(o)z.file(root+"03_원본사진/"+fileName(p,"_원본"),o);else if(p.asset||p.url){try{const r=await fetch(p.url||"/_blob/"+p.asset);if(r.ok)z.file(root+"03_원본사진/"+fileName(p,"_원본"),await r.blob())}catch(e){}}}
   const blob=await z.generateAsync({type:"blob"});saveFile("20261103_현장실측.zip",blob);
 }
+
+/* ---------- meeting recorder ---------- */
+let recState=null,recTick=null,wakeLock=null;
+const AUD_MIME=(()=>{try{return ["audio/webm;codecs=opus","audio/mp4","audio/webm","audio/ogg;codecs=opus"].find(t=>window.MediaRecorder&&MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported(t))||""}catch(e){return ""}})();
+const SEG_MS=10*60*1000;
+function hms(ms){const s=Math.max(0,Math.floor(ms/1000));const h=Math.floor(s/3600),m=Math.floor(s%3600/60),x=s%60;return (h?h+":":"")+String(m).padStart(h?2:1,"0")+":"+String(x).padStart(2,"0")}
+function saveAudio(id){audios[id].at=Date.now();writeDoc("audio/"+id,audios[id])}
+function idbDel(k){return new Promise(r=>{if(!idb)return r();try{const t=idb.transaction("b","readwrite");t.objectStore("b").delete(k);t.oncomplete=()=>r();t.onerror=()=>r()}catch(e){r()}})}
+function idbKeys(){return new Promise(r=>{if(!idb)return r([]);try{const q=idb.transaction("b").objectStore("b").getAllKeys();q.onsuccess=()=>r(q.result||[]);q.onerror=()=>r([])}catch(e){r([])}})}
+function defTitle(){const d=new Date();return `11/3 국립광주과학관 미팅 ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`}
+async function startRec(){
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia||!window.MediaRecorder){toast("이 브라우저는 녹음을 지원하지 않습니다. 사파리나 크롬 최신 버전에서 열어 주세요");return}
+  let stream;try{stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}})}catch(e){toast("마이크 사용을 허용해 주세요 (주소창 옆 설정)");return}
+  const id="au"+Date.now().toString(36);const ti=($("#recTitle")&&$("#recTitle").value.trim())||defTitle();
+  audios[id]={id,title:ti,by:me,cid:clientId,ts:Date.now(),segs:[],marks:[],dur:0,state:"rec"};saveAudio(id);
+  recState={id,stream,start:Date.now(),segIdx:0,stopping:false};
+  try{const ac=new (window.AudioContext||window.webkitAudioContext)();const src=ac.createMediaStreamSource(stream);const an=ac.createAnalyser();an.fftSize=512;src.connect(an);recState.ac=ac;recState.an=an;recState.buf=new Uint8Array(an.fftSize)}catch(e){}
+  try{if(navigator.wakeLock)wakeLock=await navigator.wakeLock.request("screen")}catch(e){}
+  startSeg();
+  recTick=setInterval(updRecUI,400);
+  updFab();renderRec();toast("녹음을 시작했습니다");
+}
+function startSeg(){
+  const r=recState;if(!r)return;
+  const idx=r.segIdx++,segId=`${r.id}_${String(idx+1).padStart(2,"0")}`,segStart=Date.now();
+  let mr;try{mr=AUD_MIME?new MediaRecorder(r.stream,{mimeType:AUD_MIME,audioBitsPerSecond:48000}):new MediaRecorder(r.stream)}catch(e){mr=new MediaRecorder(r.stream)}
+  const chunks=[];const type=((mr.mimeType||AUD_MIME||"audio/webm").split(";")[0])||"audio/webm";
+  mr.ondataavailable=e=>{if(e.data&&e.data.size){chunks.push(e.data);idbPut(segId+"_part",new Blob(chunks,{type}))}};
+  mr.onstop=async()=>{
+    const blob=new Blob(chunks,{type});const ext=type.includes("mp4")?"m4a":type.includes("ogg")?"ogg":"webm";
+    const seg={n:idx+1,id:segId,ext,type,start:segStart-r.start,dur:Date.now()-segStart,size:blob.size,url:null};
+    await idbPut(segId,blob);await idbDel(segId+"_part");urlCache[segId]=URL.createObjectURL(blob);
+    const a=audios[r.id];if(a){a.segs=(a.segs||[]).filter(x=>x.id!==segId).concat(seg).sort((x,y)=>x.n-y.n);a.dur=a.segs.reduce((t,x)=>t+x.dur,0);if(r.stopping&&r.segIdx===idx+1){a.state="done"}saveAudio(r.id)}
+    uploadSeg(r.id,seg,blob);
+    if(r.stopping&&r.segIdx===idx+1){r.stream.getTracks().forEach(t=>t.stop());try{r.ac&&r.ac.close()}catch(e){}if(recState===r)recState=null;updFab();renderRec()}
+    else renderRec();
+  };
+  mr.start(5000);r.mr=mr;
+  clearTimeout(r.segT);r.segT=setTimeout(()=>{if(recState===r&&!r.stopping){const old=r.mr;startSeg();try{old.stop()}catch(e){}}},SEG_MS);
+}
+function stopRec(){const r=recState;if(!r)return;r.stopping=true;clearTimeout(r.segT);clearInterval(recTick);try{wakeLock&&wakeLock.release()}catch(e){}wakeLock=null;try{r.mr.stop()}catch(e){}toast("녹음을 저장하는 중입니다")}
+async function uploadSeg(aid,seg,blob){
+  if(!SB_ON)return;
+  try{const path=`${SB.proj}/audio/${seg.id}.${seg.ext}`;
+    const r=await fetch(`${SB.url}/storage/v1/object/${SB.bucket}/${path}`,{method:"POST",headers:sbH({"Content-Type":seg.type,"x-upsert":"true"}),body:blob});
+    if(!r.ok)throw new Error("HTTP "+r.status);
+    const a=audios[aid];if(a){const s2=(a.segs||[]).find(x=>x.id===seg.id);if(s2){s2.url=`${SB.url}/storage/v1/object/public/${SB.bucket}/${path}`;saveAudio(aid);renderRec()}}
+  }catch(e){console.warn(e)}
+}
+async function retryAudio(){
+  for(const a of Object.values(audios)){for(const s of (a.segs||[])){if(!s.url){const b=await idbGet(s.id);if(b)await uploadSeg(a.id,s,b)}}}
+}
+async function recoverParts(){
+  const keys=(await idbKeys()).filter(k=>typeof k==="string"&&k.endsWith("_part"));
+  for(const k of keys){const segId=k.slice(0,-5),aid=segId.replace(/_\d+$/,"");if(recState&&recState.id===aid)continue;const b=await idbGet(k);if(!b){continue}
+    const a=audios[aid]||(audios[aid]={id:aid,title:"복구된 녹음",by:me,cid:clientId,ts:Date.now(),segs:[],marks:[],dur:0});
+    if(!(a.segs||[]).some(x=>x.id===segId)){const type=b.type||"audio/webm",ext=type.includes("mp4")?"m4a":type.includes("ogg")?"ogg":"webm";const n=+segId.split("_").pop();
+      const seg={n,id:segId,ext,type,start:(n-1)*SEG_MS,dur:0,size:b.size,url:null,recovered:true};await idbPut(segId,b);urlCache[segId]=URL.createObjectURL(b);a.segs=(a.segs||[]).concat(seg).sort((x,y)=>x.n-y.n);a.state="done";saveAudio(aid);uploadSeg(aid,seg,b);toast("중단된 녹음을 복구했습니다")}
+    await idbDel(k);}
+  Object.values(audios).forEach(a=>{if(a.state==="rec"&&a.cid===clientId&&!(recState&&recState.id===a.id)){a.state="done";saveAudio(a.id)}});
+}
+function addMark(){const r=recState;if(!r)return;const a=audios[r.id];(a.marks=a.marks||[]).push({t:Date.now()-r.start,text:"",by:me});saveAudio(r.id);renderRec();setTimeout(()=>{const el=document.querySelector(`[data-mk="${r.id}"][data-i="${a.marks.length-1}"]`);el&&el.focus()},50)}
+function updFab(){const f=$("#micFab");const on=!!recState;f.classList.toggle("on",on);f.querySelector(".dot").hidden=!on;f.querySelector("svg").style.display=on?"none":"";$("#micTxt").textContent=on?hms(Date.now()-recState.start):"녹음"}
+function updRecUI(){if(!recState)return;updFab();const t=$("#rTimer");if(t)t.textContent=hms(Date.now()-recState.start);const lv=$("#rLvl");if(lv&&recState.an){recState.an.getByteTimeDomainData(recState.buf);let m=0;for(const v of recState.buf)m=Math.max(m,Math.abs(v-128));lv.style.width=Math.min(100,m/128*180)+"%"}}
+async function segSrc(s){if(urlCache[s.id])return urlCache[s.id];const b=await idbGet(s.id);if(b){urlCache[s.id]=URL.createObjectURL(b);return urlCache[s.id]}return s.url||""}
+function renderRec(){
+  if($("#recPanel").hidden)return;
+  const on=!!recState;const list=Object.values(audios).sort((a,b)=>(b.ts||0)-(a.ts||0));
+  const cur=on?audios[recState.id]:null;
+  $("#recForm").innerHTML=`
+   ${on?`<div class="pc" style="text-align:center">${esc(cur.title)}</div><div class="rtimer" id="rTimer">${hms(Date.now()-recState.start)}</div><div class="lvl"><i id="rLvl"></i></div>
+     <div class="row"><button class="btn tape" id="rMark" style="flex:1;min-height:56px">★ 중요 표시</button><button class="btn recbtn stop" id="rStop" style="flex:1">■ 종료·저장</button></div>
+     <div class="notice" style="background:var(--tape-soft)">녹음 중에는 화면을 켜 두고 이 페이지를 떠나지 마세요. 아이폰은 화면이 잠기거나 다른 앱으로 넘어가면 녹음이 멈춥니다. 10분마다 나눠 저장하므로 멈춰도 그 전까지는 남습니다.</div>
+     ${(cur.marks||[]).length?`<div><span class="lab">중요 표시</span>${cur.marks.map((m,i)=>`<div class="mark"><span class="mono">${hms(m.t)}</span><input data-mk="${cur.id}" data-i="${i}" value="${esc(m.text)}" placeholder="무슨 내용인지 짧게"></div>`).join("")}</div>`:""}`
+   :`<div><label class="lab" for="recTitle">회의 이름</label><input class="txt" id="recTitle" value="${esc(defTitle())}"></div>
+     <button class="btn recbtn pri" id="rStart">● 녹음 시작</button>
+     <div class="pc">마이크 사용을 허용하면 바로 녹음됩니다. 녹음 파일은 10분 단위로 나뉘어 자동 업로드되고, 같이 접속한 사람도 들을 수 있습니다. ${AUD_MIME?"":"이 브라우저는 녹음 형식을 확인할 수 없어 기본값으로 녹음합니다."}</div>`}
+   <div style="margin-top:8px"><span class="lab">저장된 회의 녹음 ${list.length}</span></div>
+   ${list.length?list.map(a=>`<div class="aud"><h4>${esc(a.title)}</h4><div class="pc">${esc(a.by||"")} · ${new Date(a.ts).toLocaleString("ko-KR",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"})} · ${hms(a.dur||0)}${a.state==="rec"?" · 녹음 중":""}</div>
+     ${(a.segs||[]).map(s=>`<div><div class="pc">${s.n}번 구간 (${hms(s.start)}부터) ${s.url?"· 업로드됨":"· 이 기기에만 있음"}</div><audio controls preload="none" data-seg="${s.id}" data-aid="${a.id}"></audio></div>`).join("")}
+     ${(a.marks||[]).length&&!(on&&a.id===recState.id)?`<div>${a.marks.map((m,i)=>`<div class="mark"><span class="mono">${hms(m.t)}</span><input data-mk="${a.id}" data-i="${i}" value="${esc(m.text)}" placeholder="내용"></div>`).join("")}</div>`:""}
+     ${(a.segs||[]).length?`<button class="btn" data-audsave="${a.id}">녹음 파일 저장</button>`:""}</div>`).join(""):'<div class="pc">아직 녹음이 없습니다.</div>'}
+   <div class="pc">현장이 끝나고 "정리해 줘"라고 하시면 녹음 파일을 드라이브 04_회의녹음 폴더에 넣고, 원하시면 받아쓰기와 회의록 초안까지 만듭니다.</div>`;
+  document.querySelectorAll("#recForm audio[data-seg]").forEach(async el=>{const a=audios[el.dataset.aid];const s=a&&(a.segs||[]).find(x=>x.id===el.dataset.seg);if(s){const u=await segSrc(s);if(u)el.src=u}});
+}
+$("#micFab").onclick=()=>{$("#recPanel").hidden=false;document.body.style.overflow="hidden";renderRec()};
+$("#recClose").onclick=()=>{$("#recPanel").hidden=true;document.body.style.overflow=""};
+$("#recForm").addEventListener("click",async e=>{
+  if(e.target.closest("#rStart")){await startRec();return}
+  if(e.target.closest("#rStop")){stopRec();return}
+  if(e.target.closest("#rMark")){addMark();return}
+  const sv=e.target.closest("[data-audsave]");if(sv){const a=audios[sv.dataset.audsave];for(const s of a.segs||[]){let b=await idbGet(s.id);if(!b&&s.url){try{b=await (await fetch(s.url)).blob()}catch(_){}}if(b)await saveFile(`20261103_${a.title.replace(/[\\/:*?"<>|\s]/g,"_")}_${String(s.n).padStart(2,"0")}.${s.ext}`,b)}}
+});
+let mkT;$("#recForm").addEventListener("input",e=>{const d=e.target.dataset;if(!d.mk)return;const a=audios[d.mk];if(!a||!a.marks[+d.i])return;a.marks[+d.i].text=e.target.value;clearTimeout(mkT);mkT=setTimeout(()=>saveAudio(a.id),700)});
+window.addEventListener("beforeunload",e=>{if(recState){e.preventDefault();e.returnValue="녹음 중입니다"}});
+document.addEventListener("visibilitychange",async()=>{if(!document.hidden&&recState&&!wakeLock){try{if(navigator.wakeLock)wakeLock=await navigator.wakeLock.request("screen")}catch(e){}}});
 
 boot();
 </script>
