@@ -2,6 +2,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <style>
 /* Layout: one-column field tool — sticky header, filter bar, card list, fixed bottom tab bar. Tape-measure yellow marks every measurement. */
 :root{
@@ -37,7 +38,7 @@ button{cursor:pointer}
 .sync[data-s="live"] i{background:var(--ok)} .sync[data-s="saving"] i{background:var(--tape)} .sync[data-s="err"] i{background:var(--warn)}
 
 /* filter bar */
-.bar{position:sticky;top:calc(env(safe-area-inset-top,0px) + 57px);z-index:15;background:var(--bg);border-bottom:1px solid var(--line)}
+.bar{position:sticky;top:calc(env(safe-area-inset-top,0px) + var(--hh,57px));z-index:15;background:var(--bg);border-bottom:1px solid var(--line)}
 .bar .wrap{display:flex;flex-direction:column;gap:8px;padding-block:10px}
 .chips{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin:0 -2px;padding:0 2px}
 .chips::-webkit-scrollbar{display:none}
@@ -144,6 +145,17 @@ textarea,.txt{width:100%;border:1px solid var(--line);border-radius:10px;backgro
 .notice{font-size:13px;border-radius:10px;padding:10px 12px;background:var(--warn-soft);color:var(--ink);margin-top:12px}
 .notice[hidden]{display:none}
 
+/* collaborators */
+.peers{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-bottom:8px}
+.peers:empty{display:none}
+.peer{flex:none;display:flex;align-items:center;gap:5px;font-size:12px;border:1px solid var(--line);border-radius:999px;padding:3px 9px 3px 7px;background:var(--surface);white-space:nowrap}
+.peer i{width:8px;height:8px;border-radius:50%;background:var(--ok)}
+.peer.me{border-color:var(--ink)}
+.peer b{font-weight:600}
+.editing{font-size:11.5px;font-weight:600;color:#fff;background:#2F6FDB;border-radius:4px;padding:1px 6px}
+.card.live{box-shadow:0 0 0 2px #2F6FDB inset}
+.flash{animation:fl 1.2s ease-out}
+@keyframes fl{0%{box-shadow:0 0 0 3px var(--tape)}100%{box-shadow:0 0 0 0 transparent}}
 /* tabs */
 .tabs{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px);padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
 .tabs nav{display:grid;grid-template-columns:repeat(7,1fr);max-width:760px;margin:0 auto}
@@ -203,8 +215,14 @@ textarea,.txt{width:100%;border:1px solid var(--line);border-radius:10px;backgro
 
 <header class="top"><div class="wrap">
   <h1>포켓몬 화석박물관 스토어 실측<small>국립광주과학관 · 11/3(화) 13:00 현장</small></h1>
-  <div class="sync" id="sync" data-s="local"><i></i><span>이 기기 저장</span></div>
-</div></header>
+  <button class="sync" id="sync" data-s="local" style="border:0;background:none;padding:0"><i></i><span>이 기기 저장</span></button>
+</div><div class="wrap"><div class="peers" id="peers"></div></div></header>
+<div class="sheet" id="nameSheet" hidden role="dialog" aria-label="이름 입력">
+  <b>같이 기입하는 사람에게 보일 이름</b>
+  <div class="pc">누가 어떤 항목을 보고 있는지, 누가 기록했는지 표시됩니다.</div>
+  <input class="big" id="nameIn" placeholder="예: 이채원" autocomplete="name" style="font-family:var(--f-body);font-size:22px">
+  <button class="btn tape" id="nameOk">시작하기</button>
+</div>
 
 <div class="bar" id="bar" hidden><div class="wrap">
   <div class="chips" id="fchips"></div>
@@ -479,9 +497,20 @@ function writeDoc(path,obj){
    .catch(e=>{setSync("err","저장 실패 · 이 기기에 보관");console.warn(e)});
 }
 const timers={};
-function saveRec(k,now){recs[k].at=Date.now();if(me)recs[k].by=me;lsSave();clearTimeout(timers[k]);timers[k]=setTimeout(()=>writeDoc("rec/"+k,recs[k]),now?0:700)}
+const lastSaved={};
+function flat(o,pre,out){for(const k in o){if(k==="_t"||k==="at")continue;const v=o[k],p=pre?pre+"."+k:k;if(v&&typeof v==="object"&&!Array.isArray(v))flat(v,p,out);else out[p]=JSON.stringify(v)}return out}
+function stampRec(k){const r=recs[k];const a=flat(r,"",{}),b=lastSaved[k]||{};const now=Date.now();r._t=r._t||{};for(const p in a)if(a[p]!==b[p])r._t[p]=now;for(const p in b)if(!(p in a))r._t[p]=now;lastSaved[k]=a}
+function getP(o,p){return p.split(".").reduce((a,k)=>a==null?undefined:a[k],o)}
+function setP(o,p,v){const ks=p.split(".");let a=o;for(let i=0;i<ks.length-1;i++){if(!a[ks[i]]||typeof a[ks[i]]!=="object"||Array.isArray(a[ks[i]]))a[ks[i]]={};a=a[ks[i]]}const last=ks[ks.length-1];if(v===undefined)delete a[last];else a[last]=v}
+function mergeRec(l,r){
+  if(!l||r._del||!r._t)return JSON.parse(JSON.stringify(r));
+  const out=JSON.parse(JSON.stringify(l));out._t=out._t||{};const rt=r._t||{};
+  for(const p in rt){if((out._t[p]||0)<rt[p]){const v=getP(r,p);setP(out,p,v===undefined?undefined:JSON.parse(JSON.stringify(v)));out._t[p]=rt[p]}}
+  out.at=Math.max(l.at||0,r.at||0);return out;
+}
+function saveRec(k,now){recs[k].at=Date.now();if(me)recs[k].by=me;stampRec(k);lsSave();clearTimeout(timers[k]);timers[k]=setTimeout(()=>writeDoc("rec/"+k,recs[k]),now?0:700)}
 function savePhoto(id){photos[id].at=Date.now();writeDoc("photos/"+id,photos[id])}
-function rec(k){return recs[k]||(recs[k]={st:"todo"})}
+function rec(k){if(!recs[k]){recs[k]={st:"todo"};lastSaved[k]={st:'"todo"'}}return recs[k]}
 function st(k){return (recs[k]&&recs[k].st)||"todo"}
 
 /* IndexedDB for photo blobs */
@@ -541,14 +570,50 @@ function sbWrite(path,obj){
   const [kind,id]=path.split("/");
   const data=obj===null?{_del:true,at:Date.now()}:JSON.parse(JSON.stringify(obj));
   setSync("saving","저장 중");
-  chains[path]=(chains[path]||Promise.resolve()).then(()=>fetch(SB.url+"/rest/v1/field_survey",{method:"POST",headers:sbH({"Content-Type":"application/json",Prefer:"resolution=merge-duplicates,return=minimal"}),body:JSON.stringify({project:SB.proj,kind,id,data})})
-   .then(r=>{if(!r.ok)throw new Error("HTTP "+r.status);sbDirty.delete(path);setSync("live","실시간 공유")}))
+  chains[path]=(chains[path]||Promise.resolve()).then(()=>fetch(SB.url+"/rest/v1/rpc/field_survey_merge",{method:"POST",headers:sbH({"Content-Type":"application/json"}),body:JSON.stringify({p_project:SB.proj,p_kind:kind,p_id:id,p_data:data})})
+   .then(async r=>{if(!r.ok)throw new Error("HTTP "+r.status);sbDirty.delete(path);setSync("live",rtOn?"실시간 공유":"공유 (5초 간격)");
+     if(kind==="rec"&&obj!==null){const m=await r.json().catch(()=>null);if(m&&recs[id]){const merged=mergeRec(recs[id],m);if(JSON.stringify(merged)!==JSON.stringify(recs[id])){recs[id]=merged;lastSaved[id]=flat(merged,"",{});lsSave();queueRender()}}}}))
    .catch(e=>{sbDirty.add(path);setSync("err","전송 대기 · 이 기기에 보관");console.warn(e)});
 }
 function sbCurrent(path){const [k,id]=path.split("/");const src=k==="rec"?recs:k==="photos"?photos:cq;return src[id]===undefined?null:src[id]}
+let rtOn=false,chan=null,peers=[],focusItem="",clientId="";
+try{clientId=localStorage.getItem(LSK+":cid")||"";if(!clientId){clientId="c"+Math.random().toString(36).slice(2,10);localStorage.setItem(LSK+":cid",clientId)}}catch(e){clientId="c"+Math.random().toString(36).slice(2,10)}
+function sbRealtime(){
+  if(!window.supabase||!supabase.createClient)return;
+  try{
+    const sbc=supabase.createClient(SB.url,SB.key,{auth:{persistSession:false,autoRefreshToken:false}});
+    chan=sbc.channel("fossil-1103",{config:{presence:{key:clientId}}});
+    chan.on("postgres_changes",{event:"*",schema:"public",table:"field_survey",filter:"project=eq."+SB.proj},pl=>{const row=pl.new;if(row&&row.kind){if(row.updated_at>sbSince)sbSince=row.updated_at;if(applyRows([row])){lsSave();queueRender()}}})
+      .on("presence",{event:"sync"},()=>{const st=chan.presenceState();peers=Object.entries(st).map(([k,a])=>Object.assign({cid:k},a[a.length-1]||{}));renderPeers()})
+      .subscribe(status=>{if(status==="SUBSCRIBED"){rtOn=true;setSync("live","실시간 공유");trackMe()}else if(status==="CHANNEL_ERROR"||status==="TIMED_OUT"||status==="CLOSED"){rtOn=false;setSync("live","공유 (5초 간격)")}});
+  }catch(e){console.warn(e)}
+}
+let trackT;function trackMe(){clearTimeout(trackT);trackT=setTimeout(()=>{if(chan&&rtOn)chan.track({name:me||"이름 없음",tab,item:focusItem,t:Date.now()}).catch(()=>{})},250)}
+const TABN={home:"홈",m:"실측",v:"베뉴",x:"성탄",p:"사진",q:"질의",plan:"도면"};
+function renderPeers(){
+  const el=$("#peers");if(!el)return;
+  const list=peers.slice().sort((a,b)=>(a.cid===clientId?-1:b.cid===clientId?1:0));
+  el.innerHTML=list.length>1||list.some(p=>p.cid!==clientId)?list.map(p=>`<span class="peer ${p.cid===clientId?"me":""}"><i></i><b>${esc(p.name||"이름 없음")}${p.cid===clientId?" (나)":""}</b>${p.item&&ITEMS[p.item]?" · "+esc(ITEMS[p.item].code):" · "+esc(TABN[p.tab]||"")}</span>`).join(""):"";
+  document.querySelectorAll(".card .editing").forEach(e=>e.remove());document.querySelectorAll(".card.live").forEach(c=>c.classList.remove("live"));
+  peers.filter(p=>p.cid!==clientId&&p.item).forEach(p=>{const c=document.querySelector(`.card[data-k="${CSS.escape(p.item)}"]`);if(!c)return;c.classList.add("live");const m=c.querySelector(".meta");if(m){const s=document.createElement("span");s.className="editing";s.textContent=(p.name||"누군가")+" 기록 중";m.prepend(s)}});
+  setHH();
+}
+function setHH(){const h=document.querySelector(".top");if(h)document.documentElement.style.setProperty("--hh",h.offsetHeight+"px")}
+window.addEventListener("resize",setHH);
+const flashSet=new Set();function markFlash(k){flashSet.add(k)}
+function applyFlash(){flashSet.forEach(k=>{const c=document.querySelector(`.card[data-k="${CSS.escape(k)}"]`);if(c){c.classList.remove("flash");void c.offsetWidth;c.classList.add("flash")}});flashSet.clear()}
+document.addEventListener("focusin",e=>{const c=e.target.closest&&e.target.closest(".card");const k=c?c.dataset.k:"";if(k!==focusItem){focusItem=k;trackMe()}});
+document.addEventListener("click",e=>{const t=e.target.closest("[data-tog]");if(t){focusItem=open.has(t.dataset.tog)?t.dataset.tog:"";trackMe()}const tb=e.target.closest("[data-tab],[data-go],[data-jump]");if(tb)setTimeout(()=>{if(!e.target.closest("[data-jump]"))focusItem="";trackMe();renderPeers()},50)});
+function askName(){$("#nameSheet").hidden=false;$("#nameIn").value=me;setTimeout(()=>$("#nameIn").focus(),60)}
+$("#nameOk").onclick=()=>{const v=$("#nameIn").value.trim();if(!v){$("#nameIn").focus();return}me=v;try{localStorage.setItem(LSK+":me",me)}catch(_){}$("#nameSheet").hidden=true;trackMe();if(tab==="home")render();toast(me+" 님으로 기록합니다")};
+$("#nameIn").addEventListener("keydown",e=>{if(e.key==="Enter")$("#nameOk").click()});
+$("#sync").addEventListener("click",askName);
 async function sbBoot(){
-  SB_ON=true;setSync("saving","연결 중");
-  await sbPull();setInterval(sbPull,5000);
+  SB_ON=true;setSync("saving","연결 중");setHH();
+  Object.keys(recs).forEach(k=>{lastSaved[k]=flat(recs[k],"",{})});
+  if(!me)askName();
+  sbRealtime();
+  await sbPull();setInterval(()=>{if(!rtOn||Date.now()%20000<5000)sbPull()},5000);
   document.addEventListener("visibilitychange",()=>{if(!document.hidden)sbPull()});
   retryUploads();
 }
@@ -558,24 +623,28 @@ async function sbPull(){
   try{
     const r=await fetch(`${SB.url}/rest/v1/field_survey?project=eq.${SB.proj}&updated_at=gte.${encodeURIComponent(sbSince)}&select=kind,id,data,updated_at&order=updated_at.asc&limit=1000`,{headers:sbH()});
     if(!r.ok)throw new Error("HTTP "+r.status);
-    const rows=await r.json();let changed=false;const ids={rec:new Set(),photos:new Set(),cq:new Set()};
-    rows.forEach(row=>{
-      if(row.updated_at>sbSince)sbSince=row.updated_at;
-      const v=row.data||{},id=row.id;ids[row.kind]&&ids[row.kind].add(id);
-      if(row.kind==="rec"){const l=recs[id];if(v._del){if(l&&(l.at||0)<=v.at){delete recs[id];changed=true}}else if(!l||(v.at||0)>(l.at||0)){recs[id]=v;changed=true}}
-      else if(row.kind==="photos"){const l=photos[id];if(v._del){if(l){delete photos[id];changed=true}}else if(!l||(v.at||0)>(l.at||0)){photos[id]=v;changed=true}}
-      else if(row.kind==="cq"){if(v._del){if(cq[id]){delete cq[id];delete ITEMS[id];changed=true}}else if(!cq[id]||JSON.stringify(cq[id])!==JSON.stringify(v)){cq[id]=v;addCQ(v);changed=true}}
-    });
+    const rows=await r.json();const ids={rec:new Set(),photos:new Set(),cq:new Set()};
+    const changed=applyRows(rows,ids);
     if(sbFirst){sbFirst=false;
       Object.keys(recs).forEach(k=>{if(!ids.rec.has(k))sbWrite("rec/"+k,recs[k])});
       Object.keys(photos).forEach(k=>{if(!ids.photos.has(k))sbWrite("photos/"+k,photos[k])});
       Object.keys(cq).forEach(k=>{if(!ids.cq.has(k))sbWrite("cq/"+k,cq[k])});
     }
     [...sbDirty].forEach(p=>sbWrite(p,sbCurrent(p)));
-    if(!sbDirty.size)setSync("live","실시간 공유");
+    if(!sbDirty.size)setSync("live",rtOn?"실시간 공유":"공유 (5초 간격)");
     if(changed){lsSave();queueRender()}
   }catch(e){setSync("err","연결 안 됨 · 이 기기에 보관");console.warn(e)}
   finally{sbBusy=false}
+}
+function applyRows(rows,ids){let changed=false;ids=ids||{rec:new Set(),photos:new Set(),cq:new Set()};
+    rows.forEach(row=>{
+      if(row.updated_at>sbSince)sbSince=row.updated_at;
+      const v=row.data||{},id=row.id;ids[row.kind]&&ids[row.kind].add(id);
+      if(row.kind==="rec"){const l=recs[id];if(v._del){if(l&&(l.at||0)<=v.at){delete recs[id];changed=true}}else{const m=mergeRec(l,v);if(JSON.stringify(m)!==JSON.stringify(l)){recs[id]=m;lastSaved[id]=flat(m,"",{});changed=true;markFlash(id)}}}
+      else if(row.kind==="photos"){const l=photos[id];if(v._del){if(l){delete photos[id];changed=true}}else if(!l||(v.at||0)>(l.at||0)){photos[id]=v;changed=true;if(v.item)markFlash(v.item)}}
+      else if(row.kind==="cq"){if(v._del){if(cq[id]){delete cq[id];delete ITEMS[id];changed=true}}else if(!cq[id]||JSON.stringify(cq[id])!==JSON.stringify(v)){cq[id]=v;addCQ(v);changed=true}}
+    });
+    return changed;
 }
 async function sbUpload(id,blob){
   const path=`${SB.proj}/${id}.jpg`;
@@ -612,6 +681,7 @@ function render(){
   else if(tab==="p")v.innerHTML=photoTabHTML();
   else if(tab==="plan")v.innerHTML=planHTML();
   else v.innerHTML=listHTML(tab);
+  if(typeof renderPeers==="function"){renderPeers();applyFlash()}
 }
 function updateCounts(){renderTabs();if(tab in filt)renderFilters()}
 function renderFilters(){
@@ -739,7 +809,7 @@ document.addEventListener("click",e=>{
 });
 document.addEventListener("input",e=>{
   const t=e.target,d=t.dataset;
-  if(t.id==="meName"){me=t.value.trim();try{localStorage.setItem(LSK+":me",me)}catch(_){}return}
+  if(t.id==="meName"){me=t.value.trim();try{localStorage.setItem(LSK+":me",me)}catch(_){}if(typeof trackMe==="function")trackMe();return}
   if(d.fv){const r=rec(d.fv);r.v=r.v||{};const val=t.value.replace(/[^\d.]/g,"");if(val!==t.value)t.value=val;r.v[d.fk]=val;t.parentElement.classList.toggle("has",val!=="");saveRec(d.fv);refreshMeta(d.fv);return}
   if(d.note){rec(d.note).n=t.value;saveRec(d.note);return}
   if(d.ans){rec(d.ans).ans=t.value;saveRec(d.ans);return}
@@ -752,7 +822,7 @@ document.addEventListener("change",e=>{
     const it=ITEMS[d.chk];if(it.chk.every((_,i)=>r.c[i])&&r.st==="todo"){r.st="done";toast(it.code+" 체크 항목 모두 확인")}saveRec(d.chk,true);rerenderCard(d.chk);updateCounts();return}
   if(d.wr){rec(d.wr).wr=t.checked;saveRec(d.wr,true);return}
 });
-function rerenderCard(k){const c=document.querySelector(`.card[data-k="${k}"]`);if(!c){render();fillImgs();return}const tmp=document.createElement("div");tmp.innerHTML=cardHTML(k);c.replaceWith(tmp.firstElementChild);fillImgs(document.querySelector(`.card[data-k="${k}"]`))}
+function rerenderCard(k){const c=document.querySelector(`.card[data-k="${k}"]`);if(!c){render();fillImgs();return}const tmp=document.createElement("div");tmp.innerHTML=cardHTML(k);c.replaceWith(tmp.firstElementChild);fillImgs(document.querySelector(`.card[data-k="${k}"]`));if(typeof renderPeers==="function")renderPeers()}
 function refreshMeta(k){const c=document.querySelector(`.card[data-k="${k}"] .meta`);if(!c)return;let ds=c.querySelector(".dimsum");const s=dimSummary(k);if(!s){ds&&ds.remove();return}if(!ds){ds=document.createElement("span");ds.className="dimsum";c.appendChild(ds)}ds.textContent=s;
   const it=ITEMS[k];if(it.area){const calc=document.querySelector(`.card[data-k="${k}"] .calc`);const v=recs[k].v||{};if(calc&&+v.w&&+v.d){const m2=v.w*v.d/1e6;calc.textContent=`면적 ${m2.toFixed(1)}㎡ · ${(m2/3.3058).toFixed(1)}평 · 조닝도 270㎡ 대비 ${(m2-270>=0?"+":"")+(m2-270).toFixed(1)}㎡`}}}
 
