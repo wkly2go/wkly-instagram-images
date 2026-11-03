@@ -162,6 +162,7 @@ textarea,.txt{width:100%;border:1px solid var(--line);border-radius:10px;backgro
 .micfab.on{background:#D32F2F;border-color:#D32F2F;color:#fff}
 .micfab.on .dot{width:10px;height:10px;border-radius:50%;background:#fff;animation:bl 1s steps(2) infinite}
 @keyframes bl{50%{opacity:.2}}
+.markfab{position:fixed;right:calc(14px + env(safe-area-inset-right,0px));bottom:calc(132px + env(safe-area-inset-bottom,0px));z-index:26;border:2px solid var(--tape-ink);background:var(--tape);color:var(--tape-ink);border-radius:999px;min-height:48px;padding:0 14px;font-weight:700;font-size:14px;box-shadow:0 6px 18px rgba(0,0,0,.18)}
 .rtimer{font-family:var(--f-mono);font-size:44px;font-weight:600;text-align:center;font-variant-numeric:tabular-nums}
 .lvl{height:10px;border-radius:5px;background:var(--sunk);overflow:hidden}
 .lvl i{display:block;height:100%;width:0;background:var(--ok);transition:width .1s}
@@ -280,6 +281,8 @@ textarea,.txt{width:100%;border:1px solid var(--line);border-radius:10px;backgro
 </div>
 
 <button class="micfab" id="micFab" aria-label="회의 녹음"><span class="dot" hidden></span><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3"/></svg><span id="micTxt">녹음</span></button>
+<button class="markfab" id="markFab" hidden>★ 중요</button>
+<input type="file" id="faud" accept="audio/*,.m4a,.mp3,.wav,.webm" hidden>
 <section class="modal" id="recPanel" hidden aria-label="회의 녹음">
   <div class="mhead"><button class="btn ghost" id="recClose"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>닫기</button><h3>회의 녹음</h3></div>
   <div class="mscroll"><div class="form" id="recForm"></div></div>
@@ -1076,7 +1079,10 @@ async function startRec(){
   try{if(navigator.wakeLock)wakeLock=await navigator.wakeLock.request("screen")}catch(e){}
   startSeg();
   recTick=setInterval(updRecUI,400);
-  updFab();renderRec();toast("녹음을 시작했습니다");
+  watchTrack();
+  updFab();renderRec();
+  $("#recPanel").hidden=true;document.body.style.overflow="";
+  toast("녹음 중입니다. 체크리스트·사진 작업을 그대로 계속하세요");
 }
 function startSeg(){
   const r=recState;if(!r)return;
@@ -1093,6 +1099,7 @@ function startSeg(){
     if(r.stopping&&r.segIdx===idx+1){r.stream.getTracks().forEach(t=>t.stop());try{r.ac&&r.ac.close()}catch(e){}if(recState===r)recState=null;updFab();renderRec()}
     else renderRec();
   };
+  mr.onerror=()=>{if(recState===r&&!r.stopping)setTimeout(()=>resumeRec("error"),300)};
   mr.start(5000);r.mr=mr;
   clearTimeout(r.segT);r.segT=setTimeout(()=>{if(recState===r&&!r.stopping){const old=r.mr;startSeg();try{old.stop()}catch(e){}}},SEG_MS);
 }
@@ -1117,8 +1124,42 @@ async function recoverParts(){
     await idbDel(k);}
   Object.values(audios).forEach(a=>{if(a.state==="rec"&&a.cid===clientId&&!(recState&&recState.id===a.id)){a.state="done";saveAudio(a.id)}});
 }
+$("#markFab").onclick=()=>{const r=recState;if(!r)return;const a=audios[r.id];(a.marks=a.marks||[]).push({t:Date.now()-r.start,text:"",by:me});saveAudio(r.id);toast(`중요 표시 ${hms(Date.now()-r.start)} · 내용은 녹음 화면에서 적을 수 있습니다`)};
+/* keep recording alive: when the camera or another app takes the mic, pick it up again on return */
+function watchTrack(){const r=recState;if(!r)return;const t=r.stream.getAudioTracks()[0];if(!t)return;t.onended=()=>{if(recState===r&&!r.stopping)resumeRec("ended")}}
+let resuming=false;
+async function resumeRec(why){
+  const r=recState;if(!r||r.stopping||resuming)return;resuming=true;
+  try{
+    try{if(r.mr&&r.mr.state!=="inactive")r.mr.stop()}catch(e){}
+    r.stream.getTracks().forEach(t=>{try{t.stop()}catch(e){}});
+    const ns=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});
+    r.stream=ns;
+    try{if(r.ac){const src=r.ac.createMediaStreamSource(ns);src.connect(r.an)}}catch(e){}
+    const a=audios[r.id];if(a){(a.marks=a.marks||[]).push({t:Date.now()-r.start,text:"(녹음 잠시 끊김 → 자동으로 다시 시작)",by:me,auto:true});saveAudio(r.id)}
+    startSeg();watchTrack();toast("녹음을 이어서 시작했습니다");
+  }catch(e){toast("마이크를 다시 켜지 못했습니다. 녹음 버튼을 눌러 확인해 주세요");console.warn(e)}
+  finally{resuming=false}
+}
+function checkRec(){const r=recState;if(!r||r.stopping)return;const t=r.stream.getAudioTracks()[0];if(!t||t.readyState==="ended"||!r.mr||r.mr.state==="inactive")resumeRec("check")}
+window.addEventListener("focus",()=>setTimeout(checkRec,400));
+document.addEventListener("visibilitychange",()=>{if(!document.hidden)setTimeout(checkRec,400)});
+setInterval(checkRec,4000);
+/* import a recording made in another app (e.g. Voice Memos) */
+$("#faud").addEventListener("change",async e=>{
+  const f=e.target.files[0];e.target.value="";if(!f)return;
+  const type=(f.type||"").split(";")[0]||(/\.m4a$/i.test(f.name)?"audio/mp4":/\.mp3$/i.test(f.name)?"audio/mpeg":/\.wav$/i.test(f.name)?"audio/wav":"audio/webm");
+  const ext=(f.name.split(".").pop()||"m4a").toLowerCase();
+  if(f.size>50*1024*1024){toast("50MB가 넘는 파일은 올릴 수 없습니다. 나눠서 올려 주세요");return}
+  const id="au"+Date.now().toString(36),segId=id+"_01";
+  audios[id]={id,title:f.name.replace(/\.[^.]+$/,""),by:me,cid:clientId,ts:f.lastModified||Date.now(),segs:[],marks:[],dur:0,state:"done",imported:true};
+  const blob=new Blob([f],{type});await idbPut(segId,blob);urlCache[segId]=URL.createObjectURL(blob);
+  let dur=0;try{dur=await new Promise(res=>{const au=new Audio();au.preload="metadata";au.onloadedmetadata=()=>res(isFinite(au.duration)?au.duration*1000:0);au.onerror=()=>res(0);au.src=urlCache[segId]})}catch(_){}
+  const seg={n:1,id:segId,ext,type,start:0,dur,size:f.size,url:null};
+  audios[id].segs=[seg];audios[id].dur=dur;saveAudio(id);renderRec();uploadSeg(id,seg,blob);toast("녹음 파일을 올리는 중입니다");
+});
 function addMark(){const r=recState;if(!r)return;const a=audios[r.id];(a.marks=a.marks||[]).push({t:Date.now()-r.start,text:"",by:me});saveAudio(r.id);renderRec();setTimeout(()=>{const el=document.querySelector(`[data-mk="${r.id}"][data-i="${a.marks.length-1}"]`);el&&el.focus()},50)}
-function updFab(){const f=$("#micFab");const on=!!recState;f.classList.toggle("on",on);f.querySelector(".dot").hidden=!on;f.querySelector("svg").style.display=on?"none":"";$("#micTxt").textContent=on?hms(Date.now()-recState.start):"녹음"}
+function updFab(){const f=$("#micFab");const on=!!recState;$("#markFab").hidden=!on;f.classList.toggle("on",on);f.querySelector(".dot").hidden=!on;f.querySelector("svg").style.display=on?"none":"";$("#micTxt").textContent=on?hms(Date.now()-recState.start):"녹음"}
 function updRecUI(){if(!recState)return;updFab();const t=$("#rTimer");if(t)t.textContent=hms(Date.now()-recState.start);const lv=$("#rLvl");if(lv&&recState.an){recState.an.getByteTimeDomainData(recState.buf);let m=0;for(const v of recState.buf)m=Math.max(m,Math.abs(v-128));lv.style.width=Math.min(100,m/128*180)+"%"}}
 async function segSrc(s){if(urlCache[s.id])return urlCache[s.id];const b=await idbGet(s.id);if(b){urlCache[s.id]=URL.createObjectURL(b);return urlCache[s.id]}return s.url||""}
 function renderRec(){
@@ -1128,10 +1169,13 @@ function renderRec(){
   $("#recForm").innerHTML=`
    ${on?`<div class="pc" style="text-align:center">${esc(cur.title)}</div><div class="rtimer" id="rTimer">${hms(Date.now()-recState.start)}</div><div class="lvl"><i id="rLvl"></i></div>
      <div class="row"><button class="btn tape" id="rMark" style="flex:1;min-height:56px">★ 중요 표시</button><button class="btn recbtn stop" id="rStop" style="flex:1">■ 종료·저장</button></div>
-     <div class="notice" style="background:var(--tape-soft)">녹음 중에는 화면을 켜 두고 이 페이지를 떠나지 마세요. 아이폰은 화면이 잠기거나 다른 앱으로 넘어가면 녹음이 멈춥니다. 10분마다 나눠 저장하므로 멈춰도 그 전까지는 남습니다.</div>
+     <div class="notice" style="background:var(--tape-soft)">이 페이지 안에서는 다른 탭·사진 작업을 해도 녹음이 계속됩니다. 화면을 잠그거나 카카오톡 등 다른 앱으로 오래 나가면 아이폰은 녹음을 멈추고, 돌아오면 자동으로 이어 갑니다(그 사이는 빠짐). 화면을 끄고 녹음해야 할 때는 음성 메모 앱으로 녹음한 뒤 "파일 올리기"를 쓰세요.</div>
+     <button class="btn" id="rHide" style="width:100%">녹음 계속하며 체크리스트로 돌아가기</button>
      ${(cur.marks||[]).length?`<div><span class="lab">중요 표시</span>${cur.marks.map((m,i)=>`<div class="mark"><span class="mono">${hms(m.t)}</span><input data-mk="${cur.id}" data-i="${i}" value="${esc(m.text)}" placeholder="무슨 내용인지 짧게"></div>`).join("")}</div>`:""}`
    :`<div><label class="lab" for="recTitle">회의 이름</label><input class="txt" id="recTitle" value="${esc(defTitle())}"></div>
      <button class="btn recbtn pri" id="rStart">● 녹음 시작</button>
+     <div class="pc">시작하면 이 창이 닫히고, 오른쪽 아래 빨간 버튼에서 시간이 계속 갑니다. 체크리스트 기입과 사진 촬영을 그대로 하시면 됩니다. 사진을 찍느라 카메라가 마이크를 잠깐 가져가면, 돌아왔을 때 녹음을 자동으로 이어 갑니다.</div>
+     <button class="btn" id="rImport">다른 앱에서 녹음한 파일 올리기 (음성 메모 등)</button>
      <div class="pc">마이크 사용을 허용하면 바로 녹음됩니다. 녹음 파일은 10분 단위로 나뉘어 자동 업로드되고, 같이 접속한 사람도 들을 수 있습니다. ${AUD_MIME?"":"이 브라우저는 녹음 형식을 확인할 수 없어 기본값으로 녹음합니다."}</div>`}
    <div style="margin-top:8px"><span class="lab">저장된 회의 녹음 ${list.length}</span></div>
    ${list.length?list.map(a=>`<div class="aud"><h4>${esc(a.title)}</h4><div class="pc">${esc(a.by||"")} · ${new Date(a.ts).toLocaleString("ko-KR",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"})} · ${hms(a.dur||0)}${a.state==="rec"?" · 녹음 중":""}</div>
@@ -1147,6 +1191,8 @@ $("#recForm").addEventListener("click",async e=>{
   if(e.target.closest("#rStart")){await startRec();return}
   if(e.target.closest("#rStop")){stopRec();return}
   if(e.target.closest("#rMark")){addMark();return}
+  if(e.target.closest("#rImport")){$("#faud").click();return}
+  if(e.target.closest("#rHide")){$("#recPanel").hidden=true;document.body.style.overflow="";return}
   const sv=e.target.closest("[data-audsave]");if(sv){const a=audios[sv.dataset.audsave];for(const s of a.segs||[]){let b=await idbGet(s.id);if(!b&&s.url){try{b=await (await fetch(s.url)).blob()}catch(_){}}if(b)await saveFile(`20261103_${a.title.replace(/[\\/:*?"<>|\s]/g,"_")}_${String(s.n).padStart(2,"0")}.${s.ext}`,b)}}
 });
 let mkT;$("#recForm").addEventListener("input",e=>{const d=e.target.dataset;if(!d.mk)return;const a=audios[d.mk];if(!a||!a.marks[+d.i])return;a.marks[+d.i].text=e.target.value;clearTimeout(mkT);mkT=setTimeout(()=>saveAudio(a.id),700)});
