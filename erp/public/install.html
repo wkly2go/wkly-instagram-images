@@ -27,6 +27,7 @@
   .btn { display: inline-block; margin-top: 12px; padding: 10px 16px; background: var(--green); color: #fff; text-decoration: none; font-weight: 700; border: 0; font-size: 13px; cursor: pointer; }
   .note { font-size: 12px; color: var(--muted); }
   #android-install { display: none; }
+  #android-install.show { display: inline-block; }
   @media (max-width: 640px) { .qr, .two { grid-template-columns: 1fr; } .qr img { margin: 0 auto; } .pc { display: none; } }
 </style>
 </head>
@@ -50,21 +51,16 @@
   <div class="two">
     <div class="card">
       <span class="tag">안드로이드 (갤럭시)</span>
-      <h2>앱 파일로 설치 (추천)</h2>
-      <a class="btn" href="https://github.com/wkly2go/wkly-instagram-images/releases/download/android/wkly-erp.apk">안드로이드 앱 내려받기 (APK)</a>
+      <h2>웹 앱으로 설치 (추천)</h2>
+      <p class="note">인트라넷 화면을 그대로 홈 화면 앱으로 씁니다. 새 기능은 앱을 다시 받지 않아도 바로 반영됩니다.</p>
+      <button type="button" class="btn" id="android-install">홈 화면에 앱 추가</button>
       <ol style="margin-top:10px">
-        <li>휴대폰에서 위 버튼을 눌러 <b>wkly-erp.apk</b> 를 받습니다</li>
-        <li>받은 파일을 열고 <b>설치</b> (처음이면 '출처를 알 수 없는 앱' 허용 › 다시 설치)</li>
-        <li>홈 화면의 <b>WKLY ERP</b> 아이콘으로 엽니다</li>
-      </ol>
-      <h2 style="margin-top:16px">또는 Chrome 에서</h2>
-      <ol>
-        <li>Chrome 으로 인트라넷을 엽니다</li>
-        <li>오른쪽 위 <b>⋮</b> 메뉴 › <b>앱 설치</b> (또는 <b>홈 화면에 추가</b>)</li>
+        <li>Chrome 으로 <b>wkly-erp.pages.dev</b> 를 엽니다</li>
+        <li>오른쪽 위 <b>⋮</b> 메뉴 › <b>홈 화면에 추가</b> (또는 <b>앱 설치</b>)</li>
         <li><b>설치</b> 를 누르면 홈 화면에 WKLY 아이콘이 생깁니다</li>
       </ol>
-      <button type="button" class="btn" id="android-install">지금 설치</button>
-      <p class="note">삼성 인터넷: 아래 메뉴 › <b>현재 페이지 추가</b> › <b>홈 화면</b></p>
+      <p class="note" style="margin-top:12px">예전 앱 파일(APK)을 쓰려면: <a href="https://github.com/wkly2go/wkly-instagram-images/releases/download/android/wkly-erp.apk">wkly-erp.apk</a></p>
+      <p class="note">삼성 인터넷: 아래 <b>≡</b> 메뉴 › <b>현재 페이지 추가</b> › <b>홈 화면</b></p>
     </div>
     <div class="card">
       <span class="tag">아이폰 · 아이패드</span>
@@ -99,7 +95,7 @@
 </div>
 <script>
   let evt = null
-  addEventListener('beforeinstallprompt', e => { e.preventDefault(); evt = e; document.getElementById('android-install').style.display = 'inline-block' })
+  addEventListener('beforeinstallprompt', e => { e.preventDefault(); evt = e; document.getElementById('android-install').classList.add('show') })
   document.getElementById('android-install').addEventListener('click', async () => { if (!evt) return; await evt.prompt(); evt = null })
 </script>
 </body>

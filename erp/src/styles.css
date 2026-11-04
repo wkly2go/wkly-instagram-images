@@ -3955,3 +3955,18 @@ body, .book, .inner { background: var(--page-bg); }
   }
   .bubble[data-fold='1'] { max-height: 240px; }
 }
+/* 휴대폰 홈 '앱 추가' 줄: 버튼 · 메뉴 위치 안내 (갤럭시 웹 앱) */
+.m-appbar-wrap { display: contents; }
+@media (max-width: 640px) {
+  .m-appbar-wrap { display: block; }
+  button.m-appbar-btn { border: 0; text-align: left; font: inherit; cursor: pointer; }
+  .m-appbar-help { display: flex; flex-direction: column; gap: 6px; padding: 10px var(--m-gut) 12px; background: color-mix(in srgb, var(--blue) 6%, #fff); border-bottom: 1px solid var(--m-line); font-size: var(--fs-sm); color: var(--ink, #3a3a36); line-height: 1.5; }
+  .m-appbar-help a { font-size: var(--fs-cap); color: var(--gray); }
+}
+/* 삼성 인터넷 등 '웹 사이트 어둡게' 가 강제로 어둡게 바꾸지 않도록: 다크 설정이어도 밝은 화면을 직접 지정 */
+@media (prefers-color-scheme: dark) {
+  :root { color-scheme: only light; }
+  html, body { background: #f4f5f2; color: #2f3a31; }
+}
+.m-ver { margin: 12px 0 4px; text-align: center; font: 400 var(--fs-cap)/1.4 var(--mono); color: #8a948c; }
+@media (max-width: 640px) { .m-ver.phone-only { display: block !important; } }
