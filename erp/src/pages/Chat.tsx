@@ -1,7 +1,7 @@
 import { UserPic } from '../components/UserPic'
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { Linkify } from '../components/ui'
-import { ArrowLeft, AtSign, BellOff, Bookmark, Check, ChevronDown, ChevronRight, Folder, Plus, Send, Trash2, UserPlus } from 'lucide-react'
+import { ArrowLeft, AtSign, BellOff, Bookmark, Check, ChevronDown, ChevronRight, Folder, Pin, Plus, Send, Trash2, UserPlus } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { friendlyError } from '../lib/api'
 import { countedUnread, pokeChat, roomTitle, useChatTick, useRoomMessages } from '../lib/chat'
@@ -25,10 +25,42 @@ const ACTIVITY_FILTERS: [string, NotificationKind[]][] = [
   ['할 일', ['할 일', '알람']],
 ]
 
+
+/** 채팅방 고정 (대표 지시 2026-11-04 "프로젝트 채팅창 고정 가능하게"): 고정한 방은 목록 맨 위 '고정' 칸에 늘 보임 · 이 PC에 기억 */
+const PIN_KEY = 'wkly-chat-pins'
+const pinListeners = new Set<() => void>()
+const readPins = (): string[] => {
+  try {
+    return JSON.parse(localStorage.getItem(PIN_KEY) || '[]') as string[]
+  } catch {
+    return []
+  }
+}
+export function togglePin(id: string) {
+  const cur = readPins()
+  const next = cur.includes(id) ? cur.filter(x => x !== id) : [...cur, id]
+  try {
+    localStorage.setItem(PIN_KEY, JSON.stringify(next))
+  } catch {
+    /* 저장 못 해도 화면만 */
+  }
+  pinListeners.forEach(l => l())
+}
+function usePins(): string[] {
+  const [pins, setPins] = useState(readPins)
+  useEffect(() => {
+    const l = () => setPins(readPins())
+    pinListeners.add(l)
+    return () => void pinListeners.delete(l)
+  }, [])
+  return pins
+}
+
 /** 방 한 줄: 알림 단계에 따라 숫자 · 굵기 · 흐리게 */
 function RoomItem({ r, active, to }: { r: ChatRoomSummary; active: boolean; to: string }) {
   const { me, profileName, api, bump, toast } = useApp()
   const { navigate } = useRouter()
+  const pinned = usePins().includes(r.id)
   // 목록에서 바로 삭제 (대표 지시 2026-11-04): 휴지통 → '삭제?' 한 번 더 → 삭제 (팝업 없음)
   const [arm, setArm] = useState(false)
   const canDel = me.role === 'admin' || r.created_by === me.id || !!r.members?.includes(me.id)
@@ -58,6 +90,15 @@ function RoomItem({ r, active, to }: { r: ChatRoomSummary; active: boolean; to: 
         <span className="t-smallb truncate grow">{r.members ? roomTitle(r, me.id, profileName).slice(2) : `# ${r.name}`}</span>
         {r.level === 'mute' && <BellOff size={11} aria-label="알림 끔" />}
         {r.last_at && <span className="t-meta">{relativeLabel(r.last_at)}</span>}
+        <button
+          type="button"
+          className={`room-pin${pinned ? ' on' : ''}`}
+          onClick={e => (e.preventDefault(), e.stopPropagation(), togglePin(r.id))}
+          aria-label={pinned ? '고정 해제' : '맨 위에 고정'}
+          title={pinned ? '고정 해제' : '맨 위에 고정'}
+        >
+          <Pin size={12} />
+        </button>
         {canDel && (
           <button type="button" className={`room-x${arm ? ' arm' : ''}`} onClick={del} aria-label="채팅방 삭제" title={arm ? '한 번 더 누르면 삭제' : '채팅방 삭제'}>
             {arm ? '삭제?' : <Trash2 size={12} />}
@@ -115,13 +156,17 @@ export default function Chat() {
       return false
     }
   })
-  const projRooms = rooms.filter(r => !r.members && r.project_id)
+  const pins = usePins()
+  const pinnedRooms = pins.map(id => rooms.find(r => r.id === id)).filter((r): r is ChatRoomSummary => !!r)
+  const unpinned = rooms.filter(r => !pins.includes(r.id))
+  const projRooms = unpinned.filter(r => !r.members && r.project_id)
   const myProj = projRooms.filter(r => r.level === 'all' || (r.mentions ?? 0) > 0 || r.id === roomId)
   const otherProj = projRooms.filter(r => !myProj.includes(r))
   const groups: [string, ChatRoomSummary[]][] = [
+    ...(pinnedRooms.length ? ([['고정', pinnedRooms]] as [string, ChatRoomSummary[]][]) : []),
     ['프로젝트 대화', showOther ? [...myProj, ...otherProj] : myProj],
-    ['채팅방', rooms.filter(r => !r.members && !r.project_id)],
-    ['1:1 대화', rooms.filter(r => r.members)],
+    ['채팅방', unpinned.filter(r => !r.members && !r.project_id)],
+    ['1:1 대화', unpinned.filter(r => r.members)],
   ]
   // Alt+↑↓ 방 이동 · Alt+Shift+↑↓ 안 읽은 방
   const order = groups.flatMap(([, l]) => l)
@@ -504,6 +549,7 @@ function Room({ room }: { room: ChatRoomSummary }) {
         )}
         <span className="grow" />
         {room.description && !confirmDel && <span className="t-cap truncate">{room.description}</span>}
+        <RoomPinButton id={room.id} />
         <button type="button" className="btn btn-sm btn-outline room-invite" onClick={() => setInviting(true)} title="팀원 초대">
           <UserPlus size={13} /> 초대
         </button>
@@ -762,5 +808,14 @@ function InviteModal({ room, onClose }: { room: ChatRoomSummary; onClose: () => 
         <input className="input" value={note} onChange={e => setNote(e.target.value)} placeholder="예) 견적 검토 같이 봐 주세요" />
       </Field>
     </Modal>
+  )
+}
+
+function RoomPinButton({ id }: { id: string }) {
+  const on = usePins().includes(id)
+  return (
+    <button type="button" className={`btn btn-sm btn-outline room-pin-btn${on ? ' on' : ''}`} onClick={() => togglePin(id)} title={on ? '고정 해제' : '채팅 목록 맨 위에 고정'}>
+      <Pin size={13} /> {on ? '고정됨' : '고정'}
+    </button>
   )
 }

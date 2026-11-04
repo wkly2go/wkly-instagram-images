@@ -3283,3 +3283,11 @@ html, body, .body { background: var(--bg-bw); }
 .item:hover .room-x + .t-meta, .item:hover .t-meta:has(+ .room-x) { display: none; }
 .item .room-x:hover { color: var(--red); border-color: #e6b3b3; background: #fff3f3; }
 .item .room-x.arm { color: #fff; background: var(--red); border-color: var(--red); }
+
+/* 채팅방 고정 (2026-11-04) */
+.item .room-pin { display: none; flex: none; align-items: center; justify-content: center; width: 22px; height: 20px; padding: 0; border: 1px solid transparent; background: none; color: var(--gray); cursor: pointer; }
+.item:hover .room-pin, .item .room-pin.on { display: inline-flex; }
+.item .room-pin.on { color: var(--blue); }
+.item .room-pin:hover { color: var(--blue); border-color: var(--line); background: var(--white); }
+.room-pin-btn { display: inline-flex; align-items: center; gap: 4px; }
+.room-pin-btn.on { background: var(--blue); color: #fff; border-color: var(--blue); }
