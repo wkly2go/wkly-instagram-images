@@ -3731,3 +3731,103 @@ body, .book, .inner { background: var(--page-bg); }
 .decide-meta { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .decide-meta .badge, .decide-meta .tag { font-size: var(--fs-cap); padding: 1px 6px; }
 .decide-row > :last-child { flex: none; }
+
+/* ---------------------------------------------------------------- 휴대폰 게시판 표 → 위아래 카드 (대표 지시 2026-11-04 "업무 기록 위아래로 배치 · 이런 현상 있는 모든 자료")
+   한 줄(tr)이 카드 하나: 제목 칸이 맨 위 한 줄 전체, 나머지 칸은 아래에 '이름 값' 으로 가로로 이어짐. 표 머리는 숨김 */
+@media (max-width: 640px) {
+  .board-wrap { overflow-x: visible !important; }
+  table.board, table.board tbody { display: block; width: 100% !important; min-width: 0 !important; }
+  table.board colgroup, table.board thead { display: none; }
+  table.board tbody tr:not(.board-expand) {
+    display: flex; flex-wrap: wrap; align-items: center; column-gap: 12px; row-gap: 4px;
+    padding: 12px 4px; border-bottom: 1px solid #eeeeea; min-height: 0;
+  }
+  table.board tbody td { display: inline-flex; align-items: center; gap: 4px; width: auto !important; max-width: 100%; padding: 0 !important; border: 0 !important; min-height: 0 !important; font-size: var(--fs-sm); white-space: normal; text-align: left !important; }
+  table.board tbody td.title { order: -1; flex: 1 0 calc(100% - 36px); font-size: var(--fs-body); font-weight: 700; line-height: 1.4; }
+  table.board tbody td.title * { white-space: normal !important; overflow: visible !important; text-overflow: clip !important; }
+  table.board tbody td.num-col { order: -2; font: 700 var(--fs-cap)/1 var(--mono); color: var(--gray); }
+  table.board tbody td:not(.title):not(.num-col)[data-label]:not([data-label=''])::before { content: attr(data-label); font-size: var(--fs-cap); color: var(--gray); font-weight: 400; }
+  table.board tbody td:empty { display: none; }
+  table.board tbody tr.board-expand { display: block; }
+  table.board tbody tr.board-expand > td { display: block; width: 100% !important; }
+  .board .hide-narrow { display: none !important; }
+}
+
+/* PC 위쪽 바 '휴대폰 앱' 버튼 · 펼침 (2026-11-04) */
+.top-app { position: relative; order: 4; }
+.top-app > summary { list-style: none; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; height: 32px; padding: 0 10px; white-space: nowrap; }
+.top-app > summary::-webkit-details-marker { display: none; }
+.topbar .top-app > summary { color: #fff; border: 1px solid rgba(255,255,255,.35); background: transparent; font-size: var(--fs-cap); }
+.topbar .top-app > summary:hover { background: rgba(255,255,255,.12); }
+.top-app-pop { position: absolute; right: 0; top: calc(100% + 6px); z-index: 60; width: 240px; display: flex; flex-direction: column; background: var(--white); border: 1px solid var(--line); box-shadow: 0 8px 24px rgba(0,0,0,.14); }
+.top-app-pop a { display: flex; flex-direction: column; gap: 2px; padding: 10px 14px; border-bottom: 1px solid #eeeeea; color: var(--ink, #3a3a36); text-decoration: none; }
+.top-app-pop a:hover { background: #eef5f0; }
+.top-app-pop a b { color: var(--blue); font-size: var(--fs-sm); }
+.top-app-pop a span { font-size: var(--fs-cap); color: var(--gray); }
+.top-app-pop .top-app-help { font-size: var(--fs-cap); color: var(--blue); border-bottom: 0; }
+@media (max-width: 640px) { .top-app { display: none; } }
+
+/* ---------------------------------------------------------------- 현장 실측 화면 (2026-11-04) */
+.site-top { gap: 10px; }
+.site-pick { display: flex; align-items: center; gap: 10px; }
+.site-pick > span { flex: none; font-size: var(--fs-sm); font-weight: 700; color: var(--gray); }
+.site-pick .select { flex: 1 1 auto; min-width: 0; min-height: 44px; font-size: var(--fs-body); font-weight: 700; }
+.site-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border: 1px solid var(--line); background: var(--white); }
+.site-tabs button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; border: 0; border-right: 1px solid var(--line); background: none; font-size: var(--fs-sm); font-weight: 700; color: var(--gray); cursor: pointer; }
+.site-tabs button:last-child { border-right: 0; }
+.site-tabs button.on { background: #eef5f0; color: var(--blue); box-shadow: inset 0 -3px 0 var(--blue); }
+.site-upload { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.site-upload .btn { min-height: 52px; font-size: var(--fs-body); font-weight: 700; display: inline-flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; }
+.site-upload .btn.disabled { opacity: .5; pointer-events: none; }
+.site-empty { padding: 28px 12px; text-align: center; color: var(--gray); font-size: var(--fs-sm); border: 1px dashed var(--line); background: #fafaf7; }
+.site-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.site-thumb { display: flex; flex-direction: column; padding: 0; border: 1px solid var(--line); background: var(--white); cursor: pointer; text-align: left; overflow: hidden; }
+.site-thumb img, .site-thumb-ph { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; display: block; background: #eceee9; }
+.site-thumb-meta { display: flex; flex-direction: column; gap: 2px; padding: 6px 8px; font-size: var(--fs-cap); color: var(--gray); min-width: 0; }
+.site-thumb-meta b { color: var(--blue); }
+.site-editor { position: fixed; inset: 0; z-index: 120; background: var(--white); display: flex; flex-direction: column; }
+.site-editor-bar { display: flex; align-items: center; gap: 8px; min-height: 52px; padding: 0 12px; border-bottom: 1px solid var(--line); background: var(--white); }
+.site-editor-body { flex: 1 1 auto; overflow-y: auto; padding: 12px 16px 32px; display: flex; flex-direction: column; gap: 12px; max-width: 900px; width: 100%; margin: 0 auto; }
+.site-hint { font-size: var(--fs-sm); color: var(--blue); font-weight: 700; }
+.site-hint.on { padding: 8px 12px; background: #eef5f0; border-left: 3px solid var(--blue); }
+.site-hint button { border: 0; background: none; color: var(--alert); font-weight: 700; cursor: pointer; }
+.ms-photo { position: relative; width: 100%; line-height: 0; touch-action: manipulation; user-select: none; cursor: crosshair; background: #111; }
+.ms-photo img { width: 100%; height: auto; display: block; pointer-events: none; }
+.ms-photo.small { cursor: default; max-height: 260px; overflow: hidden; }
+.site-svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.mk-line-bg { stroke: #fff; stroke-width: 10; stroke-linecap: round; opacity: .85; }
+.mk-line { stroke: #ffef00; stroke-width: 5; stroke-linecap: round; }
+.mk-end { fill: #ffef00; stroke: #0b5a24; stroke-width: 4; }
+.mk-tag { fill: #0b5a24; rx: 6; }
+.mk-text { fill: #fff; font: 700 36px/1 var(--mono, monospace); text-anchor: middle; }
+.mk-draft { fill: #ffef00; stroke: #e5002b; stroke-width: 5; }
+.site-marks { display: flex; flex-direction: column; gap: 6px; }
+.site-mark-row { display: flex; align-items: center; gap: 8px; }
+.site-mark-no { flex: none; width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center; background: var(--blue); color: #fff; font: 700 var(--fs-cap)/1 var(--mono); }
+.site-mark-row input { flex: 1 1 auto; min-width: 0; min-height: 44px; border: 1px solid var(--line); padding: 6px 10px; font: 700 var(--fs-sub)/1.2 var(--mono); }
+.site-field { display: flex; align-items: center; gap: 10px; }
+.site-field > span { flex: none; width: 64px; font-size: var(--fs-sm); font-weight: 700; color: var(--gray); }
+.site-field .select, .site-field .input { flex: 1 1 auto; min-width: 0; min-height: 44px; }
+.site-del { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; border: 0; background: none; color: var(--alert); font-size: var(--fs-sm); cursor: pointer; padding: 8px 0; }
+.site-plan { position: relative; width: 100%; line-height: 0; border: 1px solid var(--line); background: #fff; touch-action: manipulation; user-select: none; }
+.site-plan.placing { cursor: crosshair; outline: 3px solid var(--blue); outline-offset: -3px; }
+.site-plan img { width: 100%; height: auto; display: block; pointer-events: none; }
+.site-pin { position: absolute; transform: translate(-50%, -100%); min-width: 30px; height: 30px; padding: 0 6px; border: 2px solid #fff; border-radius: 15px 15px 15px 2px; background: var(--blue); color: #fff; font: 700 var(--fs-cap)/1 var(--mono); box-shadow: 0 2px 6px rgba(0,0,0,.3); cursor: pointer; }
+.site-pin.on { background: #e5002b; }
+.site-plan-pick { display: flex; flex-wrap: wrap; gap: 6px; }
+.site-strip { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
+.site-pick-thumb { position: relative; flex: none; width: 96px; height: 72px; padding: 0; border: 2px solid transparent; background: none; cursor: pointer; }
+.site-pick-thumb img, .site-pick-thumb .site-thumb-ph { width: 100%; height: 100%; object-fit: cover; display: block; }
+.site-pick-thumb.on { border-color: var(--blue); }
+.site-pick-thumb b { position: absolute; right: 2px; bottom: 2px; background: var(--blue); color: #fff; font: 700 var(--fs-cap)/1 var(--mono); padding: 2px 5px; }
+.site-peek { display: flex; flex-direction: column; gap: 8px; padding: 10px; border: 1px solid var(--line); background: #fafaf7; }
+@media (max-width: 640px) {
+  .site-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .site-editor-body { padding: 10px 12px 32px; }
+}
+/* 위쪽 바 순서: 검색창 → 휴대폰 앱 → 보기 → 알림 */
+.topbar > .top-app { order: 4; }
+.topbar > .top-menu { order: 5; }
+.topbar > .bell { order: 6; }
+.topbar .top-app > summary.quick-btn { width: auto; min-width: 0; padding: 0 12px; gap: 6px; font-weight: 700; }
+.topbar .top-app > summary svg { flex: none; }

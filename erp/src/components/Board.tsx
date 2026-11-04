@@ -70,7 +70,7 @@ export function Board<T>({ rows, cols, rowKey, onRow, selectedId, numbered = tru
               >
                 {numbered && <td className="center num-col">{total - i}</td>}
                 {cols.map(c => (
-                  <td key={c.key} className={`${c.kind ?? ''}${c.hideNarrow ? ' hide-narrow' : ''}`}>
+                  <td key={c.key} className={`${c.kind ?? ''}${c.hideNarrow ? ' hide-narrow' : ''}`} data-label={typeof c.label === 'string' ? c.label : undefined}>
                     {c.cell(r, i)}
                   </td>
                 ))}

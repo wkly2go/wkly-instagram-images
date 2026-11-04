@@ -6,7 +6,6 @@ import { dateLabel, dateTimeLabel, relativeLabel, todayKey } from '../lib/date'
 import { Link, useRouter } from '../lib/router'
 import type { Approval, ChatMessage, ChatRoomSummary, Project, Task, WorkLog } from '../lib/types'
 import { CheckInCard } from '../components/CheckIn'
-import { InstallCard } from '../components/InstallCard'
 import { Shell } from '../components/Shell'
 import { AgentDesk } from '../components/AgentDesk'
 import { PushSetupCard } from '../components/PushSetup'
@@ -51,8 +50,6 @@ export default function Home() {
 
   return (
     <Shell active="home">
-      {/* 휴대폰: 앱 설치 안내를 맨 위에 (설치하면 자동으로 사라짐) */}
-      <InstallCard />
       {/* 오늘 업무를 가장 위에 (대표 지시 2026-10-28, 전체 공통) */}
       <TodayWork tasks={data.tasks} projects={data.projects} />
       {/* 월별 일정표 (대표 지시 2026-10-23) */}

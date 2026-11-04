@@ -54,6 +54,8 @@ import type {
   WorkLog,
   SiteLog,
   SiteSurveyItem,
+  SiteShot,
+  SitePlan,
   MeetingRecording,
   LedgerEntry,
   LedgerRecurring,
@@ -93,6 +95,8 @@ interface Store {
   ledger_until?: string | null
   site_logs?: SiteLog[]
   site_survey_items?: SiteSurveyItem[]
+  site_photos?: SiteShot[]
+  site_plans?: SitePlan[]
   meeting_recordings?: MeetingRecording[]
   budget_lines: BudgetLine[]
   research_items: ResearchItem[]
@@ -1369,6 +1373,45 @@ export function createDemoApi(): Api {
       requireMe()
       const r = (store.meeting_recordings ?? []).find(x => x.id === id)
       return r ? clone(r) : null
+    },
+    async listSitePhotos(projectId) {
+      requireMe()
+      return clone((store.site_photos ?? []).filter(x => x.project_id === projectId).sort((a, b) => b.created_at.localeCompare(a.created_at)))
+    },
+    async saveSitePhoto(p) {
+      requireMe()
+      const list = (store.site_photos ??= [])
+      const at = p.id ? list.findIndex(x => x.id === p.id) : -1
+      const row = { ...(at >= 0 ? list[at] : { id: uid(), memo: null, marks: [], survey_item_id: null, plan_id: null, plan_x: null, plan_y: null, created_at: now() }), ...p } as SiteShot
+      if (at >= 0) list[at] = row
+      else list.push(row)
+      persist()
+      return clone(row)
+    },
+    async deleteSitePhoto(id) {
+      requireMe()
+      store.site_photos = (store.site_photos ?? []).filter(x => x.id !== id)
+      persist()
+    },
+    async listSitePlans(projectId) {
+      requireMe()
+      return clone((store.site_plans ?? []).filter(x => x.project_id === projectId).sort((a, b) => b.created_at.localeCompare(a.created_at)))
+    },
+    async saveSitePlan(p) {
+      requireMe()
+      const list = (store.site_plans ??= [])
+      const at = p.id ? list.findIndex(x => x.id === p.id) : -1
+      const row = { ...(at >= 0 ? list[at] : { id: uid(), name: '도면', created_at: now() }), ...p } as SitePlan
+      if (at >= 0) list[at] = row
+      else list.push(row)
+      persist()
+      return clone(row)
+    },
+    async deleteSitePlan(id) {
+      requireMe()
+      store.site_plans = (store.site_plans ?? []).filter(x => x.id !== id)
+      store.site_photos = (store.site_photos ?? []).map(x => (x.plan_id === id ? { ...x, plan_id: null, plan_x: null, plan_y: null } : x))
+      persist()
     },
     async listSurvey(projectId) {
       requireMe()

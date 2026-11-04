@@ -1006,6 +1006,36 @@ export interface SitePhoto {
 }
 export const SITE_SIGNERS = ['현장소장', '현장감리', '대표'] as const
 export type SiteSigner = (typeof SITE_SIGNERS)[number]
+/** 현장 사진 위 치수 선 (좌표는 사진 크기에 대한 0~1 비율) */
+export interface SiteMark {
+  x1: number
+  y1: number
+  x2: number
+  y2: number
+  value: string
+}
+/** 현장 실측 사진 (0087) · 도면 위 위치 plan_x · plan_y 는 0~1 */
+export interface SiteShot {
+  id: string
+  project_id: string
+  path: string
+  memo: string | null
+  marks: SiteMark[]
+  survey_item_id: string | null
+  plan_id: string | null
+  plan_x: number | null
+  plan_y: number | null
+  created_at: string
+}
+/** 프로젝트 도면 (0087) */
+export interface SitePlan {
+  id: string
+  project_id: string
+  name: string
+  path: string
+  created_at: string
+}
+
 /** 현장 실측 체크리스트 한 줄 (0084) */
 export type SurveyStatus = '미확인' | '확인' | '추가확인' | '해당없음'
 export interface SiteSurveyItem {

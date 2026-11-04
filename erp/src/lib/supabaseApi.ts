@@ -59,6 +59,8 @@ import type {
   WorkLog,
   SiteLog,
   SiteSurveyItem,
+  SiteShot,
+  SitePlan,
   MeetingRecording,
   LedgerEntry,
   LedgerRecurring,
@@ -474,6 +476,20 @@ export function createSupabaseApi(url: string, key: string): Api {
     async getMeetingRecording(id) {
       return (must(await sb.from('meeting_recordings').select('*').eq('id', id).maybeSingle()) as MeetingRecording | null) ?? null
     },
+    async listSitePhotos(projectId) {
+      return must(await sb.from('site_photos').select('*').eq('project_id', projectId).order('created_at', { ascending: false })) as SiteShot[]
+    },
+    async saveSitePhoto(p) {
+      return (await save('site_photos', { ...p, updated_at: new Date().toISOString() })) as SiteShot
+    },
+    deleteSitePhoto: id => remove('site_photos', id),
+    async listSitePlans(projectId) {
+      return must(await sb.from('site_plans').select('*').eq('project_id', projectId).order('created_at', { ascending: false })) as SitePlan[]
+    },
+    async saveSitePlan(p) {
+      return (await save('site_plans', p)) as SitePlan
+    },
+    deleteSitePlan: id => remove('site_plans', id),
     async listSurvey(projectId) {
       return must(await sb.from('site_survey_items').select('*').eq('project_id', projectId).order('no')) as SiteSurveyItem[]
     },
