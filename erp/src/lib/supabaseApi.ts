@@ -58,6 +58,7 @@ import type {
   Task,
   WorkLog,
   SiteLog,
+  SiteSurveyItem,
   MeetingRecording,
   LedgerEntry,
   LedgerRecurring,
@@ -473,6 +474,13 @@ export function createSupabaseApi(url: string, key: string): Api {
     async getMeetingRecording(id) {
       return (must(await sb.from('meeting_recordings').select('*').eq('id', id).maybeSingle()) as MeetingRecording | null) ?? null
     },
+    async listSurvey(projectId) {
+      return must(await sb.from('site_survey_items').select('*').eq('project_id', projectId).order('no')) as SiteSurveyItem[]
+    },
+    async saveSurveyItem(i) {
+      return (await save('site_survey_items', { ...i, updated_at: new Date().toISOString() })) as SiteSurveyItem
+    },
+    deleteSurveyItem: id => remove('site_survey_items', id),
     async listSiteLogs(projectId) {
       return must(await sb.from('site_logs').select('*').eq('project_id', projectId).order('log_date', { ascending: false })) as SiteLog[]
     },

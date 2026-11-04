@@ -163,7 +163,7 @@ export function MessageList({ messages, reads = [], members, onRemove, onEdit, o
                   </div>
                 </div>
               ) : (
-                <div className={`bubble ${mine ? 'mine' : 'other'} ${m.attachment?.card ? 'has-card' : m.attachment ? 'has-file' : ''}`}>
+                <div tabIndex={-1} className={`bubble ${mine ? 'mine' : 'other'} ${m.attachment?.card ? 'has-card' : m.attachment ? 'has-file' : ''}`}>
                   {m.attachment?.card ? <span className="card-note"><Linkify text={m.content} /></span> : null}
                   {m.attachment?.card ? <CardView card={m.attachment.card} /> : m.attachment && <AttachmentView att={m.attachment} />}
                   {!m.attachment?.card && (!m.attachment || m.content !== `📎 ${m.attachment.name}`) && <span><Linkify text={m.content} /></span>}
