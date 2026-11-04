@@ -88,7 +88,7 @@ export function CheckInCard({ always = false }: { always?: boolean }) {
             ? '회사 PC 프로그램 · 회사 인터넷으로 접속 중 — 왼쪽 TODAY IS 에서 출근을 고르고 확인을 누르면 출근으로 인정됩니다.'
             : outside
               ? '지금은 회사 인터넷이 아닙니다. 사무실 출근은 회사 PC 프로그램에서만 인정되고, 외부에서는 승인된 외근 · 재택만 체크할 수 있습니다.'
-              : '사무실 출근은 회사에서 왼쪽 TODAY IS 출근 → 확인을 눌러야 인정됩니다. 외부에서는 전날 승인된 외근 · 재택만 체크할 수 있습니다.'}
+              : '사무실 출근은 회사에서 왼쪽 TODAY IS 출근 → 확인을 눌러야 인정됩니다. 외부에서는 승인된 외근 · 재택만 체크할 수 있습니다 (외근은 당일 신청 가능).'}
         </span>
       )}
       {approved ? (
@@ -111,7 +111,7 @@ export function CheckInCard({ always = false }: { always?: boolean }) {
       ) : plan?.status === '반려' ? (
         <span className="t-small">오늘 {plan.kind} 신청이 반려되었습니다. 회사에 출근해 회사 PC 프로그램으로 접속해 주세요.</span>
       ) : me.role !== 'admin' ? (
-        <span className="t-small">오늘 승인된 외근 · 재택이 없습니다. 외근 · 재택 · 연차는 <b>전날까지</b> 신청 · 승인되어야 인정됩니다. 급한 사정은 대표에게 직접 요청해 주세요.</span>
+        <span className="t-small">오늘 승인된 외근 · 재택이 없습니다. <b>외근은 지금 바로 신청</b>할 수 있고 대표 승인 후 인정됩니다. 재택 · 연차는 전날까지 신청해야 합니다.</span>
       ) : (
         <>
           <span className="t-smallb">오늘 승인된 외근 · 재택이 없습니다 — 당일 신청 (관리자만)</span>
@@ -129,14 +129,14 @@ export function CheckInCard({ always = false }: { always?: boolean }) {
               긴급 신청
             </Button>
           </div>
-          <span className="t-cap">대표가 승인하면 노트북 · 휴대폰으로 출근 체크할 수 있습니다. 외근 · 재택은 전날까지 미리 신청하면 편합니다.</span>
+          <span className="t-cap">대표가 승인하면 노트북 · 휴대폰으로 출근 체크할 수 있습니다. 외근은 당일에도 신청할 수 있습니다.</span>
         </>
       )}
     </div>
   )
 }
 
-/** 외근 · 재택 · 현장 직출 사전 신청 (전날) + 관리자 승인 · 휴대폰 출근 확인 */
+/** 외근(언제든) · 재택 · 현장 직출(전날까지) 신청 + 관리자 승인 · 휴대폰 출근 확인 */
 export function WorkPlanSection() {
   const { api, me, version, profileName } = useApp()
   const { busy, run } = useAction()
@@ -162,11 +162,11 @@ export function WorkPlanSection() {
   }
   return (
     <>
-      <SectionHead title="외근 · 재택 사전 신청" right={<span className="t-cap">전날까지 신청 · 승인된 날만 인정 · 그날 확인을 눌러야 출근</span>} />
+      <SectionHead title="외근 · 재택 신청" right={<span className="t-cap">외근은 언제든 (당일 · 지난 날짜도) · 재택 · 현장 직출은 전날까지 · 승인된 날만 인정</span>} />
       <div className="form-grid">
         <Field label="날짜">
-          {/* 전날까지 신청 (2026-10-28 대표 지시), 관리자는 당일도 */}
-          <input className="input" type="date" min={admin ? today : tomorrow} value={f.day} onChange={e => e.target.value && setF({ ...f, day: e.target.value })} />
+          {/* 외근은 언제든 (2026-11-04 대표 지시 · 지난 31일까지), 재택 · 현장 직출은 전날까지 (관리자는 당일도) */}
+          <input className="input" type="date" min={f.kind === '외근' ? addDays(today, -31) : admin ? today : tomorrow} value={f.day} onChange={e => e.target.value && setF({ ...f, day: e.target.value })} />
         </Field>
         <div className="label" role="group" aria-label="구분">
           <span>구분</span>
@@ -187,7 +187,11 @@ export function WorkPlanSection() {
       </div>
       <div className="row">
         <span className="t-cap grow">
-          {late(f.day) ? `⚠ 마감(전날 ${data.rules.planDeadline}) 지남 — 늦은 신청으로 표시되고 대표 승인이 필요합니다.` : `${shortDate(f.day)} (${weekday(f.day)}) ${f.kind} 신청 · 마감 전날 ${data.rules.planDeadline}`}
+          {f.kind === '외근'
+            ? `${shortDate(f.day)} (${weekday(f.day)}) 외근 신청 · 언제든 신청할 수 있고 대표 승인 후 인정됩니다.`
+            : late(f.day)
+              ? `⚠ 마감(전날 ${data.rules.planDeadline}) 지남 — 늦은 신청으로 표시되고 대표 승인이 필요합니다.`
+              : `${shortDate(f.day)} (${weekday(f.day)}) ${f.kind} 신청 · 마감 전날 ${data.rules.planDeadline}`}
         </span>
         <Button size="sm" onClick={submit} disabled={busy}>
           신청

@@ -2037,12 +2037,12 @@ export function createDemoApi(): Api {
     },
     async requestWorkPlan(p) {
       const self = requireMe()
-      if (p.day < todayKey()) throw new ApiError('지난 날짜는 신청할 수 없습니다.')
+      if (p.day < todayKey() && p.kind !== '외근') throw new ApiError('지난 날짜는 외근만 신청할 수 있습니다.')
       const list = (store.work_plans ??= [])
       if (list.some(x => x.user_id === self && x.day === p.day)) throw new ApiError('그날은 이미 신청했습니다.')
       const deadline = store.rules?.planDeadline ?? '18:00'
       const nowKst = new Date(Date.now() + 9 * 3600_000).toISOString()
-      const late = nowKst.slice(0, 10) >= p.day || (nowKst.slice(0, 10) === addDays(p.day, -1) && nowKst.slice(11, 16) > deadline)
+      const late = p.kind !== '외근' && (nowKst.slice(0, 10) >= p.day || (nowKst.slice(0, 10) === addDays(p.day, -1) && nowKst.slice(11, 16) > deadline))
       list.push({ id: uid(), user_id: self, day: p.day, kind: p.kind, place: p.place || null, reason: p.reason || null, status: '대기', decided_by: null, decided_at: null, created_at: now(), late, task_id: null })
       persist()
       emit('work_plans')

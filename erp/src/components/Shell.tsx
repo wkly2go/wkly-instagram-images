@@ -596,7 +596,7 @@ export function ShellFrame({ children, initial }: { children: ReactNode; initial
           <div className="inner">
             <header className="topbar">
               <Link to="/" className="top-logo" aria-label="THE WKLY 홈">
-                <img src="/wkly-logo-blue.svg" alt="WKLY" width={76} height={24} />
+                <img src="/wkly-logo-white.svg" alt="WKLY" width={76} height={24} />
               </Link>
               <span className="site-title">사내 인트라넷</span>
               <span className="site-url t-meta">{window.location.host}</span>

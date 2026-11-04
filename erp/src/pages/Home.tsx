@@ -84,15 +84,19 @@ export default function Home() {
       ) : (
         <div className="col gap-2">
           {toDecide.slice(0, 5).map(a => (
-            <div key={a.id} className="item-row" style={{ borderBottom: 0, padding: '3px 0' }}>
-              <KindTag kind={a.kind} />
-              <Link to={`/approvals?id=${a.id}`} className="t-smallb truncate">
-                {a.title}
-              </Link>
-              <span className="t-cap" style={{ whiteSpace: 'nowrap' }}>
-                {profileName(a.requested_by)} · {relativeLabel(a.created_at)}
-              </span>
-              <span className="grow" />
+            // 어떤 결재인지(제목)가 먼저 · 크게, 종류 · 요청자 · 시간은 아래 작은 줄 (대표 지시 2026-11-04)
+            <div key={a.id} className="item-row decide-row">
+              <div className="decide-main">
+                <Link to={`/approvals?id=${a.id}`} className="decide-title">
+                  {a.title}
+                </Link>
+                <span className="decide-meta">
+                  <KindTag kind={a.kind} />
+                  <span className="t-cap">
+                    {profileName(a.requested_by)} · {relativeLabel(a.created_at)}
+                  </span>
+                </span>
+              </div>
               <DecideButtons approval={a} compact />
             </div>
           ))}

@@ -230,6 +230,8 @@ export async function listChildren(token: string, folderId: string, opts: { fold
 /** 숨김 파일 (대표 지시 2026-10-31 "드라이브 숨겨진 파일 안 보이게 해"): 점(.)으로 시작 · 맥 ._ 꼬리 파일 · .DS_Store · Thumbs.db · desktop.ini · Icon */
 export const isHiddenName = (name: string | null | undefined) => !!name && (name.startsWith('.') || /^(thumbs\.db|desktop\.ini|icon\r?)$/i.test(name.trim()))
 export const visible = <T extends { name: string }>(list: T[]) => list.filter(f => !isHiddenName(f.name))
+/** 참고 자료 (대표 지시 2026-11-04 "참고자료는 비노출"): 이름이나 위치에 참고 · 레퍼런스 · reference 가 들어간 폴더와 그 안 파일 → 프로젝트 자료 목록에서 뺌 (드라이브에는 그대로) */
+export const isReferencePath = (name: string | null | undefined, path: string | null | undefined) => /(참고|레퍼런스|reference)/i.test(`${path ?? ''}/${name ?? ''}`)
 /** 새 폴더 */
 export function newFolder(token: string, name: string, parent: string) {
   return driveApi<GFile>(token, `files?supportsAllDrives=true&fields=${LIST_FIELDS}`, { method: 'POST', ...json({ name, mimeType: FOLDER_MIME, parents: [parent] }) })
