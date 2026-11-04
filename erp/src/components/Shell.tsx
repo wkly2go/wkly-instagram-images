@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from 'react'
 import { useMyAgents } from './AgentDesk'
 import { MobileAppBar, TopAppButton } from './InstallCard'
+import { useTheme } from '../lib/theme'
 import { Ruler, Bookmark, Bot, ListTodo, Plus, Search, Briefcase, HardDrive, ChevronLeft, ChevronRight, CircleHelp, PanelLeftClose, PanelLeftOpen, ClipboardCheck, FolderKanban, Home, Library, Megaphone, MessageCircle, MoreHorizontal, Settings, Users, Landmark, type LucideIcon } from 'lucide-react'
 import { accessSource, isDesktopApp } from '../lib/desktop'
 import { useAttendance } from '../lib/attendance'
@@ -689,6 +690,7 @@ function MobileNav({ active, summary }: { active: TabKey; summary: Summary }) {
                 사용법
               </Link>
             </div>
+            <ThemePick />
           </div>
         </div>
       )}
@@ -704,4 +706,22 @@ function buildLabel(): string {
   const d = new Date(ms)
   const p2 = (n: number) => String(n).padStart(2, '0')
   return `${p2(d.getMonth() + 1)}.${p2(d.getDate())} ${p2(d.getHours())}:${p2(d.getMinutes())}${sha ? ` · ${sha}` : ''}`
+}
+
+/** 더보기 메뉴: 화면 밝기 (기본 밝게 · 어둡게는 본인이 고를 때만, 이 기기에만 기억) */
+function ThemePick() {
+  const [theme, setTheme] = useTheme()
+  return (
+    <div className="m-theme" role="group" aria-label="화면 밝기">
+      <span>화면</span>
+      <div className="seg2">
+        <button type="button" className={theme === 'light' ? 'on' : ''} aria-pressed={theme === 'light'} onClick={() => setTheme('light')}>
+          밝게
+        </button>
+        <button type="button" className={theme === 'dark' ? 'on' : ''} aria-pressed={theme === 'dark'} onClick={() => setTheme('dark')}>
+          어둡게
+        </button>
+      </div>
+    </div>
+  )
 }
