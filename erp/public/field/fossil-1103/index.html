@@ -771,6 +771,8 @@ function homeHTML(){
    <button class="btn" data-act="csv">${ico("dl")}실측·체크 CSV</button>
    <button class="btn" data-act="zip">${ico("dl")}사진 + CSV (ZIP)</button>
    <button class="btn ghost" data-act="copy">CSV 복사</button></div>
+   <button class="btn tape" data-act="drive" style="width:100%;margin-top:8px">${ico("dl")}드라이브 폴더에 저장 (20261103_현장실측)</button>
+   <div class="pc" id="driveMsg" style="margin-top:6px">치수선 사진·원본·실측표 CSV·회의 녹음을 정해 둔 폴더에 넣습니다. 같은 이름 파일은 새 내용으로 바뀝니다.</div>
    <div class="pc" style="margin-top:8px">${downloads||SB_ON?"ZIP에는 치수선이 그려진 사진과 사진별 치수 표가 들어갑니다.":"이 화면에서는 파일 저장이 안 될 수 있습니다. 그럴 때는 CSV 복사를 쓰세요."}</div></div>
   <div style="height:16px"></div>`;
 }
@@ -855,6 +857,7 @@ document.addEventListener("click",e=>{
   if(d.act==="zip")exportZIP();
   if(d.act==="copy")copyCSV();
   if(d.act==="retry")retryUploads(true);
+  if(d.act==="drive")exportDrive();
 });
 document.addEventListener("input",e=>{
   const t=e.target,d=t.dataset;
@@ -1262,6 +1265,42 @@ document.addEventListener("click",e=>{const c=e.target.closest&&e.target.closest
 // dimension sheet: Esc handled above; Tab from value to label
 $("#dsLbl").addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.isComposing){e.preventDefault();$("#dsOk").click()}});
 $("#nameIn").addEventListener("keydown",e=>{if(e.isComposing)e.stopPropagation()},true);
+
+/* ---------- save to Google Drive date folder ---------- */
+const SB_JWT="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhvcGhnY3BzemVucnZjaHZia2F2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE4Mjk5MzgsImV4cCI6MjEwNzQwNTkzOH0.PN42_knCXZUcbAV7tCnGAtpp_0lMSuf9NgYVBxgDOwI";
+let driveBusy=false;window.driveState={done:0,total:0,fail:[],running:false};
+async function driveUp(folder,name,blob){
+  const mime=(blob.type||"application/octet-stream").split(";")[0];
+  const r=await fetch(SB.url+"/functions/v1/field-survey-drive",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+SB_JWT,apikey:SB_JWT},body:JSON.stringify({folder,name,mime,size:blob.size,origin:location.origin})});
+  const j=await r.json().catch(()=>({}));if(!r.ok||!j.url)throw new Error(j.error||("HTTP "+r.status));
+  const u=await fetch(j.url,{method:"PUT",headers:{"Content-Type":mime},body:blob});if(!u.ok)throw new Error("업로드 "+u.status);
+}
+async function exportDrive(){
+  if(driveBusy)return;driveBusy=true;const st=window.driveState={done:0,total:0,fail:[],running:true};
+  const msg=t=>{const el=$("#driveMsg");if(el)el.textContent=t};
+  try{
+    const jobs=[];
+    jobs.push(["00","현장실측_체크리스트_20261103.csv",async()=>new Blob([buildCSV()],{type:"text/csv"})]);
+    jobs.push(["00","사진_치수목록_20261103.csv",async()=>new Blob([photoCSV()],{type:"text/csv"})]);
+    Object.values(photos).sort((a,b)=>(a.ts||0)-(b.ts||0)).forEach(p=>{
+      jobs.push([secFolder(p).slice(0,2),fileName(p),()=>annotatedBlob(p)]);
+      jobs.push(["03",fileName(p,"_원본"),async()=>{let b=await idbGet(p.id);if(!b&&(p.url||p.asset)){const r=await fetch(p.url||"/_blob/"+p.asset);if(r.ok)b=await r.blob()}return b&&new Blob([b],{type:"image/jpeg"})}]);
+    });
+    Object.values(audios).forEach(a=>{const base=`20261103_${(a.title||"회의").replace(/[\\/:*?"<>|\s]+/g,"_")}`;
+      (a.segs||[]).forEach(sg=>jobs.push(["04",`${base}_${String(sg.n).padStart(2,"0")}.${sg.ext}`,async()=>{let b=await idbGet(sg.id);if(!b&&sg.url){const r=await fetch(sg.url);if(r.ok)b=await r.blob()}return b&&new Blob([b],{type:sg.type||"audio/webm"})}]));
+      if((a.marks||[]).length)jobs.push(["04",`${base}_중요표시.md`,async()=>new Blob([`# ${a.title}\n\n${a.marks.map(m=>`- ${hms(m.t)} · ${m.text||"(내용 없음)"} · ${m.by||""}`).join("\n")}\n`],{type:"text/markdown"})]);
+    });
+    st.total=jobs.length;
+    for(const [f,name,make] of jobs){
+      msg(`드라이브에 저장 중 ${st.done+1}/${st.total} · ${name}`);
+      try{const b=await make();if(!b)throw new Error("파일을 만들 수 없음");await driveUp(f,name,b)}catch(e){st.fail.push(name+": "+(e.message||e))}
+      st.done++;
+    }
+    msg(st.fail.length?`${st.total-st.fail.length}개 저장, ${st.fail.length}개 실패: ${st.fail.slice(0,3).join(" / ")}`:`${st.total}개 파일을 드라이브 20261103_현장실측 폴더에 저장했습니다.`);
+    toast(st.fail.length?"일부 파일을 저장하지 못했습니다":"드라이브에 저장했습니다");
+  }finally{driveBusy=false;st.running=false}
+}
+window.exportDrive=exportDrive;
 
 boot();
 </script>
