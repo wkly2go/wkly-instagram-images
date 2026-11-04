@@ -58,12 +58,25 @@ export function SiteSurveySection({ project }: { project: Project }) {
   const { busy, run } = useAction()
   const { data: items, reload } = useAsync(() => api.listSurvey(project.id).catch(() => [] as SiteSurveyItem[]), [project.id, version], [] as SiteSurveyItem[])
   const [open, setOpen] = useState(false)
-  const [cat, setCat] = useState('전체')
   const [onlyOpen, setOnlyOpen] = useState(false)
-  const cats = useMemo(() => ['전체', ...new Set(items.map(i => i.category).filter(Boolean))], [items])
+  // 구분(경계 · 구조 …)별 묶음 · 묶음과 항목 모두 접고 펼침 (대표 지시 2026-11-04 "세분화해서 접을 수 있게")
+  const [openCats, setOpenCats] = useState<Set<string>>(new Set())
+  const [openItem, setOpenItem] = useState<string | null>(null)
+  const groups = useMemo(() => {
+    const m = new Map<string, SiteSurveyItem[]>()
+    for (const i of items) m.set(i.category || '기타', [...(m.get(i.category || '기타') ?? []), i])
+    return [...m.entries()]
+  }, [items])
   const done = items.filter(i => i.status === '확인' || i.status === '해당없음').length
   const extra = items.filter(i => i.status === '추가확인').length
-  const shown = items.filter(i => (cat === '전체' || i.category === cat) && (!onlyOpen || i.status === '미확인' || i.status === '추가확인'))
+  const toggleCat = (c: string) => setOpenCats(prev => {
+    const n = new Set(prev)
+    if (n.has(c)) n.delete(c)
+    else n.add(c)
+    return n
+  })
+  const allOpen = groups.length > 0 && groups.every(([c]) => openCats.has(c))
+  const dims = (i: SiteSurveyItem) => [i.width_mm, i.depth_mm, i.height_mm].some(v => v != null) ? [i.width_mm, i.depth_mm, i.height_mm].map(v => (v == null ? '–' : Number(v).toLocaleString('ko-KR'))).join(' × ') : ''
 
   const save = (i: SiteSurveyItem, patch: Partial<SiteSurveyItem>) =>
     run(async () => {
@@ -77,11 +90,13 @@ export function SiteSurveySection({ project }: { project: Project }) {
       reload()
       setOpen(true)
     })
-  const add = () =>
+  const add = (addCat: string) =>
     run(async () => {
       const no = Math.max(0, ...items.map(i => i.no)) + 1
-      await api.saveSurveyItem({ project_id: project.id, no, category: cat === '전체' ? '기타' : cat, item: '새 항목', priority: '중', status: '미확인' })
+      const row = await api.saveSurveyItem({ project_id: project.id, no, category: addCat, item: '새 항목', priority: '중', status: '미확인' })
       reload()
+      setOpenCats(prev => new Set(prev).add(addCat))
+      setOpenItem(row.id)
     })
   const csv = () => {
     const head = ['No', '구분', '점검 항목', '근거', '우선순위', '가로(mm)', '세로(mm)', '높이(mm)', '위치·메모', '사진 번호', '확인자', '상태']
@@ -128,71 +143,110 @@ export function SiteSurveySection({ project }: { project: Project }) {
           {open && (
             <>
               <div className="row survey-tools">
-                <div className="survey-cats">
-                  {cats.map(c => (
-                    <button key={c} type="button" className={`chip ${cat === c ? 'active' : ''}`} onClick={() => setCat(c)}>
-                      {c}
-                    </button>
-                  ))}
-                </div>
-                <label className="row t-small" style={{ gap: 4 }}>
+                <button type="button" className="quick-btn" onClick={() => setOpenCats(allOpen ? new Set() : new Set(groups.map(([c]) => c)))}>
+                  {allOpen ? <ChevronDown size={13} /> : <ChevronRight size={13} />} {allOpen ? '모두 접기' : '모두 펼치기'}
+                </button>
+                <label className="row t-small survey-only">
                   <input type="checkbox" checked={onlyOpen} onChange={e => setOnlyOpen(e.target.checked)} /> 남은 것만
                 </label>
-                <button type="button" className="quick-btn" onClick={add} disabled={busy}>
-                  <Plus size={13} /> 항목
-                </button>
                 <button type="button" className="quick-btn" onClick={csv} title="엑셀로 열 수 있는 파일">
                   <Download size={13} /> 엑셀
                 </button>
               </div>
-              <div className="survey-list">
-                {shown.map(i => (
-                  <div key={i.id + i.updated_at} className={`survey-row st-${i.status}`}>
-                    <div className="survey-head">
-                      <span className="t-meta">{i.no}</span>
-                      <span className={`survey-pri p-${i.priority}`}>{i.priority}</span>
-                      <span className="t-cap">{i.category}</span>
-                      <input className="survey-item" defaultValue={i.item} onBlur={e => e.target.value.trim() && e.target.value !== i.item && save(i, { item: e.target.value.trim() })} aria-label="점검 항목" />
-                      <select
-                        className={`select survey-st st-${i.status}`}
-                        value={i.status}
-                        onChange={e => save(i, { status: e.target.value as SurveyStatus, checker: i.checker || me.name })}
-                        aria-label="상태"
-                      >
-                        {STATUSES.map(s => (
-                          <option key={s}>{s}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="survey-fields">
-                      {(
-                        [
-                          ['width_mm', '가로'],
-                          ['depth_mm', '세로'],
-                          ['height_mm', '높이'],
-                        ] as const
-                      ).map(([k, label]) => (
-                        <label key={k} className="survey-num">
-                          <span className="t-cap">{label}</span>
-                          <input inputMode="decimal" defaultValue={i[k] ?? ''} placeholder="mm" onBlur={e => num(e.target.value) !== i[k] && save(i, { [k]: num(e.target.value) })} />
-                        </label>
-                      ))}
-                      <label className="survey-memo">
-                        <span className="t-cap">위치 · 메모</span>
-                        <input defaultValue={i.memo ?? ''} placeholder="기준점 대비 거리 · 차이" onBlur={e => (e.target.value || null) !== i.memo && save(i, { memo: e.target.value || null })} />
-                      </label>
-                      <label className="survey-photo">
-                        <span className="t-cap">사진</span>
-                        <input defaultValue={i.photo_no ?? ''} placeholder="P01" onBlur={e => (e.target.value || null) !== i.photo_no && save(i, { photo_no: e.target.value || null })} />
-                      </label>
-                      <span className="t-cap survey-who">{i.checker ? `확인 ${i.checker}` : i.basis ? `근거 ${i.basis}` : ''}</span>
-                      <button type="button" className="icon-btn sm" title="항목 지우기" aria-label="항목 지우기" onClick={() => run(async () => (await api.deleteSurveyItem(i.id), reload()))}>
-                        <Trash2 size={13} />
+              <div className="survey-groups">
+                {groups.map(([c, list]) => {
+                  const ok = list.filter(i => i.status === '확인' || i.status === '해당없음').length
+                  const more = list.filter(i => i.status === '추가확인').length
+                  const rows = list.filter(i => !onlyOpen || i.status === '미확인' || i.status === '추가확인')
+                  const isOpen = openCats.has(c)
+                  return (
+                    <div key={c} className={`survey-group ${isOpen ? 'open' : ''}`}>
+                      <button type="button" className="survey-ghead" onClick={() => toggleCat(c)} aria-expanded={isOpen}>
+                        {isOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                        <b className="survey-gname">{c}</b>
+                        <span className="survey-gbar" aria-hidden="true">
+                          <span style={{ width: `${(ok / list.length) * 100}%` }} />
+                        </span>
+                        <span className="survey-gcount">
+                          {ok}/{list.length}
+                          {more ? <em> · 추가 {more}</em> : null}
+                        </span>
                       </button>
+                      {isOpen && (
+                        <div className="survey-list">
+                          {rows.map(i => {
+                            const itemOpen = openItem === i.id
+                            return (
+                              <div key={i.id + i.updated_at} className={`survey-row st-${i.status} ${itemOpen ? 'open' : ''}`}>
+                                <div className="survey-line">
+                                  <button type="button" className="survey-linebtn" onClick={() => setOpenItem(itemOpen ? null : i.id)} aria-expanded={itemOpen}>
+                                    <span className="survey-no">{i.no}</span>
+                                    <span className={`survey-pri p-${i.priority}`}>{i.priority}</span>
+                                    <span className="survey-text">{i.item}</span>
+                                    {dims(i) && <span className="survey-dims">{dims(i)}</span>}
+                                  </button>
+                                  <select
+                                    className={`select survey-st st-${i.status}`}
+                                    value={i.status}
+                                    onChange={e => save(i, { status: e.target.value as SurveyStatus, checker: i.checker || me.name })}
+                                    aria-label="상태"
+                                  >
+                                    {STATUSES.map(st => (
+                                      <option key={st}>{st}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                                {itemOpen && (
+                                  <div className="survey-detail">
+                                    <label className="survey-pair wide">
+                                      <span>항목</span>
+                                      <input defaultValue={i.item} onBlur={e => e.target.value.trim() && e.target.value !== i.item && save(i, { item: e.target.value.trim() })} aria-label="점검 항목" />
+                                    </label>
+                                    <div className="survey-nums">
+                                      {(
+                                        [
+                                          ['width_mm', '가로'],
+                                          ['depth_mm', '세로'],
+                                          ['height_mm', '높이'],
+                                        ] as const
+                                      ).map(([k, label]) => (
+                                        <label key={k} className="survey-pair">
+                                          <span>{label}</span>
+                                          <input inputMode="decimal" defaultValue={i[k] ?? ''} placeholder="mm" onBlur={e => num(e.target.value) !== i[k] && save(i, { [k]: num(e.target.value) })} />
+                                        </label>
+                                      ))}
+                                    </div>
+                                    <label className="survey-pair wide">
+                                      <span>메모</span>
+                                      <input defaultValue={i.memo ?? ''} placeholder="기준점 대비 거리 · 차이" onBlur={e => (e.target.value || null) !== i.memo && save(i, { memo: e.target.value || null })} />
+                                    </label>
+                                    <div className="survey-foot">
+                                      <label className="survey-pair">
+                                        <span>사진</span>
+                                        <input defaultValue={i.photo_no ?? ''} placeholder="P01" onBlur={e => (e.target.value || null) !== i.photo_no && save(i, { photo_no: e.target.value || null })} />
+                                      </label>
+                                      <span className="survey-meta">
+                                        {i.basis ? <span>근거 {i.basis}</span> : null}
+                                        {i.checker ? <span>확인 {i.checker}</span> : null}
+                                      </span>
+                                      <button type="button" className="icon-btn sm" title="항목 지우기" aria-label="항목 지우기" onClick={() => run(async () => (await api.deleteSurveyItem(i.id), reload()))}>
+                                        <Trash2 size={14} />
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )
+                          })}
+                          {rows.length === 0 && <span className="t-cap survey-none">남은 항목이 없습니다.</span>}
+                          <button type="button" className="survey-add" onClick={() => add(c)} disabled={busy}>
+                            <Plus size={14} /> {c}에 항목 추가
+                          </button>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ))}
-                {shown.length === 0 && <span className="t-cap">이 조건에 맞는 항목이 없습니다.</span>}
+                  )
+                })}
               </div>
             </>
           )}
