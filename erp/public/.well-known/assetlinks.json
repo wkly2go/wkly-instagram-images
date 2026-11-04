@@ -1,0 +1,10 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.thewkly.erp",
+      "sha256_cert_fingerprints": ["DB:63:C9:EA:22:BC:3A:77:EB:39:DA:CE:E9:D4:0F:A5:92:3C:3A:B4:53:C3:A1:14:52:9F:61:E1:14:5F:7D:F3"]
+    }
+  }
+]
