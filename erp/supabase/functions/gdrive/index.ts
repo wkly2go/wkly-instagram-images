@@ -422,10 +422,23 @@ async function fileInbox(deadline: number): Promise<{ filed: number; sorted: num
     .order('first_seen_at', { ascending: true })
     .limit(200)
   const ps = await projectsInfo()
-  for (const f of (fresh ?? []) as { id: string; project_id: string; name: string; mime_type: string | null; path: string | null; url: string | null; size: number | null; modified_at: string | null; first_seen_at: string }[]) {
+  type Fresh = { id: string; project_id: string; name: string; mime_type: string | null; path: string | null; url: string | null; size: number | null; modified_at: string | null; first_seen_at: string }
+  const rows = (fresh ?? []) as Fresh[]
+  // 다른 프로젝트 폴더에 먼저 있던 파일(이름 · 크기 같음)을 복사해 넣은 것 → 이 프로젝트 수신 자료로 올리지 않음
+  // (2026-11-01 로제코 폴더에 나름대로 실행내역 사본이 들어가 로제코 수신방에 나름대로 자료가 보인 일)
+  const names = [...new Set(rows.filter(f => !seen.has(f.id)).map(f => f.name))]
+  const earlier = new Map<string, { project_id: string; size: number | null; first_seen_at: string }[]>()
+  for (let i = 0; i < names.length; i += 100) {
+    const { data: same } = await sb.from('drive_index').select('name,project_id,size,first_seen_at').in('name', names.slice(i, i + 100))
+    for (const r of (same ?? []) as { name: string; project_id: string; size: number | null; first_seen_at: string }[]) earlier.set(r.name, [...(earlier.get(r.name) ?? []), r])
+  }
+  const copiedFromOther = (f: Fresh) =>
+    (earlier.get(f.name) ?? []).some(o => o.project_id !== f.project_id && o.size === f.size && Date.parse(o.first_seen_at) < Date.parse(f.first_seen_at))
+  for (const f of rows) {
     if (Date.now() > deadline || filed >= 40) break
     if (seen.has(f.id)) continue
     if (/^01\.협의자료\/01\.수신/.test(f.path ?? '')) continue // 메일에서 온 바로가기 자리
+    if (copiedFromOther(f)) continue
     const p = ps.find(x => x.id === f.project_id)
     if (!p) continue
     const kind = kindOf(f.name, f.mime_type)
