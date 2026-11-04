@@ -10,13 +10,13 @@
   /* 글자 크기: 본문 10 기준, 위쪽 가−/가+ 가 --fs-k 로 모든 글자를 함께 조절 (대표 지시 2026-10-21) */
   --fs-k: 1;
   /* 읽기 편한 글자 (2026-10-23): 본문 10px → 13px */
-  --fs-cap: calc(11px * var(--fs-k));
-  --fs-sm: calc(12px * var(--fs-k));
-  --fs-body: calc(13px * var(--fs-k));
-  --fs-sub: calc(14px * var(--fs-k));
-  --fs-title: calc(16px * var(--fs-k));
-  --fs-num: calc(20px * var(--fs-k));
-  --fs-hero: calc(36px * var(--fs-k));
+  --fs-cap: calc(11px * var(--fs-k) * var(--fs-m, 1));
+  --fs-sm: calc(12px * var(--fs-k) * var(--fs-m, 1));
+  --fs-body: calc(13px * var(--fs-k) * var(--fs-m, 1));
+  --fs-sub: calc(14px * var(--fs-k) * var(--fs-m, 1));
+  --fs-title: calc(16px * var(--fs-k) * var(--fs-m, 1));
+  --fs-num: calc(20px * var(--fs-k) * var(--fs-m, 1));
+  --fs-hero: calc(36px * var(--fs-k) * var(--fs-m, 1));
   --yellow: #d7ecdd;
   --white: #ffffff;
   --paper: #f7f7f5;
@@ -1429,7 +1429,7 @@ html.detail-open .web-panel { max-width: 28vw; }
    ===================================================================== */
 .m-nav, .m-more-scrim { display: none; }
 @media (pointer: coarse) {
-  :root { --fs-cap: calc(11px * var(--fs-k)); --fs-sm: calc(12px * var(--fs-k)); --fs-body: calc(13px * var(--fs-k)); --fs-sub: calc(14.5px * var(--fs-k)); --fs-title: calc(17px * var(--fs-k)); --fs-num: calc(22px * var(--fs-k)); }
+  :root { --fs-cap: calc(11px * var(--fs-k) * var(--fs-m, 1)); --fs-sm: calc(12px * var(--fs-k) * var(--fs-m, 1)); --fs-body: calc(13px * var(--fs-k) * var(--fs-m, 1)); --fs-sub: calc(14.5px * var(--fs-k) * var(--fs-m, 1)); --fs-title: calc(17px * var(--fs-k) * var(--fs-m, 1)); --fs-num: calc(22px * var(--fs-k) * var(--fs-m, 1)); }
   /* 아이폰 입력 확대 방지 */
   input, select, textarea, .input, .select, .textarea { font-size: var(--fs-title); }
   .main-nav, .web-zoom, .app-page .tabs { display: none !important; }
@@ -3160,13 +3160,13 @@ html.side-rail .side-brief { display: none; }
      캡션 · 메타   11 / 400(메타 700 mono) / 회색   .t-cap · .t-meta · 표 머리 · 라벨
      숫자          22 / 800 / 초록      .t-num                                    */
 :root {
-  --fs-cap: calc(11px * var(--fs-k));
-  --fs-sm: calc(12px * var(--fs-k));
+  --fs-cap: calc(11px * var(--fs-k) * var(--fs-m, 1));
+  --fs-sm: calc(12px * var(--fs-k) * var(--fs-m, 1));
   --fs-small: var(--fs-sm);
-  --fs-body: calc(13px * var(--fs-k));
-  --fs-sub: calc(15px * var(--fs-k));
-  --fs-title: calc(18px * var(--fs-k));
-  --fs-num: calc(22px * var(--fs-k));
+  --fs-body: calc(13px * var(--fs-k) * var(--fs-m, 1));
+  --fs-sub: calc(15px * var(--fs-k) * var(--fs-m, 1));
+  --fs-title: calc(18px * var(--fs-k) * var(--fs-m, 1));
+  --fs-num: calc(22px * var(--fs-k) * var(--fs-m, 1));
   --ink: #3a3a36; /* 본문 진회색 (검정 아님) */
 }
 body { color: var(--ink); }
@@ -3232,7 +3232,7 @@ html, body, .body { background: var(--bg-bw); }
 .right-sched .pviz-card, .right-sched .right-tabs { background: var(--white); }
 
 /* 빠른 창 가독성 (대표 지시 2026-11-02): 어두운 초록 바탕 위 회색 글자 → 흰 바탕 + 진한 글자 · 글자 한 단계 크게 */
-.quick { --fs-cap: calc(12px * var(--fs-k)); --fs-sm: calc(13px * var(--fs-k)); --fs-body: calc(14px * var(--fs-k)); background: var(--bg-bw); }
+.quick { --fs-cap: calc(12px * var(--fs-k) * var(--fs-m, 1)); --fs-sm: calc(13px * var(--fs-k) * var(--fs-m, 1)); --fs-body: calc(14px * var(--fs-k) * var(--fs-m, 1)); background: var(--bg-bw); }
 .quick .card { background: var(--white) !important; border-color: var(--line); }
 .quick .inner, .quick .inner.quick-chat { background: var(--white) !important; color: var(--ink) !important; }
 .quick .inner .t-cap, .quick .inner .t-meta, .quick .inner .label > span, .quick .inner .cell-sub { color: #4a4a45 !important; }
@@ -3293,3 +3293,31 @@ html, body, .body { background: var(--bg-bw); }
 .item .room-pin:hover { color: var(--blue); border-color: var(--line); background: var(--white); }
 .room-pin-btn { display: inline-flex; align-items: center; gap: 4px; }
 .room-pin-btn.on { background: var(--blue); color: #fff; border-color: var(--blue); }
+
+/* ---------------------------------------------------------------- 휴대폰 가독성 · 사용성 (대표 지시 2026-11-04 "사용성과 가독성을 높여")
+   - 글자를 한 단계 크게 (가−/가+ 배율과 곱해짐) · 줄 간격 넉넉히
+   - 손가락으로 누르기 쉽게: 버튼 · 입력 칸 · 목록 줄 높이 44px 이상
+   - 입력 칸 16px 이상: 아이폰이 입력할 때 화면을 확대하지 않음 */
+@media (max-width: 640px) {
+  :root { --fs-m: 1.15; }
+  body { line-height: 1.55; }
+  .btn, .quick-btn, .icon-btn, .tab, .side-item, select, .select { min-height: 40px; }
+  .btn-sm { min-height: 36px; }
+  input:not([type='checkbox']):not([type='radio']), select, textarea { font-size: max(16px, var(--fs-body)) !important; }
+  .board .row, .board-row, .room-item, .task-row { min-height: 44px; }
+  .t-meta, .t-cap { letter-spacing: 0; }
+  .t-muted, .t-cap { color: var(--gray); }
+  /* 표 안 처리 버튼(반려 · 승인 등)이 칸 밖으로 잘리지 않게 줄바꿈 */
+  .board td { overflow: visible; }
+  .board td .row { flex-wrap: wrap; gap: 4px; justify-content: flex-end; }
+  .board td .row .btn { padding: 0 10px; }
+  /* 탭 줄이 화면보다 넓으면 옆으로 밀어 보기 (화면 전체가 넓어져 아래 메뉴가 잘리던 문제) */
+  .view-tabs { min-width: 0; max-width: 100%; overflow-x: auto; scrollbar-width: none; flex-wrap: nowrap; }
+  .view-tabs::-webkit-scrollbar { display: none; }
+  *:has(> .view-tabs) { flex-wrap: wrap; }
+  html, body { overflow-x: hidden; }
+}
+@media (max-width: 1000px) {
+  /* 휴대폰 · 태블릿: 사이드바가 화면 높이만큼 늘어나 아래가 빈 칸으로 남던 문제 */
+  .body > .profile { min-height: 0; align-self: auto; align-content: flex-start; }
+}
