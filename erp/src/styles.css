@@ -3934,3 +3934,24 @@ body, .book, .inner { background: var(--page-bg); }
   .ex-tool { flex: none; white-space: nowrap; min-height: 40px; padding: 4px 10px; }
 }
 @media (max-width: 640px) { .ex-tools .ex-ro { flex: none; white-space: nowrap; } }
+
+/* ---------------------------------------------------------------- 휴대폰 긴 글 접기 (대표 지시 2026-11-04 "모바일에서 긴 게시물 접을 수 있게")
+   lib/foldLong.ts 가 긴 본문에 data-fold 를 붙임: '1' 접힘 · 'open' 펼침. 아래쪽 띠를 누르면 바뀜 */
+@media (max-width: 640px) {
+  [data-fold] { position: relative; }
+  [data-fold='1'] { max-height: 200px; overflow: hidden !important; }
+  [data-fold]::after {
+    display: flex; align-items: flex-end; justify-content: center; gap: 4px;
+    font: 700 var(--fs-sm)/1 var(--font); color: var(--blue); cursor: pointer; white-space: nowrap;
+    -webkit-tap-highlight-color: transparent;
+  }
+  [data-fold='1']::after {
+    content: '더 보기 ▾'; position: absolute; left: 0; right: 0; bottom: 0; height: 72px; padding-bottom: 10px;
+    background: linear-gradient(to bottom, color-mix(in srgb, var(--fold-bg, #fff) 0%, transparent), var(--fold-bg, #fff) 62%);
+  }
+  [data-fold='open']::after {
+    content: '접기 ▴'; position: static; height: 40px; margin-top: 4px; align-items: center;
+    border-top: 1px dashed color-mix(in srgb, var(--blue) 20%, transparent);
+  }
+  .bubble[data-fold='1'] { max-height: 240px; }
+}
