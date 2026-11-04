@@ -27,7 +27,28 @@ const ACTIVITY_FILTERS: [string, NotificationKind[]][] = [
 
 /** 방 한 줄: 알림 단계에 따라 숫자 · 굵기 · 흐리게 */
 function RoomItem({ r, active, to }: { r: ChatRoomSummary; active: boolean; to: string }) {
-  const { me, profileName } = useApp()
+  const { me, profileName, api, bump, toast } = useApp()
+  const { navigate } = useRouter()
+  // 목록에서 바로 삭제 (대표 지시 2026-11-04): 휴지통 → '삭제?' 한 번 더 → 삭제 (팝업 없음)
+  const [arm, setArm] = useState(false)
+  const canDel = me.role === 'admin' || r.created_by === me.id || !!r.members?.includes(me.id)
+  const del = async (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!arm) {
+      setArm(true)
+      window.setTimeout(() => setArm(false), 3000)
+      return
+    }
+    try {
+      await api.deleteRoom(r.id)
+      toast('채팅방을 삭제했습니다.')
+      bump()
+      if (active) navigate('/chat', { replace: true })
+    } catch (err) {
+      toast(friendlyError(err))
+    }
+  }
   const counted = countedUnread(r)
   const quiet = r.unread > 0 && !counted && r.level !== 'mute' // 멘션만인 방에 새 글 (숫자 없이 굵게)
   return (
@@ -37,6 +58,11 @@ function RoomItem({ r, active, to }: { r: ChatRoomSummary; active: boolean; to: 
         <span className="t-smallb truncate grow">{r.members ? roomTitle(r, me.id, profileName).slice(2) : `# ${r.name}`}</span>
         {r.level === 'mute' && <BellOff size={11} aria-label="알림 끔" />}
         {r.last_at && <span className="t-meta">{relativeLabel(r.last_at)}</span>}
+        {canDel && (
+          <button type="button" className={`room-x${arm ? ' arm' : ''}`} onClick={del} aria-label="채팅방 삭제" title={arm ? '한 번 더 누르면 삭제' : '채팅방 삭제'}>
+            {arm ? '삭제?' : <Trash2 size={12} />}
+          </button>
+        )}
       </div>
       <div className="row">
         <span className="t-cap truncate grow">{r.last_content ?? r.description ?? '대화를 시작해 보세요'}</span>
@@ -499,7 +525,7 @@ function Room({ room }: { room: ChatRoomSummary }) {
         {canDelete &&
           (confirmDel ? (
             <span className="row room-del" style={{ gap: 4 }}>
-              <span className="t-small t-red">대화 내용까지 모두 지울까요?</span>
+              <span className="t-small t-red">{room.project_id ? '대화 내용까지 지웁니다. 프로젝트 화면 [채팅방]으로 다시 만들 수 있어요.' : '대화 내용까지 모두 지울까요?'}</span>
               <button type="button" className="btn btn-sm room-del-yes" onClick={removeRoom} disabled={deleting}>
                 삭제
               </button>
@@ -508,8 +534,8 @@ function Room({ room }: { room: ChatRoomSummary }) {
               </button>
             </span>
           ) : (
-            <button type="button" className="icon-btn sm" onClick={() => setConfirmDel(true)} aria-label="채팅방 삭제" title="채팅방 삭제">
-              <Trash2 size={15} />
+            <button type="button" className="btn btn-sm btn-outline room-del-btn" onClick={() => setConfirmDel(true)} aria-label="채팅방 삭제" title="채팅방 삭제 (대화 내용까지 지워짐)">
+              <Trash2 size={13} /> 방 삭제
             </button>
           ))}
       </div>
