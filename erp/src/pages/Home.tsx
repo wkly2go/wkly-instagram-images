@@ -51,6 +51,8 @@ export default function Home() {
 
   return (
     <Shell active="home">
+      {/* 휴대폰: 앱 설치 안내를 맨 위에 (설치하면 자동으로 사라짐) */}
+      <InstallCard />
       {/* 오늘 업무를 가장 위에 (대표 지시 2026-10-28, 전체 공통) */}
       <TodayWork tasks={data.tasks} projects={data.projects} />
       {/* 월별 일정표 (대표 지시 2026-10-23) */}
@@ -59,7 +61,6 @@ export default function Home() {
         <MonthCalendar projects={data.projects} tasks={data.tasks} />
       </section>
       <CheckInCard />
-      <InstallCard />
       <PushSetupCard />
       <SectionHead title="승인 대기" count={toDecide.length} right={<Link to="/approvals">전체 보기 ›</Link>} />
       {toDecide.length === 0 ? (

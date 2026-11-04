@@ -31,7 +31,7 @@ export function InstallCard() {
     window.addEventListener('beforeinstallprompt', on)
     return () => window.removeEventListener('beforeinstallprompt', on)
   }, [])
-  if (hidden || standalone || !mobile || (!evt && !ios)) return null
+  if (hidden || standalone || !mobile) return null
   const close = () => {
     try {
       localStorage.setItem(KEY, '1')
@@ -45,12 +45,22 @@ export function InstallCard() {
       <span className="grow t-small">
         {ios ? (
           <>
-            휴대폰 · 태블릿 홈 화면에 인트라넷 앱을 추가하세요: Safari <b>공유</b> 버튼 › <b>홈 화면에 추가</b>. 출근 체크 · 알림을 앱처럼 씁니다.
+            아이폰 · 아이패드에 인트라넷 앱을 설치하세요: <b>설치 파일 받기</b> › 설정 › <b>프로파일이 다운로드됨</b> › 설치 (또는 Safari <b>공유</b> › <b>홈 화면에 추가</b>).
           </>
         ) : (
           '휴대폰 · 태블릿 홈 화면에 인트라넷 앱을 추가하면 출근 체크 · 알림을 앱처럼 쓸 수 있습니다.'
         )}
       </span>
+      {ios && (
+        <a className="btn btn-blue btn-sm" href="/wkly-erp.mobileconfig" style={{ textDecoration: 'none' }}>
+          설치 파일 받기
+        </a>
+      )}
+      {!ios && !evt && /Android/i.test(navigator.userAgent) && (
+        <a className="btn btn-blue btn-sm" href="https://github.com/wkly2go/wkly-instagram-images/releases/download/android/wkly-erp.apk" style={{ textDecoration: 'none' }}>
+          앱 받기
+        </a>
+      )}
       {evt && (
         <button
           type="button"
