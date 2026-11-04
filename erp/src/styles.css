@@ -3321,7 +3321,7 @@ html, body, .body { background: var(--bg-bw); }
   .view-tabs { min-width: 0; max-width: 100%; overflow-x: auto; scrollbar-width: none; flex-wrap: nowrap; }
   .view-tabs::-webkit-scrollbar { display: none; }
   *:has(> .view-tabs) { flex-wrap: wrap; }
-  html, body { overflow-x: hidden; }
+  html, body { overflow-x: clip; }
 }
 @media (max-width: 1000px) {
   /* 휴대폰 · 태블릿: 사이드바가 화면 높이만큼 늘어나 아래가 빈 칸으로 남던 문제 */
@@ -3437,4 +3437,179 @@ body, .book, .inner { background: var(--page-bg); }
   .survey-st { margin-left: auto; }
   .survey-num { flex: 1 1 28%; }
   .survey-num input { width: 100%; }
+}
+
+/* ================================================================ 모바일 디자인 정리 (대표 지시 2026-11-04)
+   "모바일 버전은 폰트 크기와 위계가 안 맞고 가독성 떨어져 · 글들의 수직 · 수평 정렬이 통일감 없어 · 구분선을 확실하게"
+   규칙 (휴대폰 폭 640px 이하에만 적용 · PC 화면은 그대로)
+   1) 글자 6단계 고정: 캡션 12 · 작게 13 · 본문 15 · 소제목 16 · 화면 제목 19 · 큰 숫자 22 (가−/가+ 배율은 그대로 곱함)
+      굵기 3단계: 본문 400 · 항목 · 버튼 600 · 제목 · 숫자 800
+   2) 좌우 여백 16px 하나로 통일 · 모든 글은 왼쪽 정렬 · 한 줄 안의 글 · 아이콘 · 숫자는 세로 가운데 정렬
+   3) 구역 사이는 8px 회색 띠 + 진한 구분선 · 구역 안 줄 사이는 1px 선
+   4) 여러 칸 나란히 놓인 곳은 모두 한 칸씩 위아래로 · 넓은 표는 옆으로 밀어 보기
+   5) 누르는 것은 높이 44px 이상 */
+@media (max-width: 640px) {
+  :root {
+    --fs-m: 1;
+    --fs-cap: calc(12px * var(--fs-k));
+    --fs-sm: calc(13px * var(--fs-k));
+    --fs-body: calc(15px * var(--fs-k));
+    --fs-sub: calc(16px * var(--fs-k));
+    --fs-title: calc(19px * var(--fs-k));
+    --fs-num: calc(22px * var(--fs-k));
+    --m-gut: 16px;
+    --m-line: #c9c9c1;
+    --m-ink: #2f2f2b;
+  }
+  body { line-height: 1.5; color: var(--m-ink); -webkit-text-size-adjust: 100%; }
+  .t-title { font-size: var(--fs-title); font-weight: 800; line-height: 1.3; }
+  .t-bodyb { font-size: var(--fs-body); font-weight: 700; }
+  .t-body { font-size: var(--fs-body); }
+  .t-small, .t-smallb { font-size: var(--fs-sm); }
+  .t-cap, .t-meta { font-size: var(--fs-cap); line-height: 1.4; }
+  .t-num { font-size: var(--fs-num); }
+  .row { align-items: center; }
+  .row.top { align-items: flex-start; }
+
+  /* --- 위쪽 바: 로고 · 알림 · 찾기만 (PC 전용 버튼 숨김) */
+  .app-page .topbar { min-height: 52px; padding: 6px var(--m-gut); gap: 8px; }
+  .topbar .web-nav, .topbar > .top-menu, .topbar .web-toggle, .topbar .web-zoom, .topbar .cmdk-btn kbd, .topbar .site-title { display: none !important; }
+  .topbar .top-logo img, .topbar .site-logo img { height: 22px; width: auto; }
+  .topbar .mode-badge { height: 28px; padding: 0 6px; font-size: var(--fs-cap); }
+  .topbar .web-search { flex: 1 1 auto; height: 36px; min-width: 0; }
+
+  /* --- 본문 틀: 좌우 여백 16 하나로 */
+  .app-page .main, .main { padding: 0 !important; gap: 0; }
+  .main-view { padding: 0; }
+  .book, .inner { padding: 0 !important; margin: 0 !important; border: 0 !important; }
+  .body { gap: 0; }
+
+  /* --- 구역(섹션 · 카드): 흰 바탕 + 위아래 진한 구분선 + 사이 8px 회색 띠 */
+  .main > .section, .main > section, .main-view > .section, .main-view > section, .main-view > .col > section,
+  .proj-detail > section, .proj-detail > .section, .proj-detail > div:not(.proj-sticky),
+  .install-card, .today-work, .main > .col > .section, .home-col > section {
+    background: var(--white); margin: 0 0 8px; padding: 14px var(--m-gut); border: 0; border-top: 1px solid var(--m-line); border-bottom: 1px solid var(--m-line); border-radius: 0; box-shadow: none;
+  }
+  .section-h {
+    display: flex; align-items: center; gap: 8px; min-height: 32px; margin: 0 0 10px; padding: 0 0 8px;
+    background: none; border: 0; border-bottom: 2px solid var(--m-ink); border-radius: 0; color: var(--m-ink);
+  }
+  .section-h .t-bodyb, .section-h > span:first-child { font-size: var(--fs-sub); font-weight: 800; color: var(--m-ink); }
+  .section-h::before { display: none !important; }
+  .section-h .more { margin-left: auto; font-size: var(--fs-sm); }
+  .section-h .badge { font-size: var(--fs-cap); padding: 1px 7px; }
+
+  /* --- 여러 칸 나란히 → 한 칸씩 */
+  .proj-top3, .pviz-row, .pviz-row.two, .pviz-row.three, .pviz-row.head, .ledger-kpis, .ledger-charts, .lstats-grid, .app-dl-row { grid-template-columns: minmax(0, 1fr) !important; }
+  .proj-side-row, .proj-top3 > *, .row.top.gap-12 { flex-direction: column; width: 100%; }
+  .proj-side-row > *, .row.top.gap-12 > * { flex-basis: auto !important; width: 100%; min-width: 0; }
+  .fin-tiles, .kpis, .kpis.kpis-4 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 8px; }
+
+  /* --- 줄 목록: 줄 높이 · 구분선 · 세로 가운데 */
+  .item, .item-row, .board tbody td, .rp-task, .today-row, .sb-row { min-height: 44px; }
+  .item { padding: 10px var(--m-gut); border-bottom: 1px solid var(--line); }
+  .item-row { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .board-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .board { font-size: var(--fs-sm); }
+  .board thead th { font-size: var(--fs-cap); font-weight: 700; color: var(--gray); padding: 8px 10px; white-space: nowrap; border-bottom: 2px solid var(--m-ink); }
+  .board tbody td { padding: 10px; vertical-align: middle; border-bottom: 1px solid var(--line); }
+  .board td.title, .board td .t-bodyb { font-weight: 700; font-size: var(--fs-body); }
+  .vendor-list { overflow-x: auto; }
+  .vendor-list table { min-width: 620px; }
+
+  /* --- 입력 · 버튼: 높이 44 · 글자 16(아이폰 확대 방지) */
+  .btn, .quick-btn, select, .select, .input:not(textarea), input.input { min-height: 44px; }
+  .btn { font-size: var(--fs-body); font-weight: 600; padding: 0 14px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+  .btn-sm { min-height: 36px; font-size: var(--fs-sm); }
+  .chip { min-height: 36px; font-size: var(--fs-sm); padding: 0 12px; display: inline-flex; align-items: center; }
+  .icon-btn { min-width: 40px; min-height: 40px; }
+
+  /* --- 화면 탭 줄 */
+  .view-tabs { margin: 0 calc(-1 * var(--m-gut)); padding: 0 var(--m-gut); border-bottom: 1px solid var(--m-line); }
+  .view-tab { font-size: var(--fs-sm); font-weight: 700; min-height: 44px; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+
+  /* --- 홈 위 칸(프로필): 이름 · 출근 · 브리핑만, 메뉴는 아래 메뉴 · 더보기로 */
+  .app-page.tab-home .body > .profile { display: flex; flex-direction: column; gap: 12px; padding: 14px var(--m-gut); margin: 0 0 8px; border-bottom: 1px solid var(--m-line); border-right: 0; }
+  .app-page.tab-home .profile .side-nav, .app-page.tab-home .profile .mini-cal, .app-page.tab-home .profile .side-tools, .app-page.tab-home .profile .new-menu { display: none !important; }
+  .profile .me-row { display: flex; align-items: center; gap: 10px; }
+  .profile .me-row .photo { width: 44px; height: 44px; font-size: var(--fs-body); }
+  .profile .me-name .t-bodyb { font-size: var(--fs-sub); font-weight: 800; }
+  .profile .today-is { width: 100%; min-height: 48px; padding: 0 12px; display: flex; align-items: center; gap: 8px; }
+  .profile .today-is select { flex: 1; font-size: var(--fs-sub); }
+  .profile .today-rec, .profile .status-msg { font-size: var(--fs-sm); line-height: 1.45; }
+  .side-brief { padding-top: 12px; border-top: 2px solid var(--m-ink); gap: 0; }
+  .side-brief .sb-title { font-size: var(--fs-sub); font-weight: 800; margin-bottom: 4px; }
+  .side-brief .sb-row { min-height: 44px; align-items: center; padding: 0; border-bottom: 1px solid var(--line); font-size: var(--fs-body); }
+  .side-brief .sb-row em { font-size: var(--fs-body); }
+  .side-brief .sb-next { margin-top: 10px; padding: 10px 12px; }
+
+  /* --- 홈 설치 칸 */
+  .install-card { gap: 10px; }
+  .install-head { font-size: var(--fs-sub); font-weight: 800; }
+  .app-dl { padding: 12px; gap: 8px; }
+  .app-dl .btn { width: 100%; }
+
+  /* --- 프로젝트 상세 머리 */
+  .proj-sticky { background: var(--white); padding: 10px var(--m-gut) 8px; border-bottom: 2px solid var(--m-ink); margin: 0 0 8px; }
+  .proj-head { gap: 8px !important; row-gap: 8px !important; }
+  .proj-head .t-title, .proj-head h1, .proj-head h2 { font-size: var(--fs-title); flex-basis: 100%; }
+  .proj-head .btn, .proj-head .quick-btn { min-height: 38px; font-size: var(--fs-sm); padding: 0 10px; }
+  .brief { margin: 0 0 8px !important; }
+  .brief-head { font-size: var(--fs-sub) !important; line-height: 1.4; }
+
+  /* --- 채팅 목록 */
+  .chat-list .item .t-smallb { font-size: var(--fs-body); }
+  .chat-list .item .t-cap { font-size: var(--fs-sm); }
+  .pane-head { padding: 12px var(--m-gut) 8px !important; border-bottom: 2px solid var(--m-ink); }
+  .pane-group, .pane-sec { border-top: 8px solid var(--page-bg); }
+
+  /* --- 아래 메뉴: 글자 · 아이콘 가운데 */
+  .m-nav > a, .m-nav > button { font-size: var(--fs-cap); gap: 4px; }
+}
+@media (max-width: 640px) {
+  /* 본문은 흰 바탕 + 좌우 16, 구역(섹션)마다 위에 8px 회색 띠 + 진한 제목 밑줄로 확실히 구분 */
+  .main-view { background: var(--white); padding: 0 var(--m-gut) 24px; min-height: 100%; }
+  .main-view > section, .main-view > .section, .main-view > .install-card, .main-view > .proj-detail > section, .main-view > .proj-detail > .section, .main-view > .proj-detail > div:not(.proj-sticky) {
+    margin: 0 calc(-1 * var(--m-gut)); padding: 16px var(--m-gut); border: 0; border-top: 8px solid var(--page-bg); border-radius: 0; background: var(--white);
+  }
+  .main-view > .section-h { margin: 0 calc(-1 * var(--m-gut)) 10px; padding: 16px var(--m-gut) 8px; border-top: 8px solid var(--page-bg); }
+  .main-view > .proj-detail { margin: 0 calc(-1 * var(--m-gut)); }
+  .main-view > .proj-detail > .proj-sticky { margin: 0; }
+  .main-view > :first-child { border-top: 0 !important; }
+  /* 줄 목록은 좌우 끝까지 선 */
+  .main-view > .col > .item-row, .item-row { padding: 10px 0; }
+  .stats { gap: 8px; }
+  .stat { text-align: left; align-items: flex-start; }
+  /* 홈 위 칸: 왼쪽 정렬 */
+  .profile .me-row { justify-content: flex-start; align-self: stretch; }
+  .profile .me-row .side-fold { margin-left: auto; }
+  .app-page.tab-home .body > .profile { align-items: stretch; }
+  .profile .today-rec { margin-top: -4px; }
+}
+@media (max-width: 640px) {
+  /* main-view 는 display: contents → 여백은 바깥 .main 에 */
+  .app-page .main { background: var(--white); padding: 0 var(--m-gut) 24px !important; }
+  .main-view { padding: 0 !important; }
+  /* 프로젝트 머리줄: 휴대폰에서는 따라 내려오지 않게 (화면을 덜 가림) */
+  .proj-sticky { position: static !important; }
+}
+@media (max-width: 640px) {
+  .filter-label { white-space: nowrap; min-width: 32px; }
+  .filter-group { flex-wrap: nowrap; max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+  .filter-group::-webkit-scrollbar { display: none; }
+  /* 결재 · 프로젝트 목록 등도 흰 본문 */
+  .app-page .main > *:not(.main-view) { max-width: 100%; }
+  .profile > .side-unfold { display: none !important; }
+}
+@media (max-width: 640px) {
+  /* 홈 위 칸: 세로 한 줄 (줄바꿈되며 브리핑이 화면 밖 오른쪽으로 밀리던 문제) */
+  .app-page.tab-home .body > .profile { flex-wrap: nowrap; height: auto; }
+  .profile .status-msg { display: block; -webkit-line-clamp: unset; overflow: visible; }
+  /* 프로젝트 상세: 바깥이 이미 화면 끝까지 → 안쪽 구역은 여백만 (두 번 당겨져 오른쪽이 잘리던 문제) */
+  .main-view > .proj-detail > section, .main-view > .proj-detail > .section, .main-view > .proj-detail > div:not(.proj-sticky) { margin: 0 !important; }
+}
+@media (max-width: 640px) {
+  .section-h { flex-wrap: wrap; row-gap: 4px; }
+  .section-h > span:first-child, .section-h .t-bodyb { white-space: nowrap; }
+  .section-h .more .t-cap { white-space: normal; }
 }
