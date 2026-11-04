@@ -98,3 +98,41 @@ export function InstallCard() {
     </section>
   )
 }
+
+/**
+ * 휴대폰 홈 맨 위 한 줄 (대표 지시 2026-11-04 "클릭만 해도 다운받을 수 있게 하고 최상단에 배치")
+ *  - 내 기기에 맞는 버튼 하나: 누르면 바로 내려받기 (갤럭시 = APK · 아이폰 = 설치 프로파일)
+ *  - 다른 기기용은 옆에 작은 글자 링크 · 앱으로 열었으면(설치 후) 보이지 않음
+ */
+export function MobileAppBar() {
+  const [hidden, setHidden] = useState(read())
+  const standalone = window.matchMedia?.('(display-mode: standalone)').matches || (navigator as unknown as { standalone?: boolean }).standalone === true
+  const ipad = /Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1
+  const ios = ipad || /iPhone|iPad/i.test(navigator.userAgent)
+  if (hidden || standalone) return null
+  const close = () => {
+    try {
+      localStorage.setItem(KEY, '1')
+    } catch {
+      /* 이번만 숨김 */
+    }
+    setHidden(true)
+  }
+  return (
+    <div className="m-appbar" role="region" aria-label="휴대폰 앱 내려받기">
+      <a className="m-appbar-btn" href={ios ? IOS_PROFILE_URL : APK_URL} download={ios ? undefined : 'wkly-erp.apk'}>
+        <Smartphone size={18} />
+        <span>
+          <b>{ios ? '아이폰 앱 다운로드' : '갤럭시 앱 다운로드'}</b>
+          <small>{ios ? '누른 뒤 설정 › 프로파일이 다운로드됨 › 설치' : '누른 뒤 받은 파일 열기 › 설치'}</small>
+        </span>
+      </a>
+      <a className="m-appbar-alt" href={ios ? APK_URL : IOS_PROFILE_URL}>
+        {ios ? '갤럭시용' : '아이폰용'}
+      </a>
+      <button type="button" className="m-appbar-x" onClick={close} aria-label="닫기">
+        <X size={16} />
+      </button>
+    </div>
+  )
+}

@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from 'react'
 import { useMyAgents } from './AgentDesk'
+import { MobileAppBar } from './InstallCard'
 import { Smartphone, Bookmark, Bot, ListTodo, Plus, Search, Briefcase, HardDrive, ChevronLeft, ChevronRight, CircleHelp, PanelLeftClose, PanelLeftOpen, ClipboardCheck, FolderKanban, Home, Library, Megaphone, MessageCircle, MoreHorizontal, Settings, Users, Landmark, type LucideIcon } from 'lucide-react'
 import { accessSource, isDesktopApp } from '../lib/desktop'
 import { useAttendance } from '../lib/attendance'
@@ -617,6 +618,8 @@ export function ShellFrame({ children, initial }: { children: ReactNode; initial
               {/* 오른쪽 위 아이콘들은 '보기' 펼침 메뉴 하나로 (2026-10-28) */}
               <TopMenu showDownload={!isDesktopApp()} />
             </header>
+            {/* 휴대폰 홈 맨 위: 앱 다운로드 한 줄 (PC 는 홈 본문 맨 위 QR 칸) */}
+            {active === 'home' && <MobileAppBar />}
             <div className="body" ref={mountWebSlot}>
               <ProfilePanel summary={summary} active={active} />
               <main ref={mainRef} className={`main ${flush ? 'flush' : ''}`}>
