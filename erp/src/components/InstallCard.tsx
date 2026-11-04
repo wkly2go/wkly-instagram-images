@@ -137,23 +137,34 @@ export function MobileAppBar() {
   )
 }
 
-/** PC 위쪽 바 검색창 옆 '휴대폰 앱' 버튼 (대표 지시 2026-11-04 "PC 창에 모바일 버전 받는 버튼을 검색창 옆에 · QR 삭제") */
+/**
+ * PC 위쪽 바 검색창 옆 '휴대폰 앱' 버튼 (대표 지시 2026-11-04)
+ *  - 누르면 갤럭시 · 아이폰 QR 두 개가 나옴: 휴대폰 카메라로 찍으면 바로 받기
+ *  - QR 아래 링크로 이 PC 에서 직접 받을 수도 있음
+ */
 export function TopAppButton() {
   return (
     <details className="top-app">
       <summary className="quick-btn" title="휴대폰 앱 내려받기">
         <Smartphone size={14} /> 휴대폰 앱
       </summary>
-      <div className="top-app-pop" role="menu">
-        <a role="menuitem" href={APK_URL} download="wkly-erp.apk">
-          <b>갤럭시 · 안드로이드</b>
-          <span>앱 파일(APK) 바로 받기</span>
-        </a>
-        <a role="menuitem" href={IOS_PROFILE_URL}>
-          <b>아이폰 · 아이패드</b>
-          <span>설치 파일 받기 (Safari)</span>
-        </a>
-        <a role="menuitem" href="/install.html" target="_blank" rel="noreferrer" className="top-app-help">
+      <div className="top-app-pop" role="dialog" aria-label="휴대폰 앱 받기">
+        <p className="top-app-lead">휴대폰 카메라로 QR 을 찍으면 바로 받습니다</p>
+        <div className="top-app-qrs">
+          <div className="top-app-qr">
+            <img src="/qr-android.svg" alt="갤럭시 앱 QR" width={132} height={132} />
+            <b>갤럭시 · 안드로이드</b>
+            <a href={APK_URL} download="wkly-erp.apk">
+              앱 파일(APK) 받기
+            </a>
+          </div>
+          <div className="top-app-qr">
+            <img src="/qr-iphone.svg" alt="아이폰 앱 QR" width={132} height={132} />
+            <b>아이폰 · 아이패드</b>
+            <a href={IOS_PROFILE_URL}>설치 파일 받기 (Safari)</a>
+          </div>
+        </div>
+        <a href="/install.html" target="_blank" rel="noreferrer" className="top-app-help">
           설치 방법 보기 ›
         </a>
       </div>
