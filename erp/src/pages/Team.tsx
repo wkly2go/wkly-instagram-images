@@ -57,6 +57,13 @@ export default function Team() {
         <div className={`split ${person && !wide ? 'has-detail' : ''}${wide ? ' team-one' : ''}`}>
           <div className="pane-list">
             <div className="row wrap work-head">{tabChips}</div>
+            {/* 휴대폰: 근태에서 바로 출근 체크 · 외근 신청 (대표 지시 2026-11-04) — 사람 목록 위 */}
+            {!person && (
+              <div className="phone-only col gap-10 team-m-plan">
+                <CheckInCard always />
+                <WorkPlanSection />
+              </div>
+            )}
             <PeopleList selectedId={personId} onSelect={goPerson} />
           </div>
           <div className="pane-detail" style={{ overflow: 'auto' }}>
@@ -65,8 +72,10 @@ export default function Team() {
                 <PersonHub key={person.id} p={person} onBack={() => goPerson(null)} />
               ) : (
                 <>
-                  <CheckInCard always />
-                  <WorkPlanSection />
+                  <div className="hide-phone col gap-10">
+                    <CheckInCard always />
+                    <WorkPlanSection />
+                  </div>
                   <AttendanceSection />
                   {me.role === 'admin' && <MonthSummary month={query.get('month') ?? today.slice(0, 7)} onMonth={m => navigate(withQuery(path, query, { month: m }))} />}
                   {me.role === 'admin' && <AttendanceRulesPanel />}
