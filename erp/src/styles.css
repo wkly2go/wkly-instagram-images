@@ -3274,3 +3274,12 @@ html, body, .body { background: var(--bg-bw); }
 .fv-bar { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--line); font-size: var(--fs-body); color: var(--ink); }
 .fv-bar .btn { display: inline-flex; align-items: center; gap: 4px; text-decoration: none; }
 .fv-frame { flex: 1; width: 100%; border: 0; background: var(--paper); }
+
+/* 채팅방 삭제 버튼 (2026-11-04) */
+.room-del-btn { display: inline-flex; align-items: center; gap: 4px; color: var(--red); border-color: #e6b3b3; }
+.room-del-btn:hover { background: #fff3f3; border-color: var(--red); }
+.item .room-x { display: none; flex: none; align-items: center; justify-content: center; min-width: 22px; height: 20px; padding: 0 4px; border: 1px solid transparent; background: none; color: var(--gray); font-size: var(--fs-cap); font-weight: 700; cursor: pointer; }
+.item:hover .room-x, .item .room-x.arm { display: inline-flex; }
+.item:hover .room-x + .t-meta, .item:hover .t-meta:has(+ .room-x) { display: none; }
+.item .room-x:hover { color: var(--red); border-color: #e6b3b3; background: #fff3f3; }
+.item .room-x.arm { color: #fff; background: var(--red); border-color: var(--red); }
