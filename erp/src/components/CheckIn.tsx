@@ -153,7 +153,8 @@ export function WorkPlanSection() {
   )
   const nowHm = new Date(Date.now() + 9 * 3600_000).toISOString().slice(11, 16)
   const late = (day: string) => day <= today || (day === tomorrow && nowHm > data.rules.planDeadline)
-  const [f, setF] = useState({ day: tomorrow, kind: '외근' as WorkPlanKind, place: '', reason: '' })
+  // 외근은 언제든 → 기본 날짜는 오늘 (휴대폰 근태에서 바로 신청)
+  const [f, setF] = useState({ day: today, kind: '외근' as WorkPlanKind, place: '', reason: '' })
   const mine = data.plans.filter(p => p.user_id === me.id && p.day >= today)
   const pending = data.plans.filter(p => p.status === '대기' && p.day >= today)
   const pendingCheckins = data.checkins.filter(c => c.status === '대기')
@@ -172,7 +173,7 @@ export function WorkPlanSection() {
           <span>구분</span>
           <div className="chips">
             {WORK_PLAN_KINDS.map(k => (
-              <Chip key={k} active={f.kind === k} onClick={() => setF({ ...f, kind: k })}>
+              <Chip key={k} active={f.kind === k} onClick={() => { const min = k === '외근' ? addDays(today, -31) : admin ? today : tomorrow; setF({ ...f, kind: k, day: f.day < min ? min : f.day }) }}>
                 {k}
               </Chip>
             ))}

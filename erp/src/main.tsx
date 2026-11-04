@@ -4,6 +4,7 @@ import App from './App'
 import { RouterProvider } from './lib/router'
 import { UpdateBanner } from './lib/update'
 import './styles.css'
+import { startStackTables } from './lib/stackTables'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -24,3 +25,6 @@ for (const ev of ['dragover', 'drop'] as const)
   window.addEventListener(ev, e => {
     if (e.dataTransfer?.types.includes('Files')) e.preventDefault()
   })
+
+// 휴대폰: 모든 기록지 표를 위아래 카드로 (칸 이름 붙이기)
+startStackTables()

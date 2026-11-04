@@ -50,7 +50,7 @@
   --r-inner: 12px;
   --r-panel: 8px;
   --r-bubble: 14px;
-  color-scheme: light;
+  color-scheme: only light;
 }
 
 * { box-sizing: border-box; }
@@ -3751,6 +3751,17 @@ body, .book, .inner { background: var(--page-bg); }
   table.board tbody tr.board-expand { display: block; }
   table.board tbody tr.board-expand > td { display: block; width: 100% !important; }
   .board .hide-narrow { display: none !important; }
+  /* 위아래 배치 (대표 지시 2026-11-04 "결재 메뉴 자료들도 상하 배치"): 제목 한 줄 전체 → 아래로 '이름  값' 한 줄씩 */
+  table.board tbody td.title { flex: 0 0 100% !important; max-width: none !important; width: 100% !important; }
+  table.board tbody tr:not(.board-expand) { row-gap: 6px; padding: 14px 6px; }
+  table.board tbody td:not(.title):not(.num-col) { flex: 0 0 100%; justify-content: flex-start; gap: 0; }
+  table.board tbody td:not(.title):not(.num-col)[data-label]:not([data-label=''])::before { flex: none; width: 52px; }
+  table.board tbody td:not(.title):not(.num-col) > * { min-width: 0; }
+  table.board tbody td .row { justify-content: flex-start !important; }
+  table.board tbody td:has(.btn) { padding-top: 4px !important; }
+  /* 눌림 · 선택 색은 칸마다가 아니라 카드 전체에 */
+  table.board tbody tr > td, table.board tbody tr:hover > td, table.board tbody tr.sel > td { background: transparent !important; box-shadow: none !important; }
+  table.board tbody tr.sel { background: color-mix(in srgb, var(--blue) 7%, #fff); box-shadow: inset 3px 0 0 var(--blue); }
 }
 
 /* PC 위쪽 바 '휴대폰 앱' 버튼 · 펼침 (2026-11-04) */
@@ -3842,3 +3853,50 @@ body, .book, .inner { background: var(--page-bg); }
 .top-app-pop .top-app-qr a { padding: 0; border: 0; font-size: var(--fs-cap); color: var(--gray); text-decoration: underline; display: inline; }
 .top-app-pop .top-app-qr a:hover { background: none; color: var(--blue); }
 .top-app-pop > .top-app-help { margin: 0 -14px; padding: 10px 14px; border-top: 1px solid #eeeeea; }
+
+/* ---------------------------------------------------------------- 휴대폰 기록지 표 → 위아래 카드 (대표 지시 2026-11-04 "모든 기록지의 텍스트 배치는 상하로")
+   lib/stackTables.ts 가 칸마다 data-label(표 머리 이름)을 붙임. 한 줄(tr) = 카드 하나, 칸은 '이름  값' 한 줄씩 위에서 아래로 */
+@media screen and (max-width: 640px) {
+  table[data-stack] { display: block; width: 100% !important; min-width: 0 !important; border: 0; table-layout: auto; }
+  .table-wrap:has(> table[data-stack]), div:has(> table[data-stack]) { overflow-x: visible; }
+  table[data-stack] colgroup, table[data-stack] thead { display: none; }
+  table[data-stack] tbody, table[data-stack] tfoot { display: block; width: 100%; }
+  table[data-stack] tr { display: flex; flex-direction: column; gap: 5px; padding: 12px 6px; border-bottom: 1px solid #e6e8e3; background: transparent; }
+  table[data-stack] tbody tr:nth-child(even) { background: color-mix(in srgb, var(--blue) 3%, #fff); }
+  table[data-stack] tfoot tr { background: color-mix(in srgb, var(--blue) 8%, #fff); border-top: 2px solid color-mix(in srgb, var(--blue) 30%, #fff); }
+  table[data-stack] :is(td, th) {
+    display: flex; align-items: center; gap: 10px; width: auto !important; max-width: none !important; min-width: 0 !important;
+    padding: 0 !important; border: 0 !important; background: transparent !important; text-align: left !important;
+    white-space: normal !important; font-size: var(--fs-sm); line-height: 1.45; position: static !important; height: auto !important;
+  }
+  table[data-stack] :is(td, th)[data-label]:not([data-label=''])::before {
+    content: attr(data-label); flex: none; width: 76px; font-size: var(--fs-cap); font-weight: 600; color: var(--gray); line-height: 1.35;
+  }
+  /* 첫 칸은 카드 제목처럼 크게 (이름표 없이) */
+  table[data-stack] tbody tr > :first-child { font-size: var(--fs-body); font-weight: 700; color: var(--ink); }
+  table[data-stack] tbody tr > :first-child::before { display: none; }
+  /* 묶음 머리(공종 묶음 등)는 위에 띠로 */
+  table[data-stack] tbody th[rowspan] { color: var(--blue); font-size: var(--fs-cap); }
+  table[data-stack] :is(td, th):empty { display: none; }
+  table[data-stack] :is(td, th) > * { min-width: 0; }
+  table[data-stack] :is(td, th) :is(.input, input, select, textarea, .site-in) { flex: 1; width: auto !important; min-width: 0; max-width: 100%; }
+  table[data-stack] :is(td, th) .truncate { white-space: normal; overflow: visible; }
+}
+
+/* 휴대폰 업무·근태: 팀원 목록이 200px 상자 안에서 아래 칸에 가려지던 문제 (대표 지시 2026-11-04 "팀원이 배경에 가려지는 오류")
+   → 높이 제한 없이 모두 보이게 · 아래 칸과 확실히 구분 */
+@media (max-width: 900px) {
+  .work-body > .team-side { max-height: none !important; overflow: visible !important; flex: none; position: relative; z-index: 1; padding-bottom: 12px; border-bottom: 6px solid color-mix(in srgb, var(--blue) 8%, #f4f5f2); }
+  .work-body > .team-side .team-person { min-height: 40px; }
+}
+
+/* 휴대폰에서만 보이는 칸 (근태 탭 외근 신청 등) */
+.phone-only { display: none !important; }
+@media (max-width: 640px) {
+  .phone-only { display: flex !important; }
+  .team-m-plan { padding: 12px 12px 16px; border-bottom: 6px solid color-mix(in srgb, var(--blue) 8%, #f4f5f2); }
+}
+.site-tab-n { margin-left: 4px; font: 700 var(--fs-cap)/1 var(--mono); color: var(--gray); }
+.site-tabs .on .site-tab-n { color: var(--blue); }
+.site-tabs button { white-space: nowrap; gap: 4px; padding-left: 4px; padding-right: 4px; }
+@media (max-width: 400px) { .site-tabs button svg { display: none; } }

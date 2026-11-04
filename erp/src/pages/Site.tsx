@@ -6,7 +6,7 @@
 //   - 체크리스트: 프로젝트의 현장 실측 체크리스트 (구분별)
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Camera, Check, ImagePlus, MapPin, Ruler, Trash2, Upload, X } from 'lucide-react'
+import { Camera, Check, ImagePlus, ListChecks, MapPin, Trash2, Upload, X } from 'lucide-react'
 import { Shell } from '../components/Shell'
 import { SiteSurveySection } from '../components/SiteSurvey'
 import { Button, SectionHead } from '../components/ui'
@@ -15,6 +15,7 @@ import type { Project, SiteMark, SitePlan, SiteShot, SiteSurveyItem } from '../l
 
 type Tab = 'photo' | 'plan' | 'check'
 const LAST = 'wkly-site-project'
+const LAST_TAB = 'wkly-site-tab'
 const readLast = () => {
   try {
     return localStorage.getItem(LAST)
@@ -47,7 +48,25 @@ export function Site() {
   const active = useMemo(() => projects.filter(p => !['완료', '보류'].includes(p.status)).sort((a, b) => (b.code ?? '').localeCompare(a.code ?? '')), [projects])
   const [pid, setPid] = useState<string | null>(readLast())
   const project = projects.find(p => p.id === pid) ?? active[0] ?? null
-  const [tab, setTab] = useState<Tab>('photo')
+  // 체크리스트가 맨 앞 · 기본 (대표 지시 2026-11-04 "현장 실측에 체크리스트도") · 마지막에 본 탭 기억
+  const [tab, setTabState] = useState<Tab>(() => {
+    try {
+      const t = localStorage.getItem(LAST_TAB)
+      return t === 'photo' || t === 'plan' || t === 'check' ? t : 'check'
+    } catch {
+      return 'check'
+    }
+  })
+  const setTab = (t: Tab) => {
+    setTabState(t)
+    try {
+      localStorage.setItem(LAST_TAB, t)
+    } catch {
+      /* 기억 못 해도 괜찮음 */
+    }
+  }
+  const { data: survey } = useAsync(() => (project ? api.listSurvey(project.id).catch(() => [] as SiteSurveyItem[]) : Promise.resolve([] as SiteSurveyItem[])), [project?.id, version, tab], [] as SiteSurveyItem[])
+  const surveyDone = survey.filter(i => i.status === '확인' || i.status === '해당없음').length
   const choose = (id: string) => {
     setPid(id)
     try {
@@ -82,13 +101,14 @@ export function Site() {
         <div className="site-tabs" role="tablist">
           {(
             [
+              ['check', '체크리스트', ListChecks],
               ['photo', '사진 실측', Camera],
               ['plan', '도면', MapPin],
-              ['check', '체크리스트', Ruler],
             ] as const
           ).map(([k, label, Icon]) => (
             <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>
               <Icon size={16} /> {label}
+              {k === 'check' && survey.length > 0 && <small className="site-tab-n">{surveyDone}/{survey.length}</small>}
             </button>
           ))}
         </div>
