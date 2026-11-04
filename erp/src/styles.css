@@ -3627,3 +3627,67 @@ body, .book, .inner { background: var(--page-bg); }
   /* 휴대폰에서는 위 한 줄로 대신 (홈 본문의 큰 QR 칸 숨김) */
   .install-card { display: none !important; }
 }
+
+/* ---------------------------------------------------------------- 현장 실측 체크리스트: 구분별 접는 묶음 · 한 줄 항목 · 가로 라벨 (2026-11-04) */
+.survey-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.survey-only { gap: 6px; align-items: center; }
+.survey-groups { display: flex; flex-direction: column; border-top: 2px solid var(--ink, #3a3a36); }
+.survey-group { border-bottom: 1px solid var(--line); }
+.survey-ghead { width: 100%; display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 4px; border: 0; background: none; cursor: pointer; text-align: left; color: var(--ink, #3a3a36); }
+.survey-group.open > .survey-ghead { background: var(--paper); }
+.survey-gname { font-size: var(--fs-sub); font-weight: 800; flex: none; min-width: 72px; }
+.survey-gbar { flex: 1 1 auto; height: 6px; background: var(--line); overflow: hidden; }
+.survey-gbar > span { display: block; height: 100%; background: var(--blue); }
+.survey-gcount { flex: none; font: 700 var(--fs-sm)/1 var(--mono); color: var(--blue); white-space: nowrap; }
+.survey-gcount em { font-style: normal; color: #a15c00; }
+.survey-list { display: flex; flex-direction: column; gap: 0; padding: 0 0 8px; }
+.survey-row { border: 0; border-left: 3px solid var(--line); border-bottom: 1px solid var(--line); background: var(--white); padding: 0; gap: 0; }
+.survey-row.open { background: #fbfbf8; }
+.survey-line { display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 0 8px 0 10px; }
+.survey-linebtn { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 8px; border: 0; background: none; padding: 8px 0; text-align: left; cursor: pointer; color: var(--ink, #3a3a36); }
+.survey-no { flex: none; width: 22px; font: 700 var(--fs-cap)/1 var(--mono); color: var(--gray); text-align: right; }
+.survey-text { flex: 1 1 auto; min-width: 0; font-size: var(--fs-body); font-weight: 600; line-height: 1.35; }
+.survey-dims { flex: none; font: 700 var(--fs-cap)/1 var(--mono); color: var(--blue); white-space: nowrap; }
+.survey-st { width: 96px; flex: none; min-height: 36px; }
+.survey-detail { display: flex; flex-direction: column; gap: 8px; padding: 4px 10px 12px 40px; }
+.survey-pair { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.survey-pair > span { flex: none; width: 36px; font-size: var(--fs-sm); font-weight: 700; color: var(--gray); }
+.survey-pair > input { flex: 1 1 auto; min-width: 0; min-height: 40px; border: 1px solid var(--line); padding: 6px 10px; font-size: var(--fs-body); background: var(--white); }
+.survey-pair > input:focus { border-color: var(--blue); outline: none; }
+.survey-pair.wide { width: 100%; }
+.survey-nums { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.survey-nums input { font-family: var(--mono); }
+.survey-foot { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.survey-foot .survey-pair { flex: 0 1 180px; }
+.survey-meta { flex: 1 1 auto; display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: var(--fs-cap); color: var(--gray); }
+.survey-add { display: inline-flex; align-items: center; gap: 6px; align-self: flex-start; margin: 8px 0 0 10px; min-height: 36px; padding: 0 10px; border: 1px dashed var(--line); background: var(--white); color: var(--blue); font-size: var(--fs-sm); cursor: pointer; }
+.survey-none { padding: 10px 12px; }
+@media (max-width: 640px) {
+  .survey-detail { padding: 4px 8px 12px 12px; }
+  .survey-nums { grid-template-columns: minmax(0, 1fr); }
+  .survey-gname { min-width: 64px; }
+  .survey-st { width: 88px; font-size: var(--fs-sm) !important; }
+}
+
+/* ---------------------------------------------------------------- 숫자 칸(라벨 · 숫자 · 설명): 휴대폰에서는 위아래로 쌓지 않고 한 줄 가로 (라벨 왼쪽 · 숫자 오른쪽) */
+@media (max-width: 640px) {
+  .stats, .fin-tiles, .kpis, .kpis.kpis-4 { display: flex !important; flex-direction: column; gap: 0 !important; border-top: 1px solid var(--line); }
+  .stat, .fin-tile, .kpi {
+    display: grid !important; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto; column-gap: 12px; row-gap: 2px; align-items: center;
+    width: 100%; min-height: 56px; padding: 10px 0 !important; margin: 0; border: 0 !important; border-bottom: 1px solid var(--line) !important; border-radius: 0 !important; background: none !important; box-shadow: none !important; text-align: left;
+  }
+  .stat > :first-child, .fin-tile > :first-child, .kpi > :first-child { grid-column: 1; grid-row: 1; font-size: var(--fs-body); font-weight: 700; color: var(--m-ink); }
+  .stat > .t-num, .fin-tile > .fin-num, .kpi > .v { grid-column: 2; grid-row: 1 / span 2; font-size: var(--fs-num); text-align: right; line-height: 1.1; }
+  .stat > :nth-child(n + 3), .fin-tile > .t-cap:last-child:not(:first-child), .kpi > .sub { grid-column: 1; grid-row: 2; font-size: var(--fs-cap); color: var(--gray); font-weight: 400; }
+  .fin-tile > .meter, .fin-tile > [role='meter'], .fin-tile > .bar { grid-column: 1 / -1; }
+}
+/* 체크리스트 한 줄: 항목 글을 넓게, 치수는 그 아래 줄 */
+.survey-linebtn { display: grid; grid-template-columns: 22px auto minmax(0, 1fr); column-gap: 8px; row-gap: 2px; align-items: center; }
+.survey-linebtn .survey-no { grid-column: 1; grid-row: 1; }
+.survey-linebtn .survey-pri { grid-column: 2; grid-row: 1; }
+.survey-linebtn .survey-text { grid-column: 3; grid-row: 1; }
+.survey-linebtn .survey-dims { grid-column: 3; grid-row: 2; justify-self: start; }
+@media (max-width: 640px) {
+  .fin-tile { padding-left: 12px !important; }
+  .survey-line { padding-right: 6px; }
+}
