@@ -53,6 +53,7 @@ import type {
   Task,
   WorkLog,
   SiteLog,
+  SiteSurveyItem,
   MeetingRecording,
   LedgerEntry,
   LedgerRecurring,
@@ -91,6 +92,7 @@ interface Store {
   ledger_pw?: string | null
   ledger_until?: string | null
   site_logs?: SiteLog[]
+  site_survey_items?: SiteSurveyItem[]
   meeting_recordings?: MeetingRecording[]
   budget_lines: BudgetLine[]
   research_items: ResearchItem[]
@@ -1367,6 +1369,26 @@ export function createDemoApi(): Api {
       requireMe()
       const r = (store.meeting_recordings ?? []).find(x => x.id === id)
       return r ? clone(r) : null
+    },
+    async listSurvey(projectId) {
+      requireMe()
+      return clone((store.site_survey_items ?? []).filter(x => x.project_id === projectId).sort((a, b) => a.no - b.no))
+    },
+    async saveSurveyItem(i) {
+      requireMe()
+      store.site_survey_items ??= []
+      const list = store.site_survey_items
+      const at = i.id ? list.findIndex(x => x.id === i.id) : -1
+      const row: SiteSurveyItem = { ...(at >= 0 ? list[at] : { id: uid(), no: 0, category: '', basis: null, priority: '중', width_mm: null, depth_mm: null, height_mm: null, memo: null, photo_no: null, checker: null, status: '미확인' }), ...i, updated_at: now() } as SiteSurveyItem
+      if (at >= 0) list[at] = row
+      else list.push(row)
+      persist()
+      return clone(row)
+    },
+    async deleteSurveyItem(id) {
+      requireMe()
+      store.site_survey_items = (store.site_survey_items ?? []).filter(x => x.id !== id)
+      persist()
     },
     async listSiteLogs(projectId) {
       requireMe()

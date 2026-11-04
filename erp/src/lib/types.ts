@@ -1006,6 +1006,26 @@ export interface SitePhoto {
 }
 export const SITE_SIGNERS = ['현장소장', '현장감리', '대표'] as const
 export type SiteSigner = (typeof SITE_SIGNERS)[number]
+/** 현장 실측 체크리스트 한 줄 (0084) */
+export type SurveyStatus = '미확인' | '확인' | '추가확인' | '해당없음'
+export interface SiteSurveyItem {
+  id: string
+  project_id: string
+  no: number
+  category: string
+  item: string
+  basis: string | null
+  priority: '상' | '중' | '하'
+  width_mm: number | null
+  depth_mm: number | null
+  height_mm: number | null
+  memo: string | null
+  photo_no: string | null
+  checker: string | null
+  status: SurveyStatus
+  updated_at: string
+}
+
 export interface SiteLog {
   id: string
   project_id: string

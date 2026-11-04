@@ -10,6 +10,7 @@ import type { LedgerEntry, LedgerRecurring, LedgerStatus, MaterialItem, Material
   ProjectDriveFile,
   MeetingRecording,
   SiteLog,
+  SiteSurveyItem,
   ProjectContact,
   ProjectMember,
   AccessInfo,
@@ -285,6 +286,10 @@ export interface Api {
   /** 회의록 AI: 녹음을 올리고 AI 정리를 시작, 진행 상태는 getMeetingRecording 으로 확인 */
   startMeetingMinutes(audio: Blob, meta: { title?: string; attendees?: string; duration_sec?: number; filename?: string }): Promise<MeetingRecording>
   getMeetingRecording(id: string): Promise<MeetingRecording | null>
+  /** 현장 실측 체크리스트 (프로젝트별) */
+  listSurvey(projectId: string): Promise<SiteSurveyItem[]>
+  saveSurveyItem(i: Partial<SiteSurveyItem> & { project_id: string; item: string }): Promise<SiteSurveyItem>
+  deleteSurveyItem(id: string): Promise<void>
   /** 인테리어 현장 작업일지 (프로젝트별 · 날짜별 한 장) */
   listSiteLogs(projectId: string): Promise<SiteLog[]>
   saveSiteLog(l: Draft<SiteLog>): Promise<SiteLog>

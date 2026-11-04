@@ -936,7 +936,13 @@ button.kpi:hover, a.kpi:hover { border-color: var(--blue); }
 .overdue-box { padding: 10px 12px; border: 1px solid var(--red); border-radius: var(--r-panel); background: var(--white); }
 .fail-banner { display: flex; flex-direction: column; gap: 3px; padding: 10px 14px; border: 2px solid var(--red); border-radius: var(--r-panel); background: var(--white); color: var(--red); }
 .fail-banner .t-small { color: var(--blue); }
-.install-card { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border: 1px solid var(--blue); border-radius: var(--r-panel); background: var(--white); }
+.install-card { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; border: 1px solid var(--blue); border-radius: var(--r-panel); background: var(--white); }
+.install-head { display: flex; align-items: center; gap: 8px; color: var(--blue); font-size: var(--fs-sub); }
+.app-dl-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.app-dl { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 10px 12px; border: 1px solid var(--line); background: var(--paper); }
+.app-dl-name { color: var(--blue); }
+.app-dl-qr { width: 120px; height: 120px; background: var(--white); border: 1px solid var(--line); }
+@media (max-width: 640px) { .app-dl-row { grid-template-columns: 1fr; } .app-dl .btn { width: 100%; justify-content: center; } }
 /* 인터넷 검색 (구글) */
 .web-search { display: flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; width: 320px; box-sizing: border-box; border: 1px solid var(--line); border-radius: 999px; background: var(--white); color: var(--blue); transition: border-color .2s; flex: 0 1 auto; min-width: 0; }
 .web-search:focus-within { border-color: var(--blue); box-shadow: 0 0 0 3px var(--yellow-tint); }
@@ -3320,4 +3326,115 @@ html, body, .body { background: var(--bg-bw); }
 @media (max-width: 1000px) {
   /* 휴대폰 · 태블릿: 사이드바가 화면 높이만큼 늘어나 아래가 빈 칸으로 남던 문제 */
   .body > .profile { min-height: 0; align-self: auto; align-content: flex-start; }
+}
+
+/* ---------------------------------------------------------------- 밝은 사이드바 (대표 지시 2026-11-04 "배경이 그린이라서 너무 가독성 떨어져")
+   - 사이드바 · 휴대폰 홈 위 칸 · 바깥 테두리: 짙은 초록 → 흰 바탕 + 진회색 글자, 초록은 선택 표시 · 숫자 · 버튼에만
+   - 위쪽 바(로고)와 휴대폰 아래 메뉴는 브랜드 초록 그대로 */
+:root { --page-bg: var(--bg-bw, #e6e6e6); --side-text: #3a3a36; --side-muted: #62625c; --side-hover: #eef5f0; --side-on: #e3f1e7; }
+body, .book, .inner { background: var(--page-bg); }
+.body { background: var(--page-bg); }
+.profile, .body > .profile { background: var(--white); color: var(--side-text); --gray: #62625c; --line: #e2e2dd; border-right: 1px solid #e2e2dd; }
+.profile .t-bodyb, .profile .name, .profile b { color: var(--blue); }
+.side-nav { border-color: #e2e2dd; }
+.side-item { color: var(--side-text); }
+.side-item:hover { background: var(--side-hover); color: var(--blue); }
+.side-item.on { background: var(--side-on); color: var(--blue); }
+.side-item.sub { color: var(--side-muted); }
+.side-n.soft { background: #eef0ec; color: var(--blue); }
+.side-item.on .side-n { background: var(--blue); color: #fff; }
+.side-item.on .side-n:not(.soft) { background: var(--alert); }
+.new-btn { background: var(--blue); color: #fff; border-color: var(--blue); }
+.new-btn:hover { background: #0a4a1e; color: #fff; }
+.profile a { color: var(--blue); }
+.profile .side-tools .quick-btn { color: var(--blue); border-color: #d9d9d1; }
+.profile .side-tools .quick-btn:hover { background: var(--side-hover); }
+.profile .photo-wrap, .profile .photo { border-color: #e2e2dd; }
+.side-fold, .side-unfold { color: #62625c !important; }
+.side-fold:hover, .side-unfold:hover { color: var(--blue) !important; background: var(--side-hover) !important; }
+.today-rec { color: var(--side-muted); }
+.profile .today-is { border: 1px solid #d9d9d1; }
+.side-brief { border-top-color: #e2e2dd; }
+.side-brief .sb-title { color: var(--blue); }
+.side-brief .sb-row { color: var(--side-text); }
+.side-brief .sb-row:hover { background: var(--side-hover); }
+.side-brief .sb-row em { color: var(--blue); }
+.side-brief .sb-row.red em { color: var(--alert); }
+.side-brief .sb-row.yellow em { color: #a15c00; }
+.side-brief .sb-next { background: var(--paper); color: var(--side-muted); }
+.side-brief .sb-next b { color: var(--blue); }
+.side-brief .sb-next:hover { background: var(--side-hover); }
+/* 휴대폰: 위 칸 메뉴 버튼 테두리 · 선택 막대 */
+@media (max-width: 1000px) {
+  .profile .side-item { border-color: #d9d9d1; background: var(--white); }
+  .profile .side-item.on { background: var(--side-on); border-color: var(--blue); }
+}
+
+/* ---------------------------------------------------------------- 채팅 말풍선 (대표 지시 2026-11-04 "말풍선 크기를 키우고 겹치는 부분 개선 · 가독성과 사용성")
+   - 말풍선 글자 한 단계 크게 · 넓게 (PC 최대 640px · 휴대폰 86%) · 줄 간격 넉넉히
+   - 메시지 도구(나중에 보기 · 반응 · 답글 · 고치기 · 삭제)는 말풍선 위에 떠서 표시 → 옆 자리를 차지해 말풍선이 좁아지던 문제 해결
+   - 휴대폰: 방 머리줄 한 줄 정리 · 입력칸이 아래 메뉴에 가리지 않게 */
+.bubble { font-size: var(--fs-sub); line-height: 1.55; padding: 10px 14px; max-width: min(640px, 62vw); }
+.bubble.other { color: var(--ink, #3a3a36); }
+.msg .stack { flex: 1 1 auto; }
+.msg .line { position: relative; }
+.msg .time { font-size: var(--fs-cap); }
+.msg-actions {
+  position: absolute; top: -18px; right: 8px; z-index: 3;
+  padding: 2px; background: var(--white); border: 1px solid var(--line); box-shadow: 0 2px 8px rgba(28, 28, 30, .1);
+  opacity: 0; pointer-events: none; transition: opacity .12s;
+}
+.msg.mine .msg-actions { right: auto; left: 8px; }
+.msg-actions .del { opacity: 1; }
+.msg:hover .msg-actions, .msg:focus-within .msg-actions { opacity: 1; pointer-events: auto; }
+.msg { padding-top: 2px; }
+.msg + .msg:not(.cont) { margin-top: 6px; }
+@media (max-width: 640px) {
+  .bubble { max-width: 76vw; }
+  .chat-head { flex-wrap: wrap; row-gap: 6px; padding: 8px 10px; }
+  .chat-head > .t-cap.row, .chat-head > .t-cap.truncate { display: none; }
+  .chat-head .room-level > .t-cap { display: none; }
+  .chat-head .btn-sm { padding: 0 8px; }
+  .pane-detail .chat-room, .chat-room { padding-bottom: calc(68px + env(safe-area-inset-bottom)); }
+}
+@media (hover: none) {
+  /* 터치: 말풍선을 누르면 도구가 뜸 (누른 메시지만) */
+  .msg-actions { top: -22px; }
+  .msg-actions .icon-btn.sm { width: 34px; height: 34px; }
+}
+
+/* 현장 실측 체크리스트 (2026-11-04) */
+.survey-empty { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 12px; border: 1px dashed var(--line); background: var(--white); }
+.survey-bar { height: 6px; background: var(--line); overflow: hidden; }
+.survey-bar > span { display: block; height: 100%; background: var(--blue); transition: width .2s; }
+.survey-tools { flex-wrap: wrap; gap: 8px; align-items: center; }
+.survey-cats { display: flex; flex-wrap: wrap; gap: 4px; flex: 1 1 auto; }
+.survey-list { display: flex; flex-direction: column; gap: 6px; }
+.survey-row { border: 1px solid var(--line); border-left: 3px solid var(--line); background: var(--white); padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; }
+.survey-row.st-확인 { border-left-color: var(--blue); }
+.survey-row.st-추가확인 { border-left-color: #c77700; background: #fffaf0; }
+.survey-row.st-해당없음 { opacity: .6; }
+.survey-head { display: flex; align-items: center; gap: 8px; }
+.survey-pri { font: 700 var(--fs-cap)/1 var(--font); padding: 3px 6px; border: 1px solid var(--line); color: var(--gray); }
+.survey-pri.p-상 { border-color: var(--alert); color: var(--alert); }
+.survey-item { flex: 1 1 auto; min-width: 0; border: 0; border-bottom: 1px dashed transparent; background: none; font: 700 var(--fs-body)/1.4 var(--font); color: var(--ink, #3a3a36); padding: 2px 0; }
+.survey-item:hover, .survey-item:focus { border-bottom-color: var(--line); outline: none; }
+.survey-st { width: 104px; flex: none; }
+.survey-st.st-확인 { color: var(--blue); font-weight: 700; }
+.survey-st.st-추가확인 { color: #a15c00; font-weight: 700; }
+.survey-fields { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; }
+.survey-fields label { display: flex; flex-direction: column; gap: 2px; }
+.survey-fields input { border: 1px solid var(--line); padding: 5px 8px; font-size: var(--fs-sm); background: var(--white); }
+.survey-fields input:focus { border-color: var(--blue); outline: none; }
+.survey-num input { width: 84px; font-family: var(--mono); }
+.survey-memo { flex: 1 1 200px; }
+.survey-memo input { width: 100%; }
+.survey-photo input { width: 64px; }
+.survey-who { margin-left: auto; align-self: center; }
+@media (max-width: 640px) {
+  .survey-head { flex-wrap: wrap; }
+  .survey-item { flex-basis: 100%; order: 5; }
+  .survey-st { margin-left: auto; }
+  .survey-num { flex: 1 1 28%; }
+  .survey-num input { width: 100%; }
 }
