@@ -478,6 +478,8 @@ button.kpi:hover, a.kpi:hover { border-color: var(--blue); }
   .site-url { display: none; }
   .body { flex-direction: column; }
   .profile { width: auto; flex-direction: row; flex-wrap: wrap; align-items: center; overflow: visible; }
+  /* 휴대폰: 줄바꿈된 줄이 남은 높이만큼 벌어져 홈이 빈 초록 칸으로 보이던 문제 */
+  .body > .profile { min-height: 0; align-content: flex-start; }
   .photo { width: 48px; height: 48px; font-size: var(--fs-num); }
   .photo-wrap { flex-direction: row; align-items: center; gap: 8px; }
   .profile .status-msg { flex-basis: 100%; }
@@ -666,7 +668,7 @@ button.kpi:hover, a.kpi:hover { border-color: var(--blue); }
   .app-page .tab.active { background: var(--yellow); color: var(--blue); }
   .app-page .tab:hover { background: var(--acid); color: var(--blue); }
   /* 위쪽 줄: 로고 · 알림 · 사용법만 */
-  .app-page .topbar { flex-wrap: nowrap; position: sticky; top: 0; z-index: 20; background: var(--paper); padding: 6px 0; }
+  .app-page .topbar { flex-wrap: nowrap; position: sticky; top: 0; z-index: 20; background: var(--side-dark); padding: 6px 0; }
   .pc-only, .hide-phone { display: none !important; }
   .app-page .inner { padding: 8px; gap: 8px; }
   .app-page .main { padding: 12px; border-radius: 10px; }
@@ -1469,7 +1471,7 @@ html.detail-open .web-panel { max-width: 28vw; }
   .web-resize { display: none; }
   html.web-open .inner, html.web-open .main { --web-w: 0px; }
   /* 위쪽 줄 고정 */
-  .app-page .topbar { position: sticky; top: 0; z-index: 20; background: var(--paper); }
+  .app-page .topbar { position: sticky; top: 0; z-index: 20; background: var(--side-dark); }
   .notif-panel { max-height: 70dvh; }
 }
 /* 휴대폰: 홈의 프로필을 한 줄 요약으로 (달력은 프로젝트 › 캘린더에서) */

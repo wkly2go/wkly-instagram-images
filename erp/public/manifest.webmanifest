@@ -3,10 +3,12 @@
   "short_name": "WKLY ERP",
   "description": "승인·채팅·업무 일지·프로젝트·거래처",
   "lang": "ko",
+  "id": "/",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#FFFF00",
+  "display_override": ["standalone", "minimal-ui"],
+  "background_color": "#0B5A24",
   "theme_color": "#0B5A24",
   "icons": [
     { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },

@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from 'react'
 import { useMyAgents } from './AgentDesk'
-import { Bookmark, Bot, ListTodo, Plus, Search, Briefcase, HardDrive, ChevronLeft, ChevronRight, CircleHelp, PanelLeftClose, PanelLeftOpen, ClipboardCheck, FolderKanban, Home, Library, Megaphone, MessageCircle, MoreHorizontal, Settings, Users, Landmark, type LucideIcon } from 'lucide-react'
+import { Smartphone, Bookmark, Bot, ListTodo, Plus, Search, Briefcase, HardDrive, ChevronLeft, ChevronRight, CircleHelp, PanelLeftClose, PanelLeftOpen, ClipboardCheck, FolderKanban, Home, Library, Megaphone, MessageCircle, MoreHorizontal, Settings, Users, Landmark, type LucideIcon } from 'lucide-react'
 import { accessSource, isDesktopApp } from '../lib/desktop'
 import { useAttendance } from '../lib/attendance'
 import { AssignTaskModal } from './AssignTask'
@@ -374,6 +374,10 @@ function ProfilePanel({ summary, active }: { summary: Summary; active: TabKey })
             빠른 창 띄우기
           </button>
         )}
+        {/* 휴대폰 설치 안내 (QR) · PC 에서만 */}
+        <a href="/install.html" target="_blank" rel="noreferrer" className="quick-btn pc-only" style={{ textDecoration: 'none' }} title="휴대폰 카메라로 QR 을 찍어 홈 화면에 앱 설치">
+          <Smartphone size={14} /> 휴대폰 앱
+        </a>
       </div>
       {/* 사이드바 아래 빈 곳에 오늘 브리핑 (대표 지시 2026-11-01 "이곳에도 정보를 전달할 수 있도록") */}
       <SideBrief />
