@@ -6,6 +6,8 @@ import { desktop } from './desktop'
  *  - 3분마다 · 창으로 돌아올 때 /version.json 을 확인
  *  - 새 버전이면: 창이 가려져 있거나 1분 넘게 손대지 않았으면 바로 새로고침
  *    (글을 쓰는 중이면 기다렸다가), 아니면 위에 '새 버전' 띠를 띄움
+ *  - 휴대폰 앱 · 탭을 다시 열었을 때(화면으로 돌아온 순간) 새 버전이면 곧바로 새로고침
+ *    (휴대폰은 앱을 닫아도 뒤에 살아 있어 예전 화면이 계속 보이던 문제)
  */
 const CHECK_MS = 3 * 60 * 1000
 const IDLE_MS = 60 * 1000
@@ -47,11 +49,11 @@ export function UpdateBanner() {
   useEffect(() => {
     if (!import.meta.env.PROD) return
     let found = false
-    const tryApply = () => {
+    const tryApply = (resumed = false) => {
       if (!found) return
-      if (document.visibilityState === 'hidden' || (Date.now() - lastInput > IDLE_MS && !typing())) reload()
+      if (document.visibilityState === 'hidden' || ((resumed || Date.now() - lastInput > IDLE_MS) && !typing())) reload()
     }
-    const check = async () => {
+    const check = async (resumed = false) => {
       if (!found) {
         const id = await latestId()
         if (id && id !== __BUILD_ID__) {
@@ -59,19 +61,24 @@ export function UpdateBanner() {
           setReady(true)
         }
       }
-      tryApply()
+      tryApply(resumed)
     }
     check()
-    const timer = window.setInterval(check, CHECK_MS)
-    const idle = window.setInterval(tryApply, 20 * 1000)
-    const onVis = () => (document.visibilityState === 'visible' ? check() : tryApply())
+    const timer = window.setInterval(() => check(), CHECK_MS)
+    const idle = window.setInterval(() => tryApply(), 20 * 1000)
+    const onVis = () => (document.visibilityState === 'visible' ? check(true) : tryApply())
+    const onFocus = () => check()
+    // 뒤로 가기 캐시(bfcache)에서 되살아난 화면도 확인
+    const onShow = (e: PageTransitionEvent) => e.persisted && check(true)
     document.addEventListener('visibilitychange', onVis)
-    window.addEventListener('focus', check)
+    window.addEventListener('focus', onFocus)
+    window.addEventListener('pageshow', onShow)
     return () => {
       window.clearInterval(timer)
       window.clearInterval(idle)
       document.removeEventListener('visibilitychange', onVis)
-      window.removeEventListener('focus', check)
+      window.removeEventListener('focus', onFocus)
+      window.removeEventListener('pageshow', onShow)
     }
   }, [])
   const app = useDesktopUpdate()

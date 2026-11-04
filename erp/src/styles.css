@@ -3831,3 +3831,14 @@ body, .book, .inner { background: var(--page-bg); }
 .topbar > .bell { order: 6; }
 .topbar .top-app > summary.quick-btn { width: auto; min-width: 0; padding: 0 12px; gap: 6px; font-weight: 700; }
 .topbar .top-app > summary svg { flex: none; }
+
+/* PC '휴대폰 앱' 팝업: QR 두 개 (갤럭시 · 아이폰) */
+.top-app-pop { width: 340px; padding: 14px 14px 0; gap: 10px; }
+.top-app-lead { margin: 0; font-size: var(--fs-sm); color: var(--ink, #3a3a36); font-weight: 600; }
+.top-app-qrs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.top-app-qr { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 6px; background: color-mix(in srgb, var(--blue) 5%, #fff); border: 1px solid color-mix(in srgb, var(--blue) 14%, #fff); text-align: center; }
+.top-app-qr img { width: 132px; height: 132px; background: #fff; }
+.top-app-qr b { font-size: var(--fs-sm); color: var(--blue); margin-top: 2px; }
+.top-app-pop .top-app-qr a { padding: 0; border: 0; font-size: var(--fs-cap); color: var(--gray); text-decoration: underline; display: inline; }
+.top-app-pop .top-app-qr a:hover { background: none; color: var(--blue); }
+.top-app-pop > .top-app-help { margin: 0 -14px; padding: 10px 14px; border-top: 1px solid #eeeeea; }
