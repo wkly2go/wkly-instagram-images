@@ -631,6 +631,8 @@ export function ShellFrame({ children, initial }: { children: ReactNode; initial
                 </div>
               </main>
             </div>
+            {/* 휴대폰 홈 맨 아래: 지금 보고 있는 버전 (배포 시각) — 새 버전이 들어왔는지 확인용 */}
+            {active === 'home' && <p className="m-ver phone-only">인트라넷 버전 {buildLabel()}</p>}
           </div>
         </div>
         <MobileNav active={active} summary={summary} />
@@ -692,4 +694,14 @@ function MobileNav({ active, summary }: { active: TabKey; summary: Summary }) {
       )}
     </>
   )
+}
+
+/** 빌드 번호(배포 시각 36진수-커밋) → '11.04 23:41 · 1a2b3c4' */
+function buildLabel(): string {
+  const [t, sha] = __BUILD_ID__.split('-')
+  const ms = parseInt(t, 36)
+  if (!ms) return __BUILD_ID__
+  const d = new Date(ms)
+  const p2 = (n: number) => String(n).padStart(2, '0')
+  return `${p2(d.getMonth() + 1)}.${p2(d.getDate())} ${p2(d.getHours())}:${p2(d.getMinutes())}${sha ? ` · ${sha}` : ''}`
 }

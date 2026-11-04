@@ -14,6 +14,30 @@ const read = () => {
   }
 }
 
+/** Chrome 이 '앱 설치' 를 허락하면 오는 신호: 화면이 뜨기 전에 올 수 있어 시작 때부터 잡아 둠 */
+let installEvt: InstallEvent | null = null
+const installSubs = new Set<() => void>()
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault()
+    installEvt = e as InstallEvent
+    installSubs.forEach(f => f())
+  })
+  window.addEventListener('appinstalled', () => {
+    installEvt = null
+    installSubs.forEach(f => f())
+  })
+}
+function useInstallEvt() {
+  const [, tick] = useState(0)
+  useEffect(() => {
+    const f = () => tick(n => n + 1)
+    installSubs.add(f)
+    return () => void installSubs.delete(f)
+  }, [])
+  return installEvt
+}
+
 export const APK_URL = 'https://github.com/wkly2go/wkly-instagram-images/releases/download/android/wkly-erp.apk'
 export const IOS_PROFILE_URL = '/wkly-erp.mobileconfig'
 
@@ -100,15 +124,19 @@ export function InstallCard() {
 }
 
 /**
- * 휴대폰 홈 맨 위 한 줄 (대표 지시 2026-11-04 "클릭만 해도 다운받을 수 있게 하고 최상단에 배치")
- *  - 내 기기에 맞는 버튼 하나: 누르면 바로 내려받기 (갤럭시 = APK · 아이폰 = 설치 프로파일)
- *  - 다른 기기용은 옆에 작은 글자 링크 · 앱으로 열었으면(설치 후) 보이지 않음
+ * 휴대폰 홈 맨 위 한 줄 (대표 지시 2026-11-04 "클릭만 해도 다운받을 수 있게 · 최상단" → "갤럭시도 웹 버전으로")
+ *  - 갤럭시: 웹 앱(홈 화면에 추가) — 인트라넷 화면 그대로라 새 기능이 바로 반영됨
+ *    Chrome 이 허락하면 버튼 한 번에 설치 창, 아니면 메뉴 위치 안내 · 예전 APK 는 작은 링크
+ *  - 아이폰: 설치 프로파일(웹 클립) · 앱으로 열었으면(설치 후) 보이지 않음
  */
 export function MobileAppBar() {
   const [hidden, setHidden] = useState(read())
+  const [help, setHelp] = useState(false)
+  const evt = useInstallEvt()
   const standalone = window.matchMedia?.('(display-mode: standalone)').matches || (navigator as unknown as { standalone?: boolean }).standalone === true
   const ipad = /Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1
   const ios = ipad || /iPhone|iPad/i.test(navigator.userAgent)
+  const samsung = /SamsungBrowser/i.test(navigator.userAgent)
   if (hidden || standalone) return null
   const close = () => {
     try {
@@ -118,21 +146,55 @@ export function MobileAppBar() {
     }
     setHidden(true)
   }
+  const androidTap = async () => {
+    if (evt) {
+      await evt.prompt()
+      installEvt = null
+      return
+    }
+    setHelp(h => !h)
+  }
   return (
-    <div className="m-appbar" role="region" aria-label="휴대폰 앱 내려받기">
-      <a className="m-appbar-btn" href={ios ? IOS_PROFILE_URL : APK_URL} download={ios ? undefined : 'wkly-erp.apk'}>
-        <Smartphone size={18} />
-        <span>
-          <b>{ios ? '아이폰 앱 다운로드' : '갤럭시 앱 다운로드'}</b>
-          <small>{ios ? '누른 뒤 설정 › 프로파일이 다운로드됨 › 설치' : '누른 뒤 받은 파일 열기 › 설치'}</small>
-        </span>
-      </a>
-      <a className="m-appbar-alt" href={ios ? APK_URL : IOS_PROFILE_URL}>
-        {ios ? '갤럭시용' : '아이폰용'}
-      </a>
-      <button type="button" className="m-appbar-x" onClick={close} aria-label="닫기">
-        <X size={16} />
-      </button>
+    <div className="m-appbar-wrap">
+      <div className="m-appbar" role="region" aria-label="휴대폰 앱 설치">
+        {ios ? (
+          <a className="m-appbar-btn" href={IOS_PROFILE_URL}>
+            <Smartphone size={18} />
+            <span>
+              <b>아이폰 앱 설치</b>
+              <small>누른 뒤 설정 › 프로파일이 다운로드됨 › 설치</small>
+            </span>
+          </a>
+        ) : (
+          <button type="button" className="m-appbar-btn" onClick={() => void androidTap()}>
+            <Smartphone size={18} />
+            <span>
+              <b>갤럭시 홈 화면에 앱 추가</b>
+              <small>{evt ? '누르면 바로 설치 · 새 기능 자동 반영' : '웹 앱 · 새 기능이 바로 반영됩니다'}</small>
+            </span>
+          </button>
+        )}
+        <a className="m-appbar-alt" href={ios ? '/install.html#android' : IOS_PROFILE_URL}>
+          {ios ? '갤럭시용' : '아이폰용'}
+        </a>
+        <button type="button" className="m-appbar-x" onClick={close} aria-label="닫기">
+          <X size={16} />
+        </button>
+      </div>
+      {help && !ios && (
+        <div className="m-appbar-help" role="note">
+          {samsung ? (
+            <span>
+              삼성 인터넷: 아래 <b>≡</b> 메뉴 › <b>현재 페이지 추가</b> › <b>홈 화면</b>
+            </span>
+          ) : (
+            <span>
+              Chrome: 오른쪽 위 <b>⋮</b> 메뉴 › <b>홈 화면에 추가</b> (또는 <b>앱 설치</b>) › <b>설치</b>
+            </span>
+          )}
+          <a href={APK_URL}>예전 앱 파일(APK)</a>
+        </div>
+      )}
     </div>
   )
 }
@@ -154,8 +216,8 @@ export function TopAppButton() {
           <div className="top-app-qr">
             <img src="/qr-android.svg" alt="갤럭시 앱 QR" width={132} height={132} />
             <b>갤럭시 · 안드로이드</b>
-            <a href={APK_URL} download="wkly-erp.apk">
-              앱 파일(APK) 받기
+            <a href="/install.html#android" target="_blank" rel="noreferrer">
+              웹 앱 설치 방법
             </a>
           </div>
           <div className="top-app-qr">

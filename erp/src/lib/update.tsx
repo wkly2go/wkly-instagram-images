@@ -9,7 +9,9 @@ import { desktop } from './desktop'
  *  - 휴대폰 앱 · 탭을 다시 열었을 때(화면으로 돌아온 순간) 새 버전이면 곧바로 새로고침
  *    (휴대폰은 앱을 닫아도 뒤에 살아 있어 예전 화면이 계속 보이던 문제)
  */
-const CHECK_MS = 3 * 60 * 1000
+// 휴대폰은 30초마다 확인하고 새 버전이면 바로(3초 뒤) 바꿈 (대표 지시 2026-11-04 "실시간으로 반영") · PC 는 1분마다
+const PHONE = typeof window !== 'undefined' && (window.matchMedia?.('(pointer: coarse)').matches || window.matchMedia?.('(max-width: 640px)').matches)
+const CHECK_MS = PHONE ? 30 * 1000 : 60 * 1000
 const IDLE_MS = 60 * 1000
 
 let lastInput = Date.now()
@@ -49,9 +51,12 @@ export function UpdateBanner() {
   useEffect(() => {
     if (!import.meta.env.PROD) return
     let found = false
+    let soon = 0
     const tryApply = (resumed = false) => {
       if (!found) return
-      if (document.visibilityState === 'hidden' || ((resumed || Date.now() - lastInput > IDLE_MS) && !typing())) reload()
+      if (document.visibilityState === 'hidden' || ((resumed || Date.now() - lastInput > IDLE_MS) && !typing())) return reload()
+      // 휴대폰: 글을 쓰는 중이 아니면 띠를 3초 보여 주고 바로 새로고침
+      if (PHONE && !typing() && !soon) soon = window.setTimeout(() => (typing() ? (soon = 0) : reload()), 3000)
     }
     const check = async (resumed = false) => {
       if (!found) {
@@ -73,12 +78,16 @@ export function UpdateBanner() {
     document.addEventListener('visibilitychange', onVis)
     window.addEventListener('focus', onFocus)
     window.addEventListener('pageshow', onShow)
+    const onOnline = () => check(true)
+    window.addEventListener('online', onOnline)
     return () => {
       window.clearInterval(timer)
       window.clearInterval(idle)
       document.removeEventListener('visibilitychange', onVis)
       window.removeEventListener('focus', onFocus)
       window.removeEventListener('pageshow', onShow)
+      window.removeEventListener('online', onOnline)
+      window.clearTimeout(soon)
     }
   }, [])
   const app = useDesktopUpdate()
@@ -109,7 +118,7 @@ export function UpdateBanner() {
   if (!ready) return null
   return (
     <div className="update-bar" role="status">
-      <span>인트라넷이 새 버전으로 바뀌었습니다. 잠시 손을 떼면 저절로 새로고침돼요.</span>
+      <span>{PHONE ? '새 버전으로 바꾸는 중입니다…' : '인트라넷이 새 버전으로 바뀌었습니다. 잠시 손을 떼면 저절로 새로고침돼요.'}</span>
       <button type="button" onClick={reload}>
         지금 새로고침
       </button>
