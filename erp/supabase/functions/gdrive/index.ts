@@ -439,6 +439,8 @@ async function fileInbox(deadline: number): Promise<{ filed: number; sorted: num
     if (seen.has(f.id)) continue
     if (/^01\.협의자료\/01\.수신/.test(f.path ?? '')) continue // 메일에서 온 바로가기 자리
     if (copiedFromOther(f)) continue
+    // '참고' · '레퍼런스' 폴더는 다른 일의 참고 자료 → 수신 자료로 올리지 않음 (2026-11-04 로제코 '견적서 참고' 662개가 수신방에 올라온 일)
+    if (/(참고|레퍼런스|reference)/i.test(f.path ?? '')) continue
     const p = ps.find(x => x.id === f.project_id)
     if (!p) continue
     const kind = kindOf(f.name, f.mime_type)

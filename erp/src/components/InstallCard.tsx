@@ -136,3 +136,27 @@ export function MobileAppBar() {
     </div>
   )
 }
+
+/** PC 위쪽 바 검색창 옆 '휴대폰 앱' 버튼 (대표 지시 2026-11-04 "PC 창에 모바일 버전 받는 버튼을 검색창 옆에 · QR 삭제") */
+export function TopAppButton() {
+  return (
+    <details className="top-app">
+      <summary className="quick-btn" title="휴대폰 앱 내려받기">
+        <Smartphone size={14} /> 휴대폰 앱
+      </summary>
+      <div className="top-app-pop" role="menu">
+        <a role="menuitem" href={APK_URL} download="wkly-erp.apk">
+          <b>갤럭시 · 안드로이드</b>
+          <span>앱 파일(APK) 바로 받기</span>
+        </a>
+        <a role="menuitem" href={IOS_PROFILE_URL}>
+          <b>아이폰 · 아이패드</b>
+          <span>설치 파일 받기 (Safari)</span>
+        </a>
+        <a role="menuitem" href="/install.html" target="_blank" rel="noreferrer" className="top-app-help">
+          설치 방법 보기 ›
+        </a>
+      </div>
+    </details>
+  )
+}

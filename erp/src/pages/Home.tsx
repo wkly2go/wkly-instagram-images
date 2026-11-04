@@ -6,7 +6,6 @@ import { dateLabel, dateTimeLabel, relativeLabel, todayKey } from '../lib/date'
 import { Link, useRouter } from '../lib/router'
 import type { Approval, ChatMessage, ChatRoomSummary, Project, Task, WorkLog } from '../lib/types'
 import { CheckInCard } from '../components/CheckIn'
-import { InstallCard } from '../components/InstallCard'
 import { Shell } from '../components/Shell'
 import { AgentDesk } from '../components/AgentDesk'
 import { PushSetupCard } from '../components/PushSetup'
@@ -51,8 +50,6 @@ export default function Home() {
 
   return (
     <Shell active="home">
-      {/* 휴대폰: 앱 설치 안내를 맨 위에 (설치하면 자동으로 사라짐) */}
-      <InstallCard />
       {/* 오늘 업무를 가장 위에 (대표 지시 2026-10-28, 전체 공통) */}
       <TodayWork tasks={data.tasks} projects={data.projects} />
       {/* 월별 일정표 (대표 지시 2026-10-23) */}
@@ -84,15 +81,19 @@ export default function Home() {
       ) : (
         <div className="col gap-2">
           {toDecide.slice(0, 5).map(a => (
-            <div key={a.id} className="item-row" style={{ borderBottom: 0, padding: '3px 0' }}>
-              <KindTag kind={a.kind} />
-              <Link to={`/approvals?id=${a.id}`} className="t-smallb truncate">
-                {a.title}
-              </Link>
-              <span className="t-cap" style={{ whiteSpace: 'nowrap' }}>
-                {profileName(a.requested_by)} · {relativeLabel(a.created_at)}
-              </span>
-              <span className="grow" />
+            // 어떤 결재인지(제목)가 먼저 · 크게, 종류 · 요청자 · 시간은 아래 작은 줄 (대표 지시 2026-11-04)
+            <div key={a.id} className="item-row decide-row">
+              <div className="decide-main">
+                <Link to={`/approvals?id=${a.id}`} className="decide-title">
+                  {a.title}
+                </Link>
+                <span className="decide-meta">
+                  <KindTag kind={a.kind} />
+                  <span className="t-cap">
+                    {profileName(a.requested_by)} · {relativeLabel(a.created_at)}
+                  </span>
+                </span>
+              </div>
               <DecideButtons approval={a} compact />
             </div>
           ))}

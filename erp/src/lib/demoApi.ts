@@ -54,6 +54,8 @@ import type {
   WorkLog,
   SiteLog,
   SiteSurveyItem,
+  SiteShot,
+  SitePlan,
   MeetingRecording,
   LedgerEntry,
   LedgerRecurring,
@@ -93,6 +95,8 @@ interface Store {
   ledger_until?: string | null
   site_logs?: SiteLog[]
   site_survey_items?: SiteSurveyItem[]
+  site_photos?: SiteShot[]
+  site_plans?: SitePlan[]
   meeting_recordings?: MeetingRecording[]
   budget_lines: BudgetLine[]
   research_items: ResearchItem[]
@@ -1370,6 +1374,45 @@ export function createDemoApi(): Api {
       const r = (store.meeting_recordings ?? []).find(x => x.id === id)
       return r ? clone(r) : null
     },
+    async listSitePhotos(projectId) {
+      requireMe()
+      return clone((store.site_photos ?? []).filter(x => x.project_id === projectId).sort((a, b) => b.created_at.localeCompare(a.created_at)))
+    },
+    async saveSitePhoto(p) {
+      requireMe()
+      const list = (store.site_photos ??= [])
+      const at = p.id ? list.findIndex(x => x.id === p.id) : -1
+      const row = { ...(at >= 0 ? list[at] : { id: uid(), memo: null, marks: [], survey_item_id: null, plan_id: null, plan_x: null, plan_y: null, created_at: now() }), ...p } as SiteShot
+      if (at >= 0) list[at] = row
+      else list.push(row)
+      persist()
+      return clone(row)
+    },
+    async deleteSitePhoto(id) {
+      requireMe()
+      store.site_photos = (store.site_photos ?? []).filter(x => x.id !== id)
+      persist()
+    },
+    async listSitePlans(projectId) {
+      requireMe()
+      return clone((store.site_plans ?? []).filter(x => x.project_id === projectId).sort((a, b) => b.created_at.localeCompare(a.created_at)))
+    },
+    async saveSitePlan(p) {
+      requireMe()
+      const list = (store.site_plans ??= [])
+      const at = p.id ? list.findIndex(x => x.id === p.id) : -1
+      const row = { ...(at >= 0 ? list[at] : { id: uid(), name: '도면', created_at: now() }), ...p } as SitePlan
+      if (at >= 0) list[at] = row
+      else list.push(row)
+      persist()
+      return clone(row)
+    },
+    async deleteSitePlan(id) {
+      requireMe()
+      store.site_plans = (store.site_plans ?? []).filter(x => x.id !== id)
+      store.site_photos = (store.site_photos ?? []).map(x => (x.plan_id === id ? { ...x, plan_id: null, plan_x: null, plan_y: null } : x))
+      persist()
+    },
     async listSurvey(projectId) {
       requireMe()
       return clone((store.site_survey_items ?? []).filter(x => x.project_id === projectId).sort((a, b) => a.no - b.no))
@@ -2037,12 +2080,12 @@ export function createDemoApi(): Api {
     },
     async requestWorkPlan(p) {
       const self = requireMe()
-      if (p.day < todayKey()) throw new ApiError('지난 날짜는 신청할 수 없습니다.')
+      if (p.day < todayKey() && p.kind !== '외근') throw new ApiError('지난 날짜는 외근만 신청할 수 있습니다.')
       const list = (store.work_plans ??= [])
       if (list.some(x => x.user_id === self && x.day === p.day)) throw new ApiError('그날은 이미 신청했습니다.')
       const deadline = store.rules?.planDeadline ?? '18:00'
       const nowKst = new Date(Date.now() + 9 * 3600_000).toISOString()
-      const late = nowKst.slice(0, 10) >= p.day || (nowKst.slice(0, 10) === addDays(p.day, -1) && nowKst.slice(11, 16) > deadline)
+      const late = p.kind !== '외근' && (nowKst.slice(0, 10) >= p.day || (nowKst.slice(0, 10) === addDays(p.day, -1) && nowKst.slice(11, 16) > deadline))
       list.push({ id: uid(), user_id: self, day: p.day, kind: p.kind, place: p.place || null, reason: p.reason || null, status: '대기', decided_by: null, decided_at: null, created_at: now(), late, task_id: null })
       persist()
       emit('work_plans')

@@ -19,8 +19,9 @@
   - `desktop/` : PC 프로그램 (Electron)
   - `android/` : 안드로이드 앱 (TWA · 웹을 앱으로 띄움). main 에 `erp/android/**` 변경이 들어가면 `.github/workflows/android.yml` 이 APK 를 만들어
     릴리스 `android` 의 `wkly-erp.apk` 로 올림. 서명 키는 Vault (함수 `android-key` 가 GitHub OIDC 확인 뒤 넘김) · 지문은 `public/.well-known/assetlinks.json`
-  - 휴대폰 설치: 홈 맨 위 '휴대폰 앱 받기'(갤럭시 APK · 아이폰 설치 프로파일 `public/wkly-erp.mobileconfig` 웹 클립) · 안내 `public/install.html`
+  - 휴대폰 설치: 휴대폰 홈 맨 위 다운로드 버튼 · PC 는 위쪽 바 검색창 옆 '휴대폰 앱' (갤럭시 APK · 아이폰 설치 프로파일 `public/wkly-erp.mobileconfig`) · 안내 `public/install.html`
   - 현장 실측 체크리스트: `src/components/SiteSurvey.tsx` (표 site_survey_items · 0084 · 표준 38항목)
+  - 현장 실측 화면 `/site` (아래 메뉴 '현장'): `src/pages/Site.tsx` · 사진 위 치수 선(site_photos.marks) · 도면(site_plans) 위 사진 핀 · 0087 · 저장소 site-photos
 - `erp/supabase/migrations/` : DB 변경 (번호 순서, 다음 번호는 마지막 파일 + 1)
 - `erp/supabase/functions/` : 서버 함수 (gdrive · gmail · drive-upload · agent-chat 등)
 - Supabase 프로젝트 id: `hophgcpszenrvchvbkav`

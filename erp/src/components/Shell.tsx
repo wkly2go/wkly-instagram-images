@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from 'react'
 import { useMyAgents } from './AgentDesk'
-import { MobileAppBar } from './InstallCard'
-import { Smartphone, Bookmark, Bot, ListTodo, Plus, Search, Briefcase, HardDrive, ChevronLeft, ChevronRight, CircleHelp, PanelLeftClose, PanelLeftOpen, ClipboardCheck, FolderKanban, Home, Library, Megaphone, MessageCircle, MoreHorizontal, Settings, Users, Landmark, type LucideIcon } from 'lucide-react'
+import { MobileAppBar, TopAppButton } from './InstallCard'
+import { Ruler, Bookmark, Bot, ListTodo, Plus, Search, Briefcase, HardDrive, ChevronLeft, ChevronRight, CircleHelp, PanelLeftClose, PanelLeftOpen, ClipboardCheck, FolderKanban, Home, Library, Megaphone, MessageCircle, MoreHorizontal, Settings, Users, Landmark, type LucideIcon } from 'lucide-react'
 import { accessSource, isDesktopApp } from '../lib/desktop'
 import { useAttendance } from '../lib/attendance'
 import { AssignTaskModal } from './AssignTask'
@@ -27,7 +27,7 @@ import { TODAY_STATUSES, type TodayStatus } from '../lib/types'
 import { Presence, toneOf } from './ui'
 import { countedUnread, rememberRoomLevels, useChatTick } from '../lib/chat'
 
-export type TabKey = 'home' | 'approvals' | 'chat' | 'work' | 'projects' | 'clients' | 'library' | 'drive' | 'team' | 'agents' | 'ads' | 'ledger' | 'admin'
+export type TabKey = 'home' | 'approvals' | 'chat' | 'work' | 'projects' | 'clients' | 'library' | 'drive' | 'team' | 'site' | 'agents' | 'ads' | 'ledger' | 'admin'
 
 export const TABS: { key: TabKey; label: string; path: string; admin?: boolean }[] = [
   { key: 'home', label: '홈', path: '/' },
@@ -36,6 +36,8 @@ export const TABS: { key: TabKey; label: string; path: string; admin?: boolean }
   { key: 'projects', label: '프로젝트', path: '/projects' },
   { key: 'drive', label: '드라이브', path: '/drive' },
   { key: 'team', label: '업무·근태', path: '/team' },
+  // 현장 실측: 사진 위 치수 · 도면 배치 · 체크리스트 (2026-11-04)
+  { key: 'site', label: '현장', path: '/site' },
   { key: 'agents', label: 'AI팀', path: '/agents' },
   { key: 'ads', label: '광고', path: '/ads', admin: true },
   { key: 'ledger', label: '입출금 장부', path: '/ledger', admin: true },
@@ -53,12 +55,13 @@ const ICONS: Record<TabKey, LucideIcon> = {
   library: Library,
   drive: HardDrive,
   team: Users,
+  site: Ruler,
   agents: Bot,
   ads: Megaphone,
   ledger: Landmark,
   admin: Settings,
 }
-const MAIN_TABS: TabKey[] = ['home', 'approvals', 'chat', 'projects']
+const MAIN_TABS: TabKey[] = ['home', 'approvals', 'chat', 'projects', 'site']
 const SHORT: Partial<Record<TabKey, string>> = { approvals: '결제' }
 
 export interface Summary {
@@ -375,10 +378,6 @@ function ProfilePanel({ summary, active }: { summary: Summary; active: TabKey })
             빠른 창 띄우기
           </button>
         )}
-        {/* 휴대폰 설치 안내 (QR) · PC 에서만 */}
-        <a href="/install.html" target="_blank" rel="noreferrer" className="quick-btn pc-only" style={{ textDecoration: 'none' }} title="휴대폰 카메라로 QR 을 찍어 홈 화면에 앱 설치">
-          <Smartphone size={14} /> 휴대폰 앱
-        </a>
       </div>
       {/* 사이드바 아래 빈 곳에 오늘 브리핑 (대표 지시 2026-11-01 "이곳에도 정보를 전달할 수 있도록") */}
       <SideBrief />
@@ -596,7 +595,7 @@ export function ShellFrame({ children, initial }: { children: ReactNode; initial
           <div className="inner">
             <header className="topbar">
               <Link to="/" className="top-logo" aria-label="THE WKLY 홈">
-                <img src="/wkly-logo-blue.svg" alt="WKLY" width={76} height={24} />
+                <img src="/wkly-logo-white.svg" alt="WKLY" width={76} height={24} />
               </Link>
               <span className="site-title">사내 인트라넷</span>
               <span className="site-url t-meta">{window.location.host}</span>
@@ -614,6 +613,8 @@ export function ShellFrame({ children, initial }: { children: ReactNode; initial
               <span className="grow" />
               {/* 검색창은 오른쪽 (2026-10-29) */}
               <OneBox />
+              {/* 휴대폰 앱 받기: 검색창 옆 (PC) */}
+              <TopAppButton />
               <NotificationBell />
               {/* 오른쪽 위 아이콘들은 '보기' 펼침 메뉴 하나로 (2026-10-28) */}
               <TopMenu showDownload={!isDesktopApp()} />

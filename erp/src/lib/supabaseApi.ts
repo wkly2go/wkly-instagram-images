@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import { isHiddenName } from './gdrive'
+import { isHiddenName, isReferencePath } from './gdrive'
 import type { FieldUpload, MailFile, LedgerStatus, MailItem, MaterialItem, MaterialMove, MaterialStockRow } from './types'
 import { ApiError, CHAT_FILE_MAX, EXCHANGE_FILE_MAX, groupIps, type AgentDraft, type Api, type DriveEnsureResult, type DriveFolder, type DriveStatus, type ImportResult } from './api'
 import { desktop } from './desktop'
@@ -59,6 +59,8 @@ import type {
   WorkLog,
   SiteLog,
   SiteSurveyItem,
+  SiteShot,
+  SitePlan,
   MeetingRecording,
   LedgerEntry,
   LedgerRecurring,
@@ -474,6 +476,20 @@ export function createSupabaseApi(url: string, key: string): Api {
     async getMeetingRecording(id) {
       return (must(await sb.from('meeting_recordings').select('*').eq('id', id).maybeSingle()) as MeetingRecording | null) ?? null
     },
+    async listSitePhotos(projectId) {
+      return must(await sb.from('site_photos').select('*').eq('project_id', projectId).order('created_at', { ascending: false })) as SiteShot[]
+    },
+    async saveSitePhoto(p) {
+      return (await save('site_photos', { ...p, updated_at: new Date().toISOString() })) as SiteShot
+    },
+    deleteSitePhoto: id => remove('site_photos', id),
+    async listSitePlans(projectId) {
+      return must(await sb.from('site_plans').select('*').eq('project_id', projectId).order('created_at', { ascending: false })) as SitePlan[]
+    },
+    async saveSitePlan(p) {
+      return (await save('site_plans', p)) as SitePlan
+    },
+    deleteSitePlan: id => remove('site_plans', id),
     async listSurvey(projectId) {
       return must(await sb.from('site_survey_items').select('*').eq('project_id', projectId).order('no')) as SiteSurveyItem[]
     },
@@ -1064,7 +1080,8 @@ export function createSupabaseApi(url: string, key: string): Api {
       let q = sb.from('drive_index').select('id,project_id,name,mime_type,parent_id,path,url,icon_url,size,modified_at,modified_by').order('modified_at', { ascending: false, nullsFirst: false })
       q = projectId ? q.eq('project_id', projectId).limit(2000) : q.limit(3000)
       // 숨김 파일(._ · .DS_Store 등)은 목록에서 뺌
-      return (must(await q) as DriveIndexFile[]).filter(f => !isHiddenName(f.name))
+      // 숨김 파일 · 참고 자료 폴더는 목록에서 뺌
+      return (must(await q) as DriveIndexFile[]).filter(f => !isHiddenName(f.name) && !isReferencePath(f.name, f.path))
     },
     driveAccessToken: () => invokeDrive<{ token: string; expires_at: number }>({ action: 'token' }),
     async driveSync(full) {
