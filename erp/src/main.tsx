@@ -5,6 +5,7 @@ import { RouterProvider } from './lib/router'
 import { UpdateBanner } from './lib/update'
 import './styles.css'
 import { startStackTables } from './lib/stackTables'
+import { startFoldLong } from './lib/foldLong'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -28,3 +29,6 @@ for (const ev of ['dragover', 'drop'] as const)
 
 // 휴대폰: 모든 기록지 표를 위아래 카드로 (칸 이름 붙이기)
 startStackTables()
+
+// 휴대폰: 긴 글은 접고 '더 보기' 로 펼침
+startFoldLong()
