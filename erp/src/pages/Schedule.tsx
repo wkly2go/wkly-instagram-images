@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { TextLinks } from '../components/ui'
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
@@ -437,6 +437,19 @@ interface CalItem {
   to?: string
 }
 
+/** 휴대폰 화면 폭인지 (돌리거나 창 크기가 바뀌면 다시 계산) */
+function usePhone() {
+  const q = '(max-width: 640px)'
+  const [on, setOn] = useState(() => typeof window !== 'undefined' && window.matchMedia(q).matches)
+  useEffect(() => {
+    const m = window.matchMedia(q)
+    const f = () => setOn(m.matches)
+    m.addEventListener('change', f)
+    return () => m.removeEventListener('change', f)
+  }, [])
+  return on
+}
+
 export function MonthCalendar({ projects, tasks }: { projects: Project[]; tasks: Task[] }) {
   const { api, me, version, profileName } = useApp()
   const today = todayKey()
@@ -448,6 +461,13 @@ export function MonthCalendar({ projects, tasks }: { projects: Project[]; tasks:
   const [creating, setCreating] = useState<string | null>(null)
   const [gcal, setGcal] = useState(false)
   const { data: leaves } = useAsync(() => api.listLeave(), [version], [] as LeaveRecord[])
+  // 휴대폰 (대표 지시 2026-11-04 "월별 일정표 가독성"): 달력은 색 점만, 고른 날 일정은 아래 목록으로 크게
+  const phone = usePhone()
+  const [pick, setPick] = useState(today)
+  const goMonth = (m: string) => {
+    setMonth(m)
+    setPick(m === today.slice(0, 7) ? today : `${m}-01`)
+  }
 
   const byDay = useMemo(() => {
     const m = new Map<string, CalItem[]>()
@@ -493,17 +513,17 @@ export function MonthCalendar({ projects, tasks }: { projects: Project[]; tasks:
   return (
     <div className="col gap-10">
       <div className="row wrap">
-        <button type="button" className="icon-btn" onClick={() => setMonth(addMonths(month, -1))} aria-label="이전 달">
+        <button type="button" className="icon-btn" onClick={() => goMonth(addMonths(month, -1))} aria-label="이전 달">
           <ChevronLeft size={16} />
         </button>
         <span className="t-title">
           {month.slice(0, 4)}년 {Number(month.slice(5))}월
         </span>
-        <button type="button" className="icon-btn" onClick={() => setMonth(addMonths(month, 1))} aria-label="다음 달">
+        <button type="button" className="icon-btn" onClick={() => goMonth(addMonths(month, 1))} aria-label="다음 달">
           <ChevronRight size={16} />
         </button>
         {month !== today.slice(0, 7) && (
-          <Button kind="ghost" size="sm" onClick={() => setMonth(today.slice(0, 7))}>
+          <Button kind="ghost" size="sm" onClick={() => goMonth(today.slice(0, 7))}>
             오늘
           </Button>
         )}
@@ -529,10 +549,33 @@ export function MonthCalendar({ projects, tasks }: { projects: Project[]; tasks:
         {monthGrid(month).map((d, i) => {
           if (!d) return <span key={`e${i}`} className="day empty" />
           const list = byDay.get(d) ?? []
+          const dow = i % 7
+          const wk = dow === 0 ? ' sun' : dow === 6 ? ' sat' : ''
+          if (phone)
+            return (
+              <button
+                key={d}
+                type="button"
+                className={`day m-day${wk}${d === today ? ' today' : ''}${d === pick ? ' picked' : ''}`}
+                onClick={() => setPick(d)}
+                aria-label={`${shortDate(d)} 일정 ${list.length}건`}
+                aria-pressed={d === pick}
+              >
+                <span className="n">{Number(d.slice(8))}</span>
+                {list.length > 0 && (
+                  <span className="m-dots" aria-hidden="true">
+                    {list.slice(0, 3).map(it => (
+                      <i key={it.key} className={`c-${it.tone}`} />
+                    ))}
+                    {list.length > 3 && <b>+{list.length - 3}</b>}
+                  </span>
+                )}
+              </button>
+            )
           return (
             <div
               key={d}
-              className={`day can-add ${d === today ? 'today' : ''}`}
+              className={`day can-add${wk} ${d === today ? 'today' : ''}`}
               onClick={e => e.target === e.currentTarget && setCreating(d)}
               title="빈 곳을 누르면 이 날 새 일정"
             >
@@ -553,6 +596,25 @@ export function MonthCalendar({ projects, tasks }: { projects: Project[]; tasks:
           )
         })}
       </div>
+      {phone && (
+        <div className="m-agenda" aria-live="polite">
+          <div className="m-agenda-h">
+            <b>
+              {shortDate(pick)} ({weekday(pick)}){pick === today ? ' · 오늘' : ''}
+            </b>
+            <span className="t-cap">일정 {(byDay.get(pick) ?? []).length}건</span>
+            <span className="grow" />
+            <Button kind="outline" size="sm" onClick={() => setCreating(pick)}>
+              <Plus size={13} /> 새 일정
+            </Button>
+          </div>
+          {(byDay.get(pick) ?? []).length ? (
+            <div className="m-agenda-list">{(byDay.get(pick) ?? []).map(item)}</div>
+          ) : (
+            <span className="t-cap m-agenda-empty">이 날은 일정이 없습니다.</span>
+          )}
+        </div>
+      )}
       <div className="legend">
         <span>
           <i style={{ background: 'var(--blue)' }} />
