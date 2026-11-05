@@ -74,6 +74,9 @@ import type { LedgerEntry, LedgerRecurring, LedgerStatus, MaterialItem, Material
   MailItem,
   FieldUpload,
   MailFile,
+  SlackChannel,
+  SlackLink,
+  SlackMessage,
 } from './types'
 
 /** 구글 드라이브 탭에 거는 회사 공용 폴더 */
@@ -449,6 +452,15 @@ export interface Api {
   listDriveIndex(projectId?: string): Promise<DriveIndexFile[]>
   /** 회사 지메일: 이 프로젝트(또는 그 거래처)와 연결된 메일 */
   listProjectMails(projectId: string, clientId: string | null): Promise<MailItem[]>
+  /** 슬랙 (0088 · slack-import 함수): 연결 상태 · 토큰 저장(관리자) · 채널 목록 · 프로젝트 연결 · 가져오기 */
+  slackStatus(): Promise<{ connected: boolean; team?: string; bot?: string; error?: string }>
+  slackSetToken(token: string): Promise<{ connected: boolean; team?: string }>
+  slackChannels(): Promise<SlackChannel[]>
+  listSlackLinks(projectId: string): Promise<SlackLink[]>
+  slackLink(projectId: string, channel: { id: string; name: string }): Promise<void>
+  slackUnlink(projectId: string, channelId: string): Promise<void>
+  slackImport(projectId: string): Promise<{ messages: number; files: number; more: boolean; errors: string[] }>
+  listSlackMessages(projectId: string, limit?: number): Promise<SlackMessage[]>
   /** 메일 첨부를 드라이브 수신방에 저장한 파일 (프로젝트 · 거래처) */
   listMailFiles(projectId: string, clientId: string | null): Promise<MailFile[]>
   /** 끌어다 놓은 파일을 수신방/거래처/프로젝트/분류 에 올릴 주소 (2026-11-01) */
