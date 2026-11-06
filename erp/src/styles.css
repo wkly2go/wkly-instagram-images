@@ -4150,3 +4150,17 @@ html[data-theme="dark"] .bigcal .day.m-day.picked .n { color: #13261a; }
 .quick.q2 .inner, .quick.q2 .inner.quick-chat { padding: 14px 14px 12px !important; }
 .quick.q2 .chat-body { margin: 0 -14px !important; }
 .quick.q2 .quick-composer { margin: 0 !important; }
+/* 협력업체 관리: 금일 지급 건 붉은 색 · 지급 체크 (2026-11-06) */
+.vs-cell { display: inline-flex; align-items: center; gap: 8px; justify-content: flex-end; }
+.vs-amt.today, .vs-amt.today em { color: var(--red); font-weight: 800; }
+.vendor-sum td.st-today { background: #fde8e8; box-shadow: inset 3px 0 0 var(--red); }
+.vendor-sum td.st-today .vs-amt, .vendor-sum td.st-today .vs-amt em { color: var(--red); font-weight: 800; }
+.vs-pay { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border: 1px solid #cfd6cf; background: #fff; cursor: pointer; flex: none; }
+.vs-pay input { width: 16px; height: 16px; margin: 0; accent-color: var(--blue); cursor: pointer; }
+.vs-pay:hover { border-color: var(--blue); }
+.vendor-sum td.st-today .vs-pay { border-color: var(--red); }
+.vs-pay.on { border-color: var(--blue); background: #eef6f0; }
+/* 협력업체 요약 줄: 계좌번호 (누르면 복사) */
+.vs-acc { display: inline-flex; align-items: center; gap: 4px; margin-top: 2px; padding: 1px 6px; border: 1px dashed #cfd6cf; background: #fafbf9; color: #3b4a40; font: 600 var(--fs-cap)/1.5 var(--mono); cursor: copy; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vs-acc:hover { border-color: var(--blue); color: var(--blue); background: #eef6f0; }
+.vs-who { display: flex; flex-direction: column; align-items: flex-start; }

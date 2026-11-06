@@ -7,7 +7,7 @@
 //   노란 칸에 바로 적으면 저장 · 결제일자를 넣으면 그 단계는 완료 · 금액을 지우면 그 단계는 취소(지우지 않음)
 //   입금 예정일 (2026-11-06): 단계마다 금액과 결제일 사이 · 결제(payments)의 기존 예정일 칸(due_date)에 저장 · 위 요약 줄의 'MM.DD 예정' 과 같은 값
 import { Fragment, useMemo, useState } from 'react'
-import { Plus } from 'lucide-react'
+import { Copy, Plus } from 'lucide-react'
 import { useAction, useApp } from '../lib/app'
 import { manwon, todayKey } from '../lib/date'
 import { isDone } from '../lib/finance'
@@ -68,7 +68,7 @@ function slot(items: Payment[]) {
 }
 
 export function VendorSheet({ projectId, payments, all, lines, finance, onOpen }: { projectId: string; payments: Payment[]; all: Payment[]; lines: BudgetLine[]; finance: ProjectFinance | undefined; onOpen: (p: Payment) => void }) {
-  const { api } = useApp()
+  const { api, toast } = useApp()
   const { busy, run } = useAction()
   const today = todayKey()
   const [extraMid, setExtraMid] = useState(0)
@@ -257,16 +257,36 @@ export function VendorSheet({ projectId, payments, all, lines, finance, onOpen }
   //   - 줄을 누르면 바로 아래로 입력 폼이 펼쳐짐: 업체 정보 · 계좌 · 계약금 · 단계별(금액 · 결제일 · 계산서)
   const [openKey, setOpenKey] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
-  const stageSum = (cur: Payment | undefined) =>
+  // 금일 지급 건은 붉은 색 · 지급하면 체크 박스로 처리 완료 (대표 지시 2026-11-06)
+  const isToday = (cur: Payment) => !isDone(cur) && cur.due_date === todayKey()
+  const isLate = (cur: Payment) => !isDone(cur) && !!cur.due_date && cur.due_date < todayKey()
+  const togglePaid = (v: Vendor, label: string, cur: Payment, on: boolean) => {
+    if (on) void run(() => api.savePayment({ id: cur.id, paid_date: todayKey(), status: '완료' }), `${v.payee} ${label} ${v.dir === '수금' ? '입금' : '지급'} 완료로 처리했습니다.`)
+    else void run(() => api.savePayment({ id: cur.id, paid_date: null, status: '예정' }), `${v.payee} ${label} 완료 표시를 지웠습니다.`)
+  }
+  const stageSum = (v: Vendor, label: string, cur: Payment | undefined) =>
     !cur ? (
       <span className="vs-empty">–</span>
     ) : (
-      <span className={`vs-amt${isDone(cur) ? ' done' : cur.due_date && cur.due_date < todayKey() ? ' late' : ''}`} title={[cur.stage, cur.paid_date ? `결제 ${cur.paid_date}` : '미결제', cur.tax_invoice === '발행' ? '계산서 발행' : cur.tax_invoice === '미발행' ? '계산서 미발행' : ''].filter(Boolean).join(' · ')}>
-        {manwon(cur.amount)}
-        <em>
-          {isDone(cur) ? `완료 ${(cur.paid_date ?? '').slice(5).replace('-', '.')}` : cur.due_date && cur.due_date < todayKey() ? `연체 ${cur.due_date.slice(5).replace('-', '.')}` : cur.due_date ? `${cur.due_date.slice(5).replace('-', '.')} 예정` : '예정'}
-          {cur.tax_invoice === '발행' ? ' · 계' : ''}
-        </em>
+      <span className="vs-cell">
+        <span className={`vs-amt${isDone(cur) ? ' done' : isToday(cur) ? ' today' : isLate(cur) ? ' late' : ''}`} title={[cur.stage, cur.paid_date ? `결제 ${cur.paid_date}` : '미결제', cur.tax_invoice === '발행' ? '계산서 발행' : cur.tax_invoice === '미발행' ? '계산서 미발행' : ''].filter(Boolean).join(' · ')}>
+          {manwon(cur.amount)}
+          <em>
+            {isDone(cur)
+              ? `완료 ${(cur.paid_date ?? '').slice(5).replace('-', '.')}`
+              : isToday(cur)
+                ? `오늘 ${v.dir === '수금' ? '입금' : '지급'}`
+                : isLate(cur)
+                  ? `연체 ${cur.due_date!.slice(5).replace('-', '.')}`
+                  : cur.due_date
+                    ? `${cur.due_date.slice(5).replace('-', '.')} 예정`
+                    : '예정'}
+            {cur.tax_invoice === '발행' ? ' · 계' : ''}
+          </em>
+        </span>
+        <label className={`vs-pay${isDone(cur) ? ' on' : ''}`} onClick={e => e.stopPropagation()} title={isDone(cur) ? '완료 표시 지우기' : `${v.dir === '수금' ? '입금' : '지급'}했으면 체크 → 처리 완료`}>
+          <input type="checkbox" checked={isDone(cur)} disabled={busy} onChange={e => togglePaid(v, label, cur, e.target.checked)} aria-label={`${v.payee} ${label} ${v.dir === '수금' ? '입금' : '지급'} 완료`} />
+        </label>
       </span>
     )
   const field = (label: string, node: React.ReactNode, wide = false) => (
@@ -331,6 +351,24 @@ export function VendorSheet({ projectId, payments, all, lines, finance, onOpen }
                       {rate != null && rate >= 100 && <b className="vs-alldone">완료</b>}
                       {[v.category, v.title !== v.payee ? v.title : null, v.contractType].filter(Boolean).join(' · ')}
                     </span>
+                    {/* 계좌번호 바로 보기 · 누르면 복사 (대표 지시 2026-11-06 "계좌번호도 외부에 노출") */}
+                    {v.account && (
+                      <button
+                        type="button"
+                        className="vs-acc"
+                        title="누르면 계좌번호 복사"
+                        onClick={e => {
+                          e.stopPropagation()
+                          void navigator.clipboard?.writeText(v.account!.replace(/[^\d-]/g, '')).then(
+                            () => toast(`${v.payee} 계좌번호를 복사했습니다.`),
+                            () => toast(v.account!),
+                          )
+                        }}
+                      >
+                        {[v.bank, v.account, v.holder ? `(${v.holder})` : null].filter(Boolean).join(' ')}
+                        <Copy size={11} />
+                      </button>
+                    )}
                   </td>
                   <td className="num mono">{v.contract ? manwon(v.contract) : <span className="vs-empty">–</span>}</td>
                   <td>
@@ -341,10 +379,10 @@ export function VendorSheet({ projectId, payments, all, lines, finance, onOpen }
                   </td>
                   {stages.map(s => {
                     const cur = pick(v, s.key)
-                    const st = !cur ? '' : isDone(cur) ? ' st-done' : cur.due_date && cur.due_date < todayKey() ? ' st-late' : ' st-plan'
+                    const st = !cur ? '' : isDone(cur) ? ' st-done' : isToday(cur) ? ' st-today' : isLate(cur) ? ' st-late' : ' st-plan'
                     return (
                       <td key={s.key} className={`num${st}`}>
-                        {stageSum(cur)}
+                        {stageSum(v, s.label, cur)}
                       </td>
                     )
                   })}
