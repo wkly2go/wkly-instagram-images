@@ -28,6 +28,8 @@ export interface LeaveBalance {
   periodEnd: string
   /** 이번 기간 발생 연차 */
   granted: number
+  /** 관리자 조정 (이월 · 포상 +, 차감 −) — granted 에 이미 더해져 있음 */
+  adjust: number
   /** 이번 기간 사용 (승인된 연차 · 반차) */
   used: number
   /** 승인 대기 중인 연차 · 반차 */
@@ -43,7 +45,7 @@ export interface LeaveBalance {
  * - 1년 이상: 15일 + 최초 1년을 넘는 2년마다 1일 가산, 최대 25일 (매 입사 기념일 ~ 다음 기념일 전날)
  * 개근 여부·출근율 80% 미만은 반영하지 않음(전부 출근으로 가정).
  */
-export function leaveBalance(joined: string, today: string, records: LeaveRecord[]): LeaveBalance {
+export function leaveBalance(joined: string, today: string, records: LeaveRecord[], adjust = 0): LeaveBalance {
   const months = fullMonths(joined, today)
   const years = Math.floor(months / 12)
   let periodStart: string
@@ -64,7 +66,9 @@ export function leaveBalance(joined: string, today: string, records: LeaveRecord
   const inPeriod = records.filter(r => DEDUCTS(r.kind) && r.start_date >= periodStart && r.start_date <= periodEnd)
   const used = sum(inPeriod.filter(r => r.status === '승인'))
   const pending = sum(inPeriod.filter(r => r.status === '신청'))
-  return { years, periodStart, periodEnd, granted, used, pending, remaining: granted - used, rule }
+  const adj = Number(adjust) || 0
+  if (adj) rule += ` · 조정 ${adj > 0 ? '+' : ''}${adj}일`
+  return { years, periodStart, periodEnd, granted: granted + adj, adjust: adj, used, pending, remaining: granted + adj - used, rule }
 }
 
 const sum = (rs: LeaveRecord[]) => Math.round(rs.reduce((s, r) => s + Number(r.days), 0) * 10) / 10

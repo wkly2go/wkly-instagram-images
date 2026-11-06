@@ -31,9 +31,11 @@ export function LeaveSection() {
   }, [query])
 
   const joinedOf = (id: string) => data.hr.find(h => h.profile_id === id)?.joined_on ?? null
+  // 인사기록의 연차 조정 일수도 같이 (2026-11-06)
+  const adjOf = (id: string) => Number(data.hr.find(h => h.profile_id === id)?.leave_adjust ?? 0)
   const mine = data.leaves.filter(l => l.profile_id === me.id)
   const myJoined = joinedOf(me.id)
-  const bal = myJoined ? leaveBalance(myJoined, today, mine) : null
+  const bal = myJoined ? leaveBalance(myJoined, today, mine, adjOf(me.id)) : null
   const pending = data.leaves.filter(l => l.status === '신청' && (admin || l.profile_id === me.id))
   const upcoming = data.leaves.filter(l => l.status === '승인' && l.end_date >= today).sort((a, b) => a.start_date.localeCompare(b.start_date))
   const people = profiles.filter(p => p.active && !p.is_agent)
@@ -102,7 +104,7 @@ export function LeaveSection() {
               <tbody>
                 {people.map(p => {
                   const j = joinedOf(p.id)
-                  const b = j ? leaveBalance(j, today, data.leaves.filter(l => l.profile_id === p.id)) : null
+                  const b = j ? leaveBalance(j, today, data.leaves.filter(l => l.profile_id === p.id), adjOf(p.id)) : null
                   return (
                     <tr key={p.id}>
                       <td>

@@ -114,7 +114,7 @@ function RoomItem({ r, active, to }: { r: ChatRoomSummary; active: boolean; to: 
 }
 
 export default function Chat() {
-  const { api, version, toast, bump } = useApp()
+  const { api, version, toast, bump, me, profiles } = useApp()
   const { query, path, navigate } = useRouter()
   const [creating, setCreating] = useState(false)
   const [dmPicking, setDmPicking] = useState(false)
@@ -159,6 +159,7 @@ export default function Chat() {
   const pins = usePins()
   const pinnedRooms = pins.map(id => rooms.find(r => r.id === id)).filter((r): r is ChatRoomSummary => !!r)
   const unpinned = rooms.filter(r => !pins.includes(r.id))
+  const isAiRoom = (r: ChatRoomSummary) => !!r.members?.some(id => id !== me.id && profiles.find(x => x.id === id)?.is_agent)
   const projRooms = unpinned.filter(r => !r.members && r.project_id)
   const myProj = projRooms.filter(r => r.level === 'all' || (r.mentions ?? 0) > 0 || r.id === roomId)
   const otherProj = projRooms.filter(r => !myProj.includes(r))
@@ -166,7 +167,9 @@ export default function Chat() {
     ...(pinnedRooms.length ? ([['고정', pinnedRooms]] as [string, ChatRoomSummary[]][]) : []),
     ['프로젝트 대화', showOther ? [...myProj, ...otherProj] : myProj],
     ['채팅방', unpinned.filter(r => !r.members && !r.project_id)],
-    ['1:1 대화', unpinned.filter(r => r.members)],
+    // AI 팀원과의 1:1 은 따로 (대표 지시 2026-11-06 "AI 팀원끼리 구분해줘")
+    ['1:1 대화', unpinned.filter(r => r.members && !isAiRoom(r))],
+    ['AI 팀원', unpinned.filter(r => r.members && isAiRoom(r))],
   ]
   // Alt+↑↓ 방 이동 · Alt+Shift+↑↓ 안 읽은 방
   const order = groups.flatMap(([, l]) => l)

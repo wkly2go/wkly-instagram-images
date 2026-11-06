@@ -668,7 +668,9 @@ export function createSupabaseApi(url: string, key: string): Api {
       return data as HrRecord[]
     },
     async saveHrRecord(r) {
-      must(await sb.from('hr_records').upsert(strip(r, ['updated_at', 'updated_by'])).select('profile_id'))
+      const res = await sb.from('hr_records').upsert(strip(r, ['updated_at', 'updated_by'])).select('profile_id')
+      if (res.error?.code === '23505' && /employee_no/.test(res.error.message)) throw new ApiError('같은 사원번호가 이미 있습니다. 다른 번호를 넣어 주세요.')
+      must(res)
     },
     async exportTable(table) {
       const out: Record<string, unknown>[] = []
