@@ -14,6 +14,7 @@ import { ContractGoal } from '../components/FinancePanel'
 import { PaymentForm } from '../components/PaymentForm'
 import { Badge, Button, Chip, Empty, Loading, type Tone } from '../components/ui'
 import { PaymentImport } from './PaymentImport'
+import { TaxInvoices } from '../components/TaxInvoices'
 import { ask } from '../components/Ask'
 
 const PAY_TONE: Record<Payment['status'], Tone> = { 예정: 'outline', 청구: 'yellow', 대기: 'yellow', 완료: 'acid', 보류: 'paper', 취소: 'paper' }
@@ -60,6 +61,9 @@ export function Payments({ projects, clients }: { projects: Project[]; clients: 
         <Chip active={sub === 'labor'} onClick={() => go({ sub: 'labor' })}>
           노무비 대장
         </Chip>
+        <Chip active={sub === 'tax'} onClick={() => go({ sub: 'tax' })}>
+          세금계산서
+        </Chip>
         <Chip active={sub === 'import'} onClick={() => go({ sub: 'import' })}>
           엑셀 가져오기
         </Chip>
@@ -76,6 +80,8 @@ export function Payments({ projects, clients }: { projects: Project[]; clients: 
         <Advances data={data} projects={projects} />
       ) : sub === 'labor' ? (
         <Labor data={data} projects={projects} />
+      ) : sub === 'tax' ? (
+        <TaxInvoices projects={projects} />
       ) : sub === 'import' ? (
         <PaymentImport projects={projects} existing={data.payments} onDone={() => go({ sub: null })} />
       ) : (

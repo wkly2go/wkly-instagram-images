@@ -20,7 +20,7 @@ const mountWebSlot = (el: HTMLDivElement | null) => {
 }
 import { useApp, useAsync, initial } from '../lib/app'
 import { friendlyError } from '../lib/api'
-import { addDays, addMonths, monthGrid, todayKey } from '../lib/date'
+import { addDays, addMonths, manwon, monthGrid, todayKey } from '../lib/date'
 import { squareThumb } from '../lib/image'
 import { inQuickWindow } from '../lib/pip'
 import { Link, useRouter } from '../lib/router'
@@ -407,7 +407,7 @@ function SideBrief() {
   const open = (p: { status: string; is_estimate: boolean }) => p.status !== '완료' && p.status !== '취소' && !p.is_estimate
   const payWeek = data.payments.filter(p => p.direction === '지급' && open(p) && p.due_date && p.due_date >= today && p.due_date <= week)
   const lateIn = data.payments.filter(p => p.direction === '수금' && open(p) && p.due_date && p.due_date < today)
-  const man = (n: number) => (n >= 10000 ? `${Math.round(n / 10000).toLocaleString('ko-KR')}만` : `${n.toLocaleString('ko-KR')}원`)
+  const man = (n: number) => manwon(n) // 반올림 없이 (대표 지시 2026-11-06)
   const rows: { label: string; value: string; to: string; tone?: 'red' | 'yellow' }[] = [
     { label: '지연된 내 할 일', value: `${late.length}건`, to: '/projects?view=mine', tone: late.length ? 'red' : undefined },
     { label: '오늘 마감', value: `${todayN.length}건`, to: '/projects?view=mine', tone: todayN.length ? 'yellow' : undefined },

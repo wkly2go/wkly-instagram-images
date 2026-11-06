@@ -7,6 +7,7 @@ import { DEFAULT_REPORT_BODY } from './reports'
 const demoSlack: { links: SlackLink[]; messages: SlackMessage[] } = { links: [], messages: [] }
 import type {
   Subscription,
+  TaxInvoice,
   ExchangeFile,
   ProjectDriveFile,
   ProjectContact,
@@ -90,6 +91,7 @@ interface Store {
   finances: ProjectFinance[]
   payments: Payment[]
   subscriptions?: Subscription[]
+  taxInvoices?: TaxInvoice[]
   material_moves?: MaterialMove[]
   ledger?: LedgerEntry[]
   recurring?: LedgerRecurring[]
@@ -1335,6 +1337,38 @@ export function createDemoApi(): Api {
     async deleteLedger(id) {
       requireAdmin()
       store.ledger = (store.ledger ?? []).filter(x => x.id !== id)
+      persist()
+    },
+    async listTaxInvoices() {
+      requireAdmin()
+      if (!store.taxInvoices) {
+        const mk = (d: number, name: string, item: string, total: number, kind: string): TaxInvoice => {
+          const supply = Math.round(total / 1.1)
+          return { id: uid(), approval_no: `DEMO-${d}-${Math.random().toString(36).slice(2, 8)}`, direction: '매출', write_date: addDays(todayKey(), d), issue_date: addDays(todayKey(), d), our_biz_no: '000-00-00000', our_name: '체험 회사', partner_biz_no: null, partner_name: name, partner_email: null, total, supply, vat: total - supply, receipt_kind: kind, invoice_kind: '일반', item, note: null, project_id: null, payment_id: null, memo: null, created_at: now() }
+        }
+        store.taxInvoices = [
+          mk(-2, '오브제랩', '성수 팝업 계약금', 24750000, '청구'),
+          mk(-20, '루프앤코', '브랜드 쇼룸 설계 잔금', 13200000, '청구'),
+          mk(-45, '오브제랩', '팝업 디자인 기획', 8800000, '영수'),
+          mk(-80, '한빛건설', '로비 가구 제작 설치', 68640000, '청구'),
+          mk(-120, '한빛건설', '로비 가구 계약금', 17160000, '청구'),
+        ]
+      }
+      return clone([...store.taxInvoices].sort((a, b) => b.write_date.localeCompare(a.write_date)))
+    },
+    async importTaxInvoices(rows) {
+      requireAdmin()
+      store.taxInvoices ??= []
+      const seen = new Set(store.taxInvoices.map(x => x.approval_no))
+      const fresh = rows.filter(r => !seen.has(r.approval_no))
+      for (const r of fresh) store.taxInvoices.push({ ...r, id: uid(), project_id: r.project_id ?? null, payment_id: null, memo: null, created_at: now() })
+      persist()
+      return { added: fresh.length, skipped: rows.length - fresh.length }
+    },
+    async updateTaxInvoice(id, patch) {
+      requireAdmin()
+      const x = (store.taxInvoices ?? []).find(t => t.id === id)
+      if (x) Object.assign(x, patch)
       persist()
     },
     async listSubscriptions() {

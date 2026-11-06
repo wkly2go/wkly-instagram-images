@@ -650,6 +650,32 @@ export const SUB_CYCLES = ['월', '년', '1회'] as const
 export type SubCycle = (typeof SUB_CYCLES)[number]
 export const SUB_STATUSES = ['사용 중', '해지 예정', '해지'] as const
 export type SubStatus = (typeof SUB_STATUSES)[number]
+/** 전자세금계산서 (홈택스 목록 엑셀 가져오기 · 관리자 전용) */
+export interface TaxInvoice {
+  id: string
+  approval_no: string
+  direction: '매출' | '매입'
+  write_date: string
+  issue_date: string | null
+  our_biz_no: string | null
+  our_name: string | null
+  partner_biz_no: string | null
+  partner_name: string
+  partner_email: string | null
+  total: number
+  supply: number
+  vat: number
+  receipt_kind: string | null
+  invoice_kind: string | null
+  item: string | null
+  note: string | null
+  project_id: string | null
+  payment_id: string | null
+  memo: string | null
+  created_at: string
+}
+export type TaxInvoiceDraft = Omit<TaxInvoice, 'id' | 'created_at' | 'project_id' | 'payment_id' | 'memo'> & { project_id?: string | null }
+
 export interface Subscription {
   id: string
   name: string

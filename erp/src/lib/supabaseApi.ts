@@ -6,6 +6,7 @@ import { desktop } from './desktop'
 import type {
   SavedItem,
   Subscription,
+  TaxInvoice,
   ExchangeFile,
   ProjectDriveFile,
   DriveIndexFile,
@@ -463,6 +464,21 @@ export function createSupabaseApi(url: string, key: string): Api {
     },
     async deleteRecurring(id) {
       mustAffect(await sb.from('cash_recurring').delete().eq('id', id).select('id'))
+    },
+    async listTaxInvoices() {
+      const { data, error } = await sb.from('tax_invoices').select('*').order('write_date', { ascending: false }).order('approval_no', { ascending: false })
+      return error ? [] : (data as TaxInvoice[])
+    },
+    async importTaxInvoices(rows) {
+      if (!rows.length) return { added: 0, skipped: 0 }
+      const { data: have } = await sb.from('tax_invoices').select('approval_no').in('approval_no', rows.map(r => r.approval_no))
+      const seen = new Set((have ?? []).map(r => r.approval_no as string))
+      const fresh = rows.filter(r => !seen.has(r.approval_no))
+      if (fresh.length) must(await sb.from('tax_invoices').upsert(fresh, { onConflict: 'approval_no', ignoreDuplicates: true }))
+      return { added: fresh.length, skipped: rows.length - fresh.length }
+    },
+    async updateTaxInvoice(id, patch) {
+      must(await sb.from('tax_invoices').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', id))
     },
     async listSubscriptions() {
       const { data, error } = await sb.from('subscriptions').select('*').order('status').order('next_billing', { ascending: true, nullsFirst: false }).order('name')
