@@ -36,9 +36,10 @@ export function MyInfo() {
   const [showOld, setShowOld] = useState(false)
 
   return (
-    <div className="col gap-12 my-info">
+    <div className="col gap-8 my-info">
       <SectionHead title="개인정보 관리" right={<span className="t-cap">본인과 관리자만 볼 수 있습니다</span>} />
-
+      <div className="my-cols">
+      <div className="col gap-8">
       {/* 회사가 관리하는 정보 */}
       <div className="my-tiles">
         <div>
@@ -84,6 +85,8 @@ export function MyInfo() {
         </dl>
       )}
 
+      </div>
+      <div className="col gap-8">
       {/* 내 연차 · 휴가 */}
       <div className="section-h">
         <span className="t-bodyb">내 연차 · 휴가</span>
@@ -148,6 +151,8 @@ export function MyInfo() {
         </>
       )}
       <span className="t-cap">연차 · 반차는 관리자 승인 뒤 차감됩니다. 승인 전 신청은 '취소'로 지울 수 있습니다. 오늘 {dateLabel(today)}</span>
+      </div>
+      </div>
     </div>
   )
 }
