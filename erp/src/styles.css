@@ -4075,3 +4075,21 @@ html[data-theme="dark"] .bigcal .day.m-day.picked .n { color: #13261a; }
 .slack-file:hover { background: var(--blue-tint); }
 .slack-file.off { color: var(--gray); cursor: default; }
 @media (max-width: 640px) { .slack-pick { width: 100%; } .slack-pick .select { flex: 1; min-width: 0; } .slack-chip { max-width: 100%; } }
+/* 슬랙 칸: 접기 · 대화/자료 탭 · 날짜별 접기 (2026-11-06) */
+.slack-fold { display: inline-flex; align-items: center; gap: 3px; border: 1px solid var(--line); background: var(--white); color: var(--blue); font: 700 var(--fs-cap)/1 var(--font); padding: 5px 8px; cursor: pointer; }
+.slack-fold:hover { background: var(--blue-tint); }
+.slack-tabs { display: flex; align-items: center; gap: 4px; border-bottom: 2px solid var(--line); }
+.slack-tabs [role='tab'] { border: 0; background: none; padding: 8px 12px; font: 600 var(--fs-sm)/1 var(--font); color: var(--gray); border-bottom: 2px solid transparent; margin-bottom: -2px; cursor: pointer; }
+.slack-tabs [role='tab'] b { font-family: var(--mono); margin-left: 3px; }
+.slack-tabs [role='tab'].on { color: var(--blue); border-bottom-color: var(--blue); }
+.slack-day { border-bottom: 1px solid var(--line); }
+.slack-day > summary { display: flex; align-items: baseline; gap: 10px; padding: 10px 2px; cursor: pointer; list-style: none; }
+.slack-day > summary::-webkit-details-marker { display: none; }
+.slack-day > summary::before { content: '▸'; color: var(--blue); width: 10px; }
+.slack-day[open] > summary::before { content: '▾'; }
+.slack-day > summary b { font-size: var(--fs-body); color: var(--blue); }
+.slack-day > summary:hover { background: color-mix(in srgb, var(--blue) 4%, transparent); }
+.slack-day .slack-msgs { border-top: 0; padding-left: 12px; }
+.slack-filelist { display: flex; flex-direction: column; gap: 6px; padding: 0 0 12px 12px; }
+.slack-filerow { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.slack-text .auto-link { color: var(--blue); text-decoration: underline; word-break: break-all; }
