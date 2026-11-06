@@ -517,15 +517,20 @@ const alarmLabel = (iso: string) => `${shortDate(toDateKey(iso))} ${timeLabel(is
 
 /** 할 일 추가 줄: 제목 · 담당 · 마감 · 알람 */
 function TaskAdder({ projectId, defaultAssignee }: { projectId: string | null; defaultAssignee: string }) {
-  const { api, profiles } = useApp()
+  const { api, profiles, me, profileName } = useApp()
   const { busy, run } = useAction()
   const [title, setTitle] = useState('')
   const [assignee, setAssignee] = useState(defaultAssignee)
+  // 다른 사람에게 맡기면 어디서 보이는지 알려 줌 (대표 지시 2026-11-06 "할 일을 추가했는데 안 보여")
+  const doneMsg = (alarm: string) => {
+    const who = assignee && assignee !== me.id ? `${profileName(assignee)}님 할 일로 넣었어요. '내가 맡긴 일'에서 보입니다.` : '할 일을 넣었어요.'
+    return alarm ? `${who} 알람 ${alarmLabel(fromLocalInput(alarm)!)}.` : who
+  }
   const [due, setDue] = useState('')
   const [alarm, setAlarm] = useState('')
   const add = async () => {
     if (!title.trim()) return
-    if (await run(() => api.saveTask({ project_id: projectId, title: title.trim(), assignee_id: assignee || null, due_date: due || null, remind_at: fromLocalInput(alarm) }), alarm ? `알람을 ${alarmLabel(fromLocalInput(alarm)!)}에 맞췄어요.` : undefined)) {
+    if (await run(() => api.saveTask({ project_id: projectId, title: title.trim(), assignee_id: assignee || null, due_date: due || null, remind_at: fromLocalInput(alarm) }), doneMsg(alarm))) {
       setTitle('')
       setDue('')
       setAlarm('')
@@ -564,6 +569,8 @@ function TaskList({ tasks, projects, mineOnly }: { tasks: Task[]; projects: Proj
   const [showDone, setShowDone] = useState(false)
   const [editing, setEditing] = useState<Task | null>(null)
   const rows = tasks.filter(t => (!mineOnly || t.assignee_id === me.id) && (showDone || t.status !== '완료'))
+  // 내 할 일 화면: 내가 다른 사람에게 맡긴 할 일도 따로 보여 줌 (대표 지시 2026-11-06)
+  const sent = mineOnly ? tasks.filter(t => t.created_by === me.id && t.assignee_id !== me.id && t.status !== '완료') : []
   const groups: [string, Task[]][] = [
     ['지연', rows.filter(t => t.status !== '완료' && t.due_date && t.due_date < today)],
     ['오늘', rows.filter(t => t.due_date === today)],
@@ -571,6 +578,7 @@ function TaskList({ tasks, projects, mineOnly }: { tasks: Task[]; projects: Proj
     ['이후', rows.filter(t => t.due_date && t.due_date > we)],
     ['날짜 없음', rows.filter(t => !t.due_date)],
     ['완료', showDone ? rows.filter(t => t.status === '완료' && t.due_date && t.due_date < today) : []],
+    ['내가 맡긴 일', sent],
   ]
   return (
     <div className="col gap-10">
@@ -597,7 +605,7 @@ function TaskList({ tasks, projects, mineOnly }: { tasks: Task[]; projects: Proj
           </div>
         ) : null,
       )}
-      {rows.length === 0 && <Empty>{mineOnly ? '나에게 배정된 할 일이 없습니다.' : '할 일이 없습니다.'}</Empty>}
+      {rows.length === 0 && sent.length === 0 && <Empty>{mineOnly ? '나에게 배정된 할 일이 없습니다.' : '할 일이 없습니다.'}</Empty>}
       {editing && <TaskAssignModal key={editing.id} task={editing} projects={projects} tasks={tasks} onClose={() => setEditing(null)} />}
     </div>
   )
@@ -713,7 +721,8 @@ function ProjectDetail({ project: p, data, onEdit, onBack, panel = false }: { pr
   const tasks = data.tasks.filter(t => t.project_id === p.id)
   // 할 일 = 담당자가 직접 적은 것 + 에이전트(AI 팀원)가 적은 것 (대표 지시 2026-11-01) · 메일 · 첨부자료 일정은 오른쪽 프로젝트 일정에
   const agentIds = new Set(profiles.filter(x => x.is_agent).map(x => x.id))
-  const myTodos = tasks.filter(t => !t.origin && ((!!t.assignee_id && t.created_by === t.assignee_id) || (!!t.created_by && agentIds.has(t.created_by))))
+  // 할 일 칸: 직접 적은 것 · 에이전트가 적은 것 + 이 칸에서 남에게 맡긴 할 일(단계 · 시작일 없는 단순 할 일) (대표 지시 2026-11-06 "할 일을 추가했는데 안 보여")
+  const myTodos = tasks.filter(t => !t.origin && ((!!t.assignee_id && t.created_by === t.assignee_id) || (!!t.created_by && agentIds.has(t.created_by)) || (!t.phase && !t.start_date)))
   const client = data.clients.find(c => c.id === p.client_id)
   // 이 프로젝트에 연결된 자료는 오른쪽 칸(검색 창 자리)에 표시
   useRightPanel(panel ? null : `project:${p.id}`, '프로젝트 자료', <ProjectMaterials projectId={p.id} />)
@@ -837,7 +846,7 @@ function ProjectDetail({ project: p, data, onEdit, onBack, panel = false }: { pr
       <div className="proj-top3">
         <div className="col grow" style={{ flexBasis: 300 }}>
           {/* 할 일 = 담당자가 직접 적은 것만 (대표 지시 2026-11-01) · 메일 · 첨부자료 · 남이 지시한 일정은 오른쪽 '프로젝트 일정'에 */}
-          <SectionHead title="할 일" count={`${myTodos.filter(t => t.status === '완료').length}/${myTodos.length}`} right={<span className="t-cap">담당자 · 에이전트가 적은 것 · 전체 일정은 오른쪽 프로젝트 일정</span>} />
+          <SectionHead title="할 일" count={`${myTodos.filter(t => t.status === '완료').length}/${myTodos.length}`} right={<span className="t-cap">여기서 넣은 할 일 · 에이전트가 적은 것 · 전체 일정은 오른쪽 프로젝트 일정</span>} />
           <TaskBoard
             // 할 일(안 끝난 것)을 맨 위에, 완료는 아래로 (대표 지시 2026-10-31)
             list={[...myTodos.filter(t => t.status !== '완료'), ...myTodos.filter(t => t.status === '완료')]}
