@@ -4186,3 +4186,26 @@ html[data-theme="dark"] .bigcal .day.m-day.picked .n { color: #13261a; }
 .vendor-sum tfoot .vs-done { color: var(--blue); }
 .vendor-sum tfoot .vs-total-left { color: var(--red); font-weight: 600; }
 .todo-more { align-self: center; margin-top: 6px; }
+/* 빠른 창 채팅 다듬기 (대표 지시 2026-11-06 "너무 투박해 · 박스 크기 줄이고 프로젝트명 표기 · 하단부 디자인") — 글자 크기 단계와 상관없이 고정 크기 */
+.q2-room { position: relative; display: flex; align-items: center; gap: 7px; height: 32px; padding: 0 10px; background: #fff; border: 1px solid #e6e9e4; font-size: 12.5px; color: var(--ink, #3a3a36); cursor: pointer; flex: none; min-width: 0; }
+.q2-room:hover { border-color: color-mix(in srgb, var(--blue) 35%, #e6e9e4); }
+.q2-room-code { flex: none; font: 700 10.5px/1 var(--mono); letter-spacing: .02em; color: var(--blue); background: color-mix(in srgb, var(--blue) 9%, #fff); padding: 4px 5px; }
+.q2-room-hash { flex: none; color: #9aa39b; font-weight: 700; }
+.q2-room-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.q2-room-chev { flex: none; color: #8a948c; }
+.q2-room select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; border: 0; font-size: 13px; }
+.quick.q2 .chat-room { gap: 8px; }
+/* 입력칸: 얇은 한 줄 · 도구는 작게 */
+.quick.q2 .quick-composer { gap: 2px !important; padding: 4px 4px 4px 2px !important; border: 1px solid #e6e9e4 !important; box-shadow: none !important; background: #fff; }
+.quick.q2 .quick-composer:focus-within { border-color: color-mix(in srgb, var(--blue) 50%, #e6e9e4) !important; }
+.quick.q2 .quick-composer .composer-tools { display: flex; align-items: center; gap: 0; }
+.quick.q2 .quick-composer .composer-tools .btn, .quick.q2 .quick-composer .attach-btn, .quick.q2 .quick-composer .icon-btn { width: 28px; height: 28px; padding: 0; min-height: 0; color: #8a948c; }
+.quick.q2 .quick-composer .composer-tools svg { width: 15px; height: 15px; }
+.quick.q2 .quick-composer .assign-chip { height: 22px; padding: 0 6px; border: 0 !important; background: transparent !important; color: #8a948c; font-size: 11px; font-weight: 700; }
+.quick.q2 .quick-composer .assign-chip:hover { color: var(--blue); background: color-mix(in srgb, var(--blue) 8%, #fff) !important; }
+.quick.q2 .quick-composer .textarea { font-size: 13px; padding: 6px 6px !important; min-height: 30px !important; }
+.quick.q2 .quick-composer .textarea::placeholder { color: #a7afa8; }
+.quick.q2 .send-btn { width: 30px !important; height: 30px !important; flex: none; }
+.quick.q2 .send-btn svg { width: 14px; height: 14px; }
+.quick.q2 .send-btn:disabled { background: #e3e8e3 !important; color: #fff; }
+.quick.q2 .chat-room { padding-bottom: 0 !important; }
