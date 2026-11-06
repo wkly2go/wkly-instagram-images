@@ -4,7 +4,8 @@ import { Button, Empty } from './ui'
 import { ask } from './Ask'
 import { useApp } from '../lib/app'
 import { friendlyError } from '../lib/api'
-import { addMonths, manwon, todayKey, won } from '../lib/date'
+import { manwon, todayKey, won } from '../lib/date'
+import { downloadText, toCsv } from '../lib/csv'
 import { LEDGER_CATEGORIES, LEDGER_METHODS, type LedgerEntry, type LedgerMethod, type LedgerRecurring } from '../lib/types'
 
 const lastDay = (m: string) => {
@@ -283,19 +284,25 @@ export function RecurringView({ onExpired }: { onExpired: () => void }) {
 // ---------------------------------------------------------------------
 // 월별 비교 (최근 12개월)
 // ---------------------------------------------------------------------
-export function CompareView({ month, onExpired }: { month: string; onExpired: () => void }) {
-  const { api } = useApp()
+/** 연간 장부: 그 해 1월 ~ 12월만 (회계장부는 연도별 · 대표 지시 2026-11-06 "연결장부로 하지 말고 년도별로") */
+export function CompareView({ year, onExpired }: { year: string; onExpired: () => void }) {
+  const { api, profileName } = useApp()
   const [rows, setRows] = useState<LedgerEntry[]>([])
   const [loading, setLoading] = useState(true)
-  const months = useMemo(() => Array.from({ length: 12 }, (_, i) => addMonths(month, i - 11)), [month])
+  const month = todayKey().slice(0, 7)
+  const months = useMemo(() => Array.from({ length: 12 }, (_, i) => `${year}-${String(i + 1).padStart(2, '0')}`), [year])
   useEffect(() => {
     setLoading(true)
     api
-      .listLedger(`${months[0]}-01`, monthEnd(month))
+      .listLedger(`${year}-01-01`, `${year}-12-31`)
       .then(setRows)
       .catch(() => onExpired())
       .finally(() => setLoading(false))
-  }, [api, months, month, onExpired])
+  }, [api, year, onExpired])
+  const exportYear = () => {
+    const csv = toCsv([...rows].sort((a, b) => a.entry_date.localeCompare(b.entry_date)).map(r => ({ 날짜: r.entry_date, 구분: r.direction, 금액: r.amount, 분류: r.category, 거래처: r.counterparty ?? '', 수단: r.method, 메모: r.memo ?? '', 기록: profileName(r.created_by) })))
+    downloadText(`입출금장부_${year}년.csv`, '\ufeff' + csv)
+  }
 
   const data = months.map(m => {
     const list = rows.filter(r => r.entry_date.startsWith(m))
@@ -307,7 +314,7 @@ export function CompareView({ month, onExpired }: { month: string; onExpired: ()
   const withData = data.filter(d => d.count)
   const sum = (k: 'inn' | 'out' | 'net') => data.reduce((n, d) => n + d[k], 0)
   const avg = (k: 'inn' | 'out' | 'net') => (withData.length ? Math.round(sum(k) / withData.length) : 0)
-  // 출금 분류 상위 (12개월)
+  // 출금 분류 상위 (그 해)
   const cats = useMemo(() => {
     const mm = new Map<string, number>()
     for (const r of rows) if (r.direction === '출금') mm.set(r.category, (mm.get(r.category) ?? 0) + r.amount)
@@ -326,17 +333,17 @@ export function CompareView({ month, onExpired }: { month: string; onExpired: ()
     <div className="col gap-12">
       <div className="ledger-kpis four">
         <div className="ledger-kpi in">
-          <span className="t-cap">12개월 입금</span>
+          <span className="t-cap">{year}년 입금</span>
           <b>{manwon(sum('inn'))}</b>
           <span className="t-meta">월평균 {manwon(avg('inn'))}</span>
         </div>
         <div className="ledger-kpi out">
-          <span className="t-cap">12개월 출금</span>
+          <span className="t-cap">{year}년 출금</span>
           <b>{manwon(sum('out'))}</b>
           <span className="t-meta">월평균 {manwon(avg('out'))}</span>
         </div>
         <div className={`ledger-kpi net ${sum('net') < 0 ? 'minus' : ''}`}>
-          <span className="t-cap">12개월 차액</span>
+          <span className="t-cap">{year}년 차액</span>
           <b>{manwon(sum('net'))}</b>
           <span className="t-meta">월평균 {manwon(avg('net'))}</span>
         </div>
@@ -351,7 +358,10 @@ export function CompareView({ month, onExpired }: { month: string; onExpired: ()
 
       <section className="ledger-chart" aria-label="월별 입금 · 출금 · 차액">
         <div className="row t-cap">
-          <span className="grow">월별 비교 (최근 12개월)</span>
+          <span className="grow">{year}년 월별 (1월 ~ 12월)</span>
+          <button type="button" className="link-btn" onClick={exportYear} disabled={!rows.length} title={`${year}년 장부 전체를 엑셀(CSV)로`}>
+            {year}년 엑셀
+          </button>
           <span className="lg-key in" /> 입금 <span className="lg-key out" /> 출금 <span className="lg-key net" /> 차액
         </div>
         <div className="cmp-chart">
@@ -389,8 +399,8 @@ export function CompareView({ month, onExpired }: { month: string; onExpired: ()
             </tr>
           </thead>
           <tbody>
-            {[...data].reverse().map((d, i, arr) => {
-              const p = arr[i + 1]
+            {data.map((d, i, arr) => {
+              const p = arr[i - 1]
               const ch = p && p.out ? Math.round(((d.out - p.out) / p.out) * 100) : null
               return (
                 <tr key={d.m} className={d.m === month ? 'editing' : ''}>
@@ -403,9 +413,23 @@ export function CompareView({ month, onExpired }: { month: string; onExpired: ()
               )
             })}
           </tbody>
+          <tfoot>
+            <tr className="cmp-total">
+              <td>
+                <b>{year}년 합계</b>
+              </td>
+              <td className="num in">{sum('inn').toLocaleString('ko-KR')}</td>
+              <td className="num out">{sum('out').toLocaleString('ko-KR')}</td>
+              <td className={`num ${sum('net') < 0 ? 'out' : 'in'}`}>
+                {sum('net') < 0 ? '−' : '+'}
+                {Math.abs(sum('net')).toLocaleString('ko-KR')}
+              </td>
+              <td />
+            </tr>
+          </tfoot>
         </table>
-        <section className="ledger-cats" aria-label="12개월 출금 분류">
-          <span className="t-cap">12개월 출금 분류</span>
+        <section className="ledger-cats" aria-label="연간 출금 분류">
+          <span className="t-cap">{year}년 출금 분류</span>
           {cats.length === 0 && <span className="t-meta">없음</span>}
           {cats.map(([c, v]) => (
             <div key={c} className="ledger-cat" title={won(v)}>
