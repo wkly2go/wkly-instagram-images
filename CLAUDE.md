@@ -24,7 +24,8 @@
   - 휴대폰 공통 장치: `lib/stackTables.ts` (표 → 위아래 카드) · `lib/foldLong.ts` (긴 글 접기)
   - 현장 실측 체크리스트: `src/components/SiteSurvey.tsx` (표 site_survey_items · 0084 · 표준 38항목)
   - 세금계산서 대장: 결제 › '세금계산서' 탭 (`src/components/TaxInvoices.tsx` · 표 tax_invoices · 0091 · 관리자 전용). 홈택스 목록 엑셀(.xls)을 올리면 승인번호 기준으로 쌓임 (엑셀 읽기 xlsx 라이브러리 · 올릴 때만 불러옴)
-  - 인사기록 카드(`src/components/Person.tsx`): 사원번호 · 급여 계좌 · 연차(발생/사용/대기/남은 · 조정 일수 leave_adjust) — 0092 · 본인과 관리자만 봄
+  - 인사기록 카드(`src/components/Person.tsx`): 사원번호 · 직급 · 급여 계좌 · 연차(발생/사용/대기/남은 · 조정 일수 leave_adjust) — 0092 · 0094 · 본인과 관리자만 봄
+  - 광고 화면은 팀원 모두 볼 수 있음 (0093 · 읽기만) · 입출금 장부 · 관리는 관리자만
   - 금액 표시 `manwon()` 은 반올림하지 않음 (2026-11-06 대표 지시: 1,490만 4,545원 처럼 끝자리까지)
   - 현장 실측 화면 `/site` (아래 메뉴 '현장'): `src/pages/Site.tsx` · 사진 위 치수 선(site_photos.marks) · 도면(site_plans) 위 사진 핀 · 0087 · 저장소 site-photos
 - `erp/supabase/migrations/` : DB 변경 (번호 순서, 다음 번호는 마지막 파일 + 1)

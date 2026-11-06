@@ -40,7 +40,8 @@ export const TABS: { key: TabKey; label: string; path: string; admin?: boolean }
   // 현장 실측: 사진 위 치수 · 도면 배치 · 체크리스트 (2026-11-04)
   { key: 'site', label: '현장', path: '/site' },
   { key: 'agents', label: 'AI팀', path: '/agents' },
-  { key: 'ads', label: '광고', path: '/ads', admin: true },
+  // 광고는 팀원 모두에게 공개 (대표 지시 2026-11-06)
+  { key: 'ads', label: '광고', path: '/ads' },
   { key: 'ledger', label: '입출금 장부', path: '/ledger', admin: true },
   { key: 'admin', label: '관리', path: '/admin', admin: true },
 ]
