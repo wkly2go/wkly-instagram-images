@@ -103,20 +103,17 @@ export function minutesLabel(min: number): string {
   return [h ? `${h}시간` : '', m ? `${m}분` : ''].filter(Boolean).join(' ')
 }
 
-/** 3억 2,400만 · 4,850만 · 9,800원 (만 원 아래 반올림) */
+/** 3억 2,400만 · 4,850만 4,545원 · 9,800원 — 반올림하지 않음 (대표 지시 2026-11-06 "결제 금액을 반올림 하지마") */
 export function manwon(n: number | null | undefined): string {
   if (n == null) return ''
   const sign = n < 0 ? '−' : ''
-  const abs = Math.abs(n)
+  const abs = Math.round(Math.abs(n))
   if (abs < 10_000) return `${sign}${abs.toLocaleString('ko-KR')}원`
-  let eok = Math.floor(abs / 100_000_000)
-  let man = Math.round((abs % 100_000_000) / 10_000)
-  if (man === 10_000) {
-    eok += 1
-    man = 0
-  }
-  if (!eok) return `${sign}${man.toLocaleString('ko-KR')}만`
-  return `${sign}${eok}억${man ? ` ${man.toLocaleString('ko-KR')}만` : ''}`
+  const eok = Math.floor(abs / 100_000_000)
+  const man = Math.floor((abs % 100_000_000) / 10_000)
+  const rest = abs % 10_000
+  const parts = [eok ? `${eok}억` : '', man ? `${man.toLocaleString('ko-KR')}만` : '', rest ? `${rest.toLocaleString('ko-KR')}원` : '']
+  return sign + parts.filter(Boolean).join(' ')
 }
 
 export function won(n: number | null | undefined): string {

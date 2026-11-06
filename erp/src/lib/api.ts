@@ -6,6 +6,8 @@ import type { LedgerEntry, LedgerRecurring, LedgerStatus, MaterialItem, Material
   ApprovalActivity,
   DriveIndexFile,
   Subscription,
+  TaxInvoice,
+  TaxInvoiceDraft,
   ExchangeFile,
   ProjectDriveFile,
   MeetingRecording,
@@ -285,6 +287,11 @@ export interface Api {
   listRecurring(): Promise<LedgerRecurring[]>
   saveRecurring(r: Draft<LedgerRecurring>): Promise<LedgerRecurring>
   deleteRecurring(id: number): Promise<void>
+  /** 전자세금계산서 대장 (관리자) */
+  listTaxInvoices(): Promise<TaxInvoice[]>
+  /** 홈택스 목록 엑셀 행 가져오기: 승인번호가 이미 있으면 건너뜀 → 새로 넣은 수 */
+  importTaxInvoices(rows: TaxInvoiceDraft[]): Promise<{ added: number; skipped: number }>
+  updateTaxInvoice(id: string, patch: Partial<Pick<TaxInvoice, 'project_id' | 'payment_id' | 'memo'>>): Promise<void>
   listSubscriptions(): Promise<Subscription[]>
   saveSubscription(s: Draft<Subscription>): Promise<Subscription>
   deleteSubscription(id: string): Promise<void>
