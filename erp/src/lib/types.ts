@@ -33,6 +33,15 @@ export interface HrRecord {
   address: string | null
   emergency_contact: string | null
   note: string | null
+  /** 사원번호 */
+  employee_no?: string | null
+  /** 급여 계좌 (본인 · 관리자만 봄) */
+  bank_name?: string | null
+  account_no?: string | null
+  account_holder?: string | null
+  /** 이번 연차 기간 조정 일수 (이월 · 포상 +, 선사용 · 차감 −) */
+  leave_adjust?: number | null
+  leave_note?: string | null
   updated_at?: string
   updated_by?: string | null
 }

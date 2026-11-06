@@ -185,7 +185,15 @@ function Members() {
             </tr>
           </thead>
           <tbody>
-            {profiles.map(p => {
+            {/* 사람 팀원과 AI 팀원을 나눠서 (대표 지시 2026-11-06 "AI 팀원끼리 구분해줘") */}
+            {([['사람 팀원', profiles.filter(x => !x.is_agent)], ['AI 팀원', profiles.filter(x => x.is_agent)]] as const).flatMap(([label, group]) => [
+              <tr key={`grp-${label}`} className="grp-row">
+                <td colSpan={9}>
+                  {label === 'AI 팀원' ? '🤖 ' : ''}
+                  <b>{label}</b> <span className="t-cap">{group.filter(x => x.active).length}명</span>
+                </td>
+              </tr>,
+              ...group.map(p => {
               const self = p.id === me.id
               return (
                 <tr key={p.id} className={p.active ? '' : 'muted'}>
@@ -287,7 +295,8 @@ function Members() {
                   </td>
                 </tr>
               )
-            })}
+            }),
+            ])}
           </tbody>
         </table>
       </div>

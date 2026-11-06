@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from 'react'
+import { Fragment, createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from 'react'
 import { useMyAgents } from './AgentDesk'
 import { MobileAppBar, TopAppButton } from './InstallCard'
 import { useTheme } from '../lib/theme'
@@ -170,12 +170,17 @@ function SideNav({ active, summary }: { active: TabKey; summary: Summary }) {
       {TABS.filter(t => !t.admin || me.role === 'admin').map((t, i) => {
         const Icon = ICONS[t.key]
         const n = count(t.key)
+        // 관리자 전용 메뉴(광고 · 입출금 장부 · 관리)는 구분선 아래로 (대표 지시 2026-11-06 "두 항목은 관리자에게만 노출")
+        const firstAdmin = t.admin && TABS.findIndex(x => x.admin) === TABS.indexOf(t)
         return (
-          <Link key={t.key} to={t.path} className={`side-item ${t.key === active ? 'on' : ''} ${n && t.key !== 'projects' ? 'has-n' : ''}`} title={`${t.label} (Alt+${i + 1})`}>
+          <Fragment key={t.key}>
+          {firstAdmin && <span className="side-sep">관리자 전용</span>}
+          <Link to={t.path} className={`side-item ${t.key === active ? 'on' : ''} ${n && t.key !== 'projects' ? 'has-n' : ''}`} title={`${t.label} (Alt+${i + 1})`}>
             <Icon size={15} aria-hidden="true" />
             <span className="grow">{t.label}</span>
             {n > 0 && <span className={`side-n ${t.key === 'projects' ? 'soft' : ''}`}>{n > 99 ? '99+' : n}</span>}
           </Link>
+          </Fragment>
         )
       })}
       {!!summary.saved && (

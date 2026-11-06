@@ -4223,3 +4223,15 @@ html[data-theme="dark"] .bigcal .day.m-day.picked .n { color: #13261a; }
 .tax-table tfoot td { background: #f3f5f1; border-top: 1px solid #dfe3dc; padding: 8px; }
 .tax-table .tax-proj { height: 30px; font-size: 12px; width: 100%; padding: 0 28px 0 8px; }
 @media (max-width: 640px) { .tax-tiles { grid-template-columns: 1fr !important; } .tax-month b { display: none; } }
+/* 인사기록: 급여 계좌 · 연차 (2026-11-06) */
+.hr-acc { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 2px; padding: 0; border: 0; background: none; font: inherit; color: inherit; cursor: pointer; text-align: left; }
+.hr-acc:hover .mono { color: var(--blue); text-decoration: underline; }
+.hr-leave { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.hr-leave > div { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; background: var(--white); border: 1px solid var(--line); }
+.hr-leave b { font: 700 var(--fs-num)/1 var(--mono); color: var(--ink); }
+.hr-leave .left { border-color: color-mix(in srgb, var(--blue) 40%, var(--line)); background: color-mix(in srgb, var(--blue) 6%, var(--white)); }
+.hr-leave .left b { color: var(--blue); }
+.hr-leave .neg b { color: var(--red); }
+@media (max-width: 640px) { .hr-leave { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.table tr.grp-row td { background: #f1f4ef; padding: 7px 10px; border-top: 1px solid var(--line); font-size: var(--fs-sm); color: var(--ink); }
+.side-sep { display: block; margin: 10px 10px 2px; padding-top: 8px; border-top: 1px solid var(--line); font-size: var(--fs-cap); font-weight: 700; color: #8a948c; letter-spacing: .02em; }

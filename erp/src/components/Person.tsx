@@ -4,7 +4,8 @@ import { useAction, useApp, useAsync } from '../lib/app'
 import { presenceOf } from '../lib/attendance'
 import { addDays, dateLabel, timeLabel, toDateKey, todayKey } from '../lib/date'
 import { Link } from '../lib/router'
-import type { Attendance, HrRecord, Profile } from '../lib/types'
+import { DEDUCTS, leaveBalance } from '../lib/leave'
+import type { Attendance, HrRecord, LeaveRecord, Profile } from '../lib/types'
 import { Avatar, Badge, Button, Field, Modal, TodayBadge } from './ui'
 
 /** 이름을 누르면 인사기록 카드가 열림 */
@@ -23,17 +24,25 @@ export function PersonName({ id, className = 't-smallb' }: { id: string; classNa
   )
 }
 
-const EMPTY = (id: string): HrRecord => ({ profile_id: id, joined_on: null, phone: null, birthday: null, address: null, emergency_contact: null, note: null })
+const EMPTY = (id: string): HrRecord => ({ profile_id: id, joined_on: null, phone: null, birthday: null, address: null, emergency_contact: null, note: null, employee_no: null, bank_name: null, account_no: null, account_holder: null, leave_adjust: 0, leave_note: null })
 
 /** 인사기록: 기본 정보는 모두, 연락처 등 인사 정보는 본인·관리자만, 수정은 관리자만 */
 function PersonCard({ p, onClose }: { p: Profile; onClose: () => void }) {
-  const { api, me, version } = useApp()
+  const { api, me, version, toast } = useApp()
   const admin = me.role === 'admin'
   const canSee = admin || p.id === me.id
   const today = todayKey()
   const from = addDays(today, -29)
   const { data: hr, reload, error: hrError, loading: hrLoading } = useAsync(() => (canSee ? api.getHrRecord(p.id) : Promise.resolve(null)), [p.id, version], null as HrRecord | null)
   const { data: days } = useAsync(() => api.listAttendanceFor(p.id, from), [p.id, from, version], [] as Attendance[])
+  const { data: leaves } = useAsync(() => (canSee && !p.is_agent ? api.listLeave().then(ls => ls.filter(l => l.profile_id === p.id)) : Promise.resolve([] as LeaveRecord[])), [p.id, version], [] as LeaveRecord[])
+  const bal = hr?.joined_on ? leaveBalance(hr.joined_on, today, leaves, Number(hr.leave_adjust ?? 0)) : null
+  const periodLeaves = bal ? leaves.filter(l => l.start_date >= bal.periodStart && l.start_date <= bal.periodEnd).sort((a, b) => b.start_date.localeCompare(a.start_date)) : []
+  const account = [hr?.bank_name, hr?.account_no].filter(Boolean).join(' ')
+  const copyAccount = () => {
+    if (!hr?.account_no) return
+    void navigator.clipboard?.writeText(hr.account_no.replace(/[^0-9-]/g, '')).then(() => toast('계좌번호를 복사했습니다.'), () => toast(hr.account_no ?? ''))
+  }
   const [editing, setEditing] = useState(false)
   const todayRow = days.find(d => d.day === today)
   const tenure = hr?.joined_on ? tenureLabel(hr.joined_on, today) : null
@@ -77,6 +86,8 @@ function PersonCard({ p, onClose }: { p: Profile; onClose: () => void }) {
         <HrForm initial={hr ?? EMPTY(p.id)} onDone={() => { setEditing(false); reload() }} />
       ) : (
         <dl className="hr-grid">
+          <dt>사원번호</dt>
+          <dd className="mono">{hr?.employee_no || '–'}</dd>
           <dt>입사일</dt>
           <dd>{hr?.joined_on ? `${fullDate(hr.joined_on)}${tenure ? ` · ${tenure}` : ''}` : '–'}</dd>
           <dt>연락처</dt>
@@ -87,11 +98,89 @@ function PersonCard({ p, onClose }: { p: Profile; onClose: () => void }) {
           <dd>{hr?.address || '–'}</dd>
           <dt>비상 연락처</dt>
           <dd>{hr?.emergency_contact || '–'}</dd>
+          <dt>급여 계좌</dt>
+          <dd>
+            {account ? (
+              <button type="button" className="hr-acc" onClick={copyAccount} title="눌러서 계좌번호 복사">
+                <span className="mono">{account}</span>
+                {hr?.account_holder && <span className="t-cap"> · 예금주 {hr.account_holder}</span>}
+                <span className="t-cap t-blue"> 복사</span>
+              </button>
+            ) : (
+              '–'
+            )}
+          </dd>
           <dt>비고</dt>
           <dd className="pre">{hr?.note || '–'}</dd>
           <dt>계정 생성</dt>
           <dd>{fullDate(toDateKey(p.created_at))}</dd>
         </dl>
+      )}
+
+      {/* 연차 (대표 지시 2026-11-06 "연차 관련 정보도 추가") — 근로기준법 기준 자동 계산 + 관리자 조정 */}
+      {canSee && !p.is_agent && !editing && (
+        <>
+          <div className="section-h">
+            <span className="t-bodyb">연차</span>
+            {bal && <span className="t-cap">{fullDate(bal.periodStart)} ~ {fullDate(bal.periodEnd)}</span>}
+            <span className="grow" />
+            <Link to="/team?tab=leave" className="t-cap">
+              휴가 신청 · 승인 ›
+            </Link>
+          </div>
+          {!bal ? (
+            <span className="t-cap">입사일을 넣으면 연차가 자동으로 계산됩니다.</span>
+          ) : (
+            <>
+              <div className="hr-leave">
+                <div>
+                  <span className="t-cap">발생</span>
+                  <b>{bal.granted}일</b>
+                </div>
+                <div>
+                  <span className="t-cap">사용</span>
+                  <b>{bal.used}일</b>
+                </div>
+                <div>
+                  <span className="t-cap">승인 대기</span>
+                  <b>{bal.pending}일</b>
+                </div>
+                <div className={bal.remaining < 0 ? 'neg' : 'left'}>
+                  <span className="t-cap">남은 연차</span>
+                  <b>{bal.remaining}일</b>
+                </div>
+              </div>
+              <span className="t-cap">{bal.rule}{hr?.leave_note ? ` · ${hr.leave_note}` : ''}</span>
+              {periodLeaves.length > 0 && (
+                <div className="table-wrap" style={{ maxHeight: 200 }}>
+                  <table className="table">
+                    <thead>
+                      <tr>
+                        <th>기간</th>
+                        <th>구분</th>
+                        <th className="num">일수</th>
+                        <th>상태</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {periodLeaves.map(l => (
+                        <tr key={l.id}>
+                          <td>{l.start_date === l.end_date ? dateLabel(l.start_date) : `${dateLabel(l.start_date)} ~ ${dateLabel(l.end_date)}`}</td>
+                          <td>
+                            {l.kind}
+                            {!DEDUCTS(l.kind) && <span className="t-cap"> (차감 안 함)</span>}
+                          </td>
+                          <td className="num">{l.days}</td>
+                          <td className={l.status === '반려' ? 't-cap' : ''}>{l.status}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </>
+          )}
+        </>
       )}
 
       {!p.is_agent && (
@@ -136,12 +225,17 @@ function HrForm({ initial, onDone }: { initial: HrRecord; onDone: () => void }) 
   const [f, setF] = useState(initial)
   const set = (k: keyof HrRecord) => (e: { target: { value: string } }) => setF({ ...f, [k]: e.target.value || null })
   const save = async () => {
-    const clean: HrRecord = { ...f, phone: f.phone?.trim() || null, address: f.address?.trim() || null, emergency_contact: f.emergency_contact?.trim() || null, note: f.note?.trim() || null }
+    const t = (v: string | null | undefined) => v?.trim() || null
+    const adj = Math.round(Number(f.leave_adjust ?? 0) * 2) / 2
+    const clean: HrRecord = { ...f, phone: t(f.phone), address: t(f.address), emergency_contact: t(f.emergency_contact), note: t(f.note), employee_no: t(f.employee_no), bank_name: t(f.bank_name), account_no: t(f.account_no), account_holder: t(f.account_holder), leave_adjust: Number.isFinite(adj) ? Math.max(-30, Math.min(30, adj)) : 0, leave_note: t(f.leave_note) }
     if (await run(() => api.saveHrRecord(clean), '인사기록을 저장했습니다.')) onDone()
   }
   return (
     <div className="col gap-10">
       <div className="form-grid">
+        <Field label="사원번호">
+          <input className="input" value={f.employee_no ?? ''} onChange={set('employee_no')} maxLength={20} placeholder="예: WK-2026-001" />
+        </Field>
         <Field label="입사일">
           <input className="input" type="date" value={f.joined_on ?? ''} onChange={set('joined_on')} />
         </Field>
@@ -156,6 +250,21 @@ function HrForm({ initial, onDone }: { initial: HrRecord; onDone: () => void }) 
         </Field>
         <Field label="주소" className="full">
           <input className="input" value={f.address ?? ''} onChange={set('address')} maxLength={200} />
+        </Field>
+        <Field label="급여 은행">
+          <input className="input" value={f.bank_name ?? ''} onChange={set('bank_name')} maxLength={40} placeholder="예: 국민" />
+        </Field>
+        <Field label="계좌번호">
+          <input className="input" value={f.account_no ?? ''} onChange={set('account_no')} maxLength={40} inputMode="numeric" placeholder="000000-00-000000" />
+        </Field>
+        <Field label="예금주">
+          <input className="input" value={f.account_holder ?? ''} onChange={set('account_holder')} maxLength={60} />
+        </Field>
+        <Field label="연차 조정 (일)">
+          <input className="input" type="number" step={0.5} min={-30} max={30} value={f.leave_adjust ?? 0} onChange={e => setF({ ...f, leave_adjust: e.target.value === '' ? 0 : Number(e.target.value) })} title="이번 연차 기간에만 적용 · 이월 · 포상은 +, 선사용 · 차감은 −" />
+        </Field>
+        <Field label="연차 메모" className="full">
+          <input className="input" value={f.leave_note ?? ''} onChange={set('leave_note')} maxLength={500} placeholder="조정 사유 (예: 작년 이월 2일)" />
         </Field>
         <Field label="비고" className="full">
           <textarea className="textarea" value={f.note ?? ''} onChange={set('note')} maxLength={2000} placeholder="계약 형태 · 직급 변경 · 교육 이수 등" />
