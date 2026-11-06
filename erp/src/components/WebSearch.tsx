@@ -259,15 +259,38 @@ const panelUsable = () => typeof window !== 'undefined' && window.innerWidth >= 
 const isWebUrl = (u: string) => /^https?:\/\//i.test(u)
 /** 링크를 오른쪽 창에서 엶 (대표 지시 2026-10-20 "링크를 클릭하면 오른쪽 창에서 열리게") · 못 쓰는 화면이면 새 탭 */
 export function openLink(url: string) {
-  if (isWebUrl(url) && panelUsable()) setOpenState({ q: url, engine: 'url' })
-  else window.open(url, '_blank', 'noopener')
+  // 대표 지시 2026-11-06 "모든 링크는 인트라넷 밖 팝업으로": 오른쪽 칸 대신 별도 팝업 창
+  openPopup(url)
+}
+/** 바깥 링크를 인트라넷 위에 뜨는 별도 창으로 (같은 창을 다시 씀 · 휴대폰은 새 탭) */
+export function openPopup(url: string) {
+  const w = Math.min(1280, Math.round(screen.availWidth * 0.8))
+  const h = Math.min(900, Math.round(screen.availHeight * 0.85))
+  const left = Math.round((screen.availWidth - w) / 2)
+  const top = Math.round((screen.availHeight - h) / 2)
+  const win = window.open(url, 'wkly-link', `popup=yes,width=${w},height=${h},left=${left},top=${top}`)
+  if (win) {
+    try {
+      win.opener = null
+    } catch {
+      /* 다른 도메인이면 무시 */
+    }
+    win.focus()
+  } else window.open(url, '_blank', 'noopener')
 }
 /** 인트라넷 안의 바깥 링크(<a href="https://…">) 클릭을 가로채 오른쪽 창으로. Ctrl · ⌘ · Shift 클릭은 원래대로 새 탭 */
 /** 인터넷 창을 쓰지 않음 — 오른쪽 칸은 주간 일정표 · 프로젝트 일정만 */
 const NO_WEB = true
 function onLinkClick(e: MouseEvent) {
-  // 인터넷 창 삭제 (대표 지시 2026-10-31): 링크는 브라우저 새 탭으로 그대로 열림
-  if (NO_WEB) return
+  // 인터넷 창 삭제 (대표 지시 2026-10-31) → 2026-11-06 "모든 링크는 인트라넷 밖 팝업으로": 바깥 링크는 팝업 창
+  if (NO_WEB) {
+    if (e.defaultPrevented || e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return
+    const a = (e.target as Element | null)?.closest?.('a[href]') as HTMLAnchorElement | null
+    if (!a || a.hasAttribute('download') || !isWebUrl(a.href) || new URL(a.href).origin === window.location.origin) return
+    e.preventDefault()
+    openPopup(a.href)
+    return
+  }
   if (e.defaultPrevented || e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return
   const a = (e.target as Element | null)?.closest?.('a[href]') as HTMLAnchorElement | null
   if (!a || a.hasAttribute('download') || a.dataset.external !== undefined || a.closest('.web-panel')) return
