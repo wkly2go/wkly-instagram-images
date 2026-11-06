@@ -530,7 +530,7 @@ function TaskAdder({ projectId, defaultAssignee }: { projectId: string | null; d
   const [alarm, setAlarm] = useState('')
   const add = async () => {
     if (!title.trim()) return
-    if (await run(() => api.saveTask({ project_id: projectId, title: title.trim(), assignee_id: assignee || null, due_date: due || null, remind_at: fromLocalInput(alarm) }), doneMsg(alarm))) {
+    if (await run(() => api.saveTask({ project_id: projectId, title: title.trim(), assignee_id: assignee || null, due_date: due || todayKey(), remind_at: fromLocalInput(alarm) }), doneMsg(alarm))) {
       setTitle('')
       setDue('')
       setAlarm('')
@@ -723,6 +723,8 @@ function ProjectDetail({ project: p, data, onEdit, onBack, panel = false }: { pr
   const agentIds = new Set(profiles.filter(x => x.is_agent).map(x => x.id))
   // 할 일 칸: 직접 적은 것 · 에이전트가 적은 것 + 이 칸에서 남에게 맡긴 할 일(단계 · 시작일 없는 단순 할 일) (대표 지시 2026-11-06 "할 일을 추가했는데 안 보여")
   const myTodos = tasks.filter(t => !t.origin && ((!!t.assignee_id && t.created_by === t.assignee_id) || (!!t.created_by && agentIds.has(t.created_by)) || (!t.phase && !t.start_date)))
+  const todoSorted = [...myTodos.filter(t => t.status !== '완료'), ...myTodos.filter(t => t.status === '완료')]
+  const [todoAll, setTodoAll] = useState(false)
   const client = data.clients.find(c => c.id === p.client_id)
   // 이 프로젝트에 연결된 자료는 오른쪽 칸(검색 창 자리)에 표시
   useRightPanel(panel ? null : `project:${p.id}`, '프로젝트 자료', <ProjectMaterials projectId={p.id} />)
@@ -849,12 +851,18 @@ function ProjectDetail({ project: p, data, onEdit, onBack, panel = false }: { pr
           <SectionHead title="할 일" count={`${myTodos.filter(t => t.status === '완료').length}/${myTodos.length}`} right={<span className="t-cap">여기서 넣은 할 일 · 에이전트가 적은 것 · 전체 일정은 오른쪽 프로젝트 일정</span>} />
           <TaskBoard
             // 할 일(안 끝난 것)을 맨 위에, 완료는 아래로 (대표 지시 2026-10-31)
-            list={[...myTodos.filter(t => t.status !== '완료'), ...myTodos.filter(t => t.status === '완료')]}
+            list={todoAll ? todoSorted : todoSorted.slice(0, 5)}
             projects={data.projects}
             onStatus={t => run(() => api.saveTask({ id: t.id, status: NEXT[t.status] }))}
             onDelete={async t => (await ask('이 할 일을 삭제할까요?')) && run(() => api.deleteTask(t.id))}
             onEdit={t => setEditingTask(t)}
           />
+          {/* 5개만 보이고 나머지는 접기 (대표 지시 2026-11-06) */}
+          {todoSorted.length > 5 && (
+            <button type="button" className="btn btn-ghost btn-sm todo-more" onClick={() => setTodoAll(v => !v)}>
+              {todoAll ? '접기 ▲' : `${todoSorted.length - 5}개 더 보기 ▼`}
+            </button>
+          )}
           <TaskAdder projectId={p.id} defaultAssignee={me.id} />
         </div>
       <ProjectVizLoader project={p} part="alarm" />
