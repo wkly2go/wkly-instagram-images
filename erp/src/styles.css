@@ -4100,3 +4100,53 @@ html[data-theme="dark"] .bigcal .day.m-day.picked .n { color: #13261a; }
 .quick-zoom button:hover:not(:disabled) { background: var(--blue-tint); }
 .quick-zoom button:disabled { color: var(--gray); opacity: .45; cursor: default; }
 .quick .bubble, .quick .msg-text, .quick .chat-body { font-size: var(--fs-body); }
+
+/* ---------------------------------------------------------------- 빠른 창 새 디자인 (대표 지시 2026-11-06 "빠른 창 디자인 세련되게")
+   얇은 흰 머리줄 · 밑줄 탭 · 테두리 없는 본문 · 부드러운 말풍선 · 한 줄로 정리된 입력칸 */
+.quick.q2 { padding: 0; gap: 0; background: #f6f7f4; }
+.q2-top { display: flex; align-items: center; gap: 8px; height: 48px; padding: 0 12px; background: #fff; border-bottom: 1px solid #ebede8; flex: none; }
+.q2-logo { height: 18px; width: auto; display: block; margin-right: 2px; }
+.q2-status { position: relative; display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 4px 0 10px; border: 1px solid #e3e6e0; border-radius: 999px; background: #fafbf9; cursor: pointer; }
+.q2-status select { appearance: none; -webkit-appearance: none; border: 0; background: transparent; font: 700 var(--fs-cap)/1 var(--font); color: var(--ink, #3a3a36); padding: 0 16px 0 0; cursor: pointer; outline: none;
+  background-image: linear-gradient(45deg, transparent 50%, #8a948c 50%), linear-gradient(135deg, #8a948c 50%, transparent 50%);
+  background-position: calc(100% - 7px) 55%, calc(100% - 3px) 55%; background-size: 4px 4px; background-repeat: no-repeat; }
+.q2-dot { width: 8px; height: 8px; border-radius: 999px; background: #2bac76; box-shadow: 0 0 0 3px color-mix(in srgb, #2bac76 18%, transparent); }
+.q2-status.s-외근 .q2-dot, .q2-status.s-미팅 .q2-dot { background: #e0a100; box-shadow: 0 0 0 3px color-mix(in srgb, #e0a100 18%, transparent); }
+.q2-status.s-재택 .q2-dot { background: #3d7be0; box-shadow: 0 0 0 3px color-mix(in srgb, #3d7be0 18%, transparent); }
+.q2-status.s-휴가 .q2-dot, .q2-status.s-퇴근 .q2-dot { background: #a0a69f; box-shadow: none; }
+.q2-icon { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border: 0; border-radius: 8px; background: transparent; color: #6b746d; cursor: pointer; }
+.q2-icon:hover { background: #eef2ec; color: var(--blue); }
+.quick.q2 .quick-zoom { border: 0; background: #f1f3ef; border-radius: 8px; padding: 2px; gap: 2px; }
+.quick.q2 .quick-zoom button { height: 26px; min-width: 30px; border: 0 !important; border-radius: 6px; background: transparent; color: #4f5a52; font-size: 11px; }
+.quick.q2 .quick-zoom button:hover:not(:disabled) { background: #fff; color: var(--blue); box-shadow: 0 1px 2px rgba(0, 0, 0, .06); }
+.q2-tabs { display: flex; gap: 0; padding: 0 8px; background: #fff; border-bottom: 1px solid #ebede8; flex: none; }
+.q2-tabs button { position: relative; flex: 1; height: 40px; border: 0; background: none; font: 600 var(--fs-sm)/1 var(--font); color: #7a837c; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.q2-tabs button:hover { color: var(--blue); }
+.q2-tabs button.on { color: var(--blue); font-weight: 800; }
+.q2-tabs button.on::after { content: ''; position: absolute; left: 22%; right: 22%; bottom: -1px; height: 3px; border-radius: 3px 3px 0 0; background: var(--blue); }
+.q2-badge { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: #e5484d; color: #fff; font: 700 10px/18px var(--mono); text-align: center; }
+.quick.q2 .card { border: 0 !important; border-radius: 0; padding: 0; background: transparent !important; }
+.quick.q2 .inner, .quick.q2 .inner.quick-chat { background: transparent !important; padding: 12px; }
+.quick.q2 .quick-brand, .quick.q2 .today-is { display: none; }
+/* 채팅 */
+.quick.q2 .chat-room > .select { height: 36px; border: 1px solid #e3e6e0; border-radius: 10px; background-color: #fff; font-weight: 700; color: var(--ink, #3a3a36); box-shadow: 0 1px 2px rgba(20, 40, 25, .04); }
+.quick.q2 .chat-body { margin: 0 -12px; padding: 12px 14px; background: transparent; }
+.quick.q2 .bubble { border: 0 !important; border-radius: 4px 14px 14px 14px; background: #fff; box-shadow: 0 1px 2px rgba(20, 40, 25, .07), 0 0 0 1px rgba(20, 40, 25, .04); padding: 9px 13px; line-height: 1.5; }
+.quick.q2 .bubble.mine { border-radius: 14px 4px 14px 14px; background: color-mix(in srgb, var(--blue) 12%, #fff); box-shadow: none; }
+.quick.q2 .msg-date, .quick.q2 .day-sep { background: transparent; border: 0; color: #8a948c; font-size: var(--fs-cap); }
+.quick.q2 .quick-composer { align-items: center; gap: 6px; padding: 6px; margin: 0 -4px -4px; background: #fff; border: 1px solid #e3e6e0; border-radius: 14px; box-shadow: 0 2px 8px rgba(20, 40, 25, .06); }
+.quick.q2 .quick-composer:focus-within { border-color: color-mix(in srgb, var(--blue) 45%, #e3e6e0); }
+.quick.q2 .quick-composer .textarea { border: 0 !important; background: transparent; box-shadow: none; padding: 8px 6px; min-height: 36px; }
+.quick.q2 .quick-composer .composer-tools .btn, .quick.q2 .quick-composer .attach-btn, .quick.q2 .quick-composer .icon-btn { border: 0; border-radius: 8px; background: transparent; color: #6b746d; }
+.quick.q2 .quick-composer .assign-chip { height: 28px; border-color: #d7ded6; color: var(--blue); background: #f6f8f5; }
+.quick.q2 .send-btn { width: 36px; height: 36px; border-radius: 10px; border: 0; background: var(--blue); color: #fff; display: inline-flex; align-items: center; justify-content: center; }
+.quick.q2 .send-btn:disabled { background: #cfd8d1; }
+/* 메뉴 · 기록 */
+.quick.q2 .quick-menu { gap: 8px; }
+.quick.q2 .quick-menu-item { border: 0 !important; border-radius: 12px; background: #fff; box-shadow: 0 1px 2px rgba(20, 40, 25, .07), 0 0 0 1px rgba(20, 40, 25, .04); font-weight: 700; }
+.quick.q2 .quick-menu-item:hover { background: color-mix(in srgb, var(--blue) 7%, #fff); color: var(--blue); }
+.quick.q2 .inner > .dashed { border-color: #e3e6e0; }
+.quick.q2 .quick-menu-item { color: var(--ink, #3a3a36); }
+.quick.q2 .inner, .quick.q2 .inner.quick-chat { padding: 14px 14px 12px !important; }
+.quick.q2 .chat-body { margin: 0 -14px !important; }
+.quick.q2 .quick-composer { margin: 0 !important; }

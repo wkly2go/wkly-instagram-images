@@ -75,54 +75,52 @@ export default function Quick({ onClose }: { onClose?: () => void }) {
     }
   }
   return (
-    <div className="quick" style={{ ['--fs-m' as string]: fs }}>
-      {/* 흰 로고는 시리즈 블루 띠 위에만. PiP 창은 문서 주소가 달라 절대 주소로 로고를 불러옴 */}
-      <div className="quick-brand">
-        <img className="quick-logo" src={`${window.location.origin}/wkly-logo-white.svg`} alt="WKLY" width={120} height={38} />
-      </div>
+    <div className="quick q2" style={{ ['--fs-m' as string]: fs }}>
+      {/* 2026-11-06 "빠른 창 디자인 세련되게": 얇은 흰 머리줄(로고 · 오늘 상태 · 글자 크기 · 고정) + 밑줄 탭 */}
+      <header className="q2-top">
+        <img className="q2-logo" src={`${window.location.origin}/wkly-logo-green.svg`} alt="WKLY" width={64} height={20} />
+        <label className={`q2-status s-${me.today_status}`} title="오늘 상태">
+          <span className="q2-dot" aria-hidden="true" />
+          <select value={me.today_status} onChange={e => setStatus(e.target.value as TodayStatus)} aria-label="오늘 상태">
+            {TODAY_STATUSES.map(s => (
+              <option key={s}>{s}</option>
+            ))}
+          </select>
+        </label>
+        <span className="grow" />
+        <span className="quick-zoom" role="group" aria-label="글자 크기">
+          <button type="button" onClick={() => zoom(-1)} disabled={fs === FS_STEPS[0]} aria-label="글자 작게" title="글자 작게">
+            가−
+          </button>
+          <button type="button" onClick={() => zoom(1)} disabled={fs === FS_STEPS[FS_STEPS.length - 1]} aria-label="글자 크게" title="글자 크게">
+            가+
+          </button>
+        </span>
+        {!pip && supportsPip() && (
+          <button type="button" className="q2-icon" onClick={() => openQuick('pin')} aria-label="항상 위에 띄우기" title="다른 프로그램 위에 항상 떠 있게">
+            <Pin size={15} />
+          </button>
+        )}
+        {onClose && (
+          <button type="button" className="q2-icon" onClick={onClose} aria-label="닫기">
+            <X size={16} />
+          </button>
+        )}
+      </header>
+      <nav className="q2-tabs" role="tablist" aria-label="빠른 창 메뉴">
+        <button type="button" role="tab" aria-selected={mode === 'log'} className={mode === 'log' ? 'on' : ''} onClick={() => pick('log')}>
+          빠른 기록
+        </button>
+        <button type="button" role="tab" aria-selected={mode === 'chat'} className={mode === 'chat' ? 'on' : ''} onClick={() => pick('chat')}>
+          채팅
+          {unread > 0 && <span className="q2-badge">{unread > 99 ? '99+' : unread}</span>}
+        </button>
+        <button type="button" role="tab" aria-selected={mode === 'menu'} className={mode === 'menu' ? 'on' : ''} onClick={() => pick('menu')}>
+          메뉴
+        </button>
+      </nav>
       <div className="card">
         <div className={`inner ${mode === 'chat' ? 'quick-chat' : ''}`} style={{ gap: 10 }}>
-          <div className="row">
-            <div className="seg" role="tablist" aria-label="빠른 창 메뉴">
-              <button type="button" role="tab" aria-selected={mode === 'log'} className={mode === 'log' ? 'on' : ''} onClick={() => pick('log')}>
-                빠른 기록
-              </button>
-              <button type="button" role="tab" aria-selected={mode === 'chat'} className={mode === 'chat' ? 'on' : ''} onClick={() => pick('chat')}>
-                채팅
-                {unread > 0 && <span className="dot">{unread > 99 ? '99+' : unread}</span>}
-              </button>
-              <button type="button" role="tab" aria-selected={mode === 'menu'} className={mode === 'menu' ? 'on' : ''} onClick={() => pick('menu')}>
-                메뉴
-              </button>
-            </div>
-            <span className="grow" />
-            <span className="quick-zoom" role="group" aria-label="글자 크기">
-              <button type="button" onClick={() => zoom(-1)} disabled={fs === FS_STEPS[0]} aria-label="글자 작게" title="글자 작게">
-                가−
-              </button>
-              <button type="button" onClick={() => zoom(1)} disabled={fs === FS_STEPS[FS_STEPS.length - 1]} aria-label="글자 크게" title="글자 크게">
-                가+
-              </button>
-            </span>
-            {!pip && supportsPip() && (
-              <button type="button" className="icon-btn sm" onClick={() => openQuick('pin')} aria-label="항상 위에 띄우기" title="다른 프로그램 위에 항상 떠 있게">
-                <Pin size={15} />
-              </button>
-            )}
-            {onClose && (
-              <button type="button" className="icon-btn sm" onClick={onClose} aria-label="닫기">
-                <X size={16} />
-              </button>
-            )}
-          </div>
-          <label className="today-is">
-            <span className="t-meta">{me.name} · TODAY IS</span>
-            <select value={me.today_status} onChange={e => setStatus(e.target.value as TodayStatus)} aria-label="오늘 상태">
-              {TODAY_STATUSES.map(s => (
-                <option key={s}>{s}</option>
-              ))}
-            </select>
-          </label>
           {mode === 'log' ? <QuickLog /> : mode === 'chat' ? <QuickChat rooms={rooms} /> : <QuickMenu pip={pip} />}
         </div>
       </div>
