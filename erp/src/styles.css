@@ -4273,3 +4273,10 @@ html[data-theme="dark"] .bigcal .day.m-day.picked .n { color: #13261a; }
 html[data-theme="dark"] .section-h > .t-bodyb { color: var(--pink) !important; }
 .ledger-head .ledger-year { width: auto; height: 34px !important; line-height: 1.2 !important; padding: 0 30px 0 10px !important; font-weight: 800; font-size: var(--fs-body) !important; }
 .cmp-table tfoot tr.cmp-total td { background: #f3f5f1; border-top: 2px solid var(--line); font-weight: 700; padding: 8px; }
+/* 현장 실측: 골라서 다른 프로젝트로 옮기기 (2026-11-06) */
+.site-move { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 10px; background: color-mix(in srgb, var(--pink) 7%, var(--white)); border: 1px solid color-mix(in srgb, var(--pink) 40%, var(--line)); }
+.site-move .select { flex: 1 1 260px; min-width: 0; height: 34px; }
+.site-thumb { position: relative; }
+.site-thumb.picked { outline: 3px solid var(--pink); outline-offset: -3px; }
+.site-pick-box { position: absolute; top: 6px; left: 6px; z-index: 2; width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; background: rgba(255,255,255,.92); border: 2px solid #9aa39b; color: #fff; }
+.site-pick-box.on { background: var(--pink); border-color: var(--pink); }

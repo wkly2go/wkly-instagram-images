@@ -42,10 +42,38 @@ function useSignedUrl(path: string | null | undefined) {
   return url
 }
 
+/** 프로젝트 고르기: 상태별로 묶어서 (대표 지시 2026-11-06 "프로젝트를 구분해줘") · 묶음 안은 연번 최신순 */
+const STATUS_GROUPS: [Project['status'], string][] = [
+  ['진행', '진행 중'],
+  ['기획', '기획 · 준비'],
+  ['보류', '보류'],
+  ['NIC', 'NIC (수주 안 됨)'],
+  ['완료', '완료'],
+]
+function ProjectOptions({ projects, exclude }: { projects: Project[]; exclude?: string }) {
+  return (
+    <>
+      {STATUS_GROUPS.map(([st, label]) => {
+        const list = projects.filter(p => p.status === st && p.id !== exclude).sort((a, b) => (b.code ?? '').localeCompare(a.code ?? ''))
+        return list.length ? (
+          <optgroup key={st} label={`${label} · ${list.length}`}>
+            {list.map(p => (
+              <option key={p.id} value={p.id}>
+                {p.code ? `${p.code} ` : ''}
+                {p.name}
+              </option>
+            ))}
+          </optgroup>
+        ) : null
+      })}
+    </>
+  )
+}
+
 export function Site() {
   const { api, version } = useApp()
   const { data: projects } = useAsync(() => api.listProjects(), [version], [] as Project[])
-  const active = useMemo(() => projects.filter(p => !['완료', '보류'].includes(p.status)).sort((a, b) => (b.code ?? '').localeCompare(a.code ?? '')), [projects])
+  const active = useMemo(() => projects.filter(p => p.status === '진행' || p.status === '기획').sort((a, b) => (b.code ?? '').localeCompare(a.code ?? '')), [projects])
   const [pid, setPid] = useState<string | null>(readLast())
   const project = projects.find(p => p.id === pid) ?? active[0] ?? null
   // 체크리스트가 맨 앞 · 기본 (대표 지시 2026-11-04 "현장 실측에 체크리스트도") · 마지막에 본 탭 기억
@@ -82,20 +110,7 @@ export function Site() {
         <label className="site-pick">
           <span>프로젝트</span>
           <select className="select" value={project?.id ?? ''} onChange={e => choose(e.target.value)}>
-            {active.map(p => (
-              <option key={p.id} value={p.id}>
-                {p.code ? `${p.code} ` : ''}
-                {p.name}
-              </option>
-            ))}
-            {projects
-              .filter(p => !active.includes(p))
-              .map(p => (
-                <option key={p.id} value={p.id}>
-                  (끝남) {p.code ? `${p.code} ` : ''}
-                  {p.name}
-                </option>
-              ))}
+            <ProjectOptions projects={projects} />
           </select>
         </label>
         <div className="site-tabs" role="tablist">
@@ -118,9 +133,9 @@ export function Site() {
           <span className="t-cap">프로젝트가 없습니다.</span>
         </section>
       ) : tab === 'photo' ? (
-        <PhotoTab key={project.id} project={project} />
+        <PhotoTab key={project.id} project={project} projects={projects} />
       ) : tab === 'plan' ? (
-        <PlanTab key={project.id} project={project} />
+        <PlanTab key={project.id} project={project} projects={projects} />
       ) : (
         <section className="section">
           <SiteSurveySection key={project.id} project={project} />
@@ -147,8 +162,34 @@ function useUpload(project: Project, after?: (shots: SiteShot[]) => void) {
   return { busy, upload }
 }
 
-function PhotoTab({ project }: { project: Project }) {
+/** 고른 사진 · 도면을 다른 프로젝트(방)로 옮기기 (대표 지시 2026-11-06 "현장실측에 있는 자료 선택해서 다른 방으로 옮기게")
+ *  - 사진: 체크리스트 항목 연결 · 도면 핀은 풀림 (그 프로젝트 것이라서)
+ *  - 도면: 그 도면에 핀으로 놓인 사진도 같이 옮김 */
+function MoveBar({ count, projects, from, busy, onMove, onCancel, what }: { count: number; projects: Project[]; from: string; busy: boolean; onMove: (to: string) => void; onCancel: () => void; what: string }) {
+  const [to, setTo] = useState('')
+  return (
+    <div className="site-move">
+      <b>{count ? `${what} ${count}개 고름` : `옮길 ${what}을(를) 누르세요`}</b>
+      <select className="select" value={to} onChange={e => setTo(e.target.value)} aria-label="옮길 프로젝트">
+        <option value="">옮길 프로젝트 고르기</option>
+        <ProjectOptions projects={projects} exclude={from} />
+      </select>
+      <Button size="sm" disabled={busy || !count || !to} onClick={() => onMove(to)}>
+        옮기기
+      </Button>
+      <Button size="sm" kind="ghost" onClick={onCancel}>
+        취소
+      </Button>
+    </div>
+  )
+}
+
+function PhotoTab({ project, projects }: { project: Project; projects: Project[] }) {
   const { api, version } = useApp()
+  const { busy: moving, run } = useAction()
+  const [picking, setPicking] = useState(false)
+  const [picked, setPicked] = useState<string[]>([])
+  const toggle = (id: string) => setPicked(v => (v.includes(id) ? v.filter(x => x !== id) : [...v, id]))
   const { data: shots, reload } = useAsync(() => api.listSitePhotos(project.id).catch(() => [] as SiteShot[]), [project.id, version], [] as SiteShot[])
   const { data: items } = useAsync(() => api.listSurvey(project.id).catch(() => [] as SiteSurveyItem[]), [project.id, version], [] as SiteSurveyItem[])
   const [openId, setOpenId] = useState<string | null>(null)
@@ -169,13 +210,38 @@ function PhotoTab({ project }: { project: Project }) {
           <input type="file" accept="image/*" multiple hidden disabled={busy} onChange={e => (upload(e.target.files), (e.target.value = ''))} />
         </label>
       </div>
-      <span className="t-cap">사진을 누르면 두 점을 찍어 치수 선을 긋고 값을 적습니다.</span>
+      <div className="row">
+        <span className="t-cap grow">사진을 누르면 두 점을 찍어 치수 선을 긋고 값을 적습니다.</span>
+        {shots.length > 0 && !picking && (
+          <Button size="sm" kind="outline" onClick={() => setPicking(true)}>
+            골라서 옮기기
+          </Button>
+        )}
+      </div>
+      {picking && (
+        <MoveBar
+          what="사진"
+          count={picked.length}
+          projects={projects}
+          from={project.id}
+          busy={moving}
+          onCancel={() => (setPicking(false), setPicked([]))}
+          onMove={to =>
+            void run(async () => {
+              for (const s of shots.filter(x => picked.includes(x.id))) await api.saveSitePhoto({ id: s.id, project_id: to, path: s.path, survey_item_id: null, plan_id: null, plan_x: null, plan_y: null })
+              setPicking(false)
+              setPicked([])
+              reload()
+            }, `사진 ${picked.length}장을 ${projects.find(p => p.id === to)?.name ?? '다른 프로젝트'}(으)로 옮겼습니다.`)
+          }
+        />
+      )}
       {shots.length === 0 ? (
         <div className="site-empty">아직 사진이 없습니다. 현장에서 [사진 찍기]를 눌러 시작하세요.</div>
       ) : (
         <div className="site-grid">
           {shots.map(s => (
-            <Thumb key={s.id} shot={s} item={items.find(i => i.id === s.survey_item_id)} onOpen={() => setOpenId(s.id)} />
+            <Thumb key={s.id} shot={s} item={items.find(i => i.id === s.survey_item_id)} picked={picking ? picked.includes(s.id) : undefined} onOpen={() => (picking ? toggle(s.id) : setOpenId(s.id))} />
           ))}
         </div>
       )}
@@ -185,10 +251,11 @@ function PhotoTab({ project }: { project: Project }) {
   )
 }
 
-function Thumb({ shot, item, onOpen }: { shot: SiteShot; item?: SiteSurveyItem; onOpen: () => void }) {
+function Thumb({ shot, item, onOpen, picked }: { shot: SiteShot; item?: SiteSurveyItem; onOpen: () => void; picked?: boolean }) {
   const url = useSignedUrl(shot.path)
   return (
-    <button type="button" className="site-thumb" onClick={onOpen}>
+    <button type="button" className={`site-thumb${picked ? ' picked' : ''}`} onClick={onOpen} aria-pressed={picked}>
+      {picked !== undefined && <span className={`site-pick-box${picked ? ' on' : ''}`}>{picked ? <Check size={14} /> : null}</span>}
       {url ? <img src={url} alt="현장 사진" loading="lazy" /> : <span className="site-thumb-ph" />}
       <span className="site-thumb-meta">
         {shot.marks.length ? <b>치수 {shot.marks.length}</b> : <span>치수 없음</span>}
@@ -329,7 +396,7 @@ function MeasureEditor({ shot, items, onClose, onSaved }: { shot: SiteShot; item
   )
 }
 
-function PlanTab({ project }: { project: Project }) {
+function PlanTab({ project, projects }: { project: Project; projects: Project[] }) {
   const { api, version } = useApp()
   const { busy, run } = useAction()
   const { data, reload } = useAsync(
@@ -343,6 +410,7 @@ function PlanTab({ project }: { project: Project }) {
   const [planId, setPlanId] = useState<string | null>(null)
   const plan = data.plans.find(p => p.id === planId) ?? data.plans[0] ?? null
   const [placing, setPlacing] = useState<string | null>(null)
+  const [movingPlan, setMovingPlan] = useState(false)
   const [peek, setPeek] = useState<string | null>(null)
   const planUrl = useSignedUrl(plan?.path)
   const box = useRef<HTMLDivElement>(null)
@@ -388,6 +456,33 @@ function PlanTab({ project }: { project: Project }) {
         </label>
       </div>
       <span className="t-cap">도면은 이미지(JPG · PNG)로 올립니다. PDF 도면은 화면 캡처나 이미지로 저장해 올려 주세요.</span>
+      {data.plans.length > 0 && (movingPlan ? (
+        <MoveBar
+          what="도면"
+          count={plan ? 1 : 0}
+          projects={projects}
+          from={project.id}
+          busy={busy}
+          onCancel={() => setMovingPlan(false)}
+          onMove={to =>
+            plan &&
+            void run(async () => {
+              await api.saveSitePlan({ id: plan.id, project_id: to, path: plan.path, name: plan.name })
+              for (const s of data.shots.filter(x => x.plan_id === plan.id)) await api.saveSitePhoto({ id: s.id, project_id: to, path: s.path, survey_item_id: null, plan_id: plan.id, plan_x: s.plan_x, plan_y: s.plan_y })
+              setMovingPlan(false)
+              setPlanId(null)
+              reload()
+            }, `도면 '${plan.name}'과 핀 사진을 ${projects.find(p => p.id === to)?.name ?? '다른 프로젝트'}(으)로 옮겼습니다.`)
+          }
+        />
+      ) : (
+        <div className="row">
+          <span className="t-cap grow">{plan ? `지금 도면: ${plan.name} · 핀 사진 ${data.shots.filter(x => x.plan_id === plan.id).length}장` : ''}</span>
+          <Button size="sm" kind="outline" onClick={() => setMovingPlan(true)}>
+            이 도면 다른 프로젝트로 옮기기
+          </Button>
+        </div>
+      ))}
       {data.plans.length > 1 && (
         <div className="site-plan-pick">
           {data.plans.map(p => (
