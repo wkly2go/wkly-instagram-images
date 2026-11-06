@@ -1290,3 +1290,43 @@ export interface MailFile {
 export const mailSubjectPrefix = (p: { code?: string | null; name: string }) => `[${[p.code, p.name].filter(Boolean).join(' ')}] `
 export const gmailComposeUrl = (subject: string) => `https://mail.google.com/mail/?view=cm&fs=1&su=${encodeURIComponent(subject)}`
 export const gmailThreadUrl = (threadId: string) => `https://mail.google.com/mail/u/0/#all/${threadId}`
+
+/** 슬랙 채널 ↔ 프로젝트 연결 (0088) */
+export interface SlackLink {
+  id: string
+  project_id: string
+  channel_id: string
+  channel_name: string
+  last_ts: string | null
+  imported_count: number
+  file_count: number
+  last_imported_at: string | null
+}
+export interface SlackFile {
+  name: string
+  mime: string
+  size: number
+  drive_id?: string
+  drive_url?: string
+  slack_url?: string
+  skipped?: string
+}
+/** 슬랙에서 가져온 대화 한 줄 */
+export interface SlackMessage {
+  id: string
+  project_id: string
+  channel_id: string
+  channel_name: string
+  ts: string
+  thread_ts: string | null
+  user_name: string
+  text: string
+  files: SlackFile[]
+  posted_at: string
+}
+export interface SlackChannel {
+  id: string
+  name: string
+  is_private: boolean
+  is_member: boolean
+}

@@ -4054,3 +4054,24 @@ html[data-theme="dark"] .t-cap, html[data-theme="dark"] .t-meta, html[data-theme
   .bigcal + .m-agenda + .legend { font-size: var(--fs-cap); }
 }
 html[data-theme="dark"] .bigcal .day.m-day.picked .n { color: #13261a; }
+
+/* 슬랙 대화 · 자료 (프로젝트 · 2026-11-05) */
+.slack-sec { display: flex; flex-direction: column; gap: 10px; }
+.slack-setup { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; background: var(--paper); border: 1px dashed var(--line); }
+.slack-setup ol { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; font-size: var(--fs-sm); line-height: 1.6; }
+.slack-setup code, .slack-sec code { font: 400 var(--fs-cap)/1.4 var(--mono); background: var(--white); border: 1px solid var(--line); padding: 0 4px; }
+.slack-links { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.slack-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 4px 4px 10px; border: 1px solid color-mix(in srgb, var(--blue) 35%, var(--line)); background: var(--blue-tint); color: var(--blue); font-size: var(--fs-sm); }
+.slack-chip b { font-weight: 700; }
+.slack-pick .select { min-width: 200px; }
+.slack-msgs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; border-top: 1px solid var(--line); }
+.slack-msgs li { display: flex; flex-direction: column; gap: 4px; padding: 10px 2px; border-bottom: 1px solid var(--line); }
+.slack-msgs li.reply { padding-left: 18px; border-left: 3px solid var(--blue-tint); }
+.slack-meta { display: flex; align-items: baseline; gap: 8px; }
+.slack-meta b { font-size: var(--fs-body); color: var(--blue); }
+.slack-text { font-size: var(--fs-body); line-height: 1.55; color: var(--ink, #3a3a36); }
+.slack-files { display: flex; flex-wrap: wrap; gap: 6px; }
+.slack-file { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; padding: 4px 9px; border: 1px solid var(--line); background: var(--white); color: var(--blue); font: 600 var(--fs-sm)/1.3 var(--font); cursor: pointer; }
+.slack-file:hover { background: var(--blue-tint); }
+.slack-file.off { color: var(--gray); cursor: default; }
+@media (max-width: 640px) { .slack-pick { width: 100%; } .slack-pick .select { flex: 1; min-width: 0; } .slack-chip { max-width: 100%; } }

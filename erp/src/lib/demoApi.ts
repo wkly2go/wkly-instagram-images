@@ -1,8 +1,10 @@
 import { desktop } from './desktop'
-import type { MaterialMove, MaterialStockRow } from './types'
+import type { MaterialMove, MaterialStockRow, SlackLink, SlackMessage } from './types'
 import { ApiError, groupIps, type Api, type DriveFolder, type ImportResult, type MessageEvent } from './api'
 import { addDays, nextMonday, toDateKey, todayKey } from './date'
 import { DEFAULT_REPORT_BODY } from './reports'
+
+const demoSlack: { links: SlackLink[]; messages: SlackMessage[] } = { links: [], messages: [] }
 import type {
   Subscription,
   ExchangeFile,
@@ -2203,6 +2205,62 @@ export function createDemoApi(): Api {
     // 데모: 드라이브 연결 없음 → 올리기 안 됨
     async listMailFiles() {
       return []
+    },
+    // 체험 모드 슬랙: 연결된 것처럼 채널 · 대화 예시를 보여 줌 (실제 슬랙 · 드라이브에는 가지 않음)
+    async slackStatus() {
+      return { connected: true, team: 'THE WKLY (체험)', bot: 'wkly-intranet' }
+    },
+    async slackSetToken() {
+      return { connected: true, team: 'THE WKLY (체험)' }
+    },
+    async slackChannels() {
+      return [
+        { id: 'C01', name: 'proj-한남-플래그십', is_private: false, is_member: true },
+        { id: 'C02', name: 'proj-성수-팝업', is_private: false, is_member: true },
+        { id: 'C03', name: '디자인팀', is_private: true, is_member: false },
+      ]
+    },
+    async listSlackLinks(projectId) {
+      return demoSlack.links.filter(l => l.project_id === projectId)
+    },
+    async slackLink(projectId, ch) {
+      if (!demoSlack.links.some(l => l.project_id === projectId && l.channel_id === ch.id))
+        demoSlack.links.push({ id: `sl${Date.now()}`, project_id: projectId, channel_id: ch.id, channel_name: ch.name, last_ts: null, imported_count: 0, file_count: 0, last_imported_at: null })
+    },
+    async slackUnlink(projectId, channelId) {
+      demoSlack.links = demoSlack.links.filter(l => !(l.project_id === projectId && l.channel_id === channelId))
+    },
+    async slackImport(projectId) {
+      const links = demoSlack.links.filter(l => l.project_id === projectId)
+      if (!links.length) throw new ApiError('연결된 슬랙 채널이 없습니다.')
+      let n = 0
+      for (const l of links) {
+        if (l.last_ts) continue
+        const base = Date.now() - 3 * 3600_000
+        const rows: [string, string, { name: string; mime: string; size: number }[]][] = [
+          ['김하늘', '현장 실측 끝났습니다. 도면이랑 사진 올려요', [{ name: '1층_평면도_실측.pdf', mime: 'application/pdf', size: 820_000 }]],
+          ['이도윤', '벽체 마감재 샘플 3종 비교표입니다', [{ name: '마감재_비교.xlsx', mime: 'application/vnd.ms-excel', size: 64_000 }]],
+          ['박서연', '내일 10시 클라이언트 미팅 확정됐어요. 시안 2안까지 준비 부탁드립니다.', []],
+          ['김하늘', '현장 사진 추가', [{ name: 'IMG_2031.jpg', mime: 'image/jpeg', size: 2_400_000 }, { name: 'IMG_2032.jpg', mime: 'image/jpeg', size: 2_100_000 }]],
+        ]
+        rows.forEach(([who, text, files], i) => {
+          const ms = base + i * 40 * 60_000
+          demoSlack.messages.unshift({
+            id: `sm${l.channel_id}${i}`, project_id: projectId, channel_id: l.channel_id, channel_name: l.channel_name, ts: String(ms / 1000), thread_ts: null,
+            user_name: who, text, posted_at: new Date(ms).toISOString(),
+            files: files.map(f => ({ ...f, drive_url: 'https://drive.google.com/', drive_id: 'demo' })),
+          })
+          n++
+        })
+        l.last_ts = String(Date.now() / 1000)
+        l.imported_count += rows.length
+        l.file_count += rows.reduce((a, r) => a + r[2].length, 0)
+        l.last_imported_at = new Date().toISOString()
+      }
+      return { messages: n, files: n ? 4 : 0, more: false, errors: [] }
+    },
+    async listSlackMessages(projectId) {
+      return demoSlack.messages.filter(m => m.project_id === projectId).sort((a, b) => b.posted_at.localeCompare(a.posted_at))
     },
     async fieldUploadFolder() {
       return null

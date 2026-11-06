@@ -1,6 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { isHiddenName, isReferencePath } from './gdrive'
-import type { FieldUpload, MailFile, LedgerStatus, MailItem, MaterialItem, MaterialMove, MaterialStockRow } from './types'
+import type { FieldUpload, MailFile, SlackChannel, SlackLink, SlackMessage, LedgerStatus, MailItem, MaterialItem, MaterialMove, MaterialStockRow } from './types'
 import { ApiError, CHAT_FILE_MAX, EXCHANGE_FILE_MAX, groupIps, type AgentDraft, type Api, type DriveEnsureResult, type DriveFolder, type DriveStatus, type ImportResult } from './api'
 import { desktop } from './desktop'
 import type {
@@ -85,6 +85,20 @@ function strip<T extends object>(obj: T, keys: string[]): Partial<T> {
 }
 
 const READONLY = ['id', 'created_at', 'updated_at', 'created_by', 'can_decide', 'completed_at', 'edited_at', 'reminded_at', 'opt_out_at', 'updated_by']
+
+/** 서버 함수가 400 · 500 으로 돌려준 { error } 글을 꺼냄 (없으면 기본 문구) */
+async function fnError(error: unknown, fallback: string): Promise<string> {
+  const ctx = (error as { context?: Response } | null)?.context
+  if (ctx && typeof ctx.json === 'function') {
+    try {
+      const b = (await ctx.clone().json()) as { error?: string }
+      if (b?.error) return b.error
+    } catch {
+      /* 글이 아니면 기본 문구 */
+    }
+  }
+  return fallback
+}
 
 export function createSupabaseApi(url: string, key: string): Api {
   const sb: SupabaseClient = createClient(url, key, {
@@ -1009,6 +1023,42 @@ export function createSupabaseApi(url: string, key: string): Api {
       q = q.contains('project_ids', [projectId])
       const { data, error } = await q
       return error ? [] : (data as MailItem[])
+    },
+    async slackStatus() {
+      const { data, error } = await sb.functions.invoke('slack-import', { body: { action: 'status' } })
+      if (error) return { connected: false, error: await fnError(error, '슬랙 상태 확인 실패') }
+      return data as { connected: boolean; team?: string; bot?: string; error?: string }
+    },
+    async slackSetToken(token) {
+      const { data, error } = await sb.functions.invoke('slack-import', { body: { action: 'set_token', token } })
+      if (error || data?.error) throw new ApiError(data?.error ?? (await fnError(error, '슬랙 연결 실패')))
+      return data as { connected: boolean; team?: string }
+    },
+    async slackChannels() {
+      const { data, error } = await sb.functions.invoke('slack-import', { body: { action: 'channels' } })
+      if (error || data?.error) throw new ApiError(data?.error ?? (await fnError(error, '채널 목록을 불러오지 못했습니다')))
+      return (data?.channels ?? []) as SlackChannel[]
+    },
+    async listSlackLinks(projectId) {
+      const { data, error } = await sb.from('slack_links').select('*').eq('project_id', projectId).order('created_at')
+      return error ? [] : (data as SlackLink[])
+    },
+    async slackLink(projectId, channel) {
+      const { data, error } = await sb.functions.invoke('slack-import', { body: { action: 'link', project_id: projectId, channel_id: channel.id, channel_name: channel.name } })
+      if (error || data?.error) throw new ApiError(data?.error ?? (await fnError(error, '채널 연결 실패')))
+    },
+    async slackUnlink(projectId, channelId) {
+      const { data, error } = await sb.functions.invoke('slack-import', { body: { action: 'unlink', project_id: projectId, channel_id: channelId } })
+      if (error || data?.error) throw new ApiError(data?.error ?? (await fnError(error, '연결 해제 실패')))
+    },
+    async slackImport(projectId) {
+      const { data, error } = await sb.functions.invoke('slack-import', { body: { action: 'import', project_id: projectId } })
+      if (error || data?.error) throw new ApiError(data?.error ?? (await fnError(error, '슬랙 가져오기 실패')))
+      return { messages: data.messages ?? 0, files: data.files ?? 0, more: !!data.more, errors: data.errors ?? [] }
+    },
+    async listSlackMessages(projectId, limit = 80) {
+      const { data, error } = await sb.from('slack_messages').select('*').eq('project_id', projectId).order('posted_at', { ascending: false }).limit(limit)
+      return error ? [] : (data as SlackMessage[])
     },
     async listMailFiles(projectId, clientId) {
       let q = sb.from('mail_files').select('id,mail_id,thread_id,name,kind,source,vendor,client_id,project_ids,drive_url,folder_id,sent_at').order('sent_at', { ascending: false }).limit(60)

@@ -4,6 +4,7 @@ import { ProjectMaterials } from '../components/ProjectMaterials'
 import { SiteSurveySection } from '../components/SiteSurvey'
 import { SiteLogsSection } from '../components/SiteLogs'
 import { ProjectDriveSection, useProjectFolderSync } from '../components/DriveFiles'
+import { SlackSection } from '../components/SlackSection'
 import { usePanelWide, useRightPanel } from '../components/RightPanel'
 import type { Approval } from '../lib/types'
 import { useAction, useApp, useAsync } from '../lib/app'
@@ -868,6 +869,8 @@ function ProjectDetail({ project: p, data, onEdit, onBack, panel = false }: { pr
       <SiteLogsSection project={p} always={projectBrand(p) === 'AR'} clients={data.clients} />
       {/* 구글 드라이브 자료: 드라이브 파일을 가리켜 늘 최신 · 구글 문서는 편집 화면으로 */}
       <ProjectDriveSection project={p} />
+      {/* 슬랙 채널 대화 · 공유 파일 가져오기 (대표 지시 2026-11-05) */}
+      <SlackSection project={p} />
       {/* 회사 메일함에서 이 프로젝트 · 거래처와 연결된 메일 (지메일 · 읽기만) */}
       <ProjectMails project={p} />
       {/* 이 프로젝트의 결재 · 보고: 올린 결재가 있을 때만 (대표 지시 2026-10-31 빈 칸 삭제) */}
