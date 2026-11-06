@@ -19,7 +19,7 @@ export function SlackSection({ project }: { project: Project }) {
   // 서버가 2분마다 슬랙에서 새 글을 가져오므로 화면도 1분마다 다시 읽음
   const [tick, setTick] = useState(0)
   useEffect(() => {
-    const t = window.setInterval(() => document.visibilityState === 'visible' && setTick(n => n + 1), 60_000)
+    const t = window.setInterval(() => document.visibilityState === 'visible' && setTick(n => n + 1), 20_000)
     return () => window.clearInterval(t)
   }, [])
   const { data: links } = useAsync(() => api.listSlackLinks(project.id), [project.id, version, tick], [] as SlackLink[])
@@ -93,10 +93,12 @@ export function SlackSection({ project }: { project: Project }) {
     }, '슬랙에서 새 대화 · 파일을 가져왔습니다.')
   // 대표 지시 2026-11-06 "모든 대화와 자료들은 접을 수 있는 탭": 칸 전체 접기 · 대화 / 자료 탭 · 날짜별 접기 (최근 날짜만 펼침)
   const kday = (iso: string) => new Date(new Date(iso).getTime() + 9 * 3600_000).toISOString().slice(0, 10)
-  const days = groupBy([...msgs].reverse(), m => kday(m.posted_at))
+  // 최신 날짜가 맨 위 (대표 지시 2026-11-06 "오늘 날짜는 안 들어왔어" — 오늘 대화가 맨 아래 접힌 곳에 있었음) · 하루 안은 시간 순
+  const days = groupBy([...msgs].reverse(), m => kday(m.posted_at)).reverse()
   const fileRows = [...msgs].reverse().flatMap(m => m.files.map((f, i) => ({ f, m, key: `${m.id}-${i}` })))
-  const fileDays = groupBy(fileRows, r => kday(r.m.posted_at))
-  const latest = days.length ? days[days.length - 1][0] : ''
+  // 자료도 최신 날짜가 위 · 최신 날짜만 펼침 (대표 지시 2026-11-06 "자료를 접어서 창을 축소")
+  const fileDays = groupBy(fileRows, r => kday(r.m.posted_at)).sort((a, b) => b[0].localeCompare(a[0]))
+  const latest = days.length ? days[0][0] : ''
   const fileBtn = (f: SlackMessage['files'][number], key: string) => (
     <button
       key={key}
@@ -132,9 +134,10 @@ export function SlackSection({ project }: { project: Project }) {
             <Hash size={13} />
             <b>{l.channel_name || l.channel_id}</b>
             <span className="t-cap">
-              {l.imported_count ? `대화 ${l.imported_count} · 파일 ${l.file_count}` : '아직 안 가져옴'}
-              {l.last_imported_at ? ` · ${shortDate(l.last_imported_at.slice(0, 10))}` : ''}
+              {l.imported_count ? `대화 ${l.imported_count} · 파일 ${l.file_count}` : l.last_imported_at ? '새 대화 없음' : '아직 안 가져옴'}
+              {l.last_imported_at ? ` · ${new Date(l.last_imported_at).toTimeString().slice(0, 5)} 확인` : ''}
             </span>
+            {l.last_error && <span className="t-cap t-red" title={l.last_error}>· {l.last_error}</span>}
             <button type="button" className="icon-btn sm" title="연결 해제 (가져온 자료는 그대로)" aria-label={`#${l.channel_name} 연결 해제`} onClick={() => void run(() => api.slackUnlink(project.id, l.channel_id), '연결을 해제했습니다.')}>
               <Unlink size={12} />
             </button>
@@ -226,7 +229,7 @@ export function SlackSection({ project }: { project: Project }) {
               ))
             : fileDays.length
               ? fileDays.map(([d, list]) => (
-                  <details key={`f${d}-${allOpen}`} className="slack-day" open={allOpen ?? true}>
+                  <details key={`f${d}-${allOpen}`} className="slack-day" open={allOpen ?? d === fileDays[0]?.[0]}>
                     <summary>
                       <b>{shortDate(d)}</b>
                       <span className="t-cap">파일 {list.length}</span>

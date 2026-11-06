@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { useChatTick } from '../lib/chat'
 import { countedUnread } from '../lib/chat'
-import { Pin, Send, X } from 'lucide-react'
+import { ChevronDown, Pin, Send, X } from 'lucide-react'
 import { useApp, useAsync } from '../lib/app'
 import { friendlyError } from '../lib/api'
 import { roomTitle, useRoomMessages } from '../lib/chat'
@@ -226,23 +226,36 @@ function QuickChat({ rooms }: { rooms: ChatRoomSummary[] }) {
   return (
     <div className={`chat-room ${drop.dragging ? 'chat-drop' : ''}`} {...drop.props}>
       {drop.dragging && <DropHint />}
-      <select
-        className="select"
-        aria-label="채팅방"
-        value={roomId ?? ''}
-        onChange={e => {
-          setChosen(e.target.value)
-          save(ROOM_KEY, e.target.value)
-          stick.current = true
-        }}
-      >
-        {rooms.map(r => (
-          <option key={r.id} value={r.id}>
-            {roomTitle(r, me.id, profileName)}
-            {r.unread > 0 && r.id !== roomId ? ` (${r.unread})` : ''}
-          </option>
-        ))}
-      </select>
+      {/* 방 고르기: 작은 한 줄 (연번은 작은 태그 · 이름은 말줄임) — 대표 지시 2026-11-06 "너무 투박해 박스 크기 줄이고 프로젝트명 표기 조정" */}
+      {(() => {
+        const t = room ? roomTitle(room, me.id, profileName).replace(/^#\s*/, '') : ''
+        const m = t.match(/^([A-Z]{2}\d{4}-\d{2})\s+(.*)$/)
+        const others = rooms.reduce((n, r) => n + (r.id !== roomId ? r.unread : 0), 0)
+        return (
+          <label className="q2-room" title={t}>
+            {m ? <span className="q2-room-code">{m[1]}</span> : <span className="q2-room-hash">#</span>}
+            <span className="q2-room-name">{m ? m[2] : t}</span>
+            {others > 0 && <span className="q2-badge">{others}</span>}
+            <ChevronDown size={14} className="q2-room-chev" />
+            <select
+              aria-label="채팅방"
+              value={roomId ?? ''}
+              onChange={e => {
+                setChosen(e.target.value)
+                save(ROOM_KEY, e.target.value)
+                stick.current = true
+              }}
+            >
+              {rooms.map(r => (
+                <option key={r.id} value={r.id}>
+                  {roomTitle(r, me.id, profileName)}
+                  {r.unread > 0 && r.id !== roomId ? ` (${r.unread})` : ''}
+                </option>
+              ))}
+            </select>
+          </label>
+        )
+      })()}
       <div
         className="chat-body"
         ref={bodyRef}

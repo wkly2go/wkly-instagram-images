@@ -1301,6 +1301,8 @@ export interface SlackLink {
   imported_count: number
   file_count: number
   last_imported_at: string | null
+  /** 마지막 가져오기에서 막힌 이유 (없으면 정상) */
+  last_error?: string | null
 }
 export interface SlackFile {
   name: string
