@@ -24,7 +24,7 @@ export function PersonName({ id, className = 't-smallb' }: { id: string; classNa
   )
 }
 
-const EMPTY = (id: string): HrRecord => ({ profile_id: id, joined_on: null, phone: null, birthday: null, address: null, emergency_contact: null, note: null, employee_no: null, bank_name: null, account_no: null, account_holder: null, leave_adjust: 0, leave_note: null })
+const EMPTY = (id: string): HrRecord => ({ profile_id: id, joined_on: null, phone: null, birthday: null, address: null, emergency_contact: null, note: null, employee_no: null, rank: null, bank_name: null, account_no: null, account_holder: null, leave_adjust: 0, leave_note: null })
 
 /** 인사기록: 기본 정보는 모두, 연락처 등 인사 정보는 본인·관리자만, 수정은 관리자만 */
 function PersonCard({ p, onClose }: { p: Profile; onClose: () => void }) {
@@ -54,6 +54,7 @@ function PersonCard({ p, onClose }: { p: Profile; onClose: () => void }) {
         <div className="col grow">
           <span className="row wrap" style={{ gap: 6 }}>
             <span className="t-title">{p.name}</span>
+            {hr?.rank && <Badge tone="outline">{hr.rank}</Badge>}
             {p.title && <span className="t-cap">{p.title}</span>}
             {p.role === 'admin' && <Badge tone="blue">관리자</Badge>}
             {!p.active && <Badge tone="paper">비활성</Badge>}
@@ -88,6 +89,8 @@ function PersonCard({ p, onClose }: { p: Profile; onClose: () => void }) {
         <dl className="hr-grid">
           <dt>사원번호</dt>
           <dd className="mono">{hr?.employee_no || '–'}</dd>
+          <dt>직급</dt>
+          <dd>{hr?.rank || '–'}</dd>
           <dt>입사일</dt>
           <dd>{hr?.joined_on ? `${fullDate(hr.joined_on)}${tenure ? ` · ${tenure}` : ''}` : '–'}</dd>
           <dt>연락처</dt>
@@ -227,7 +230,7 @@ function HrForm({ initial, onDone }: { initial: HrRecord; onDone: () => void }) 
   const save = async () => {
     const t = (v: string | null | undefined) => v?.trim() || null
     const adj = Math.round(Number(f.leave_adjust ?? 0) * 2) / 2
-    const clean: HrRecord = { ...f, phone: t(f.phone), address: t(f.address), emergency_contact: t(f.emergency_contact), note: t(f.note), employee_no: t(f.employee_no), bank_name: t(f.bank_name), account_no: t(f.account_no), account_holder: t(f.account_holder), leave_adjust: Number.isFinite(adj) ? Math.max(-30, Math.min(30, adj)) : 0, leave_note: t(f.leave_note) }
+    const clean: HrRecord = { ...f, phone: t(f.phone), address: t(f.address), emergency_contact: t(f.emergency_contact), note: t(f.note), employee_no: t(f.employee_no), rank: t(f.rank), bank_name: t(f.bank_name), account_no: t(f.account_no), account_holder: t(f.account_holder), leave_adjust: Number.isFinite(adj) ? Math.max(-30, Math.min(30, adj)) : 0, leave_note: t(f.leave_note) }
     if (await run(() => api.saveHrRecord(clean), '인사기록을 저장했습니다.')) onDone()
   }
   return (
@@ -235,6 +238,14 @@ function HrForm({ initial, onDone }: { initial: HrRecord; onDone: () => void }) 
       <div className="form-grid">
         <Field label="사원번호">
           <input className="input" value={f.employee_no ?? ''} onChange={set('employee_no')} maxLength={20} placeholder="예: WK-2026-001" />
+        </Field>
+        <Field label="직급">
+          <input className="input" list="hr-ranks" value={f.rank ?? ''} onChange={set('rank')} maxLength={30} placeholder="골라 쓰거나 직접 입력" />
+          <datalist id="hr-ranks">
+            {['인턴', '사원', '주임', '대리', '과장', '차장', '부장', '실장', '이사', '상무', '전무', '대표'].map(r => (
+              <option key={r} value={r} />
+            ))}
+          </datalist>
         </Field>
         <Field label="입사일">
           <input className="input" type="date" value={f.joined_on ?? ''} onChange={set('joined_on')} />

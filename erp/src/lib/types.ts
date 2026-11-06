@@ -35,6 +35,8 @@ export interface HrRecord {
   note: string | null
   /** 사원번호 */
   employee_no?: string | null
+  /** 직급 (직함 profiles.title 과 별도) */
+  rank?: string | null
   /** 급여 계좌 (본인 · 관리자만 봄) */
   bank_name?: string | null
   account_no?: string | null

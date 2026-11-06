@@ -53,7 +53,7 @@ const metricOf = (a: Agg, k: MetricKey): number | null =>
 
 /** 광고 · 마케팅 (관리자). WKLY 총괄이 매일 07:00 숫자 기록 · 09:00 개선점과 경쟁사 현황 보고 */
 export default function Ads() {
-  const { api, me, version } = useApp()
+  const { api, version } = useApp()
   const { query, path, navigate } = useRouter()
   const tab = (TABS.some(([k]) => k === query.get('tab')) ? query.get('tab') : 'summary') as Tab
   const setTab = (t: Tab) => navigate(withQuery(path, query, { tab: t === 'summary' ? null : t, id: null }))
@@ -82,13 +82,6 @@ export default function Ads() {
   }, [from, yesterday])
   const lastUpdate = data.rows.reduce<string | null>((a, r) => (!a || r.updated_at > a ? r.updated_at : a), null)
 
-  if (me.role !== 'admin') {
-    return (
-      <Shell active="ads">
-        <Empty>관리자만 볼 수 있습니다.</Empty>
-      </Shell>
-    )
-  }
   const showsNumbers = tab === 'summary' || tab === 'platform' || tab === 'charts' || tab === 'daily-table'
   return (
     <Shell active="ads">
