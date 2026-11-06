@@ -4185,3 +4185,4 @@ html[data-theme="dark"] .bigcal .day.m-day.picked .n { color: #13261a; }
 .vendor-sum tfoot .vs-split em { font-style: normal; }
 .vendor-sum tfoot .vs-done { color: var(--blue); }
 .vendor-sum tfoot .vs-total-left { color: var(--red); font-weight: 600; }
+.todo-more { align-self: center; margin-top: 6px; }
