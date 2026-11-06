@@ -4093,3 +4093,10 @@ html[data-theme="dark"] .bigcal .day.m-day.picked .n { color: #13261a; }
 .slack-filelist { display: flex; flex-direction: column; gap: 6px; padding: 0 0 12px 12px; }
 .slack-filerow { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .slack-text .auto-link { color: var(--blue); text-decoration: underline; word-break: break-all; }
+/* 빠른 창 글자 크기 (가− 가+) */
+.quick-zoom { display: inline-flex; border: 1px solid var(--line); }
+.quick-zoom button { min-width: 34px; height: 28px; border: 0; background: var(--white); color: var(--blue); font: 700 12px/1 var(--font); cursor: pointer; }
+.quick-zoom button + button { border-left: 1px solid var(--line); }
+.quick-zoom button:hover:not(:disabled) { background: var(--blue-tint); }
+.quick-zoom button:disabled { color: var(--gray); opacity: .45; cursor: default; }
+.quick .bubble, .quick .msg-text, .quick .chat-body { font-size: var(--fs-body); }
