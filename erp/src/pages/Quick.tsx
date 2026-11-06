@@ -19,6 +19,9 @@ type Mode = 'log' | 'chat' | 'menu'
 
 const ROOM_KEY = 'wkly-quick-room'
 const MODE_KEY = 'wkly-quick-mode'
+const FS_KEY = 'wkly-quick-fs'
+// 글자 크기 단계 (대표 지시 2026-11-06 "빠른 채팅창 글자크기 조정")
+const FS_STEPS = [0.85, 1, 1.15, 1.3, 1.5, 1.75]
 const load = (k: string) => {
   try {
     return window.localStorage.getItem(k)
@@ -43,6 +46,15 @@ export default function Quick({ onClose }: { onClose?: () => void }) {
   const pip = !!onClose
   const saved = load(MODE_KEY)
   const [mode, setMode] = useState<Mode>(saved === 'chat' || saved === 'menu' ? saved : 'log')
+  const [fs, setFs] = useState(() => {
+    const v = Number(load(FS_KEY))
+    return FS_STEPS.includes(v) ? v : 1
+  })
+  const zoom = (d: 1 | -1) => {
+    const i = Math.max(0, Math.min(FS_STEPS.length - 1, FS_STEPS.indexOf(fs) + d))
+    setFs(FS_STEPS[i])
+    save(FS_KEY, String(FS_STEPS[i]))
+  }
   const chatTick = useChatTick()
   const { data: rooms } = useAsync(() => api.listRooms(), [version, chatTick], [] as ChatRoomSummary[])
   const unread = rooms.reduce((s, r) => s + countedUnread(r), 0)
@@ -63,7 +75,7 @@ export default function Quick({ onClose }: { onClose?: () => void }) {
     }
   }
   return (
-    <div className="quick">
+    <div className="quick" style={{ ['--fs-m' as string]: fs }}>
       {/* 흰 로고는 시리즈 블루 띠 위에만. PiP 창은 문서 주소가 달라 절대 주소로 로고를 불러옴 */}
       <div className="quick-brand">
         <img className="quick-logo" src={`${window.location.origin}/wkly-logo-white.svg`} alt="WKLY" width={120} height={38} />
@@ -84,6 +96,14 @@ export default function Quick({ onClose }: { onClose?: () => void }) {
               </button>
             </div>
             <span className="grow" />
+            <span className="quick-zoom" role="group" aria-label="글자 크기">
+              <button type="button" onClick={() => zoom(-1)} disabled={fs === FS_STEPS[0]} aria-label="글자 작게" title="글자 작게">
+                가−
+              </button>
+              <button type="button" onClick={() => zoom(1)} disabled={fs === FS_STEPS[FS_STEPS.length - 1]} aria-label="글자 크게" title="글자 크게">
+                가+
+              </button>
+            </span>
             {!pip && supportsPip() && (
               <button type="button" className="icon-btn sm" onClick={() => openQuick('pin')} aria-label="항상 위에 띄우기" title="다른 프로그램 위에 항상 떠 있게">
                 <Pin size={15} />
