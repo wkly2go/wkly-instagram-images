@@ -24,7 +24,7 @@ export function PersonName({ id, className = 't-smallb' }: { id: string; classNa
   )
 }
 
-const EMPTY = (id: string): HrRecord => ({ profile_id: id, joined_on: null, phone: null, birthday: null, address: null, emergency_contact: null, note: null, employee_no: null, rank: null, bank_name: null, account_no: null, account_holder: null, leave_adjust: 0, leave_note: null })
+export const EMPTY_HR = (id: string): HrRecord => ({ profile_id: id, joined_on: null, phone: null, birthday: null, address: null, emergency_contact: null, note: null, employee_no: null, rank: null, bank_name: null, account_no: null, account_holder: null, leave_adjust: 0, leave_note: null })
 
 /** 인사기록: 기본 정보는 모두, 연락처 등 인사 정보는 본인·관리자만, 수정은 관리자만 */
 function PersonCard({ p, onClose }: { p: Profile; onClose: () => void }) {
@@ -84,7 +84,7 @@ function PersonCard({ p, onClose }: { p: Profile; onClose: () => void }) {
       {!canSee ? (
         <span className="t-cap">연락처 등 인사 정보는 본인과 관리자만 볼 수 있습니다.</span>
       ) : editing ? (
-        <HrForm initial={hr ?? EMPTY(p.id)} onDone={() => { setEditing(false); reload() }} />
+        <HrForm initial={hr ?? EMPTY_HR(p.id)} onDone={() => { setEditing(false); reload() }} />
       ) : (
         <dl className="hr-grid">
           <dt>사원번호</dt>
@@ -222,7 +222,7 @@ function PersonCard({ p, onClose }: { p: Profile; onClose: () => void }) {
   )
 }
 
-function HrForm({ initial, onDone }: { initial: HrRecord; onDone: () => void }) {
+export function HrForm({ initial, onDone }: { initial: HrRecord; onDone: () => void }) {
   const { api } = useApp()
   const { busy, run } = useAction()
   const [f, setF] = useState(initial)

@@ -478,7 +478,7 @@ function MiniCalendar() {
     }
     for (const l of data.leaves) {
       if (l.status !== '승인') continue
-      for (let d = l.start_date; d <= l.end_date; d = addDays(d, 1)) add(d, `${profileName(l.profile_id)} ${l.kind}`, l.profile_id === me.id)
+      for (let d = l.start_date; d <= l.end_date; d = addDays(d, 1)) add(d, `${profileName(l.profile_id)} ${l.masked ? (l.kind === '반차' ? '반차' : '휴가') : l.kind}`, l.profile_id === me.id)
     }
     return m
   }, [data, month, me.id, profileName])

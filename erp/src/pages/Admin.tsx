@@ -1,15 +1,16 @@
 import { useDesktopOnly } from '../lib/attendance'
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import { Pencil } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { EXPORT_TABLES, type ExportTable } from '../lib/api'
 import { downloadText, toCsv } from '../lib/csv'
 import { relativeLabel, shortDate, timeLabel, toDateKey, todayKey } from '../lib/date'
 import { Link } from '../lib/router'
-import { AGENT_SCOPES, APPROVAL_KINDS, type AdminOverview, type AgentScope, type AgentToken, type Approval, type ApprovalKind, type ApprovalRoute, type Department, type Profile, type ResearchItem } from '../lib/types'
+import { AGENT_SCOPES, APPROVAL_KINDS, type AdminOverview, type AgentScope, type AgentToken, type Approval, type ApprovalKind, type ApprovalRoute, type Department, type HrRecord, type LeaveRecord, type Profile, type ResearchItem } from '../lib/types'
 import { Meter } from '../components/charts'
 import { Shell } from '../components/Shell'
-import { PersonName } from '../components/Person'
+import { EMPTY_HR, HrForm, PersonName } from '../components/Person'
+import { leaveBalance } from '../lib/leave'
 import { Badge, Button, Empty, Field, Modal } from '../components/ui'
 import { ask } from '../components/Ask'
 
@@ -136,6 +137,22 @@ function Members() {
   const [f, setF] = useState({ name: '', email: '', password: '', title: '', is_agent: false, dept: '' })
   const active = profiles.filter(p => p.active)
   const { data: depts } = useAsync(() => api.listDepartments(), [version], [] as Department[])
+  // 인사 정보도 이 표에서 보고 고침 (대표 지시 2026-11-06 "이 창에 정보가 다 보일 수 있게 · 이 창에서 수정 가능하게")
+  const { data: hrData, reload: reloadHr } = useAsync(
+    async () => {
+      const [hr, leaves] = await Promise.all([api.listHrRecords(), api.listLeave()])
+      return { hr, leaves }
+    },
+    [version],
+    { hr: [] as HrRecord[], leaves: [] as LeaveRecord[] },
+  )
+  const hrOf = (id: string) => hrData.hr.find(h => h.profile_id === id) ?? EMPTY_HR(id)
+  const saveHr = (id: string, patch: Partial<HrRecord>, msg: string) => run(async () => {
+    await api.saveHrRecord({ ...hrOf(id), ...patch })
+    reloadHr()
+  }, msg)
+  const [openHr, setOpenHr] = useState<string | null>(null)
+  const todayK = todayKey()
   const deptOf = (id: string) => depts.find(d => d.member_ids.includes(id)) ?? null
   /** 부서 바꾸기: 다른 부서에서는 빼고 고른 부서에 넣음 (한 사람은 한 부서) */
   const moveTo = async (personId: string, deptId: string) => {
@@ -177,6 +194,11 @@ function Members() {
               <th>이메일</th>
               <th>부서</th>
               <th>직함</th>
+              <th>사원번호</th>
+              <th>직급</th>
+              <th>입사일</th>
+              <th>연락처</th>
+              <th className="num">남은 연차</th>
               <th>권한</th>
               <th>구분</th>
               <th>상태</th>
@@ -188,7 +210,7 @@ function Members() {
             {/* 사람 팀원과 AI 팀원을 나눠서 (대표 지시 2026-11-06 "AI 팀원끼리 구분해줘") */}
             {([['사람 팀원', profiles.filter(x => !x.is_agent)], ['AI 팀원', profiles.filter(x => x.is_agent)]] as const).flatMap(([label, group]) => [
               <tr key={`grp-${label}`} className="grp-row">
-                <td colSpan={9}>
+                <td colSpan={14}>
                   {label === 'AI 팀원' ? '🤖 ' : ''}
                   <b>{label}</b> <span className="t-cap">{group.filter(x => x.active).length}명</span>
                 </td>
@@ -196,7 +218,8 @@ function Members() {
               ...group.map(p => {
               const self = p.id === me.id
               return (
-                <tr key={p.id} className={p.active ? '' : 'muted'}>
+                <Fragment key={p.id}>
+                <tr className={p.active ? '' : 'muted'}>
                   <td className="nowrap">
                     <span className="row" style={{ gap: 6 }}>
                       {renaming === p.id ? (
@@ -223,6 +246,11 @@ function Members() {
                           <button type="button" className="icon-btn sm" onClick={() => setRenaming(p.id)} disabled={busy} aria-label={`${p.name} 이름 바꾸기`} title="이름 바꾸기">
                             <Pencil size={12} />
                           </button>
+                          {!p.is_agent && (
+                            <button type="button" className={`hr-toggle ${openHr === p.id ? 'on' : ''}`} onClick={() => setOpenHr(openHr === p.id ? null : p.id)} aria-expanded={openHr === p.id} title="인사 정보 전체 보기 · 고치기">
+                              인사 {openHr === p.id ? '▲' : '▼'}
+                            </button>
+                          )}
                         </>
                       )}
                     </span>
@@ -246,7 +274,72 @@ function Members() {
                       ))}
                     </select>
                   </td>
-                  <td className="max truncate">{p.title ?? '–'}</td>
+                  <td>
+                    <input
+                      key={`t-${p.title ?? ''}`}
+                      className="input mem-in"
+                      style={{ width: 96 }}
+                      defaultValue={p.title ?? ''}
+                      placeholder="–"
+                      disabled={busy}
+                      aria-label={`${p.name} 직함`}
+                      onKeyDown={e => e.key === 'Enter' && !e.nativeEvent.isComposing && (e.target as HTMLInputElement).blur()}
+                      onBlur={e => {
+                        const v = e.target.value.trim() || null
+                        if (v !== (p.title ?? null)) void run(() => api.updateProfile(p.id, { title: v }), `${p.name} 님 직함을 저장했습니다.`)
+                      }}
+                    />
+                  </td>
+                  {p.is_agent ? (
+                    <td colSpan={5} className="t-cap">AI 팀원 · 인사 정보 없음</td>
+                  ) : (
+                    (() => {
+                      const h = hrOf(p.id)
+                      const b = h.joined_on ? leaveBalance(h.joined_on, todayK, hrData.leaves.filter(l => l.profile_id === p.id), Number(h.leave_adjust ?? 0)) : null
+                      const cell = (k: 'employee_no' | 'rank' | 'phone', w: number, ph: string, label: string, list?: string) => (
+                        <input
+                          key={`${k}-${h[k] ?? ''}`}
+                          className="input mem-in"
+                          style={{ width: w }}
+                          defaultValue={h[k] ?? ''}
+                          placeholder={ph}
+                          list={list}
+                          disabled={busy}
+                          aria-label={`${p.name} ${label}`}
+                          onKeyDown={e => e.key === 'Enter' && !e.nativeEvent.isComposing && (e.target as HTMLInputElement).blur()}
+                          onBlur={e => {
+                            const v = e.target.value.trim() || null
+                            if (v !== (h[k] ?? null)) void saveHr(p.id, { [k]: v }, `${p.name} 님 ${label}을(를) 저장했습니다.`)
+                          }}
+                        />
+                      )
+                      return (
+                        <>
+                          <td>{cell('employee_no', 96, '–', '사원번호')}</td>
+                          <td>{cell('rank', 70, '–', '직급', 'mem-ranks')}</td>
+                          <td>
+                            <input
+                              key={`j-${h.joined_on ?? ''}`}
+                              className="input mem-in"
+                              type="date"
+                              style={{ width: 128 }}
+                              defaultValue={h.joined_on ?? ''}
+                              disabled={busy}
+                              aria-label={`${p.name} 입사일`}
+                              onBlur={e => {
+                                const v = e.target.value || null
+                                if (v !== (h.joined_on ?? null)) void saveHr(p.id, { joined_on: v }, `${p.name} 님 입사일을 저장했습니다.`)
+                              }}
+                            />
+                          </td>
+                          <td>{cell('phone', 116, '010-', '연락처')}</td>
+                          <td className={`num ${b && b.remaining < 0 ? 'red' : ''}`} title={b ? `${b.rule} · 사용 ${b.used}일 · 대기 ${b.pending}일` : '입사일을 넣으면 계산'}>
+                            {b ? `${b.remaining}일` : '–'}
+                          </td>
+                        </>
+                      )
+                    })()
+                  )}
                   <td>
                     <select className="select" style={{ padding: '2px 6px', fontSize: 'var(--fs-cap)', width: 84 }} value={p.role} disabled={busy || self} onChange={e => update(p, { role: e.target.value as Profile['role'] }, '권한을 바꿨습니다.')} aria-label={`${p.name} 권한`}>
                       <option value="member">멤버</option>
@@ -294,11 +387,24 @@ function Members() {
                     )}
                   </td>
                 </tr>
+                {openHr === p.id && (
+                  <tr className="mem-detail">
+                    <td colSpan={14}>
+                      <HrForm initial={hrOf(p.id)} onDone={() => { setOpenHr(null); reloadHr() }} />
+                    </td>
+                  </tr>
+                )}
+                </Fragment>
               )
             }),
             ])}
           </tbody>
         </table>
+        <datalist id="mem-ranks">
+          {['인턴', '사원', '주임', '선임', '대리', '과장', '차장', '부장', '실장', '이사', '대표'].map(r => (
+            <option key={r} value={r} />
+          ))}
+        </datalist>
       </div>
       <div className="row wrap">
         <input className="input" style={{ flex: '1 1 90px' }} placeholder="이름" value={f.name} onChange={e => setF({ ...f, name: e.target.value })} aria-label="새 팀원 이름" />

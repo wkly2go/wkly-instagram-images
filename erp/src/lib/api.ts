@@ -353,6 +353,8 @@ export interface Api {
   /** 인사기록: 볼 권한이 없거나 아직 없으면 null */
   getHrRecord(profileId: string): Promise<HrRecord | null>
   saveHrRecord(r: HrRecord): Promise<void>
+  /** 본인 개인정보 고치기 (연락처 · 생년월일 · 주소 · 비상 연락처 · 급여 계좌만) */
+  saveMyHr(r: Pick<HrRecord, 'phone' | 'birthday' | 'address' | 'emergency_contact' | 'bank_name' | 'account_no' | 'account_holder'>): Promise<void>
   /** 볼 수 있는 인사기록 전부 (관리자: 전원, 팀원: 본인) */
   listHrRecords(): Promise<HrRecord[]>
   exportTable(table: ExportTable): Promise<Record<string, unknown>[]>

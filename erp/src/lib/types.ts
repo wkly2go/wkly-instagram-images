@@ -66,6 +66,8 @@ export interface LeaveRecord {
   decided_at: string | null
   created_by: string | null
   created_at: string
+  /** 다른 사람 휴가: 날짜만 보이고 종류 · 사유 · 일수는 가림 (2026-11-06 개인 공간 비공개) */
+  masked?: boolean
 }
 
 export type InstructionStatus = '대기' | '진행 중' | '완료' | '보류'
