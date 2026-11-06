@@ -4271,3 +4271,5 @@ html[data-theme="dark"] .bigcal .day.m-day.picked .n { color: #13261a; }
 .section-h::before, html[data-theme="dark"] .section-h::before { background: var(--pink) !important; }
 .section-h > .t-bodyb, .section-h > span.t-bodyb { color: var(--pink-ink) !important; }
 html[data-theme="dark"] .section-h > .t-bodyb { color: var(--pink) !important; }
+.ledger-head .ledger-year { width: auto; height: 34px !important; line-height: 1.2 !important; padding: 0 30px 0 10px !important; font-weight: 800; font-size: var(--fs-body) !important; }
+.cmp-table tfoot tr.cmp-total td { background: #f3f5f1; border-top: 2px solid var(--line); font-weight: 700; padding: 8px; }

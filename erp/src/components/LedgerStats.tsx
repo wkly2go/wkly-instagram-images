@@ -17,7 +17,8 @@ const SLOTS = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300',
 const OTHER = '#a8a6a0'
 const OPEN_KEY = 'wkly-ledger-opening'
 
-type Range = 'year' | '12m' | 'last' | 'custom'
+// 회계장부는 연도별: 기간은 고른 해 안에서만 (2026-11-06)
+type Range = 'year' | 'h1' | 'h2' | 'custom'
 const monthsBetween = (from: string, to: string) => {
   const out: string[] = []
   for (let m = from; m <= to && out.length < 36; m = addMonths(m, 1)) out.push(m)
@@ -44,33 +45,43 @@ function niceMax(v: number): number {
   return 10 * p
 }
 
-export function LedgerStats({ onExpired }: { onExpired: () => void }) {
+export function LedgerStats({ year, onExpired }: { year: string; onExpired: () => void }) {
   const { api } = useApp()
   const thisMonth = todayKey().slice(0, 7)
   const [range, setRange] = useState<Range>('year')
-  const [from, setFrom] = useState(`${thisMonth.slice(0, 4)}-01`)
-  const [to, setTo] = useState(thisMonth)
+  const lastM = year === thisMonth.slice(0, 4) ? thisMonth : `${year}-12`
+  const [from, setFrom] = useState(`${year}-01`)
+  const [to, setTo] = useState(lastM)
+  useEffect(() => {
+    setFrom(`${year}-01`)
+    setTo(lastM)
+  }, [year, lastM])
+  const openKey = `${OPEN_KEY}-${year}`
   const [method, setMethod] = useState<LedgerMethod | ''>('')
   const [cats, setCats] = useState<Set<string>>(new Set())
   const [q, setQ] = useState('')
-  const [opening, setOpening] = useState<string>(() => {
+  // 기초 잔액은 해마다 따로 (그 해 1월 1일 잔고)
+  const [opening, setOpening] = useState<string>('')
+  useEffect(() => {
     try {
-      return localStorage.getItem(OPEN_KEY) ?? ''
+      setOpening(localStorage.getItem(`${OPEN_KEY}-${year}`) ?? '')
     } catch {
-      return ''
+      setOpening('')
     }
-  })
+  }, [year])
   const [rows, setRows] = useState<LedgerEntry[]>([])
   const [loading, setLoading] = useState(true)
 
   // 기간
   const [a, b] = useMemo((): [string, string] => {
-    const y = Number(thisMonth.slice(0, 4))
-    if (range === 'year') return [`${y}-01`, thisMonth]
-    if (range === '12m') return [addMonths(thisMonth, -11), thisMonth]
-    if (range === 'last') return [`${y - 1}-01`, `${y - 1}-12`]
-    return from <= to ? [from, to] : [to, from]
-  }, [range, from, to, thisMonth])
+    if (range === 'year') return [`${year}-01`, lastM]
+    if (range === 'h1') return [`${year}-01`, `${year}-06` < lastM ? `${year}-06` : lastM]
+    if (range === 'h2') return [`${year}-07`, `${year}-12` < lastM ? `${year}-12` : lastM]
+    // 직접 고른 기간도 그 해 안으로
+    const clamp = (m: string) => (m < `${year}-01` ? `${year}-01` : m > `${year}-12` ? `${year}-12` : m)
+    const [f0, t0] = [clamp(from), clamp(to)]
+    return f0 <= t0 ? [f0, t0] : [t0, f0]
+  }, [range, from, to, year, lastM])
   const months = useMemo(() => monthsBetween(a, b), [a, b])
   const prevMonths = useMemo(() => months.map(m => addMonths(m, -12)), [months])
 
@@ -145,8 +156,11 @@ export function LedgerStats({ onExpired }: { onExpired: () => void }) {
   // 잔고(또는 누적 차액) 추이
   const open0 = Number(opening.replace(/[^\d-]/g, '')) || 0
   const hasOpen = opening.trim() !== ''
+  // 기초 잔액은 그 해 1월 1일 기준 → 기간이 해 중간에서 시작하면 그 앞 달들 차액을 더해서 시작
+  const before = a > `${year}-01` ? monthsBetween(`${year}-01`, addMonths(a, -1)) : []
+  const start0 = open0 + before.reduce((n, m) => n + sumDir(inMonth(filtered, m), '입금') - sumDir(inMonth(filtered, m), '출금'), 0)
   const cum = (ms: string[]) => {
-    let run = open0
+    let run = ms === months ? start0 : open0
     return ms.map(m => {
       const l = inMonth(filtered, m)
       run += sumDir(l, '입금') - sumDir(l, '출금')
@@ -172,9 +186,9 @@ export function LedgerStats({ onExpired }: { onExpired: () => void }) {
       <div className="lstats-filters">
         <span className="seg" role="radiogroup" aria-label="기간">
           {([
-            ['year', '올해'],
-            ['12m', '최근 12개월'],
-            ['last', '지난해'],
+            ['year', `${year}년 전체`],
+            ['h1', '상반기'],
+            ['h2', '하반기'],
             ['custom', '직접'],
           ] as const).map(([key, label]) => (
             <button key={key} type="button" role="radio" aria-checked={range === key} className={range === key ? 'on' : ''} onClick={() => setRange(key)}>
@@ -184,8 +198,8 @@ export function LedgerStats({ onExpired }: { onExpired: () => void }) {
         </span>
         {range === 'custom' && (
           <span className="row" style={{ gap: 4 }}>
-            <input className="input sm" type="month" value={from} onChange={e => setFrom(e.target.value)} aria-label="시작 달" />~
-            <input className="input sm" type="month" value={to} onChange={e => setTo(e.target.value)} aria-label="끝 달" />
+            <input className="input sm" type="month" min={`${year}-01`} max={`${year}-12`} value={from} onChange={e => setFrom(e.target.value)} aria-label="시작 달" />~
+            <input className="input sm" type="month" min={`${year}-01`} max={`${year}-12`} value={to} onChange={e => setTo(e.target.value)} aria-label="끝 달" />
           </span>
         )}
         <select className="select sm" value={method} onChange={e => setMethod(e.target.value as LedgerMethod | '')} aria-label="결제 수단">
@@ -275,13 +289,13 @@ export function LedgerStats({ onExpired }: { onExpired: () => void }) {
                     style={{ width: 110 }}
                     inputMode="numeric"
                     value={opening ? Number(opening.replace(/[^\d-]/g, '') || 0).toLocaleString('ko-KR') : ''}
-                    placeholder="기간 시작 잔고"
+                    placeholder={`${year}.1.1 잔고`}
                     onChange={e => {
                       const v = e.target.value.replace(/[^\d-]/g, '')
                       setOpening(v)
                       try {
-                        if (v) localStorage.setItem(OPEN_KEY, v)
-                        else localStorage.removeItem(OPEN_KEY)
+                        if (v) localStorage.setItem(openKey, v)
+                        else localStorage.removeItem(openKey)
                       } catch {
                         /* 저장 안 돼도 화면은 그대로 */
                       }

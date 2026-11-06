@@ -120,8 +120,10 @@ function LedgerBoard({ onLock, onExpired }: { onLock: () => void; onExpired: () 
   const load = useCallback(async () => {
     setLoading(true)
     try {
+      // 회계장부는 연도별 (대표 지시 2026-11-06 "연결장부로 하지 말고 년도별로") — 1월은 전년 12월과 비교하지 않음
       const pm = addMonths(month, -1)
-      const [a, b] = await Promise.all([api.listLedger(`${month}-01`, monthEnd(month)), api.listLedger(`${pm}-01`, monthEnd(pm))])
+      const sameYear = pm.slice(0, 4) === month.slice(0, 4)
+      const [a, b] = await Promise.all([api.listLedger(`${month}-01`, monthEnd(month)), sameYear ? api.listLedger(`${pm}-01`, monthEnd(pm)) : Promise.resolve([] as LedgerEntry[])])
       setRows(a)
       setPrev(b)
     } catch {
@@ -221,8 +223,11 @@ function LedgerBoard({ onLock, onExpired }: { onLock: () => void; onExpired: () 
     )
     downloadText(`입출금장부_${month}.csv`, '﻿' + csv)
   }
-  const diff = (a: number, b: number) => (b ? `지난달 ${a >= b ? '▲' : '▼'} ${manwon(Math.abs(a - b))}` : '지난달 기록 없음')
   const [y, m] = month.split('-')
+  const diff = (a: number, b: number) => (m === '01' ? `${y}년 장부 첫 달` : b ? `지난달 ${a >= b ? '▲' : '▼'} ${manwon(Math.abs(a - b))}` : '지난달 기록 없음')
+  const thisYear = todayKey().slice(0, 4)
+  const years = Array.from({ length: Math.max(1, Number(thisYear) - 2023 + 2) }, (_, i) => String(2024 + i)).reverse()
+  const pickYear = (yy: string) => setMonth(yy === thisYear ? todayKey().slice(0, 7) : `${yy}-${yy < thisYear ? '12' : '01'}`)
 
   return (
     <div className="ledger col gap-12">
@@ -232,22 +237,31 @@ function LedgerBoard({ onLock, onExpired }: { onLock: () => void; onExpired: () 
         items={[
           { key: 'month' as const, label: '월 장부', icon: <Wallet size={14} /> },
           { key: 'recurring' as const, label: '정기 출금', icon: <CalendarClock size={14} /> },
-          { key: 'compare' as const, label: '월별 비교', icon: <BarChart3 size={14} /> },
+          { key: 'compare' as const, label: '연간 장부', icon: <BarChart3 size={14} /> },
           { key: 'stats' as const, label: '통계', icon: <PieChart size={14} /> },
         ]}
         active={tab}
         onPick={setTab}
       />
       <div className="row ledger-head">
-        {tab !== 'recurring' && tab !== 'stats' && (
+        {tab !== 'recurring' && (
+          <select className="select ledger-year" value={y} onChange={e => pickYear(e.target.value)} aria-label="장부 연도" title="연도별 장부">
+            {years.map(yy => (
+              <option key={yy} value={yy}>
+                {yy}년 장부
+              </option>
+            ))}
+          </select>
+        )}
+        {tab === 'month' && (
           <>
-        <button type="button" className="icon-btn" onClick={() => setMonth(addMonths(month, -1))} aria-label="지난달">
+        <button type="button" className="icon-btn" onClick={() => setMonth(addMonths(month, -1))} disabled={m === '01'} aria-label="지난달" title={m === '01' ? '연도별 장부라 1월이 처음입니다' : '지난달'}>
           <ChevronLeft size={18} />
         </button>
         <b className="t-title">
-          {y}년 {Number(m)}월
+          {Number(m)}월
         </b>
-        <button type="button" className="icon-btn" onClick={() => setMonth(addMonths(month, 1))} aria-label="다음 달">
+        <button type="button" className="icon-btn" onClick={() => setMonth(addMonths(month, 1))} disabled={m === '12'} aria-label="다음 달" title={m === '12' ? '12월이 마지막입니다' : '다음 달'}>
           <ChevronRight size={18} />
         </button>
         {month !== todayKey().slice(0, 7) && (
@@ -257,7 +271,7 @@ function LedgerBoard({ onLock, onExpired }: { onLock: () => void; onExpired: () 
         )}
           </>
         )}
-        {tab === 'compare' && <span className="t-cap">까지 12개월</span>}
+        {tab === 'compare' && <span className="t-cap">1월 ~ 12월</span>}
         {tab === 'recurring' && <b className="t-title">매달 나가는 돈</b>}
         {tab === 'stats' && <b className="t-title">입출금 통계</b>}
         <span className="grow" />
@@ -273,11 +287,11 @@ function LedgerBoard({ onLock, onExpired }: { onLock: () => void; onExpired: () 
       </div>
 
       {tab === 'stats' ? (
-        <LedgerStats onExpired={onExpired} />
+        <LedgerStats year={y} onExpired={onExpired} />
       ) : tab === 'recurring' ? (
         <RecurringView onExpired={onExpired} />
       ) : tab === 'compare' ? (
-        <CompareView month={month} onExpired={onExpired} />
+        <CompareView year={y} onExpired={onExpired} />
       ) : (
       <>
       {/* 한눈에: 입금 · 출금 · 남은 돈 */}
