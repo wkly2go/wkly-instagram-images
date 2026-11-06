@@ -247,8 +247,6 @@ export function VendorSheet({ projectId, payments, all, lines, finance, onOpen }
   const enter = (e: React.KeyboardEvent) => e.key === 'Enter' && (e.preventDefault(), (e.target as HTMLElement).blur(), void add())
   const blurOnEnter = (e: React.KeyboardEvent) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()
 
-  const sumContract = vendors.filter(v => v.dir === '지급').reduce((n, v) => n + (v.contract ?? 0), 0)
-  const sumPaid = vendors.filter(v => v.dir === '지급').reduce((n, v) => n + v.paid, 0)
 
   // 한 화면에 (대표 지시 2026-10-31 "한 화면에서 관리, 결제 요청일 삭제, 자재 입출고처럼 한눈에")
   //   업체 1곳 = 한 줄 · 흰 바탕 (대표 지시 2026-10-31 "세부 내용은 한 줄로, 백색으로") — 칸 안에 두 값을 나란히
@@ -487,16 +485,47 @@ export function VendorSheet({ projectId, payments, all, lines, finance, onOpen }
           )}
         </tbody>
         <tfoot>
-          <tr>
-            <td colSpan={2} className="t-cap">
-              {vendors.length}곳
-            </td>
-            <td className="num mono">{money(sumContract) ? manwon(sumContract) : '–'}</td>
-            <td colSpan={2 + stages.length} className="t-cap">
-              매입 결제 완료 {manwon(sumPaid) || '0'}
-              {sumContract ? ` · 계약 대비 ${Math.round((sumPaid / sumContract) * 100)}%` : ''}
-            </td>
-          </tr>
+          {/* 합계 줄 (대표 지시 2026-11-06 "여기에 합계 금액"): 매입 · 매출 따로, 단계 칸마다 합계와 완료 · 남은 금액 */}
+          {(['지급', '수금'] as const).map(dir => {
+            const vs = vendors.filter(v => v.dir === dir)
+            if (!vs.length) return null
+            const stageTotal = (k: string) => {
+              const list = vs.map(v => pick(v, k)).filter((p): p is Payment => !!p)
+              return { all: list.reduce((n, p) => n + p.amount, 0), done: list.filter(isDone).reduce((n, p) => n + p.amount, 0) }
+            }
+            const totals = stages.map(st => stageTotal(st.key))
+            const all = totals.reduce((n, t) => n + t.all, 0)
+            const done = totals.reduce((n, t) => n + t.done, 0)
+            const contract = vs.reduce((n, v) => n + (v.contract ?? 0), 0)
+            return (
+              <tr key={dir} className="vs-total">
+                <td colSpan={2}>
+                  <b>{dir === '지급' ? '매입 합계' : '매출 합계'}</b>
+                  <span className="t-cap"> {vs.length}곳 · 총 {manwon(all) || '0'}</span>
+                </td>
+                <td className="num mono">{contract ? manwon(contract) : '–'}</td>
+                {/* 지급(완료) · 미결제 따로 (대표 지시 2026-11-06 "미결제는 지급과 별도로 구분") */}
+                <td className="t-cap mono"><div className="vs-split vs-split-l">
+                  <span className="vs-done">{dir === '지급' ? '지급' : '수금'} {manwon(done) || '0'}</span>
+                  {all - done > 0 ? <span className="vs-total-left">{dir === '지급' ? '미결제' : '미수'} {manwon(all - done)}</span> : null}
+                </div></td>
+                {totals.map((t, i) => (
+                  <td key={stages[i].key} className="num">
+                    {t.all ? (
+                      <span className="vs-amt vs-split">
+                        {manwon(t.all)}
+                        {t.done ? <em className="vs-done">{dir === '지급' ? '지급' : '수금'} {manwon(t.done)}</em> : null}
+                        {t.all > t.done ? <em className="vs-total-left">{dir === '지급' ? '미결제' : '미수'} {manwon(t.all - t.done)}</em> : null}
+                      </span>
+                    ) : (
+                      <span className="vs-empty">–</span>
+                    )}
+                  </td>
+                ))}
+                <td />
+              </tr>
+            )
+          })}
         </tfoot>
       </table>
       {adding ? (

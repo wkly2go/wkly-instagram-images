@@ -51,8 +51,9 @@ export function FinancePanel({ project, clients, projects, viz, part }: { projec
           <div className="fin-tiles">
             <Tile label="계약" value={m.contract != null ? manwon(m.contract) : '–'} sub={m.target != null ? `목표 마진 ${m.target}%` : undefined} />
             <Tile label="수금" value={manwon(m.received) || '0'} sub={m.collectRate != null ? `${Math.round(m.collectRate)}% · 남은 ${manwon(Math.max(0, (m.contract ?? 0) - m.received)) || '0'}` : `미수 ${manwon(m.receivable) || '0'}`} rate={m.collectRate} />
-            {/* 지급 = 매입 총액 (완료 + 미결제 · 대표 지시 2026-11-06 "미결제도 총금액으로 포함") */}
-            <Tile label="지급 (매입 총액)" value={manwon(spent + m.estimate) || '0'} sub={`완료 ${manwon(m.paid) || '0'} · 미결제 ${manwon(m.payable) || '0'}${m.estimate ? ` · 예상 ${manwon(m.estimate)}` : ''}`} rate={spent ? (m.paid / spent) * 100 : null} />
+            {/* 지급 · 미결제 분리 (대표 지시 2026-11-06 "미결제는 지급과 별도로 구분") · 지급 = 완료된 매입 */}
+            <Tile label="지급 (완료)" value={manwon(m.paid) || '0'} sub={`매입 총액 ${manwon(spent + m.estimate) || '0'}${m.estimate ? ` · 예상 ${manwon(m.estimate)} 포함` : ''}`} rate={spent ? (m.paid / spent) * 100 : null} />
+            <Tile label="미결제" value={manwon(m.payable) || '0'} sub={m.payable ? '아직 지급 안 한 매입' : '남은 지급 없음'} tone={m.payable ? 'red' : undefined} />
             {/* 예상 마진 = 매출 계약(공급가) − 매입 총액(공급가 · 완료 + 미결제 + 예상 비용) */}
             <Tile
               label="예상 마진"

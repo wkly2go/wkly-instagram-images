@@ -2836,7 +2836,7 @@ html.detail-full .detail-col.full .col-resize { display: none; }
 .proj-detail .section-h .t-bodyb, .proj-detail .pviz-h b { font-size: var(--fs-sub); }
 .proj-detail .section { gap: 6px; }
 /* 재무 4칸: 한 줄 · 낮게 */
-.proj-detail .fin-tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.proj-detail .fin-tiles { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
 .proj-detail .fin-tile { padding: 8px 10px 8px 14px; gap: 2px; }
 .proj-detail .fin-num { font-size: var(--fs-title); line-height: 1.2; }
 .proj-detail .fin-tile .meter { display: none; }
@@ -4173,3 +4173,15 @@ html[data-theme="dark"] .bigcal .day.m-day.picked .n { color: #13261a; }
 .vs-cell { flex-wrap: wrap; row-gap: 4px; }
 .vs-amt em { white-space: nowrap; }
 .vs-name-row { flex-wrap: wrap; row-gap: 2px; }
+/* 협력업체 관리 합계 줄 (2026-11-06) */
+.vendor-sum tfoot tr.vs-total td { padding: 10px 8px; background: #f3f5f1; border-top: 1px solid #dfe3dc; vertical-align: middle; }
+.vendor-sum tfoot tr.vs-total + tr.vs-total td { border-top: 1px dashed #dfe3dc; }
+.vendor-sum tfoot tr.vs-total b { font-size: var(--fs-sm); color: var(--blue); }
+.vendor-sum tfoot tr.vs-total .vs-amt { color: #1d2b21; }
+.vs-total-left { color: var(--red); }
+/* 합계 줄: 지급(완료) · 미결제 따로 */
+.vendor-sum tfoot .vs-split { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; white-space: nowrap; }
+.vendor-sum tfoot .vs-split-l { align-items: flex-start; }
+.vendor-sum tfoot .vs-split em { font-style: normal; }
+.vendor-sum tfoot .vs-done { color: var(--blue); }
+.vendor-sum tfoot .vs-total-left { color: var(--red); font-weight: 600; }
