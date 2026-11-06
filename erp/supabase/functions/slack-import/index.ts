@@ -5,7 +5,7 @@
 //    가져온 대화는 같은 폴더에 'YYMMDD_HHmm #채널 대화.txt' 로도 남김
 //  - 드라이브 기존 자료는 건드리지 않음 (새 폴더 · 새 파일만 만듦)
 //  - 함수 시간 제한 때문에 한 번에 메시지 300개 · 파일 20개까지, 남으면 more: true (화면이 이어서 부름)
-//  action: status · set_token(관리자) · channels · link · unlink · import · (x-sync-key) 2분마다 전체 자동 가져오기
+//  action: status · set_token(관리자) · channels · link · unlink · import · (x-sync-key) 1분마다 전체 자동 가져오기
 import { createClient } from 'npm:@supabase/supabase-js@2.117.3'
 
 const cors = {
@@ -162,11 +162,20 @@ async function runImport(p: P, token: string): Promise<{ ok?: boolean; error?: s
       let cursor: string | undefined
       try {
         for (let i = 0; i < 5 && got.length < MAX_MSGS - msgs; i++) {
-          const r = await slack<{ messages: SMsg[]; has_more?: boolean; response_metadata?: { next_cursor?: string } }>(token, 'conversations.history', {
-            channel: link.channel_id,
-            oldest: link.last_ts ?? undefined,
-            limit: 200,
-            cursor,
+          const hist = () =>
+            slack<{ messages: SMsg[]; has_more?: boolean; response_metadata?: { next_cursor?: string } }>(token, 'conversations.history', {
+              channel: link.channel_id,
+              oldest: link.last_ts ?? undefined,
+              limit: 200,
+              cursor,
+            })
+          // 공개 채널에 앱이 아직 없으면 스스로 들어가서 다시 시도 (channels:join 권한)
+          const r = await hist().catch(async e => {
+            if (!(e instanceof Error) || !e.message.startsWith('슬랙 앱이 이 채널에 없습니다')) throw e
+            await slack(token, 'conversations.join', { channel: link.channel_id }).catch(() => {
+              throw e
+            })
+            return hist()
           })
           got.push(...r.messages)
           cursor = r.response_metadata?.next_cursor || undefined
@@ -174,7 +183,10 @@ async function runImport(p: P, token: string): Promise<{ ok?: boolean; error?: s
         }
       } catch (e) {
         // 한 채널이 막혀도 다른 채널은 계속
-        errors.push(`#${link.channel_name}: ${e instanceof Error ? e.message : '가져오기 실패'}`)
+        const msg = e instanceof Error ? e.message : '가져오기 실패'
+        errors.push(`#${link.channel_name}: ${msg}`)
+        // 막힌 이유를 채널 칩에 보여 줌
+        await sb.from('slack_links').update({ last_error: msg }).eq('id', link.id)
         continue
       }
       // 지난 14일 안의 예전 글에 새로 달린 스레드 답글도 (자동 가져오기는 2분마다라 대부분 이 경우)
@@ -195,7 +207,11 @@ async function runImport(p: P, token: string): Promise<{ ok?: boolean; error?: s
         .filter(m => !m.subtype || ['file_share', 'thread_broadcast', 'bot_message'].includes(m.subtype))
         .filter(m => !link.last_ts || Number(m.ts) > Number(link.last_ts))
         .sort((a, c) => Number(a.ts) - Number(c.ts))
-      if (!list.length) continue
+      if (!list.length) {
+        // 새 대화가 없어도 확인한 시각은 남김 (칩에 '새 대화 없음 · 시각 확인')
+        await sb.from('slack_links').update({ last_imported_at: new Date().toISOString(), last_error: null }).eq('id', link.id)
+        continue
+      }
       let lastTs = link.last_ts as string | null
       let saved = 0
       let savedFiles = 0
@@ -263,7 +279,7 @@ async function runImport(p: P, token: string): Promise<{ ok?: boolean; error?: s
       }
       await sb
         .from('slack_links')
-        .update({ last_ts: lastTs, imported_count: (link.imported_count ?? 0) + saved, file_count: (link.file_count ?? 0) + savedFiles, last_imported_at: new Date().toISOString() })
+        .update({ last_ts: lastTs, imported_count: (link.imported_count ?? 0) + saved, file_count: (link.file_count ?? 0) + savedFiles, last_imported_at: new Date().toISOString(), last_error: null })
         .eq('id', link.id)
     }
     return { ok: true, messages: msgs, files, more, errors: errors.slice(0, 5) }
@@ -273,7 +289,7 @@ async function runImport(p: P, token: string): Promise<{ ok?: boolean; error?: s
 Deno.serve(async req => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
   if (req.method !== 'POST') return json({ error: 'POST 요청만 받습니다.' }, 405)
-  // 2분마다 자동 가져오기 (DB 예약 → x-sync-key) — 대표 지시 2026-11-06 "모든 외부 연결은 실시간으로 추적해서 가져와"
+  // 1분마다 자동 가져오기 (DB 예약 → x-sync-key) — 대표 지시 2026-11-06 "모든 외부 연결은 실시간으로 추적해서 가져와"
   const syncKey = req.headers.get('x-sync-key')
   if (syncKey) {
     const want = await gsecret('GDRIVE_SYNC_KEY')
