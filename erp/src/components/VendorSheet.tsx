@@ -5,6 +5,7 @@
 //   저장 위치: 단계마다 결제(payments) 한 건 (stage = 선금 / 중도금 n차 / 잔금), 계약금 · 비고는 업체 계약 줄(budget_lines)
 //   매출(수금)의 계약금은 프로젝트 계약(project_finances)
 //   노란 칸에 바로 적으면 저장 · 결제일자를 넣으면 그 단계는 완료 · 금액을 지우면 그 단계는 취소(지우지 않음)
+//   입금 예정일 (2026-11-06): 단계마다 금액과 결제일 사이 · 결제(payments)의 기존 예정일 칸(due_date)에 저장 · 위 요약 줄의 'MM.DD 예정' 과 같은 값
 import { Fragment, useMemo, useState } from 'react'
 import { Plus } from 'lucide-react'
 import { useAction, useApp } from '../lib/app'
@@ -148,7 +149,7 @@ export function VendorSheet({ projectId, payments, all, lines, finance, onOpen }
       else await api.saveBudgetLine({ project_id: projectId, category: v.category || '미분류', payee: v.payee, item: v.title, budget_amount: 0, sort_order: lines.length + 1, contract_amount: patch.contract_amount ?? null, memo: patch.memo ?? null })
     })
   /** 단계 칸: 있으면 고치고, 없으면 금액을 넣을 때 새 결제 */
-  const saveStage = (v: Vendor, label: string, cur: Payment | undefined, patch: { amount?: number; requested_date?: string | null; paid_date?: string | null }) => {
+  const saveStage = (v: Vendor, label: string, cur: Payment | undefined, patch: { amount?: number; requested_date?: string | null; due_date?: string | null; paid_date?: string | null }) => {
     if (cur) {
       const p: Patch = {}
       if (patch.amount !== undefined) {
@@ -159,6 +160,10 @@ export function VendorSheet({ projectId, payments, all, lines, finance, onOpen }
       if (patch.requested_date !== undefined) {
         if (patch.requested_date === cur.requested_date) return
         p.requested_date = patch.requested_date
+      }
+      if (patch.due_date !== undefined) {
+        if (patch.due_date === cur.due_date) return
+        p.due_date = patch.due_date
       }
       if (patch.paid_date !== undefined) {
         if (patch.paid_date === cur.paid_date) return
@@ -401,6 +406,7 @@ export function VendorSheet({ projectId, payments, all, lines, finance, onOpen }
                                   {cur && isDone(cur) && <span className="vf-done">결제 완료</span>}
                                 </b>
                                 {field('금액', <input className="input num" inputMode="numeric" defaultValue={money(cur?.amount)} onBlur={e => saveStage(v, s.label, cur, { amount: parseMoney(e.target.value) })} onKeyDown={blurOnEnter} />)}
+                                {field('입금 예정일', <input className="input" type="date" defaultValue={cur?.due_date ?? ''} disabled={!cur} onChange={e => cur && saveStage(v, s.label, cur, { due_date: e.target.value || null })} title={cur ? '입금(지급) 예정일 · 날짜를 고르면 바로 저장' : '금액을 먼저 넣어 주세요'} aria-label={`${s.label} 입금 예정일`} />)}
                                 {field('결제일', <input className="input" type="date" defaultValue={cur?.paid_date ?? ''} disabled={!cur} onChange={e => cur && saveStage(v, s.label, cur, { paid_date: e.target.value || null })} title={cur ? '넣으면 결제 완료' : '금액을 먼저 넣어 주세요'} />)}
                                 <label className={`vs-inv${cur ? '' : ' off'}`}>
                                   <input type="checkbox" defaultChecked={cur?.tax_invoice === '발행'} disabled={!cur} onChange={e => cur && void run(() => api.savePayment({ id: cur.id, tax_invoice: e.target.checked ? '발행' : '미발행', tax_invoice_date: e.target.checked ? cur.tax_invoice_date ?? todayKey() : null }), e.target.checked ? `${v.payee} ${s.label} 계산서 ${v.dir === '수금' ? '발행' : '받음'}으로 표시했습니다.` : '계산서 표시를 지웠습니다.')} />
