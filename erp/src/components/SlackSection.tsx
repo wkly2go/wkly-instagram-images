@@ -137,7 +137,7 @@ export function SlackSection({ project }: { project: Project }) {
       </div>
       {channels?.some(c => c.is_private && !c.is_member) && (
         <span className="t-cap">
-          <Lock size={11} /> 비공개 채널은 슬랙에서 그 채널에 <code>/invite @WKLY 인트라넷</code> 으로 앱을 먼저 초대해야 가져올 수 있습니다.
+          <Lock size={11} /> 비공개 채널은 슬랙에서 그 채널에 <code>/invite @wkly-intranet</code> 으로 앱을 먼저 초대해야 가져올 수 있습니다.
         </span>
       )}
       {progress && <span className="t-cap">{progress}</span>}
