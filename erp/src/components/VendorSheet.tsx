@@ -310,7 +310,7 @@ export function VendorSheet({ projectId, payments, all, lines, finance, onOpen }
       <table className="vendor-sum">
         <colgroup>
           <col style={{ width: 54 }} />
-          <col style={{ width: '24%' }} />
+          <col style={{ width: '27%' }} />
           <col style={{ width: '11%' }} />
           <col style={{ width: '9%' }} />
           {stages.map(s => (
@@ -344,31 +344,34 @@ export function VendorSheet({ projectId, payments, all, lines, finance, onOpen }
                     <span className={`vs-dir ${v.dir === '수금' ? 'in' : 'out'}`}>{v.dir === '수금' ? '매출' : '매입'}</span>
                   </td>
                   <td className="vs-who">
-                    <button type="button" className="vs-name-link" onClick={e => (e.stopPropagation(), showPanel(), openVendor({ name: v.payee, clientId: v.items.find(live)?.client_id ?? null }))} title={`${v.payee} 상세 (오른쪽 칸)`}>
-                      {v.payee}
-                    </button>
+                    <span className="vs-name-row">
+                      <button type="button" className="vs-name-link" onClick={e => (e.stopPropagation(), showPanel(), openVendor({ name: v.payee, clientId: v.items.find(live)?.client_id ?? null }))} title={`${v.payee} 상세 (오른쪽 칸)`}>
+                        {v.payee}
+                      </button>
+                      {/* 계좌번호 바로 보기 · 누르면 복사 (대표 지시 2026-11-06 "계좌번호도 외부에 노출" → 업체 이름 같은 줄 오른쪽) */}
+                      {v.account && (
+                        <button
+                          type="button"
+                          className="vs-acc"
+                          title={`${[v.bank, v.account, v.holder ? `예금주 ${v.holder}` : null].filter(Boolean).join(' · ')} — 누르면 계좌번호 복사`}
+                          onClick={e => {
+                            e.stopPropagation()
+                            void navigator.clipboard?.writeText(v.account!.replace(/[^\d-]/g, '')).then(
+                              () => toast(`${v.payee} 계좌번호를 복사했습니다.`),
+                              () => toast(v.account!),
+                            )
+                          }}
+                        >
+                          {/* 예금주는 업체 이름과 다를 때만 (같으면 마우스를 올리면 보임) */}
+                          {[v.bank, v.account, v.holder && !norm(v.holder).includes(norm(v.payee)) && !norm(v.payee).includes(norm(v.holder)) ? `(${v.holder})` : null].filter(Boolean).join(' ')}
+                          <Copy size={11} />
+                        </button>
+                      )}
+                    </span>
                     <span className="t-cap">
                       {rate != null && rate >= 100 && <b className="vs-alldone">완료</b>}
                       {[v.category, v.title !== v.payee ? v.title : null, v.contractType].filter(Boolean).join(' · ')}
                     </span>
-                    {/* 계좌번호 바로 보기 · 누르면 복사 (대표 지시 2026-11-06 "계좌번호도 외부에 노출") */}
-                    {v.account && (
-                      <button
-                        type="button"
-                        className="vs-acc"
-                        title="누르면 계좌번호 복사"
-                        onClick={e => {
-                          e.stopPropagation()
-                          void navigator.clipboard?.writeText(v.account!.replace(/[^\d-]/g, '')).then(
-                            () => toast(`${v.payee} 계좌번호를 복사했습니다.`),
-                            () => toast(v.account!),
-                          )
-                        }}
-                      >
-                        {[v.bank, v.account, v.holder ? `(${v.holder})` : null].filter(Boolean).join(' ')}
-                        <Copy size={11} />
-                      </button>
-                    )}
                   </td>
                   <td className="num mono">{v.contract ? manwon(v.contract) : <span className="vs-empty">–</span>}</td>
                   <td>

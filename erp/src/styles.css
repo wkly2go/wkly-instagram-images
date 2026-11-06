@@ -4164,3 +4164,12 @@ html[data-theme="dark"] .bigcal .day.m-day.picked .n { color: #13261a; }
 .vs-acc { display: inline-flex; align-items: center; gap: 4px; margin-top: 2px; padding: 1px 6px; border: 1px dashed #cfd6cf; background: #fafbf9; color: #3b4a40; font: 600 var(--fs-cap)/1.5 var(--mono); cursor: copy; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .vs-acc:hover { border-color: var(--blue); color: var(--blue); background: #eef6f0; }
 .vs-who { display: flex; flex-direction: column; align-items: flex-start; }
+/* 입금계좌: 업체 이름 같은 줄 오른쪽 (2026-11-06) */
+.vs-name-row { display: flex; align-items: center; gap: 8px; min-width: 0; max-width: 100%; }
+.vs-name-row .vs-name-link { flex: none; }
+.vs-name-row .vs-acc { margin-top: 0; min-width: 0; flex: 0 1 auto; }
+.vs-name-row .vs-acc { font-size: 11px; padding: 0 5px; }
+.vendor-sum td.num { overflow: visible; }
+.vs-cell { flex-wrap: wrap; row-gap: 4px; }
+.vs-amt em { white-space: nowrap; }
+.vs-name-row { flex-wrap: wrap; row-gap: 2px; }
