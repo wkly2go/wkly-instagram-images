@@ -207,8 +207,8 @@ function Members() {
             </tr>
           </thead>
           <tbody>
-            {/* 사람 팀원과 AI 팀원을 나눠서 (대표 지시 2026-11-06 "AI 팀원끼리 구분해줘") */}
-            {([['사람 팀원', profiles.filter(x => !x.is_agent)], ['AI 팀원', profiles.filter(x => x.is_agent)]] as const).flatMap(([label, group]) => [
+            {/* 사람 팀원은 입사일 순 (입사일 없으면 맨 아래 · 대표 지시 2026-11-06) · 사람 팀원과 AI 팀원을 나눠서 (대표 지시 2026-11-06 "AI 팀원끼리 구분해줘") */}
+            {([['사람 팀원', profiles.filter(x => !x.is_agent).sort((a, b) => (hrOf(a.id).joined_on ?? '9999').localeCompare(hrOf(b.id).joined_on ?? '9999') || a.name.localeCompare(b.name))], ['AI 팀원', profiles.filter(x => x.is_agent)]] as const).flatMap(([label, group]) => [
               <tr key={`grp-${label}`} className="grp-row">
                 <td colSpan={14}>
                   {label === 'AI 팀원' ? '🤖 ' : ''}
