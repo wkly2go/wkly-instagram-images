@@ -4235,3 +4235,39 @@ html[data-theme="dark"] .bigcal .day.m-day.picked .n { color: #13261a; }
 @media (max-width: 640px) { .hr-leave { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .table tr.grp-row td { background: #f1f4ef; padding: 7px 10px; border-top: 1px solid var(--line); font-size: var(--fs-sm); color: var(--ink); }
 .side-sep { display: block; margin: 10px 10px 2px; padding-top: 8px; border-top: 1px solid var(--line); font-size: var(--fs-cap); font-weight: 700; color: #8a948c; letter-spacing: .02em; }
+/* 개인정보 관리 (2026-11-06) */
+.my-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.my-tiles > div { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; background: var(--white); border: 1px solid var(--line); min-width: 0; }
+.my-tiles b { font-size: var(--fs-sub); color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 640px) { .my-tiles { grid-template-columns: 1fr; } }
+/* 관리 › 팀원 관리: 인사 정보 바로 고치기 (2026-11-06) */
+.mem-in { padding: 2px 6px !important; height: 28px; font-size: var(--fs-cap) !important; border-color: transparent !important; background: transparent !important; }
+.mem-in:hover, .mem-in:focus { border-color: var(--line) !important; background: var(--white) !important; }
+.hr-toggle { border: 1px solid var(--line); background: var(--white); color: var(--blue); font: 700 10.5px/1 var(--font); padding: 4px 6px; cursor: pointer; white-space: nowrap; }
+.hr-toggle.on, .hr-toggle:hover { background: color-mix(in srgb, var(--blue) 8%, var(--white)); }
+.table tr.mem-detail > td { background: #f7f9f5; padding: 12px 16px; border-bottom: 2px solid var(--line); }
+.table tr.mem-detail > td > .col { position: sticky; left: 16px; max-width: 980px; }
+.table tr.mem-detail .form-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px 12px; }
+.table tr.mem-detail .form-grid .full { grid-column: 1 / -1; }
+.table tr.mem-detail .textarea { min-height: 56px; }
+/* 개인정보 관리: 촘촘하게 (대표 지시 2026-11-06 "공간을 촘촘하게 사용해") */
+.my-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 16px 24px; align-items: start; }
+@media (max-width: 1100px) { .my-cols { grid-template-columns: 1fr; } }
+.my-info .section-h { margin: 4px 0 0; padding-bottom: 4px; }
+.my-info .my-tiles { gap: 6px; }
+.my-info .my-tiles > div { padding: 6px 10px; gap: 2px; }
+.my-info .my-tiles b { font-size: var(--fs-body); }
+.my-info .hr-leave { gap: 6px; }
+.my-info .hr-leave > div { padding: 6px 10px; gap: 2px; }
+.my-info .hr-leave b { font-size: var(--fs-sub); }
+.my-info .hr-grid { row-gap: 4px; }
+.my-info .hr-grid dt, .my-info .hr-grid dd { font-size: var(--fs-sm); }
+.my-info .box { padding: 8px 10px; gap: 6px; }
+.my-info .form-grid { gap: 6px 10px; }
+.my-info .form-grid .input, .my-info .form-grid .select { height: 32px; padding-top: 4px; padding-bottom: 4px; font-size: var(--fs-sm); }
+.my-info .field > span, .my-info label > span { font-size: var(--fs-cap); }
+/* 구역 제목: 핑크 (대표 지시 2026-11-06 "이런 타이틀은 핑크색을 사용해") — 글자는 읽기 좋게 조금 짙은 핑크 */
+:root { --pink-ink: #d4189b; }
+.section-h::before, html[data-theme="dark"] .section-h::before { background: var(--pink) !important; }
+.section-h > .t-bodyb, .section-h > span.t-bodyb { color: var(--pink-ink) !important; }
+html[data-theme="dark"] .section-h > .t-bodyb { color: var(--pink) !important; }

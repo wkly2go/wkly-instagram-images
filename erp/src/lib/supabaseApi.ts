@@ -667,6 +667,9 @@ export function createSupabaseApi(url: string, key: string): Api {
       if (error) return []
       return data as HrRecord[]
     },
+    async saveMyHr(r) {
+      must(await sb.rpc('hr_self_update', { p_phone: r.phone ?? '', p_birthday: r.birthday || null, p_address: r.address ?? '', p_emergency: r.emergency_contact ?? '', p_bank: r.bank_name ?? '', p_account: r.account_no ?? '', p_holder: r.account_holder ?? '' }))
+    },
     async saveHrRecord(r) {
       const res = await sb.from('hr_records').upsert(strip(r, ['updated_at', 'updated_by'])).select('profile_id')
       if (res.error?.code === '23505' && /employee_no/.test(res.error.message)) throw new ApiError('같은 사원번호가 이미 있습니다. 다른 번호를 넣어 주세요.')
@@ -830,9 +833,18 @@ export function createSupabaseApi(url: string, key: string): Api {
       return must(await sb.from('attendance').select('*').eq('day', day)) as Attendance[]
     },
     async listLeave() {
-      const { data, error } = await sb.from('leave_records').select('*').order('start_date', { ascending: false })
+      // 휴가 기록은 본인 · 관리자만 (0096). 다른 사람 휴가는 달력용으로 날짜만 받아 '휴가'로 가려서 붙임
+      const [{ data, error }, team] = await Promise.all([
+        sb.from('leave_records').select('*').order('start_date', { ascending: false }),
+        sb.rpc('team_leave_days'),
+      ])
       if (error) return [] // 0007 미적용
-      return (data as LeaveRecord[]).map(r => ({ ...r, days: Number(r.days) }))
+      const own = (data as LeaveRecord[]).map(r => ({ ...r, days: Number(r.days) }))
+      const seen = new Set(own.map(r => r.id))
+      const others = ((team.data ?? []) as { id: string; profile_id: string; start_date: string; end_date: string; half: boolean }[])
+        .filter(t => !seen.has(t.id))
+        .map(t => ({ id: t.id, profile_id: t.profile_id, kind: (t.half ? '반차' : '기타') as LeaveRecord['kind'], start_date: t.start_date, end_date: t.end_date, days: 0, reason: null, status: '승인' as const, decided_by: null, decided_at: null, created_by: null, created_at: t.start_date, masked: true }))
+      return [...own, ...others]
     },
     async createLeave(r) {
       must(await sb.from('leave_records').insert({ ...r, status: r.status ?? '신청' }).select('id'))

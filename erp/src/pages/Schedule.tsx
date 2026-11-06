@@ -495,7 +495,7 @@ export function MonthCalendar({ projects, tasks }: { projects: Project[]; tasks:
     }
     for (const l of leaves) {
       if (l.status !== '승인' || (mine && l.profile_id !== me.id)) continue
-      for (let d = l.start_date; d <= l.end_date; d = addDays(d, 1)) push(d, { key: `${l.id}${d}`, label: `${profileName(l.profile_id)} ${l.kind}`, tone: 'leave', to: '/team?view=leave' })
+      for (let d = l.start_date; d <= l.end_date; d = addDays(d, 1)) push(d, { key: `${l.id}${d}`, label: `${profileName(l.profile_id)} ${l.masked ? (l.kind === '반차' ? '반차' : '휴가') : l.kind}`, tone: 'leave', to: '/team?view=leave' })
     }
     return m
   }, [tasks, projects, leaves, mine, me.id, month, today, profileName])
@@ -751,7 +751,7 @@ export function WeekView({ projects, tasks }: { projects: Project[]; tasks: Task
     }
     for (const l of leaves) {
       if (l.status !== '승인' || (mine && l.profile_id !== me.id)) continue
-      for (const d of days) if (d >= l.start_date && d <= l.end_date) byDay.get(d)!.events.push({ key: `${l.id}${d}`, label: `${profileName(l.profile_id)} ${l.kind}`, tone: 'leave', to: '/team?view=leave' })
+      for (const d of days) if (d >= l.start_date && d <= l.end_date) byDay.get(d)!.events.push({ key: `${l.id}${d}`, label: `${profileName(l.profile_id)} ${l.masked ? (l.kind === '반차' ? '반차' : '휴가') : l.kind}`, tone: 'leave', to: '/team?view=leave' })
     }
     for (const v of byDay.values()) v.tasks.sort((a, b) => (a.remind_at ?? '9').localeCompare(b.remind_at ?? '9') || a.title.localeCompare(b.title))
     // 겹치지 않는 막대는 같은 줄에 (시작 순으로 줄 채우기)

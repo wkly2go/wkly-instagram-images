@@ -1713,6 +1713,16 @@ export function createDemoApi(): Api {
       requireMe()
       return clone((store.hr_records ?? []).filter(h => isAdmin() || h.profile_id === me))
     },
+    async saveMyHr(r) {
+      const self = requireMe()
+      const list = (store.hr_records ??= [])
+      const i = list.findIndex(h => h.profile_id === self)
+      const t = (v: string | null | undefined) => v?.trim() || null
+      const patch = { phone: t(r.phone), birthday: r.birthday || null, address: t(r.address), emergency_contact: t(r.emergency_contact), bank_name: t(r.bank_name), account_no: t(r.account_no), account_holder: t(r.account_holder), updated_at: now(), updated_by: self }
+      if (i >= 0) list[i] = { ...list[i], ...patch }
+      else list.push({ profile_id: self, joined_on: null, note: null, ...patch })
+      persist()
+    },
     async saveHrRecord(r) {
       requireAdmin()
       const list = (store.hr_records ??= [])
@@ -2012,8 +2022,11 @@ export function createDemoApi(): Api {
       emit('app_settings')
     },
     async listLeave() {
-      requireMe()
-      return clone([...(store.leave_records ?? [])].sort((a, b) => b.start_date.localeCompare(a.start_date)))
+      const self = requireMe()
+      // 운영과 같게: 본인 · 관리자는 전부, 다른 사람 휴가는 승인된 것만 날짜로 가려서
+      const all = [...(store.leave_records ?? [])].sort((a, b) => b.start_date.localeCompare(a.start_date))
+      if (isAdmin()) return clone(all)
+      return clone(all.filter(l => l.profile_id === self || l.status === '승인').map(l => (l.profile_id === self ? l : { ...l, kind: l.kind === '반차' ? '반차' : '기타', reason: null, days: 0, masked: true })))
     },
     async createLeave(r) {
       const self = requireMe()

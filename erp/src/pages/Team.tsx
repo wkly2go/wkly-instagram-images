@@ -11,6 +11,7 @@ import { Shell } from '../components/Shell'
 import { WorkPane } from './WorkLog'
 import { usePanelWide, useRightPanel } from '../components/RightPanel'
 import { PersonName } from '../components/Person'
+import { MyInfo } from '../components/MyInfo'
 import { LeaveSection } from '../components/Leave'
 import { Badge, Button, Chip, Field, KindBadge, SectionHead, StatusBadge, TodayBadge } from '../components/ui'
 import { AssignTaskButton } from '../components/AssignTask'
@@ -20,7 +21,7 @@ const TABS: [Tab, string][] = [
   ['work', '업무'],
   ['attendance', '근태'],
   ['leave', '휴가'],
-  ['me', '내 정보'],
+  ['me', '내 정보 · 연차'],
 ]
 
 /** 팀 · 근태: 근태만. 조직 · 프로젝트 현황은 프로젝트 › 조직 탭으로 옮김 */
@@ -89,7 +90,12 @@ export default function Team() {
         <>
           {tabChips}
           {tab === 'leave' && <LeaveSection />}
-          {tab === 'me' && <MySettings />}
+          {tab === 'me' && (
+            <>
+              <MyInfo />
+              <MySettings />
+            </>
+          )}
         </>
       )}
     </Shell>
@@ -290,7 +296,7 @@ function PersonHub({ p, onBack }: { p: Profile; onBack: () => void }) {
                   {shortDate(d)} {['일', '월', '화', '수', '목', '금', '토'][wd(d)]}
                 </span>
                 {lv ? (
-                  <Badge tone="paper">{lv.kind}</Badge>
+                  <Badge tone="paper">{lv.masked ? (lv.kind === '반차' ? '반차' : '휴가') : lv.kind}</Badge>
                 ) : a ? (
                   <span className="t-small">
                     {timeLabel(a.first_at)} – {timeLabel(a.last_at)}
@@ -323,8 +329,8 @@ function PersonHub({ p, onBack }: { p: Profile; onBack: () => void }) {
                 {shortDate(l.start_date)}
                 {l.end_date !== l.start_date ? ` – ${shortDate(l.end_date)}` : ''}
               </span>
-              <Badge tone="outline">{l.kind}</Badge>
-              <span className="t-cap">{l.days}일</span>
+              <Badge tone="outline">{l.masked ? (l.kind === '반차' ? '반차' : '휴가') : l.kind}</Badge>
+              {!l.masked && <span className="t-cap">{l.days}일</span>}
               <span className="grow" />
               <Badge tone={l.status === '승인' ? 'acid' : l.status === '반려' ? 'red' : 'yellow'}>{l.status}</Badge>
             </div>
@@ -436,7 +442,7 @@ function MySettings() {
   const [pw2, setPw2] = useState('')
   return (
     <>
-      <SectionHead title="내 정보" />
+      <SectionHead title="계정 · 비밀번호" />
       <div className="row top wrap gap-12">
         <div className="col gap-6" style={{ flex: '1 1 220px' }}>
           <Field label="이름">

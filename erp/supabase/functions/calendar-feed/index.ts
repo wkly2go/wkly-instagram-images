@@ -107,7 +107,9 @@ Deno.serve(async req => {
   }
   for (const l of leaves ?? []) {
     const who = nameOf.get(l.profile_id) ?? ''
-    ev.push(...vevent({ uid: `leave-${l.id}`, start: l.start_date, end: l.end_date, title: `${team || l.profile_id !== me ? who + ' ' : ''}${l.kind}`, url: `${APP}/team` }, stamp))
+    // 다른 사람 휴가는 종류(병가 · 경조사 등)를 가리고 '휴가'로만 (2026-11-06 개인 공간 비공개)
+    const label = l.profile_id === me ? l.kind : l.kind === '반차' ? '반차' : '휴가'
+    ev.push(...vevent({ uid: `leave-${l.id}`, start: l.start_date, end: l.end_date, title: `${team || l.profile_id !== me ? who + ' ' : ''}${label}`, url: `${APP}/team` }, stamp))
   }
 
   for (const w of plans ?? []) {

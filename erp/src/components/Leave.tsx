@@ -132,7 +132,7 @@ export function LeaveSection() {
   )
 }
 
-function LeaveForm({ profileIds }: { profileIds: string[] }) {
+export function LeaveForm({ profileIds }: { profileIds: string[] }) {
   const { api, me, profileName } = useApp()
   const { busy, run } = useAction()
   const admin = me.role === 'admin'
@@ -210,7 +210,7 @@ function LeaveForm({ profileIds }: { profileIds: string[] }) {
   )
 }
 
-function LeaveRow({ l }: { l: LeaveRecord }) {
+export function LeaveRow({ l }: { l: LeaveRecord }) {
   const { api, me } = useApp()
   const { busy, run } = useAction()
   const admin = me.role === 'admin'
@@ -218,10 +218,11 @@ function LeaveRow({ l }: { l: LeaveRecord }) {
   return (
     <div className="item-row">
       <PersonName id={l.profile_id} />
-      <Badge tone={l.kind === '연차' || l.kind === '반차' ? 'blue' : 'outline'}>{l.kind}</Badge>
+      <Badge tone={l.kind === '연차' || l.kind === '반차' ? 'blue' : 'outline'}>{l.masked ? (l.kind === '반차' ? '반차' : '휴가') : l.kind}</Badge>
       <span className="t-cap grow truncate">
         {shortDate(l.start_date)}
-        {l.end_date !== l.start_date ? `~${shortDate(l.end_date)}` : ''} · {days(Number(l.days))}
+        {l.end_date !== l.start_date ? `~${shortDate(l.end_date)}` : ''}
+        {l.masked ? '' : ` · ${days(Number(l.days))}`}
         {l.reason ? ` · ${l.reason}` : ''}
       </span>
       <Badge tone={l.status === '승인' ? 'acid' : l.status === '반려' ? 'red' : 'yellow'}>{l.status}</Badge>
