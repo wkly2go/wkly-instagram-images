@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { manwon, todayKey } from '../lib/date'
-import { projectMoney } from '../lib/finance'
+import { isOpen, projectMoney } from '../lib/finance'
 import { Link } from '../lib/router'
 import type { BudgetLine, Client, Payment, Project, ProjectFinance } from '../lib/types'
 import { Meter } from './charts'
@@ -54,6 +54,7 @@ export function FinancePanel({ project, clients, projects, viz, part }: { projec
             <Tile label="지급" value={manwon(m.paid) || '0'} sub={`미지급 ${manwon(m.payable) || '0'}`} rate={spent ? (m.paid / spent) * 100 : null} />
             <Tile label="예상 마진" value={m.margin != null ? manwon(m.margin) : '–'} sub={m.marginRate != null ? `${Math.round(m.marginRate)}%` : '계약을 넣으면 계산'} tone={m.marginRate != null && m.target != null && m.marginRate < m.target ? 'red' : undefined} />
           </div>
+          <UnpaidList payments={data.payments} today={today} />
           {/* 세분화 (대표 지시 2026-10-31 "재무 항목을 더 세분화하고 시각화") */}
           {/* 연체 · 7일 안 입출금 · 계산서 · 부가세 · 업체 수는 입출금 알람으로 옮김 (대표 지시 2026-10-31) */}
         </>
@@ -154,3 +155,77 @@ export function ContractGoal({ project, finance }: { project: Project; finance: 
   )
 }
 
+
+/** 재무 칸: 매입 미결제 건 (대표 지시 2026-11-06 "매입 미결제 건도 재무란에 노출")
+ *  예정일 순 · 오늘 지급은 붉은 색 · 연체는 붉은 글자 · 체크하면 결제일 오늘로 완료 · 계좌 누르면 복사 */
+function UnpaidList({ payments, today }: { payments: Payment[]; today: string }) {
+  const { api, toast } = useApp()
+  const { busy, run } = useAction()
+  const [all, setAll] = useState(false)
+  const list = payments
+    .filter(p => p.direction === '지급' && isOpen(p) && p.amount > 0)
+    .sort((a, b) => (a.due_date ?? '9999').localeCompare(b.due_date ?? '9999') || (a.payee ?? '').localeCompare(b.payee ?? '', 'ko'))
+  if (!list.length) return <span className="t-cap fin-unpaid-none">매입 미결제 건이 없습니다.</span>
+  const total = list.reduce((n, p) => n + p.amount, 0)
+  const todayN = list.filter(p => p.due_date === today).length
+  const lateN = list.filter(p => p.due_date && p.due_date < today).length
+  const shown = all ? list : list.slice(0, 8)
+  const md = (d: string) => d.slice(5).replace('-', '.')
+  return (
+    <div className="fin-unpaid">
+      <div className="fin-unpaid-h">
+        <b>매입 미결제</b>
+        <span className="t-cap">
+          {list.length}건 · {manwon(total)}
+          {todayN ? <em className="red"> · 오늘 {todayN}건</em> : null}
+          {lateN ? <em className="red"> · 연체 {lateN}건</em> : null}
+        </span>
+      </div>
+      <ul>
+        {shown.map(p => {
+          const tag = p.due_date === today ? 'today' : p.due_date && p.due_date < today ? 'late' : ''
+          return (
+            <li key={p.id} className={tag}>
+              <span className="fu-due mono">{!p.due_date ? '미정' : tag === 'today' ? '오늘' : tag === 'late' ? `연체 ${md(p.due_date)}` : md(p.due_date)}</span>
+              <span className="fu-who">
+                <b className="truncate">{p.payee || p.title}</b>
+                <span className="t-cap truncate">{[p.stage, p.title !== p.payee ? p.title : null].filter(Boolean).join(' · ')}</span>
+              </span>
+              {p.account_no ? (
+                <button
+                  type="button"
+                  className="vs-acc fu-acc"
+                  title={`${[p.bank_name, p.account_no, p.account_holder ? `예금주 ${p.account_holder}` : null].filter(Boolean).join(' · ')} — 누르면 계좌번호 복사`}
+                  onClick={() =>
+                    void navigator.clipboard?.writeText(p.account_no!.replace(/[^\d-]/g, '')).then(
+                      () => toast(`${p.payee ?? ''} 계좌번호를 복사했습니다.`),
+                      () => toast(p.account_no!),
+                    )
+                  }
+                >
+                  {[p.bank_name, p.account_no].filter(Boolean).join(' ')}
+                </button>
+              ) : (
+                <span className="t-cap fu-acc-none">계좌 없음</span>
+              )}
+              <span className="fu-amt mono">{manwon(p.amount)}</span>
+              <label className="vs-pay" title="지급했으면 체크 → 처리 완료">
+                <input
+                  type="checkbox"
+                  disabled={busy}
+                  onChange={() => void run(() => api.savePayment({ id: p.id, paid_date: today, status: '완료' }), `${p.payee ?? p.title} ${p.stage ?? ''} 지급 완료로 처리했습니다.`)}
+                  aria-label={`${p.payee ?? p.title} ${p.stage ?? ''} 지급 완료`}
+                />
+              </label>
+            </li>
+          )
+        })}
+      </ul>
+      {list.length > 8 && (
+        <button type="button" className="link-btn t-cap" onClick={() => setAll(v => !v)}>
+          {all ? '접기' : `나머지 ${list.length - 8}건 더 보기`}
+        </button>
+      )}
+    </div>
+  )
+}
