@@ -16,6 +16,7 @@ import { Button } from './ui'
 import { openVendor } from './RightSchedule'
 import { showPanel } from './WebSearch'
 import { TaxInfo } from './TaxInfo'
+import { ask } from './Ask'
 
 type Patch = Partial<Payment>
 const money = (n: number | null | undefined) => (n ? n.toLocaleString('ko-KR') : '')
@@ -68,7 +69,7 @@ function slot(items: Payment[]) {
 }
 
 export function VendorSheet({ projectId, payments, all, lines, finance, onOpen }: { projectId: string; payments: Payment[]; all: Payment[]; lines: BudgetLine[]; finance: ProjectFinance | undefined; onOpen: (p: Payment) => void }) {
-  const { api, toast } = useApp()
+  const { api, toast, me } = useApp()
   const { busy, run } = useAction()
   const today = todayKey()
   const [extraMid, setExtraMid] = useState(0)
@@ -451,6 +452,19 @@ export function VendorSheet({ projectId, payments, all, lines, finance, onOpen }
                                   <input type="checkbox" defaultChecked={cur?.tax_invoice === '발행'} disabled={!cur} onChange={e => cur && void run(() => api.savePayment({ id: cur.id, tax_invoice: e.target.checked ? '발행' : '미발행', tax_invoice_date: e.target.checked ? cur.tax_invoice_date ?? todayKey() : null }), e.target.checked ? `${v.payee} ${s.label} 계산서 ${v.dir === '수금' ? '발행' : '받음'}으로 표시했습니다.` : '계산서 표시를 지웠습니다.')} />
                                   계산서 {v.dir === '수금' ? '발행' : '받음'}
                                 </label>
+                                {/* 결제 아예 삭제 (대표 지시 2026-11-08 · 관리자만 · 확인 후) */}
+                                {cur && me.role === 'admin' && (
+                                  <button
+                                    type="button"
+                                    className="vs-del"
+                                    onClick={async () =>
+                                      (await ask(`${v.payee} ${s.label} ${money(cur.amount)}원 결제를 완전히 삭제할까요?\n\n결제 대장에서도 사라지고 되돌릴 수 없습니다.`)) &&
+                                      void run(() => api.deletePayment(cur.id), `${v.payee} ${s.label} 결제를 삭제했습니다.`)
+                                    }
+                                  >
+                                    삭제
+                                  </button>
+                                )}
                               </div>
                             )
                           })}
