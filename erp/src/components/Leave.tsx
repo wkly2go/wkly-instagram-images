@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useAction, useApp, useAsync } from '../lib/app'
-import { addDays, shortDate, todayKey } from '../lib/date'
+import { shortDate, todayKey } from '../lib/date'
 import { DEDUCTS, leaveBalance, weekdaysBetween } from '../lib/leave'
 import { useRouter } from '../lib/router'
 import { LEAVE_KINDS, type HrRecord, type LeaveKind, type LeaveRecord } from '../lib/types'
@@ -145,13 +145,20 @@ export function LeaveForm({ profileIds }: { profileIds: string[] }) {
   const half = kind === '반차'
   const auto = start ? (half ? 0.5 : weekdaysBetween(start, end || start)) : 0
   const count = half ? 0.5 : Number(n || auto)
-  const bad = !start || (!half && !!end && end < start) || !(count > 0) || (half ? false : count > 60)
+  const today = todayKey()
+  const last = half ? start : end || start
+  // 이미 지난 휴가는 바로 '완료'로 기록 (대표 지시 2026-11-09 "이전 기록도 완료로 기록할 수 있게")
+  const past = !!start && last < today
+  // 앞으로의 연차 · 반차는 전날까지 신청 (관리자 · 병가 · 경조사 · 지난 기록은 예외)
+  const tooLate = !!start && !past && !admin && DEDUCTS(kind) && start <= today
+  const bad = !start || (!half && !!end && end < start) || !(count > 0) || (half ? false : count > 60) || tooLate
   const submit = async () => {
     if (bad) return
     const self = who === me.id
+    const done = past || (admin && !self)
     const ok = await run(
-      () => api.createLeave({ profile_id: who, kind, start_date: start, end_date: half ? start : end || start, days: count, reason: reason.trim() || null, status: admin && !self ? '승인' : undefined }),
-      admin && !self ? `${profileName(who)}님 휴가를 승인 상태로 등록했습니다.` : '휴가를 신청했습니다. 관리자 승인 후 연차에서 차감됩니다.',
+      () => api.createLeave({ profile_id: who, kind, start_date: start, end_date: last, days: count, reason: reason.trim() || null, status: done ? '승인' : undefined }),
+      past ? `${self ? '' : `${profileName(who)}님 `}지난 ${kind}를 완료로 기록했습니다.` : admin && !self ? `${profileName(who)}님 휴가를 승인 상태로 등록했습니다.` : '휴가를 신청했습니다. 관리자 승인 후 연차에서 차감됩니다.',
     )
     if (ok) {
       setStart('')
@@ -183,7 +190,7 @@ export function LeaveForm({ profileIds }: { profileIds: string[] }) {
           </select>
         </Field>
         <Field label={half ? '날짜' : '시작일'}>
-          <input className="input" type="date" value={start} min={me.role === 'admin' || kind === '병가' || kind === '경조사' ? undefined : addDays(todayKey(), 1)} onChange={e => setStart(e.target.value)} />
+          <input className="input" type="date" value={start} onChange={e => setStart(e.target.value)} />
         </Field>
         {!half && (
           <Field label="종료일">
@@ -198,12 +205,14 @@ export function LeaveForm({ profileIds }: { profileIds: string[] }) {
         <Field label="사유 (선택)" className="full">
           <input className="input" value={reason} onChange={e => setReason(e.target.value)} maxLength={500} />
         </Field>
-        <span className="t-cap full">연차 · 반차는 전날까지 신청해야 인정됩니다. 병가 · 경조사는 당일 신청 가능.</span>
+        <span className="t-cap full">연차 · 반차는 전날까지 신청해야 인정됩니다. 병가 · 경조사는 당일 신청 가능. 이미 지난 날짜를 고르면 '완료'로 바로 기록됩니다.</span>
       </div>
       <div className="row">
-        <span className="t-cap grow">{start ? `${days(count)} · ${DEDUCTS(kind) ? '연차에서 차감' : '연차 차감 없음'}` : '날짜를 고르세요.'}</span>
+        <span className={`t-cap grow${tooLate ? ' t-red' : ''}`}>
+          {!start ? '날짜를 고르세요.' : tooLate ? '연차 · 반차는 전날까지 신청해야 합니다. 이미 쓴 휴가면 지난 날짜로 기록하세요.' : `${days(count)} · ${DEDUCTS(kind) ? '연차에서 차감' : '연차 차감 없음'}${past ? ' · 지난 기록 → 완료로 저장' : ''}`}
+        </span>
         <Button onClick={submit} disabled={busy || bad}>
-          {admin && who !== me.id ? '등록 (승인)' : '휴가 신청'}
+          {past ? '지난 기록 저장 (완료)' : admin && who !== me.id ? '등록 (승인)' : '휴가 신청'}
         </Button>
       </div>
     </div>
@@ -225,7 +234,7 @@ export function LeaveRow({ l }: { l: LeaveRecord }) {
         {l.masked ? '' : ` · ${days(Number(l.days))}`}
         {l.reason ? ` · ${l.reason}` : ''}
       </span>
-      <Badge tone={l.status === '승인' ? 'acid' : l.status === '반려' ? 'red' : 'yellow'}>{l.status}</Badge>
+      <Badge tone={l.status === '승인' ? 'acid' : l.status === '반려' ? 'red' : 'yellow'}>{l.status === '승인' && l.end_date < todayKey() ? '완료' : l.status}</Badge>
       {admin && l.status === '신청' && (
         <>
           <Button size="sm" disabled={busy} onClick={() => run(() => api.decideLeave(l.id, '승인'), '승인했습니다.')}>
@@ -236,7 +245,7 @@ export function LeaveRow({ l }: { l: LeaveRecord }) {
           </Button>
         </>
       )}
-      {(admin || (mine && l.status === '신청')) && (
+      {(admin || (mine && (l.status === '신청' || (l.created_by === me.id && l.end_date < todayKey())))) && (
         <Button size="sm" kind="ghost" disabled={busy} onClick={async () => (await ask('이 휴가 기록을 지울까요?')) && run(() => api.deleteLeave(l.id), '지웠습니다.')}>
           {mine && l.status === '신청' ? '취소' : '삭제'}
         </Button>

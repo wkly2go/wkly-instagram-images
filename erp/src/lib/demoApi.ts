@@ -2031,7 +2031,8 @@ export function createDemoApi(): Api {
     async createLeave(r) {
       const self = requireMe()
       const status = r.status ?? '신청'
-      if (!isAdmin() && (r.profile_id !== self || status !== '신청')) throw new ApiError('권한이 없습니다.')
+      // 지난 휴가는 본인이 바로 승인(완료)으로 기록 가능 (0098)
+      if (!isAdmin() && (r.profile_id !== self || (status !== '신청' && !(status === '승인' && r.end_date < todayKey())))) throw new ApiError('권한이 없습니다.')
       if (r.start_date > r.end_date) throw new ApiError('시작일이 종료일보다 늦습니다.')
       if (r.kind === '반차' && (r.days !== 0.5 || r.start_date !== r.end_date)) throw new ApiError('반차는 하루 0.5일입니다.')
       const row: LeaveRecord = { id: uid(), ...r, reason: r.reason ?? null, status, decided_by: status === '신청' ? null : self, decided_at: status === '신청' ? null : now(), created_by: self, created_at: now() }
@@ -2054,7 +2055,7 @@ export function createDemoApi(): Api {
     async deleteLeave(id) {
       const self = requireMe()
       const r = (store.leave_records ?? []).find(x => x.id === id)
-      if (!r || (!isAdmin() && (r.profile_id !== self || r.status !== '신청'))) throw new ApiError('권한이 없습니다.')
+      if (!r || (!isAdmin() && (r.profile_id !== self || !(r.status === '신청' || (r.created_by === self && r.end_date < todayKey()))))) throw new ApiError('권한이 없습니다.')
       store.leave_records = (store.leave_records ?? []).filter(x => x.id !== id)
       persist()
       emit('leave_records')
