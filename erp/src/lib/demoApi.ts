@@ -1576,7 +1576,7 @@ export function createDemoApi(): Api {
       return clone(row)
     },
     async deletePayment(id) {
-      requireAdmin()
+      requireMe() // 모든 팀원 (0097)
       del('payments', id)
     },
     async updatePayments(ids, patch) {

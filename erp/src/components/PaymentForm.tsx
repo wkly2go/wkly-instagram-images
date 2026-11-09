@@ -36,7 +36,7 @@ export function PaymentForm({
   lockProject?: boolean
   onClose: () => void
 }) {
-  const { api, me } = useApp()
+  const { api } = useApp()
   const { busy, run } = useAction()
   const [f, setF] = useState<Partial<Payment>>(
     () =>
@@ -111,11 +111,11 @@ export function PaymentForm({
       onClose={onClose}
       actions={
         <>
-          {/* 아래 오른쪽에 취소 · 삭제 · 저장 (대표 지시 2026-11-09) · 삭제는 관리자만 */}
+          {/* 아래 오른쪽에 취소 · 삭제 · 저장 (대표 지시 2026-11-09) · 삭제는 모든 팀원 (0097) */}
           <Button kind="ghost" onClick={onClose}>
             취소
           </Button>
-          {payment && me.role === 'admin' && (
+          {payment && (
             <button type="button" className="btn btn-sm pf-del" onClick={remove} disabled={busy}>
               삭제
             </button>
