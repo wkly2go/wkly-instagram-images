@@ -101,7 +101,7 @@ export function PaymentForm({
     if (ok) onClose()
   }
   const remove = async () => {
-    if (payment && (await ask('이 결제 내역을 삭제할까요?')) && (await run(() => api.deletePayment(payment.id), '삭제했습니다.'))) onClose()
+    if (payment && (await ask('이 결제 내역을 완전히 삭제할까요?\n\n결제 대장에서도 사라지고 되돌릴 수 없습니다.')) && (await run(() => api.deletePayment(payment.id), '삭제했습니다.'))) onClose()
   }
 
   return (
@@ -111,14 +111,15 @@ export function PaymentForm({
       onClose={onClose}
       actions={
         <>
-          {payment && me.role === 'admin' && (
-            <Button kind="ghost" onClick={remove} disabled={busy} style={{ marginRight: 'auto' }}>
-              삭제
-            </Button>
-          )}
+          {/* 아래 오른쪽에 취소 · 삭제 · 저장 (대표 지시 2026-11-09) · 삭제는 관리자만 */}
           <Button kind="ghost" onClick={onClose}>
             취소
           </Button>
+          {payment && me.role === 'admin' && (
+            <button type="button" className="btn btn-sm pf-del" onClick={remove} disabled={busy}>
+              삭제
+            </button>
+          )}
           <Button onClick={submit} disabled={busy || !((f.title ?? '').trim() || f.category || f.payee?.trim())}>
             저장
           </Button>
