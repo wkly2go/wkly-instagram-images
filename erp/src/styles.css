@@ -4043,7 +4043,7 @@ html[data-theme="dark"] .t-cap, html[data-theme="dark"] .t-meta, html[data-theme
   .m-dots i.c-done { background: var(--line); box-shadow: none; }
   .m-dots i.c-project { background: var(--green); box-shadow: none; }
   .m-dots i.c-leave { background: var(--pink); box-shadow: none; }
-  .m-dots b { font: 700 9px/1 var(--mono); color: var(--gray); }
+  .m-dots b { font: 700 11px/1 var(--mono); color: var(--gray); }
   .m-agenda { display: flex; flex-direction: column; gap: 8px; padding: 12px 0 4px; border-top: 2px solid var(--blue); }
   .m-agenda-h { display: flex; align-items: center; gap: 8px; }
   .m-agenda-h b { font-size: var(--fs-sub); color: var(--blue); }
@@ -4124,7 +4124,7 @@ html[data-theme="dark"] .bigcal .day.m-day.picked .n { color: #13261a; }
 .q2-tabs button:hover { color: var(--blue); }
 .q2-tabs button.on { color: var(--blue); font-weight: 800; }
 .q2-tabs button.on::after { content: ''; position: absolute; left: 22%; right: 22%; bottom: -1px; height: 3px; border-radius: 3px 3px 0 0; background: var(--blue); }
-.q2-badge { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: #e5484d; color: #fff; font: 700 10px/18px var(--mono); text-align: center; }
+.q2-badge { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: #e5484d; color: #fff; font: 700 11px/18px var(--mono); text-align: center; }
 .quick.q2 .card { border: 0 !important; border-radius: 0; padding: 0; background: transparent !important; }
 .quick.q2 .inner, .quick.q2 .inner.quick-chat { background: transparent !important; padding: 12px; }
 .quick.q2 .quick-brand, .quick.q2 .today-is { display: none; }
@@ -4189,7 +4189,7 @@ html[data-theme="dark"] .bigcal .day.m-day.picked .n { color: #13261a; }
 /* 빠른 창 채팅 다듬기 (대표 지시 2026-11-06 "너무 투박해 · 박스 크기 줄이고 프로젝트명 표기 · 하단부 디자인") — 글자 크기 단계와 상관없이 고정 크기 */
 .q2-room { position: relative; display: flex; align-items: center; gap: 7px; height: 32px; padding: 0 10px; background: #fff; border: 1px solid #e6e9e4; font-size: 12.5px; color: var(--ink, #3a3a36); cursor: pointer; flex: none; min-width: 0; }
 .q2-room:hover { border-color: color-mix(in srgb, var(--blue) 35%, #e6e9e4); }
-.q2-room-code { flex: none; font: 700 10.5px/1 var(--mono); letter-spacing: .02em; color: var(--blue); background: color-mix(in srgb, var(--blue) 9%, #fff); padding: 4px 5px; }
+.q2-room-code { flex: none; font: 700 11px/1 var(--mono); letter-spacing: .02em; color: var(--blue); background: color-mix(in srgb, var(--blue) 9%, #fff); padding: 4px 5px; }
 .q2-room-hash { flex: none; color: #9aa39b; font-weight: 700; }
 .q2-room-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
 .q2-room-chev { flex: none; color: #8a948c; }
@@ -4215,7 +4215,7 @@ html[data-theme="dark"] .bigcal .day.m-day.picked .n { color: #13261a; }
 .tax-month { display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 0; }
 .tax-bar { display: flex; align-items: flex-end; width: 60%; height: 64px; background: #f1f3ef; }
 .tax-bar i { display: block; width: 100%; background: var(--blue); }
-.tax-month b { font: 600 10.5px/1 var(--mono); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; min-height: 10px; }
+.tax-month b { font: 600 11px/1 var(--mono); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; min-height: 10px; }
 .tax-table td { vertical-align: middle; }
 .tax-table .truncate { max-width: 360px; }
 .tax-table tr.tax-minus td { background: #fdf2f2; }
@@ -4243,7 +4243,7 @@ html[data-theme="dark"] .bigcal .day.m-day.picked .n { color: #13261a; }
 /* 관리 › 팀원 관리: 인사 정보 바로 고치기 (2026-11-06) */
 .mem-in { padding: 2px 6px !important; height: 28px; font-size: var(--fs-cap) !important; border-color: transparent !important; background: transparent !important; }
 .mem-in:hover, .mem-in:focus { border-color: var(--line) !important; background: var(--white) !important; }
-.hr-toggle { border: 1px solid var(--line); background: var(--white); color: var(--blue); font: 700 10.5px/1 var(--font); padding: 4px 6px; cursor: pointer; white-space: nowrap; }
+.hr-toggle { border: 1px solid var(--line); background: var(--white); color: var(--blue); font: 700 11px/1 var(--font); padding: 4px 6px; cursor: pointer; white-space: nowrap; }
 .hr-toggle.on, .hr-toggle:hover { background: color-mix(in srgb, var(--blue) 8%, var(--white)); }
 .table tr.mem-detail > td { background: #f7f9f5; padding: 12px 16px; border-bottom: 2px solid var(--line); }
 .table tr.mem-detail > td > .col { position: sticky; left: 16px; max-width: 980px; }
@@ -4282,3 +4282,30 @@ html[data-theme="dark"] .section-h > .t-bodyb { color: var(--pink) !important; }
 .site-pick-box.on { background: var(--pink); border-color: var(--pink); }
 .pf-del { border: 1px solid #f0b4b4 !important; background: #fff !important; color: var(--red) !important; font-weight: 700; }
 .pf-del:hover { background: #fde8e8 !important; border-color: var(--red) !important; }
+
+/* 글자 크기 위계 다시 잡기 (대표 지시 2026-11-09 "작은 글자는 너무 작고 큰 글자는 너무 커")
+   캡션 12 · 작게 12.5 · 본문 13.5 · 소제목 14.5 · 제목 16 · 숫자 19 · 대형 28 — 단계 사이를 좁혀 위계는 지키고 양 끝을 줄임 */
+:root {
+  --fs-cap: calc(12px * var(--fs-k) * var(--fs-m, 1));
+  --fs-sm: calc(12.5px * var(--fs-k) * var(--fs-m, 1));
+  --fs-small: var(--fs-sm);
+  --fs-body: calc(13.5px * var(--fs-k) * var(--fs-m, 1));
+  --fs-sub: calc(14.5px * var(--fs-k) * var(--fs-m, 1));
+  --fs-title: calc(16px * var(--fs-k) * var(--fs-m, 1));
+  --fs-num: calc(19px * var(--fs-k) * var(--fs-m, 1));
+  --fs-hero: calc(28px * var(--fs-k) * var(--fs-m, 1));
+}
+@media (pointer: coarse) {
+  :root {
+    --fs-cap: calc(12.5px * var(--fs-k) * var(--fs-m, 1));
+    --fs-sm: calc(13px * var(--fs-k) * var(--fs-m, 1));
+    --fs-body: calc(14px * var(--fs-k) * var(--fs-m, 1));
+    --fs-sub: calc(15px * var(--fs-k) * var(--fs-m, 1));
+    --fs-title: calc(16.5px * var(--fs-k) * var(--fs-m, 1));
+    --fs-num: calc(20px * var(--fs-k) * var(--fs-m, 1));
+  }
+}
+/* 빠른 창 머리: 터치 화면에서도 출근 상태 · 버튼 글자는 고정 크기 */
+.quick.q2 .q2-status select { font-size: 13px !important; }
+.quick.q2 .q2-badge { font-size: 11px; }
+.quick.q2 .q2-tabs button { font-size: 13.5px; }

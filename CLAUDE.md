@@ -15,7 +15,7 @@
 ## 구조
 - `erp/` : React + TypeScript + Vite 웹앱 (Cloudflare Pages · main 에 합치면 자동 배포)
   - `src/pages/` 화면 · `src/components/` 부품 · `src/lib/api.ts` (API 정의) · `supabaseApi.ts` (운영) · `demoApi.ts` (체험 모드)
-  - `src/styles.css` : 디자인 토큰 · WKLY v7 디자인 시스템 (사각 모서리, 글자 크기 단계 `--fs-cap 11 · sm 12 · body 13 · sub 15 · title 18 · num 22`)
+  - `src/styles.css` : 디자인 토큰 · WKLY v7 디자인 시스템 (사각 모서리, 글자 크기 단계 `--fs-cap 12 · sm 12.5 · body 13.5 · sub 14.5 · title 16 · num 19 · hero 28` (2026-11-09 위계 다시 잡음 · 맨 아래 :root 가 최종값 · 터치 화면은 반 단계 큼))
   - `desktop/` : PC 프로그램 (Electron)
   - `android/` : 안드로이드 앱 (TWA · 웹을 앱으로 띄움). main 에 `erp/android/**` 변경이 들어가면 `.github/workflows/android.yml` 이 APK 를 만들어
     릴리스 `android` 의 `wkly-erp.apk` 로 올림. 서명 키는 Vault (함수 `android-key` 가 GitHub OIDC 확인 뒤 넘김) · 지문은 `public/.well-known/assetlinks.json`
