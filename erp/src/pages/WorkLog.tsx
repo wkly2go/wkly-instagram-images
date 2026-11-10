@@ -15,7 +15,7 @@ import {
 } from "../lib/date";
 import { Link, useRouter, withQuery } from "../lib/router";
 import { presenceOf, useAttendance } from "../lib/attendance";
-import type { Approval, Client, Project, Task, WorkLog as Log } from "../lib/types";
+import { DIVISIONS, projectBrand, type Approval, type Client, type Project, type Task, type WorkLog as Log } from "../lib/types";
 import { Board, BoardHead, type BoardCol } from "../components/Board";
 import { LogComposer, isMail } from "../components/LogForm";
 import { usePanelWide, useRightPanel } from "../components/RightPanel";
@@ -251,6 +251,7 @@ export function WorkPane({ tabs }: { tabs?: ReactNode }) {
               “{other.status_message}”
             </div>
           )}
+          {!team && <MyProjects uid={viewUser ?? me.id} projects={data.projects} tasks={data.tasks} who={other ? profileName(other.id) : null} />}
           {periodReports.length > 0 && <ReportStrip reports={periodReports} period={period} />}
           <div className="chat-body" style={{ gap: 12 }}>
             {period === "day" ? (
@@ -293,6 +294,101 @@ export function WorkPane({ tabs }: { tabs?: ReactNode }) {
 }
 
 /** 이 기간의 업무 보고 (승인 체크) */
+/**
+ * 내가 맡고 있는 프로젝트 한눈에 (대표 지시 2026-11-10)
+ *  - 담당(owner)이거나 내 할 일이 걸린 프로젝트 중 기획 · 진행 · NIC
+ *  - 칸마다: 연번 · 이름 · 상태 · 남은 날 · 내 할 일 / 지연 · 다음 마감 · 진행률(업무 완료 비율)
+ *  - 지연 → 마감 임박 순 · 접기 기억
+ */
+const MYPROJ_KEY = "wkly-myproj-open";
+function MyProjects({ uid, projects, tasks, who }: { uid: string; projects: Project[]; tasks: Task[]; who: string | null }) {
+  const today = todayKey();
+  const [open, setOpen] = useState(() => {
+    try {
+      return localStorage.getItem(MYPROJ_KEY) !== "0";
+    } catch {
+      return true;
+    }
+  });
+  const toggle = () => {
+    setOpen((o) => {
+      try {
+        localStorage.setItem(MYPROJ_KEY, o ? "0" : "1");
+      } catch {
+        /* noop */
+      }
+      return !o;
+    });
+  };
+  const rows = useMemo(() => {
+    const live = projects.filter((p) => p.status !== "완료" && p.status !== "보류");
+    return live
+      .map((p) => {
+        const all = tasks.filter((t) => t.project_id === p.id);
+        const mine = all.filter((t) => t.assignee_id === uid && t.status !== "완료");
+        const owner = p.owner_id === uid;
+        if (!owner && !mine.length) return null;
+        const late = mine.filter((t) => t.due_date && t.due_date < today);
+        const next = [...mine].filter((t) => t.due_date && t.due_date >= today).sort((a, b) => a.due_date!.localeCompare(b.due_date!))[0];
+        const doneRate = all.length ? Math.round((all.filter((t) => t.status === "완료").length / all.length) * 100) : null;
+        const left = p.end_date ? Math.round((Date.parse(p.end_date) - Date.parse(today)) / 864e5) : null;
+        return { p, owner, mine, late, next, doneRate, left };
+      })
+      .filter((x): x is NonNullable<typeof x> => !!x)
+      .sort((a, b) => b.late.length - a.late.length || (a.next?.due_date ?? "9999").localeCompare(b.next?.due_date ?? "9999") || (a.left ?? 9999) - (b.left ?? 9999));
+  }, [projects, tasks, uid, today]);
+  const lateSum = rows.reduce((n, r) => n + r.late.length, 0);
+  return (
+    <div className="myproj">
+      <button type="button" className="myproj-h" onClick={toggle} aria-expanded={open}>
+        <b>{who ? `${who}님이` : "내가"} 맡고 있는 프로젝트</b>
+        <span className="myproj-n">{rows.length}</span>
+        <span className="t-cap">담당 {rows.filter((r) => r.owner).length} · 내 할 일 {rows.reduce((n, r) => n + r.mine.length, 0)}{lateSum ? ` · ` : ""}</span>
+        {lateSum > 0 && <span className="myproj-late">지연 {lateSum}</span>}
+        <span className="grow" />
+        <span className="t-cap">{open ? "접기 ▲" : "펼치기 ▼"}</span>
+      </button>
+      {open &&
+        (rows.length ? (
+          <div className="myproj-grid">
+            {rows.map(({ p, owner, mine, late, next, doneRate, left }) => {
+              const div = DIVISIONS[projectBrand(p)];
+              return (
+                <Link key={p.id} to={`/projects?id=${p.id}`} className={`myproj-card${late.length ? " is-late" : ""}`} style={{ ["--div" as string]: div.color }}>
+                  <div className="myproj-top">
+                    {p.code && <span className="myproj-code">{p.code}</span>}
+                    <span className={`myproj-st st-${p.status}`}>{p.status}</span>
+                    {owner && <span className="myproj-own">담당</span>}
+                    <span className="grow" />
+                    {left !== null && <span className={`myproj-d${left < 0 ? " over" : left <= 7 ? " soon" : ""}`}>{left < 0 ? `종료 ${-left}일 지남` : left === 0 ? "오늘 종료" : `D-${left}`}</span>}
+                  </div>
+                  <div className="myproj-name" title={p.name}>{p.name}</div>
+                  <div className="myproj-meta">
+                    <span>
+                      내 할 일 <b>{mine.length}</b>
+                    </span>
+                    {late.length > 0 && <span className="myproj-late">지연 {late.length}</span>}
+                    {doneRate !== null && (
+                      <span className="myproj-bar" title={`업무 완료 ${doneRate}%`}>
+                        <i style={{ width: `${doneRate}%` }} />
+                      </span>
+                    )}
+                    {doneRate !== null && <span className="t-cap">{doneRate}%</span>}
+                  </div>
+                  <div className="myproj-next t-cap" title={next?.title ?? late[0]?.title ?? ""}>
+                    {late[0] ? `지연: ${late[0].title} (${late[0].due_date!.slice(5).replace("-", ".")})` : next ? `다음: ${next.title} (${next.due_date!.slice(5).replace("-", ".")})` : "남은 할 일 없음"}
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        ) : (
+          <span className="t-cap" style={{ padding: "4px 2px" }}>진행 중인 담당 프로젝트가 없습니다.</span>
+        ))}
+    </div>
+  );
+}
+
 function ReportStrip({ reports, period }: { reports: Approval[]; period: Period }) {
   const { profileName } = useApp();
   const list = [...reports].sort((a, b) => reportDate(b).localeCompare(reportDate(a)));
