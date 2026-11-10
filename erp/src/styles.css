@@ -4336,7 +4336,7 @@ body.dock-resizing iframe { pointer-events: none; }
 .chat-dock-full { font-size: var(--fs-cap); color: var(--gray); text-decoration: none; padding: 4px 6px; }
 .chat-dock-full:hover { color: var(--blue); text-decoration: underline; }
 .chat-dock-in { flex: 1; min-height: 0; height: auto; }
-.chat-dock .chat-dock-in.quick.q2 .chat-room { padding: 10px 12px 16px !important; }
+.chat-dock .chat-dock-in.quick.q2 .chat-room { padding: 10px 12px 28px !important; }
 .chat-dock-in .quick-composer { margin-bottom: 0 !important; }
 .chat-dock-in .chat-body { margin: 0 -12px; }
 .chat-dock.closed { width: 40px; background: var(--white); }
@@ -4355,3 +4355,42 @@ body.dock-resizing iframe { pointer-events: none; }
 .cal-row-btn { flex: none; height: 28px; padding: 0 8px; border: 1px solid #d9cff2; background: #f7f4fd; color: #4b3a80; font: inherit; font-size: var(--fs-cap); cursor: pointer; white-space: nowrap; }
 .cal-row-btn:hover { border-color: #9b87d6; }
 .cal-item.c-personal.p-done { text-decoration: line-through; opacity: .6; }
+
+/* 내가 맡고 있는 프로젝트 한눈에 (업무 탭 · 2026-11-10) */
+.myproj { display: flex; flex-direction: column; gap: 8px; padding: 10px 14px 12px; background: var(--white); border-bottom: 1px solid var(--line); }
+.myproj-h { display: flex; align-items: center; gap: 8px; border: 0; background: transparent; padding: 0; font: inherit; cursor: pointer; text-align: left; color: var(--blue); }
+.myproj-h b { font-size: var(--fs-sub); }
+.myproj-n { font: 700 var(--fs-cap)/1 var(--mono); background: var(--pink); color: #fff; padding: 3px 6px; }
+.myproj-late { font-size: var(--fs-cap); font-weight: 700; color: #fff; background: var(--red); padding: 2px 6px; }
+.myproj-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; }
+.myproj-card { display: flex; flex-direction: column; gap: 5px; padding: 9px 11px; background: var(--white); border: 1px solid var(--line); border-top: 3px solid var(--div, var(--pink)); text-decoration: none; color: var(--ink, #2c2c28); min-width: 0; }
+.myproj-card:hover { border-color: var(--blue); border-top-color: var(--div, var(--pink)); }
+.myproj-card.is-late { background: #fff6f6; }
+.myproj-top { display: flex; align-items: center; gap: 5px; min-width: 0; }
+.myproj-code { font: 700 11px/1 var(--mono); color: var(--blue); background: color-mix(in srgb, var(--blue) 9%, #fff); padding: 3px 4px; }
+.myproj-st { font-size: 11px; font-weight: 700; padding: 2px 5px; border: 1px solid var(--line); color: var(--gray); }
+.myproj-st.st-진행 { color: #fff; background: var(--blue); border-color: var(--blue); }
+.myproj-st.st-기획 { color: var(--blue); border-color: var(--blue); }
+.myproj-st.st-NIC { color: #8a5a00; border-color: #e3c27a; background: #fff8e6; }
+.myproj-own { font-size: 11px; font-weight: 700; color: var(--pink); border: 1px solid var(--pink); padding: 1px 4px; }
+.myproj-d { font: 700 11px/1 var(--mono); color: var(--gray); }
+.myproj-d.soon { color: #b06d00; }
+.myproj-d.over { color: var(--red); }
+.myproj-name { font-weight: 700; font-size: var(--fs-body); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--blue); }
+.myproj-meta { display: flex; align-items: center; gap: 6px; font-size: var(--fs-sm); }
+.myproj-meta b { color: var(--blue); }
+.myproj-bar { flex: 1; height: 4px; background: #ecece7; position: relative; min-width: 30px; }
+.myproj-bar i { position: absolute; inset: 0 auto 0 0; background: var(--green); }
+.myproj-next { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* 채팅 칸 테두리 · 머리줄 그린 (2026-11-10) */
+.chat-dock { border: 3px solid var(--blue); border-right: 0; background: #f6f7f4; }
+.chat-dock-h { background: var(--blue); color: #fff; border-bottom: 0; }
+.chat-dock-h .icon-btn { color: #fff; }
+.chat-dock-h .icon-btn:hover { background: rgba(255,255,255,.14); }
+.chat-dock-h .chat-dock-full { color: rgba(255,255,255,.85); }
+.chat-dock-h .chat-dock-full:hover { color: #fff; }
+.chat-dock-h .side-n { background: var(--pink); color: #fff; }
+.chat-dock.closed { border: 3px solid var(--blue); border-right: 1px solid var(--pink); }
+.myproj-h { flex-wrap: wrap; row-gap: 4px; }
+.myproj-h b, .myproj-h .t-cap { white-space: nowrap; }
