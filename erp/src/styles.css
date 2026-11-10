@@ -4309,3 +4309,14 @@ html[data-theme="dark"] .section-h > .t-bodyb { color: var(--pink) !important; }
 .quick.q2 .q2-status select { font-size: 13px !important; }
 .quick.q2 .q2-badge { font-size: 11px; }
 .quick.q2 .q2-tabs button { font-size: 13.5px; }
+
+/* 개인 일정 (나만 보임 · 2026-11-10) — 연보라 */
+.cal-item.c-personal { background: #f3effc; color: #4b3a80; box-shadow: inset 4px 0 0 #9b87d6; padding-left: 8px; }
+.cal-item.c-personal:hover { background: #e9e2fa; }
+.legend i.lg-personal { background: #f3effc; box-shadow: inset 3px 0 0 #9b87d6; }
+.m-dots i.c-personal { background: #9b87d6 !important; box-shadow: none !important; }
+.m-agenda-list .cal-item.c-personal { padding-left: 14px; }
+.new-ev-choose .choose-btn { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; padding: 12px 14px; border: 1px solid var(--line); background: var(--white); cursor: pointer; text-align: left; font: inherit; color: var(--ink, inherit); }
+.new-ev-choose .choose-btn:hover { border-color: var(--blue); }
+.new-ev-choose .choose-btn.c-personal { background: #f7f4fd; border-color: #d9cff2; }
+.new-ev-choose .choose-btn b { font-size: var(--fs-sub); }

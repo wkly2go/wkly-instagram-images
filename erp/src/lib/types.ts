@@ -689,6 +689,18 @@ export interface TaxInvoice {
 }
 export type TaxInvoiceDraft = Omit<TaxInvoice, 'id' | 'created_at' | 'project_id' | 'payment_id' | 'memo'> & { project_id?: string | null }
 
+/** 캘린더 개인 일정 (본인만 봄 · 0100) */
+export interface PersonalEvent {
+  id: string
+  user_id: string
+  title: string
+  start_date: string
+  end_date: string
+  start_time: string | null
+  memo: string | null
+  created_at: string
+}
+
 export interface Subscription {
   id: string
   name: string

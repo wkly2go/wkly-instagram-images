@@ -7,6 +7,7 @@ import { DEFAULT_REPORT_BODY } from './reports'
 const demoSlack: { links: SlackLink[]; messages: SlackMessage[] } = { links: [], messages: [] }
 import type {
   Subscription,
+  PersonalEvent,
   TaxInvoice,
   ExchangeFile,
   ProjectDriveFile,
@@ -91,6 +92,7 @@ interface Store {
   finances: ProjectFinance[]
   payments: Payment[]
   subscriptions?: Subscription[]
+  personalEvents?: PersonalEvent[]
   taxInvoices?: TaxInvoice[]
   material_moves?: MaterialMove[]
   ledger?: LedgerEntry[]
@@ -1371,6 +1373,26 @@ export function createDemoApi(): Api {
       if (x) Object.assign(x, patch)
       persist()
     },
+    async listPersonalEvents() {
+      const self = requireMe()
+      return clone((store.personalEvents ?? []).filter(e => e.user_id === self).sort((a, b) => a.start_date.localeCompare(b.start_date)))
+    },
+    async savePersonalEvent(e) {
+      const self = requireMe()
+      if (!e.title?.trim()) throw new ApiError('제목을 적어 주세요.')
+      const list = (store.personalEvents ??= [])
+      const i = e.id ? list.findIndex(x => x.id === e.id && x.user_id === self) : -1
+      const row: PersonalEvent = { id: e.id ?? uid(), user_id: self, title: e.title.trim(), start_date: e.start_date, end_date: e.end_date, start_time: e.start_time ?? null, memo: e.memo ?? null, created_at: i >= 0 ? list[i].created_at : now() }
+      if (i >= 0) list[i] = row
+      else list.push(row)
+      persist()
+      return clone(row)
+    },
+    async deletePersonalEvent(id) {
+      const self = requireMe()
+      store.personalEvents = (store.personalEvents ?? []).filter(x => !(x.id === id && x.user_id === self))
+      persist()
+    },
     async listSubscriptions() {
       requireMe()
       if (!store.subscriptions) {
@@ -2031,7 +2053,8 @@ export function createDemoApi(): Api {
     async createLeave(r) {
       const self = requireMe()
       const status = r.status ?? '신청'
-      if (!isAdmin() && (r.profile_id !== self || status !== '신청')) throw new ApiError('권한이 없습니다.')
+      // 지난 휴가는 본인이 바로 승인(완료)으로 기록 가능 (0098)
+      if (!isAdmin() && (r.profile_id !== self || (status !== '신청' && !(status === '승인' && r.end_date < todayKey())))) throw new ApiError('권한이 없습니다.')
       if (r.start_date > r.end_date) throw new ApiError('시작일이 종료일보다 늦습니다.')
       if (r.kind === '반차' && (r.days !== 0.5 || r.start_date !== r.end_date)) throw new ApiError('반차는 하루 0.5일입니다.')
       const row: LeaveRecord = { id: uid(), ...r, reason: r.reason ?? null, status, decided_by: status === '신청' ? null : self, decided_at: status === '신청' ? null : now(), created_by: self, created_at: now() }
@@ -2054,7 +2077,7 @@ export function createDemoApi(): Api {
     async deleteLeave(id) {
       const self = requireMe()
       const r = (store.leave_records ?? []).find(x => x.id === id)
-      if (!r || (!isAdmin() && (r.profile_id !== self || r.status !== '신청'))) throw new ApiError('권한이 없습니다.')
+      if (!r || (!isAdmin() && (r.profile_id !== self || !(r.status === '신청' || (r.created_by === self && r.end_date < todayKey()))))) throw new ApiError('권한이 없습니다.')
       store.leave_records = (store.leave_records ?? []).filter(x => x.id !== id)
       persist()
       emit('leave_records')

@@ -90,9 +90,9 @@ export function GoogleCalendarModal({ onClose }: { onClose: () => void }) {
       ) : (
         <div className="col gap-10">
           <p className="t-cap" style={{ margin: 0 }}>
-            인트라넷의 모든 일정(할 일 · 프로젝트 기간 · 승인된 휴가 · 외근 · 재택)이 내 구글 캘린더에 자동으로 들어옵니다. 휴대폰 구글 캘린더 앱에도 같은 계정이면 그대로 보입니다. 금액 정보는 보내지 않습니다.
+            인트라넷의 모든 일정(할 일 · 프로젝트 기간 · 승인된 휴가 · 외근 · 재택 · 🔒 내 개인 일정)이 내 구글 캘린더에 자동으로 들어옵니다. 휴대폰 구글 캘린더 앱에도 같은 계정이면 그대로 보입니다. 금액 정보는 보내지 않습니다.
           </p>
-          <FeedRow label="내 일정" help="나에게 배정된 할 일 + 프로젝트 기간 + 내 휴가 · 외근 · 재택" url={url} />
+          <FeedRow label="내 일정" help="나에게 배정된 할 일 + 프로젝트 기간 + 내 휴가 · 외근 · 재택 + 🔒 내 개인 일정 (이 주소에만)" url={url} />
           <FeedRow label="팀 전체 일정" help="팀원 모두의 할 일 · 휴가 · 외근 · 재택 (이름 표시)" url={`${url}&scope=team`} />
           <ol className="guide-steps">
             <li><b>구글 캘린더에 추가</b>를 누르고 구글 화면에서 <b>추가</b>를 한 번 누르면 끝입니다. 이후 일정은 자동으로 들어옵니다.</li>
