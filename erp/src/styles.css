@@ -4475,3 +4475,11 @@ body.dock-resizing iframe { pointer-events: none; }
 .pcl-new .btn { grid-column: 1 / -1; }
 .pcl-report { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px dashed var(--line); text-decoration: none; color: var(--blue); font-size: var(--fs-sm); min-width: 0; }
 .pcl-report:hover { text-decoration: underline; }
+/* 채팅방 참여 팀원 (2026-11-10) */
+.rm-list { display: flex; flex-direction: column; border: 1px solid var(--line); background: var(--white); max-height: 260px; overflow: auto; }
+.rm-item { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-bottom: 1px dashed var(--line); font-size: var(--fs-sm); }
+.rm-item:last-child { border-bottom: 0; }
+.rm-tag { font-size: 11px; font-weight: 700; color: var(--blue); border: 1px solid var(--line); padding: 0 4px; }
+.rm-tag.ai { color: #4b3a80; border-color: #c9bcef; background: #f7f4fd; }
+.rm-out { height: 24px; padding: 0 8px; border: 1px solid #f0b4b4; background: #fff; color: var(--red); font: inherit; font-size: var(--fs-cap); cursor: pointer; }
+.rm-out:hover { background: #fde8e8; }

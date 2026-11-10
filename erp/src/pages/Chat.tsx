@@ -1,6 +1,7 @@
 import { UserPic } from '../components/UserPic'
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { Linkify } from '../components/ui'
+import { RoomMembersModal } from '../components/RoomMembers'
 import { PanelLeft, ArrowLeft, AtSign, BellOff, Bookmark, Check, ChevronDown, ChevronRight, Folder, Pin, Plus, Send, Trash2, UserPlus } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { friendlyError } from '../lib/api'
@@ -570,8 +571,8 @@ function Room({ room }: { room: ChatRoomSummary }) {
         >
           <PanelLeft size={13} /> 왼쪽 칸에 고정
         </button>
-        <button type="button" className="btn btn-sm btn-outline room-invite" onClick={() => setInviting(true)} title="팀원 초대">
-          <UserPlus size={13} /> 초대
+        <button type="button" className="btn btn-sm btn-outline room-invite" onClick={() => setInviting(true)} title="참여 팀원 보기 · 추가 · 빼기">
+          <UserPlus size={13} /> 참여 팀원{room.members ? ` ${room.members.length}` : ''}
         </button>
         <label className="room-level" title="이 방 알림: 전체 = 새 글마다 · 멘션만 = @내 이름일 때만 · 끄기 = 소리 · 숫자 없음">
           <span className="t-cap">알림</span>
@@ -605,7 +606,7 @@ function Room({ room }: { room: ChatRoomSummary }) {
             </button>
           ))}
       </div>
-      {inviting && <InviteModal room={room} onClose={() => setInviting(false)} />}
+      {inviting && <RoomMembersModal room={room} onClose={() => setInviting(false)} />}
       <div
         className="chat-body"
         ref={bodyRef}
@@ -763,73 +764,6 @@ function NewRoom({ onClose, onCreated }: { onClose: () => void; onCreated: (id: 
 /** 채팅방에 팀원 초대 (대표 지시 2026-11-02 "채팅에 팀원을 초대할 수 있도록")
  *  - 공개 방(# 채팅방 · 프로젝트 방): 고른 사람을 @이름으로 불러 알림이 가게 함 (방은 원래 모두가 볼 수 있음)
  *  - 둘(여럿)만 보는 대화: 기존 대화는 그대로 두고, 고른 사람까지 함께하는 새 대화방을 만들어 엶 */
-function InviteModal({ room, onClose }: { room: ChatRoomSummary; onClose: () => void }) {
-  const { api, me, profiles, profileName, bump, toast } = useApp()
-  const { navigate } = useRouter()
-  const { busy, run } = useAction()
-  const [pick, setPick] = useState<string[]>([])
-  const [note, setNote] = useState('')
-  const people = profiles.filter(p => p.active !== false && !p.is_agent && p.id !== me.id && !room.members?.includes(p.id))
-  const toggle = (id: string) => setPick(v => (v.includes(id) ? v.filter(x => x !== id) : [...v, id]))
-  const go = async () => {
-    if (!pick.length) return
-    if (!room.members) {
-      const names = pick.map(id => `@${profileName(id)}`).join(' ')
-      const ok = await run(() => api.sendMessage(room.id, `${names} 님을 이 방에 초대했습니다.${note.trim() ? `\n${note.trim()}` : ''}`), `${pick.length}명을 초대했습니다. 알림이 갑니다.`)
-      if (ok) {
-        bump()
-        onClose()
-      }
-      return
-    }
-    try {
-      const r = await api.createGroupRoom([...room.members, ...pick])
-      if (note.trim()) await api.sendMessage(r.id, note.trim())
-      bump()
-      toast(`${pick.map(profileName).join(', ')} 님과 함께하는 새 대화방을 만들었습니다.`)
-      onClose()
-      navigate(`/chat?room=${r.id}`)
-    } catch (e) {
-      toast(friendlyError(e))
-    }
-  }
-  return (
-    <Modal
-      title="팀원 초대"
-      onClose={onClose}
-      actions={
-        <>
-          <Button kind="ghost" onClick={onClose}>
-            취소
-          </Button>
-          <Button onClick={() => void go()} disabled={busy || !pick.length}>
-            {pick.length ? `${pick.length}명 초대` : '초대'}
-          </Button>
-        </>
-      }
-    >
-      <span className="t-cap">
-        {room.members ? '이 대화는 참여한 사람만 볼 수 있어 기존 대화는 그대로 두고, 고른 팀원까지 함께하는 새 대화방을 만듭니다.' : '고른 팀원을 @이름으로 불러 알림을 보냅니다. 이 방은 팀원 모두가 볼 수 있습니다.'}
-      </span>
-      <div className="invite-list">
-        {people.map(p => (
-          <label key={p.id} className={`invite-item${pick.includes(p.id) ? ' on' : ''}`}>
-            <input type="checkbox" checked={pick.includes(p.id)} onChange={() => toggle(p.id)} />
-            <UserPic id={p.id} size={22} />
-            <span className="grow">
-              <b>{p.name}</b>
-              {p.title && <span className="t-cap"> · {p.title}</span>}
-            </span>
-          </label>
-        ))}
-        {!people.length && <span className="t-cap">초대할 수 있는 팀원이 없습니다.</span>}
-      </div>
-      <Field label="함께 보낼 말 (선택)">
-        <input className="input" value={note} onChange={e => setNote(e.target.value)} placeholder="예) 견적 검토 같이 봐 주세요" />
-      </Field>
-    </Modal>
-  )
-}
 
 function RoomPinButton({ id }: { id: string }) {
   const on = usePins().includes(id)

@@ -979,6 +979,18 @@ export function createDemoApi(): Api {
       persist()
       emit('chat_rooms')
     },
+    async setRoomMembers(roomId, members) {
+      requireMe()
+      const r = store.chat_rooms.find(x => x.id === roomId)
+      if (!r || !r.members) throw new Error('팀원 모두가 보는 방은 참여자를 따로 정하지 않습니다.')
+      if (r.name.startsWith('dm:')) throw new Error('1:1 대화는 참여자를 바꿀 수 없습니다.')
+      const v = [...new Set(members)]
+      if (v.length < 2) throw new Error('대화방에는 2명 이상 있어야 합니다.')
+      r.members = v
+      persist()
+      emit('chat_rooms')
+      return v
+    },
     async createGroupRoom(members) {
       const self = requireMe()
       const all = [...new Set([self, ...members])]
