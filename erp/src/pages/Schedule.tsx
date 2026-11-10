@@ -463,7 +463,7 @@ export function PersonalEventModal({ ev, presetDate, onClose }: { ev?: PersonalE
   return (
     <Modal title={ev ? '개인 일정 고치기' : '새 개인 일정'} onClose={onClose}>
       <div className="col gap-10">
-        <span className="t-cap">🔒 개인 일정은 나만 볼 수 있습니다. 팀원 · 관리자 달력에는 나오지 않습니다.</span>
+        <span className="t-cap">🔒 개인 일정은 나만 볼 수 있습니다. 팀원 · 관리자 달력에는 나오지 않습니다. '구글 캘린더 연동'을 켜 두면 내 구글 캘린더에 자동으로 들어갑니다 (구글이 몇 시간마다 다시 읽음).</span>
         <Field label="제목">
           <input className="input" value={f.title} onChange={e => setF({ ...f, title: e.target.value })} maxLength={200} autoFocus placeholder="예: 병원 · 은행 · 개인 약속" />
         </Field>
@@ -482,6 +482,11 @@ export function PersonalEventModal({ ev, presetDate, onClose }: { ev?: PersonalE
           <textarea className="input" rows={3} value={f.memo} onChange={e => setF({ ...f, memo: e.target.value })} maxLength={2000} />
         </Field>
         <div className="row pf-foot" style={{ justifyContent: 'flex-end' }}>
+          {ev && (
+            <a className="link-btn" style={{ marginRight: 'auto' }} target="_blank" rel="noreferrer" href={googleEventLink({ title: `${ev.start_time ? ev.start_time.slice(0, 5) + ' ' : ''}${ev.title}`, start_date: ev.start_date, due_date: ev.end_date, memo: ev.memo }) ?? '#'} title="기다리지 않고 지금 바로 구글 캘린더에 넣기">
+              구글 캘린더에 바로 넣기 ↗
+            </a>
+          )}
           <Button kind="ghost" onClick={onClose}>
             취소
           </Button>
