@@ -1,4 +1,4 @@
-import { Fragment, createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from 'react'
+import { Fragment, createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { useMyAgents } from './AgentDesk'
 import { MobileAppBar, TopAppButton } from './InstallCard'
 import { useTheme } from '../lib/theme'
@@ -166,6 +166,9 @@ function PhotoBox() {
  *  - 접기(◀)를 누르면 얇은 줄로 줄어듦 (안 읽은 수만) · 방 만들기 · 나중에 보기 등은 '전체 화면'
  */
 const DOCK_KEY = 'wkly-chat-dock'
+const DOCK_W_KEY = 'wkly-chat-dock-w'
+const DOCK_MIN = 260
+const DOCK_MAX = 720
 function ChatDock() {
   const { api, version } = useApp()
   const chatTick = useChatTick()
@@ -178,6 +181,47 @@ function ChatDock() {
       return true
     }
   })
+  // 폭 조절 (대표 지시 2026-11-10 "폭 조절 가능하게 · 구분선은 핑크"): 오른쪽 핑크 선을 끌어서 260~720px
+  const [width, setWidth] = useState(() => {
+    try {
+      const v = Number(localStorage.getItem(DOCK_W_KEY))
+      return v >= DOCK_MIN && v <= DOCK_MAX ? v : 340
+    } catch {
+      return 340
+    }
+  })
+  const startResize = (e: ReactPointerEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    const x0 = e.clientX
+    const w0 = width
+    let w = w0
+    document.body.classList.add('dock-resizing')
+    const move = (ev: PointerEvent) => {
+      w = Math.max(DOCK_MIN, Math.min(DOCK_MAX, w0 + ev.clientX - x0))
+      setWidth(w)
+    }
+    const up = () => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', up)
+      document.body.classList.remove('dock-resizing')
+      try {
+        localStorage.setItem(DOCK_W_KEY, String(Math.round(w)))
+      } catch {
+        /* 저장 못 해도 이번엔 그대로 */
+      }
+    }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
+  }
+  const nudge = (d: number) => {
+    const w = Math.max(DOCK_MIN, Math.min(DOCK_MAX, width + d))
+    setWidth(w)
+    try {
+      localStorage.setItem(DOCK_W_KEY, String(w))
+    } catch {
+      /* 무시 */
+    }
+  }
   const toggle = () => {
     setOpen(o => {
       try {
@@ -199,7 +243,7 @@ function ChatDock() {
       </aside>
     )
   return (
-    <aside className="chat-dock" aria-label="채팅">
+    <aside className="chat-dock" aria-label="채팅" style={{ width }}>
       <div className="chat-dock-h">
         <MessageCircle size={15} aria-hidden="true" />
         <b>채팅</b>
@@ -215,6 +259,23 @@ function ChatDock() {
       <div className="quick q2 chat-dock-in">
         <QuickChat rooms={rooms} />
       </div>
+      <div
+        className="chat-dock-resize"
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="채팅 칸 폭 조절"
+        aria-valuemin={DOCK_MIN}
+        aria-valuemax={DOCK_MAX}
+        aria-valuenow={Math.round(width)}
+        tabIndex={0}
+        title="끌어서 폭 조절 · 두 번 누르면 처음 폭"
+        onPointerDown={startResize}
+        onDoubleClick={() => nudge(340 - width)}
+        onKeyDown={e => {
+          if (e.key === 'ArrowLeft') nudge(-20)
+          if (e.key === 'ArrowRight') nudge(20)
+        }}
+      />
     </aside>
   )
 }
