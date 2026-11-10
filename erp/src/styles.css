@@ -4322,12 +4322,13 @@ html[data-theme="dark"] .section-h > .t-bodyb { color: var(--pink) !important; }
 .new-ev-choose .choose-btn b { font-size: var(--fs-sub); }
 
 /* 채팅 고정 칸 (2026-11-10 "채팅을 별도 탭으로 하지 말고 왼쪽에 고정") */
-.chat-dock { position: relative; flex: none; width: 340px; min-height: 0; display: flex; flex-direction: column; background: #f6f7f4; border: 1px solid var(--line); border-right: 0; border-radius: var(--r-panel) 0 0 var(--r-panel); padding-right: 6px; overflow: hidden; }
-.chat-dock.closed { padding-right: 0; border-right: 3px solid var(--pink); }
-/* 구분선 = 폭 조절 손잡이 (핑크) */
-.chat-dock-resize { position: absolute; top: 0; right: 0; bottom: 0; width: 6px; background: var(--pink); cursor: col-resize; touch-action: none; }
-.chat-dock-resize::after { content: ''; position: absolute; top: 50%; left: 1px; width: 4px; height: 36px; margin-top: -18px; border-left: 1px solid rgba(255,255,255,.8); border-right: 1px solid rgba(255,255,255,.8); box-sizing: border-box; }
-.chat-dock-resize:hover, .chat-dock-resize:focus-visible, body.dock-resizing .chat-dock-resize { background: color-mix(in srgb, var(--pink) 80%, #000); outline: none; }
+.chat-dock { position: relative; flex: none; width: 340px; min-height: 0; display: flex; flex-direction: column; background: #f6f7f4; border: 1px solid var(--line); border-right: 0; border-radius: var(--r-panel) 0 0 var(--r-panel); padding-right: 2px; overflow: visible; }
+.chat-dock.closed { padding-right: 0; border-right: 2px solid var(--pink); }
+/* 구분선 = 폭 조절 손잡이 (핑크 · 얇은 2px 선, 잡는 범위는 넓게) */
+.chat-dock-resize { position: absolute; top: 0; right: -4px; bottom: 0; width: 10px; background: transparent; cursor: col-resize; touch-action: none; z-index: 2; }
+.chat-dock-resize::before { content: ''; position: absolute; top: 0; bottom: 0; left: 4px; width: 2px; background: var(--pink); }
+.chat-dock-resize:hover::before, .chat-dock-resize:focus-visible::before, body.dock-resizing .chat-dock-resize::before { left: 3px; width: 4px; }
+.chat-dock-resize:focus-visible { outline: none; }
 body.dock-resizing { cursor: col-resize; user-select: none; }
 body.dock-resizing iframe { pointer-events: none; }
 .chat-dock-h { display: flex; align-items: center; gap: 6px; height: 40px; padding: 0 8px 0 12px; background: var(--white); border-bottom: 1px solid var(--line); color: var(--blue); flex: none; }
