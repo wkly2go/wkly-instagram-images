@@ -4442,3 +4442,16 @@ body.dock-resizing iframe { pointer-events: none; }
 .myproj-gnames { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1 1 auto; }
 .myproj-gfold { flex: none; }
 .myproj-gh .myproj-st, .myproj-gh > .t-cap:not(.myproj-gnames) { white-space: nowrap; flex: none; }
+/* 진행 여부 버튼 (2026-11-10) */
+.myproj-ctl + .myproj-ctl { border-top: 0; margin-top: 0; padding-top: 0; }
+.myproj-ctl-l { flex: none; font-size: 11px; font-weight: 700; color: var(--gray); }
+.myproj-seg { display: inline-flex; flex: 1 1 auto; min-width: 0; }
+.myproj-seg button { flex: 1 1 0; min-width: 0; height: 28px; padding: 0 4px; border: 1px solid var(--line); margin-left: -1px; background: var(--white); color: var(--gray); font: inherit; font-size: var(--fs-cap); cursor: pointer; white-space: nowrap; }
+.myproj-seg button:first-child { margin-left: 0; }
+.myproj-seg button:hover:not(.on) { color: var(--blue); border-color: var(--blue); position: relative; }
+.myproj-seg button.on { font-weight: 700; color: #fff; position: relative; }
+.myproj-seg .sg-진행.on { background: var(--blue); border-color: var(--blue); }
+.myproj-seg .sg-기획.on { background: #2f6fd6; border-color: #2f6fd6; }
+.myproj-seg .sg-NIC.on { background: #ffd659; border-color: #e0a800; color: #5a3d00; }
+.myproj-seg .sg-보류.on { background: #8a8a83; border-color: #8a8a83; }
+.myproj-ctl .select:first-of-type { flex: 1 1 90px; }
