@@ -20,6 +20,7 @@ import { NewApproval } from './Approvals'
 import { FinancePanel } from '../components/FinancePanel'
 import { ProjectVizLoader } from '../components/ProjectViz'
 import { ProjectBrief } from '../components/ProjectBrief'
+import { ProjectClientLink } from '../components/ProjectClientLink'
 import { ProjectMails } from '../components/ProjectMails'
 import { ProjectDashboard } from './ProjectDashboard'
 import { Payments } from './Payments'
@@ -844,6 +845,8 @@ function ProjectDetail({ project: p, data, onEdit, onBack, panel = false }: { pr
       {/* 순서 (대표 지시 2026-10-31): ① 할 일 · 프로젝트 개요 · 입출금 알람 (한 줄) ② 재무 ③ 프로젝트 일정 ④ 협력업체 관리 ⑤ 현장 작업일지 */}
       {/* 현장 브리핑: 기입된 자료로 자동 분석 · 해석, [보고서]로 전체 펼침 (대표 지시 2026-10-31) */}
       <ProjectBrief project={p} />
+      {/* 거래처 담당자 연락처 · 거래처 보고서 바로 연결 (대표 지시 2026-11-10) */}
+      <ProjectClientLink project={p} clients={data.clients} contacts={extra.contacts} />
       {/* 할 일 · 입출금 알람 (대표 지시 2026-10-31) */}
       <div className="proj-top3">
         <div className="col grow" style={{ flexBasis: 300 }}>
