@@ -6,6 +6,7 @@ import { desktop } from './desktop'
 import type {
   SavedItem,
   Subscription,
+  PersonalEvent,
   TaxInvoice,
   ExchangeFile,
   ProjectDriveFile,
@@ -480,6 +481,14 @@ export function createSupabaseApi(url: string, key: string): Api {
     async updateTaxInvoice(id, patch) {
       must(await sb.from('tax_invoices').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', id))
     },
+    async listPersonalEvents() {
+      const { data, error } = await sb.from('personal_events').select('*').order('start_date')
+      return error ? [] : (data as PersonalEvent[]) // 0100 미적용이면 빈 목록
+    },
+    async savePersonalEvent(e) {
+      return (await save('personal_events', { ...e, updated_at: new Date().toISOString() })) as PersonalEvent
+    },
+    deletePersonalEvent: id => remove('personal_events', id),
     async listSubscriptions() {
       const { data, error } = await sb.from('subscriptions').select('*').order('status').order('next_billing', { ascending: true, nullsFirst: false }).order('name')
       return error ? [] : (data as Subscription[])

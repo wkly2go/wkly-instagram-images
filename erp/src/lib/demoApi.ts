@@ -7,6 +7,7 @@ import { DEFAULT_REPORT_BODY } from './reports'
 const demoSlack: { links: SlackLink[]; messages: SlackMessage[] } = { links: [], messages: [] }
 import type {
   Subscription,
+  PersonalEvent,
   TaxInvoice,
   ExchangeFile,
   ProjectDriveFile,
@@ -91,6 +92,7 @@ interface Store {
   finances: ProjectFinance[]
   payments: Payment[]
   subscriptions?: Subscription[]
+  personalEvents?: PersonalEvent[]
   taxInvoices?: TaxInvoice[]
   material_moves?: MaterialMove[]
   ledger?: LedgerEntry[]
@@ -1369,6 +1371,26 @@ export function createDemoApi(): Api {
       requireAdmin()
       const x = (store.taxInvoices ?? []).find(t => t.id === id)
       if (x) Object.assign(x, patch)
+      persist()
+    },
+    async listPersonalEvents() {
+      const self = requireMe()
+      return clone((store.personalEvents ?? []).filter(e => e.user_id === self).sort((a, b) => a.start_date.localeCompare(b.start_date)))
+    },
+    async savePersonalEvent(e) {
+      const self = requireMe()
+      if (!e.title?.trim()) throw new ApiError('제목을 적어 주세요.')
+      const list = (store.personalEvents ??= [])
+      const i = e.id ? list.findIndex(x => x.id === e.id && x.user_id === self) : -1
+      const row: PersonalEvent = { id: e.id ?? uid(), user_id: self, title: e.title.trim(), start_date: e.start_date, end_date: e.end_date, start_time: e.start_time ?? null, memo: e.memo ?? null, created_at: i >= 0 ? list[i].created_at : now() }
+      if (i >= 0) list[i] = row
+      else list.push(row)
+      persist()
+      return clone(row)
+    },
+    async deletePersonalEvent(id) {
+      const self = requireMe()
+      store.personalEvents = (store.personalEvents ?? []).filter(x => !(x.id === id && x.user_id === self))
       persist()
     },
     async listSubscriptions() {

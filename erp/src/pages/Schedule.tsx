@@ -4,7 +4,7 @@ import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { addDays, addMonths, monthGrid, shortDate, todayKey, weekday, periodLabel } from '../lib/date'
 import { Link, useRouter, withQuery } from '../lib/router'
-import { TASK_STATUSES, type LeaveRecord, type Project, type Task, type TaskStatus } from '../lib/types'
+import { TASK_STATUSES, type LeaveRecord, type PersonalEvent, type Project, type Task, type TaskStatus } from '../lib/types'
 import { Badge, Button, Chip, Empty, Field, Modal, StatusBadge } from '../components/ui'
 import { GoogleCalendarModal, googleEventLink } from '../components/GoogleCalendar'
 import { ask } from '../components/Ask'
@@ -432,9 +432,89 @@ export function Gantt({ projects, tasks }: { projects: Project[]; tasks: Task[] 
 interface CalItem {
   key: string
   label: string
-  tone: 'mine' | 'task' | 'late' | 'done' | 'project' | 'leave'
+  tone: 'mine' | 'task' | 'late' | 'done' | 'project' | 'leave' | 'personal'
   task?: Task
+  personal?: PersonalEvent
   to?: string
+}
+
+/** 개인 일정 (대표 지시 2026-11-10 "켈린더에 개인일정 저장기능") — 나만 보임 */
+export function PersonalEventModal({ ev, presetDate, onClose }: { ev?: PersonalEvent; presetDate?: string | null; onClose: () => void }) {
+  const { api } = useApp()
+  const { busy, run } = useAction()
+  const d0 = presetDate ?? todayKey()
+  const [f, setF] = useState({
+    title: ev?.title ?? '',
+    start_date: ev?.start_date ?? d0,
+    end_date: ev?.end_date ?? d0,
+    start_time: ev?.start_time?.slice(0, 5) ?? '',
+    memo: ev?.memo ?? '',
+  })
+  const ok = f.title.trim() && f.start_date && f.end_date
+  const save = async () => {
+    if (!ok) return
+    const end = f.end_date < f.start_date ? f.start_date : f.end_date
+    if (await run(() => api.savePersonalEvent({ ...(ev ? { id: ev.id } : {}), title: f.title.trim(), start_date: f.start_date, end_date: end, start_time: f.start_time || null, memo: f.memo.trim() || null }), '개인 일정을 저장했습니다.')) onClose()
+  }
+  const del = async () => {
+    if (!ev || !(await ask(`'${ev.title}' 개인 일정을 지울까요?`))) return
+    if (await run(() => api.deletePersonalEvent(ev.id), '개인 일정을 지웠습니다.')) onClose()
+  }
+  return (
+    <Modal title={ev ? '개인 일정 고치기' : '새 개인 일정'} onClose={onClose}>
+      <div className="col gap-10">
+        <span className="t-cap">🔒 개인 일정은 나만 볼 수 있습니다. 팀원 · 관리자 달력에는 나오지 않습니다.</span>
+        <Field label="제목">
+          <input className="input" value={f.title} onChange={e => setF({ ...f, title: e.target.value })} maxLength={200} autoFocus placeholder="예: 병원 · 은행 · 개인 약속" />
+        </Field>
+        <div className="form-grid">
+          <Field label="시작일">
+            <input className="input" type="date" value={f.start_date} onChange={e => setF({ ...f, start_date: e.target.value, end_date: f.end_date < e.target.value ? e.target.value : f.end_date })} />
+          </Field>
+          <Field label="종료일">
+            <input className="input" type="date" value={f.end_date} min={f.start_date} onChange={e => setF({ ...f, end_date: e.target.value })} />
+          </Field>
+          <Field label="시간 (선택)">
+            <input className="input" type="time" value={f.start_time} onChange={e => setF({ ...f, start_time: e.target.value })} />
+          </Field>
+        </div>
+        <Field label="메모 (선택)">
+          <textarea className="input" rows={3} value={f.memo} onChange={e => setF({ ...f, memo: e.target.value })} maxLength={2000} />
+        </Field>
+        <div className="row pf-foot" style={{ justifyContent: 'flex-end' }}>
+          <Button kind="ghost" onClick={onClose}>
+            취소
+          </Button>
+          {ev && (
+            <Button kind="outline" className="pf-del" disabled={busy} onClick={del}>
+              삭제
+            </Button>
+          )}
+          <Button disabled={busy || !ok} onClick={save}>
+            저장
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
+/** 날짜 '+' 를 누르면: 개인 일정 / 업무 · 팀 일정 고르기 */
+function NewEventChooser({ day, onPersonal, onTask, onClose }: { day: string; onPersonal: () => void; onTask: () => void; onClose: () => void }) {
+  return (
+    <Modal title={`${shortDate(day)} (${weekday(day)}) 새 일정`} onClose={onClose}>
+      <div className="col gap-8 new-ev-choose">
+        <button type="button" className="choose-btn c-personal" onClick={onPersonal}>
+          <b>🔒 개인 일정</b>
+          <span className="t-cap">나만 보임 · 병원 · 약속 등</span>
+        </button>
+        <button type="button" className="choose-btn" onClick={onTask}>
+          <b>업무 · 팀 일정</b>
+          <span className="t-cap">담당자 · 프로젝트를 정해 팀 달력에 올림</span>
+        </button>
+      </div>
+    </Modal>
+  )
 }
 
 /** 휴대폰 화면 폭인지 (돌리거나 창 크기가 바뀌면 다시 계산) */
@@ -461,6 +541,9 @@ export function MonthCalendar({ projects, tasks }: { projects: Project[]; tasks:
   const [creating, setCreating] = useState<string | null>(null)
   const [gcal, setGcal] = useState(false)
   const { data: leaves } = useAsync(() => api.listLeave(), [version], [] as LeaveRecord[])
+  const { data: personal } = useAsync(() => api.listPersonalEvents(), [version], [] as PersonalEvent[])
+  const [taskDay, setTaskDay] = useState<string | null>(null)
+  const [pEdit, setPEdit] = useState<{ ev?: PersonalEvent; day?: string } | null>(null)
   // 휴대폰 (대표 지시 2026-11-04 "월별 일정표 가독성"): 달력은 색 점만, 고른 날 일정은 아래 목록으로 크게
   const phone = usePhone()
   const [pick, setPick] = useState(today)
@@ -497,11 +580,24 @@ export function MonthCalendar({ projects, tasks }: { projects: Project[]; tasks:
       if (l.status !== '승인' || (mine && l.profile_id !== me.id)) continue
       for (let d = l.start_date; d <= l.end_date; d = addDays(d, 1)) push(d, { key: `${l.id}${d}`, label: `${profileName(l.profile_id)} ${l.masked ? (l.kind === '반차' ? '반차' : '휴가') : l.kind}`, tone: 'leave', to: '/team?view=leave' })
     }
+    // 개인 일정은 맨 앞에 (나만 보임)
+    for (const e of personal) {
+      if (e.end_date < first || e.start_date > last) continue
+      const label = `🔒 ${e.start_time ? e.start_time.slice(0, 5) + ' ' : ''}${e.title}`
+      for (let d = e.start_date < first ? first : e.start_date; d <= e.end_date && d <= last; d = addDays(d, 1)) {
+        const it: CalItem = { key: `pe${e.id}${d}`, label, tone: 'personal', personal: e }
+        m.set(d, [it, ...(m.get(d) ?? [])])
+      }
+    }
     return m
-  }, [tasks, projects, leaves, mine, me.id, month, today, profileName])
+  }, [tasks, projects, leaves, personal, mine, me.id, month, today, profileName])
 
   const item = (it: CalItem) =>
-    it.task ? (
+    it.personal ? (
+      <button key={it.key} type="button" className="cal-item c-personal" onClick={() => setPEdit({ ev: it.personal })} title={`${it.label}${it.personal.memo ? `\n${it.personal.memo}` : ''}`}>
+        {it.label}
+      </button>
+    ) : it.task ? (
       <button key={it.key} type="button" className={`cal-item c-${it.tone}`} onClick={() => setEditing(it.task!)} title={it.label}>
         {it.label}
       </button>
@@ -528,6 +624,9 @@ export function MonthCalendar({ projects, tasks }: { projects: Project[]; tasks:
           </Button>
         )}
         <span className="grow" />
+        <Button kind="outline" size="sm" onClick={() => setPEdit({ day: phone ? pick : today })} title="나만 보이는 개인 일정 저장">
+          <Plus size={13} /> 개인 일정
+        </Button>
         <Button kind="outline" size="sm" onClick={() => setGcal(true)} title="인트라넷 일정을 구글 캘린더 · 휴대폰 캘린더에 자동으로 넣기">
           구글 캘린더 연동
         </Button>
@@ -640,6 +739,10 @@ export function MonthCalendar({ projects, tasks }: { projects: Project[]; tasks:
           <i style={{ background: 'var(--pink)' }} />
           휴가
         </span>
+        <span>
+          <i className="lg-personal" />
+          🔒 개인 일정 (나만 보임)
+        </span>
       </div>
       {openDay && (
         <Modal title={`${shortDate(openDay)} (${weekday(openDay)}) 일정`} onClose={() => setOpenDay(null)}>
@@ -658,7 +761,22 @@ export function MonthCalendar({ projects, tasks }: { projects: Project[]; tasks:
           </div>
         </Modal>
       )}
-      {creating && <TaskAssignModal key={`new-${creating}`} projects={projects} tasks={tasks} presetDate={creating} presetAssignee={me.id} onClose={() => setCreating(null)} />}
+      {creating && (
+        <NewEventChooser
+          day={creating}
+          onClose={() => setCreating(null)}
+          onPersonal={() => {
+            setPEdit({ day: creating })
+            setCreating(null)
+          }}
+          onTask={() => {
+            setTaskDay(creating)
+            setCreating(null)
+          }}
+        />
+      )}
+      {taskDay && <TaskAssignModal key={`new-${taskDay}`} projects={projects} tasks={tasks} presetDate={taskDay} presetAssignee={me.id} onClose={() => setTaskDay(null)} />}
+      {pEdit && <PersonalEventModal key={pEdit.ev?.id ?? `new-${pEdit.day}`} ev={pEdit.ev} presetDate={pEdit.day} onClose={() => setPEdit(null)} />}
       {editing && <TaskAssignModal key={editing.id} task={editing} projects={projects} tasks={tasks} onClose={() => setEditing(null)} />}
       {gcal && <GoogleCalendarModal onClose={() => setGcal(false)} />}
     </div>

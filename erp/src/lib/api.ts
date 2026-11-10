@@ -6,6 +6,7 @@ import type { LedgerEntry, LedgerRecurring, LedgerStatus, MaterialItem, Material
   ApprovalActivity,
   DriveIndexFile,
   Subscription,
+  PersonalEvent,
   TaxInvoice,
   TaxInvoiceDraft,
   ExchangeFile,
@@ -292,6 +293,10 @@ export interface Api {
   /** 홈택스 목록 엑셀 행 가져오기: 승인번호가 이미 있으면 건너뜀 → 새로 넣은 수 */
   importTaxInvoices(rows: TaxInvoiceDraft[]): Promise<{ added: number; skipped: number }>
   updateTaxInvoice(id: string, patch: Partial<Pick<TaxInvoice, 'project_id' | 'payment_id' | 'memo'>>): Promise<void>
+  /** 캘린더 개인 일정 (본인 것만) */
+  listPersonalEvents(): Promise<PersonalEvent[]>
+  savePersonalEvent(e: Partial<PersonalEvent> & Pick<PersonalEvent, 'title' | 'start_date' | 'end_date'>): Promise<PersonalEvent>
+  deletePersonalEvent(id: string): Promise<void>
   listSubscriptions(): Promise<Subscription[]>
   saveSubscription(s: Draft<Subscription>): Promise<Subscription>
   deleteSubscription(id: string): Promise<void>

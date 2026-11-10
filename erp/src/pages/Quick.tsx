@@ -8,7 +8,7 @@ import { roomTitle, useRoomMessages } from '../lib/chat'
 import { timeLabel, todayKey } from '../lib/date'
 import { QUICK_WINDOW, supportsPip } from '../lib/pip'
 import { useRouter } from '../lib/router'
-import { TODAY_STATUSES, type ChatRoomSummary, type TodayStatus, type WorkLog } from '../lib/types'
+import { DIVISIONS, projectBrand, TODAY_STATUSES, type ChatRoomSummary, type Division, type Project, type TodayStatus, type WorkLog } from '../lib/types'
 import { QuickLogForm } from '../components/LogForm'
 import { AssignTaskButton } from '../components/AssignTask'
 import { AgentTyping, AttachButton, DropHint, MessageList, useFileDrop } from '../components/ChatMessages'
@@ -18,6 +18,33 @@ import { Empty, KindBadge } from '../components/ui'
 type Mode = 'log' | 'chat' | 'menu'
 
 const ROOM_KEY = 'wkly-quick-room'
+
+/**
+ * 빠른 창 방 고르기 묶음 (대표 지시 2026-11-10 "사람 팀원과 프로젝트 구분 · 프로젝트 성격에 따라 · 진행 중과 완료")
+ *  진행 중 프로젝트(구분별: 아트리어 · 더위클리 · 내부 리서치) → 채팅방 → 사람 팀원 → AI 팀원 → 끝난 프로젝트
+ */
+function roomGroups(rooms: ChatRoomSummary[], projects: Project[], meId: string, profiles: { id: string; is_agent?: boolean }[], profileName: (id: string | null | undefined) => string): [string, ChatRoomSummary[]][] {
+  const name = (r: ChatRoomSummary) => roomTitle(r, meId, profileName).replace(/^#\s*/, '')
+  const div = (r: ChatRoomSummary): Division => {
+    const p = projects.find(x => x.id === r.project_id)
+    if (p) return projectBrand(p)
+    const c = name(r).slice(0, 2)
+    return c === 'TW' || c === 'RS' ? c : 'AR'
+  }
+  const status = (r: ChatRoomSummary) => projects.find(x => x.id === r.project_id)?.status ?? r.project_status
+  const isAi = (r: ChatRoomSummary) => !!r.members?.some(id => id !== meId && profiles.find(x => x.id === id)?.is_agent)
+  const proj = rooms.filter(r => !r.members && r.project_id)
+  const ended = proj.filter(r => status(r) === '완료' || status(r) === '보류')
+  const live = proj.filter(r => !ended.includes(r))
+  const out: [string, ChatRoomSummary[]][] = [
+    ...(Object.keys(DIVISIONS) as Division[]).map(d => [`진행 중 · ${DIVISIONS[d].label}`, live.filter(r => div(r) === d)] as [string, ChatRoomSummary[]]),
+    ['채팅방', rooms.filter(r => !r.members && !r.project_id)],
+    ['사람 팀원 (1:1)', rooms.filter(r => r.members && !isAi(r))],
+    ['AI 팀원', rooms.filter(r => r.members && isAi(r))],
+    ['끝난 프로젝트 (완료 · 보류)', ended],
+  ]
+  return out.filter(([, l]) => l.length)
+}
 const MODE_KEY = 'wkly-quick-mode'
 const FS_KEY = 'wkly-quick-fs'
 // 글자 크기 단계 (대표 지시 2026-11-06 "빠른 채팅창 글자크기 조정")
@@ -185,7 +212,8 @@ function QuickLog() {
 
 function QuickChat({ rooms }: { rooms: ChatRoomSummary[] }) {
   const [chosen, setChosen] = useState(load(ROOM_KEY))
-  const { me, profileName, profiles } = useApp()
+  const { api, me, profileName, profiles, version } = useApp()
+  const { data: projects } = useAsync(() => api.listProjects(), [version], [] as Project[])
   const room = rooms.find(r => r.id === chosen) ?? rooms[0] ?? null
   const roomId = room?.id ?? null
   const { messages, reads, drafts, send, sendFile, remove, edit, react } = useRoomMessages(roomId)
@@ -246,11 +274,15 @@ function QuickChat({ rooms }: { rooms: ChatRoomSummary[] }) {
                 stick.current = true
               }}
             >
-              {rooms.map(r => (
-                <option key={r.id} value={r.id}>
-                  {roomTitle(r, me.id, profileName)}
-                  {r.unread > 0 && r.id !== roomId ? ` (${r.unread})` : ''}
-                </option>
+              {roomGroups(rooms, projects, me.id, profiles, profileName).map(([label, list]) => (
+                <optgroup key={label} label={label}>
+                  {list.map(r => (
+                    <option key={r.id} value={r.id}>
+                      {roomTitle(r, me.id, profileName).replace(/^#\s*/, '')}
+                      {r.unread > 0 && r.id !== roomId ? ` (${r.unread})` : ''}
+                    </option>
+                  ))}
+                </optgroup>
               ))}
             </select>
           </label>
