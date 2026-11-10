@@ -1,7 +1,7 @@
 import { UserPic } from '../components/UserPic'
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { Linkify } from '../components/ui'
-import { ArrowLeft, AtSign, BellOff, Bookmark, Check, ChevronDown, ChevronRight, Folder, Pin, Plus, Send, Trash2, UserPlus } from 'lucide-react'
+import { PanelLeft, ArrowLeft, AtSign, BellOff, Bookmark, Check, ChevronDown, ChevronRight, Folder, Pin, Plus, Send, Trash2, UserPlus } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { friendlyError } from '../lib/api'
 import { countedUnread, pokeChat, roomTitle, useChatTick, useRoomMessages } from '../lib/chat'
@@ -553,6 +553,23 @@ function Room({ room }: { room: ChatRoomSummary }) {
         <span className="grow" />
         {room.description && !confirmDel && <span className="t-cap truncate">{room.description}</span>}
         <RoomPinButton id={room.id} />
+        {/* 이 대화를 왼쪽 채팅 칸에 고정 (대표 지시 2026-11-10) — 다른 화면을 보면서 이 방으로 계속 대화 */}
+        <button
+          type="button"
+          className="btn btn-sm btn-outline room-dock"
+          title="이 대화를 왼쪽 채팅 칸에 고정하고 다른 화면으로"
+          onClick={() => {
+            try {
+              localStorage.setItem('wkly-quick-room', room.id)
+              localStorage.setItem('wkly-chat-dock', 'open')
+            } catch {
+              /* 저장 못 해도 이동은 함 */
+            }
+            navigate('/')
+          }}
+        >
+          <PanelLeft size={13} /> 왼쪽 칸에 고정
+        </button>
         <button type="button" className="btn btn-sm btn-outline room-invite" onClick={() => setInviting(true)} title="팀원 초대">
           <UserPlus size={13} /> 초대
         </button>
