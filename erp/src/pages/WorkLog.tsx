@@ -15,7 +15,7 @@ import {
 } from "../lib/date";
 import { Link, useRouter, withQuery } from "../lib/router";
 import { presenceOf, useAttendance } from "../lib/attendance";
-import { DIVISIONS, PROJECT_STATUSES, projectBrand, type Approval, type Client, type Project, type Task, type WorkLog as Log } from "../lib/types";
+import { DIVISIONS, projectBrand, type Approval, type Client, type Project, type Task, type WorkLog as Log } from "../lib/types";
 import { Board, BoardHead, type BoardCol } from "../components/Board";
 import { LogComposer, isMail } from "../components/LogForm";
 import { usePanelWide, useRightPanel } from "../components/RightPanel";
@@ -455,23 +455,23 @@ function MyProjects({ uid, projects, tasks, who }: { uid: string; projects: Proj
                         {late[0] ? `지연: ${late[0].title} (${late[0].due_date!.slice(5).replace("-", ".")})` : next ? `다음: ${next.title} (${next.due_date!.slice(5).replace("-", ".")})` : "남은 할 일 없음"}
                       </div>
                       {/* 바로 설정: 상태 · 담당 · 종료일 · 완료 (대표 지시 2026-11-10) */}
+                      {/* 진행 여부 (대표 지시 2026-11-10) · 담당 · 종료일 · 완료 */}
                       <div className="myproj-ctl">
-                        <select className="select" value={p.status} aria-label="상태" title="상태 바꾸기" onChange={(e) => save(p, { status: e.target.value as Project["status"] }, `상태를 '${e.target.value}'(으)로 바꿨습니다.`)}>
-                          {PROJECT_STATUSES.map((x) => (
-                            <option key={x} value={x}>
+                        <span className="myproj-ctl-l">진행 여부</span>
+                        <span className="myproj-seg" role="group" aria-label="진행 여부">
+                          {(["기획", "진행", "NIC", "보류"] as const).map((x) => (
+                            <button
+                              key={x}
+                              type="button"
+                              className={`sg-${x}${p.status === x ? " on" : ""}`}
+                              aria-pressed={p.status === x}
+                              title={x === "기획" ? "검토 · 제안 중" : x === "진행" ? "수주 · 진행 중" : x === "NIC" ? "NIC (진행 여부 미정)" : "보류 (진행 안 함 · 목록에서 빠짐)"}
+                              onClick={() => p.status !== x && save(p, { status: x }, `'${p.name}' → ${x}`)}
+                            >
                               {x}
-                            </option>
+                            </button>
                           ))}
-                        </select>
-                        <select className="select" value={p.owner_id ?? ""} aria-label="담당" title="담당 바꾸기" onChange={(e) => save(p, { owner_id: e.target.value || null }, `담당을 ${e.target.value ? profileName(e.target.value) : "미정"}(으)로 바꿨습니다.`)}>
-                          <option value="">담당 미정</option>
-                          {people.map((x) => (
-                            <option key={x.id} value={x.id}>
-                              {x.name}
-                            </option>
-                          ))}
-                        </select>
-                        <input className="input" type="date" value={p.end_date ?? ""} aria-label="종료일" title="종료일 바꾸기" onChange={(e) => save(p, { end_date: e.target.value || null }, "종료일을 바꿨습니다.")} />
+                        </span>
                         <button
                           type="button"
                           className="myproj-done"
@@ -482,6 +482,19 @@ function MyProjects({ uid, projects, tasks, who }: { uid: string; projects: Proj
                         >
                           ✓ 완료
                         </button>
+                      </div>
+                      <div className="myproj-ctl">
+                        <span className="myproj-ctl-l">담당</span>
+                        <select className="select" value={p.owner_id ?? ""} aria-label="담당" title="담당 바꾸기" onChange={(e) => save(p, { owner_id: e.target.value || null }, `담당을 ${e.target.value ? profileName(e.target.value) : "미정"}(으)로 바꿨습니다.`)}>
+                          <option value="">담당 미정</option>
+                          {people.map((x) => (
+                            <option key={x.id} value={x.id}>
+                              {x.name}
+                            </option>
+                          ))}
+                        </select>
+                        <span className="myproj-ctl-l">종료</span>
+                        <input className="input" type="date" value={p.end_date ?? ""} aria-label="종료일" title="종료일 바꾸기" onChange={(e) => save(p, { end_date: e.target.value || null }, "종료일을 바꿨습니다.")} />
                       </div>
                     </div>
                   );
