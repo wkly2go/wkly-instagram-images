@@ -4455,3 +4455,5 @@ body.dock-resizing iframe { pointer-events: none; }
 .myproj-seg .sg-NIC.on { background: #ffd659; border-color: #e0a800; color: #5a3d00; }
 .myproj-seg .sg-보류.on { background: #8a8a83; border-color: #8a8a83; }
 .myproj-ctl .select:first-of-type { flex: 1 1 90px; }
+.myproj-ai { font-size: 11px; font-weight: 700; color: #4b3a80; background: #f3effc; border: 1px solid #c9bcef; padding: 1px 5px; white-space: nowrap; }
+.myproj-ctl .select.is-ai { color: #4b3a80; background: #f7f4fd; border-color: #c9bcef; font-weight: 700; }
