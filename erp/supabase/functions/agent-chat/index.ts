@@ -104,6 +104,13 @@ const TOOL_LABEL: Record<string, string> = {
   list_schedules: '예약 확인 중',
   cancel_schedule: '예약 지우는 중',
   web_search: '웹 검색 중',
+  save_project: '프로젝트 저장 중',
+  delete_record: '지우는 중',
+  list_approvals: '결재 확인 중',
+  decide_approval: '결재 처리 중',
+  decide_leave: '휴가 처리 중',
+  update_person: '인사 정보 고치는 중',
+  request_intranet_change: '개발 요청 등록 중',
 }
 
 // ---------------------------------------------------------------------
@@ -303,8 +310,95 @@ const SCHEDULE_TOOLS: Anthropic.Tool[] = [
   },
 ]
 
+// ---------------------------------------------------------------------
+// 대표 전용 도구 (2026-11-10 대표 지시 "대표의 지시에 예외 없이 따르게 · 인트라넷 안 일 전부 · 인트라넷 수정도")
+//   요청자가 대표(관리자 · 직함 '대표')일 때만 붙는다. 다른 사람이 부탁하면 도구 자체가 없다.
+//   그대로 막아 두는 것: 메일 발송 · 금액 · 주민번호/계좌번호 · 드라이브 기존 자료 수정/삭제 (대표가 고른 범위 밖)
+// ---------------------------------------------------------------------
+const PROJECT_STATUS = ['기획', '진행', 'NIC', '완료', '보류']
+const PROJECT_CATEGORY = ['팝업', '캠페인', '콘텐츠', '기타']
+const isCeo = (p: Person) => p.role === 'admin' && !p.is_agent && (p.title ?? '').includes('대표')
+const CEO_TOOLS: Anthropic.Tool[] = [
+  {
+    name: 'save_project',
+    description: '프로젝트 만들기(id 없이) 또는 고치기(id). 이름 · 상태 · 분류 · 기간 · 담당 · 장소 · 설명 · 연번 · 구분(AR/TW/RS). 기간을 지우려면 빈 문자열 대신 clear_dates=true.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string' },
+        name: { type: 'string' },
+        status: { type: 'string', enum: PROJECT_STATUS },
+        category: { type: 'string', enum: PROJECT_CATEGORY },
+        start_date: { type: 'string', description: 'YYYY-MM-DD' },
+        end_date: { type: 'string', description: 'YYYY-MM-DD' },
+        clear_dates: { type: 'boolean' },
+        owner_id: { type: 'string' },
+        location: { type: 'string' },
+        description: { type: 'string' },
+        code: { type: 'string' },
+        division: { type: 'string', enum: ['AR', 'TW', 'RS'] },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'delete_record',
+    description: '지우기: 할 일(task) · 프로젝트(project) · 휴가 기록(leave) · 결재(approval). 프로젝트를 지우면 딸린 할 일 · 채팅방도 함께 지워질 수 있으니 대표가 분명히 지우라고 했을 때만.',
+    input_schema: { type: 'object', properties: { kind: { type: 'string', enum: ['task', 'project', 'leave', 'approval'] }, id: { type: 'string' } }, required: ['kind', 'id'], additionalProperties: false },
+  },
+  {
+    name: 'list_approvals',
+    description: '결재(보고서 결제) 목록. 기본은 대기. 금액은 보여 주지 않음.',
+    input_schema: { type: 'object', properties: { status: { type: 'string', enum: ['대기', '승인', '반려', '취소', '전체'] } }, additionalProperties: false },
+  },
+  {
+    name: 'decide_approval',
+    description: '결재 승인 · 반려 (대표 이름으로). 처리 의견 선택.',
+    input_schema: { type: 'object', properties: { id: { type: 'string' }, decision: { type: 'string', enum: ['승인', '반려'] }, comment: { type: 'string' } }, required: ['id', 'decision'], additionalProperties: false },
+  },
+  {
+    name: 'decide_leave',
+    description: '휴가 신청 승인 · 반려, 또는 휴가 기록 고치기(종류 · 기간 · 일수).',
+    input_schema: {
+      type: 'object',
+      properties: { id: { type: 'string' }, decision: { type: 'string', enum: ['승인', '반려'] }, kind: { type: 'string' }, start_date: { type: 'string' }, end_date: { type: 'string' }, days: { type: 'number' } },
+      required: ['id'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'update_person',
+    description: '팀원 정보 고치기: 직함 · 사원번호 · 직급 · 입사일 · 연락처 · 생년월일 · 주소 · 비상 연락처 · 연차 조정 일수 · 연차 메모 · 인사 메모. 주민번호 · 계좌번호는 다루지 않는다.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        profile_id: { type: 'string' },
+        title: { type: 'string' },
+        employee_no: { type: 'string' },
+        rank: { type: 'string' },
+        joined_on: { type: 'string', description: 'YYYY-MM-DD' },
+        phone: { type: 'string' },
+        birthday: { type: 'string', description: 'YYYY-MM-DD' },
+        address: { type: 'string' },
+        emergency_contact: { type: 'string' },
+        leave_adjust: { type: 'number' },
+        leave_note: { type: 'string' },
+        note: { type: 'string' },
+      },
+      required: ['profile_id'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'request_intranet_change',
+    description:
+      '인트라넷 화면 · 기능 자체를 고치거나 새로 만드는 일(코드 수정)을 개발 담당(Claude Code)에게 넘김. 매시 정각 무렵 확인해 고치고 배포한 뒤 결과를 대표에게 알림. 데이터만 바꾸면 되는 일은 다른 도구로 바로 처리한다.',
+    input_schema: { type: 'object', properties: { request: { type: 'string', description: '무엇을 어떻게 고칠지 대표 말 그대로 + 필요한 설명 (4000자)' } }, required: ['request'], additionalProperties: false },
+  },
+]
+
 // 기록에 남기는 쓰기 도구
-const WRITE_TOOLS = new Set(['schedule_work', 'cancel_schedule', 'create_task', 'update_task', 'notify_person', 'queue_mail_work', 'request_approval', 'handoff', 'add_directive', 'end_directive'])
+const WRITE_TOOLS = new Set(['save_project', 'delete_record', 'decide_approval', 'decide_leave', 'update_person', 'request_intranet_change', 'schedule_work', 'cancel_schedule', 'create_task', 'update_task', 'notify_person', 'queue_mail_work', 'request_approval', 'handoff', 'add_directive', 'end_directive'])
 
 // 승인 · 발송 · 게시 · 야간 · 결제 · API 키 규칙을 바꾸려는 지시는 막는다 (팀원 AI 쪽에서도 무시함)
 const PROTECTED = /(승인\s*없이|결재\s*없이|바로\s*(발송|게시|보내)|자동\s*(좋아요|댓글)|야간.*(발송|게시)|결제|API\s*키|api key|without approval)/i
@@ -324,7 +418,112 @@ const isDate = (s?: string) => !s || /^\d{4}-\d{2}-\d{2}$/.test(s)
 
 async function runTool(ctx: Ctx, name: string, input: Record<string, unknown>): Promise<unknown> {
   const s = (k: string) => (typeof input[k] === 'string' && (input[k] as string).trim() ? (input[k] as string).trim() : undefined)
+  if (CEO_TOOLS.some(t => t.name === name) && !isCeo(ctx.requester)) throw new Error('대표만 시킬 수 있는 일입니다.')
   switch (name) {
+    case 'save_project': {
+      const patch: Record<string, unknown> = {}
+      for (const k of ['name', 'status', 'category', 'start_date', 'end_date', 'location', 'description', 'code', 'division']) if (s(k) !== undefined) patch[k] = s(k)
+      if (s('owner_id')) {
+        if (!activePerson(ctx, s('owner_id'))) throw new Error('owner_id 가 팀원 id 가 아닙니다.')
+        patch.owner_id = s('owner_id')
+      }
+      if (input.clear_dates) {
+        patch.start_date = null
+        patch.end_date = null
+      }
+      if (!isDate(patch.start_date as string) || !isDate(patch.end_date as string)) throw new Error('날짜는 YYYY-MM-DD 형식입니다.')
+      if (s('id')) {
+        if (!Object.keys(patch).length) throw new Error('바꿀 내용이 없습니다.')
+        const { data, error } = await sb.from('projects').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', s('id')!).select('id, code, name, status, start_date, end_date').maybeSingle()
+        if (error) throw error
+        if (!data) throw new Error('그 프로젝트를 찾지 못했습니다.')
+        return { ok: true, project: data }
+      }
+      if (!patch.name) throw new Error('새 프로젝트는 name 이 필요합니다.')
+      const { data, error } = await sb
+        .from('projects')
+        .insert({ category: '기타', status: '기획', ...patch, created_by: ctx.requester.id, owner_id: patch.owner_id ?? ctx.requester.id })
+        .select('id, code, name, status, start_date, end_date')
+        .single()
+      if (error) throw error
+      return { ok: true, project: data }
+    }
+
+    case 'delete_record': {
+      const table = { task: 'tasks', project: 'projects', leave: 'leave_records', approval: 'approvals' }[s('kind') ?? ''] as string | undefined
+      if (!table || !s('id')) throw new Error('kind · id 가 필요합니다.')
+      const label = table === 'tasks' || table === 'projects' ? 'id, title:' + (table === 'tasks' ? 'title' : 'name') : 'id'
+      const { data, error } = await sb.from(table).delete().eq('id', s('id')!).select(label)
+      if (error) throw error
+      if (!data?.length) throw new Error('지울 기록을 찾지 못했습니다.')
+      return { ok: true, deleted: data }
+    }
+
+    case 'list_approvals': {
+      const st = s('status') ?? '대기'
+      let q = sb.from('approvals').select('id, kind, title, requested_by, approver_id, status, created_at, decided_at').order('created_at', { ascending: false }).limit(60)
+      if (st !== '전체') q = q.eq('status', st)
+      const { data, error } = await q
+      if (error) throw error
+      return (data ?? []).map(a => ({ ...a, requested_by: nameOf(ctx, a.requested_by), approver: nameOf(ctx, a.approver_id) }))
+    }
+
+    case 'decide_approval': {
+      const { data, error } = await sb
+        .from('approvals')
+        .update({ status: s('decision'), decided_by: ctx.requester.id, decided_at: new Date().toISOString(), decision_comment: s('comment') ?? null })
+        .eq('id', s('id')!)
+        .eq('status', '대기')
+        .select('id, title, status')
+        .maybeSingle()
+      if (error) throw error
+      if (!data) throw new Error('대기 중인 그 결재를 찾지 못했습니다.')
+      return { ok: true, approval: data }
+    }
+
+    case 'decide_leave': {
+      const patch: Record<string, unknown> = {}
+      if (s('decision')) Object.assign(patch, { status: s('decision'), decided_by: ctx.requester.id, decided_at: new Date().toISOString() })
+      for (const k of ['kind', 'start_date', 'end_date']) if (s(k)) patch[k] = s(k)
+      if (typeof input.days === 'number') patch.days = input.days
+      if (!isDate(patch.start_date as string) || !isDate(patch.end_date as string)) throw new Error('날짜는 YYYY-MM-DD 형식입니다.')
+      if (!Object.keys(patch).length) throw new Error('바꿀 내용이 없습니다.')
+      const { data, error } = await sb.from('leave_records').update(patch).eq('id', s('id')!).select('id, profile_id, kind, start_date, end_date, days, status').maybeSingle()
+      if (error) throw error
+      if (!data) throw new Error('그 휴가 기록을 찾지 못했습니다.')
+      return { ok: true, leave: { ...data, who: nameOf(ctx, data.profile_id) } }
+    }
+
+    case 'update_person': {
+      const pid = s('profile_id')
+      if (!pid || !ctx.people.some(p => p.id === pid)) throw new Error('profile_id 가 팀원 id 가 아닙니다.')
+      const out: Record<string, unknown> = {}
+      if (s('title') !== undefined) {
+        const { error } = await sb.from('profiles').update({ title: s('title') }).eq('id', pid)
+        if (error) throw error
+        out.title = s('title')
+      }
+      const hr: Record<string, unknown> = {}
+      for (const k of ['employee_no', 'rank', 'joined_on', 'phone', 'birthday', 'address', 'emergency_contact', 'leave_note', 'note']) if (s(k) !== undefined) hr[k] = s(k)
+      if (typeof input.leave_adjust === 'number') hr.leave_adjust = input.leave_adjust
+      if (!isDate(hr.joined_on as string) || !isDate(hr.birthday as string)) throw new Error('날짜는 YYYY-MM-DD 형식입니다.')
+      if (Object.keys(hr).length) {
+        const { error } = await sb.from('hr_records').upsert({ profile_id: pid, ...hr, updated_at: new Date().toISOString(), updated_by: ctx.requester.id }, { onConflict: 'profile_id' })
+        if (error) throw error
+        Object.assign(out, hr)
+      }
+      if (!Object.keys(out).length) throw new Error('바꿀 내용이 없습니다.')
+      return { ok: true, who: nameOf(ctx, pid), changed: Object.keys(out) }
+    }
+
+    case 'request_intranet_change': {
+      const text = s('request')
+      if (!text) throw new Error('request 가 필요합니다.')
+      const { data, error } = await sb.from('dev_requests').insert({ requested_by: ctx.requester.id, content: text.slice(0, 4000), room_id: ctx.room_id ?? null }).select('id, created_at').single()
+      if (error) throw error
+      return { ok: true, request_id: data.id, note: '개발 담당(Claude Code)이 매시 정각 무렵 확인해 고치고 배포한 뒤 알림을 보냅니다.' }
+    }
+
     case 'list_people':
       return ctx.people.filter(p => p.active && !p.is_agent).map(p => ({ id: p.id, name: p.name, title: p.title, admin: p.role === 'admin', today_status: p.today_status }))
 
@@ -495,7 +694,7 @@ async function runTool(ctx: Ctx, name: string, input: Record<string, unknown>): 
         const { data: m } = await sb.from('agent_roster').select('code').eq('group_name', lead.group_name).eq('code', code).maybeSingle()
         if (!m) throw new Error(`${code} 는 이 팀 팀원 코드가 아닙니다. team_status 로 확인하세요.`)
       }
-      if (PROTECTED.test(text)) throw new Error('승인 · 발송 · 게시 · 야간 · 결제 · API 키 규칙을 바꾸는 지시는 등록할 수 없습니다.')
+      if (!isCeo(ctx.requester) && PROTECTED.test(text)) throw new Error('승인 · 발송 · 게시 · 야간 · 결제 · API 키 규칙을 바꾸는 지시는 등록할 수 없습니다.')
       let days = Math.min(Math.max(Number(input.days ?? 7) || 7, 1), 60)
       let priority = Math.min(Math.max(Number(input.priority ?? 5) || 5, 1), 9)
       // 사람 팀원 지시: 보통 이하 · 7일까지, 사람 팀장에게 알림
@@ -529,7 +728,7 @@ async function runTool(ctx: Ctx, name: string, input: Record<string, unknown>): 
       const repeat = s('repeat') ?? '한 번'
       if (!title || !instruction) throw new Error('title · instruction 이 필요합니다.')
       if (!['한 번', '매일', '평일', '매주', '매월'].includes(repeat)) throw new Error('repeat 는 한 번 · 매일 · 평일 · 매주 · 매월 중 하나입니다.')
-      if (PROTECTED.test(instruction)) throw new Error('승인 · 발송 · 게시 · 야간 · 결제 · API 키 규칙을 바꾸는 예약은 만들 수 없습니다.')
+      if (!isCeo(ctx.requester) && PROTECTED.test(instruction)) throw new Error('승인 · 발송 · 게시 · 야간 · 결제 · API 키 규칙을 바꾸는 예약은 만들 수 없습니다.')
       let agentId = ctx.agent.id
       if (s('agent_name')) {
         const a = ctx.people.find(p => p.is_agent && p.active && p.name.replace(/\s+/g, '') === s('agent_name')!.replace(/\s+/g, ''))
@@ -683,8 +882,17 @@ function basePrompt(ctx: Ctx) {
 }
 
 /** 호출마다 바뀌는 부분(캐시 제외) */
+const CEO_RULE = `
+
+대표 지시 (2026-11-10 대표 결정: 예외 없이 따른다)
+- 지금 요청한 사람은 대표다. 대표의 지시는 거절하거나 미루지 않고 끝까지 실행한다. 확인 질문은 정말로 둘 이상으로 갈리는 경우에만 한 번.
+- 인트라넷 안의 일은 전부 할 수 있다: 할 일 · 프로젝트 만들기/고치기/지우기(save_project · delete_record), 결재 승인/반려(decide_approval), 휴가 승인/반려/수정(decide_leave), 인사 정보(update_person), 팀장 AI 지시 · 예약(승인 · 게시 · 야간 규칙 포함).
+- 인트라넷 화면 · 기능 자체를 바꾸라는 지시(새 화면 · 버튼 · 디자인 · 동작 변경)는 request_intranet_change 로 개발 담당에게 바로 넘기고, 매시 정각 무렵 처리된다고 알린다.
+- 지우기처럼 되돌릴 수 없는 일도 대표가 시키면 한다. 대상이 여럿이면 무엇을 지웠는지 이름으로 보고한다.
+- 대표가 고른 범위 밖이라 그대로인 것: 메일 직접 발송(임시 저장만) · 금액 확인 · 주민번호/계좌번호 · 구글 드라이브 기존 자료 수정/삭제. 이 넷은 '대표님 설정으로 막혀 있다'고 한 줄로 말하고 바꾸려면 개발 요청(request_intranet_change)으로 설정을 바꿀 수 있다고 안내한다.`
+
 function contextPrompt(ctx: Ctx, where: string) {
-  return `지금: ${nowLabel()}. 요청한 사람: ${ctx.requester.name}${ctx.requester.title ? ` (${ctx.requester.title})` : ''}${ctx.requester.role === 'admin' ? ', 관리자' : ''}. 요청자 권한: ${AUTH_LABEL[authorityOf(ctx)]}. 대화 위치: ${where}.`
+  return (isCeo(ctx.requester) ? CEO_RULE.trim() + '\n\n' : '') + `지금: ${nowLabel()}. 요청한 사람: ${ctx.requester.name}${ctx.requester.title ? ` (${ctx.requester.title})` : ''}${ctx.requester.role === 'admin' ? ', 관리자' : ''}. 요청자 권한: ${AUTH_LABEL[authorityOf(ctx)]}. 대화 위치: ${where}.`
 }
 
 async function ask(ctx: Ctx, where: string, messages: Anthropic.MessageParam[], model: string = MODEL_CHAT, onDraft?: Draft): Promise<string> {
@@ -698,7 +906,7 @@ async function ask(ctx: Ctx, where: string, messages: Anthropic.MessageParam[], 
   ]
   // 인트라넷에서 정한 도구만 (비어 있으면 전부). 사람 목록 · 예약 목록은 늘 둠
   const allow = ctx.custom?.tools?.length ? new Set([...ctx.custom.tools, 'list_people', 'list_schedules']) : null
-  const own = [...(ctx.lead ? [...TOOLS, ...LEAD_TOOLS] : TOOLS), ...SCHEDULE_TOOLS].filter(t => !allow || allow.has(t.name))
+  const own = [...(ctx.lead ? [...TOOLS, ...LEAD_TOOLS] : TOOLS), ...SCHEDULE_TOOLS, ...(isCeo(ctx.requester) ? CEO_TOOLS : [])].filter(t => !allow || allow.has(t.name) || isCeo(ctx.requester))
   const tools = [WEB_SEARCH, ...own.map((t, i) => (i === own.length - 1 ? { ...t, cache_control: { type: 'ephemeral' as const } } : t))]
   if (ctx.custom?.model === '꼼꼼') model = MODEL_INSTRUCTION
   let useFallback = true

@@ -15,7 +15,7 @@ import {
 } from "../lib/date";
 import { Link, useRouter, withQuery } from "../lib/router";
 import { presenceOf, useAttendance } from "../lib/attendance";
-import { DIVISIONS, projectBrand, type Approval, type Client, type Project, type Task, type WorkLog as Log } from "../lib/types";
+import { DIVISIONS, PROJECT_STATUSES, projectBrand, type Approval, type Client, type Project, type Task, type WorkLog as Log } from "../lib/types";
 import { Board, BoardHead, type BoardCol } from "../components/Board";
 import { LogComposer, isMail } from "../components/LogForm";
 import { usePanelWide, useRightPanel } from "../components/RightPanel";
@@ -301,7 +301,12 @@ export function WorkPane({ tabs }: { tabs?: ReactNode }) {
  *  - 지연 → 마감 임박 순 · 접기 기억
  */
 const MYPROJ_KEY = "wkly-myproj-open";
+const MYPROJ_F = "wkly-myproj-filter";
+const ST_ORDER = ["진행", "기획", "NIC"] as const;
+type PF = "전체" | "진행" | "기획" | "NIC" | "지연";
 function MyProjects({ uid, projects, tasks, who }: { uid: string; projects: Project[]; tasks: Task[]; who: string | null }) {
+  const { api, profiles, profileName } = useApp();
+  const { run } = useAction();
   const today = todayKey();
   const [open, setOpen] = useState(() => {
     try {
@@ -310,6 +315,21 @@ function MyProjects({ uid, projects, tasks, who }: { uid: string; projects: Proj
       return true;
     }
   });
+  const [filter, setFilterState] = useState<PF>(() => {
+    try {
+      return (localStorage.getItem(MYPROJ_F) as PF | null) ?? "전체";
+    } catch {
+      return "전체";
+    }
+  });
+  const setFilter = (f: PF) => {
+    setFilterState(f);
+    try {
+      localStorage.setItem(MYPROJ_F, f);
+    } catch {
+      /* noop */
+    }
+  };
   const toggle = () => {
     setOpen((o) => {
       try {
@@ -338,52 +358,116 @@ function MyProjects({ uid, projects, tasks, who }: { uid: string; projects: Proj
       .sort((a, b) => b.late.length - a.late.length || (a.next?.due_date ?? "9999").localeCompare(b.next?.due_date ?? "9999") || (a.left ?? 9999) - (b.left ?? 9999));
   }, [projects, tasks, uid, today]);
   const lateSum = rows.reduce((n, r) => n + r.late.length, 0);
+  const count = (f: PF) => (f === "전체" ? rows.length : f === "지연" ? rows.filter((r) => r.late.length).length : rows.filter((r) => r.p.status === f).length);
+  const shown = rows.filter((r) => filter === "전체" || (filter === "지연" ? r.late.length > 0 : r.p.status === filter));
+  // 상태별로 묶어서 (진행 → 기획 → NIC)
+  const groups = ST_ORDER.map((st) => [st, shown.filter((r) => r.p.status === st)] as const).filter(([, l]) => l.length);
+  const people = profiles.filter((x) => x.active && !x.is_agent);
+  const save = (p: Project, patch: Partial<Project>, msg: string) => run(() => api.saveProject({ id: p.id, ...patch } as Project), msg);
   return (
     <div className="myproj">
-      <button type="button" className="myproj-h" onClick={toggle} aria-expanded={open}>
-        <b>{who ? `${who}님이` : "내가"} 맡고 있는 프로젝트</b>
-        <span className="myproj-n">{rows.length}</span>
-        <span className="t-cap">담당 {rows.filter((r) => r.owner).length} · 내 할 일 {rows.reduce((n, r) => n + r.mine.length, 0)}{lateSum ? ` · ` : ""}</span>
+      <div className="myproj-h">
+        <button type="button" className="myproj-title" onClick={toggle} aria-expanded={open}>
+          <b>{who ? `${who}님이` : "내가"} 맡고 있는 프로젝트</b>
+          <span className="myproj-n">{rows.length}</span>
+        </button>
+        <span className="t-cap">
+          담당 {rows.filter((r) => r.owner).length} · 내 할 일 {rows.reduce((n, r) => n + r.mine.length, 0)}
+        </span>
         {lateSum > 0 && <span className="myproj-late">지연 {lateSum}</span>}
+        {open && (
+          <span className="myproj-filter" role="group" aria-label="프로젝트 거르기">
+            {(["전체", "진행", "기획", "NIC", "지연"] as PF[]).map((f) => (
+              <button key={f} type="button" className={`mf-${f}${filter === f ? " on" : ""}`} onClick={() => setFilter(f)} aria-pressed={filter === f}>
+                {f} <i>{count(f)}</i>
+              </button>
+            ))}
+          </span>
+        )}
         <span className="grow" />
-        <span className="t-cap">{open ? "접기 ▲" : "펼치기 ▼"}</span>
-      </button>
+        <button type="button" className="t-cap myproj-fold" onClick={toggle}>
+          {open ? "접기 ▲" : "펼치기 ▼"}
+        </button>
+      </div>
       {open &&
-        (rows.length ? (
-          <div className="myproj-grid">
-            {rows.map(({ p, owner, mine, late, next, doneRate, left }) => {
-              const div = DIVISIONS[projectBrand(p)];
-              return (
-                <Link key={p.id} to={`/projects?id=${p.id}`} className={`myproj-card${late.length ? " is-late" : ""}`} style={{ ["--div" as string]: div.color }}>
-                  <div className="myproj-top">
-                    {p.code && <span className="myproj-code">{p.code}</span>}
-                    <span className={`myproj-st st-${p.status}`}>{p.status}</span>
-                    {owner && <span className="myproj-own">담당</span>}
-                    <span className="grow" />
-                    {left !== null && <span className={`myproj-d${left < 0 ? " over" : left <= 7 ? " soon" : ""}`}>{left < 0 ? `종료 ${-left}일 지남` : left === 0 ? "오늘 종료" : `D-${left}`}</span>}
-                  </div>
-                  <div className="myproj-name" title={p.name}>{p.name}</div>
-                  <div className="myproj-meta">
-                    <span>
-                      내 할 일 <b>{mine.length}</b>
-                    </span>
-                    {late.length > 0 && <span className="myproj-late">지연 {late.length}</span>}
-                    {doneRate !== null && (
-                      <span className="myproj-bar" title={`업무 완료 ${doneRate}%`}>
-                        <i style={{ width: `${doneRate}%` }} />
-                      </span>
-                    )}
-                    {doneRate !== null && <span className="t-cap">{doneRate}%</span>}
-                  </div>
-                  <div className="myproj-next t-cap" title={next?.title ?? late[0]?.title ?? ""}>
-                    {late[0] ? `지연: ${late[0].title} (${late[0].due_date!.slice(5).replace("-", ".")})` : next ? `다음: ${next.title} (${next.due_date!.slice(5).replace("-", ".")})` : "남은 할 일 없음"}
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
+        (shown.length ? (
+          groups.map(([st, list]) => (
+            <div key={st} className={`myproj-group g-${st}`}>
+              <div className="myproj-gh">
+                <span className={`myproj-st st-${st}`}>{st}</span>
+                <span className="t-cap">{list.length}건</span>
+              </div>
+              <div className="myproj-grid">
+                {list.map(({ p, owner, mine, late, next, doneRate, left }) => {
+                  const div = DIVISIONS[projectBrand(p)];
+                  return (
+                    <div key={p.id} className={`myproj-card s-${p.status}${late.length ? " is-late" : ""}`}>
+                      <div className="myproj-top">
+                        {p.code && <span className="myproj-code">{p.code}</span>}
+                        <span className="myproj-div" style={{ color: div.color, borderColor: div.color }}>
+                          {div.label}
+                        </span>
+                        {owner && <span className="myproj-own">담당</span>}
+                        <span className="grow" />
+                        {left !== null && <span className={`myproj-d${left < 0 ? " over" : left <= 7 ? " soon" : ""}`}>{left < 0 ? `종료 ${-left}일 지남` : left === 0 ? "오늘 종료" : `D-${left}`}</span>}
+                      </div>
+                      <Link to={`/projects?id=${p.id}`} className="myproj-name" title={`${p.name} · 프로젝트 열기`}>
+                        {p.name}
+                      </Link>
+                      <div className="myproj-meta">
+                        <span>
+                          내 할 일 <b>{mine.length}</b>
+                        </span>
+                        {late.length > 0 && <span className="myproj-late">지연 {late.length}</span>}
+                        {doneRate !== null && (
+                          <span className="myproj-bar" title={`업무 완료 ${doneRate}%`}>
+                            <i style={{ width: `${doneRate}%` }} />
+                          </span>
+                        )}
+                        {doneRate !== null && <span className="t-cap">{doneRate}%</span>}
+                      </div>
+                      <div className="myproj-next t-cap" title={next?.title ?? late[0]?.title ?? ""}>
+                        {late[0] ? `지연: ${late[0].title} (${late[0].due_date!.slice(5).replace("-", ".")})` : next ? `다음: ${next.title} (${next.due_date!.slice(5).replace("-", ".")})` : "남은 할 일 없음"}
+                      </div>
+                      {/* 바로 설정: 상태 · 담당 · 종료일 · 완료 (대표 지시 2026-11-10) */}
+                      <div className="myproj-ctl">
+                        <select className="select" value={p.status} aria-label="상태" title="상태 바꾸기" onChange={(e) => save(p, { status: e.target.value as Project["status"] }, `상태를 '${e.target.value}'(으)로 바꿨습니다.`)}>
+                          {PROJECT_STATUSES.map((x) => (
+                            <option key={x} value={x}>
+                              {x}
+                            </option>
+                          ))}
+                        </select>
+                        <select className="select" value={p.owner_id ?? ""} aria-label="담당" title="담당 바꾸기" onChange={(e) => save(p, { owner_id: e.target.value || null }, `담당을 ${e.target.value ? profileName(e.target.value) : "미정"}(으)로 바꿨습니다.`)}>
+                          <option value="">담당 미정</option>
+                          {people.map((x) => (
+                            <option key={x.id} value={x.id}>
+                              {x.name}
+                            </option>
+                          ))}
+                        </select>
+                        <input className="input" type="date" value={p.end_date ?? ""} aria-label="종료일" title="종료일 바꾸기" onChange={(e) => save(p, { end_date: e.target.value || null }, "종료일을 바꿨습니다.")} />
+                        <button
+                          type="button"
+                          className="myproj-done"
+                          title="프로젝트 완료"
+                          onClick={async () => {
+                            if (await ask(`'${p.name}' 프로젝트를 완료로 바꿀까요?\n완료하면 이 목록에서 빠집니다.`)) save(p, { status: "완료" }, "프로젝트를 완료로 바꿨습니다.");
+                          }}
+                        >
+                          ✓ 완료
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))
         ) : (
-          <span className="t-cap" style={{ padding: "4px 2px" }}>진행 중인 담당 프로젝트가 없습니다.</span>
+          <span className="t-cap" style={{ padding: "4px 2px" }}>
+            {rows.length ? "이 조건의 프로젝트가 없습니다." : "진행 중인 담당 프로젝트가 없습니다."}
+          </span>
         ))}
     </div>
   );

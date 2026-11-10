@@ -4394,3 +4394,31 @@ body.dock-resizing iframe { pointer-events: none; }
 .chat-dock.closed { border: 3px solid var(--blue); border-right: 1px solid var(--pink); }
 .myproj-h { flex-wrap: wrap; row-gap: 4px; }
 .myproj-h b, .myproj-h .t-cap { white-space: nowrap; }
+/* 내 프로젝트: 상태별 묶음 · 거르기 · 바로 설정 (2026-11-10 "구분이 쉽게 · 완료 · 담당 변경") */
+.myproj-title { display: inline-flex; align-items: center; gap: 8px; border: 0; background: transparent; padding: 0; font: inherit; color: var(--blue); cursor: pointer; }
+.myproj-fold { border: 0; background: transparent; cursor: pointer; }
+.myproj-filter { display: inline-flex; gap: 4px; margin-left: 6px; flex-wrap: wrap; }
+.myproj-filter button { height: 26px; padding: 0 9px; border: 1px solid var(--line); background: var(--white); color: var(--gray); font: inherit; font-size: var(--fs-cap); cursor: pointer; }
+.myproj-filter button i { font-style: normal; font-family: var(--mono); margin-left: 2px; }
+.myproj-filter button.on { background: var(--blue); border-color: var(--blue); color: #fff; font-weight: 700; }
+.myproj-filter button.mf-지연.on { background: var(--red); border-color: var(--red); }
+.myproj-group { display: flex; flex-direction: column; gap: 6px; }
+.myproj-gh { display: flex; align-items: center; gap: 8px; padding-top: 4px; }
+.myproj-gh .myproj-st { font-size: var(--fs-sm); padding: 3px 10px; }
+/* 상태별 색: 진행 = 초록 · 기획 = 파랑 · NIC = 노랑 (왼쪽 굵은 띠) */
+.myproj-card { border-top: 1px solid var(--line) !important; border-left: 5px solid var(--line); }
+.myproj-card.s-진행 { border-left-color: var(--blue); }
+.myproj-card.s-기획 { border-left-color: #2f6fd6; }
+.myproj-card.s-NIC { border-left-color: #e0a800; }
+.myproj-st.st-기획 { color: #fff; background: #2f6fd6; border-color: #2f6fd6; }
+.myproj-st.st-NIC { color: #5a3d00; background: #ffd659; border-color: #e0a800; }
+.myproj-div { font-size: 11px; font-weight: 700; border: 1px solid; padding: 1px 5px; background: #fff; }
+.myproj-name { text-decoration: none; }
+.myproj-name:hover { text-decoration: underline; }
+.myproj-ctl { display: flex; gap: 4px; align-items: center; padding-top: 6px; margin-top: 2px; border-top: 1px dashed var(--line); }
+.myproj-ctl .select, .myproj-ctl .input { height: 28px; min-width: 0; padding: 0 6px; font-size: var(--fs-cap); }
+.myproj-ctl .select:first-child { flex: 0 0 64px; }
+.myproj-ctl .select:nth-child(2) { flex: 1 1 80px; }
+.myproj-ctl .input { flex: 1 1 110px; }
+.myproj-done { flex: none; height: 28px; padding: 0 8px; border: 1px solid var(--blue); background: var(--white); color: var(--blue); font: inherit; font-size: var(--fs-cap); font-weight: 700; cursor: pointer; white-space: nowrap; }
+.myproj-done:hover { background: var(--blue); color: #fff; }
