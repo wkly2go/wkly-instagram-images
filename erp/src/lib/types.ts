@@ -685,6 +685,8 @@ export interface TaxInvoice {
   project_id: string | null
   payment_id: string | null
   memo: string | null
+  /** 완료 (0101) */
+  done?: boolean
   created_at: string
 }
 export type TaxInvoiceDraft = Omit<TaxInvoice, 'id' | 'created_at' | 'project_id' | 'payment_id' | 'memo'> & { project_id?: string | null }
@@ -698,6 +700,8 @@ export interface PersonalEvent {
   end_date: string
   start_time: string | null
   memo: string | null
+  /** 완료 (0101) */
+  done?: boolean
   created_at: string
 }
 

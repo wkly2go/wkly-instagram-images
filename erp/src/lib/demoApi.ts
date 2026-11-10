@@ -1382,7 +1382,7 @@ export function createDemoApi(): Api {
       if (!e.title?.trim()) throw new ApiError('제목을 적어 주세요.')
       const list = (store.personalEvents ??= [])
       const i = e.id ? list.findIndex(x => x.id === e.id && x.user_id === self) : -1
-      const row: PersonalEvent = { id: e.id ?? uid(), user_id: self, title: e.title.trim(), start_date: e.start_date, end_date: e.end_date, start_time: e.start_time ?? null, memo: e.memo ?? null, created_at: i >= 0 ? list[i].created_at : now() }
+      const row: PersonalEvent = { id: e.id ?? uid(), user_id: self, title: e.title.trim(), start_date: e.start_date, end_date: e.end_date, start_time: e.start_time !== undefined ? e.start_time : i >= 0 ? list[i].start_time : null, memo: e.memo !== undefined ? e.memo : i >= 0 ? list[i].memo : null, done: e.done ?? (i >= 0 ? list[i].done : false), created_at: i >= 0 ? list[i].created_at : now() }
       if (i >= 0) list[i] = row
       else list.push(row)
       persist()
