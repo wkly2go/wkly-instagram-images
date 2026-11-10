@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ChevronLeft, ChevronRight, Pencil, Plus } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
+import { TaskActions } from './TaskActions'
 import { useApp, useAsync } from '../lib/app'
 import { addDays, todayKey } from '../lib/date'
 import { Linkify } from './ui'
@@ -118,11 +119,7 @@ export function WeekPanel() {
                       {open && t && (
                         <div className="week-detail">
                           <div className="week-body">{t.memo ? <Linkify text={t.memo} /> : <span className="t-muted">적힌 본문이 없습니다.</span>}</div>
-                          <span className="week-detail-act">
-                            <button type="button" className="link-btn t-cap" onClick={() => setEditing(t)}>
-                              <Pencil size={11} /> 수정
-                            </button>
-                          </span>
+                          <TaskActions t={t} onEdit={() => setEditing(t)} />
                         </div>
                       )}
                     </div>

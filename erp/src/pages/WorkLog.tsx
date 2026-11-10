@@ -363,6 +363,23 @@ function MyProjects({ uid, projects, tasks, who }: { uid: string; projects: Proj
   // 상태별로 묶어서 (진행 → 기획 → NIC)
   const groups = ST_ORDER.map((st) => [st, shown.filter((r) => r.p.status === st)] as const).filter(([, l]) => l.length);
   const people = profiles.filter((x) => x.active && !x.is_agent);
+  // 상태 묶음마다 접기 (대표 지시 2026-11-10 "접을 수 있게") · 기억
+  const [folded, setFolded] = useState<string[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem("wkly-myproj-folded") ?? "[]");
+    } catch {
+      return [];
+    }
+  });
+  const fold = (st: string) => {
+    const next = folded.includes(st) ? folded.filter((x) => x !== st) : [...folded, st];
+    setFolded(next);
+    try {
+      localStorage.setItem("wkly-myproj-folded", JSON.stringify(next));
+    } catch {
+      /* noop */
+    }
+  };
   const save = (p: Project, patch: Partial<Project>, msg: string) => run(() => api.saveProject({ id: p.id, ...patch } as Project), msg);
   return (
     <div className="myproj">
@@ -393,10 +410,18 @@ function MyProjects({ uid, projects, tasks, who }: { uid: string; projects: Proj
         (shown.length ? (
           groups.map(([st, list]) => (
             <div key={st} className={`myproj-group g-${st}`}>
-              <div className="myproj-gh">
+              <button type="button" className="myproj-gh" onClick={() => fold(st)} aria-expanded={!folded.includes(st)} title={folded.includes(st) ? "펼치기" : "접기"}>
                 <span className={`myproj-st st-${st}`}>{st}</span>
                 <span className="t-cap">{list.length}건</span>
-              </div>
+                {folded.includes(st) && (
+                  <span className="myproj-gnames t-cap">
+                    {list.map((r) => r.p.name).join(" · ")}
+                  </span>
+                )}
+                <span className="grow" />
+                <span className="t-cap myproj-gfold">{folded.includes(st) ? "펼치기 ▼" : "접기 ▲"}</span>
+              </button>
+              {!folded.includes(st) && (
               <div className="myproj-grid">
                 {list.map(({ p, owner, mine, late, next, doneRate, left }) => {
                   const div = DIVISIONS[projectBrand(p)];
@@ -462,6 +487,7 @@ function MyProjects({ uid, projects, tasks, who }: { uid: string; projects: Proj
                   );
                 })}
               </div>
+              )}
             </div>
           ))
         ) : (
