@@ -278,6 +278,9 @@ export function createSupabaseApi(url: string, key: string): Api {
       return must(await sb.from('chat_rooms').insert(r).select().single()) as ChatRoom
     },
     deleteRoom: id => remove('chat_rooms', id),
+    async setRoomMembers(roomId, members) {
+      return must(await sb.rpc('chat_room_set_members', { p_room: roomId, p_members: members })) as string[]
+    },
     async createGroupRoom(members) {
       const { data: u } = await sb.auth.getUser()
       const all = [...new Set([u.user?.id, ...members].filter((x): x is string => !!x))]
