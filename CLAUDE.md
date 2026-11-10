@@ -27,6 +27,7 @@
   - 인사기록 카드(`src/components/Person.tsx`): 사원번호 · 직급 · 급여 계좌 · 연차(발생/사용/대기/남은 · 조정 일수 leave_adjust) — 0092 · 0094 · 본인과 관리자만 봄
   - 개인정보 관리: 업무·근태 › '내 정보 · 연차' (`src/components/MyInfo.tsx`) — 본인이 연락처 · 주소 · 계좌만 고침(RPC hr_self_update · 0095). 휴가 기록은 본인 · 관리자만(0096), 다른 사람 휴가는 달력에 '휴가'로만 (RPC team_leave_days · calendar-feed v4)
   - 캘린더 개인 일정 (`Schedule.tsx` PersonalEventModal · 표 personal_events · 0100 · 본인만): 구글 캘린더 '내 일정' 구독 주소(calendar-feed v13)에 자동 포함 · 팀 주소엔 안 넣음
+  - 채팅 고정 칸 (2026-11-10 대표 지시 '별도 탭 말고 왼쪽 고정'): `Shell.tsx` ChatDock — 왼쪽 메뉴 옆 340px · 접기(localStorage wkly-chat-dock) · 1024px 이하·휴대폰은 숨기고 메뉴 '채팅' 사용 · 넓은 화면에선 메뉴 '채팅' 줄 숨김
   - 빠른 창 채팅방 묶음: 진행 중 프로젝트(구분별) · 채팅방 · 사람 팀원 · AI 팀원 · 끝난 프로젝트 (`pages/Quick.tsx` roomGroups)
   - 관리 › 팀원 관리 표에서 직함 · 사원번호 · 직급 · 입사일 · 연락처 바로 고치기, '인사 ▼'로 전체 인사 정보 펼쳐 고치기
   - 입출금 장부(회계장부)는 **연도별** (2026-11-06 대표 지시 '연결장부로 하지 말고 년도별로'): 연도 고르기 · 월 이동은 그 해 1~12월 안에서만 · '연간 장부' 탭(1~12월 · 연 합계 · 연간 엑셀) · 통계도 그 해 안 · 기초 잔액은 해마다 따로 (`src/pages/Ledger.tsx` · `components/LedgerViews.tsx` · `LedgerStats.tsx`)

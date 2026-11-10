@@ -210,7 +210,7 @@ function QuickLog() {
   )
 }
 
-function QuickChat({ rooms }: { rooms: ChatRoomSummary[] }) {
+export function QuickChat({ rooms }: { rooms: ChatRoomSummary[] }) {
   const [chosen, setChosen] = useState(load(ROOM_KEY))
   const { api, me, profileName, profiles, version } = useApp()
   const { data: projects } = useAsync(() => api.listProjects(), [version], [] as Project[])
