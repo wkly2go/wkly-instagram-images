@@ -4422,3 +4422,23 @@ body.dock-resizing iframe { pointer-events: none; }
 .myproj-ctl .input { flex: 1 1 110px; }
 .myproj-done { flex: none; height: 28px; padding: 0 8px; border: 1px solid var(--blue); background: var(--white); color: var(--blue); font: inherit; font-size: var(--fs-cap); font-weight: 700; cursor: pointer; white-space: nowrap; }
 .myproj-done:hover { background: var(--blue); color: #fff; }
+/* 할 일 바로 관리 (주간 일정표 · 2026-11-10) */
+.task-act { display: flex; flex-direction: column; gap: 5px; padding-top: 6px; border-top: 1px dashed var(--line); }
+.task-act-row { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.task-act-l { flex: none; width: 30px; font-size: 11px; font-weight: 700; color: var(--gray); }
+.ta-btn { height: 26px; padding: 0 8px; border: 1px solid var(--line); background: var(--white); color: var(--ink, #2c2c28); font: inherit; font-size: var(--fs-cap); cursor: pointer; white-space: nowrap; }
+.ta-btn:hover:not(:disabled) { border-color: var(--blue); color: var(--blue); }
+.ta-btn:disabled { cursor: default; }
+.ta-btn.on { background: var(--blue); border-color: var(--blue); color: #fff; font-weight: 700; opacity: 1; }
+.ta-btn.ta-open.on { background: #e0a800; border-color: #e0a800; color: #3a2800; }
+.ta-btn.ta-del { color: var(--red); border-color: #f0b4b4; }
+.ta-btn.ta-del:hover:not(:disabled) { background: #fde8e8; color: var(--red); border-color: var(--red); }
+.ta-btn.ta-personal { color: #4b3a80; border-color: #d9cff2; background: #f7f4fd; }
+.ta-late { font-size: 11px; font-weight: 700; color: #fff; background: var(--red); padding: 2px 6px; }
+.ta-date { height: 26px; width: 128px; padding: 0 6px; font-size: var(--fs-cap); }
+.ta-who { height: 26px; min-width: 96px; padding: 0 6px; font-size: var(--fs-cap); }
+.myproj-gh { width: 100%; border: 0; border-bottom: 1px solid var(--line); background: transparent; padding: 4px 0 6px; font: inherit; cursor: pointer; text-align: left; min-width: 0; }
+.myproj-gh:hover .myproj-gfold { color: var(--blue); }
+.myproj-gnames { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1 1 auto; }
+.myproj-gfold { flex: none; }
+.myproj-gh .myproj-st, .myproj-gh > .t-cap:not(.myproj-gnames) { white-space: nowrap; flex: none; }
