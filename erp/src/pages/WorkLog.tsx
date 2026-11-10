@@ -347,7 +347,8 @@ function MyProjects({ uid, projects, tasks, who }: { uid: string; projects: Proj
         const all = tasks.filter((t) => t.project_id === p.id);
         const mine = all.filter((t) => t.assignee_id === uid && t.status !== "완료");
         const owner = p.owner_id === uid;
-        if (!owner && !mine.length) return null;
+        const aiOwned = !!p.owner_id && profiles.some((x) => x.id === p.owner_id && x.is_agent);
+        if (!owner && !mine.length && !aiOwned) return null;
         const late = mine.filter((t) => t.due_date && t.due_date < today);
         const next = [...mine].filter((t) => t.due_date && t.due_date >= today).sort((a, b) => a.due_date!.localeCompare(b.due_date!))[0];
         const doneRate = all.length ? Math.round((all.filter((t) => t.status === "완료").length / all.length) * 100) : null;
@@ -356,13 +357,33 @@ function MyProjects({ uid, projects, tasks, who }: { uid: string; projects: Proj
       })
       .filter((x): x is NonNullable<typeof x> => !!x)
       .sort((a, b) => b.late.length - a.late.length || (a.next?.due_date ?? "9999").localeCompare(b.next?.due_date ?? "9999") || (a.left ?? 9999) - (b.left ?? 9999));
-  }, [projects, tasks, uid, today]);
+  }, [projects, tasks, uid, today, profiles]);
   const lateSum = rows.reduce((n, r) => n + r.late.length, 0);
   const count = (f: PF) => (f === "전체" ? rows.length : f === "지연" ? rows.filter((r) => r.late.length).length : rows.filter((r) => r.p.status === f).length);
   const shown = rows.filter((r) => filter === "전체" || (filter === "지연" ? r.late.length > 0 : r.p.status === filter));
   // 상태별로 묶어서 (진행 → 기획 → NIC)
   const groups = ST_ORDER.map((st) => [st, shown.filter((r) => r.p.status === st)] as const).filter(([, l]) => l.length);
   const people = profiles.filter((x) => x.active && !x.is_agent);
+  const ais = profiles.filter((x) => x.active && x.is_agent);
+  const isAi = (id: string | null) => !!id && ais.some((a) => a.id === id);
+  // AI 담당 일임 (대표 지시 2026-11-10 "ai 담당 선정해서 일임할 수 있게")
+  const delegate = async (p: Project, aiId: string) => {
+    const ai = profileName(aiId);
+    if (!(await ask(`'${p.name}' 프로젝트를 ${ai}에게 일임할까요?\n담당이 ${ai}(으)로 바뀌고, AI가 바로 현황을 확인해 할 일 · 일정 정리와 주간 점검 예약을 하고 보고합니다.`))) return;
+    const text = [
+      `[프로젝트 일임] '${p.name}'${p.code ? ` (${p.code})` : ""} 프로젝트(id ${p.id})를 당신에게 일임합니다. 이제부터 이 프로젝트의 담당입니다.`,
+      "1. list_projects · list_tasks 로 이 프로젝트의 현황(기간 · 상태 · 할 일 · 지연)을 확인한다.",
+      "2. 지연된 할 일은 담당자와 새 날짜를 정해 update_task 로 정리하고 담당자에게 notify_person 으로 알린다.",
+      "3. 끝까지 가는 데 필요한 남은 할 일을 사람 팀원에게 create_task 로 만든다 (이미 있는 일은 새로 만들지 않음).",
+      "4. 매주 월요일 09:30 에 이 프로젝트 진행 점검을 schedule_work 로 예약한다 (같은 예약이 있으면 만들지 않음).",
+      "5. 사람의 판단이 필요한 일은 request_approval(to=ceo)로 올린다. 금액 · 메일 발송은 다루지 않는다.",
+      "6. 마지막에 무엇을 했는지 짧게 보고한다.",
+    ].join("\n");
+    await run(async () => {
+      await api.saveProject({ id: p.id, owner_id: aiId } as Project);
+      await api.instructAgent(aiId, text);
+    }, `${ai}에게 일임했습니다. 처리 결과는 알림으로 옵니다.`);
+  };
   // 상태 묶음마다 접기 (대표 지시 2026-11-10 "접을 수 있게") · 기억
   const [folded, setFolded] = useState<string[]>(() => {
     try {
@@ -433,6 +454,7 @@ function MyProjects({ uid, projects, tasks, who }: { uid: string; projects: Proj
                           {div.label}
                         </span>
                         {owner && <span className="myproj-own">담당</span>}
+                        {isAi(p.owner_id) && <span className="myproj-ai" title="AI 팀원에게 일임한 프로젝트">🤖 {profileName(p.owner_id)} 일임</span>}
                         <span className="grow" />
                         {left !== null && <span className={`myproj-d${left < 0 ? " over" : left <= 7 ? " soon" : ""}`}>{left < 0 ? `종료 ${-left}일 지남` : left === 0 ? "오늘 종료" : `D-${left}`}</span>}
                       </div>
@@ -485,13 +507,34 @@ function MyProjects({ uid, projects, tasks, who }: { uid: string; projects: Proj
                       </div>
                       <div className="myproj-ctl">
                         <span className="myproj-ctl-l">담당</span>
-                        <select className="select" value={p.owner_id ?? ""} aria-label="담당" title="담당 바꾸기" onChange={(e) => save(p, { owner_id: e.target.value || null }, `담당을 ${e.target.value ? profileName(e.target.value) : "미정"}(으)로 바꿨습니다.`)}>
+                        <select
+                          className={`select${isAi(p.owner_id) ? " is-ai" : ""}`}
+                          value={p.owner_id ?? ""}
+                          aria-label="담당"
+                          title="담당 바꾸기 · AI 팀원을 고르면 일임"
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            if (v && isAi(v)) void delegate(p, v);
+                            else save(p, { owner_id: v || null }, `담당을 ${v ? profileName(v) : "미정"}(으)로 바꿨습니다.`);
+                          }}
+                        >
                           <option value="">담당 미정</option>
-                          {people.map((x) => (
-                            <option key={x.id} value={x.id}>
-                              {x.name}
-                            </option>
-                          ))}
+                          <optgroup label="사람 팀원">
+                            {people.map((x) => (
+                              <option key={x.id} value={x.id}>
+                                {x.name}
+                              </option>
+                            ))}
+                          </optgroup>
+                          {ais.length > 0 && (
+                            <optgroup label="AI 팀원 (일임)">
+                              {ais.map((x) => (
+                                <option key={x.id} value={x.id}>
+                                  🤖 {x.name}
+                                </option>
+                              ))}
+                            </optgroup>
+                          )}
                         </select>
                         <span className="myproj-ctl-l">종료</span>
                         <input className="input" type="date" value={p.end_date ?? ""} aria-label="종료일" title="종료일 바꾸기" onChange={(e) => save(p, { end_date: e.target.value || null }, "종료일을 바꿨습니다.")} />
