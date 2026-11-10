@@ -37,9 +37,10 @@ export function MyInfo() {
 
   return (
     <div className="col gap-8 my-info">
-      <SectionHead title="개인정보 관리" right={<span className="t-cap">본인과 관리자만 볼 수 있습니다</span>} />
+      {/* 대표 지시 2026-11-10 "윗칸으로 올려": 제목 줄을 왼쪽 칸 안으로 → 오른쪽 '내 연차 · 휴가'가 맨 위부터 */}
       <div className="my-cols">
       <div className="col gap-8">
+      <SectionHead title="개인정보 관리" right={<span className="t-cap">본인과 관리자만 볼 수 있습니다</span>} />
       {/* 회사가 관리하는 정보 */}
       <div className="my-tiles">
         <div>
@@ -88,10 +89,7 @@ export function MyInfo() {
       </div>
       <div className="col gap-8">
       {/* 내 연차 · 휴가 */}
-      <div className="section-h">
-        <span className="t-bodyb">내 연차 · 휴가</span>
-        {bal && <span className="t-cap">{fullDate(bal.periodStart)} ~ {fullDate(bal.periodEnd)}</span>}
-      </div>
+      <SectionHead title="내 연차 · 휴가" right={bal ? <span className="t-cap">{fullDate(bal.periodStart)} ~ {fullDate(bal.periodEnd)}</span> : undefined} />
       {bal ? (
         <>
           <div className="hr-leave">
