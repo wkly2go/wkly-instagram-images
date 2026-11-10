@@ -590,7 +590,7 @@ export function MonthCalendar({ projects, tasks }: { projects: Project[]; tasks:
       if (e.end_date < first || e.start_date > last) continue
       const label = `🔒 ${e.start_time ? e.start_time.slice(0, 5) + ' ' : ''}${e.title}`
       for (let d = e.start_date < first ? first : e.start_date; d <= e.end_date && d <= last; d = addDays(d, 1)) {
-        const it: CalItem = { key: `pe${e.id}${d}`, label, tone: 'personal', personal: e }
+        const it: CalItem = { key: `pe${e.id}${d}`, label: e.done ? `✓ ${label}` : label, tone: 'personal', personal: e }
         m.set(d, [it, ...(m.get(d) ?? [])])
       }
     }
@@ -599,7 +599,7 @@ export function MonthCalendar({ projects, tasks }: { projects: Project[]; tasks:
 
   const item = (it: CalItem) =>
     it.personal ? (
-      <button key={it.key} type="button" className="cal-item c-personal" onClick={() => setPEdit({ ev: it.personal })} title={`${it.label}${it.personal.memo ? `\n${it.personal.memo}` : ''}`}>
+      <button key={it.key} type="button" className={`cal-item c-personal${it.personal.done ? ' p-done' : ''}`} onClick={() => setPEdit({ ev: it.personal })} title={`${it.label}${it.personal.memo ? `\n${it.personal.memo}` : ''}`}>
         {it.label}
       </button>
     ) : it.task ? (
@@ -611,6 +611,44 @@ export function MonthCalendar({ projects, tasks }: { projects: Project[]; tasks:
         {it.label}
       </Link>
     )
+  // 그날 일정 목록 (날짜 칸 '+N건 더' · 휴대폰): 완료 체크 · 개인 일정으로 바꾸기 (대표 지시 2026-11-10)
+  const { run: runRow } = useAction()
+  const toggleDone = (it: CalItem) => {
+    if (it.task) {
+      const t = it.task
+      return runRow(() => api.saveTask({ id: t.id, status: t.status === '완료' ? '할 일' : '완료' }), t.status === '완료' ? '다시 할 일로 돌렸습니다.' : '완료했습니다.')
+    }
+    if (it.personal) {
+      const e = it.personal
+      return runRow(() => api.savePersonalEvent({ id: e.id, title: e.title, start_date: e.start_date, end_date: e.end_date, done: !e.done }), e.done ? '다시 진행으로 돌렸습니다.' : '완료했습니다.')
+    }
+  }
+  const toPersonal = async (t: Task) => {
+    if (!(await ask(`'${t.title}' 업무를 개인 일정(나만 보임)으로 바꿀까요?\n팀 업무 목록 · 달력에서는 빠집니다.`))) return
+    const s0 = t.start_date ?? t.due_date ?? today
+    const e0 = t.due_date ?? s0
+    await runRow(async () => {
+      await api.savePersonalEvent({ title: t.title, start_date: s0, end_date: e0 < s0 ? s0 : e0, start_time: null, memo: t.memo ?? null })
+      await api.deleteTask(t.id)
+    }, '개인 일정으로 바꿨습니다.')
+  }
+  const row = (it: CalItem) => {
+    const done = it.task ? it.task.status === '완료' : it.personal ? !!it.personal.done : false
+    const can = !!(it.task || it.personal)
+    return (
+      <div key={it.key} className="cal-row">
+        {can && (
+          <input type="checkbox" className="cal-row-check" checked={done} onChange={() => toggleDone(it)} aria-label={done ? '완료 취소' : '완료'} title={done ? '완료 취소' : '완료'} />
+        )}
+        <div className="grow cal-row-main">{item(it)}</div>
+        {it.task && it.task.assignee_id === me.id && (
+          <button type="button" className="cal-row-btn" onClick={() => toPersonal(it.task!)} title="나만 보는 개인 일정으로 바꾸기">
+            🔒 개인으로
+          </button>
+        )}
+      </div>
+    )
+  }
   return (
     <div className="col gap-10">
       <div className="row wrap">
@@ -713,7 +751,7 @@ export function MonthCalendar({ projects, tasks }: { projects: Project[]; tasks:
             </Button>
           </div>
           {(byDay.get(pick) ?? []).length ? (
-            <div className="m-agenda-list">{(byDay.get(pick) ?? []).map(item)}</div>
+            <div className="m-agenda-list">{(byDay.get(pick) ?? []).map(row)}</div>
           ) : (
             <span className="t-cap m-agenda-empty">이 날은 일정이 없습니다.</span>
           )}
@@ -752,7 +790,7 @@ export function MonthCalendar({ projects, tasks }: { projects: Project[]; tasks:
       {openDay && (
         <Modal title={`${shortDate(openDay)} (${weekday(openDay)}) 일정`} onClose={() => setOpenDay(null)}>
           <div className="col gap-6">
-            {(byDay.get(openDay) ?? []).map(item)}
+            {(byDay.get(openDay) ?? []).map(row)}
             <Button
               kind="outline"
               size="sm"
