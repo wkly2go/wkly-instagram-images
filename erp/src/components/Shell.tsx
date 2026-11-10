@@ -27,6 +27,8 @@ import { Link, useRouter } from '../lib/router'
 import { TODAY_STATUSES, type TodayStatus } from '../lib/types'
 import { Presence, toneOf } from './ui'
 import { countedUnread, rememberRoomLevels, useChatTick } from '../lib/chat'
+import { QuickChat } from '../pages/Quick'
+import type { ChatRoomSummary } from '../lib/types'
 
 export type TabKey = 'home' | 'approvals' | 'chat' | 'work' | 'projects' | 'clients' | 'library' | 'drive' | 'team' | 'site' | 'agents' | 'ads' | 'ledger' | 'admin'
 
@@ -159,6 +161,65 @@ function PhotoBox() {
 }
 
 /**
+ * 채팅 고정 칸 (대표 지시 2026-11-10 "채팅을 별도의 탭으로 하지 말고 고정 · 왼쪽 현재 위치가 적합")
+ *  - 왼쪽 메뉴 바로 옆에 방 고르기 + 대화 + 입력창이 늘 붙어 있음 (PC) · 휴대폰은 아래 메뉴 '채팅' 그대로
+ *  - 접기(◀)를 누르면 얇은 줄로 줄어듦 (안 읽은 수만) · 방 만들기 · 나중에 보기 등은 '전체 화면'
+ */
+const DOCK_KEY = 'wkly-chat-dock'
+function ChatDock() {
+  const { api, version } = useApp()
+  const chatTick = useChatTick()
+  const { data: rooms } = useAsync(() => api.listRooms(), [version, chatTick], [] as ChatRoomSummary[])
+  const unread = rooms.reduce((s, r) => s + countedUnread(r), 0)
+  const [open, setOpen] = useState(() => {
+    try {
+      return localStorage.getItem(DOCK_KEY) !== 'closed'
+    } catch {
+      return true
+    }
+  })
+  const toggle = () => {
+    setOpen(o => {
+      try {
+        localStorage.setItem(DOCK_KEY, o ? 'closed' : 'open')
+      } catch {
+        /* 저장 못 해도 화면은 그대로 */
+      }
+      return !o
+    })
+  }
+  if (!open)
+    return (
+      <aside className="chat-dock closed" aria-label="채팅 (접힘)">
+        <button type="button" className="chat-dock-open" onClick={toggle} title="채팅 펼치기">
+          <MessageCircle size={16} aria-hidden="true" />
+          {unread > 0 && <span className="side-n">{unread > 99 ? '99+' : unread}</span>}
+          <span className="chat-dock-vert">채팅</span>
+        </button>
+      </aside>
+    )
+  return (
+    <aside className="chat-dock" aria-label="채팅">
+      <div className="chat-dock-h">
+        <MessageCircle size={15} aria-hidden="true" />
+        <b>채팅</b>
+        {unread > 0 && <span className="side-n">{unread > 99 ? '99+' : unread}</span>}
+        <span className="grow" />
+        <Link to="/chat" className="chat-dock-full" title="방 만들기 · 나중에 보기 · 스레드는 전체 화면에서">
+          전체 화면
+        </Link>
+        <button type="button" className="icon-btn sm" onClick={toggle} aria-label="채팅 접기" title="채팅 접기">
+          <ChevronLeft size={15} />
+        </button>
+      </div>
+      <div className="quick q2 chat-dock-in">
+        <QuickChat rooms={rooms} />
+      </div>
+    </aside>
+  )
+}
+
+/**
  * 왼쪽 메뉴 (2026-10-23 "오른쪽 탭은 삭제, 다른 방법"): 아이콘 · 이름 · 처리할 숫자를 한 줄씩
  *  - 맨 위 '+ 새로 만들기' 하나로 할 일 · 결재 · 프로젝트 · 업무 일지 · 메시지 · AI 지시
  */
@@ -176,7 +237,7 @@ function SideNav({ active, summary }: { active: TabKey; summary: Summary }) {
         return (
           <Fragment key={t.key}>
           {firstAdmin && <span className="side-sep">관리자 전용</span>}
-          <Link to={t.path} className={`side-item ${t.key === active ? 'on' : ''} ${n && t.key !== 'projects' ? 'has-n' : ''}`} title={`${t.label} (Alt+${i + 1})`}>
+          <Link to={t.path} className={`side-item ${t.key === active ? 'on' : ''} ${n && t.key !== 'projects' ? 'has-n' : ''}${t.key === 'chat' ? ' side-chat' : ''}`} title={`${t.label} (Alt+${i + 1})`}>
             <Icon size={15} aria-hidden="true" />
             <span className="grow">{t.label}</span>
             {n > 0 && <span className={`side-n ${t.key === 'projects' ? 'soft' : ''}`}>{n > 99 ? '99+' : n}</span>}
@@ -631,6 +692,7 @@ export function ShellFrame({ children, initial }: { children: ReactNode; initial
             {active === 'home' && <MobileAppBar />}
             <div className="body" ref={mountWebSlot}>
               <ProfilePanel summary={summary} active={active} />
+              {active !== 'chat' && <ChatDock />}
               <main ref={mainRef} className={`main ${flush ? 'flush' : ''}`}>
                 {/* 화면이 바뀔 때만 가운데 내용이 살짝 나타남 (같은 화면 안 탭 · 검색 이동은 그대로) */}
                 <div className="main-view" key={path}>

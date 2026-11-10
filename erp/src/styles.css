@@ -4320,3 +4320,22 @@ html[data-theme="dark"] .section-h > .t-bodyb { color: var(--pink) !important; }
 .new-ev-choose .choose-btn:hover { border-color: var(--blue); }
 .new-ev-choose .choose-btn.c-personal { background: #f7f4fd; border-color: #d9cff2; }
 .new-ev-choose .choose-btn b { font-size: var(--fs-sub); }
+
+/* 채팅 고정 칸 (2026-11-10 "채팅을 별도 탭으로 하지 말고 왼쪽에 고정") */
+.chat-dock { flex: none; width: 340px; min-height: 0; display: flex; flex-direction: column; background: #f6f7f4; border: 1px solid var(--line); border-radius: var(--r-panel); overflow: hidden; }
+.chat-dock-h { display: flex; align-items: center; gap: 6px; height: 40px; padding: 0 8px 0 12px; background: var(--white); border-bottom: 1px solid var(--line); color: var(--blue); flex: none; }
+.chat-dock-h b { font-size: var(--fs-sub); }
+.chat-dock-full { font-size: var(--fs-cap); color: var(--gray); text-decoration: none; padding: 4px 6px; }
+.chat-dock-full:hover { color: var(--blue); text-decoration: underline; }
+.chat-dock-in { flex: 1; min-height: 0; height: auto; }
+.chat-dock-in .chat-room { padding: 10px 12px 12px; }
+.chat-dock-in .chat-body { margin: 0 -12px; }
+.chat-dock.closed { width: 40px; background: var(--white); }
+.chat-dock-open { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 12px 0; border: 0; background: transparent; color: var(--blue); cursor: pointer; font: inherit; }
+.chat-dock-open:hover { background: color-mix(in srgb, var(--blue) 6%, #fff); }
+.chat-dock-vert { writing-mode: vertical-rl; font-size: var(--fs-sm); font-weight: 700; letter-spacing: .1em; }
+@media (max-width: 1280px) { .chat-dock { width: 300px; } }
+@media (max-width: 1024px) { .chat-dock { display: none; } }
+@media (pointer: coarse) and (max-width: 1024px) { .chat-dock { display: none; } }
+/* 채팅 칸이 보이는 넓은 화면에서는 왼쪽 메뉴의 '채팅' 줄을 숨김 (좁은 화면에선 메뉴로) */
+@media (min-width: 1025px) { .side-item.side-chat { display: none; } }
