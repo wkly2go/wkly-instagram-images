@@ -141,6 +141,7 @@ export function LedgerFolder({ onExpired }: { onExpired: () => void }) {
   const [folder, setFolder] = useState<Folder | null | undefined>(undefined)
   const [files, setFiles] = useState<LedgerFile[]>([])
   const [review, setReview] = useState<LedgerEntry[]>([])
+  const [yearRows, setYearRows] = useState<LedgerEntry[]>([])
   const [busy, setBusy] = useState<string | null>(null)
   const [last, setLast] = useState<ImportResult | null>(null)
 
@@ -152,6 +153,7 @@ export function LedgerFolder({ onExpired }: { onExpired: () => void }) {
       const y = new Date().getFullYear()
       const all = await api.listLedger(`${y - 1}-01-01`, `${y}-12-31`)
       setReview(all.filter(r => r.needs_review).slice(0, 80))
+      setYearRows(all)
     } catch {
       onExpired()
     }
@@ -229,7 +231,7 @@ export function LedgerFolder({ onExpired }: { onExpired: () => void }) {
             <b>홈택스 자료</b> 폴더: 전자세금계산서 목록(매출 · 매입) · 사업용 신용카드 사용내역 · 현금영수증 매입 내역 엑셀.
           </li>
           <li>장부를 열 때마다 새로 넣은(또는 바뀐) 파일만 읽습니다. 같은 거래는 두 번 들어가지 않습니다.</li>
-          <li>결제 대장(지급 · 수금 완료)과 금액 · 날짜가 맞으면 그 분류 · 프로젝트로, 아니면 낱말로 분류합니다. 카드대금 · 내 통장끼리 이체는 합계에서 뺍니다.</li>
+          <li>은행 · 카드 자료가 기준입니다. 결제 대장과 금액 · 날짜가 맞으면 그 분류 · 거래처 이름만 참고하고(프로젝트와는 연결하지 않음), 아니면 낱말로 분류합니다. 카드대금 · 내 통장끼리 이체는 합계에서 뺍니다.</li>
         </ul>
         {last && last.errors.length > 0 && (
           <div className="lgf-err t-cap">
@@ -239,6 +241,43 @@ export function LedgerFolder({ onExpired }: { onExpired: () => void }) {
           </div>
         )}
       </div>
+
+      {/* 통장별 잔고 대조 (2026-11-11): 은행 파일의 '거래 후 잔액'과 기입된 입출금 합계가 맞는지 → 다르면 빠진 거래가 있음 */}
+      {(() => {
+        const accs = [...new Set(yearRows.filter(r => r.source === '은행' && r.account).map(r => r.account!))]
+        if (!accs.length) return null
+        const eff = (r: LedgerEntry) => (r.direction === '입금' ? r.amount : -r.amount)
+        const rowsOut = accs.map(acc => {
+          const list = yearRows.filter(r => r.account === acc && r.source === '은행')
+          const withBal = list.filter(r => r.balance_after != null)
+          if (!withBal.length) return { acc, ok: null as boolean | null, last: null as number | null, diff: 0, n: list.length, lastDate: '' }
+          const firstDate = withBal.reduce((m, r) => (r.entry_date < m ? r.entry_date : m), withBal[0].entry_date)
+          const lastDate = withBal.reduce((m, r) => (r.entry_date > m ? r.entry_date : m), withBal[0].entry_date)
+          const total = list.reduce((n, r) => n + eff(r), 0)
+          const opens = withBal.filter(r => r.entry_date === firstDate).map(r => r.balance_after! - eff(r))
+          const lasts = withBal.filter(r => r.entry_date === lastDate).map(r => r.balance_after!)
+          const ok = opens.some(o => lasts.includes(o + total))
+          const last = Math.max(...lasts)
+          return { acc, ok, last, diff: ok ? 0 : last - (opens[0] + total), n: list.length, lastDate }
+        })
+        return (
+          <div className="col gap-6">
+            <b>통장별 잔고 대조</b>
+            <table className="lgf-table">
+              <tbody>
+                {rowsOut.map(r => (
+                  <tr key={r.acc}>
+                    <td>{r.acc}</td>
+                    <td className="t-cap">{r.n}건{r.lastDate ? ` · ${r.lastDate.slice(5).replace('-', '.')} 기준` : ''}</td>
+                    <td className="mono">{r.last != null ? `잔액 ${r.last.toLocaleString('ko-KR')}` : '잔액 칸 없음'}</td>
+                    <td>{r.ok == null ? <span className="t-cap">대조 불가</span> : r.ok ? <span className="lgf-ok">✓ 맞음</span> : <span className="lgf-bad" title="은행 잔액과 기입된 합계가 다릅니다. 빠진 기간의 거래내역 파일을 넣어 주세요">차이 {r.diff.toLocaleString('ko-KR')}원 · 빠진 거래 확인</span>}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )
+      })()}
 
       <div className="col gap-6">
         <b>확인 필요 {review.length}건</b>

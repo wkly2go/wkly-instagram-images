@@ -4,7 +4,8 @@
  *  - 홈택스 사업용 카드 사용내역: 카드 결제 한 건씩 (공급가 · 부가세)
  *  - 홈택스 현금영수증 매입: 증빙 · 부가세 (은행 출금과 맞으면 그 줄에 붙임)
  *  - 홈택스 세금계산서 목록: 세금계산서 대장(tax_invoices)에 넣고, 맞는 은행 줄에 증빙 · 부가세를 붙임
- *  - 분류: 결제 대장(지급 · 수금 완료)과 금액 · 날짜로 맞추면 그 분류 · 프로젝트 · 거래처, 아니면 낱말 규칙, 그래도 모르면 '미분류'(확인 필요)
+ *  - 은행 · 카드 자료가 기준 (2026-11-11 대표 지시: 결제 대장 연결보다 카드 · 통장 자료 우선 · 프로젝트와는 연결 안 함)
+ *  - 분류: 결제 대장(완료)과 금액 · 날짜가 맞으면 그 분류 · 거래처 이름만 참고, 아니면 낱말 규칙, 그래도 모르면 '확인 필요'
  *  - 카드대금 · 내 통장끼리 이체는 is_transfer (합계에서 뺌, 카드는 카드 사용내역으로 따로 잡힘)
  */
 import type { LedgerDirection, Payment } from './types'
@@ -151,7 +152,8 @@ export function classify(desc: string, dir: LedgerDirection, amount: number, dat
   if (hit)
     return {
       category: dir === '출금' ? hit.category || '외주 · 협력사' : '매출 · 용역',
-      project_id: hit.project_id ?? null,
+      // 프로젝트와는 연결하지 않음 (대표 지시 2026-11-11)
+      project_id: null,
       counterparty: hit.payee || null,
       is_transfer: false,
       needs_review: false,

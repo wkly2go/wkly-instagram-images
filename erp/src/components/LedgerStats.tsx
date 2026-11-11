@@ -56,19 +56,40 @@ export function LedgerStats({ year, onExpired }: { year: string; onExpired: () =
     setFrom(`${year}-01`)
     setTo(lastM)
   }, [year, lastM])
-  const openKey = `${OPEN_KEY}-${year}`
   const [method, setMethod] = useState<LedgerMethod | ''>('')
   const [cats, setCats] = useState<Set<string>>(new Set())
   const [q, setQ] = useState('')
   // 기초 잔액은 해마다 따로 (그 해 1월 1일 잔고)
   const [opening, setOpening] = useState<string>('')
+  // 기초 잔액은 서버에 저장 (2026-11-11 · 모든 PC · 휴대폰에서 같게) — 예전 브라우저 값이 있으면 한 번 옮김
   useEffect(() => {
-    try {
-      setOpening(localStorage.getItem(`${OPEN_KEY}-${year}`) ?? '')
-    } catch {
-      setOpening('')
+    let alive = true
+    void api
+      .listLedgerOpening(Number(year))
+      .then(async list => {
+        const v = list.find(x => x.account === '전체')
+        let local = ''
+        try {
+          local = localStorage.getItem(`${OPEN_KEY}-${year}`) ?? ''
+        } catch {
+          /* 무시 */
+        }
+        if (!v && local) {
+          await api.setLedgerOpening(Number(year), '전체', Number(local) || 0).catch(() => undefined)
+          try {
+            localStorage.removeItem(`${OPEN_KEY}-${year}`)
+          } catch {
+            /* 무시 */
+          }
+        }
+        if (alive) setOpening(v ? String(v.amount) : local)
+      })
+      .catch(() => alive && setOpening(''))
+    return () => {
+      alive = false
     }
-  }, [year])
+  }, [api, year])
+  const saveOpening = useRef<number | undefined>(undefined)
   const [rows, setRows] = useState<LedgerEntry[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -294,12 +315,9 @@ export function LedgerStats({ year, onExpired }: { year: string; onExpired: () =
                     onChange={e => {
                       const v = e.target.value.replace(/[^\d-]/g, '')
                       setOpening(v)
-                      try {
-                        if (v) localStorage.setItem(openKey, v)
-                        else localStorage.removeItem(openKey)
-                      } catch {
-                        /* 저장 안 돼도 화면은 그대로 */
-                      }
+                      // 입력이 멈추면 서버에 저장
+                      clearTimeout(saveOpening.current)
+                      saveOpening.current = window.setTimeout(() => void api.setLedgerOpening(Number(year), '전체', Number(v) || 0).catch(() => undefined), 600)
                     }}
                     aria-label="기초 잔액 (원)"
                   />
