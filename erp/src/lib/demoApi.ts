@@ -2135,9 +2135,9 @@ export function createDemoApi(): Api {
       persist()
       emit('leave_records')
     },
-    async listAgentInstructions() {
+    async listAgentInstructions(id) {
       requireMe()
-      return clone([...(store.agent_instructions ?? [])].sort((a, b) => b.created_at.localeCompare(a.created_at)))
+      return clone([...(store.agent_instructions ?? [])].filter(row => !id || row.id === id).sort((a, b) => b.created_at.localeCompare(a.created_at)))
     },
     async instructAgent(agentId, instruction) {
       const self = requireMe()

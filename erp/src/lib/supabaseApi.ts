@@ -899,8 +899,10 @@ export function createSupabaseApi(url: string, key: string): Api {
       mustAffect(await sb.from('leave_records').update({ status }).eq('id', id).select('id'))
     },
     deleteLeave: id => remove('leave_records', id),
-    async listAgentInstructions() {
-      const { data, error } = await sb.from('agent_instructions').select('*').order('created_at', { ascending: false }).limit(50)
+    async listAgentInstructions(id) {
+      let query = sb.from('agent_instructions').select('*')
+      query = id ? query.eq('id', id).limit(1) : query.order('created_at', { ascending: false }).limit(50)
+      const { data, error } = await query
       if (error) return [] // 0007 미적용
       return data as AgentInstruction[]
     },

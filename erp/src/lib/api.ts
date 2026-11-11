@@ -526,7 +526,7 @@ export interface Api {
   deleteLeave(id: string): Promise<void>
 
   // AI 팀원 직접 지시
-  listAgentInstructions(): Promise<AgentInstruction[]>
+  listAgentInstructions(id?: string): Promise<AgentInstruction[]>
   /** 지시 id 를 돌려줌 (검색창에서 답을 바로 보여 주기 위해) */
   instructAgent(agentId: string, instruction: string): Promise<string>
   deleteAgentInstruction(id: string): Promise<void>
