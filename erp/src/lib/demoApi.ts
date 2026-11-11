@@ -1,3 +1,4 @@
+import { createDemoMarketingApi } from './marketingApi'
 import { desktop } from './desktop'
 import type { MaterialMove, MaterialStockRow, SlackLink, SlackMessage } from './types'
 import { ApiError, groupIps, type Api, type DriveFolder, type ImportResult, type MessageEvent } from './api'
@@ -648,6 +649,7 @@ export function createDemoApi(): Api {
   const withCanDecide = (a: Approval): Approval => ({ ...a, can_decide: isAdmin() || (!!me && a.approver_id === me) })
 
   return {
+    ...createDemoMarketingApi(meProfile),
     mode: 'demo',
 
     async getSessionUserId() {

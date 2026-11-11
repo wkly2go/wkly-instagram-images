@@ -1,3 +1,4 @@
+import type { MarketingCampaign, MarketingAsset } from './marketing'
 import type { AccessSource } from './desktop'
 import type { LedgerEntry, LedgerFile, LedgerRecurring, LedgerStatus, MaterialItem, MaterialMove, MaterialStockRow,
   AiAgent,
@@ -392,6 +393,12 @@ export interface Api {
   // 광고 대시보드 (관리자)
   listAdDaily(from: string, to: string): Promise<AdDaily[]>
   listAdCampaigns(): Promise<AdCampaign[]>
+  /** 캠페인 준비: 팀원 조회 · 관리자 작성, 실제 광고 집행과 별도 */
+  listMarketingCampaigns(): Promise<MarketingCampaign[]>
+  saveMarketingCampaign(campaign: MarketingCampaign): Promise<MarketingCampaign>
+  listMarketingAssets(campaignId: string): Promise<MarketingAsset[]>
+  uploadMarketingAsset(campaignId: string, file: File, assetId?: string): Promise<MarketingAsset>
+  deleteMarketingAsset(id: string): Promise<void>
   listAdCreatives(): Promise<AdCreative[]>
   listAdReports(): Promise<AdReport[]>
   /** 검색 노출 점검 (SEO · AEO · GEO) 최근 측정값 */

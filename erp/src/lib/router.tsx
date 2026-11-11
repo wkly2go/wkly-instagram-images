@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type CSSProperties, type ReactNode, type MouseEvent } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type MouseEvent } from 'react'
 
 // 화면 수가 적어 라우터 라이브러리 없이 History API 로 처리
 interface RouterValue {
@@ -15,19 +15,34 @@ function current() {
 
 export function RouterProvider({ children }: { children: ReactNode }) {
   const [loc, setLoc] = useState(current)
+  const currentLocation = useRef(loc)
+
+  // 작성 화면은 저장 전 이동을 취소할 수 있다. 버튼·단축키·뒤로 가기도 같은 경로를 사용한다.
+  const canNavigate = useCallback((to: string) => window.dispatchEvent(new CustomEvent('wkly:before-navigate', { cancelable: true, detail: { to } })), [])
 
   useEffect(() => {
-    const onPop = () => setLoc(current())
+    const onPop = () => {
+      const to = current()
+      if (to === currentLocation.current) return
+      if (!canNavigate(to)) {
+        window.history.pushState(null, '', currentLocation.current)
+        return
+      }
+      currentLocation.current = to
+      setLoc(to)
+    }
     window.addEventListener('popstate', onPop)
     return () => window.removeEventListener('popstate', onPop)
-  }, [])
+  }, [canNavigate])
 
   const navigate = useCallback((to: string, opts?: { replace?: boolean }) => {
     if (!to.startsWith('/')) return // 앱 내부 경로만 허용
+    if (to !== currentLocation.current && !canNavigate(to)) return
     if (opts?.replace) window.history.replaceState(null, '', to)
     else window.history.pushState(null, '', to)
-    setLoc(current())
-  }, [])
+    currentLocation.current = current()
+    setLoc(currentLocation.current)
+  }, [canNavigate])
 
   const value = useMemo(() => {
     const url = new URL(loc, window.location.origin)
