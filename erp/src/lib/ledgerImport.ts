@@ -61,6 +61,34 @@ const toDate = (v: unknown): string | null => {
   if (n > 30000 && n < 80000) return new Date(Date.UTC(1899, 11, 30) + n * 864e5).toISOString().slice(0, 10)
   return null
 }
+/** 연도 없는 날짜(카드 명세서 '06.04')를 기준일로 연도 채우기: 기준일보다 뒤면 지난해 */
+const toDateRef = (v: unknown, ref: Date | null): string | null => {
+  const d = toDate(v)
+  if (d) return d
+  if (!ref) return null
+  const m = String(v ?? '').trim().match(/^(\d{1,2})[.\-/월]\s*(\d{1,2})일?$/)
+  if (!m) return null
+  const mo = +m[1]
+  const da = +m[2]
+  if (mo < 1 || mo > 12 || da < 1 || da > 31) return null
+  let y = ref.getFullYear()
+  if (mo * 100 + da > (ref.getMonth() + 1) * 100 + ref.getDate()) y -= 1
+  return `${y}-${String(mo).padStart(2, '0')}-${String(da).padStart(2, '0')}`
+}
+/** 카드 명세서 기준일: 파일 이름의 'N월'(청구 달) + 파일 날짜 → 그 달 말일. 없으면 파일 날짜 */
+export function statementRef(name: string, modified: string | null): Date {
+  const raw = modified && /^\d{10,}$/.test(modified) ? new Date(+modified) : modified ? new Date(modified) : new Date()
+  const base = Number.isNaN(raw.getTime()) ? new Date() : raw
+  const m = name.match(/(?:^|\D)(\d{1,2})\s*월/)
+  const ym = name.match(/(20\d{2})[.\-_]?(\d{2})[.\-_]?(\d{2})?/)
+  if (ym) return new Date(+ym[1], +ym[2], 0)
+  if (m && +m[1] >= 1 && +m[1] <= 12) {
+    const mo = +m[1]
+    const y = mo <= base.getMonth() + 1 ? base.getFullYear() : base.getFullYear() - 1
+    return new Date(y, mo, 0)
+  }
+  return base
+}
 const timeOf = (v: unknown) => String(v ?? '').match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/)?.[0] ?? ''
 
 async function hash(s: string) {
@@ -95,18 +123,71 @@ const pick = (head: string[], names: string[]) => {
 
 export function detectKind(grids: Grid[], name: string): { kind: LedgerFileKind; grid: Grid; hi: number } {
   for (const grid of grids) {
-    for (let i = 0; i < Math.min(grid.length, 40); i++) {
+    for (let i = 0; i < Math.min(grid.length, 60); i++) {
       const h = grid[i].map(norm)
       const has = (k: string) => h.some(x => x.includes(k))
       if (has('승인번호') && has('작성일자') && has('공급가액')) return { kind: '세금계산서', grid, hi: i }
-      if ((has('가맹점') || has('가맹점명')) && (has('승인') || has('사용일') || has('거래일')) && (has('합계') || has('승인금액') || has('이용금액') || has('공급가액'))) {
+      if ((has('가맹점') || has('가맹점명')) && (has('승인') || has('사용일') || has('거래일') || has('이용일')) && (has('합계') || has('승인금액') || has('이용금액') || has('공급가액'))) {
         if (/현금영수증/.test(name) || has('현금영수증') || has('발행구분')) return { kind: '현금영수증', grid, hi: i }
         return { kind: '카드', grid, hi: i }
       }
       if ((has('거래일') || has('일자') || has('거래일시')) && (has('출금') || has('찾으신') || has('지급') || has('거래금액')) && (has('입금') || has('맡기신') || has('구분') || has('잔액'))) return { kind: '은행', grid, hi: i }
     }
   }
+  // 머리 줄이 없는 은행 파일 (기업은행 거래내역조회 등): 잔액이 맞는 칸 조합을 찾아 읽음
+  for (const grid of grids) if (guessBankCols(grid)) return { kind: '은행', grid, hi: -1 }
   return { kind: '알 수 없음', grid: grids[0] ?? [], hi: -1 }
+}
+
+interface BankCols {
+  date: number
+  time: number
+  out: number
+  inn: number
+  amt: number
+  type: number
+  bal: number
+  descs: number[]
+  /** 머리 줄 없는 파일: 여러 줄에 되풀이되는 값(은행 이름 · '기업스마트뱅킹' 등)은 내용에서 뺌 */
+  common?: Set<string>
+  start: number
+}
+/** 내용에서 뺄 값: 은행 이름 · 거래 경로 (기업스마트뱅킹 · 타행이체 등) */
+const CHANNEL = /^(.{1,6}(은행|뱅크|금고|농축협|우체국)|기업스마트뱅킹|인터넷|인터넷뱅킹|스마트뱅킹|모바일|타행이체|타행환|펌이체|펌뱅킹|CMS|CC|BC|ATM|창구)$/
+const isNum = (v: unknown) => /^-?[\d,]+(\.\d+)?$/.test(String(v ?? '').trim())
+/** 머리 줄 없는 은행 표: 날짜 칸 + 숫자 칸 셋(출금 · 입금 · 잔액)을 잔액 계산이 맞는 조합으로 고름 */
+export function guessBankCols(grid: Grid): BankCols | null {
+  const rows = grid.map((r, i) => ({ r, i })).filter(({ r }) => r.some(c => /^\d{4}[.\-/]\d{1,2}[.\-/]\d{1,2}/.test(String(c ?? '').trim())))
+  if (rows.length < 3) return null
+  const width = Math.max(...rows.map(x => x.r.length))
+  const count = (f: (v: unknown) => boolean) => Array.from({ length: width }, (_, j) => rows.filter(x => f(x.r[j])).length)
+  const dc = count(v => /^\d{4}[.\-/]\d{1,2}[.\-/]\d{1,2}/.test(String(v ?? '').trim()))
+  const date = dc.indexOf(Math.max(...dc))
+  const nc = count(isNum)
+  const numCols = nc.map((n, j) => (j !== date && n >= rows.length * 0.8 ? j : -1)).filter(j => j >= 0).slice(0, 7)
+  if (numCols.length < 3) return null
+  let best: { o: number; i: number; b: number; score: number } | null = null
+  for (const o of numCols)
+    for (const i of numCols)
+      for (const b of numCols) {
+        if (o === i || o === b || i === b) continue
+        let desc = 0
+        let asc = 0
+        for (let k = 0; k + 1 < rows.length; k++) {
+          const a = rows[k].r
+          const z = rows[k + 1].r
+          if (num(a[b]) === num(z[b]) + num(a[i]) - num(a[o])) desc++
+          if (num(z[b]) === num(a[b]) + num(z[i]) - num(z[o])) asc++
+        }
+        const score = Math.max(desc, asc) / (rows.length - 1)
+        if (!best || score > best.score) best = { o, i, b, score }
+      }
+  if (!best || best.score < 0.7) return null
+  const text = Array.from({ length: width }, (_, j) => j).filter(j => j !== date && !numCols.includes(j))
+  const freq = new Map<string, number>()
+  for (const { r } of rows) for (const v of new Set(text.map(j => String(r[j] ?? '').trim()))) if (v) freq.set(v, (freq.get(v) ?? 0) + 1)
+  const common = new Set([...freq].filter(([, n]) => n >= Math.max(8, rows.length * 0.6)).map(([v]) => v))
+  return { date, time: -1, out: best.o, inn: best.i, amt: -1, type: -1, bal: best.b, descs: text, common, start: rows[0].i }
 }
 
 const BANKS = ['국민', '신한', '우리', '하나', '기업', '농협', '카카오', '토스', '케이', 'SC', '씨티', '수협', '부산', '대구', '경남', '광주', '전북', '제주', '새마을', '우체국', '신협', 'IBK', 'KB', 'NH']
@@ -114,26 +195,39 @@ function accountName(grid: Grid, hi: number, file: string): string {
   const top = grid.slice(0, Math.max(hi, 0)).flat().map(c => String(c ?? '')).join(' ') + ' ' + file
   const bank = BANKS.find(b => top.includes(b)) ?? '통장'
   const acct = top.match(/(\d{2,6}[-\s]?\d{2,6}[-\s]?\d{2,8}(?:[-\s]?\d{1,4})?)/)?.[1]?.replace(/\D/g, '')
-  return `${bank} ${acct ? acct.slice(-4) : ''}`.trim()
+  if (acct) return `${bank} ${acct.slice(-4)}`
+  // 계좌번호가 없으면 파일 이름으로 통장 구분 (예: '기업은행-기보' → '기업 기보', '기업은행 거래내역조회-2' → '기업')
+  const extra = file
+    .replace(/\.[^.]+$/, '')
+    .replace(/거래내역조회|거래내역|입출식|예금|통장내역/g, '')
+    .replace(/\(\d+\)|[-_ ]\d+$/g, '')
+    .replace(new RegExp(`${bank}(은행)?`), '')
+    .replace(/[-_()\s]+/g, ' ')
+    .trim()
+  return `${bank} ${extra}`.trim()
 }
 
 // ---------- 분류 ----------
 const RULES: { re: RegExp; dir?: LedgerDirection; cat: string; transfer?: boolean }[] = [
   { re: /(국민|신한|삼성|현대|롯데|하나|우리|비씨|BC|NH|농협|KB)\s*카드|카드대금|카드결제/, dir: '출금', cat: '카드대금', transfer: true },
+  { re: /더위클리|아트리어|본인|자기앞|계좌이동|대체/, cat: '내 통장 이체', transfer: true },
   { re: /급여|월급|상여|퇴직/, dir: '출금', cat: '인건비' },
   { re: /국민연금|건강보험|고용보험|산재|4대보험|국민건강/, dir: '출금', cat: '인건비' },
   { re: /국세|지방세|부가세|부가가치세|원천세|세무서|구청|시청|관세|자동차세|재산세|주민세|법인세|종합소득/, dir: '출금', cat: '세금 · 공과금' },
   { re: /월세|임대료|임차|관리비/, dir: '출금', cat: '임대료' },
-  { re: /이자|예금결산/, dir: '입금', cat: '이자 · 환급' },
+  { re: /이자|결산/, dir: '입금', cat: '이자 · 환급' },
   { re: /환급|환불/, dir: '입금', cat: '이자 · 환급' },
   { re: /대출이자|이자/, dir: '출금', cat: '이자 · 금융비용' },
   { re: /수수료/, dir: '출금', cat: '수수료' },
   { re: /네이버|구글|google|메타|facebook|페이스북|인스타|카카오모먼트|광고/i, dir: '출금', cat: '광고비' },
-  { re: /KT|SKT|SK텔레콤|LG유플러스|U\+|통신|인터넷/i, dir: '출금', cat: '통신비' },
+  { re: /KT|SKT|SK텔레콤|LG유플러스|U\+|통신|인터넷요금/i, dir: '출금', cat: '통신비' },
   { re: /adobe|어도비|notion|노션|slack|슬랙|figma|피그마|google workspace|microsoft|aws|구독/i, dir: '출금', cat: '구독 · 소프트웨어' },
-  { re: /택시|주유|고속도로|하이패스|코레일|ktx|주차|퀵|화물|용달|운송/i, dir: '출금', cat: '교통 · 운반' },
-  { re: /식당|카페|커피|스타벅스|배달의민족|쿠팡이츠|편의점|마트/, dir: '출금', cat: '식대 · 경비' },
-  { re: /더위클리|아트리어|본인|자기앞|계좌이동|대체/, cat: '내 통장 이체', transfer: true },
+  { re: /택시|주유|고속도로|하이패스|코레일|ktx|srt|주차|퀵|화물|용달|운송|교통버스|교통지하철|카카오\s?T|대리운전|티머니|항공|철도/i, dir: '출금', cat: '교통 · 운반' },
+  { re: /쿠팡이츠|배달의민족|요기요/, dir: '출금', cat: '식대 · 경비' },
+  { re: /다이소|쿠팡|철물|건재|목재|볼트|공구|자재|문구|오피스|화방|인쇄|출력|전자|조명|페인트|타일|유리|하드웨어|홈플러스|이케아|ikea|오늘의집/i, dir: '출금', cat: '재료 · 소품' },
+  { re: /shutterstock|셔터스톡|게티|getty|envato|canva|캔바|openai|chatgpt|claude|apple\.com|nice\(빌링\)/i, dir: '출금', cat: '구독 · 소프트웨어' },
+  { re: /식당|카페|커피|다방|스타벅스|투썸|이디야|메가|컴포즈|편의점|씨유|CU\)|GS25|세븐일레븐|이마트24|마트|국밥|짬뽕|짜장|돈까스|돈가스|치킨|피자|버거|롯데리아|KFC|맥도날드|설렁탕|순대|김밥|분식|밥|식육|고기|갈비|삼겹|족발|보쌈|초밥|스시|라멘|우동|국수|냉면|베이커리|빵|제과|떡|도시락|푸드|키친|다이닝|레스토랑|비스트로|주점|호프|포차|닭|쌀국수|타코|샐러드|백화점/i, dir: '출금', cat: '식대 · 경비' },
+  { re: /호텔|리조트|모텔|숙박|에어비앤비|airbnb/i, dir: '출금', cat: '교통 · 운반' },
 ]
 const clean = (s: string) => s.replace(/\(주\)|주식회사|㈜|\s/g, '').toLowerCase()
 
@@ -167,22 +261,29 @@ export function classify(desc: string, dir: LedgerDirection, amount: number, dat
 
 // ---------- 은행 ----------
 export async function parseBank(grid: Grid, hi: number, file: string, fileId: string, payments: Payment[]): Promise<LedgerRow[]> {
-  const head = grid[hi].map(norm)
-  const c = {
-    date: pick(head, ['거래일시', '거래일자', '거래일', '일자', '날짜']),
-    time: pick(head, ['거래시간', '시간']),
-    out: pick(head, ['출금액', '출금금액', '찾으신금액', '지급액', '출금']),
-    inn: pick(head, ['입금액', '입금금액', '맡기신금액', '입금']),
-    amt: pick(head, ['거래금액', '금액']),
-    type: pick(head, ['입출금구분', '거래구분', '구분']),
-    bal: pick(head, ['거래후잔액', '잔액', '잔고']),
-    descs: ['적요', '기재내용', '거래내용', '내용', '받는분', '보낸분', '입금자명', '상대방', '거래처', '거래점', '메모', '비고']
-      .map(n => head.findIndex(h => h.includes(n)))
-      .filter((i, k, a) => i >= 0 && a.indexOf(i) === k),
+  let c: BankCols | null
+  if (hi < 0) c = guessBankCols(grid)
+  else {
+    const head = grid[hi].map(norm)
+    c = {
+      date: pick(head, ['거래일시', '거래일자', '거래일', '일자', '날짜']),
+      time: pick(head, ['거래시간', '시간']),
+      out: pick(head, ['출금액', '출금금액', '찾으신금액', '지급액', '출금']),
+      inn: pick(head, ['입금액', '입금금액', '맡기신금액', '입금']),
+      amt: pick(head, ['거래금액', '금액']),
+      type: pick(head, ['입출금구분', '거래구분', '구분']),
+      bal: pick(head, ['거래후잔액', '잔액', '잔고']),
+      descs: ['적요', '기재내용', '거래내용', '내용', '받는분', '보낸분', '입금자명', '상대방', '예금주', '거래처', '거래점', '메모', '비고']
+        .map(n => head.findIndex(h => h.includes(n)))
+        .filter((i, k, a) => i >= 0 && a.indexOf(i) === k),
+      start: hi + 1,
+    }
   }
+  if (!c) return []
   const account = accountName(grid, hi, file)
   const out: LedgerRow[] = []
-  for (const r of grid.slice(hi + 1)) {
+  const cc = c
+  for (const r of grid.slice(c.start)) {
     const date = toDate(r[c.date])
     if (!date) continue
     let inn = c.inn >= 0 ? num(r[c.inn]) : 0
@@ -196,7 +297,7 @@ export async function parseBank(grid: Grid, hi: number, file: string, fileId: st
     if (!inn && !outAmt) continue
     const dir: LedgerDirection = inn ? '입금' : '출금'
     const amount = Math.abs(inn || outAmt)
-    const desc = c.descs.map(i => String(r[i] ?? '').trim()).filter(Boolean).join(' · ').slice(0, 300)
+    const desc = [...new Set(cc.descs.map(i => String(r[i] ?? '').trim()).filter(v => v && !/^[\d\-]+$/.test(v) && !CHANNEL.test(v) && !cc.common?.has(v)))].join(' · ').slice(0, 300)
     const bal = c.bal >= 0 ? num(r[c.bal]) : null
     const time = timeOf(r[c.time >= 0 ? c.time : c.date])
     const k = classify(desc, dir, amount, date, payments)
@@ -225,7 +326,23 @@ export async function parseBank(grid: Grid, hi: number, file: string, fileId: st
 }
 
 // ---------- 홈택스 카드 · 현금영수증 ----------
-export async function parseCardLike(grid: Grid, hi: number, kind: '카드' | '현금영수증', payments: Payment[]): Promise<{ rows: LedgerRow[]; evidence: Evidence[] }> {
+export async function parseCardLike(grid: Grid, hi: number, kind: '카드' | '현금영수증', payments: Payment[], file = '', modified: string | null = null): Promise<{ rows: LedgerRow[]; evidence: Evidence[] }> {
+  let refDate = statementRef(file, modified)
+  // 파일 이름에 달이 없으면 명세서 안의 달들로 청구 달을 짐작 (11 · 12 · 01월이 섞이면 01월이 청구 달)
+  if (!/(?:^|\D)\d{1,2}\s*월|20\d{2}[.\-_]?\d{2}/.test(file)) {
+    const dc = pick(grid[hi].map(norm), ['승인일자', '사용일자', '거래일자', '매출일시', '거래일시', '이용일자', '일자'])
+    const months = grid.slice(hi + 1).map(r => String(r[dc] ?? '').trim().match(/^(\d{1,2})[.\-/]\d{1,2}$/)?.[1]).filter(Boolean).map(Number)
+    if (months.length) {
+      const wrap = months.some(m => m >= 10) && months.some(m => m <= 3)
+      const mo = wrap ? Math.max(...months.filter(m => m <= 6)) : Math.max(...months)
+      const y = mo <= refDate.getMonth() + 1 ? refDate.getFullYear() : refDate.getFullYear() - 1
+      refDate = new Date(y, mo, 0)
+    }
+  }
+  const top = grid.slice(0, hi + 1).flat().map(x => String(x ?? '')).join(' ') + ' ' + file
+  const company = ['현대', '우리', '국민', 'KB', '신한', '삼성', '롯데', '하나', '비씨', 'BC', 'NH', '농협'].find(b => top.includes(b))
+  const label = /홈택스|사업용/.test(top) || !company ? '사업용 카드' : `${company}카드`
+  const seen = new Map<string, number>()
   const head = grid[hi].map(norm)
   const c = {
     date: pick(head, ['승인일자', '사용일자', '거래일자', '매출일시', '거래일시', '이용일자', '일자']),
@@ -239,7 +356,7 @@ export async function parseCardLike(grid: Grid, hi: number, kind: '카드' | '�
   const rows: LedgerRow[] = []
   const evidence: Evidence[] = []
   for (const r of grid.slice(hi + 1)) {
-    const date = toDate(r[c.date])
+    const date = toDateRef(r[c.date], refDate)
     if (!date) continue
     const vat = c.vat >= 0 ? num(r[c.vat]) : 0
     let total = c.total >= 0 ? num(r[c.total]) : 0
@@ -247,7 +364,11 @@ export async function parseCardLike(grid: Grid, hi: number, kind: '카드' | '�
     if (!total) total = supply + vat
     if (!total) continue
     const merchant = String(r[c.merchant] ?? '').trim().slice(0, 100)
-    const ref = `${kind}:${await hash([date, merchant, total, String(r[c.no] ?? ''), timeOf(r[c.date])].join('|'))}`
+    const key = [date, merchant, total, String(r[c.no] ?? ''), timeOf(r[c.date])].join('|')
+    const n = (seen.get(key) ?? 0) + 1
+    seen.set(key, n)
+    // 같은 날 같은 가게 같은 금액이 여러 번이면 두 번째부터 번호를 붙여 따로 기입
+    const ref = `${kind}:${await hash(n > 1 ? `${key}#${n}` : key)}`
     if (kind === '현금영수증') {
       evidence.push({ date, direction: total < 0 ? '입금' : '출금', total: Math.abs(total), supply: Math.abs(supply), vat: Math.abs(vat), partner: merchant, kind: '현금영수증', ref })
       continue
@@ -261,9 +382,9 @@ export async function parseCardLike(grid: Grid, hi: number, kind: '카드' | '�
       category: k.is_transfer ? '기타 출금' : k.category,
       counterparty: merchant || null,
       method: '카드',
-      memo: `홈택스 사업용 카드${total < 0 ? ' · 취소' : ''}`,
+      memo: `${label}${total < 0 ? ' · 취소' : ''}`,
       project_id: k.project_id,
-      account: '사업용 카드',
+      account: label,
       source: '홈택스',
       source_ref: ref,
       supply: Math.abs(supply),

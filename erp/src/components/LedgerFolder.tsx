@@ -48,7 +48,8 @@ export async function runLedgerImport(api: ReturnType<typeof useApp>['api'], onS
   if (!tk) throw new Error('회사 구글 드라이브 연결이 필요합니다 (관리 › 구글 드라이브).')
   const token = tk.token
   const done = await api.listLedgerFiles()
-  const doneKey = new Set(done.map(d => `${d.drive_file_id}|${d.modified_time ?? ''}`))
+  // 형식을 못 알아본 파일은 읽는 법이 나아지면 다시 시도
+  const doneKey = new Set(done.filter(d => d.kind !== '알 수 없음').map(d => `${d.drive_file_id}|${d.modified_time ?? ''}`))
   const files: GFile[] = []
   for (const id of [folder.bank, folder.hometax, folder.root]) {
     const list = await listChildren(token, id).catch(() => [] as GFile[])
@@ -110,7 +111,7 @@ export async function processLedgerFiles(api: ReturnType<typeof useApp>['api'], 
       let note = ''
       if (kind === '은행') rows = await parseBank(grid, hi, name, f.id, payments)
       else if (kind === '카드' || kind === '현금영수증') {
-        const r = await parseCardLike(grid, hi, kind, payments)
+        const r = await parseCardLike(grid, hi, kind, payments, name, f.modified)
         rows = r.rows
         evidence.push(...r.evidence)
         note = kind === '현금영수증' ? `현금영수증 ${r.evidence.length}건` : ''
@@ -121,7 +122,7 @@ export async function processLedgerFiles(api: ReturnType<typeof useApp>['api'], 
         for (const d of drafts)
           evidence.push({ date: d.write_date, direction: d.direction === '매입' ? '출금' : '입금', total: Math.abs(d.total), supply: Math.abs(d.supply), vat: Math.abs(d.vat), partner: d.partner_name, kind: '세금계산서', ref: d.approval_no })
       } else {
-        note = '은행 · 홈택스 자료 형식을 알아보지 못했습니다'
+        note = '거래 내역(날짜 · 금액) 칸을 찾지 못했습니다 — 요약표 · 매입장 등은 건너뜁니다'
         res.errors.push(`${f.name}: ${note}`)
       }
       for (const r of rows) {
