@@ -4534,7 +4534,7 @@ body.dock-resizing iframe { pointer-events: none; }
 .lgf-table td { padding: 6px 8px; border-bottom: 1px solid var(--line); max-width: 380px; }
 .lgf-table td.in { color: var(--blue); font-family: var(--mono); font-weight: 700; text-align: right; }
 .lgf-table td.out { color: var(--red); font-family: var(--mono); font-weight: 700; text-align: right; }
-.lgf-table .select { height: 28px; font-size: var(--fs-cap); }
+.lgf-table .select { height: auto; min-height: 30px; padding-top: 4px; padding-bottom: 4px; line-height: 1.4; font-size: var(--fs-cap); }
 .lg-tag { display: inline-block; margin-left: 5px; font-size: 10.5px; font-weight: 700; padding: 0 4px; border: 1px solid var(--line); color: var(--gray); vertical-align: 1px; }
 .lg-tag.rv { color: #8a5a00; border-color: #e3c27a; background: #fff8e6; }
 .lg-tag.ev { color: var(--blue); border-color: color-mix(in srgb, var(--blue) 30%, #fff); }
@@ -4545,3 +4545,9 @@ tr.lg-review td:first-child { box-shadow: inset 3px 0 0 #e0a800; }
 .lgf-other { display: flex; flex-direction: column; gap: 6px; width: 100%; padding: 10px 12px; background: #fbfaf5; border: 1px solid var(--line); }
 .lgf-other ol { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 2px; }
 .lgf-other .input { height: 30px; font-size: var(--fs-sm); }
+
+/* 회계 자료 직접 올리기 (2026-11-11) */
+.lgf-upload { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 14px; border: 1px dashed var(--pink); background: var(--bg, #fafafa); width: 100%; box-sizing: border-box; }
+.lgf-upload.over { background: #fff0f6; border-style: solid; }
+.lgf-upload .t-cap { flex: 1 1 260px; }
+.lgf-or { margin-top: 6px; }
