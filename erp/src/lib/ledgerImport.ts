@@ -198,6 +198,8 @@ function accountName(grid: Grid, hi: number, file: string): string {
   const bank = BANKS.find(b => top.includes(b)) ?? '통장'
   const acct = top.match(/(\d{2,6}[-\s]?\d{2,6}[-\s]?\d{2,8}(?:[-\s]?\d{1,4})?)/)?.[1]?.replace(/\D/g, '')
   if (acct) return `${bank} ${acct.slice(-4)}`
+  // 기술보증기금 대출 통장 (파일 이름 '기보통장' · '기업은행-기보') 은 한 통장으로
+  if (/기보/.test(file)) return '기업 기보'
   // 계좌번호가 없으면 파일 이름으로 통장 구분 (예: '기업은행-기보' → '기업 기보', '기업은행 거래내역조회-2' → '기업')
   const extra = file
     .replace(/\.[^.]+$/, '')
@@ -211,12 +213,15 @@ function accountName(grid: Grid, hi: number, file: string): string {
 
 // ---------- 분류 ----------
 const RULES: { re: RegExp; dir?: LedgerDirection; cat: string; transfer?: boolean }[] = [
+  // 카드사 리스 · 렌트료는 카드대금이 아니라 비용 (2026-11-11 대사에서 확인)
+  { re: /카드\s*(리스|렌트)/, dir: '출금', cat: '임대료' },
   { re: /(국민|신한|삼성|현대|롯데|하나|우리|비씨|BC|NH|농협|KB)\s*카드|카드대금|카드결제/, dir: '출금', cat: '카드대금', transfer: true },
   { re: /더위클리|아트리어|본인|자기앞|계좌이동|대체/, cat: '내 통장 이체', transfer: true },
   // 대표가 직접 정한 가게 (2026-11-11)
   { re: /프리웨이파켓/, dir: '출금', cat: '교통 · 운반' },
   { re: /바이브컴퍼니/, dir: '출금', cat: '구독 · 소프트웨어' },
   { re: /브리즘/, dir: '출금', cat: '재료 · 소품' },
+  { re: /시드디자인/, dir: '출금', cat: '임대료' }, // 사무실 임대료 (대표 확인 2026-11-11)
   { re: /급여|월급|상여|퇴직/, dir: '출금', cat: '인건비' },
   { re: /국민연금|건강보험|고용보험|산재|4대보험|국민건강/, dir: '출금', cat: '인건비' },
   { re: /국세|지방세|부가세|부가가치세|원천세|세무서|구청|시청|관세|자동차세|재산세|주민세|법인세|종합소득/, dir: '출금', cat: '세금 · 공과금' },
