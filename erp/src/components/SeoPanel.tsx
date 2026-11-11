@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { RefreshCw } from 'lucide-react'
+import { useApp } from '../lib/app'
 import { shortDate } from '../lib/date'
 import { SEO_KINDS, type SeoCheck, type SeoKind, type SeoStatus } from '../lib/types'
 import { Board, BoardHead, type BoardCol } from './Board'
@@ -28,6 +30,8 @@ const KIND_INFO: Record<SeoKind, { title: string; desc: string; tone: Tone; item
 const STATUS_TONE: Record<SeoStatus, Tone> = { 양호: 'green', 주의: 'yellow', 미흡: 'red', 미측정: 'gray' }
 
 export function SeoPanel({ checks }: { checks: SeoCheck[] }) {
+  const { api, profiles, toast } = useApp()
+  const [asking, setAsking] = useState(false)
   const [kind, setKind] = useState<SeoKind | '전체'>('전체')
   const dates = [...new Set(checks.map(c => c.checked_on))].sort((a, b) => b.localeCompare(a))
   const latest = dates[0] ?? null
@@ -78,6 +82,32 @@ export function SeoPanel({ checks }: { checks: SeoCheck[] }) {
           ))}
         </div>
         <span className="grow" />
+        {(() => {
+          // 미측정 · 미흡 다시 측정 (대표 지시 2026-11-11): 마케팅팀장 AI 에게 지시 → 바로 확인할 수 있는 건 지금, 나머지는 측정 담당 AI 의 다음 실행에서
+          const weak = kinds.flatMap(k => rowsFor(k).filter(r => !r.cur || r.cur.status === '미측정' || r.cur.status === '미흡').map(r => ({ k, item: r.item, st: r.cur?.status ?? '미측정' })))
+          const lead = profiles.find(p => p.is_agent && p.active && p.name === '마케팅팀장') ?? profiles.find(p => p.is_agent && p.active && p.name === 'WKLY 총괄')
+          if (!weak.length || !lead) return null
+          const ask = async () => {
+            setAsking(true)
+            try {
+              const list = weak.slice(0, 60).map(w => `- [${w.k}] ${w.item} (${w.st})`).join('\n')
+              await api.instructAgent(
+                lead.id,
+                `[검색 노출 다시 측정] 광고 › 검색 노출 점검에서 '미측정' · '미흡'인 ${weak.length}개 항목을 다시 측정해 seo_checks 에 오늘 날짜로 기록해 주세요.\n1) 웹 검색으로 지금 바로 확인할 수 있는 항목은 바로 확인해 결과를 알려 주세요.\n2) 나머지는 검색 노출 측정 담당 팀원 AI 에게 add_directive 로 '다음 실행에서 아래 항목 우선 재측정 (미흡이면 원인 · 개선안 함께)'을 우선순위 2 · 7일로 등록하세요.\n3) 서치콘솔처럼 로그인이 필요한 항목은 무엇이 필요한지 적어 주세요.\n\n${list}`,
+              )
+              toast(`${lead.name}에게 ${weak.length}개 항목 다시 측정을 지시했습니다. 결과는 알림 · AI 지시 기록으로 옵니다.`)
+            } catch (e) {
+              toast(e instanceof Error ? e.message : '지시하지 못했습니다.')
+            } finally {
+              setAsking(false)
+            }
+          }
+          return (
+            <button type="button" className="btn btn-outline btn-sm" onClick={() => void ask()} disabled={asking} title={`${lead.name} AI 에게 다시 측정 지시`}>
+              <RefreshCw size={13} className={asking ? 'spin' : undefined} /> 미측정 · 미흡 다시 측정 ({weak.length})
+            </button>
+          )
+        })()}
         <span className="t-cap">{latest ? `최근 측정 ${shortDate(latest)}${prevDate ? ` · 이전 ${shortDate(prevDate)}` : ''} · 매주 월요일 WKLY 총괄이 측정` : '아직 측정 전 · 매주 월요일 WKLY 총괄이 측정해 기록합니다'}</span>
       </div>
       <div className="kpis">
