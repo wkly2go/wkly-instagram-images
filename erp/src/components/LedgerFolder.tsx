@@ -3,7 +3,7 @@ import { ExternalLink, FolderPlus, RefreshCw, Upload } from 'lucide-react'
 import { useApp } from '../lib/app'
 import { driveApi, driveIdOf, listChildren, newFolder, FOLDER_MIME, type GFile } from '../lib/gdrive'
 import { attachEvidence, classify, detectKind, setStaffNames, parseBank, parseCardLike, readGrid, type Evidence, type LedgerRow } from '../lib/ledgerImport'
-import { LEDGER_CATEGORIES, type LedgerEntry, type LedgerFile, type Payment } from '../lib/types'
+import { LEDGER_CATEGORIES, LEDGER_TRANSFER_CATEGORIES, type LedgerEntry, type LedgerFile, type Payment } from '../lib/types'
 import { parseHometax } from './TaxInvoices'
 import { Button } from './ui'
 
@@ -371,7 +371,7 @@ export function LedgerFolder({ onExpired }: { onExpired: () => void }) {
     }
   }
   const fix = async (r: LedgerEntry, category: string) => {
-    const transfer = category === '카드대금' || category === '내 통장 이체'
+    const transfer = LEDGER_TRANSFER_CATEGORIES.includes(category)
     await api.saveLedger({ id: r.id, category, needs_review: false, is_transfer: transfer } as Partial<LedgerEntry> as LedgerEntry).then(load, () => toast('저장하지 못했습니다.'))
   }
 
@@ -504,7 +504,7 @@ export function LedgerFolder({ onExpired }: { onExpired: () => void }) {
                   <td>
                     <select className="select" value="" onChange={e => e.target.value && void fix(r, e.target.value)} aria-label="분류 고르기">
                       <option value="">분류 고르기…</option>
-                      {[...LEDGER_CATEGORIES[r.direction], ...(r.direction === '출금' ? ['카드대금', '내 통장 이체', '수수료', '통신비', '이자 · 금융비용'] : ['내 통장 이체'])].map(c => (
+                      {[...LEDGER_CATEGORIES[r.direction], ...LEDGER_TRANSFER_CATEGORIES.filter(c => r.direction === '출금' || c !== '카드대금')].map(c => (
                         <option key={c} value={c}>
                           {c}
                         </option>
