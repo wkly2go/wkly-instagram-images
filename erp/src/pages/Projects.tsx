@@ -77,7 +77,8 @@ export default function Projects() {
         <ProjectDashboard projects={data.projects} tasks={data.tasks} clients={data.clients} />
       </div>
     ) : null,
-    { wide: true, full: !!selected, onClose: selected ? () => go({ id: null }) : undefined },
+    // 요약 대시보드가 넓은 프로젝트 상세의 기본 폭을 차지하지 않게 한다.
+    { wide: !!selected, full: !!selected, onClose: selected ? () => go({ id: null }) : undefined },
   )
 
   if (selectedId && !wide) {

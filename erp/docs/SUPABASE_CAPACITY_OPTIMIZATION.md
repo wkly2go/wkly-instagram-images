@@ -1,0 +1,137 @@
+# Supabase 용량·전송량 최적화 점검
+
+점검일: 2026-11-11. 대상: 더위클리 인트라넷의 현재 저장소 코드와 공식 문서.
+
+## 현재 확인 범위
+
+사용자가 공유한 화면에는 조직 사용량 초과 경고가 있습니다. **대시보드의 실제 사용량, 초과 항목, 과금 기간은 확인하지 못했습니다.** 아래 내용은 코드에서 찾은 개선 후보이며, 경고의 원인을 확정하거나 절감률을 계산한 결과가 아닙니다.
+
+이번 UI 변경에서 AI 검색창의 불필요한 반복 조회를 소스에서 수정했습니다. 소스 수정과 운영 반영은 별도이며, 이 문서는 배포 완료나 용량 경고 해제를 의미하지 않습니다. DB·Storage 데이터 삭제, 서버 설정 변경, 요금제 변경은 수행하지 않았습니다.
+
+## 1. 먼저 구분할 사용량
+
+| 항목 | 무엇을 세는가 | 이 앱에서 확인할 대상 | 확인 방법 |
+|---|---|---|---|
+| DB 크기 | PostgreSQL의 데이터·TOAST·인덱스 등 | 채팅, 회의 전사문, 장부 감사 이력, 알림, 색인 | 진단 SQL의 DB·테이블 크기 |
+| 디스크 사용량 | DB 외 WAL·시스템 사용량도 포함 | 대량 가져오기·수정 때의 쓰기량 | 대시보드의 디스크 항목 |
+| Storage 크기 | 버킷에 보관 중인 파일 | 현장 사진·도면, 채팅 첨부, 회의음성, 광고 소재 | 버킷 집계 SQL와 Storage 사용량 |
+| Egress | 서비스 밖으로 전달한 데이터량 | 반복 목록 조회, 원본 이미지 열기·다운로드 | 조직 Usage의 서비스별 전송량 |
+| Realtime·함수 호출 | 실시간 메시지·연결, 함수 실행 횟수 | 채팅 구독, 업무 변경 구독, 서버 처리 | 각각의 Usage 항목 |
+
+DB 크기와 디스크 사용량은 서로 다르며, Storage 파일 바이트도 별도 항목입니다. [Database and Disk Size](https://supabase.com/docs/guides/platform/database-size), [Storage size](https://supabase.com/docs/guides/platform/manage-your-usage/storage-size)를 기준으로 구분합니다.
+
+DB 크기 한도로 인한 Fair Use 서비스 제한과 물리 디스크 부족에 따른 읽기 전용 모드도 별개입니다. 공식 문서는 Fair Use DB 크기 평가에 조직 내 프로젝트들의 합계와 과금 기간의 일평균을 사용한다고 설명하므로, 오늘의 크기를 줄였다고 제한이 즉시 해제된다고 가정하지 않습니다. [DB 제한 기준](https://supabase.com/docs/guides/platform/database-size#fair-use-database-size-restriction)
+
+공식 문서 확인 시 Free의 Egress 할당량은 **uncached 5GB와 cached 5GB가 각각 별도**입니다. 둘을 자유롭게 합쳐 쓰는 한도라고 해석하지 않습니다. Egress는 과금 주기 동안 누적되므로 코드 개선이나 파일 삭제가 **이미 전송된 사용량을 소급해서 줄이지는 않습니다.** [Egress 사용량](https://supabase.com/docs/guides/platform/manage-your-usage/egress)
+
+조직 Usage는 기본적으로 여러 프로젝트를 합산하므로 조직 전체와 `wkly-erp` 프로젝트를 각각 확인합니다. 측정 기간과 과금 주기를 함께 기록해야 비교가 가능합니다.
+
+## 2. 코드에서 확인한 우선순위
+
+아래 소스 경로는 `erp/` 기준입니다. 함수 이름을 함께 적어 이후 행 번호가 달라져도 찾을 수 있게 했습니다.
+
+| 순서 | 코드 근거 | 확인한 동작 | 개선 방향·효과 대상 |
+|---|---|---|---|
+| 1 | `src/components/CommandPalette.tsx`의 AI 조회 effect, `src/lib/supabaseApi.ts`의 `listAgentInstructions` | 기존에는 검색창을 닫거나 답변이 끝나도 4초마다 최근 지시 50개의 전체 행을 읽을 수 있었음 | **이번 UI 변경에서 코드 수정:** 요청 ID 단건 조회, 완료·닫힘 시 중지, 숨긴 탭의 요청 생략·중복 요청 방지. DB Egress·조회 부담 개선; 운영 효과는 반영 후 측정 |
+| 2 | `src/components/Shell.tsx`의 `useSummary`, `src/lib/supabaseApi.ts`의 `listTasks`·`listApprovals`·`listSaved` | 배지 숫자를 계산하려 업무·결재·저장 목록 전체를 조회 | 권한을 유지하는 요약 RPC 또는 count 조회, 화면별 캐시·갱신 범위 축소. Egress·응답성 개선 |
+| 3 | `src/components/ChatMessages.tsx`의 `AttachmentView`, `src/lib/supabaseApi.ts`의 `sendFile`·`uploadSitePhoto`, `src/lib/marketingApi.ts`의 소재 업로드 | 확인한 업로드 경로는 원본 파일을 저장하고, 채팅 이미지 미리보기에도 원본 URL을 사용 | 작은 미리보기를 별도 생성하고 원본은 확대·다운로드 때 요청. 주된 목표는 Egress 감소 |
+| 4 | `src/lib/supabaseApi.ts`의 `deleteMessage`·`deleteSitePhoto`·`deleteSitePlan` | 확인한 삭제 경로는 DB 행 삭제이며 Storage 삭제 연계가 없음 | 모든 참조와 버킷을 대조해 고아 파일 후보부터 조사. 실제 미사용 파일 여부는 미확인 |
+| 5 | `supabase/functions/meeting-minutes/index.ts:96–102,119`의 `cleanup` | 30일 지난 음성 정리가 신규 회의 처리 후에만 실행되고, 최대 50개이며 삭제 오류 확인이 없음 | 기존 보관 정책 확인 후 정기 실행·성공 확인·재시도 보강. Storage 누적 방지 |
+| 6 | `src/lib/chat.ts`의 `chat_reads` 구독, `src/components/SlackSection.tsx`의 갱신 effect | 읽음 상태를 테이블 단위로 구독하고, Slack은 화면 표시 중 20초마다 최근 목록을 조회 | 채팅방 필터·증분 조회·펼친 화면 중심 갱신. Realtime·Egress 개선 |
+| 7 | `supabase/migrations/0106_ledger_import.sql:50–67`의 `private.cash_ledger_log` | 장부 수정·삭제 때 이전·이후 행을 JSONB로 기록 | 실제 테이블·TOAST·인덱스 크기 측정 후 장기 보관 방식 검토. 감사 이력 임의 삭제 금지 |
+
+전체 조회를 단건·요약 조회로 바꾸어도 권한·승인 가능 여부·알림은 유지해야 합니다. `select('*')`를 일괄 교체하기보다 화면에서 실제 사용하는 필드와 반환 자료형을 함께 검토합니다.
+
+검색창의 기존 반복 조회는 코드 결함의 근거이지 이번 한도 초과의 확정 원인은 아닙니다. 같은 이유로 다른 후보도 사용량 확인 전에는 효과를 수치로 약속하지 않습니다.
+
+## 3. 원본 파일과 접근 권한을 보존하는 방법
+
+1. 신규 이미지 업로드 때 브라우저에서 미리보기를 만들고, 목록에는 미리보기만 읽습니다. 도면·측정 사진·증빙·광고 납품용 원본은 보존합니다.
+2. 원본을 유지하며 미리보기를 추가하면 **Storage 저장량은 늘어날 수 있습니다.** 이미지 전송량 개선과 보관 용량 감소를 같은 효과로 계산하지 않습니다.
+3. 서명 URL은 만료 전에 재사용하고 가능하면 일괄 발급합니다. 사용자·파일별 캐시 범위를 분리하고 로그아웃·권한 변경 때 정리합니다. URL 만료와 재조회도 처리합니다.
+4. 고아 파일 후보를 찾을 때 버킷의 경로와 채팅 첨부·현장 사진·도면·현장일지 등 **모든 참조**를 비교합니다. 한 테이블에 없다는 이유만으로 삭제하지 않습니다.
+5. 정리가 필요하면 보관 정책, 원본 백업, 참조 확인, 복구 가능 여부를 먼저 검토합니다. 승인된 대상만 Storage API로 처리하고 실패는 재시도 목록에 남깁니다.
+
+`storage.objects`를 SQL로 삭제하면 실제 파일은 지워지지 않고 고아 객체가 될 수 있습니다. [공식 파일 삭제 안내](https://supabase.com/docs/guides/storage/management/delete-objects)에 따라 파일 삭제는 Storage API로 처리해야 합니다. 제공한 진단 SQL에는 삭제문이 없습니다.
+
+현재 무료 서비스 사용 조건에서는 브라우저의 미리보기 생성·조회 절약부터 검토합니다. **Smart CDN과 Supabase Image Transformations는 Pro 이상 기능**이므로 무료 최적화의 전제에 넣지 않습니다. 비공개 버킷과 RLS를 유지합니다. [Smart CDN](https://supabase.com/docs/guides/storage/cdn/smart-cdn), [Image Transformations](https://supabase.com/docs/guides/storage/serving/image-transformations)
+
+## 4. 기존 정리 기능의 확인 사항
+
+### 회의음성
+
+`meeting-minutes/index.ts`의 `KEEP_DAYS = 30`과 `cleanup()`은 이미 존재합니다. 새 회의 처리 이후 실행되므로 회의가 없는 기간에는 30일을 넘긴 파일이 남을 수 있고, 실행당 50개 제한으로 밀린 작업이 누적될 수 있습니다.
+
+Storage 삭제 결과를 확인하지 않은 채 `audio_path`를 비우므로 삭제 실패 시 파일의 추적 경로가 사라질 가능성도 있습니다. 기존 정책을 확인한 뒤 삭제 성공 확인·재시도·정기 실행을 함께 보강해야 합니다. 이 문서는 새로운 자동 삭제 정책을 정하지 않습니다.
+
+`supabaseApi.ts`의 `startMeetingMinutes()`는 파일 업로드 후 DB 기록 생성 실패에 대한 파일 정리 경로도 별도 확인이 필요합니다. `deleteExchangeFile()`은 Storage 삭제를 호출하지만 오류를 확인하지 않으므로 같은 관점으로 점검합니다.
+
+### 알림과 출근 위치
+
+`supabase/migrations/0025_ops_rules.sql:112–129`에는 이미 다음 작업이 정의되어 있습니다.
+
+- 읽은 알림 중 생성 후 30일이 지난 기록 정리.
+- 90일이 지난 출근 위치 좌표 제거.
+- `wkly_housekeeping` 일일 예약.
+
+파일의 존재만으로 운영 적용·실행 성공을 확인할 수 없습니다. 운영에 해당 예약이 있는지, 최근 실행이 성공했는지 먼저 확인합니다. 추가 보관 정책 없이 알림 전체나 업무·감사 기록을 일괄 삭제하지 않습니다.
+
+### 이미 있는 절약 구조
+
+- 마케팅 소재는 DB 메타데이터와 비공개 Storage 파일을 나누고 서명 URL을 일괄 생성합니다.
+- 프로필 사진은 `src/lib/image.ts`의 `squareThumb()`에서 256px JPEG로 축소하지만 Base64 문자열로 저장합니다. 실제 크기를 측정한 뒤 우선순위를 정합니다.
+- 채팅에는 debounce·구독 해제가 있으며 카카오 가져오기에는 중복 방지 구조가 있습니다.
+- Drive 색인 메타데이터를 원본 파일 전체의 Supabase 복제로 계산하지 않습니다.
+- 화면 입력 표시의 로컬 타이머와 Cloudflare의 `version.json` 조회는 Supabase 호출량에서 제외합니다.
+
+## 5. 읽기 전용 진단 실행 방법
+
+진단 파일: [`supabase/diagnostics/capacity_readonly.sql`](../supabase/diagnostics/capacity_readonly.sql).
+
+1. Supabase에서 `wkly-erp`와 프로젝트 ID `hophgcpszenrvchvbkav`를 확인합니다.
+2. **SQL Editor → New query**를 엽니다. 기존 마이그레이션 편집 내용을 덮어쓰지 않습니다.
+3. 진단 파일의 `1`, `2`, `3` 중 필요한 **SELECT 한 문장 전체**를 복사해 가운데 편집기에 붙여 넣고 Run을 누릅니다.
+4. 결과별로 측정 시각과 항목을 기록합니다. 진단은 표·버킷의 크기와 개수만 반환하며 업무 본문·토큰·파일 경로를 출력하지 않습니다.
+5. 조직 Usage에서 같은 기간의 프로젝트별 Egress·Storage·DB 항목과 비교합니다. 이 SQL은 누적 Egress를 계산하지 않습니다.
+
+각 문장을 따로 실행하면 결과 탭 혼동을 줄일 수 있습니다. 이 파일은 마이그레이션이 아니며 설치 단계에서 자동 실행할 대상도 아닙니다. 진단 SQL은 이 점검 중 운영 DB에서 실행하지 않았습니다.
+
+| 진단 결과 | 읽는 방법 |
+|---|---|
+| `database_bytes` | 현재 DB의 바이트 크기. 파일 Storage 크기나 디스크 전체 크기로 해석하지 않음 |
+| `table_and_toast_size`, `index_size` | 큰 본문 데이터와 인덱스의 비중을 구분. 큰 인덱스라는 이유만으로 삭제하지 않음 |
+| `estimated_live_rows`, `estimated_dead_rows` | 통계상 추정 행 수. 정확한 레코드 수나 즉시 회수 가능한 바이트가 아님 |
+| `reported_bytes` | `storage.objects.metadata.size`를 합친 현재 메타데이터 기준 값. 과금 기간 집계와 같다고 가정하지 않음 |
+| `objects_without_numeric_size` | 크기를 숫자로 읽을 수 없어 합계에서 제외된 객체 수. 0이 아니면 합계가 불완전할 수 있음 |
+
+크기 함수의 범위는 [PostgreSQL 공식 문서](https://www.postgresql.org/docs/current/functions-admin.html)를 따릅니다. `pg_size_pretty`는 1024 기준 단위를 사용하므로 대시보드와 비교할 때 원시 바이트도 보관합니다.
+
+### 선택 확인: 기존 예약 작업
+
+`pg_cron`이 설치되고 조회 권한이 있는 환경에서만 확인합니다. 먼저 아래 문장을 별도로 실행합니다.
+
+```sql
+select exists (
+  select 1 from pg_extension where extname = 'pg_cron'
+) as pg_cron_installed;
+```
+
+`true`일 때만 다음 문장을 실행합니다. `false`이면 이번 용량 진단을 위해 확장을 설치하거나 예약을 만들지 않습니다.
+
+```sql
+select jobid, jobname, schedule, active
+from cron.job
+where jobname = 'wkly_housekeeping';
+```
+
+최근 성공 여부는 예약 작업 화면에서 확인합니다. 작업의 `command`나 전체 실행 로그에는 연결 정보가 있을 수 있으므로 진단 공유 자료에 복사하지 않습니다.
+
+## 6. 실행 순서와 확인할 결과
+
+1. **초과 항목 확인:** 조직 합계·프로젝트별 수치와 기간을 기록합니다.
+2. **조회 낭비 개선:** 이번 AI 단건 조회·중지 조건을 검증하고 운영 반영 상태를 확인합니다. 요약·검색·Slack 조회는 다음 후보입니다.
+3. **원본 보존형 미리보기:** 이미지가 전송량 상위일 때 적용하고 요청 횟수·전송 바이트·화질을 비교합니다.
+4. **보관 현황 점검:** 파일이 큰 버킷, 기존 회의음성 정리, 고아 후보를 조사합니다. 정리는 별도의 검토된 작업으로 진행합니다.
+5. **DB 측정 후 판단:** 큰 테이블·인덱스와 기존 housekeeping을 확인하고 필요한 보관 정책을 정합니다.
+
+비교 시 로그인 사용자 수·열어 둔 창·조회 기간·사용 업무를 함께 기록합니다. 이미 누적된 사용량과 개선 이후 발생량을 구분하고, 실제 측정 전에는 절감률이나 경고 해제 시점을 약속하지 않습니다.

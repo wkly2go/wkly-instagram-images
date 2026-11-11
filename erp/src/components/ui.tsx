@@ -1,5 +1,5 @@
 import { useFirstLoading } from '../lib/app'
-import { useEffect, type ButtonHTMLAttributes, type ReactNode } from 'react'
+import { useEffect, useRef, type ButtonHTMLAttributes, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 import { detailSlot, usePanelWide } from './RightPanel'
@@ -79,7 +79,7 @@ export function Avatar({ name, size }: { name: string | null | undefined; size?:
 export function SectionHead({ title, count, right }: { title: string; count?: number | string; right?: ReactNode }) {
   return (
     <div className="section-h">
-      <span className="t-bodyb">{title}</span>
+      <h2 className="t-bodyb section-title">{title}</h2>
       {count !== undefined && <Badge tone="yellow">{count}</Badge>}
       {right && <span className="more">{right}</span>}
     </div>
@@ -135,16 +135,65 @@ export function Field({ label, children, className = '' }: { label: string; chil
 }
 
 export function Modal({ title, onClose, children, actions, wide }: { title: string; onClose: () => void; children: ReactNode; actions?: ReactNode; wide?: boolean }) {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
-  // 전체 공통 (대표 지시 2026-10-17): 넓은 화면에서는 팝업 대신 결과 칸 자리에 왼쪽→오른쪽으로 펼쳐짐
+  // 넓은 화면의 결과 칸은 비모달이므로 배경 탐색과 기존 탭 순서를 유지한다.
   const panelWide = usePanelWide()
-  if (panelWide && detailSlot?.isConnected) {
+  const inSidePanel = !!(panelWide && detailSlot?.isConnected)
+  const dialogRef = useRef<HTMLElement | null>(null)
+  // 자식의 autoFocus가 실행되기 전에 창을 연 컨트롤을 기억한다.
+  const returnFocusRef = useRef<HTMLElement | null>(document.activeElement instanceof HTMLElement ? document.activeElement : null)
+  const closeRef = useRef(onClose)
+  closeRef.current = onClose
+
+  useEffect(() => {
+    const dialog = dialogRef.current
+    if (!dialog) return
+    const previousFocus = returnFocusRef.current
+    const focusFrame = !inSidePanel ? requestAnimationFrame(() => {
+      // 자식 입력칸의 autofocus는 존중하고, 기본은 제목을 포함한 창에 초점을 둔다.
+      if (!dialog.contains(document.activeElement)) dialog.focus({ preventScroll: true })
+    }) : undefined
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.defaultPrevented) return
+      const owningDialog = e.target instanceof Element ? e.target.closest('[role="dialog"], [role="alertdialog"]') : null
+      // 삭제 확인·검색 등 위에 열린 창에서 누른 키가 뒤쪽 창까지 닫지 않게 한다.
+      if (owningDialog && owningDialog !== dialog) return
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        closeRef.current()
+        return
+      }
+      if (inSidePanel || e.key !== 'Tab') return
+      const focusable = Array.from(dialog.querySelectorAll<HTMLElement>(
+        'a[href], button, input, select, textarea, summary, [tabindex]',
+      )).filter(el => el.tabIndex >= 0 && !el.matches(':disabled') && !el.closest('[inert]') && el.getClientRects().length > 0)
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      const active = document.activeElement
+      if (!first) {
+        e.preventDefault()
+        dialog.focus({ preventScroll: true })
+      } else if (e.shiftKey && (active === first || active === dialog || !dialog.contains(active))) {
+        e.preventDefault()
+        last.focus()
+      } else if (!e.shiftKey && (active === last || !dialog.contains(active))) {
+        e.preventDefault()
+        first.focus()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      if (focusFrame !== undefined) cancelAnimationFrame(focusFrame)
+      if (!inSidePanel && previousFocus?.isConnected && (dialog.contains(document.activeElement) || document.activeElement === document.body)) {
+        previousFocus.focus({ preventScroll: true })
+      }
+    }
+  }, [inSidePanel])
+  // 전체 공통 (대표 지시 2026-10-17): 넓은 화면에서는 팝업 대신 결과 칸 자리에 왼쪽→오른쪽으로 펼쳐짐
+  if (inSidePanel && detailSlot) {
     return createPortal(
-      <aside className="detail-col modal-col" role="dialog" aria-label={title}>
+      <aside ref={el => { dialogRef.current = el }} className="detail-col modal-col" role="dialog" aria-label={title}>
         <div className="detail-head">
           <span className="grow truncate">{title}</span>
           <button type="button" className="icon-btn sm" onClick={onClose} aria-label="닫기" title="닫기">
@@ -161,7 +210,7 @@ export function Modal({ title, onClose, children, actions, wide }: { title: stri
   }
   return (
     <div className="scrim" onMouseDown={e => e.target === e.currentTarget && onClose()}>
-      <div className={`dialog ${wide ? 'wide' : ''}`} role="dialog" aria-modal="true" aria-label={title}>
+      <div ref={el => { dialogRef.current = el }} className={`dialog ${wide ? 'wide' : ''}`} role="dialog" aria-modal="true" aria-label={title} tabIndex={-1}>
         <div className="inner">
           <div className="row">
             <h2 className="t-title grow">{title}</h2>
@@ -178,7 +227,7 @@ export function Modal({ title, onClose, children, actions, wide }: { title: stri
 }
 
 export function Loading() {
-  return <div className="empty">불러오는 중…</div>
+  return <div className="empty" role="status" aria-live="polite">불러오는 중…</div>
 }
 
 /** 근태 상태 점 (출근 · 외근 · 미팅 · 재택 · 휴가 · 퇴근) — 사진 · 이름 옆 */

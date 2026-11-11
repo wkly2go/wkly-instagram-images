@@ -1,8 +1,8 @@
-import { Fragment, createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { useMyAgents } from './AgentDesk'
 import { MobileAppBar, TopAppButton } from './InstallCard'
 import { useTheme } from '../lib/theme'
-import { Ruler, Bookmark, Bot, ListTodo, Plus, Search, Briefcase, HardDrive, ChevronLeft, ChevronRight, CircleHelp, PanelLeftClose, PanelLeftOpen, ClipboardCheck, FolderKanban, Home, Library, Megaphone, MessageCircle, MoreHorizontal, Settings, Users, Landmark, type LucideIcon } from 'lucide-react'
+import { Ruler, Bookmark, Bot, ListTodo, Plus, Search, Briefcase, HardDrive, ChevronDown, ChevronLeft, ChevronRight, CircleHelp, PanelLeftClose, PanelLeftOpen, ClipboardCheck, FolderKanban, Home, Library, Megaphone, MessageCircle, MoreHorizontal, Settings, Users, Landmark, type LucideIcon } from 'lucide-react'
 import { accessSource, isDesktopApp } from '../lib/desktop'
 import { useAttendance } from '../lib/attendance'
 import { AssignTaskModal } from './AssignTask'
@@ -29,6 +29,7 @@ import { Presence, toneOf } from './ui'
 import { countedUnread, rememberRoomLevels, useChatTick } from '../lib/chat'
 import { QuickChat } from '../pages/Quick'
 import type { ChatRoomSummary } from '../lib/types'
+import './ShellUsability.css'
 
 export type TabKey = 'home' | 'approvals' | 'chat' | 'work' | 'projects' | 'clients' | 'library' | 'drive' | 'team' | 'site' | 'agents' | 'ads' | 'ledger' | 'admin'
 
@@ -67,6 +68,12 @@ const ICONS: Record<TabKey, LucideIcon> = {
 }
 const MAIN_TABS: TabKey[] = ['home', 'approvals', 'chat', 'projects', 'site']
 const SHORT: Partial<Record<TabKey, string>> = { approvals: '결제' }
+const NAV_GROUPS: { label: string; tabs: TabKey[] }[] = [
+  { label: '업무', tabs: ['home', 'approvals', 'projects', 'site'] },
+  { label: '협업·자료', tabs: ['chat', 'drive', 'team'] },
+  { label: '운영', tabs: ['agents', 'ads'] },
+  { label: '관리자 전용', tabs: ['ledger', 'admin'] },
+]
 
 export interface Summary {
   myOpenTasks: number
@@ -284,27 +291,33 @@ function ChatDock() {
  * 왼쪽 메뉴 (2026-10-23 "오른쪽 탭은 삭제, 다른 방법"): 아이콘 · 이름 · 처리할 숫자를 한 줄씩
  *  - 맨 위 '+ 새로 만들기' 하나로 할 일 · 결재 · 프로젝트 · 업무 일지 · 메시지 · AI 지시
  */
-function SideNav({ active, summary }: { active: TabKey; summary: Summary }) {
+function SideNav({ active, summary, onExpand }: { active: TabKey; summary: Summary; onExpand: () => void }) {
   const { me } = useApp()
+  const { navigate } = useRouter()
+  const tabs = TABS.filter(t => !t.admin || me.role === 'admin')
   const count = (k: TabKey) => (k === 'approvals' ? summary.pendingToDecide : k === 'chat' ? summary.unread : k === 'projects' ? summary.myOpenTasks : 0)
   return (
     <nav className="side-nav" aria-label="메뉴">
-      <NewMenu />
-      {TABS.filter(t => !t.admin || me.role === 'admin').map((t, i) => {
-        const Icon = ICONS[t.key]
-        const n = count(t.key)
-        // 관리자 전용 메뉴(광고 · 입출금 장부 · 관리)는 구분선 아래로 (대표 지시 2026-11-06 "두 항목은 관리자에게만 노출")
-        const firstAdmin = t.admin && TABS.findIndex(x => x.admin) === TABS.indexOf(t)
-        return (
-          <Fragment key={t.key}>
-          {firstAdmin && <span className="side-sep">관리자 전용</span>}
-          <Link to={t.path} className={`side-item ${t.key === active ? 'on' : ''} ${n && t.key !== 'projects' ? 'has-n' : ''}${t.key === 'chat' ? ' side-chat' : ''}`} title={`${t.label} (Alt+${i + 1})`}>
-            <Icon size={15} aria-hidden="true" />
-            <span className="grow">{t.label}</span>
-            {n > 0 && <span className={`side-n ${t.key === 'projects' ? 'soft' : ''}`}>{n > 99 ? '99+' : n}</span>}
-          </Link>
-          </Fragment>
-        )
+      <NewMenu onExpand={onExpand} />
+      {NAV_GROUPS.map(group => {
+        const items = group.tabs.map(key => tabs.find(t => t.key === key)).filter((t): t is typeof tabs[number] => !!t)
+        if (!items.length) return null
+        return <div className="side-nav-group" key={group.label}>
+          <span className="side-group-label">{group.label}</span>
+          {items.map(t => {
+            const Icon = ICONS[t.key]
+            const n = count(t.key)
+            const index = tabs.indexOf(t)
+            return <a key={t.key} href={t.path} className={`side-item ${t.key === active ? 'on' : ''} ${n && t.key !== 'projects' ? 'has-n' : ''}${t.key === 'chat' ? ' side-chat' : ''}`} aria-current={t.key === active ? 'page' : undefined} title={`${t.label}${index < 9 ? ` (Alt+${index + 1})` : ''}`} onClick={event => {
+              if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return
+              event.preventDefault()
+              navigate(t.path)
+            }}>
+              <Icon size={17} aria-hidden="true" /><span className="grow">{t.label}</span>
+              {n > 0 && <span className={`side-n ${t.key === 'projects' ? 'soft' : ''}`} aria-label={`${t.key === 'approvals' ? '처리할 보고서' : t.key === 'chat' ? '안 읽은 메시지' : '내 할 일'} ${n}개`}>{n > 99 ? '99+' : n}</span>}
+            </a>
+          })}
+        </div>
       })}
       {!!summary.saved && (
         <Link to="/chat?view=saved" className="side-item sub">
@@ -317,16 +330,30 @@ function SideNav({ active, summary }: { active: TabKey; summary: Summary }) {
   )
 }
 
-function NewMenu() {
+function NewMenu({ onExpand }: { onExpand: () => void }) {
   const { navigate } = useRouter()
   const [open, setOpen] = useState(false)
   const [task, setTask] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
+  const trigger = useRef<HTMLButtonElement>(null)
+  const menuId = useId()
   useEffect(() => {
     if (!open) return
     const off = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && setOpen(false)
+    const escape = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      e.preventDefault()
+      setOpen(false)
+      trigger.current?.focus()
+    }
     window.addEventListener('mousedown', off)
-    return () => window.removeEventListener('mousedown', off)
+    window.addEventListener('keydown', escape)
+    const frame = requestAnimationFrame(() => ref.current?.querySelector<HTMLButtonElement>('[role="menuitem"]')?.focus())
+    return () => {
+      window.removeEventListener('mousedown', off)
+      window.removeEventListener('keydown', escape)
+      cancelAnimationFrame(frame)
+    }
   }, [open])
   const items: [string, LucideIcon, () => void][] = [
     ['할 일 · 업무 지시', ListTodo, () => setTask(true)],
@@ -338,11 +365,18 @@ function NewMenu() {
   ]
   return (
     <div className="new-menu" ref={ref}>
-      <button type="button" className="new-btn" onClick={() => setOpen(o => !o)} aria-expanded={open}>
+      <button type="button" ref={trigger} className="new-btn" onClick={() => { if (!open) onExpand(); setOpen(o => !o) }} aria-expanded={open} aria-haspopup="menu" aria-controls={open ? menuId : undefined}>
         <Plus size={15} /> 새로 만들기
       </button>
       {open && (
-        <div className="new-pop" role="menu">
+        <div id={menuId} className="new-pop" role="menu" aria-label="새 업무 만들기" onKeyDown={event => {
+          if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return
+          event.preventDefault()
+          const buttons = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'))
+          const index = buttons.indexOf(document.activeElement as HTMLButtonElement)
+          const next = event.key === 'Home' ? 0 : event.key === 'End' ? buttons.length - 1 : event.key === 'ArrowDown' ? (index + 1) % buttons.length : (index - 1 + buttons.length) % buttons.length
+          buttons[next]?.focus()
+        }}>
           {items.map(([label, Icon, run]) => (
             <button
               key={label}
@@ -442,7 +476,7 @@ function ProfilePanel({ summary, active }: { summary: Summary; active: TabKey })
       <button type="button" className="icon-btn side-unfold" onClick={() => setRail(false)} aria-label="왼쪽 칸 펼치기" title="왼쪽 칸 펼치기">
         <PanelLeftOpen size={16} />
       </button>
-      <SideNav active={active} summary={summary} />
+      <SideNav active={active} summary={summary} onExpand={() => setRail(false)} />
       <MiniCalendar />
       <div className="today-is">
         <span className="t-meta">TODAY IS</span>
@@ -489,7 +523,12 @@ function ProfilePanel({ summary, active }: { summary: Summary; active: TabKey })
             setMsg(me.status_message ?? '')
             setEditing(true)
           }}
-          onKeyDown={e => e.key === 'Enter' && setEditing(true)}
+          onKeyDown={e => {
+            if (e.key !== 'Enter' && e.key !== ' ') return
+            e.preventDefault()
+            setMsg(me.status_message ?? '')
+            setEditing(true)
+          }}
         >
           {me.status_message || <span className="t-muted">오늘의 한마디를 남겨 보세요.</span>}
         </div>
@@ -519,6 +558,7 @@ function SideBrief() {
   const { api, me, version } = useApp()
   const today = todayKey()
   const week = addDays(today, 7)
+  const [expanded, setExpanded] = useState(true)
   const { data } = useAsync(
     async () => {
       const [tasks, payments] = await Promise.all([api.listTasks().catch(() => []), me.role === 'admin' ? api.listPayments().catch(() => []) : Promise.resolve([])])
@@ -546,8 +586,8 @@ function SideBrief() {
     rows.push({ label: '수금 연체', value: lateIn.length ? `${lateIn.length}건 · ${man(lateIn.reduce((n, p) => n + p.amount, 0))}` : '없음', to: '/projects?view=payments&sub=check', tone: lateIn.length ? 'red' : undefined })
   }
   return (
-    <section className="side-brief" aria-label="오늘 브리핑">
-      <b className="sb-title">오늘 브리핑</b>
+    <details className="side-brief" aria-label="오늘 브리핑" open={expanded} onToggle={event => setExpanded(event.currentTarget.open)}>
+      <summary className="sb-title">오늘 브리핑<ChevronDown size={14} aria-hidden="true" /></summary>
       {rows.map(r => (
         <Link key={r.label} to={r.to} className={`sb-row${r.tone ? ` ${r.tone}` : ''}`}>
           <span>{r.label}</span>
@@ -562,7 +602,7 @@ function SideBrief() {
           </b>
         </Link>
       )}
-    </section>
+    </details>
   )
 }
 
@@ -644,6 +684,8 @@ function MiniCalendar() {
               key={d}
               type="button"
               className={`day${d === today ? ' today' : ''}${dow === 0 ? ' sun' : ''}${weekOf && d >= weekOf[0] && d <= weekOf[1] ? ' in-week' : ''}`}
+              aria-label={`${y}년 ${Number(mo)}월 ${Number(d.slice(8))}일${ev ? ` · ${ev.labels.length}개 일정` : ''} · 주간 일정 보기`}
+              aria-current={d === today ? 'date' : undefined}
               title={ev ? ev.labels.join('\n') : '이 주 일정 보기'}
               onClick={() => navigate(`/projects?view=week&date=${d}`)}
             >
@@ -686,22 +728,9 @@ export function Shell({ active, flush, children }: { active: TabKey; flush?: boo
 function OneBox() {
   const ai = useMyAgents()[0]
   return (
-    <div className="top-ai one-box" onClick={() => openCommandPalette()}>
-      <Search size={14} aria-hidden="true" />
-      <input
-        readOnly
-        value=""
-        placeholder={`찾기 · ${ai?.name ?? 'AI'}에게 묻기 · 인터넷 검색`}
-        aria-label="찾기 · AI 에게 묻기 · 인터넷 검색 (Ctrl K)"
-        title="사람 · 프로젝트 · 파일 찾기, AI 에게 묻기, 인터넷 검색"
-        // 한글 입력(IME)이 끊기지 않게, 칸에 들어오면 바로 찾기 창으로 옮겨 그곳에서 입력
-        onFocus={e => {
-          e.currentTarget.blur()
-          openCommandPalette()
-        }}
-      />
-      <kbd className="pc-only">Ctrl K</kbd>
-    </div>
+    <button type="button" className="top-ai one-box" onClick={() => openCommandPalette()} aria-label="통합 검색 열기 (Ctrl K 또는 ⌘ K)" title={`사람 · 프로젝트 · 자료 찾기, ${ai?.name ?? 'AI'}에게 묻기, 인터넷 검색`}>
+      <Search size={17} aria-hidden="true" /><span className="one-box-label">프로젝트·사람·자료 검색</span><span className="one-box-hint">AI에게 묻기</span><kbd className="pc-only">⌘ / Ctrl K</kbd>
+    </button>
   )
 }
 
@@ -719,6 +748,7 @@ export function ShellFrame({ children, initial }: { children: ReactNode; initial
   return (
     <ShellCtx.Provider value={set}>
     <div className={`page app-page tab-${active}`}>
+      <a href="#wkly-main" className="shell-skip-link" onClick={event => { event.preventDefault(); mainRef.current?.focus({ preventScroll: true }); mainRef.current?.scrollTo({ top: 0 }) }}>본문으로 바로가기</a>
       <div className="mini">
         <div className="book">
           <div className="inner">
@@ -754,7 +784,7 @@ export function ShellFrame({ children, initial }: { children: ReactNode; initial
             <div className="body" ref={mountWebSlot}>
               <ProfilePanel summary={summary} active={active} />
               {active !== 'chat' && <ChatDock />}
-              <main ref={mainRef} className={`main ${flush ? 'flush' : ''}`}>
+              <main id="wkly-main" ref={mainRef} tabIndex={-1} aria-label={`${TABS.find(t => t.key === active)?.label ?? '업무'} 본문`} className={`main ${flush ? 'flush' : ''}`}>
                 {/* 화면이 바뀔 때만 가운데 내용이 살짝 나타남 (같은 화면 안 탭 · 검색 이동은 그대로) */}
                 <div className="main-view" key={path}>
                   {children}
