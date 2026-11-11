@@ -20,6 +20,7 @@ import { NewApproval } from './Approvals'
 import { FinancePanel } from '../components/FinancePanel'
 import { ProjectVizLoader } from '../components/ProjectViz'
 import { ProjectBrief } from '../components/ProjectBrief'
+import { KakaoSection } from '../components/KakaoSection'
 import { ProjectClientLink } from '../components/ProjectClientLink'
 import { ProjectMails } from '../components/ProjectMails'
 import { ProjectDashboard } from './ProjectDashboard'
@@ -891,6 +892,8 @@ function ProjectDetail({ project: p, data, onEdit, onBack, panel = false }: { pr
       <ProjectDriveSection project={p} />
       {/* 슬랙 채널 대화 · 공유 파일 가져오기 (대표 지시 2026-11-05) */}
       <SlackSection project={p} />
+      {/* 카카오톡 대화 내보내기 파일 가져오기 (로드맵 1-3 · 2026-11-11) */}
+      <KakaoSection project={p} />
       {/* 회사 메일함에서 이 프로젝트 · 거래처와 연결된 메일 (지메일 · 읽기만) */}
       <ProjectMails project={p} />
       {/* 이 프로젝트의 결재 · 보고: 올린 결재가 있을 때만 (대표 지시 2026-10-31 빈 칸 삭제) */}

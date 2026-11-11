@@ -4483,3 +4483,18 @@ body.dock-resizing iframe { pointer-events: none; }
 .rm-tag.ai { color: #4b3a80; border-color: #c9bcef; background: #f7f4fd; }
 .rm-out { height: 24px; padding: 0 8px; border: 1px solid #f0b4b4; background: #fff; color: var(--red); font: inherit; font-size: var(--fs-cap); cursor: pointer; }
 .rm-out:hover { background: #fde8e8; }
+/* 카카오톡 대화 가져오기 (로드맵 1-3) */
+.kk { display: flex; flex-direction: column; gap: 6px; }
+.kk-preview { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; background: #fffbe6; border: 1px solid #f0d97a; }
+.kk-prev-list { display: flex; flex-direction: column; gap: 2px; padding: 6px 8px; background: #fff; border: 1px solid #f3e6a8; }
+.kk-q { height: 30px; max-width: 280px; font-size: var(--fs-sm); }
+.kk-list { display: flex; flex-direction: column; gap: 4px; max-height: 420px; overflow: auto; padding: 8px 10px; background: #f7f6ef; border: 1px solid var(--line); }
+.kk-day { align-self: center; font-size: var(--fs-cap); color: var(--gray); background: #fff; border: 1px solid var(--line); padding: 1px 10px; margin: 6px 0 4px; }
+.kk-msg { display: grid; grid-template-columns: 42px 76px minmax(0, 1fr); gap: 6px; padding: 3px 0; font-size: var(--fs-sm); line-height: 1.5; }
+.kk-time { font: 11px/1.9 var(--mono); color: var(--gray); }
+.kk-who { color: var(--blue); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kk-text { white-space: pre-wrap; word-break: break-word; }
+.kk-att { display: inline-flex; align-items: center; gap: 3px; font-size: var(--fs-cap); color: #6b5300; background: #fff3c4; padding: 0 5px; margin-right: 4px; }
+.kk-imports { display: flex; flex-direction: column; gap: 3px; }
+.kk-imp { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: var(--fs-cap); padding: 3px 0; border-bottom: 1px dashed var(--line); }
+.kk-file { font-size: var(--fs-cap); color: var(--blue); }

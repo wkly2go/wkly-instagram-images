@@ -8,6 +8,8 @@ const demoSlack: { links: SlackLink[]; messages: SlackMessage[] } = { links: [],
 import type {
   Subscription,
   PersonalEvent,
+  KakaoImport,
+  KakaoMessage,
   TaxInvoice,
   ExchangeFile,
   ProjectDriveFile,
@@ -93,6 +95,8 @@ interface Store {
   payments: Payment[]
   subscriptions?: Subscription[]
   personalEvents?: PersonalEvent[]
+  kakaoImports?: KakaoImport[]
+  kakaoMessages?: KakaoMessage[]
   taxInvoices?: TaxInvoice[]
   material_moves?: MaterialMove[]
   ledger?: LedgerEntry[]
@@ -2289,6 +2293,33 @@ export function createDemoApi(): Api {
       return []
     },
     // 체험 모드 슬랙: 연결된 것처럼 채널 · 대화 예시를 보여 줌 (실제 슬랙 · 드라이브에는 가지 않음)
+    async listKakao(projectId) {
+      return {
+        imports: clone((store.kakaoImports ?? []).filter(x => x.project_id === projectId).sort((a, b) => b.created_at.localeCompare(a.created_at))),
+        messages: clone((store.kakaoMessages ?? []).filter(x => x.project_id === projectId).sort((a, b) => b.sent_at.localeCompare(a.sent_at))),
+      }
+    },
+    async importKakao(projectId, r) {
+      const self = requireMe()
+      const imp: KakaoImport = { id: uid(), project_id: projectId, title: r.title, file_name: r.file_name, files: r.files, message_count: 0, created_by: self, created_at: now() }
+      const list = (store.kakaoMessages ??= [])
+      let added = 0
+      for (const m of r.messages) {
+        if (list.some(x => x.project_id === projectId && x.hash === m.hash)) continue
+        list.push({ ...m, id: uid(), project_id: projectId, import_id: imp.id })
+        added++
+      }
+      imp.message_count = added
+      if (added || r.files.length) (store.kakaoImports ??= []).push(imp)
+      persist()
+      return { added, total: r.messages.length }
+    },
+    async deleteKakaoImport(id) {
+      requireMe()
+      store.kakaoImports = (store.kakaoImports ?? []).filter(x => x.id !== id)
+      store.kakaoMessages = (store.kakaoMessages ?? []).filter(x => x.import_id !== id)
+      persist()
+    },
     async slackStatus() {
       return { connected: true, team: 'THE WKLY (체험)', bot: 'wkly-intranet' }
     },

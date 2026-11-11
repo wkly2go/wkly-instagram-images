@@ -1387,3 +1387,25 @@ export interface SlackChannel {
   is_private: boolean
   is_member: boolean
 }
+
+/** 카카오톡 대화 가져오기 (0105) */
+export interface KakaoImport {
+  id: string
+  project_id: string
+  title: string
+  file_name: string | null
+  message_count: number
+  files: { name: string; url: string }[]
+  created_by: string | null
+  created_at: string
+}
+export interface KakaoMessage {
+  id: string
+  project_id: string
+  import_id: string | null
+  sent_at: string
+  sender: string
+  content: string
+  attachment: string | null
+  hash: string
+}
