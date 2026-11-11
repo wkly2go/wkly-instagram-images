@@ -184,6 +184,8 @@ export function guessBankCols(grid: Grid): BankCols | null {
       }
   if (!best || best.score < 0.7) return null
   const text = Array.from({ length: width }, (_, j) => j).filter(j => j !== date && !numCols.includes(j))
+  // 거래 내용(상대방 · 적요) 칸이 없으면 거래 내역이 아님 (예: 카드 월별 청구 요약표)
+  if (!text.some(j => rows.filter(({ r }) => String(r[j] ?? '').trim() && !isNum(r[j])).length >= rows.length * 0.5)) return null
   const freq = new Map<string, number>()
   for (const { r } of rows) for (const v of new Set(text.map(j => String(r[j] ?? '').trim()))) if (v) freq.set(v, (freq.get(v) ?? 0) + 1)
   const common = new Set([...freq].filter(([, n]) => n >= Math.max(8, rows.length * 0.6)).map(([v]) => v))
@@ -237,7 +239,16 @@ const RULES: { re: RegExp; dir?: LedgerDirection; cat: string; transfer?: boolea
 ]
 const clean = (s: string) => s.replace(/\(주\)|주식회사|㈜|\s/g, '').toLowerCase()
 
+/** 급여 받는 사람 이름 (팀원 + 예전에 인건비로 분류한 상대방) — 대표 지시 2026-11-11 '급여처리' */
+let STAFF = new Set<string>()
+export function setStaffNames(names: string[]) {
+  STAFF = new Set(names.map(n => n.trim()).filter(n => /^[가-힣]{2,4}$/.test(n)))
+}
 export function classify(desc: string, dir: LedgerDirection, amount: number, date: string, payments: Payment[]) {
+  // 0) 팀원 이름으로 보낸 돈 = 급여 (단, 100만 원 단위로 딱 떨어지는 대표 송금 등은 제외)
+  const who = desc.split(' · ')[0].trim()
+  if (dir === '출금' && STAFF.has(who) && amount % 1000000 !== 0)
+    return { category: '인건비', project_id: null, counterparty: who, is_transfer: false, needs_review: false, matched: null }
   // 1) 결제 대장(완료)과 금액 · 날짜(±7일) · 이름으로 맞추기
   const want = dir === '출금' ? '지급' : '수금'
   const d0 = Date.parse(date)
