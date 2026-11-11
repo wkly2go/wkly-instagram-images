@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { ExternalLink, FolderPlus, RefreshCw, Upload } from 'lucide-react'
 import { useApp } from '../lib/app'
 import { driveApi, driveIdOf, listChildren, newFolder, FOLDER_MIME, type GFile } from '../lib/gdrive'
-import { attachEvidence, detectKind, parseBank, parseCardLike, readGrid, type Evidence, type LedgerRow } from '../lib/ledgerImport'
+import { attachEvidence, classify, detectKind, parseBank, parseCardLike, readGrid, type Evidence, type LedgerRow } from '../lib/ledgerImport'
 import { LEDGER_CATEGORIES, type LedgerEntry, type LedgerFile, type Payment } from '../lib/types'
 import { parseHometax } from './TaxInvoices'
 import { Button } from './ui'
@@ -181,6 +181,7 @@ export function LedgerFolder({ onExpired }: { onExpired: () => void }) {
   const [folder, setFolder] = useState<Folder | null | undefined>(undefined)
   const [files, setFiles] = useState<LedgerFile[]>([])
   const [review, setReview] = useState<LedgerEntry[]>([])
+  const [reviewTotal, setReviewTotal] = useState(0)
   const [yearRows, setYearRows] = useState<LedgerEntry[]>([])
   const [busy, setBusy] = useState<string | null>(null)
   const [last, setLast] = useState<ImportResult | null>(null)
@@ -288,7 +289,9 @@ export function LedgerFolder({ onExpired }: { onExpired: () => void }) {
       setFiles(list)
       const y = new Date().getFullYear()
       const all = await api.listLedger(`${y - 1}-01-01`, `${y}-12-31`)
-      setReview(all.filter(r => r.needs_review).slice(0, 80))
+      const rv = all.filter(r => r.needs_review)
+      setReviewTotal(rv.length)
+      setReview(rv.slice(0, 80))
       setYearRows(all)
     } catch {
       onExpired()
@@ -326,6 +329,31 @@ export function LedgerFolder({ onExpired }: { onExpired: () => void }) {
       await load()
     } catch (e) {
       toast(e instanceof Error ? e.message : '가져오지 못했습니다.')
+    } finally {
+      setBusy(null)
+    }
+  }
+  // 새 낱말 규칙으로 '확인 필요' 줄 다시 분류 (대표 지시 2026-11-11 '기존 확인필요 줄도 새 규칙으로')
+  const reclassify = async () => {
+    setBusy('다시 분류하는 중')
+    try {
+      const y = new Date().getFullYear()
+      const all = (await api.listLedger('2000-01-01', `${y}-12-31`)).filter(r => r.needs_review)
+      let n = 0
+      for (const r of all) {
+        const card = r.method === '카드'
+        const desc = card ? r.counterparty ?? '' : [r.counterparty, r.memo].filter(Boolean).join(' · ')
+        // 카드 취소(들어온 돈)는 같은 가게의 출금 규칙으로 알아보고 '이자 · 환급'으로
+        const k = classify(desc, card && r.direction === '입금' ? '출금' : r.direction, r.amount, r.entry_date, [])
+        if (k.needs_review) continue
+        const category = card && r.direction === '입금' ? '이자 · 환급' : k.category
+        await api.saveLedger({ id: r.id, category, needs_review: false, is_transfer: card ? false : k.is_transfer } as Partial<LedgerEntry> as LedgerEntry)
+        n++
+      }
+      toast(`${all.length}건 중 ${n}건을 새 규칙으로 분류했습니다. 남은 ${all.length - n}건은 직접 골라 주세요.`)
+      await load()
+    } catch (e) {
+      toast(e instanceof Error ? e.message : '다시 분류하지 못했습니다.')
     } finally {
       setBusy(null)
     }
@@ -436,7 +464,16 @@ export function LedgerFolder({ onExpired }: { onExpired: () => void }) {
       })()}
 
       <div className="col gap-6">
-        <b>확인 필요 {review.length}건</b>
+        <div className="row" style={{ gap: 8, alignItems: 'center' }}>
+          <b>확인 필요 {reviewTotal}건</b>
+          {reviewTotal > 80 && <span className="t-cap">(먼저 80건만 보입니다)</span>}
+          <span className="grow" />
+          {reviewTotal > 0 && (
+            <Button size="sm" kind="outline" onClick={() => void reclassify()} disabled={!!busy}>
+              <RefreshCw size={13} /> 새 규칙으로 다시 분류
+            </Button>
+          )}
+        </div>
         {review.length === 0 ? (
           <span className="t-cap">자동 분류하지 못한 거래가 없습니다.</span>
         ) : (
