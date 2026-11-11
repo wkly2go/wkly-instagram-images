@@ -135,7 +135,9 @@ export async function processLedgerFiles(api: ReturnType<typeof useApp>['api'], 
       res.files++
       await api.saveLedgerFile({ drive_file_id: f.id, name: f.name, kind, modified_time: f.modified, rows: rows.length, added: r.added, note: note || null })
     } catch (e) {
-      res.errors.push(`${f.name}: ${e instanceof Error ? e.message : String(e)}`)
+      const n = e instanceof DOMException ? e.name : ''
+      const msg = n === 'NotFoundError' || n === 'NotReadableError' ? "파일을 열 수 없습니다. 폴더라면 '폴더째 올리기'로 올리거나, 파일이 다른 프로그램에서 열려 있으면 닫고 다시 올려 주세요." : e instanceof Error ? e.message : String(e)
+      res.errors.push(`${f.name}: ${msg}`)
     }
   }
   // 증빙(세금계산서 · 현금영수증)을 은행 줄에 붙이기
