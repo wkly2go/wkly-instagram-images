@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { ExternalLink, FolderPlus, RefreshCw, Upload } from 'lucide-react'
 import { useApp } from '../lib/app'
 import { driveApi, driveIdOf, listChildren, newFolder, FOLDER_MIME, type GFile } from '../lib/gdrive'
-import { attachEvidence, classify, detectKind, parseBank, parseCardLike, readGrid, type Evidence, type LedgerRow } from '../lib/ledgerImport'
+import { attachEvidence, classify, detectKind, setStaffNames, parseBank, parseCardLike, readGrid, type Evidence, type LedgerRow } from '../lib/ledgerImport'
 import { LEDGER_CATEGORIES, type LedgerEntry, type LedgerFile, type Payment } from '../lib/types'
 import { parseHometax } from './TaxInvoices'
 import { Button } from './ui'
@@ -88,6 +88,16 @@ async function filesFromDrop(dt: DataTransfer): Promise<File[]> {
   return out
 }
 
+/** 급여 분류용 이름: 팀원 + 장부에서 이미 인건비로 분류된 상대방 */
+async function loadStaff(api: ReturnType<typeof useApp>['api']) {
+  const y = new Date().getFullYear()
+  const [people, rows] = await Promise.all([
+    api.listProfiles().catch(() => []),
+    api.listLedger(`${y - 2}-01-01`, `${y}-12-31`).catch(() => [] as LedgerEntry[]),
+  ])
+  setStaffNames([...people.map(p => p.name), ...rows.filter(r => r.category === '인건비' && r.counterparty).map(r => r.counterparty!)])
+}
+
 export interface LedgerInput {
   id: string
   name: string
@@ -98,6 +108,7 @@ export interface LedgerInput {
 export async function processLedgerFiles(api: ReturnType<typeof useApp>['api'], inputs: LedgerInput[], onStep?: (s: string) => void): Promise<ImportResult> {
   const res: ImportResult = { files: 0, added: 0, skipped: 0, review: 0, evidence: 0, errors: [] }
   const payments: Payment[] = await api.listPayments().catch(() => [] as Payment[])
+  await loadStaff(api)
   const evidence: Evidence[] = []
   let minDate = '9999-12-31'
   let maxDate = '0000-01-01'
@@ -338,6 +349,7 @@ export function LedgerFolder({ onExpired }: { onExpired: () => void }) {
     setBusy('다시 분류하는 중')
     try {
       const y = new Date().getFullYear()
+      await loadStaff(api)
       const all = (await api.listLedger('2000-01-01', `${y}-12-31`)).filter(r => r.needs_review)
       let n = 0
       for (const r of all) {
