@@ -2394,6 +2394,9 @@ export function createDemoApi(): Api {
     async gmailStatus() {
       return { connected: false }
     },
+    async gmailRefresh() {
+      return { fetched: 0, saved: 0 }
+    },
     async gmailSync() {
       return { fetched: 0, saved: 0 }
     },

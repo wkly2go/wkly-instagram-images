@@ -1176,6 +1176,20 @@ export function createSupabaseApi(url: string, key: string): Api {
       const { data, error } = await sb.functions.invoke('gmail', { body: { action: 'status' } })
       return error ? null : (data as { connected: boolean; synced_at?: string; fetched?: number; saved?: number })
     },
+    async gmailRefresh() {
+      const { data, error } = await sb.functions.invoke('gmail', { body: { action: 'refresh' } })
+      if (error) {
+        const ctx = (error as { context?: Response }).context
+        let body: { error?: string } = {}
+        try {
+          body = ctx ? await ctx.json() : {}
+        } catch {
+          /* 본문 없음 */
+        }
+        throw new ApiError(body.error || error.message)
+      }
+      return data as { fetched: number; saved: number; skipped?: boolean }
+    },
     async gmailSync(days) {
       const { data, error } = await sb.functions.invoke('gmail', { body: { action: 'sync', days: days ?? 90 } })
       if (error) {
