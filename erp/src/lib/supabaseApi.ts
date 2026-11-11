@@ -1,3 +1,4 @@
+import { createSupabaseMarketingApi } from './marketingApi'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { isHiddenName, isReferencePath } from './gdrive'
 import type { FieldUpload, KakaoImport, KakaoMessage, MailFile, SlackChannel, SlackLink, SlackMessage, LedgerStatus, MailItem, MaterialItem, MaterialMove, MaterialStockRow } from './types'
@@ -168,6 +169,7 @@ export function createSupabaseApi(url: string, key: string): Api {
   }
 
   return {
+    ...createSupabaseMarketingApi(sb),
     mode: 'supabase',
 
     async getSessionUserId() {

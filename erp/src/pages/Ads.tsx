@@ -10,6 +10,7 @@ import { Badge, Chip, Empty, SectionHead } from '../components/ui'
 import { ReportBody } from '../components/Reports'
 import { CompareBars, DayChart, Spark, type Series } from '../components/AdCharts'
 import { SeoPanel } from '../components/SeoPanel'
+import { MarketingDesk } from '../components/MarketingDesk'
 
 const P_COLOR: Record<AdPlatform, string> = { Google: 'var(--blue)', Meta: 'var(--pink)', Naver: 'var(--green)', 기타: 'var(--gray)' }
 const won = (n: number) => `${Math.round(n).toLocaleString('ko-KR')}원`
@@ -18,9 +19,10 @@ const pct = (a: number, b: number) => (b ? `${((a / b) * 100).toFixed(2)}%` : '�
 const shortNum = (n: number) => (n >= 10000 ? `${(n / 10000).toFixed(n >= 100000 ? 0 : 1)}만` : num(n))
 
 type Range = 7 | 14 | 30 | 'month'
-type Tab = 'summary' | 'platform' | 'charts' | 'daily-table' | 'creatives' | 'competitors' | 'overseas' | 'daily' | 'seo'
+type Tab = 'summary' | 'studio' | 'platform' | 'charts' | 'daily-table' | 'creatives' | 'competitors' | 'overseas' | 'daily' | 'seo'
 const TABS: [Tab, string][] = [
   ['summary', '요약'],
+  ['studio', '캠페인 준비'],
   ['platform', '매체별 보고서'],
   ['charts', '그래프'],
   ['daily-table', '일별'],
@@ -56,7 +58,10 @@ export default function Ads() {
   const { api, version } = useApp()
   const { query, path, navigate } = useRouter()
   const tab = (TABS.some(([k]) => k === query.get('tab')) ? query.get('tab') : 'summary') as Tab
-  const setTab = (t: Tab) => navigate(withQuery(path, query, { tab: t === 'summary' ? null : t, id: null }))
+  const setTab = (t: Tab) => {
+    if (t === tab) return
+    navigate(withQuery(path, query, { tab: t === 'summary' ? null : t, id: null }))
+  }
   const today = todayKey()
   const yesterday = addDays(today, -1)
   const [range, setRange] = useState<Range>(14)
@@ -85,7 +90,7 @@ export default function Ads() {
   const showsNumbers = tab === 'summary' || tab === 'platform' || tab === 'charts' || tab === 'daily-table'
   return (
     <Shell active="ads">
-      <div className="chips ad-tabs" role="tablist" aria-label="광고 메뉴">
+      <div className="chips ad-tabs" role="tablist" aria-label="광고 메뉴" style={{ flexShrink: 0 }}>
         {TABS.map(([k, l]) => (
           <Chip key={k} active={tab === k} onClick={() => setTab(k)}>
             {l}
@@ -116,7 +121,9 @@ export default function Ads() {
           <span className="t-cap">{lastUpdate ? `숫자 갱신 ${dateTimeLabel(lastUpdate)} · 매일 07:00 기록 · 09:00 보고` : 'WKLY 총괄이 매일 07:00 어제 숫자를 기록하고 09:00에 보고합니다'}</span>
         </div>
       )}
-      {showsNumbers && data.rows.length === 0 ? (
+      {tab === 'studio' ? (
+        <MarketingDesk />
+      ) : showsNumbers && data.rows.length === 0 ? (
         <Empty>{loading ? '불러오는 중…' : '아직 기록된 광고 숫자가 없습니다. 내일 아침 광고 대시보드 갱신 후 나타납니다.'}</Empty>
       ) : tab === 'summary' ? (
         <Summary rows={rows} prev={prev} days={days} platforms={shownPlatforms} campaigns={data.campaigns} reports={data.reports} goTab={setTab} />
