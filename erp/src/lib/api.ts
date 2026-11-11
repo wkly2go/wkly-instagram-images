@@ -496,6 +496,8 @@ export interface Api {
   fieldUploadSession(f: { name: string; mime: string; size: number; parent: string }): Promise<string | null>
   saveFieldUpload(row: Pick<FieldUpload, 'shot_on' | 'place' | 'memo' | 'project_id' | 'folder_id' | 'folder_url' | 'files'>): Promise<FieldUpload>
   gmailStatus(): Promise<{ connected: boolean; synced_at?: string; fetched?: number; saved?: number } | null>
+  /** 프로젝트 메일 새로고침: 회사 메일함 최근 2일 바로 받기 (팀원 누구나 · 1분에 한 번) */
+  gmailRefresh(): Promise<{ fetched: number; saved: number; skipped?: boolean }>
   gmailSync(days?: number): Promise<{ fetched: number; saved: number }>
   /** 관리자 · 지금 동기화 (full 이면 전체 다시 훑기) */
   driveSync(full?: boolean): Promise<{ mode: 'full' | 'changes'; files: number; changed: number }>

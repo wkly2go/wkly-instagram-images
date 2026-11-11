@@ -321,6 +321,13 @@ Deno.serve(async req => {
       if (admin !== true) return json({ error: '관리자만 할 수 있습니다.' }, 403)
       return json(await saveFiles(Date.now() + 100_000))
     }
+    // 프로젝트 메일 '새로고침' (대표 지시 2026-11-11): 팀원 누구나 · 최근 2일 · 1분에 한 번
+    if (body.action === 'refresh') {
+      const { data: st } = await sb.from('app_settings').select('value').eq('key', 'gmail_sync').maybeSingle()
+      const last = (st?.value as { synced_at?: string } | null)?.synced_at
+      if (last && Date.now() - Date.parse(last) < 60_000) return json({ fetched: 0, saved: 0, skipped: true, synced_at: last })
+      return json(await sync(2))
+    }
     if (body.action === 'sync') {
       if (admin !== true) return json({ error: '관리자만 할 수 있습니다.' }, 403)
       return json(await sync(Math.min(365, Math.max(1, body.days ?? 90))))
