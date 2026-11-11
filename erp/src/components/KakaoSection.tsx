@@ -23,7 +23,7 @@ export function KakaoSection({ project }: { project: Project }) {
   const { api, version, bump, toast, profileName } = useApp()
   const { busy } = useAction()
   const input = useRef<HTMLInputElement>(null)
-  const { data } = useAsync(() => api.listKakao(project.id), [version, project.id], { imports: [] as KakaoImport[], messages: [] as KakaoMessage[] })
+  const { data } = useAsync(() => api.listKakao(project.id), [version, project.id], { imports: [] as KakaoImport[], messages: [] as KakaoMessage[], ready: true as boolean | undefined })
   const [open, setOpen] = useState(false)
   const [all, setAll] = useState(false)
   const [q, setQ] = useState('')
@@ -91,6 +91,8 @@ export function KakaoSection({ project }: { project: Project }) {
     return out
   })()
 
+  // DB(0105)가 아직 없으면 칸을 숨김
+  if (data.ready === false) return null
   return (
     <div className="kk">
       <SectionHead

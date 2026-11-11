@@ -1071,8 +1071,8 @@ export function createSupabaseApi(url: string, key: string): Api {
         sb.from('kakao_imports').select('*').eq('project_id', projectId).order('created_at', { ascending: false }),
         sb.from('kakao_messages').select('*').eq('project_id', projectId).order('sent_at', { ascending: false }).limit(2000),
       ])
-      if (imp.error || msg.error) return { imports: [], messages: [] } // 0105 미적용
-      return { imports: imp.data as KakaoImport[], messages: msg.data as KakaoMessage[] }
+      if (imp.error || msg.error) return { imports: [], messages: [], ready: false } // 0105 미적용 → 칸 숨김
+      return { imports: imp.data as KakaoImport[], messages: msg.data as KakaoMessage[], ready: true }
     },
     async importKakao(projectId, r) {
       const imp = must(await sb.from('kakao_imports').insert({ project_id: projectId, title: r.title, file_name: r.file_name, files: r.files, message_count: 0 }).select('id').single()) as { id: string }

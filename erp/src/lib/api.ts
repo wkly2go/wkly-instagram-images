@@ -472,7 +472,7 @@ export interface Api {
   listProjectMails(projectId: string, clientId: string | null): Promise<MailItem[]>
   /** 슬랙 (0088 · slack-import 함수): 연결 상태 · 토큰 저장(관리자) · 채널 목록 · 프로젝트 연결 · 가져오기 */
   /** 카카오톡 대화 가져오기 (0105) */
-  listKakao(projectId: string): Promise<{ imports: KakaoImport[]; messages: KakaoMessage[] }>
+  listKakao(projectId: string): Promise<{ imports: KakaoImport[]; messages: KakaoMessage[]; ready?: boolean }>
   importKakao(projectId: string, r: { title: string; file_name: string | null; files: { name: string; url: string }[]; messages: Omit<KakaoMessage, 'id' | 'project_id' | 'import_id'>[] }): Promise<{ added: number; total: number }>
   deleteKakaoImport(id: string): Promise<void>
   slackStatus(): Promise<{ connected: boolean; team?: string; bot?: string; error?: string }>

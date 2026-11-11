@@ -4498,3 +4498,9 @@ body.dock-resizing iframe { pointer-events: none; }
 .kk-imports { display: flex; flex-direction: column; gap: 3px; }
 .kk-imp { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: var(--fs-cap); padding: 3px 0; border-bottom: 1px dashed var(--line); }
 .kk-file { font-size: var(--fs-cap); color: var(--blue); }
+/* 프로젝트 화면 제목 = 프로젝트 고르기 (2026-11-11) */
+.proj-pick { position: relative; display: inline-flex; align-items: center; gap: 4px; min-width: 0; max-width: 100%; cursor: pointer; padding: 2px 6px 2px 4px; border: 1px solid transparent; }
+.proj-pick:hover { border-color: var(--line); background: var(--white); }
+.proj-pick h2 { margin: 0; }
+.proj-pick-chev { flex: none; color: var(--blue); }
+.proj-pick select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; border: 0; font-size: 14px; }
