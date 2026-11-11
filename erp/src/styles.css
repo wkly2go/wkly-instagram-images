@@ -4507,3 +4507,21 @@ body.dock-resizing iframe { pointer-events: none; }
 .proj-scope, .proj-cat { height: 28px; padding: 0 22px 0 8px; border: 1px solid var(--line); background-color: var(--white); font: inherit; font-size: var(--fs-cap); font-weight: 700; color: var(--blue); cursor: pointer; }
 .proj-cat { color: var(--ink, #2c2c28); }
 .proj-scope:hover, .proj-cat:hover { border-color: var(--blue); }
+
+/* 프로젝트 머리줄 · 개요 정리 (2026-11-11 "박스가 너무 투박해 · 디자인 시스템 적용")
+   - 개요: 박스 대신 한 줄 정보 띠 (라벨 작은 회색 · 값 진하게 · 사이 가는 구분선)
+   - 상태 · 분류 고르기: 작은 밑줄형 선택 (테두리 없음) */
+.proj-detail .proj-overview { gap: 0; padding: 6px 0 8px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); margin-bottom: 4px; align-items: center; }
+.proj-detail .proj-overview > span { border: 0 !important; border-radius: 0; background: transparent !important; padding: 2px 14px; gap: 6px; font-size: var(--fs-sm); font-weight: 600; color: var(--ink, #1d2b21); position: relative; }
+.proj-detail .proj-overview > span + span::before { content: ''; position: absolute; left: 0; top: 50%; width: 1px; height: 12px; margin-top: -6px; background: var(--line); }
+.proj-detail .proj-overview > span em { font-size: 11px; font-weight: 400; color: var(--gray); letter-spacing: .02em; }
+.proj-detail .proj-overview > span.po-vat { padding: 2px 8px; margin-right: 8px; font-size: 11px; font-weight: 700; color: var(--blue) !important; background: color-mix(in srgb, var(--blue) 8%, #fff) !important; }
+.proj-detail .proj-overview > span.po-vat + span::before { display: none; }
+.proj-detail .proj-overview > span.po-desc { font-weight: 400; color: var(--gray); }
+.proj-scope, .proj-cat { height: 24px; padding: 0 18px 0 4px; border: 0; border-bottom: 1px dashed color-mix(in srgb, var(--blue) 40%, var(--line)); background-color: transparent; background-position: right 2px center; font-size: var(--fs-cap); font-weight: 700; }
+.proj-scope { color: var(--gray); }
+.proj-cat { color: var(--blue); }
+.proj-scope:hover, .proj-cat:hover, .proj-scope:focus, .proj-cat:focus { border-bottom-style: solid; border-bottom-color: var(--blue); outline: none; }
+.proj-detail .proj-head { gap: 8px; }
+.proj-detail .proj-head .btn-sm { height: 28px; }
+.proj-detail .proj-overview > span.po-desc em { margin-right: 6px; }
