@@ -65,6 +65,28 @@ export async function runLedgerImport(api: ReturnType<typeof useApp>['api'], onS
   )
 }
 
+const SHEET_RE = /\.(xlsx|xls|csv)$/i
+/** 끌어다 놓은 것에 폴더가 섞여 있으면 안의 파일까지 모두 꺼냄 (대표 2026-11-11 '자료올리기에 폴더를 넣었는데 오류') */
+async function filesFromDrop(dt: DataTransfer): Promise<File[]> {
+  const entries = [...dt.items].map(i => (i.kind === 'file' ? i.webkitGetAsEntry?.() : null)).filter((e): e is FileSystemEntry => !!e)
+  if (!entries.length) return [...dt.files]
+  const out: File[] = []
+  const walk = async (e: FileSystemEntry): Promise<void> => {
+    if (e.isFile) {
+      out.push(await new Promise<File>((res, rej) => (e as FileSystemFileEntry).file(res, rej)))
+    } else if (e.isDirectory) {
+      const reader = (e as FileSystemDirectoryEntry).createReader()
+      for (;;) {
+        const batch = await new Promise<FileSystemEntry[]>((res, rej) => reader.readEntries(res, rej))
+        if (!batch.length) break
+        for (const c of batch) await walk(c)
+      }
+    }
+  }
+  for (const e of entries) await walk(e)
+  return out
+}
+
 export interface LedgerInput {
   id: string
   name: string
@@ -162,13 +184,19 @@ export function LedgerFolder({ onExpired }: { onExpired: () => void }) {
   // 직접 올리기 (대표 지시 2026-11-11 "그냥 내가 자료를 인트라넷에 올릴께")
   const fileInput = useRef<HTMLInputElement>(null)
   const [over, setOver] = useState(false)
-  const upload = async (list: File[]) => {
-    if (!list.length) return
+  const folderInput = useRef<HTMLInputElement>(null)
+  const upload = async (all: File[]) => {
+    const list = all.filter(f => SHEET_RE.test(f.name) && f.size > 0 && !f.name.startsWith('~$'))
+    const ignored = all.length - list.length
+    if (!list.length) {
+      if (all.length) toast(`엑셀(.xlsx · .xls) · CSV 파일이 없습니다${ignored ? ` (다른 파일 ${ignored}개는 건너뜀)` : ''}.`)
+      return
+    }
     setBusy('올린 파일 읽는 중')
     try {
       const inputs: LedgerInput[] = list.map(f => ({ id: `upload:${f.name}:${f.size}:${f.lastModified}`, name: f.name, modified: String(f.lastModified), load: async () => ({ data: await f.arrayBuffer(), name: f.name }) }))
       const r = await processLedgerFiles(api, inputs, s => setBusy(s))
-      setLast(r)
+      setLast(ignored ? { ...r, errors: [...r.errors, `엑셀 · CSV 가 아닌 파일 ${ignored}개는 건너뛰었습니다`] } : r)
       toast(`${r.files}개 파일 · ${r.added}건 기입${r.skipped ? ` (이미 있던 ${r.skipped}건 건너뜀)` : ''} · 증빙 ${r.evidence}건 연결${r.review ? ` · 확인 필요 ${r.review}건` : ''}`)
       await load()
     } catch (e) {
@@ -182,13 +210,17 @@ export function LedgerFolder({ onExpired }: { onExpired: () => void }) {
       className={`lgf-upload${over ? ' over' : ''}`}
       onDragOver={e => { e.preventDefault(); setOver(true) }}
       onDragLeave={() => setOver(false)}
-      onDrop={e => { e.preventDefault(); setOver(false); void upload([...e.dataTransfer.files]) }}
+      onDrop={e => { e.preventDefault(); setOver(false); void filesFromDrop(e.dataTransfer).then(upload, () => toast('폴더를 읽지 못했습니다.')) }}
     >
       <input ref={fileInput} type="file" multiple hidden accept=".xls,.xlsx,.csv" onChange={e => { const fl = e.target.files ? [...e.target.files] : []; e.target.value = ''; void upload(fl) }} />
       <Button onClick={() => fileInput.current?.click()} disabled={!!busy}>
         <Upload size={14} /> {busy ?? '은행 · 홈택스 파일 올리기'}
       </Button>
-      <span className="t-cap">은행 거래내역(엑셀 · CSV) · 홈택스 세금계산서 목록 · 사업용 카드 · 현금영수증 엑셀을 여러 개 한 번에 고르거나 여기로 끌어다 놓아도 됩니다. 같은 거래는 두 번 들어가지 않습니다.</span>
+      <input ref={folderInput} type="file" multiple hidden {...({ webkitdirectory: '', directory: '' } as Record<string, string>)} onChange={e => { const fl = e.target.files ? [...e.target.files] : []; e.target.value = ''; void upload(fl) }} />
+      <Button kind="outline" onClick={() => folderInput.current?.click()} disabled={!!busy}>
+        <FolderPlus size={14} /> 폴더째 올리기
+      </Button>
+      <span className="t-cap">은행 거래내역(엑셀 · CSV) · 홈택스 세금계산서 목록 · 사업용 카드 · 현금영수증 엑셀을 여러 개 한 번에 고르거나, 폴더째 올리거나, 여기로 끌어다 놓아도 됩니다(폴더 안 엑셀 · CSV 만 읽음). 같은 거래는 두 번 들어가지 않습니다.</span>
     </div>
   )
   // 다른 계정의 폴더 쓰기 (대표 지시 2026-11-11 "폴더 위치를 다른 계정으로")
@@ -310,7 +342,7 @@ export function LedgerFolder({ onExpired }: { onExpired: () => void }) {
           <FolderPlus size={14} /> 회사 드라이브에 폴더 만들기
         </Button>
         <Button kind="outline" onClick={() => setLinking(v => !v)} disabled={!!busy}>
-          다른 계정의 폴더 쓰기
+          다른 계정 폴더 연결
         </Button>
       </div>
       {linking && otherBox}
@@ -341,9 +373,9 @@ export function LedgerFolder({ onExpired }: { onExpired: () => void }) {
           <a className="btn btn-outline btn-sm" href={folder.url} target="_blank" rel="noreferrer">
             <ExternalLink size={13} /> 폴더 열기
           </a>
-          <button type="button" className="link-btn t-cap" onClick={() => setLinking(v => !v)}>
-            폴더 바꾸기 (다른 계정)
-          </button>
+          <Button size="sm" kind="outline" onClick={() => setLinking(v => !v)}>
+            다른 계정 폴더 연결
+          </Button>
           <span className="grow" />
           <Button size="sm" onClick={() => void run()} disabled={!!busy}>
             <RefreshCw size={13} className={busy ? 'spin' : undefined} /> {busy ? `${busy}…` : '새 자료 가져오기'}
