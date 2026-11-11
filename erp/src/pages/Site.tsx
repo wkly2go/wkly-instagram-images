@@ -24,22 +24,39 @@ const readLast = () => {
   }
 }
 
-/** 저장소 경로 → 볼 수 있는 주소 (서명 1시간 · 화면 안에서 기억) */
+/** 저장소 경로 → 볼 수 있는 주소 (API의 사용자별 서명 캐시 공유) */
 function useSignedUrl(path: string | null | undefined) {
-  const { api } = useApp()
-  const [url, setUrl] = useState<string | null>(null)
+  const { api, me } = useApp()
+  const key = JSON.stringify([me.id, path])
+  const [image, setImage] = useState<{ key: string; url: string } | null>(null)
+  const attempt = useRef<{ key: string; active: boolean; retried: boolean; loading: boolean } | null>(null)
   useEffect(() => {
-    let alive = true
-    if (!path) return setUrl(null)
+    const current = { key, active: true, retried: false, loading: true }
+    attempt.current = current
+    if (!path) return
     api
       .sitePhotoUrl(path)
-      .then(u => alive && setUrl(u))
-      .catch(() => alive && setUrl(null))
+      .then(url => current.active && setImage({ key, url }))
+      .catch(() => current.active && setImage(null))
+      .finally(() => { current.loading = false })
     return () => {
-      alive = false
+      current.active = false
     }
-  }, [api, path])
-  return url
+  }, [api, path, key])
+  const retry = () => {
+    const current = attempt.current
+    if (!path || !current?.active || current.key !== key || current.loading) return
+    setImage(null)
+    // A lazy image can first load after its signed URL has expired. Renew only once.
+    if (current.retried) return
+    current.retried = true
+    current.loading = true
+    void api.sitePhotoUrl(path, true)
+      .then(url => current.active && setImage({ key, url }))
+      .catch(() => current.active && setImage(null))
+      .finally(() => { current.loading = false })
+  }
+  return { url: image?.key === key ? image.url : null, retry }
 }
 
 /** 프로젝트 고르기: 상태별로 묶어서 (대표 지시 2026-11-06 "프로젝트를 구분해줘") · 묶음 안은 연번 최신순 */
@@ -252,11 +269,11 @@ function PhotoTab({ project, projects }: { project: Project; projects: Project[]
 }
 
 function Thumb({ shot, item, onOpen, picked }: { shot: SiteShot; item?: SiteSurveyItem; onOpen: () => void; picked?: boolean }) {
-  const url = useSignedUrl(shot.path)
+  const { url, retry } = useSignedUrl(shot.path)
   return (
     <button type="button" className={`site-thumb${picked ? ' picked' : ''}`} onClick={onOpen} aria-pressed={picked}>
       {picked !== undefined && <span className={`site-pick-box${picked ? ' on' : ''}`}>{picked ? <Check size={14} /> : null}</span>}
-      {url ? <img src={url} alt="현장 사진" loading="lazy" /> : <span className="site-thumb-ph" />}
+      {url ? <img src={url} alt="현장 사진" loading="lazy" decoding="async" onError={retry} /> : <span className="site-thumb-ph" />}
       <span className="site-thumb-meta">
         {shot.marks.length ? <b>치수 {shot.marks.length}</b> : <span>치수 없음</span>}
         {item ? <span className="truncate">{item.item}</span> : shot.memo ? <span className="truncate">{shot.memo}</span> : null}
@@ -300,7 +317,7 @@ function MarkLayer({ marks, draft, aspect }: { marks: SiteMark[]; draft?: { x: n
 function MeasureEditor({ shot, items, onClose, onSaved }: { shot: SiteShot; items: SiteSurveyItem[]; onClose: () => void; onSaved: () => void }) {
   const { api } = useApp()
   const { busy, run } = useAction()
-  const url = useSignedUrl(shot.path)
+  const { url, retry } = useSignedUrl(shot.path)
   const [marks, setMarks] = useState<SiteMark[]>(shot.marks ?? [])
   const [first, setFirst] = useState<{ x: number; y: number } | null>(null)
   const [aspect, setAspect] = useState(4 / 3)
@@ -351,7 +368,7 @@ function MeasureEditor({ shot, items, onClose, onSaved }: { shot: SiteShot; item
       <div className="site-editor-body">
         <span className="site-hint">{first ? '끝점을 누르세요' : '사진에서 재고 싶은 곳의 시작점을 누르세요'}</span>
         <div className="ms-photo" ref={box} onPointerUp={tap}>
-          {url && <img src={url} alt="현장 사진" draggable={false} onLoad={e => setAspect(e.currentTarget.naturalWidth / e.currentTarget.naturalHeight || 4 / 3)} />}
+          {url && <img src={url} alt="현장 사진" draggable={false} onError={retry} onLoad={e => setAspect(e.currentTarget.naturalWidth / e.currentTarget.naturalHeight || 4 / 3)} />}
           <MarkLayer marks={marks} draft={first} aspect={aspect} />
         </div>
         <div className="site-marks">
@@ -412,7 +429,7 @@ function PlanTab({ project, projects }: { project: Project; projects: Project[] 
   const [placing, setPlacing] = useState<string | null>(null)
   const [movingPlan, setMovingPlan] = useState(false)
   const [peek, setPeek] = useState<string | null>(null)
-  const planUrl = useSignedUrl(plan?.path)
+  const { url: planUrl, retry: retryPlan } = useSignedUrl(plan?.path)
   const box = useRef<HTMLDivElement>(null)
   const { upload: uploadShots, busy: shotBusy } = useUpload(project, s => {
     reload()
@@ -498,7 +515,7 @@ function PlanTab({ project, projects }: { project: Project; projects: Project[] 
         <>
           {placing && <div className="site-hint on">도면에서 이 사진을 찍은 자리를 누르세요 · <button type="button" onClick={() => setPlacing(null)}>취소</button></div>}
           <div className={`site-plan ${placing ? 'placing' : ''}`} ref={box} onPointerUp={tap}>
-            {planUrl && <img src={planUrl} alt={plan.name} draggable={false} />}
+            {planUrl && <img src={planUrl} alt={plan.name} draggable={false} onError={retryPlan} />}
             {pins.map((s, i) => (
               <button
                 key={s.id}
@@ -530,22 +547,22 @@ function PlanTab({ project, projects }: { project: Project; projects: Project[] 
 }
 
 function PickThumb({ shot, on, onPick }: { shot: SiteShot; on: boolean; onPick: () => void }) {
-  const url = useSignedUrl(shot.path)
+  const { url, retry } = useSignedUrl(shot.path)
   return (
     <button type="button" className={`site-pick-thumb ${on ? 'on' : ''}`} onClick={onPick} aria-pressed={on}>
-      {url ? <img src={url} alt="현장 사진" loading="lazy" /> : <span className="site-thumb-ph" />}
+      {url ? <img src={url} alt="현장 사진" loading="lazy" decoding="async" onError={retry} /> : <span className="site-thumb-ph" />}
       {shot.marks.length > 0 && <b>{shot.marks.length}</b>}
     </button>
   )
 }
 
 function PinPeek({ shot, onMove, onClose }: { shot: SiteShot; onMove: () => void; onClose: () => void }) {
-  const url = useSignedUrl(shot.path)
+  const { url, retry } = useSignedUrl(shot.path)
   const [aspect, setAspect] = useState(4 / 3)
   return (
     <div className="site-peek">
       <div className="ms-photo small">
-        {url && <img src={url} alt="현장 사진" onLoad={e => setAspect(e.currentTarget.naturalWidth / e.currentTarget.naturalHeight || 4 / 3)} />}
+        {url && <img src={url} alt="현장 사진" onError={retry} onLoad={e => setAspect(e.currentTarget.naturalWidth / e.currentTarget.naturalHeight || 4 / 3)} />}
         <MarkLayer marks={shot.marks} aspect={aspect} />
       </div>
       <div className="row" style={{ gap: 8 }}>

@@ -58,7 +58,7 @@ export function useRoomMessages(roomId: string | null) {
     }
     api.listMessages(roomId).then(m => alive && setMessages(m)).catch(e => toast(friendlyError(e)))
     api.markRead(roomId).then(() => pokeChat(0)).then(loadReads).catch(() => undefined)
-    const offReads = api.subscribeChanges(['chat_reads'], loadReadsSoon)
+    const offReads = api.subscribeChanges(['chat_reads'], loadReadsSoon, `room_id=eq.${roomId}`)
     const off = api.subscribeMessages(roomId, ({ type, message }) => {
       setMessages(prev => {
         if (type === 'DELETE') return prev.filter(m => m.id !== message.id)

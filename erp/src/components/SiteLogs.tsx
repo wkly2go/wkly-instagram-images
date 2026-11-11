@@ -7,6 +7,8 @@ import { SITE_SIGNERS, SITE_TRADES, type Client, type MaterialMove, type Project
 import { Board } from './Board'
 import { Button, Help, SectionHead } from './ui'
 import { ask } from './Ask'
+import { friendlyError } from '../lib/api'
+import { openLink } from './WebSearch'
 
 /**
  * 인테리어 현장 작업일지 (대표 지시 2026-10-18 · 엑셀 '작업일지' 양식)
@@ -458,21 +460,49 @@ function SitePhotos({ projectId, photos, onChange }: { projectId: string; photos
 }
 
 function PhotoThumb({ p }: { p: SiteLog['photos'][number] }) {
-  const { api } = useApp()
-  const [src, setSrc] = useState(p.path ? '' : p.url)
+  const { api, me, toast } = useApp()
+  const key = JSON.stringify([me.id, p.path, p.url])
+  const [image, setImage] = useState<{ key: string; url: string } | null>(null)
+  const attempt = useRef<{ key: string; active: boolean; retried: boolean; loading: boolean } | null>(null)
+  const src = p.path ? (image?.key === key ? image.url : '') : p.url
   useEffect(() => {
+    const current = { key, active: true, retried: false, loading: true }
+    attempt.current = current
     if (!p.path) return
-    let live = true
-    api.sitePhotoUrl(p.path).then(u => live && setSrc(u)).catch(() => undefined)
+    api.sitePhotoUrl(p.path).then(url => current.active && setImage({ key, url })).catch(() => undefined).finally(() => { current.loading = false })
     return () => {
-      live = false
+      current.active = false
     }
-  }, [api, p.path])
+  }, [api, p.path, key])
+  const retry = () => {
+    const current = attempt.current
+    if (!p.path || !current?.active || current.key !== key || current.loading) return
+    setImage(null)
+    if (current.retried) return
+    current.retried = true
+    current.loading = true
+    void api.sitePhotoUrl(p.path, true)
+      .then(url => current.active && setImage({ key, url }))
+      .catch(() => undefined)
+      .finally(() => { current.loading = false })
+  }
+  const openOriginal = async () => {
+    const current = attempt.current
+    if (!p.path || !current?.active || current.key !== key) return
+    try {
+      const url = await api.sitePhotoUrl(p.path)
+      if (!current.active) return
+      setImage({ key, url })
+      openLink(url)
+    } catch (e) {
+      if (current.active) toast(friendlyError(e))
+    }
+  }
   if (!src) return <div className="site-photo-img empty" />
   if (!/^(https?:|data:image)/.test(src)) return <div className="site-photo-img empty" />
   return (
-    <a href={src} target="_blank" rel="noreferrer noopener">
-      <img className="site-photo-img" src={src} alt="현장 사진" loading="lazy" />
+    <a href={src} target="_blank" rel="noreferrer noopener" onClick={e => { if (p.path) { e.preventDefault(); void openOriginal() } }}>
+      <img className="site-photo-img" src={src} alt="현장 사진" loading="lazy" decoding="async" onError={retry} />
     </a>
   )
 }
