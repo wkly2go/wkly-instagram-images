@@ -8,7 +8,7 @@
  *  - 분류: 결제 대장(완료)과 금액 · 날짜가 맞으면 그 분류 · 거래처 이름만 참고, 아니면 낱말 규칙, 그래도 모르면 '확인 필요'
  *  - 카드대금 · 내 통장끼리 이체는 is_transfer (합계에서 뺌, 카드는 카드 사용내역으로 따로 잡힘)
  */
-import type { LedgerDirection, Payment } from './types'
+import { LEDGER_CATEGORIES, type LedgerDirection, type Payment } from './types'
 
 export type LedgerFileKind = '은행' | '카드' | '현금영수증' | '세금계산서' | '알 수 없음'
 export interface LedgerRow {
@@ -231,7 +231,10 @@ const RULES: { re: RegExp; dir?: LedgerDirection; cat: string; transfer?: boolea
   { re: /환급|환불/, dir: '입금', cat: '이자 · 환급' },
   { re: /대출이자|이자/, dir: '출금', cat: '이자 · 금융비용' },
   { re: /기술보증기금|보증보험|신용보증/, dir: '출금', cat: '이자 · 금융비용' },
-  { re: /수수료|벤처기업확인|산업연합회/, dir: '출금', cat: '수수료' },
+  { re: /손해보험|화재보험|생명보험|자동차보험/, dir: '출금', cat: '보험료' },
+  { re: /세무서|국세환급|지방세환급/, dir: '입금', cat: '이자 · 환급' },
+  { re: /수수료|벤처기업확인|산업연합회|세무회계|회계법인|노무법인|법무사/, dir: '출금', cat: '수수료' },
+  { re: /고용노동부|고용센터|근로복지공단|중소벤처기업진흥|창업진흥|지원금|보조금/, dir: '입금', cat: '지원금' },
   { re: /네이버|구글|google|메타|facebook|FACEBK|페이스북|인스타|카카오모먼트|광고/i, dir: '출금', cat: '광고비' },
   { re: /(^|[^A-Za-z])KT([^A-Za-z]|$)|SKT|SK텔레콤|LG유플러스|U\+|통신요금|이동통신|인터넷요금/, dir: '출금', cat: '통신비' },
   { re: /adobe|어도비|notion|노션|slack|슬랙|figma|피그마|google workspace|microsoft|aws|구독/i, dir: '출금', cat: '구독 · 소프트웨어' },
@@ -246,12 +249,17 @@ const clean = (s: string) => s.replace(/\(주\)|주식회사|㈜|\s/g, '').toLow
 
 /** 급여 받는 사람 이름 (팀원 + 예전에 인건비로 분류한 상대방) — 대표 지시 2026-11-11 '급여처리' */
 let STAFF = new Set<string>()
+/** 대표 이름 (CLAUDE.md: 대표 박기호) */
+const OWNER = '박기호'
 export function setStaffNames(names: string[]) {
   STAFF = new Set(names.map(n => n.trim()).filter(n => /^[가-힣]{2,4}$/.test(n)))
 }
 export function classify(desc: string, dir: LedgerDirection, amount: number, date: string, payments: Payment[]) {
-  // 0) 팀원 이름으로 보낸 돈 = 급여 (단, 100만 원 단위로 딱 떨어지는 대표 송금 등은 제외)
   const who = desc.split(' · ')[0].trim()
+  // 대표 ↔ 회사 자금 (100만 원 단위 송금 · 대표가 넣은 돈) = 가지급 · 가수 (합계 제외)
+  if (who.startsWith(OWNER) && (dir === '입금' || amount % 1000000 === 0))
+    return { category: '대표 가지급 · 가수', project_id: null, counterparty: who, is_transfer: true, needs_review: false, matched: null }
+  // 0) 팀원 이름으로 보낸 돈 = 급여 (단, 100만 원 단위로 딱 떨어지는 대표 송금 등은 제외)
   if (dir === '출금' && STAFF.has(who) && amount % 1000000 !== 0)
     return { category: '인건비', project_id: null, counterparty: who, is_transfer: false, needs_review: false, matched: null }
   // 1) 결제 대장(완료)과 금액 · 날짜(±7일) · 이름으로 맞추기
@@ -267,7 +275,8 @@ export function classify(desc: string, dir: LedgerDirection, amount: number, dat
   const hit = cands.find(p => sameAmt(p) && near(p) && nameHit(p)) ?? cands.find(p => sameAmt(p) && near(p)) ?? cands.find(p => sameAmt(p) && nameHit(p))
   if (hit)
     return {
-      category: dir === '출금' ? hit.category || '외주 · 협력사' : '매출 · 용역',
+      // 결제 대장의 공종(금속공사 · 부스설치 등)은 회계 분류 '외주 · 협력사'로 (대표 지시 2026-11-11)
+      category: dir === '출금' ? (hit.category && LEDGER_CATEGORIES['출금'].includes(hit.category) ? hit.category : '외주 · 협력사') : '매출 · 용역',
       // 프로젝트와는 연결하지 않음 (대표 지시 2026-11-11)
       project_id: null,
       counterparty: hit.payee || null,
@@ -277,7 +286,14 @@ export function classify(desc: string, dir: LedgerDirection, amount: number, dat
     }
   // 2) 낱말 규칙
   for (const r of RULES) if ((!r.dir || r.dir === dir) && r.re.test(desc)) return { category: r.cat, project_id: null, counterparty: null, is_transfer: !!r.transfer, needs_review: false, matched: null }
-  // 3) 모르면 확인 필요
+  // 3) 계좌이체 기본값 (대표 지시 '전부 반영' 2026-11-11): 회사 · 사람에게 보낸 돈 = 외주 · 협력사, 회사에서 받은 돈 = 매출
+  const company = /\(주\)|（주）|㈜|주식회사|유한회사|법인|건설|디자인|공사|산업|기업/.test(who)
+  const person = /^[가-힣]{2,4}([（(].*)?$/.test(who)
+  if (!/카드|이자|결산/.test(who) && (company || person) && amount >= 10000) {
+    if (dir === '출금') return { category: '외주 · 협력사', project_id: null, counterparty: who, is_transfer: false, needs_review: false, matched: null }
+    if (company) return { category: '매출 · 용역', project_id: null, counterparty: who, is_transfer: false, needs_review: false, matched: null }
+  }
+  // 4) 모르면 확인 필요
   return { category: dir === '입금' ? '기타 입금' : '기타 출금', project_id: null, counterparty: null, is_transfer: false, needs_review: true, matched: null }
 }
 
