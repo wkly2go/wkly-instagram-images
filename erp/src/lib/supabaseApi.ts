@@ -766,23 +766,23 @@ export function createSupabaseApi(url: string, key: string): Api {
     },
     async listAdDaily(from, to) {
       const r = await sb.from('ad_daily').select('*').gte('date', from).lte('date', to).order('date').limit(5000)
-      return r.error ? [] : (r.data as AdDaily[])
+      return must(r) as AdDaily[]
     },
     async listAdCampaigns() {
       const r = await sb.from('ad_campaigns').select('*').order('platform').order('campaign')
-      return r.error ? [] : (r.data as AdCampaign[])
+      return must(r) as AdCampaign[]
     },
     async listAdCreatives() {
       const r = await sb.from('ad_creatives').select('*').order('side').order('updated_at', { ascending: false }).limit(1000)
-      return r.error ? [] : (r.data as AdCreative[])
+      return must(r) as AdCreative[]
     },
     async listAdReports() {
       const r = await sb.from('ad_reports').select('*').order('report_date', { ascending: false }).order('created_at', { ascending: false }).limit(300)
-      return r.error ? [] : (r.data as AdReport[])
+      return must(r) as AdReport[]
     },
     async listSeoChecks() {
       const r = await sb.from('seo_checks').select('*').order('checked_on', { ascending: false }).limit(1000)
-      return r.error ? [] : (r.data as SeoCheck[])
+      return must(r) as SeoCheck[]
     },
     async listReportTemplates() {
       const r = await sb.from('report_templates').select('*').order('is_default', { ascending: false }).order('updated_at', { ascending: false })
