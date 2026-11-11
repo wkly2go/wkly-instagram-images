@@ -135,7 +135,9 @@ export async function processLedgerFiles(api: ReturnType<typeof useApp>['api'], 
       res.files++
       await api.saveLedgerFile({ drive_file_id: f.id, name: f.name, kind, modified_time: f.modified, rows: rows.length, added: r.added, note: note || null })
     } catch (e) {
-      res.errors.push(`${f.name}: ${e instanceof Error ? e.message : String(e)}`)
+      const n = e instanceof DOMException ? e.name : ''
+      const msg = n === 'NotFoundError' || n === 'NotReadableError' ? "파일을 열 수 없습니다. 폴더라면 '폴더 전체 올리기'로 올리거나, 파일이 다른 프로그램에서 열려 있으면 닫고 다시 올려 주세요." : e instanceof Error ? e.message : String(e)
+      res.errors.push(`${f.name}: ${msg}`)
     }
   }
   // 증빙(세금계산서 · 현금영수증)을 은행 줄에 붙이기
@@ -213,14 +215,14 @@ export function LedgerFolder({ onExpired }: { onExpired: () => void }) {
       onDrop={e => { e.preventDefault(); setOver(false); void filesFromDrop(e.dataTransfer).then(upload, () => toast('폴더를 읽지 못했습니다.')) }}
     >
       <input ref={fileInput} type="file" multiple hidden accept=".xls,.xlsx,.csv" onChange={e => { const fl = e.target.files ? [...e.target.files] : []; e.target.value = ''; void upload(fl) }} />
-      <Button onClick={() => fileInput.current?.click()} disabled={!!busy}>
-        <Upload size={14} /> {busy ?? '은행 · 홈택스 파일 올리기'}
-      </Button>
       <input ref={folderInput} type="file" multiple hidden {...({ webkitdirectory: '', directory: '' } as Record<string, string>)} onChange={e => { const fl = e.target.files ? [...e.target.files] : []; e.target.value = ''; void upload(fl) }} />
-      <Button kind="outline" onClick={() => folderInput.current?.click()} disabled={!!busy}>
-        <FolderPlus size={14} /> 폴더째 올리기
+      <Button onClick={() => folderInput.current?.click()} disabled={!!busy}>
+        <FolderPlus size={14} /> {busy ?? '폴더 전체 올리기'}
       </Button>
-      <span className="t-cap">은행 거래내역(엑셀 · CSV) · 홈택스 세금계산서 목록 · 사업용 카드 · 현금영수증 엑셀을 여러 개 한 번에 고르거나, 폴더째 올리거나, 여기로 끌어다 놓아도 됩니다(폴더 안 엑셀 · CSV 만 읽음). 같은 거래는 두 번 들어가지 않습니다.</span>
+      <Button kind="outline" onClick={() => fileInput.current?.click()} disabled={!!busy}>
+        <Upload size={14} /> 파일만 골라 올리기
+      </Button>
+      <span className="t-cap">은행 거래내역(엑셀 · CSV) · 홈택스 세금계산서 목록 · 사업용 카드 · 현금영수증 엑셀을 여러 개 한 번에 고르거나, 폴더 전체를 올리거나, 여기로 끌어다 놓아도 됩니다(폴더 안 엑셀 · CSV 만 읽음). 같은 거래는 두 번 들어가지 않습니다.</span>
     </div>
   )
   // 다른 계정의 폴더 쓰기 (대표 지시 2026-11-11 "폴더 위치를 다른 계정으로")
