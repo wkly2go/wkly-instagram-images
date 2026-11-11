@@ -8,6 +8,7 @@ const demoSlack: { links: SlackLink[]; messages: SlackMessage[] } = { links: [],
 import type {
   Subscription,
   PersonalEvent,
+  LedgerFile,
   KakaoImport,
   KakaoMessage,
   TaxInvoice,
@@ -1350,6 +1351,40 @@ export function createDemoApi(): Api {
     async deleteRecurring(id) {
       requireAdmin()
       store.recurring = (store.recurring ?? []).filter(x => x.id !== id)
+      persist()
+    },
+    async ledgerMeta(key) {
+      return ((store as unknown as { ledgerMeta?: Record<string, unknown> }).ledgerMeta?.[key] ?? null) as never
+    },
+    async setLedgerMeta(key, value) {
+      const st = store as unknown as { ledgerMeta?: Record<string, unknown> }
+      ;(st.ledgerMeta ??= {})[key] = value
+      persist()
+    },
+    async listLedgerFiles() {
+      return clone((store as unknown as { ledgerFiles?: LedgerFile[] }).ledgerFiles ?? [])
+    },
+    async saveLedgerFile(f) {
+      const st = store as unknown as { ledgerFiles?: LedgerFile[] }
+      st.ledgerFiles = [{ ...f, processed_at: now() }, ...(st.ledgerFiles ?? []).filter(x => x.drive_file_id !== f.drive_file_id)]
+      persist()
+    },
+    async importLedgerRows(rows) {
+      let added = 0
+      for (const r of rows) {
+        if (r.source_ref && (store.ledger ?? []).some(x => x.source_ref === r.source_ref)) continue
+        await this.saveLedger(r as Parameters<typeof this.saveLedger>[0])
+        added++
+      }
+      return { added, skipped: rows.length - added }
+    },
+    async listLedgerOpening(year) {
+      const st = store as unknown as { ledgerOpening?: { year: number; account: string; amount: number }[] }
+      return (st.ledgerOpening ?? []).filter(x => x.year === year).map(({ account, amount }) => ({ account, amount }))
+    },
+    async setLedgerOpening(year, account, amount) {
+      const st = store as unknown as { ledgerOpening?: { year: number; account: string; amount: number }[] }
+      st.ledgerOpening = [...(st.ledgerOpening ?? []).filter(x => !(x.year === year && x.account === account)), { year, account, amount }]
       persist()
     },
     async deleteLedger(id) {

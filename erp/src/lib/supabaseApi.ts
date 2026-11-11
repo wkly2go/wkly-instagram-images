@@ -65,6 +65,7 @@ import type {
   SitePlan,
   MeetingRecording,
   LedgerEntry,
+  LedgerFile,
   LedgerRecurring,
 } from './types'
 
@@ -453,6 +454,37 @@ export function createSupabaseApi(url: string, key: string): Api {
       delete body.created_by
       const q = e.id ? sb.from('cash_ledger').update(body).eq('id', e.id) : sb.from('cash_ledger').insert(body)
       return must(await q.select().single()) as LedgerEntry
+    },
+    async ledgerMeta(key) {
+      const { data } = await sb.from('cash_ledger_meta').select('value').eq('key', key).maybeSingle()
+      return (data?.value ?? null) as never
+    },
+    async setLedgerMeta(key, value) {
+      must(await sb.from('cash_ledger_meta').upsert({ key, value, updated_at: new Date().toISOString() }))
+    },
+    async listLedgerFiles() {
+      const { data, error } = await sb.from('cash_ledger_files').select('*').order('processed_at', { ascending: false })
+      return error ? [] : (data as LedgerFile[])
+    },
+    async saveLedgerFile(f) {
+      must(await sb.from('cash_ledger_files').upsert({ ...f, processed_at: new Date().toISOString() }))
+    },
+    async importLedgerRows(rows) {
+      let added = 0
+      for (let i = 0; i < rows.length; i += 300) {
+        const chunk = rows.slice(i, i + 300)
+        const { data, error } = await sb.from('cash_ledger').upsert(chunk, { onConflict: 'source_ref', ignoreDuplicates: true }).select('id')
+        if (error) throw new ApiError(error.message)
+        added += data?.length ?? 0
+      }
+      return { added, skipped: rows.length - added }
+    },
+    async listLedgerOpening(year) {
+      const { data } = await sb.from('cash_ledger_opening').select('account, amount').eq('year', year)
+      return (data ?? []) as { account: string; amount: number }[]
+    },
+    async setLedgerOpening(year, account, amount) {
+      must(await sb.from('cash_ledger_opening').upsert({ year, account, amount, updated_at: new Date().toISOString() }))
     },
     async deleteLedger(id) {
       mustAffect(await sb.from('cash_ledger').delete().eq('id', id).select('id'))

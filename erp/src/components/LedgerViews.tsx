@@ -295,7 +295,8 @@ export function CompareView({ year, onExpired }: { year: string; onExpired: () =
     setLoading(true)
     api
       .listLedger(`${year}-01-01`, `${year}-12-31`)
-      .then(setRows)
+      // 카드대금 · 내 통장끼리 이체는 합계 · 통계에서 뺌 (0106)
+      .then(list => setRows(list.filter(r => !r.is_transfer)))
       .catch(() => onExpired())
       .finally(() => setLoading(false))
   }, [api, year, onExpired])
