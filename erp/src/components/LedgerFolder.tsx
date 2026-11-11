@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ExternalLink, FolderPlus, RefreshCw } from 'lucide-react'
+import { ExternalLink, FolderPlus, RefreshCw, Upload } from 'lucide-react'
 import { useApp } from '../lib/app'
 import { driveApi, driveIdOf, listChildren, newFolder, FOLDER_MIME, type GFile } from '../lib/gdrive'
 import { attachEvidence, detectKind, parseBank, parseCardLike, readGrid, type Evidence, type LedgerRow } from '../lib/ledgerImport'
@@ -57,16 +57,53 @@ export async function runLedgerImport(api: ReturnType<typeof useApp>['api'], onS
     for (const sub of list.filter(f => f.mimeType === FOLDER_MIME)) for (const f of await listChildren(token, sub.id).catch(() => [] as GFile[])) if (f.mimeType !== FOLDER_MIME && isSheet(f)) files.push(f)
   }
   const fresh = files.filter((f, i, a) => a.findIndex(x => x.id === f.id) === i && !doneKey.has(`${f.id}|${f.modifiedTime ?? ''}`))
+  if (!fresh.length) return { files: 0, added: 0, skipped: 0, review: 0, evidence: 0, errors: [] }
+  return processLedgerFiles(
+    api,
+    fresh.map(f => ({ id: f.id, name: f.name, modified: f.modifiedTime ?? null, load: () => download(token, f) })),
+    onStep,
+  )
+}
+
+const SHEET_RE = /\.(xlsx|xls|csv)$/i
+/** 끌어다 놓은 것에 폴더가 섞여 있으면 안의 파일까지 모두 꺼냄 (대표 2026-11-11 '자료올리기에 폴더를 넣었는데 오류') */
+async function filesFromDrop(dt: DataTransfer): Promise<File[]> {
+  const entries = [...dt.items].map(i => (i.kind === 'file' ? i.webkitGetAsEntry?.() : null)).filter((e): e is FileSystemEntry => !!e)
+  if (!entries.length) return [...dt.files]
+  const out: File[] = []
+  const walk = async (e: FileSystemEntry): Promise<void> => {
+    if (e.isFile) {
+      out.push(await new Promise<File>((res, rej) => (e as FileSystemFileEntry).file(res, rej)))
+    } else if (e.isDirectory) {
+      const reader = (e as FileSystemDirectoryEntry).createReader()
+      for (;;) {
+        const batch = await new Promise<FileSystemEntry[]>((res, rej) => reader.readEntries(res, rej))
+        if (!batch.length) break
+        for (const c of batch) await walk(c)
+      }
+    }
+  }
+  for (const e of entries) await walk(e)
+  return out
+}
+
+export interface LedgerInput {
+  id: string
+  name: string
+  modified: string | null
+  load: () => Promise<{ data: ArrayBuffer; name: string }>
+}
+/** 파일들을 읽어 분류 · 기입 (드라이브 폴더 · 직접 올리기 공통) */
+export async function processLedgerFiles(api: ReturnType<typeof useApp>['api'], inputs: LedgerInput[], onStep?: (s: string) => void): Promise<ImportResult> {
   const res: ImportResult = { files: 0, added: 0, skipped: 0, review: 0, evidence: 0, errors: [] }
-  if (!fresh.length) return res
   const payments: Payment[] = await api.listPayments().catch(() => [] as Payment[])
   const evidence: Evidence[] = []
   let minDate = '9999-12-31'
   let maxDate = '0000-01-01'
-  for (const f of fresh) {
+  for (const f of inputs) {
     onStep?.(`${f.name} 읽는 중`)
     try {
-      const { data, name } = await download(token, f)
+      const { data, name } = await f.load()
       const grids = await readGrid(data, name)
       const { kind, grid, hi } = detectKind(grids, name)
       let rows: LedgerRow[] = []
@@ -96,9 +133,11 @@ export async function runLedgerImport(api: ReturnType<typeof useApp>['api'], onS
       res.skipped += r.skipped
       res.review += rows.filter(x => x.needs_review).length
       res.files++
-      await api.saveLedgerFile({ drive_file_id: f.id, name: f.name, kind, modified_time: f.modifiedTime ?? null, rows: rows.length, added: r.added, note: note || null })
+      await api.saveLedgerFile({ drive_file_id: f.id, name: f.name, kind, modified_time: f.modified, rows: rows.length, added: r.added, note: note || null })
     } catch (e) {
-      res.errors.push(`${f.name}: ${e instanceof Error ? e.message : String(e)}`)
+      const n = e instanceof DOMException ? e.name : ''
+      const msg = n === 'NotFoundError' || n === 'NotReadableError' ? "파일을 열 수 없습니다. 폴더라면 '폴더 전체 올리기'로 올리거나, 파일이 다른 프로그램에서 열려 있으면 닫고 다시 올려 주세요." : e instanceof Error ? e.message : String(e)
+      res.errors.push(`${f.name}: ${msg}`)
     }
   }
   // 증빙(세금계산서 · 현금영수증)을 은행 줄에 붙이기
@@ -144,6 +183,48 @@ export function LedgerFolder({ onExpired }: { onExpired: () => void }) {
   const [yearRows, setYearRows] = useState<LedgerEntry[]>([])
   const [busy, setBusy] = useState<string | null>(null)
   const [last, setLast] = useState<ImportResult | null>(null)
+  // 직접 올리기 (대표 지시 2026-11-11 "그냥 내가 자료를 인트라넷에 올릴께")
+  const fileInput = useRef<HTMLInputElement>(null)
+  const [over, setOver] = useState(false)
+  const folderInput = useRef<HTMLInputElement>(null)
+  const upload = async (all: File[]) => {
+    const list = all.filter(f => SHEET_RE.test(f.name) && f.size > 0 && !f.name.startsWith('~$'))
+    const ignored = all.length - list.length
+    if (!list.length) {
+      if (all.length) toast(`엑셀(.xlsx · .xls) · CSV 파일이 없습니다${ignored ? ` (다른 파일 ${ignored}개는 건너뜀)` : ''}.`)
+      return
+    }
+    setBusy('올린 파일 읽는 중')
+    try {
+      const inputs: LedgerInput[] = list.map(f => ({ id: `upload:${f.name}:${f.size}:${f.lastModified}`, name: f.name, modified: String(f.lastModified), load: async () => ({ data: await f.arrayBuffer(), name: f.name }) }))
+      const r = await processLedgerFiles(api, inputs, s => setBusy(s))
+      setLast(ignored ? { ...r, errors: [...r.errors, `엑셀 · CSV 가 아닌 파일 ${ignored}개는 건너뛰었습니다`] } : r)
+      toast(`${r.files}개 파일 · ${r.added}건 기입${r.skipped ? ` (이미 있던 ${r.skipped}건 건너뜀)` : ''} · 증빙 ${r.evidence}건 연결${r.review ? ` · 확인 필요 ${r.review}건` : ''}`)
+      await load()
+    } catch (e) {
+      toast(e instanceof Error ? e.message : '읽지 못했습니다.')
+    } finally {
+      setBusy(null)
+    }
+  }
+  const uploadBox = (
+    <div
+      className={`lgf-upload${over ? ' over' : ''}`}
+      onDragOver={e => { e.preventDefault(); setOver(true) }}
+      onDragLeave={() => setOver(false)}
+      onDrop={e => { e.preventDefault(); setOver(false); void filesFromDrop(e.dataTransfer).then(upload, () => toast('폴더를 읽지 못했습니다.')) }}
+    >
+      <input ref={fileInput} type="file" multiple hidden accept=".xls,.xlsx,.csv" onChange={e => { const fl = e.target.files ? [...e.target.files] : []; e.target.value = ''; void upload(fl) }} />
+      <input ref={folderInput} type="file" multiple hidden {...({ webkitdirectory: '', directory: '' } as Record<string, string>)} onChange={e => { const fl = e.target.files ? [...e.target.files] : []; e.target.value = ''; void upload(fl) }} />
+      <Button onClick={() => folderInput.current?.click()} disabled={!!busy}>
+        <FolderPlus size={14} /> {busy ?? '폴더 전체 올리기'}
+      </Button>
+      <Button kind="outline" onClick={() => fileInput.current?.click()} disabled={!!busy}>
+        <Upload size={14} /> 파일만 골라 올리기
+      </Button>
+      <span className="t-cap">은행 거래내역(엑셀 · CSV) · 홈택스 세금계산서 목록 · 사업용 카드 · 현금영수증 엑셀을 여러 개 한 번에 고르거나, 폴더 전체를 올리거나, 여기로 끌어다 놓아도 됩니다(폴더 안 엑셀 · CSV 만 읽음). 같은 거래는 두 번 들어가지 않습니다.</span>
+    </div>
+  )
   // 다른 계정의 폴더 쓰기 (대표 지시 2026-11-11 "폴더 위치를 다른 계정으로")
   const [linking, setLinking] = useState(false)
   const [link, setLink] = useState('')
@@ -254,33 +335,49 @@ export function LedgerFolder({ onExpired }: { onExpired: () => void }) {
   }
 
   if (folder === undefined) return <span className="t-cap">불러오는 중…</span>
-  if (!folder)
-    return (
-      <div className="lgf-empty">
-        <b>회계 자료 폴더가 아직 없습니다</b>
-        <span className="t-cap">구글 드라이브에 '회계 자료 (입출금 장부)' 폴더와 그 안에 '은행 거래내역' · '홈택스 자료' 폴더를 만듭니다. 여기에 파일을 넣으면 장부를 열 때마다 자동으로 분류해 기입합니다.</span>
-        <div className="row" style={{ gap: 6 }}>
-          <Button onClick={() => void create()} disabled={!!busy}>
-            <FolderPlus size={14} /> 회사 드라이브에 폴더 만들기
-          </Button>
-          <Button kind="outline" onClick={() => setLinking(true)} disabled={!!busy}>
-            다른 계정의 폴더 쓰기
-          </Button>
-        </div>
-        {linking && otherBox}
+  const noFolder = (
+    <div className="lgf-box">
+      <b>구글 드라이브 폴더 (선택)</b>
+      <span className="t-cap">파일을 드라이브 폴더에 넣어 두면 장부를 열 때마다 자동으로 읽게 할 수도 있습니다. 직접 올리기만 쓰셔도 됩니다.</span>
+      <div className="row" style={{ gap: 6 }}>
+        <Button kind="outline" onClick={() => void create()} disabled={!!busy}>
+          <FolderPlus size={14} /> 회사 드라이브에 폴더 만들기
+        </Button>
+        <Button kind="outline" onClick={() => setLinking(v => !v)} disabled={!!busy}>
+          다른 계정 폴더 연결
+        </Button>
       </div>
-    )
+      {linking && otherBox}
+    </div>
+  )
   return (
     <div className="lgf col gap-12">
+      <div className="lgf-box">
+        <b>은행 · 홈택스 자료 올리기</b>
+        {uploadBox}
+        {last && (
+          <div className="t-cap">
+            방금 {last.files}개 파일 · {last.added}건 기입{last.skipped ? ` · 이미 있던 ${last.skipped}건 건너뜀` : ''} · 증빙 {last.evidence}건 연결{last.review ? ` · 확인 필요 ${last.review}건` : ''}
+          </div>
+        )}
+        {last && last.errors.length > 0 && (
+          <div className="lgf-err t-cap">
+            {last.errors.map(e => (
+              <div key={e}>⚠ {e}</div>
+            ))}
+          </div>
+        )}
+      </div>
+      {!folder ? noFolder : (
       <div className="lgf-box">
         <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
           <b>회계 자료 폴더</b>
           <a className="btn btn-outline btn-sm" href={folder.url} target="_blank" rel="noreferrer">
             <ExternalLink size={13} /> 폴더 열기
           </a>
-          <button type="button" className="link-btn t-cap" onClick={() => setLinking(v => !v)}>
-            폴더 바꾸기 (다른 계정)
-          </button>
+          <Button size="sm" kind="outline" onClick={() => setLinking(v => !v)}>
+            다른 계정 폴더 연결
+          </Button>
           <span className="grow" />
           <Button size="sm" onClick={() => void run()} disabled={!!busy}>
             <RefreshCw size={13} className={busy ? 'spin' : undefined} /> {busy ? `${busy}…` : '새 자료 가져오기'}
@@ -297,14 +394,8 @@ export function LedgerFolder({ onExpired }: { onExpired: () => void }) {
           <li>장부를 열 때마다 새로 넣은(또는 바뀐) 파일만 읽습니다. 같은 거래는 두 번 들어가지 않습니다.</li>
           <li>은행 · 카드 자료가 기준입니다. 결제 대장과 금액 · 날짜가 맞으면 그 분류 · 거래처 이름만 참고하고(프로젝트와는 연결하지 않음), 아니면 낱말로 분류합니다. 카드대금 · 내 통장끼리 이체는 합계에서 뺍니다.</li>
         </ul>
-        {last && last.errors.length > 0 && (
-          <div className="lgf-err t-cap">
-            {last.errors.map(e => (
-              <div key={e}>⚠ {e}</div>
-            ))}
-          </div>
-        )}
       </div>
+      )}
 
       {/* 통장별 잔고 대조 (2026-11-11): 은행 파일의 '거래 후 잔액'과 기입된 입출금 합계가 맞는지 → 다르면 빠진 거래가 있음 */}
       {(() => {
@@ -380,7 +471,7 @@ export function LedgerFolder({ onExpired }: { onExpired: () => void }) {
       <div className="col gap-6">
         <b>처리한 파일 {files.length}개</b>
         {files.length === 0 ? (
-          <span className="t-cap">아직 처리한 파일이 없습니다. 폴더에 파일을 넣고 '새 자료 가져오기'를 누르세요.</span>
+          <span className="t-cap">아직 처리한 파일이 없습니다. 위 '은행 · 홈택스 파일 올리기'로 올려 주세요.</span>
         ) : (
           <table className="lgf-table">
             <tbody>
