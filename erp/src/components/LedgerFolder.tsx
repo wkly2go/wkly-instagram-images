@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ExternalLink, FolderPlus, RefreshCw } from 'lucide-react'
 import { useApp } from '../lib/app'
-import { driveApi, listChildren, newFolder, FOLDER_MIME, type GFile } from '../lib/gdrive'
+import { driveApi, driveIdOf, listChildren, newFolder, FOLDER_MIME, type GFile } from '../lib/gdrive'
 import { attachEvidence, detectKind, parseBank, parseCardLike, readGrid, type Evidence, type LedgerRow } from '../lib/ledgerImport'
 import { LEDGER_CATEGORIES, type LedgerEntry, type LedgerFile, type Payment } from '../lib/types'
 import { parseHometax } from './TaxInvoices'
@@ -144,6 +144,60 @@ export function LedgerFolder({ onExpired }: { onExpired: () => void }) {
   const [yearRows, setYearRows] = useState<LedgerEntry[]>([])
   const [busy, setBusy] = useState<string | null>(null)
   const [last, setLast] = useState<ImportResult | null>(null)
+  // 다른 계정의 폴더 쓰기 (대표 지시 2026-11-11 "폴더 위치를 다른 계정으로")
+  const [linking, setLinking] = useState(false)
+  const [link, setLink] = useState('')
+  const [companyAcct, setCompanyAcct] = useState<string | null>(null)
+  useEffect(() => {
+    void api.driveStatus().then(s => setCompanyAcct(s?.account ?? null), () => undefined)
+  }, [api])
+  const useOther = async () => {
+    const id = driveIdOf(link.trim()) ?? (/^[A-Za-z0-9_-]{15,}$/.test(link.trim()) ? link.trim() : null)
+    if (!id) return toast('구글 드라이브 폴더 주소를 붙여 넣어 주세요.')
+    setBusy('폴더 확인 중')
+    try {
+      const tk = await api.driveAccessToken()
+      if (!tk) throw new Error('회사 구글 드라이브 연결이 필요합니다.')
+      const meta = await driveApi<GFile & { capabilities?: { canAddChildren?: boolean } }>(tk.token, `files/${id}?supportsAllDrives=true&fields=id,name,mimeType,webViewLink,capabilities(canAddChildren)`).catch(() => null)
+      if (!meta) throw new Error(`이 폴더를 열 수 없습니다. 다른 계정에서 폴더를 ${companyAcct ?? '회사 드라이브 계정'}에 공유(편집자)했는지 확인해 주세요.`)
+      if (meta.mimeType !== FOLDER_MIME) throw new Error('파일이 아니라 폴더 주소를 넣어 주세요.')
+      // 안에 '은행' · '홈택스' 이름 폴더가 있으면 그대로 쓰고, 없으면 폴더 하나에 다 넣어도 읽음
+      const subs = await listChildren(tk.token, id, { foldersOnly: true }).catch(() => [] as GFile[])
+      const bank = subs.find(f => /은행/.test(f.name))?.id ?? id
+      const hometax = subs.find(f => /홈택스|hometax/i.test(f.name))?.id ?? id
+      const f: Folder = { root: id, bank, hometax, url: meta.webViewLink ?? `https://drive.google.com/drive/folders/${id}` }
+      await api.setLedgerMeta('folder', f)
+      setFolder(f)
+      setLinking(false)
+      setLink('')
+      toast(`'${meta.name}' 폴더를 회계 자료 폴더로 정했습니다.`)
+    } catch (e) {
+      toast(e instanceof Error ? e.message : '폴더를 정하지 못했습니다.')
+    } finally {
+      setBusy(null)
+    }
+  }
+  const otherBox = (
+    <div className="lgf-other">
+      <b>다른 구글 계정의 폴더 쓰기</b>
+      <ol className="t-cap">
+        <li>다른 계정의 구글 드라이브에서 폴더를 만듭니다 (안에 '은행 거래내역' · '홈택스 자료' 폴더를 만들어도 되고, 한 폴더에 다 넣어도 됩니다).</li>
+        <li>
+          그 폴더를 <b>{companyAcct ?? '회사 드라이브 계정'}</b>에 <b>편집자</b>로 공유합니다 (폴더 › 공유 › 사용자 추가).
+        </li>
+        <li>폴더 주소를 아래에 붙여 넣고 '이 폴더로 정하기'를 누릅니다.</li>
+      </ol>
+      <div className="row" style={{ gap: 6 }}>
+        <input className="input" style={{ flex: 1 }} value={link} onChange={e => setLink(e.target.value)} placeholder="https://drive.google.com/drive/folders/…" />
+        <Button size="sm" onClick={() => void useOther()} disabled={!!busy || !link.trim()}>
+          이 폴더로 정하기
+        </Button>
+        <Button size="sm" kind="ghost" onClick={() => setLinking(false)}>
+          닫기
+        </Button>
+      </div>
+    </div>
+  )
 
   const load = useCallback(async () => {
     try {
@@ -205,24 +259,34 @@ export function LedgerFolder({ onExpired }: { onExpired: () => void }) {
       <div className="lgf-empty">
         <b>회계 자료 폴더가 아직 없습니다</b>
         <span className="t-cap">구글 드라이브에 '회계 자료 (입출금 장부)' 폴더와 그 안에 '은행 거래내역' · '홈택스 자료' 폴더를 만듭니다. 여기에 파일을 넣으면 장부를 열 때마다 자동으로 분류해 기입합니다.</span>
-        <Button onClick={() => void create()} disabled={!!busy}>
-          <FolderPlus size={14} /> 회계 자료 폴더 만들기
-        </Button>
+        <div className="row" style={{ gap: 6 }}>
+          <Button onClick={() => void create()} disabled={!!busy}>
+            <FolderPlus size={14} /> 회사 드라이브에 폴더 만들기
+          </Button>
+          <Button kind="outline" onClick={() => setLinking(true)} disabled={!!busy}>
+            다른 계정의 폴더 쓰기
+          </Button>
+        </div>
+        {linking && otherBox}
       </div>
     )
   return (
     <div className="lgf col gap-12">
       <div className="lgf-box">
         <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
-          <b>구글 드라이브 › 회계 자료 (입출금 장부)</b>
+          <b>회계 자료 폴더</b>
           <a className="btn btn-outline btn-sm" href={folder.url} target="_blank" rel="noreferrer">
             <ExternalLink size={13} /> 폴더 열기
           </a>
+          <button type="button" className="link-btn t-cap" onClick={() => setLinking(v => !v)}>
+            폴더 바꾸기 (다른 계정)
+          </button>
           <span className="grow" />
           <Button size="sm" onClick={() => void run()} disabled={!!busy}>
             <RefreshCw size={13} className={busy ? 'spin' : undefined} /> {busy ? `${busy}…` : '새 자료 가져오기'}
           </Button>
         </div>
+        {linking && otherBox}
         <ul className="lgf-guide t-cap">
           <li>
             <b>은행 거래내역</b> 폴더: 인터넷뱅킹 › 거래내역 조회 › 엑셀(또는 CSV) 저장 파일. 통장마다 파일을 따로 넣어도 됩니다.
