@@ -4525,3 +4525,18 @@ body.dock-resizing iframe { pointer-events: none; }
 .proj-detail .proj-head { gap: 8px; }
 .proj-detail .proj-head .btn-sm { height: 28px; }
 .proj-detail .proj-overview > span.po-desc em { margin-right: 6px; }
+/* 회계 자료 폴더 (2026-11-11) */
+.lgf-empty { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; padding: 18px; border: 1px dashed var(--line); background: var(--white); }
+.lgf-box { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; background: var(--white); border: 1px solid var(--line); border-top: 3px solid var(--pink); }
+.lgf-guide { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 3px; }
+.lgf-err { padding: 8px 10px; background: #fff3f3; border: 1px solid #f0b4b4; color: var(--red); }
+.lgf-table { width: 100%; border-collapse: collapse; background: var(--white); font-size: var(--fs-sm); }
+.lgf-table td { padding: 6px 8px; border-bottom: 1px solid var(--line); max-width: 380px; }
+.lgf-table td.in { color: var(--blue); font-family: var(--mono); font-weight: 700; text-align: right; }
+.lgf-table td.out { color: var(--red); font-family: var(--mono); font-weight: 700; text-align: right; }
+.lgf-table .select { height: 28px; font-size: var(--fs-cap); }
+.lg-tag { display: inline-block; margin-left: 5px; font-size: 10.5px; font-weight: 700; padding: 0 4px; border: 1px solid var(--line); color: var(--gray); vertical-align: 1px; }
+.lg-tag.rv { color: #8a5a00; border-color: #e3c27a; background: #fff8e6; }
+.lg-tag.ev { color: var(--blue); border-color: color-mix(in srgb, var(--blue) 30%, #fff); }
+tr.lg-transfer td { color: var(--gray) !important; }
+tr.lg-review td:first-child { box-shadow: inset 3px 0 0 #e0a800; }

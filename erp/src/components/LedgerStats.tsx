@@ -90,7 +90,8 @@ export function LedgerStats({ year, onExpired }: { year: string; onExpired: () =
     setLoading(true)
     api
       .listLedger(`${addMonths(a, -12)}-01`, monthEnd(b > thisMonth ? b : thisMonth))
-      .then(setRows)
+      // 카드대금 · 내 통장끼리 이체는 합계 · 통계에서 뺌 (0106)
+      .then(list => setRows(list.filter(r => !r.is_transfer)))
       .catch(() => onExpired())
       .finally(() => setLoading(false))
   }, [api, a, b, thisMonth, onExpired])

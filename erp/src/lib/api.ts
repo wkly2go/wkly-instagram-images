@@ -1,5 +1,5 @@
 import type { AccessSource } from './desktop'
-import type { LedgerEntry, LedgerRecurring, LedgerStatus, MaterialItem, MaterialMove, MaterialStockRow,
+import type { LedgerEntry, LedgerFile, LedgerRecurring, LedgerStatus, MaterialItem, MaterialMove, MaterialStockRow,
   AiAgent,
   AgentSchedule,
   ActivityInputKind,
@@ -289,6 +289,15 @@ export interface Api {
   listLedger(from: string, to: string): Promise<LedgerEntry[]>
   saveLedger(e: Draft<LedgerEntry>): Promise<LedgerEntry>
   deleteLedger(id: number): Promise<void>
+  /** 회계 자료 폴더 자동 기입 (0106) */
+  ledgerMeta<T = unknown>(key: string): Promise<T | null>
+  setLedgerMeta(key: string, value: unknown): Promise<void>
+  listLedgerFiles(): Promise<LedgerFile[]>
+  saveLedgerFile(f: Omit<LedgerFile, 'processed_at'>): Promise<void>
+  /** 같은 source_ref 는 건너뜀 */
+  importLedgerRows(rows: Partial<LedgerEntry>[]): Promise<{ added: number; skipped: number }>
+  listLedgerOpening(year: number): Promise<{ account: string; amount: number }[]>
+  setLedgerOpening(year: number, account: string, amount: number): Promise<void>
   listRecurring(): Promise<LedgerRecurring[]>
   saveRecurring(r: Draft<LedgerRecurring>): Promise<LedgerRecurring>
   deleteRecurring(id: number): Promise<void>

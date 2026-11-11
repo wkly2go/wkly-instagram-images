@@ -181,7 +181,7 @@ export function TaxInvoices({ projects }: { projects: Project[] }) {
 }
 
 /** 홈택스 '전자(수정) 세금계산서 목록조회' 엑셀 → 행 (매출 · 매입 둘 다) */
-async function parseHometax(file: File): Promise<TaxInvoiceDraft[]> {
+export async function parseHometax(file: File): Promise<TaxInvoiceDraft[]> {
   const XLSX = await import('xlsx')
   const wb = XLSX.read(await file.arrayBuffer(), { type: 'array' })
   const ws = wb.Sheets[wb.SheetNames[0]]

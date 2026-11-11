@@ -1207,6 +1207,18 @@ export interface LedgerEntry {
   project_id: string | null
   /** 정기 출금에서 기록한 것 (0064) */
   recurring_id?: number | null
+  /** 0106 회계 자료 폴더 자동 기입 */
+  account?: string | null
+  source?: '수기' | '은행' | '홈택스' | '결제대장'
+  source_ref?: string | null
+  supply?: number | null
+  vat?: number | null
+  evidence?: string | null
+  balance_after?: number | null
+  /** 카드대금 · 내 통장끼리 이체 (합계에서 뺌) */
+  is_transfer?: boolean
+  needs_review?: boolean
+  file_id?: string | null
   created_by: string
   created_at: string
   updated_at: string
@@ -1408,4 +1420,16 @@ export interface KakaoMessage {
   content: string
   attachment: string | null
   hash: string
+}
+
+/** 회계 자료 폴더에서 처리한 파일 (0106) */
+export interface LedgerFile {
+  drive_file_id: string
+  name: string
+  kind: string
+  modified_time: string | null
+  rows: number
+  added: number
+  note: string | null
+  processed_at: string
 }

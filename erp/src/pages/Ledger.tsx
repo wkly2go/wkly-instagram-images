@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
-import { BarChart3, CalendarClock, PieChart, ChevronLeft, ChevronRight, Download, KeyRound, Lock, Pencil, Search, Trash2, Wallet, X } from 'lucide-react'
+import { BarChart3, CalendarClock, FolderInput, PieChart, ChevronLeft, ChevronRight, Download, KeyRound, Lock, Pencil, Search, Trash2, Wallet, X } from 'lucide-react'
 import { CompareView, RecurringView } from '../components/LedgerViews'
 import { LedgerStats } from '../components/LedgerStats'
+import { LedgerFolder, useLedgerAutoImport } from '../components/LedgerFolder'
 import { Shell } from '../components/Shell'
 import { Button, Empty, Field, Modal, ViewTabs } from '../components/ui'
 import { ask } from '../components/Ask'
@@ -114,8 +115,11 @@ function LedgerBoard({ onLock, onExpired }: { onLock: () => void; onExpired: () 
   const [q, setQ] = useState('')
   const [changingPw, setChangingPw] = useState(false)
   // 이번 달 · 정기 출금 · 월별 비교 (2026-10-28 "정기 출금일과 금액 · 월별 비교 대시보드")
-  const [tab, setTab] = useState<'month' | 'recurring' | 'compare' | 'stats'>('month')
+  const [tab, setTab] = useState<'month' | 'recurring' | 'compare' | 'stats' | 'folder'>('month')
   const amountRef = useRef<HTMLInputElement>(null)
+  const [reloadKey, setReloadKey] = useState(0)
+  // 회계 자료 폴더에 새 파일이 있으면 장부를 열 때 자동 기입 (대표 지시 2026-11-11)
+  useLedgerAutoImport(useCallback(() => setReloadKey(k => k + 1), []))
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -131,7 +135,8 @@ function LedgerBoard({ onLock, onExpired }: { onLock: () => void; onExpired: () 
     } finally {
       setLoading(false)
     }
-  }, [api, month, onExpired])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [api, month, onExpired, reloadKey])
   useEffect(() => void load(), [load])
 
   // 쓰는 동안 연장 (5분마다 한 번), 10분 손대지 않으면 잠금
@@ -155,7 +160,8 @@ function LedgerBoard({ onLock, onExpired }: { onLock: () => void; onExpired: () 
     }
   }, [api, onExpired, onLock])
 
-  const sum = (list: LedgerEntry[], d: LedgerDirection) => list.filter(r => r.direction === d).reduce((n, r) => n + r.amount, 0)
+  // 카드대금 · 내 통장끼리 이체는 합계에서 뺌 (0106)
+  const sum = (list: LedgerEntry[], d: LedgerDirection) => list.filter(r => r.direction === d && !r.is_transfer).reduce((n, r) => n + r.amount, 0)
   const inSum = sum(rows, '입금')
   const outSum = sum(rows, '출금')
   const pIn = sum(prev, '입금')
@@ -239,12 +245,13 @@ function LedgerBoard({ onLock, onExpired }: { onLock: () => void; onExpired: () 
           { key: 'recurring' as const, label: '정기 출금', icon: <CalendarClock size={14} /> },
           { key: 'compare' as const, label: '연간 장부', icon: <BarChart3 size={14} /> },
           { key: 'stats' as const, label: '통계', icon: <PieChart size={14} /> },
+          { key: 'folder' as const, label: '회계 자료', icon: <FolderInput size={14} /> },
         ]}
         active={tab}
         onPick={setTab}
       />
       <div className="row ledger-head">
-        {tab !== 'recurring' && (
+        {tab !== 'recurring' && tab !== 'folder' && (
           <select className="select ledger-year" value={y} onChange={e => pickYear(e.target.value)} aria-label="장부 연도" title="연도별 장부">
             {years.map(yy => (
               <option key={yy} value={yy}>
@@ -274,6 +281,7 @@ function LedgerBoard({ onLock, onExpired }: { onLock: () => void; onExpired: () 
         {tab === 'compare' && <span className="t-cap">1월 ~ 12월</span>}
         {tab === 'recurring' && <b className="t-title">매달 나가는 돈</b>}
         {tab === 'stats' && <b className="t-title">입출금 통계</b>}
+        {tab === 'folder' && <b className="t-title">은행 · 홈택스 자료 자동 기입</b>}
         <span className="grow" />
         <Button kind="ghost" size="sm" onClick={exportCsv} disabled={!rows.length || tab !== 'month'} title="이 달 장부를 엑셀(CSV)로">
           <Download size={14} /> 엑셀
@@ -286,7 +294,9 @@ function LedgerBoard({ onLock, onExpired }: { onLock: () => void; onExpired: () 
         </Button>
       </div>
 
-      {tab === 'stats' ? (
+      {tab === 'folder' ? (
+        <LedgerFolder onExpired={onExpired} />
+      ) : tab === 'stats' ? (
         <LedgerStats year={y} onExpired={onExpired} />
       ) : tab === 'recurring' ? (
         <RecurringView onExpired={onExpired} />
@@ -433,11 +443,19 @@ function LedgerBoard({ onLock, onExpired }: { onLock: () => void; onExpired: () 
           </thead>
           <tbody>
             {shown.map(r => (
-              <tr key={r.id} className={f.id === r.id ? 'editing' : ''}>
+              <tr key={r.id} className={`${f.id === r.id ? 'editing' : ''}${r.is_transfer ? ' lg-transfer' : ''}${r.needs_review ? ' lg-review' : ''}`}>
                 <td className="mono">{r.entry_date.slice(5).replace('-', '.')}</td>
-                <td>{r.category}</td>
+                <td>
+                  {r.category}
+                  {r.is_transfer && <span className="lg-tag" title="카드대금 · 내 통장끼리 이체는 합계에서 뺍니다">이체 · 합계 제외</span>}
+                  {r.needs_review && <span className="lg-tag rv" title="자동 분류를 못 했습니다. 분류를 확인해 주세요">확인 필요</span>}
+                  {r.evidence && <span className="lg-tag ev" title={r.vat ? `공급가 ${r.supply?.toLocaleString('ko-KR')} · 부가세 ${r.vat.toLocaleString('ko-KR')}` : r.evidence}>{r.evidence}</span>}
+                </td>
                 <td className="truncate">{r.counterparty ?? ''}</td>
-                <td className="t-meta">{r.method}</td>
+                <td className="t-meta">
+                  {r.method}
+                  {r.account && <span className="t-cap"> · {r.account}</span>}
+                </td>
                 <td className="t-cap truncate">{r.memo ?? ''}</td>
                 <td className={`num ${r.direction === '입금' ? 'in' : 'out'}`}>
                   {r.direction === '입금' ? '+' : '−'}
