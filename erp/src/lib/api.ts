@@ -1,4 +1,6 @@
 import type { MarketingCampaign, MarketingAsset } from './marketing'
+import type { NavigationCounts } from './navigationCounts'
+import { UploadRecordResolutionError } from './uploadRecord'
 import type { AccessSource } from './desktop'
 import type { LedgerEntry, LedgerFile, LedgerRecurring, LedgerStatus, MaterialItem, MaterialMove, MaterialStockRow,
   AiAgent,
@@ -169,6 +171,9 @@ export interface Api {
   signOut(): Promise<void>
   changePassword(password: string): Promise<void>
   isActiveMember(): Promise<boolean>
+  /** Discard in-flight read sharing before refreshing after a change. */
+  invalidateReadRequests(): void
+  getNavigationCounts(viewer: Pick<Profile, 'id' | 'role'>): Promise<NavigationCounts>
 
   // 팀원
   listProfiles(): Promise<Profile[]>
@@ -236,7 +241,7 @@ export interface Api {
   /** 사진 · 파일 보내기 (한 파일 20MB 까지). caption 이 없으면 '📎 파일 이름' */
   sendFile(roomId: string, file: File, caption?: string): Promise<ChatMessage>
   /** 첨부 파일을 열 수 있는 주소 (1시간 유효). download 면 원래 이름으로 내려받기 */
-  fileUrl(att: ChatAttachment, download?: boolean): Promise<string>
+  fileUrl(att: ChatAttachment, download?: boolean, refresh?: boolean): Promise<string>
   deleteMessage(id: number): Promise<void>
   /** 내 메시지 고치기 (고친 시각 edited_at 이 남음) */
   editMessage(id: number, content: string): Promise<ChatMessage>
@@ -275,7 +280,7 @@ export interface Api {
   removeApprovalActivity(id: number): Promise<void>
   listApprovalRoutes(): Promise<ApprovalRoute[]>
   saveApprovalRoute(kind: ApprovalKind, approverId: string | null): Promise<void>
-  subscribeChanges(tables: string[], cb: () => void): () => void
+  subscribeChanges(tables: string[], cb: () => void, filter?: string): () => void
 
   // 재무 (관리자 전용: RLS 로 막혀 일반 팀원은 빈 목록)
   listFinances(): Promise<ProjectFinance[]>
@@ -335,7 +340,7 @@ export interface Api {
   /** 현장 사진 올리기 (휴대폰 카메라 · 앨범). url 은 드라이브 저장 작업용 30일 서명 링크 */
   uploadSitePhoto(projectId: string, file: File): Promise<{ path: string; url: string }>
   /** 화면에 보일 사진 링크 (1시간) */
-  sitePhotoUrl(path: string): Promise<string>
+  sitePhotoUrl(path: string, refresh?: boolean): Promise<string>
   listPayments(filter?: { projectId?: string; clientId?: string }): Promise<Payment[]>
   /** 자재 입출고 (프로젝트별) — 입고 · 반품은 지급 결제가 자동으로 생김 */
   listMaterialMoves(projectId: string): Promise<MaterialMove[]>
@@ -551,6 +556,7 @@ export class ApiError extends Error {}
 
 /** Supabase/Postgres 오류를 한국어 메시지로 */
 export function friendlyError(e: unknown): string {
+  if (e instanceof UploadRecordResolutionError) return e.message
   const msg = e instanceof Error ? e.message : typeof e === 'object' && e && 'message' in e ? String((e as { message: unknown }).message) : String(e)
   if (/Invalid login credentials/i.test(msg)) return '이메일 또는 비밀번호가 맞지 않습니다. 관리자에게 받은 이메일 주소를 그대로 입력했는지 확인하고, 계속 안 되면 관리자에게 비밀번호 재설정을 요청하세요.'
   if (/row-level security|permission denied/i.test(msg)) return '권한이 없습니다.'

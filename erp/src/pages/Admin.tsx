@@ -78,13 +78,8 @@ export default function Admin() {
 }
 
 function SystemStatus({ overview }: { overview: AdminOverview | null }) {
-  const { profiles } = useApp()
   const size = overview?.db_size_bytes ?? 0
   const used = (size / FREE_DB) * 100
-  const since = profiles.reduce((min, p) => (p.created_at < min ? p.created_at : min), new Date().toISOString())
-  const days = Math.max(30, (Date.now() - new Date(since).getTime()) / 86_400_000)
-  const perDay = size / days
-  const years = perDay > 0 ? (FREE_DB - size) / perDay / 365 : null
   const t = overview?.tables ?? {}
   const counts: [string, string][] = [
     ['work_logs', '업무 일지'],
@@ -99,10 +94,10 @@ function SystemStatus({ overview }: { overview: AdminOverview | null }) {
     <section className="section">
       <div className="section-h">
         <span className="t-bodyb">시스템 현황</span>
-        <span className="cap">Supabase 무료 플랜 기준</span>
+        <span className="cap">현재 프로젝트 · 무료 플랜 참고치</span>
       </div>
       {!overview ? (
-        <div className="note">현황을 불러오지 못했습니다. (DB 0003 이후 파일을 실행했는지 확인하세요)</div>
+        <div className="note">현황을 불러오지 못했습니다. 잠시 뒤 화면을 새로고침해 주세요.</div>
       ) : (
         <div className="kpis" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
           <div className="kpi">
@@ -112,7 +107,7 @@ function SystemStatus({ overview }: { overview: AdminOverview | null }) {
               <span className="t-cap">/ 500MB · {used.toFixed(1)}%</span>
             </span>
             <Meter value={used} red={used > 80} label="DB 사용량" />
-            <span className="sub">{years != null ? (years > 50 ? '지금 속도면 한참 남았어요' : `이 속도면 약 ${Math.max(0, years).toFixed(years < 2 ? 1 : 0)}년 사용 가능`) : ' '}</span>
+            <span className="sub">파일 저장공간과 월간 전송량은 별도입니다. 한도 초과 항목은 Supabase 사용량에서 확인해 주세요.</span>
           </div>
           <div className="kpi">
             <span className="t-cap">데이터 수 · 활성 팀원 {overview.active_members}</span>

@@ -1,10 +1,13 @@
 // 슬랙 대화 · 자료 가져오기 (대표 지시 2026-11-05 "슬랙의 채팅과 자료 공유를 프로젝트 폴더에 가져오기")
 //  - 프로젝트마다 슬랙 채널을 연결 → '가져오기' 를 누르면 새 대화는 여기 · 공유 파일은 드라이브 프로젝트 폴더(01.협의자료/02.슬랙/날짜)
 //  - 슬랙이 아직 연결 안 됐으면: 관리자에게만 토큰 넣는 칸과 슬랙 앱 만드는 순서 안내
-import { useEffect, useState } from 'react'
-import { ChevronDown, ChevronRight, Download, ExternalLink, Hash, Link2, Lock, Paperclip, Unlink } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { ChevronDown, ChevronRight, Download, ExternalLink, Hash, Link2, Lock, Paperclip, RefreshCw, Unlink } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
+import { friendlyError } from '../lib/api'
 import { shortDate } from '../lib/date'
+import { createSlackSnapshotLoader } from '../lib/slackSnapshot'
+import { createVisiblePoller } from '../lib/visiblePolling'
 import type { Project, SlackChannel, SlackLink, SlackMessage } from '../lib/types'
 import { openLink } from './WebSearch'
 import { Button, Linkify, SectionHead } from './ui'
@@ -12,18 +15,25 @@ import { Button, Linkify, SectionHead } from './ui'
 const SCOPES = 'channels:read, channels:history, channels:join, groups:read, groups:history, files:read, users:read'
 
 export function SlackSection({ project }: { project: Project }) {
+  const { me } = useApp()
+  // 프로젝트·계정이 바뀌면 접기 상태와 읽던 대화를 함께 새로 시작한다.
+  return <SlackProjectSection key={`${me.id}:${project.id}`} project={project} />
+}
+
+function SlackProjectSection({ project }: { project: Project }) {
   const { api, me, version } = useApp()
   const admin = me.role === 'admin'
   const { busy, run } = useAction()
-  const { data: status, loading } = useAsync(() => api.slackStatus(), [version], { connected: false } as Awaited<ReturnType<typeof api.slackStatus>>)
-  // 서버가 2분마다 슬랙에서 새 글을 가져오므로 화면도 1분마다 다시 읽음
-  const [tick, setTick] = useState(0)
-  useEffect(() => {
-    const t = window.setInterval(() => document.visibilityState === 'visible' && setTick(n => n + 1), 20_000)
-    return () => window.clearInterval(t)
-  }, [])
-  const { data: links } = useAsync(() => api.listSlackLinks(project.id), [project.id, version, tick], [] as SlackLink[])
-  const { data: msgs } = useAsync(() => api.listSlackMessages(project.id, 500), [project.id, version, tick], [] as SlackMessage[])
+  const { data: status, loading, reload: reloadStatus } = useAsync(() => api.slackStatus(), [api, me.id], { connected: false } as Awaited<ReturnType<typeof api.slackStatus>>)
+  const [snapshot, setSnapshot] = useState<{ links: SlackLink[]; messages: SlackMessage[] }>({ links: [], messages: [] })
+  const { links, messages: msgs } = snapshot
+  const [refreshing, setRefreshing] = useState(false)
+  const [loaded, setLoaded] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const poller = useRef<ReturnType<typeof createVisiblePoller> | null>(null)
+  const snapshotLoader = useRef<ReturnType<typeof createSlackSnapshotLoader> | null>(null)
+  const seenVersion = useRef(version)
+  const statusCheckedAt = useRef(Date.now())
   const [channels, setChannels] = useState<SlackChannel[] | null>(null)
   const [pick, setPick] = useState('')
   const [token, setToken] = useState('')
@@ -39,6 +49,66 @@ export function SlackSection({ project }: { project: Project }) {
   const [tab, setTab] = useState<'talk' | 'files'>('talk')
   const [allOpen, setAllOpen] = useState<boolean | undefined>(undefined)
   const [progress, setProgress] = useState('')
+
+  useEffect(() => {
+    const loader = createSlackSnapshotLoader(api, project.id)
+    const controller = createVisiblePoller({
+      load: () => loader.load(),
+      onValue: value => {
+        setSnapshot(value)
+        setLoaded(true)
+        setLoadError(null)
+      },
+      onError: error => setLoadError(friendlyError(error)),
+      onLoading: setRefreshing,
+      isVisible: () => document.visibilityState === 'visible',
+      intervalMs: 60_000,
+    })
+    poller.current = controller
+    snapshotLoader.current = loader
+    const resume = () => controller.visibilityChanged()
+    document.addEventListener('visibilitychange', resume)
+    window.addEventListener('focus', resume)
+    return () => {
+      controller.stop()
+      document.removeEventListener('visibilitychange', resume)
+      window.removeEventListener('focus', resume)
+      poller.current = null
+      snapshotLoader.current = null
+    }
+  }, [api, project.id])
+
+  useEffect(() => {
+    poller.current?.setEnabled(open && status.connected)
+  }, [open, status.connected, api, project.id])
+
+  useEffect(() => {
+    const check = () => {
+      if (!open || document.visibilityState !== 'visible' || Date.now() - statusCheckedAt.current < 60_000) return
+      statusCheckedAt.current = Date.now()
+      reloadStatus()
+    }
+    check()
+    document.addEventListener('visibilitychange', check)
+    window.addEventListener('focus', check)
+    return () => {
+      document.removeEventListener('visibilitychange', check)
+      window.removeEventListener('focus', check)
+    }
+  }, [open, reloadStatus])
+
+  useEffect(() => {
+    if (seenVersion.current === version) return
+    seenVersion.current = version
+    void poller.current?.refresh(true)
+  }, [version])
+
+  const refresh = () => {
+    snapshotLoader.current?.forceMessages()
+    void poller.current?.refresh(true)
+    statusCheckedAt.current = Date.now()
+    reloadStatus()
+  }
 
   if (loading && !status.connected) return null
   // 연결 전: 관리자만 연결 칸 · 팀원에게는 숨김
@@ -64,9 +134,10 @@ export function SlackSection({ project }: { project: Project }) {
           </ol>
           <div className="row gap-6 wrap">
             <input className="input grow" type="password" autoComplete="off" placeholder="xoxb-…" value={token} onChange={e => setToken(e.target.value)} aria-label="슬랙 봇 토큰" />
-            <Button disabled={busy || !token.trim()} onClick={() => void run(() => api.slackSetToken(token.trim()).then(() => setToken('')), '슬랙을 연결했습니다.')}>
+            <Button disabled={busy || !token.trim()} onClick={() => void run(() => api.slackSetToken(token.trim()).then(() => { setToken(''); reloadStatus() }), '슬랙을 연결했습니다.')}>
               연결
             </Button>
+            <Button kind="outline" disabled={loading || busy} onClick={reloadStatus}>연결 상태 새로고침</Button>
           </div>
           <span className="t-cap">토큰은 서버 금고(Vault)에만 저장되고 화면 · 대화에는 다시 보이지 않습니다.</span>
           {status.error && <span className="t-cap t-red">{status.error}</span>}
@@ -88,6 +159,7 @@ export function SlackSection({ project }: { project: Project }) {
         errs.push(...r.errors)
         if (!r.more) break
       }
+      snapshotLoader.current?.forceMessages()
       setProgress(errs.length ? `일부 실패: ${errs.slice(0, 2).join(' · ')}` : '')
       return total
     }, '슬랙에서 새 대화 · 파일을 가져왔습니다.')
@@ -178,6 +250,9 @@ export function SlackSection({ project }: { project: Project }) {
             <Download size={13} /> 지금 가져오기
           </Button>
         )}
+        <Button kind="outline" size="sm" onClick={refresh} disabled={busy || refreshing} aria-label="슬랙 대화 새로고침">
+          <RefreshCw size={13} /> 새로고침
+        </Button>
       </div>
       {channels?.some(c => c.is_private && !c.is_member) && (
         <span className="t-cap">
@@ -185,6 +260,8 @@ export function SlackSection({ project }: { project: Project }) {
         </span>
       )}
       {progress && <span className="t-cap">{progress}</span>}
+      {loadError && <span className="t-cap t-red" role="status">{loadError} · 새로고침으로 다시 확인할 수 있습니다.</span>}
+      {!loaded && refreshing && <span className="t-cap" role="status">슬랙 대화를 불러오는 중…</span>}
       {msgs.length > 0 ? (
         <>
           <div className="slack-tabs" role="tablist" aria-label="슬랙 보기">

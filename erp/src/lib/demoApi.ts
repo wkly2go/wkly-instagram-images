@@ -651,6 +651,16 @@ export function createDemoApi(): Api {
   return {
     ...createDemoMarketingApi(meProfile),
     mode: 'demo',
+    invalidateReadRequests() { /* no network requests in demo mode */ },
+    async getNavigationCounts() {
+      const self = requireMe()
+      runReminders()
+      return {
+        myOpenTasks: store.tasks.filter(t => t.assignee_id === self && t.status !== '완료').length,
+        pendingToDecide: store.approvals.filter(a => a.status === '대기' && withCanDecide(a).can_decide && (a.requested_by !== self || isAdmin())).length,
+        saved: (store.saved_items ?? []).filter(s => s.user_id === self && !s.done_at).length,
+      }
+    },
 
     async getSessionUserId() {
       return me
