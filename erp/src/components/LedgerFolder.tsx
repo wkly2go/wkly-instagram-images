@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ExternalLink, FolderPlus, RefreshCw } from 'lucide-react'
 import { useApp } from '../lib/app'
-import { driveApi, listChildren, newFolder, FOLDER_MIME, type GFile } from '../lib/gdrive'
+import { driveApi, driveIdOf, listChildren, newFolder, FOLDER_MIME, type GFile } from '../lib/gdrive'
 import { attachEvidence, detectKind, parseBank, parseCardLike, readGrid, type Evidence, type LedgerRow } from '../lib/ledgerImport'
 import { LEDGER_CATEGORIES, type LedgerEntry, type LedgerFile, type Payment } from '../lib/types'
 import { parseHometax } from './TaxInvoices'
@@ -141,8 +141,63 @@ export function LedgerFolder({ onExpired }: { onExpired: () => void }) {
   const [folder, setFolder] = useState<Folder | null | undefined>(undefined)
   const [files, setFiles] = useState<LedgerFile[]>([])
   const [review, setReview] = useState<LedgerEntry[]>([])
+  const [yearRows, setYearRows] = useState<LedgerEntry[]>([])
   const [busy, setBusy] = useState<string | null>(null)
   const [last, setLast] = useState<ImportResult | null>(null)
+  // 다른 계정의 폴더 쓰기 (대표 지시 2026-11-11 "폴더 위치를 다른 계정으로")
+  const [linking, setLinking] = useState(false)
+  const [link, setLink] = useState('')
+  const [companyAcct, setCompanyAcct] = useState<string | null>(null)
+  useEffect(() => {
+    void api.driveStatus().then(s => setCompanyAcct(s?.account ?? null), () => undefined)
+  }, [api])
+  const useOther = async () => {
+    const id = driveIdOf(link.trim()) ?? (/^[A-Za-z0-9_-]{15,}$/.test(link.trim()) ? link.trim() : null)
+    if (!id) return toast('구글 드라이브 폴더 주소를 붙여 넣어 주세요.')
+    setBusy('폴더 확인 중')
+    try {
+      const tk = await api.driveAccessToken()
+      if (!tk) throw new Error('회사 구글 드라이브 연결이 필요합니다.')
+      const meta = await driveApi<GFile & { capabilities?: { canAddChildren?: boolean } }>(tk.token, `files/${id}?supportsAllDrives=true&fields=id,name,mimeType,webViewLink,capabilities(canAddChildren)`).catch(() => null)
+      if (!meta) throw new Error(`이 폴더를 열 수 없습니다. 다른 계정에서 폴더를 ${companyAcct ?? '회사 드라이브 계정'}에 공유(편집자)했는지 확인해 주세요.`)
+      if (meta.mimeType !== FOLDER_MIME) throw new Error('파일이 아니라 폴더 주소를 넣어 주세요.')
+      // 안에 '은행' · '홈택스' 이름 폴더가 있으면 그대로 쓰고, 없으면 폴더 하나에 다 넣어도 읽음
+      const subs = await listChildren(tk.token, id, { foldersOnly: true }).catch(() => [] as GFile[])
+      const bank = subs.find(f => /은행/.test(f.name))?.id ?? id
+      const hometax = subs.find(f => /홈택스|hometax/i.test(f.name))?.id ?? id
+      const f: Folder = { root: id, bank, hometax, url: meta.webViewLink ?? `https://drive.google.com/drive/folders/${id}` }
+      await api.setLedgerMeta('folder', f)
+      setFolder(f)
+      setLinking(false)
+      setLink('')
+      toast(`'${meta.name}' 폴더를 회계 자료 폴더로 정했습니다.`)
+    } catch (e) {
+      toast(e instanceof Error ? e.message : '폴더를 정하지 못했습니다.')
+    } finally {
+      setBusy(null)
+    }
+  }
+  const otherBox = (
+    <div className="lgf-other">
+      <b>다른 구글 계정의 폴더 쓰기</b>
+      <ol className="t-cap">
+        <li>다른 계정의 구글 드라이브에서 폴더를 만듭니다 (안에 '은행 거래내역' · '홈택스 자료' 폴더를 만들어도 되고, 한 폴더에 다 넣어도 됩니다).</li>
+        <li>
+          그 폴더를 <b>{companyAcct ?? '회사 드라이브 계정'}</b>에 <b>편집자</b>로 공유합니다 (폴더 › 공유 › 사용자 추가).
+        </li>
+        <li>폴더 주소를 아래에 붙여 넣고 '이 폴더로 정하기'를 누릅니다.</li>
+      </ol>
+      <div className="row" style={{ gap: 6 }}>
+        <input className="input" style={{ flex: 1 }} value={link} onChange={e => setLink(e.target.value)} placeholder="https://drive.google.com/drive/folders/…" />
+        <Button size="sm" onClick={() => void useOther()} disabled={!!busy || !link.trim()}>
+          이 폴더로 정하기
+        </Button>
+        <Button size="sm" kind="ghost" onClick={() => setLinking(false)}>
+          닫기
+        </Button>
+      </div>
+    </div>
+  )
 
   const load = useCallback(async () => {
     try {
@@ -152,6 +207,7 @@ export function LedgerFolder({ onExpired }: { onExpired: () => void }) {
       const y = new Date().getFullYear()
       const all = await api.listLedger(`${y - 1}-01-01`, `${y}-12-31`)
       setReview(all.filter(r => r.needs_review).slice(0, 80))
+      setYearRows(all)
     } catch {
       onExpired()
     }
@@ -203,24 +259,34 @@ export function LedgerFolder({ onExpired }: { onExpired: () => void }) {
       <div className="lgf-empty">
         <b>회계 자료 폴더가 아직 없습니다</b>
         <span className="t-cap">구글 드라이브에 '회계 자료 (입출금 장부)' 폴더와 그 안에 '은행 거래내역' · '홈택스 자료' 폴더를 만듭니다. 여기에 파일을 넣으면 장부를 열 때마다 자동으로 분류해 기입합니다.</span>
-        <Button onClick={() => void create()} disabled={!!busy}>
-          <FolderPlus size={14} /> 회계 자료 폴더 만들기
-        </Button>
+        <div className="row" style={{ gap: 6 }}>
+          <Button onClick={() => void create()} disabled={!!busy}>
+            <FolderPlus size={14} /> 회사 드라이브에 폴더 만들기
+          </Button>
+          <Button kind="outline" onClick={() => setLinking(true)} disabled={!!busy}>
+            다른 계정의 폴더 쓰기
+          </Button>
+        </div>
+        {linking && otherBox}
       </div>
     )
   return (
     <div className="lgf col gap-12">
       <div className="lgf-box">
         <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
-          <b>구글 드라이브 › 회계 자료 (입출금 장부)</b>
+          <b>회계 자료 폴더</b>
           <a className="btn btn-outline btn-sm" href={folder.url} target="_blank" rel="noreferrer">
             <ExternalLink size={13} /> 폴더 열기
           </a>
+          <button type="button" className="link-btn t-cap" onClick={() => setLinking(v => !v)}>
+            폴더 바꾸기 (다른 계정)
+          </button>
           <span className="grow" />
           <Button size="sm" onClick={() => void run()} disabled={!!busy}>
             <RefreshCw size={13} className={busy ? 'spin' : undefined} /> {busy ? `${busy}…` : '새 자료 가져오기'}
           </Button>
         </div>
+        {linking && otherBox}
         <ul className="lgf-guide t-cap">
           <li>
             <b>은행 거래내역</b> 폴더: 인터넷뱅킹 › 거래내역 조회 › 엑셀(또는 CSV) 저장 파일. 통장마다 파일을 따로 넣어도 됩니다.
@@ -229,7 +295,7 @@ export function LedgerFolder({ onExpired }: { onExpired: () => void }) {
             <b>홈택스 자료</b> 폴더: 전자세금계산서 목록(매출 · 매입) · 사업용 신용카드 사용내역 · 현금영수증 매입 내역 엑셀.
           </li>
           <li>장부를 열 때마다 새로 넣은(또는 바뀐) 파일만 읽습니다. 같은 거래는 두 번 들어가지 않습니다.</li>
-          <li>결제 대장(지급 · 수금 완료)과 금액 · 날짜가 맞으면 그 분류 · 프로젝트로, 아니면 낱말로 분류합니다. 카드대금 · 내 통장끼리 이체는 합계에서 뺍니다.</li>
+          <li>은행 · 카드 자료가 기준입니다. 결제 대장과 금액 · 날짜가 맞으면 그 분류 · 거래처 이름만 참고하고(프로젝트와는 연결하지 않음), 아니면 낱말로 분류합니다. 카드대금 · 내 통장끼리 이체는 합계에서 뺍니다.</li>
         </ul>
         {last && last.errors.length > 0 && (
           <div className="lgf-err t-cap">
@@ -239,6 +305,43 @@ export function LedgerFolder({ onExpired }: { onExpired: () => void }) {
           </div>
         )}
       </div>
+
+      {/* 통장별 잔고 대조 (2026-11-11): 은행 파일의 '거래 후 잔액'과 기입된 입출금 합계가 맞는지 → 다르면 빠진 거래가 있음 */}
+      {(() => {
+        const accs = [...new Set(yearRows.filter(r => r.source === '은행' && r.account).map(r => r.account!))]
+        if (!accs.length) return null
+        const eff = (r: LedgerEntry) => (r.direction === '입금' ? r.amount : -r.amount)
+        const rowsOut = accs.map(acc => {
+          const list = yearRows.filter(r => r.account === acc && r.source === '은행')
+          const withBal = list.filter(r => r.balance_after != null)
+          if (!withBal.length) return { acc, ok: null as boolean | null, last: null as number | null, diff: 0, n: list.length, lastDate: '' }
+          const firstDate = withBal.reduce((m, r) => (r.entry_date < m ? r.entry_date : m), withBal[0].entry_date)
+          const lastDate = withBal.reduce((m, r) => (r.entry_date > m ? r.entry_date : m), withBal[0].entry_date)
+          const total = list.reduce((n, r) => n + eff(r), 0)
+          const opens = withBal.filter(r => r.entry_date === firstDate).map(r => r.balance_after! - eff(r))
+          const lasts = withBal.filter(r => r.entry_date === lastDate).map(r => r.balance_after!)
+          const ok = opens.some(o => lasts.includes(o + total))
+          const last = Math.max(...lasts)
+          return { acc, ok, last, diff: ok ? 0 : last - (opens[0] + total), n: list.length, lastDate }
+        })
+        return (
+          <div className="col gap-6">
+            <b>통장별 잔고 대조</b>
+            <table className="lgf-table">
+              <tbody>
+                {rowsOut.map(r => (
+                  <tr key={r.acc}>
+                    <td>{r.acc}</td>
+                    <td className="t-cap">{r.n}건{r.lastDate ? ` · ${r.lastDate.slice(5).replace('-', '.')} 기준` : ''}</td>
+                    <td className="mono">{r.last != null ? `잔액 ${r.last.toLocaleString('ko-KR')}` : '잔액 칸 없음'}</td>
+                    <td>{r.ok == null ? <span className="t-cap">대조 불가</span> : r.ok ? <span className="lgf-ok">✓ 맞음</span> : <span className="lgf-bad" title="은행 잔액과 기입된 합계가 다릅니다. 빠진 기간의 거래내역 파일을 넣어 주세요">차이 {r.diff.toLocaleString('ko-KR')}원 · 빠진 거래 확인</span>}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )
+      })()}
 
       <div className="col gap-6">
         <b>확인 필요 {review.length}건</b>

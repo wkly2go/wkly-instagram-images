@@ -4540,3 +4540,8 @@ body.dock-resizing iframe { pointer-events: none; }
 .lg-tag.ev { color: var(--blue); border-color: color-mix(in srgb, var(--blue) 30%, #fff); }
 tr.lg-transfer td { color: var(--gray) !important; }
 tr.lg-review td:first-child { box-shadow: inset 3px 0 0 #e0a800; }
+.lgf-ok { color: var(--green, #1d8a4a); font-weight: 700; font-size: var(--fs-cap); }
+.lgf-bad { color: var(--red); font-weight: 700; font-size: var(--fs-cap); }
+.lgf-other { display: flex; flex-direction: column; gap: 6px; width: 100%; padding: 10px 12px; background: #fbfaf5; border: 1px solid var(--line); }
+.lgf-other ol { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 2px; }
+.lgf-other .input { height: 30px; font-size: var(--fs-sm); }
