@@ -1,6 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { isHiddenName, isReferencePath } from './gdrive'
-import type { FieldUpload, MailFile, SlackChannel, SlackLink, SlackMessage, LedgerStatus, MailItem, MaterialItem, MaterialMove, MaterialStockRow } from './types'
+import type { FieldUpload, KakaoImport, KakaoMessage, MailFile, SlackChannel, SlackLink, SlackMessage, LedgerStatus, MailItem, MaterialItem, MaterialMove, MaterialStockRow } from './types'
 import { ApiError, CHAT_FILE_MAX, EXCHANGE_FILE_MAX, groupIps, type AgentDraft, type Api, type DriveEnsureResult, type DriveFolder, type DriveStatus, type ImportResult } from './api'
 import { desktop } from './desktop'
 import type {
@@ -1066,6 +1066,28 @@ export function createSupabaseApi(url: string, key: string): Api {
       const { data, error } = await q
       return error ? [] : (data as MailItem[])
     },
+    async listKakao(projectId) {
+      const [imp, msg] = await Promise.all([
+        sb.from('kakao_imports').select('*').eq('project_id', projectId).order('created_at', { ascending: false }),
+        sb.from('kakao_messages').select('*').eq('project_id', projectId).order('sent_at', { ascending: false }).limit(2000),
+      ])
+      if (imp.error || msg.error) return { imports: [], messages: [], ready: false } // 0105 미적용 → 칸 숨김
+      return { imports: imp.data as KakaoImport[], messages: msg.data as KakaoMessage[], ready: true }
+    },
+    async importKakao(projectId, r) {
+      const imp = must(await sb.from('kakao_imports').insert({ project_id: projectId, title: r.title, file_name: r.file_name, files: r.files, message_count: 0 }).select('id').single()) as { id: string }
+      let added = 0
+      for (let i = 0; i < r.messages.length; i += 500) {
+        const chunk = r.messages.slice(i, i + 500).map(m => ({ ...m, project_id: projectId, import_id: imp.id }))
+        const { data, error } = await sb.from('kakao_messages').upsert(chunk, { onConflict: 'project_id,hash', ignoreDuplicates: true }).select('id')
+        if (error) throw new ApiError(error.message)
+        added += data?.length ?? 0
+      }
+      await sb.from('kakao_imports').update({ message_count: added }).eq('id', imp.id)
+      if (!added && !r.files.length) await sb.from('kakao_imports').delete().eq('id', imp.id)
+      return { added, total: r.messages.length }
+    },
+    deleteKakaoImport: id => remove('kakao_imports', id),
     async slackStatus() {
       const { data, error } = await sb.functions.invoke('slack-import', { body: { action: 'status' } })
       if (error) return { connected: false, error: await fnError(error, '슬랙 상태 확인 실패') }

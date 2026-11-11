@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { AlarmClock, ArrowLeft, Building2, CalendarDays, CalendarRange, GanttChart, LayoutDashboard, ListChecks, Network, Repeat, Users, Wallet, Plus, CheckCircle2, ChevronLeft, ChevronRight, CircleSlash, FolderOpen, Pencil, Search, Trash2, Mail, Copy } from 'lucide-react'
+import { ChevronDown, AlarmClock, ArrowLeft, Building2, CalendarDays, CalendarRange, GanttChart, LayoutDashboard, ListChecks, Network, Repeat, Users, Wallet, Plus, CheckCircle2, ChevronLeft, ChevronRight, CircleSlash, FolderOpen, Pencil, Search, Trash2, Mail, Copy } from 'lucide-react'
 import { ProjectMaterials } from '../components/ProjectMaterials'
 import { SiteSurveySection } from '../components/SiteSurvey'
 import { SiteLogsSection } from '../components/SiteLogs'
@@ -20,6 +20,7 @@ import { NewApproval } from './Approvals'
 import { FinancePanel } from '../components/FinancePanel'
 import { ProjectVizLoader } from '../components/ProjectViz'
 import { ProjectBrief } from '../components/ProjectBrief'
+import { KakaoSection } from '../components/KakaoSection'
 import { ProjectClientLink } from '../components/ProjectClientLink'
 import { ProjectMails } from '../components/ProjectMails'
 import { ProjectDashboard } from './ProjectDashboard'
@@ -761,7 +762,26 @@ function ProjectDetail({ project: p, data, onEdit, onBack, panel = false }: { pr
           <ArrowLeft size={18} />
         </button>
         {p.code && <span className="proj-code" style={{ background: DIVISIONS[projectBrand(p)].color }} title={DIVISIONS[projectBrand(p)].full}>{p.code}</span>}
-        <h2 className="t-title truncate">{p.name}</h2>
+        {/* 프로젝트 이름을 눌러 다른 프로젝트로 바로 바꾸기 (대표 지시 2026-11-11) */}
+        <label className="proj-pick" title="다른 프로젝트 고르기">
+          <h2 className="t-title truncate">{p.name}</h2>
+          <ChevronDown size={16} className="proj-pick-chev" aria-hidden="true" />
+          <select aria-label="프로젝트 고르기" value={p.id} onChange={e => e.target.value !== p.id && navigate(`/projects?id=${e.target.value}`)}>
+            {(['진행', '기획', 'NIC', '보류', '완료'] as const).map(st => {
+              const list = data.projects.filter(x => x.status === st).sort((a, b) => (b.code ?? '').localeCompare(a.code ?? ''))
+              return list.length ? (
+                <optgroup key={st} label={`${st} (${list.length})`}>
+                  {list.map(x => (
+                    <option key={x.id} value={x.id}>
+                      {x.code ? `${x.code} · ` : ''}
+                      {x.name}
+                    </option>
+                  ))}
+                </optgroup>
+              ) : null
+            })}
+          </select>
+        </label>
         <StatusBadge status={p.status} />
         <Badge>{p.category}</Badge>
         <span className="grow" />
@@ -891,6 +911,8 @@ function ProjectDetail({ project: p, data, onEdit, onBack, panel = false }: { pr
       <ProjectDriveSection project={p} />
       {/* 슬랙 채널 대화 · 공유 파일 가져오기 (대표 지시 2026-11-05) */}
       <SlackSection project={p} />
+      {/* 카카오톡 대화 내보내기 파일 가져오기 (로드맵 1-3 · 2026-11-11) */}
+      <KakaoSection project={p} />
       {/* 회사 메일함에서 이 프로젝트 · 거래처와 연결된 메일 (지메일 · 읽기만) */}
       <ProjectMails project={p} />
       {/* 이 프로젝트의 결재 · 보고: 올린 결재가 있을 때만 (대표 지시 2026-10-31 빈 칸 삭제) */}
