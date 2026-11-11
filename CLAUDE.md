@@ -16,6 +16,8 @@
 - `erp/` : React + TypeScript + Vite 웹앱 (Cloudflare Pages · main 에 합치면 자동 배포)
   - `src/pages/` 화면 · `src/components/` 부품 · `src/lib/api.ts` (API 정의) · `supabaseApi.ts` (운영) · `demoApi.ts` (체험 모드)
   - `src/styles.css` : 디자인 토큰 · WKLY v7 디자인 시스템 (사각 모서리, 글자 크기 단계 `--fs-cap 12 · sm 12.5 · body 13.5 · sub 14.5 · title 16 · num 19 · hero 28` (2026-11-09 위계 다시 잡음 · 맨 아래 :root 가 최종값 · 터치 화면은 반 단계 큼))
+  - 전체 사용성 보강(2026-11-11): `src/usability.css`를 styles.css 다음에 읽음. 최종 읽기 크기 `cap 12.5 · sm 13 · body 14.5 · sub 15 · title 17`이며 사용자 배율 유지. 좁은 본문 탭·필터 줄바꿈, 폼 자체 폭에 따른 열 수, 오른쪽 KPI 전체 값 표시. `components/ShellUsability.css`는 메뉴 176px·업무별 구분·키보드 조작을 담당함. 공통 변경 시 채팅을 넓혀 실제 본문 340px인 경우도 확인할 것.
+  - 검색창 AI 응답 조회는 열린 창의 진행 중 요청 ID 한 건만 조회하며 완료·닫힘 시 중지(`CommandPalette.tsx`). Supabase 용량 점검 안내는 `erp/docs/SUPABASE_CAPACITY_OPTIMIZATION.md`, 읽기 전용 조회는 `erp/supabase/diagnostics/capacity_readonly.sql` (마이그레이션 아님).
   - `desktop/` : PC 프로그램 (Electron)
   - `android/` : 안드로이드 앱 (TWA · 웹을 앱으로 띄움). main 에 `erp/android/**` 변경이 들어가면 `.github/workflows/android.yml` 이 APK 를 만들어
     릴리스 `android` 의 `wkly-erp.apk` 로 올림. 서명 키는 Vault (함수 `android-key` 가 GitHub OIDC 확인 뒤 넘김) · 지문은 `public/.well-known/assetlinks.json`

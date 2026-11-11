@@ -57,24 +57,39 @@ export function CommandPalette() {
   // 검색창 안 AI 답변: 보낸 지시 id → 답이 오면 그 자리에서 보여 줌
   const [ai, setAi] = useState<{ id: string | null; name: string; text: string; row?: AgentInstruction; error?: string } | null>(null)
   openSet = setOpen
+  const aiDone = !!ai?.row && ai.row.status !== '대기' && ai.row.status !== '진행 중'
 
   useEffect(() => {
-    if (!ai?.id) return
+    if (!open || !ai?.id || aiDone) return
     const id = ai.id
-    const load = () =>
-      api.listAgentInstructions().then(list => {
+    let active = true
+    let inFlight = false
+    const load = async () => {
+      if (!active || inFlight || document.visibilityState !== 'visible') return
+      inFlight = true
+      try {
+        const list = await api.listAgentInstructions(id)
         const row = list.find(i => i.id === id)
-        if (row) setAi(a => (a && a.id === id ? { ...a, row } : a))
-      }, () => undefined)
+        if (active && row) setAi(a => (a && a.id === id ? { ...a, row } : a))
+      } catch {
+        // 잠깐 끊긴 연결은 다음 실시간 알림이나 주기 조회에서 다시 확인한다.
+      } finally {
+        inFlight = false
+      }
+    }
     const off = api.subscribeChanges(['agent_instructions'], load)
-    // 실시간이 끊겨도 답을 놓치지 않게 잠깐씩 다시 확인
+    // 열린 검색창에서 답변을 기다리는 동안만 해당 지시 한 건을 확인한다.
+    // 다른 탭을 보다가 돌아오면 바로 갱신하고, 중복 요청은 합친다.
+    document.addEventListener('visibilitychange', load)
+    void load()
     const t = window.setInterval(load, 4000)
     return () => {
+      active = false
       off()
       window.clearInterval(t)
+      document.removeEventListener('visibilitychange', load)
     }
-  }, [api, ai?.id])
-  const aiDone = ai?.row && ai.row.status !== '대기' && ai.row.status !== '진행 중'
+  }, [api, open, ai?.id, aiDone])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

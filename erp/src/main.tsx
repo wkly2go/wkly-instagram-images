@@ -4,6 +4,7 @@ import App from './App'
 import { RouterProvider } from './lib/router'
 import { UpdateBanner } from './lib/update'
 import './styles.css'
+import './usability.css'
 import { startStackTables } from './lib/stackTables'
 import { startFoldLong } from './lib/foldLong'
 

@@ -1,0 +1,78 @@
+/* 공통 탐색: 기존 작업 칸과 권한은 유지하며 메뉴의 읽기와 키보드 이동을 정리한다. */
+.app-page .shell-skip-link { position: fixed; top: 6px; left: 12px; z-index: 10000; transform: translateY(-150%); padding: 10px 16px; border: 2px solid var(--blue); background: var(--white); color: var(--blue); font-weight: 700; }
+.app-page .shell-skip-link:focus { transform: translateY(0); }
+.app-page .main:focus-visible { outline: 2px solid var(--blue); outline-offset: -2px; }
+.app-page .profile .side-nav { display: flex; flex-direction: column; align-items: stretch; gap: 8px; padding: 6px 0 10px; }
+.app-page .side-nav-group { display: flex; flex-direction: column; min-width: 0; gap: 2px; }
+.app-page .side-group-label { display: block; padding: 3px 8px 2px; color: var(--gray); font-size: var(--fs-cap); line-height: 1.4; font-weight: 600; }
+.app-page .profile .side-item { min-height: 34px; gap: 8px; padding: 7px 8px; border-radius: 0; font-size: var(--fs-sm); line-height: 1.4; font-weight: 600; }
+.app-page .profile .side-item > svg { flex: none; width: 17px; height: 17px; }
+.app-page .profile .side-item.on { background: var(--blue-tint); color: var(--blue); font-weight: 750; }
+.app-page .profile .side-item.on::before { width: 3px; background: var(--blue); }
+.app-page .profile .side-item:focus-visible { outline: 2px solid var(--blue); outline-offset: -2px; background: var(--blue-tint); }
+.app-page .profile .side-item .side-n { flex-shrink: 0; min-width: 19px; height: 19px; line-height: 19px; }
+.app-page .profile .side-item.sub { border-top: 1px solid var(--line); margin-top: 2px; font-size: var(--fs-cap); }
+.app-page .profile .new-menu { margin-bottom: 0; }
+.app-page .profile .new-btn { min-height: 36px; height: auto; padding: 7px 8px; border-radius: 0; font-size: var(--fs-sm); }
+.app-page .profile .new-btn > svg { flex: none; }
+.app-page .profile .new-btn:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
+.app-page .profile .new-pop { position: static; width: 100%; margin-top: 6px; padding: 4px; border: 1px solid var(--line); border-radius: 0; box-shadow: none; }
+.app-page .profile .new-pop button { min-height: 34px; padding: 7px 6px; border-radius: 0; gap: 7px; font-size: var(--fs-sm); line-height: 1.45; }
+.app-page .profile .new-pop button > svg { flex: none; }
+.app-page .profile .new-pop button:focus-visible { outline: 2px solid var(--blue); outline-offset: -2px; background: var(--blue-tint); }
+.app-page .profile .me-name { gap: 3px; line-height: 1.4; }
+.app-page .profile .me-name .t-bodyb { font-size: var(--fs-sm); }
+.app-page .profile .side-fold, .app-page .profile .side-unfold { min-width: 28px; min-height: 28px; flex-shrink: 0; }
+.app-page .profile .mini-cal { padding: 8px 2px; }
+.app-page .profile .mini-cal .icon-btn { min-width: 26px; min-height: 26px; justify-content: center; align-items: center; }
+.app-page .profile .mini-cal-title { min-height: 26px; }
+.app-page .profile .mini-cal-grid { gap: 2px 1px; }
+.app-page .profile .mini-cal-grid .day { min-width: 0; min-height: 23px; line-height: 20px; font-size: var(--fs-cap); padding-bottom: 3px; border-radius: 0; }
+.app-page .profile .mini-cal-grid .wd { opacity: 1; }
+.app-page .profile .mini-cal-grid .day:focus-visible { outline: 2px solid var(--blue); outline-offset: 0; }
+.app-page .profile .today-is { min-height: 34px; padding: 0 5px; gap: 5px; }
+.app-page .profile .today-is select { font-size: var(--fs-sm); min-width: 0; }
+.app-page .profile .today-ok { height: 28px; padding: 0 9px; font-size: var(--fs-sm); }
+.app-page .profile .today-rec { line-height: 1.6; white-space: normal; overflow-wrap: anywhere; }
+.app-page .profile .status-msg { font-size: var(--fs-sm); line-height: 1.6; }
+.app-page .profile .side-tools { margin-top: 4px; gap: 6px; }
+.app-page .profile .side-tools .quick-btn { height: auto; min-height: 30px; padding: 5px 7px; }
+.app-page .profile details.side-brief { display: block; padding-top: 10px; }
+.app-page .profile .side-brief > summary { display: flex; align-items: center; justify-content: space-between; gap: 6px; min-height: 30px; margin: 0; padding: 3px 2px 7px; list-style: none; cursor: pointer; font-size: var(--fs-sm); font-weight: 700; }
+.app-page .profile .side-brief > summary::-webkit-details-marker { display: none; }
+.app-page .profile .side-brief > summary svg { transition: transform .15s; }
+.app-page .profile .side-brief:not([open]) > summary svg { transform: rotate(-90deg); }
+.app-page .profile .side-brief .sb-row { padding: 6px 2px; line-height: 1.6; }
+.app-page .profile .side-brief .sb-row span { white-space: normal; }
+.app-page .profile .side-brief .sb-next b { white-space: normal; overflow-wrap: anywhere; line-height: 1.6; }
+.app-page .topbar .one-box { min-height: 36px; height: 36px; padding: 0 10px; border-radius: 0; cursor: pointer; text-align: left; font: inherit; gap: 8px; }
+.app-page .topbar .one-box > svg { flex-shrink: 0; }
+.app-page .topbar .one-box-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-sm); font-weight: 600; }
+.app-page .topbar .one-box-hint { flex: none; font-size: var(--fs-cap); opacity: .8; }
+.app-page .topbar .one-box kbd { flex: none; color: inherit; border-color: currentColor; border-radius: 0; opacity: .85; font: 500 var(--fs-cap)/1.5 var(--mono); padding: 1px 5px; }
+.app-page .topbar .one-box:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; background: var(--white); color: var(--blue); }
+.app-page .chat-dock-h .icon-btn { min-width: 28px; min-height: 28px; }
+.app-page .chat-dock-resize:focus-visible::after { content: ''; position: absolute; top: 35%; bottom: 35%; left: 2px; width: 6px; background: var(--pink); }
+@media (min-width: 900px) {
+  html:not(.side-rail) .app-page .body > .profile { width: 176px; padding: 10px 8px; gap: 8px; }
+  html.side-rail .app-page .profile .side-nav { align-items: center; gap: 7px; }
+  html.side-rail .app-page .side-nav-group { align-items: center; gap: 3px; }
+  html.side-rail .app-page .side-group-label { display: none; }
+  html.side-rail .app-page .side-nav-group + .side-nav-group { padding-top: 7px; border-top: 1px solid var(--line); }
+  html.side-rail .app-page .profile .side-item { width: 38px; height: 38px; min-height: 38px; padding: 0; justify-content: center; }
+  html.side-rail .app-page .profile .new-btn { width: 38px; min-height: 36px; padding: 0; font-size: 0; }
+  html.side-rail .app-page .profile .side-item .side-n { min-width: 15px; height: 15px; line-height: 15px; padding: 0 3px; }
+}
+@media (min-width: 1025px) {
+  .app-page .profile .side-item.side-chat { display: none; }
+}
+@media (max-width: 1180px) { .app-page .topbar .one-box-hint { display: none; } }
+@media (max-width: 900px) { .app-page .topbar .one-box kbd { display: none; } }
+@media (pointer: coarse) and (max-width: 1024px) {
+  .app-page .topbar .one-box { min-height: 40px; }
+  .app-page .profile .today-is { min-height: 48px; padding: 0 12px; }
+  .app-page .profile .today-is select { font-size: var(--fs-sub); }
+  .app-page .profile .today-ok { min-height: 36px; }
+  .app-page .profile .side-brief .sb-row { min-height: 44px; }
+}
+@media (prefers-reduced-motion: reduce) { .app-page .profile .side-brief > summary svg { transition: none; } }
