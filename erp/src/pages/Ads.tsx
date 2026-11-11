@@ -1,16 +1,17 @@
-import { useMemo, useState } from 'react'
-import { ExternalLink } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { ArrowRight, BarChart3, ChevronDown, ExternalLink, Images, LayoutDashboard, Loader2, Megaphone, RefreshCw, Search, TriangleAlert } from 'lucide-react'
 import { useApp, useAsync } from '../lib/app'
 import { addDays, dateTimeLabel, shortDate, todayKey } from '../lib/date'
 import { useRouter, withQuery } from '../lib/router'
 import { AD_PLATFORMS, type AdCampaign, type AdCreative, type AdDaily, type AdPlatform, type AdReport, type AdReportKind, type SeoCheck } from '../lib/types'
 import { Shell } from '../components/Shell'
-import { usePanelWide, useRightPanel } from '../components/RightPanel'
 import { Badge, Chip, Empty, SectionHead } from '../components/ui'
 import { ReportBody } from '../components/Reports'
 import { CompareBars, DayChart, Spark, type Series } from '../components/AdCharts'
 import { SeoPanel } from '../components/SeoPanel'
 import { MarketingDesk } from '../components/MarketingDesk'
+import { adPeriod, parseAdRange, selectAdRows, type AdRange } from '../lib/adWorkspace'
+import './Ads.css'
 
 const P_COLOR: Record<AdPlatform, string> = { Google: 'var(--blue)', Meta: 'var(--pink)', Naver: 'var(--green)', 기타: 'var(--gray)' }
 const won = (n: number) => `${Math.round(n).toLocaleString('ko-KR')}원`
@@ -18,20 +19,28 @@ const num = (n: number) => Math.round(n).toLocaleString('ko-KR')
 const pct = (a: number, b: number) => (b ? `${((a / b) * 100).toFixed(2)}%` : '–')
 const shortNum = (n: number) => (n >= 10000 ? `${(n / 10000).toFixed(n >= 100000 ? 0 : 1)}만` : num(n))
 
-type Range = 7 | 14 | 30 | 'month'
 type Tab = 'summary' | 'studio' | 'platform' | 'charts' | 'daily-table' | 'creatives' | 'competitors' | 'overseas' | 'daily' | 'seo'
 const TABS: [Tab, string][] = [
-  ['summary', '요약'],
+  ['summary', '대시보드'],
   ['studio', '캠페인 준비'],
-  ['platform', '매체별 보고서'],
-  ['charts', '그래프'],
-  ['daily-table', '일별'],
+  ['platform', '매체별 성과'],
+  ['charts', '추이 그래프'],
+  ['daily-table', '일별 수치'],
   ['creatives', '우리 소재'],
   ['competitors', '경쟁사 분석'],
   ['overseas', '해외 사례'],
-  ['daily', '09시 일일 보고'],
+  ['daily', '일일 보고'],
   ['seo', '검색 노출 (SEO · AEO · GEO)'],
 ]
+const GROUPS = [
+  { label: '대시보드', icon: LayoutDashboard, tabs: ['summary'] as Tab[], description: '광고 현황과 확인할 일을 한눈에 살펴보세요.' },
+  { label: '캠페인 준비', icon: Megaphone, tabs: ['studio'] as Tab[], description: '기획부터 소재 준비, 집행 전 확인까지 순서대로 진행하세요.' },
+  { label: '성과·보고서', icon: BarChart3, tabs: ['platform', 'charts', 'daily-table', 'daily'] as Tab[], description: '매체별 성과와 추이를 비교하고, 보고서를 확인하세요.' },
+  { label: '소재·리서치', icon: Images, tabs: ['creatives', 'competitors', 'overseas'] as Tab[], description: '우리 소재와 국내외 광고 사례를 찾아보세요.' },
+  { label: '검색 노출', icon: Search, tabs: ['seo'] as Tab[], description: '검색과 AI 답변에서 우리 브랜드가 어떻게 보이는지 확인하세요.' },
+]
+const NUMBER_TABS: Tab[] = ['summary', 'platform', 'charts', 'daily-table']
+type Period = ReturnType<typeof adPeriod>
 
 type MetricKey = 'cost' | 'impressions' | 'clicks' | 'ctr' | 'cpc' | 'conversions'
 const METRICS: { key: MetricKey; label: string; mode: 'stack' | 'line'; format: (n: number) => string }[] = [
@@ -53,99 +62,122 @@ const agg = (list: AdDaily[]): Agg => list.reduce((a, r) => ({ cost: a.cost + (r
 const metricOf = (a: Agg, k: MetricKey): number | null =>
   k === 'cost' ? a.cost : k === 'impressions' ? a.imp : k === 'clicks' ? a.clk : k === 'conversions' ? a.conv : k === 'ctr' ? (a.imp ? (a.clk / a.imp) * 100 : null) : a.clk ? a.cost / a.clk : null
 
-/** 광고 · 마케팅 (관리자). WKLY 총괄이 매일 07:00 숫자 기록 · 09:00 개선점과 경쟁사 현황 보고 */
+/** 업무별 탐색은 기존 tab 링크와 작성 중 이동 보호를 유지한다. */
 export default function Ads() {
-  const { api, version } = useApp()
   const { query, path, navigate } = useRouter()
+  const workspaceRef = useRef<HTMLDivElement>(null)
   const tab = (TABS.some(([k]) => k === query.get('tab')) ? query.get('tab') : 'summary') as Tab
   const setTab = (t: Tab) => {
     if (t === tab) return
     navigate(withQuery(path, query, { tab: t === 'summary' ? null : t, id: null }))
   }
-  const today = todayKey()
-  const yesterday = addDays(today, -1)
-  const [range, setRange] = useState<Range>(14)
-  const [platform, setPlatform] = useState<AdPlatform | null>(null)
-  const from = range === 'month' ? `${today.slice(0, 7)}-01` : addDays(yesterday, -(range - 1))
-  const prevFrom = range === 'month' ? addDays(from, -30) : addDays(from, -range)
-  const { data, loading } = useAsync(
-    async () => {
-      const [rows, campaigns, creatives, reports, seo] = await Promise.all([api.listAdDaily(prevFrom, today), api.listAdCampaigns(), api.listAdCreatives(), api.listAdReports(), api.listSeoChecks()])
-      return { rows, campaigns, creatives, reports, seo }
-    },
-    [prevFrom, today, version],
-    { rows: [] as AdDaily[], campaigns: [] as AdCampaign[], creatives: [] as AdCreative[], reports: [] as AdReport[], seo: [] as SeoCheck[] },
-  )
-  const rows = data.rows.filter(r => (!platform || r.platform === platform) && r.date >= from)
-  const prev = data.rows.filter(r => (!platform || r.platform === platform) && r.date >= prevFrom && r.date < from)
-  const platforms = AD_PLATFORMS.filter(pl => data.rows.some(r => r.platform === pl) || data.campaigns.some(c => c.platform === pl))
-  const shownPlatforms = platforms.filter(pl => !platform || pl === platform)
-  const days = useMemo(() => {
-    const out: string[] = []
-    for (let d = from; d <= yesterday; d = addDays(d, 1)) out.push(d)
-    return out
-  }, [from, yesterday])
-  const lastUpdate = data.rows.reduce<string | null>((a, r) => (!a || r.updated_at > a ? r.updated_at : a), null)
-
-  const showsNumbers = tab === 'summary' || tab === 'platform' || tab === 'charts' || tab === 'daily-table'
+  const group = GROUPS.find(g => g.tabs.includes(tab))!
+  const range = parseAdRange(query.get('period'))
+  const platform = AD_PLATFORMS.find(p => p === query.get('platform')) ?? null
+  const setRange = (r: AdRange) => navigate(withQuery(path, query, { period: r === 14 ? null : String(r) }))
+  const setPlatform = (p: AdPlatform | null) => navigate(withQuery(path, query, { platform: p }))
+  const period = adPeriod(todayKey(), range)
+  useEffect(() => {
+    workspaceRef.current?.closest('.main')?.scrollTo({ top: 0 })
+  }, [tab])
   return (
     <Shell active="ads">
-      <div className="chips ad-tabs" role="tablist" aria-label="광고 메뉴" style={{ flexShrink: 0 }}>
-        {TABS.map(([k, l]) => (
-          <Chip key={k} active={tab === k} onClick={() => setTab(k)}>
-            {l}
-            {k === 'daily' && data.reports.some(r => r.kind === '일일 보고' && r.report_date === today) ? ' ●' : ''}
-          </Chip>
-        ))}
+      <div className={`ads-workspace${tab === 'studio' ? ' is-preparing' : ''}`} ref={workspaceRef}>
+        <header className="ads-heading">
+          <div><span className="ads-eyebrow">MARKETING WORKSPACE</span><h1>광고·마케팅</h1><p>{group.description}</p></div>
+          {tab !== 'studio' && <button type="button" className="btn primary ads-prepare-btn" onClick={() => setTab('studio')}><Megaphone size={16} /> 캠페인 준비하기 <ArrowRight size={15} /></button>}
+        </header>
+        <nav className="ads-nav" aria-label="광고 업무">
+          {GROUPS.map(g => <button key={g.label} type="button" className={g === group ? 'active' : ''} aria-current={g === group ? 'page' : undefined} onClick={() => setTab(g.tabs.includes(tab) ? tab : g.tabs[0])}><g.icon size={18} /><span>{g.label}</span></button>)}
+        </nav>
+        {group.tabs.length > 1 && <nav className="ads-subnav" aria-label={`${group.label} 상세 메뉴`}>
+          {group.tabs.map(t => <button key={t} type="button" aria-current={tab === t ? 'page' : undefined} className={tab === t ? 'active' : ''} onClick={() => setTab(t)}>{TABS.find(([key]) => key === t)![1]}</button>)}
+        </nav>}
+        <section className="ads-content" aria-label={TABS.find(([key]) => key === tab)![1]}>
+          {tab === 'studio' ? <MarketingDesk /> : NUMBER_TABS.includes(tab) ? <NumbersWorkspace tab={tab} range={range} platform={platform} period={period} setRange={setRange} setPlatform={setPlatform} goTab={setTab} />
+            : tab === 'creatives' ? <CreativeWorkspace period={period} />
+            : tab === 'seo' ? <SearchWorkspace />
+            : <ReportWorkspace key={tab} kind={tab === 'competitors' ? '경쟁사 분석' : tab === 'overseas' ? '해외 사례' : '일일 보고'} />}
+        </section>
       </div>
-      {showsNumbers && (
-        <div className="row wrap">
-          <div className="chips">
-            {([7, 14, 30, 'month'] as Range[]).map(r => (
-              <Chip key={r} active={range === r} onClick={() => setRange(r)}>
-                {r === 'month' ? '이번 달' : `최근 ${r}일`}
-              </Chip>
-            ))}
-          </div>
-          <div className="chips">
-            <Chip active={!platform} onClick={() => setPlatform(null)}>
-              전체 매체
-            </Chip>
-            {platforms.map(pl => (
-              <Chip key={pl} active={platform === pl} onClick={() => setPlatform(platform === pl ? null : pl)}>
-                {pl}
-              </Chip>
-            ))}
-          </div>
-          <span className="grow" />
-          <span className="t-cap">{lastUpdate ? `숫자 갱신 ${dateTimeLabel(lastUpdate)} · 매일 07:00 기록 · 09:00 보고` : 'WKLY 총괄이 매일 07:00 어제 숫자를 기록하고 09:00에 보고합니다'}</span>
-        </div>
-      )}
-      {tab === 'studio' ? (
-        <MarketingDesk />
-      ) : showsNumbers && data.rows.length === 0 ? (
-        <Empty>{loading ? '불러오는 중…' : '아직 기록된 광고 숫자가 없습니다. 내일 아침 광고 대시보드 갱신 후 나타납니다.'}</Empty>
-      ) : tab === 'summary' ? (
-        <Summary rows={rows} prev={prev} days={days} platforms={shownPlatforms} campaigns={data.campaigns} reports={data.reports} goTab={setTab} />
-      ) : tab === 'platform' ? (
-        <PlatformReport rows={rows} days={days} platforms={shownPlatforms} campaigns={data.campaigns} />
-      ) : tab === 'charts' ? (
-        <Charts rows={rows} days={days} platforms={shownPlatforms} campaigns={data.campaigns} />
-      ) : tab === 'daily-table' ? (
-        <DailyTable rows={rows} days={days} platforms={shownPlatforms} />
-      ) : tab === 'creatives' ? (
-        <Creatives list={data.creatives.filter(c => c.side === '우리')} rows={data.rows} side="우리" />
-      ) : tab === 'competitors' ? (
-        <Analysis kind="경쟁사 분석" reports={data.reports} creatives={data.creatives.filter(c => c.side === '경쟁사')} rows={data.rows} />
-      ) : tab === 'seo' ? (
-        <SeoPanel checks={data.seo} />
-      ) : tab === 'overseas' ? (
-        <Analysis kind="해외 사례" reports={data.reports} creatives={data.creatives.filter(c => c.side === '해외')} rows={data.rows} />
-      ) : (
-        <Analysis kind="일일 보고" reports={data.reports} creatives={[]} rows={data.rows} />
-      )}
     </Shell>
   )
+}
+
+function LoadState({ error, retry }: { error?: string | null; retry?: () => void }) {
+  return <div className={`ads-load-state${error ? ' error' : ''}`} role={error ? 'alert' : 'status'}>
+    {error ? <TriangleAlert size={22} /> : <Loader2 size={22} className="ads-spin" />}
+    <div><strong>{error ? '자료를 불러오지 못했습니다' : '자료를 불러오는 중입니다'}</strong><p>{error ? '연결 상태를 확인하고 다시 불러와 주세요.' : '잠시만 기다려 주세요.'}</p></div>
+    {error && retry && <button type="button" className="btn" onClick={retry}><RefreshCw size={14} /> 다시 불러오기</button>}
+  </div>
+}
+
+function NumbersWorkspace({ tab, range, platform, period, setRange, setPlatform, goTab }: { tab: Tab; range: AdRange; platform: AdPlatform | null; period: Period; setRange: (r: AdRange) => void; setPlatform: (p: AdPlatform | null) => void; goTab: (t: Tab) => void }) {
+  const { api, version } = useApp()
+  const { from, to, previousFrom, days } = period
+  const requestKey = `${previousFrom}:${to}:${version}`
+  const { data, loading, error, reload } = useAsync(async () => {
+    const [rows, campaigns] = await Promise.all([api.listAdDaily(previousFrom, to), api.listAdCampaigns()])
+    return { rows, campaigns, requestKey }
+  }, [requestKey], { rows: [] as AdDaily[], campaigns: [] as AdCampaign[], requestKey: '' })
+  const current = data.requestKey === requestKey
+  const rows = current ? selectAdRows(data.rows, from, to, platform) : []
+  const prev = current ? selectAdRows(data.rows, previousFrom, addDays(from, -1), platform) : []
+  const platforms = AD_PLATFORMS.filter(pl => (!platform || pl === platform) && (data.rows.some(r => r.platform === pl) || data.campaigns.some(c => c.platform === pl)))
+  const lastUpdate = current ? data.rows.reduce<string | null>((a, r) => (!a || r.updated_at > a ? r.updated_at : a), null) : null
+  const coveredDays = new Set(rows.map(r => r.date)).size
+  return <>
+    <div className="ads-filters">
+      <div className="ads-period"><span className="ads-filter-label">조회 기간</span><div className="ads-segment" role="group" aria-label="조회 기간">{([7, 14, 30, 'month'] as AdRange[]).map(r => <button key={r} type="button" aria-pressed={range === r} className={range === r ? 'active' : ''} onClick={() => setRange(r)}>{r === 'month' ? '이번 달' : `${r}일`}</button>)}</div></div>
+      <label className="ads-channel"><span className="ads-filter-label">매체</span><select aria-label="성과 조회 매체" value={platform ?? ''} onChange={e => setPlatform((e.target.value || null) as AdPlatform | null)}><option value="">전체 매체</option>{AD_PLATFORMS.map(pl => <option key={pl}>{pl}</option>)}</select></label>
+      <div className="ads-date-range"><strong>{days.length ? `${shortDate(from)} – ${shortDate(to)}` : '이번 달 집계 전'}</strong><span>어제까지 · 한국 시간</span></div>
+      <button type="button" className="btn ads-refresh" onClick={reload} disabled={loading} aria-label="광고 성과 새로 불러오기"><RefreshCw size={14} className={loading ? 'ads-spin' : ''} /> 새로고침</button>
+    </div>
+    {loading ? <LoadState /> : error ? <LoadState error={error} retry={reload} /> : !current ? <LoadState /> : <>
+      <div className="ads-data-meta"><span>{lastUpdate ? `최근 읽은 기록 갱신 ${dateTimeLabel(lastUpdate)}` : '조회 범위에 갱신 기록이 없습니다'}</span>{rows.length > 0 && <span>{days.length}일 중 {coveredDays}일 기록 · 합계는 수집된 기록 기준</span>}</div>
+      {rows.length === 0 ? <>
+        <div className="ads-empty"><BarChart3 size={30} /><h2>{days.length ? '선택한 기간에 광고 기록이 없습니다' : '이번 달의 일별 집계가 아직 없습니다'}</h2><p>{days.length ? '광고비와 성과를 확인할 기록이 없습니다. 기간 또는 매체를 바꿔 확인해 주세요.' : '최근 7일을 선택하면 지난달 말의 기록을 확인할 수 있습니다.'}</p><div className="ads-empty-actions">{range !== 30 && <button type="button" className="btn" onClick={() => setRange(days.length ? 30 : 7)}>{days.length ? '최근 30일 보기' : '최근 7일 보기'}</button>}{platform && <button type="button" className="btn" onClick={() => setPlatform(null)}>전체 매체 보기</button>}<button type="button" className="btn primary" onClick={() => goTab('studio')}>캠페인 준비하기 <ArrowRight size={14} /></button></div></div>
+        {tab === 'summary' && <LatestReport goTab={goTab} />}
+        {tab === 'summary' && <Flags campaigns={data.campaigns.filter(c => !platform || c.platform === platform)} />}
+        {tab === 'platform' && platforms.length > 0 && <PlatformReport rows={rows} days={days} platforms={platforms} campaigns={data.campaigns} />}
+      </> : tab === 'summary' ? <Summary rows={rows} prev={prev} days={days} platforms={platforms} campaigns={data.campaigns} goTab={goTab} />
+        : tab === 'platform' ? <PlatformReport rows={rows} days={days} platforms={platforms} campaigns={data.campaigns} />
+        : tab === 'charts' ? <Charts rows={rows} days={days} platforms={platforms} campaigns={data.campaigns} />
+        : <DailyTable rows={rows} days={days} platforms={platforms} />}
+    </>}
+  </>
+}
+
+function LatestReport({ goTab }: { goTab: (t: Tab) => void }) {
+  const { api, version } = useApp()
+  const { data, loading, error, reload } = useAsync(() => api.listAdReports(), [version], [] as AdReport[])
+  const latest = data.filter(r => r.kind === '일일 보고').sort((a, b) => b.report_date.localeCompare(a.report_date))[0]
+  if (loading) return <span className="t-cap" role="status">최근 일일 보고 확인 중…</span>
+  if (error) return <div className="ads-inline-status" role="status">일일 보고를 불러오지 못했습니다. <button type="button" className="link-btn" onClick={reload}>다시 불러오기</button></div>
+  if (!latest) return null
+  return <button type="button" className="ad-report-card" onClick={() => goTab('daily')}><span className="row"><Badge tone="acid">최근 일일 보고</Badge><span className="t-bodyb grow truncate">{latest.title}</span><span className="t-meta">{shortDate(latest.report_date)}</span><ArrowRight size={15} /></span>{latest.summary && <span className="t-small pre clamp-3">{latest.summary}</span>}</button>
+}
+
+function CreativeWorkspace({ period }: { period: Period }) {
+  const { api, version } = useApp()
+  const { data, loading, error, reload } = useAsync(() => api.listAdCreatives(), [version], [] as AdCreative[])
+  const { data: rows, error: numbersError, loading: numbersLoading, reload: reloadNumbers } = useAsync(() => api.listAdDaily(period.from, period.to), [period.from, period.to, version], [] as AdDaily[])
+  if (loading) return <LoadState />
+  if (error) return <LoadState error={error} retry={reload} />
+  return <><SectionHead title="우리 소재" right={<button type="button" className="link-btn" disabled={numbersLoading} onClick={() => { reload(); reloadNumbers() }}><RefreshCw size={13} /> 새로고침</button>} /><p className="ads-help">캠페인과 문구로 등록된 소재를 찾을 수 있습니다. {period.days.length > 0 && `성과 표시는 ${shortDate(period.from)}–${shortDate(period.to)} 기록 기준입니다.`}</p>{numbersError && !numbersLoading && <span className="t-cap">소재별 성과를 불러오지 못했습니다. 등록된 소재를 먼저 표시합니다. <button type="button" className="link-btn" onClick={reloadNumbers}>성과 다시 불러오기</button></span>}<Creatives list={data.filter(c => c.side === '우리')} rows={numbersError || numbersLoading ? [] : selectAdRows(rows, period.from, period.to, null)} side="우리" /></>
+}
+
+function ReportWorkspace({ kind }: { kind: AdReportKind }) {
+  const { api, version } = useApp()
+  const reports = useAsync(() => api.listAdReports(), [kind, version], [] as AdReport[])
+  const creatives = useAsync(() => kind === '일일 보고' ? Promise.resolve([] as AdCreative[]) : api.listAdCreatives(), [kind, version], [] as AdCreative[])
+  return <><div className="ads-report-top"><SectionHead title={kind} /><button type="button" className="btn" disabled={reports.loading || creatives.loading} onClick={() => { reports.reload(); creatives.reload() }}><RefreshCw size={14} /> 새로고침</button></div>{reports.loading ? <LoadState /> : reports.error ? <LoadState error={reports.error} retry={reports.reload} /> : <Analysis kind={kind} reports={reports.data} creatives={creatives.data.filter(c => c.side === (kind === '해외 사례' ? '해외' : '경쟁사'))} rows={[]} />}{creatives.error && !creatives.loading && <div className="ads-inline-status" role="status">참고 소재를 불러오지 못했습니다. <button type="button" className="link-btn" onClick={creatives.reload}>다시 불러오기</button></div>}</>
+}
+
+function SearchWorkspace() {
+  const { api, version } = useApp()
+  const { data, loading, error, reload } = useAsync(() => api.listSeoChecks(), [version], [] as SeoCheck[])
+  return loading ? <LoadState /> : error ? <LoadState error={error} retry={reload} /> : <SeoPanel checks={data} />
 }
 
 // ---------------------------------------------------------------------
@@ -153,20 +185,21 @@ export default function Ads() {
 function Kpis({ rows, prev, days }: { rows: AdDaily[]; prev: AdDaily[]; days: string[] }) {
   const t = agg(rows)
   const p = agg(prev)
+  const recordedDays = new Set(rows.map(r => r.date)).size
   const delta = (a: number, b: number) => (b ? `${a >= b ? '▲' : '▼'} ${Math.abs(((a - b) / b) * 100).toFixed(0)}%` : '')
   return (
-    <div className="kpis kpis-4">
+    <><div className="kpis kpis-4">
       <div className="kpi">
         <span className="t-cap">광고비</span>
         <span className="v">{won(t.cost)}</span>
         <span className="sub">
-          하루 평균 {won(t.cost / Math.max(1, days.length))} {delta(t.cost, p.cost)}
+          기록된 {recordedDays}일 평균 {won(t.cost / Math.max(1, recordedDays))}
         </span>
       </div>
       <div className="kpi">
         <span className="t-cap">노출</span>
         <span className="v">{num(t.imp)}</span>
-        <span className="sub">이전 기간 대비 {delta(t.imp, p.imp) || '–'}</span>
+        <span className="sub">{prev.length ? `이전 기간 대비 ${delta(t.imp, p.imp) || '비교값 없음'}` : '이전 기간 기록 없음'}</span>
       </div>
       <div className="kpi">
         <span className="t-cap">클릭 · CTR</span>
@@ -180,7 +213,7 @@ function Kpis({ rows, prev, days }: { rows: AdDaily[]; prev: AdDaily[]; days: st
         <span className="v">{t.clk ? won(t.cost / t.clk) : '–'}</span>
         <span className="sub">전환 {num(t.conv)} (Google 기준)</span>
       </div>
-    </div>
+    </div><span className="t-cap ads-comparison-note">{days.length}일 집계 · 비교는 직전 동일 기간의 수집 기록 기준</span></>
   )
 }
 
@@ -215,32 +248,22 @@ function Flags({ campaigns }: { campaigns: AdCampaign[] }) {
   const flags = campaigns.filter(c => c.flags)
   if (!flags.length) return null
   return (
-    <div className="note">
-      <b>⚠ 확인 필요</b>
+    <details className="ads-attention">
+      <summary><TriangleAlert size={17} /><strong>확인이 필요한 캠페인</strong><span className="ads-count">{flags.length}</span><span className="ads-details-hint">내용 보기</span><ChevronDown size={16} className="ads-details-chevron" /></summary>
+      <div className="ads-attention-list">
       {flags.map(c => (
-        <div key={`${c.platform}${c.campaign}`} className="t-small">
-          · {c.platform} {c.campaign} — {c.flags}
-        </div>
+        <div key={`${c.platform}${c.campaign}`}><strong>{c.platform} · {c.campaign}</strong><span>{c.flags}</span></div>
       ))}
-    </div>
+      </div>
+    </details>
   )
 }
 
-function Summary({ rows, prev, days, platforms, campaigns, reports, goTab }: { rows: AdDaily[]; prev: AdDaily[]; days: string[]; platforms: AdPlatform[]; campaigns: AdCampaign[]; reports: AdReport[]; goTab: (t: Tab) => void }) {
-  const latest = reports.find(r => r.kind === '일일 보고')
+function Summary({ rows, prev, days, platforms, campaigns, goTab }: { rows: AdDaily[]; prev: AdDaily[]; days: string[]; platforms: AdPlatform[]; campaigns: AdCampaign[]; goTab: (t: Tab) => void }) {
   return (
     <>
       <Kpis rows={rows} prev={prev} days={days} />
-      {latest && (
-        <button type="button" className="ad-report-card" onClick={() => goTab('daily')}>
-          <span className="row">
-            <Badge tone="acid">09시 보고</Badge>
-            <span className="t-bodyb grow truncate">{latest.title}</span>
-            <span className="t-meta">{shortDate(latest.report_date)}</span>
-          </span>
-          {latest.summary && <span className="t-small pre">{latest.summary}</span>}
-        </button>
-      )}
+      <LatestReport goTab={goTab} />
       <Flags campaigns={campaigns.filter(c => platforms.includes(c.platform))} />
       <SectionHead title="매체별 한눈에" right={<button type="button" className="link-btn" onClick={() => goTab('platform')}>매체별 보고서 →</button>} />
       <PlatformCards rows={rows} days={days} platforms={platforms} campaigns={campaigns} />
@@ -267,7 +290,7 @@ function PlatformCards({ rows, days, platforms, campaigns }: { rows: AdDaily[]; 
               {camps.some(c => c.flags) && <Badge tone="red">확인 필요</Badge>}
             </div>
             {list.length === 0 ? (
-              <span className="t-cap">{camps[0]?.status ?? '기록 없음'}</span>
+              <span className="t-cap">선택 기간의 기록 없음{camps[0]?.status ? ` · ${camps[0].status}` : ''}</span>
             ) : (
               <>
                 <span className="v">{won(a.cost)}</span>
@@ -342,12 +365,12 @@ function PlatformReport({ rows, days, platforms, campaigns }: { rows: AdDaily[];
                         </td>
                         <td>{c?.status ? <Badge tone={/중|활성|게재|운영|ON/i.test(c.status) && !/준비|대기/.test(c.status) ? 'acid' : 'gray'}>{c.status}</Badge> : '–'}</td>
                         <td className="num">{c?.daily_budget ? won(c.daily_budget) : '–'}</td>
-                        <td className="num">{won(a.cost)}</td>
-                        <td className="num">{num(a.imp)}</td>
-                        <td className="num">{num(a.clk)}</td>
+                        <td className="num">{cl.length ? won(a.cost) : '–'}</td>
+                        <td className="num">{cl.length ? num(a.imp) : '–'}</td>
+                        <td className="num">{cl.length ? num(a.clk) : '–'}</td>
                         <td className="num">{pct(a.clk, a.imp)}</td>
                         <td className="num">{a.clk ? won(a.cost / a.clk) : '–'}</td>
-                        {pl === 'Google' && <td className="num">{num(a.conv)}</td>}
+                        {pl === 'Google' && <td className="num">{cl.length ? num(a.conv) : '–'}</td>}
                         <td>{cl.length ? <Spark values={days.map(d => cl.find(r => r.date === d)?.cost ?? 0)} color={P_COLOR[pl]} /> : <span className="t-meta">기록 없음</span>}</td>
                       </tr>
                     )
@@ -355,11 +378,7 @@ function PlatformReport({ rows, days, platforms, campaigns }: { rows: AdDaily[];
                 </tbody>
               </table>
             </div>
-            {campaigns.filter(c => c.platform === pl && c.flags).map(c => (
-              <span key={c.campaign} className="t-cap t-red">
-                ⚠ {c.campaign} — {c.flags}
-              </span>
-            ))}
+            <Flags campaigns={campaigns.filter(c => c.platform === pl)} />
           </section>
         )
       })}
@@ -396,7 +415,7 @@ function Charts({ rows, days, platforms, campaigns }: { rows: AdDaily[]; days: s
       <Legend platforms={platforms} />
       <SectionHead title={`캠페인별 ${m.label}`} count={byCampaign.length} />
       {byCampaign.length ? <CompareBars rows={byCampaign} format={m.format} /> : <Empty>이 기간에 값이 없습니다.</Empty>}
-      <SectionHead title="모든 지표 한눈에" />
+      <details className="ads-disclosure"><summary><strong>모든 지표 한눈에</strong><span>6개 지표</span><ChevronDown size={16} className="ads-details-chevron" /></summary>
       <div className="ad-multiples">
         {METRICS.map(x => (
           <div key={x.key} className="ad-multiple">
@@ -407,7 +426,8 @@ function Charts({ rows, days, platforms, campaigns }: { rows: AdDaily[]; days: s
           </div>
         ))}
       </div>
-      <SectionHead title="캠페인별 일별 광고비" />
+      </details>
+      <details className="ads-disclosure"><summary><strong>캠페인별 일별 광고비</strong><span>상세 그래프</span><ChevronDown size={16} className="ads-details-chevron" /></summary>
       <div className="ad-multiples">
         {[...new Set(rows.map(r => `${r.platform}|${r.campaign}`))].map(k => {
           const [pl, c] = k.split('|') as [AdPlatform, string]
@@ -424,6 +444,7 @@ function Charts({ rows, days, platforms, campaigns }: { rows: AdDaily[]; days: s
           )
         })}
       </div>
+      </details>
     </>
   )
 }
@@ -489,24 +510,17 @@ function DailyTable({ rows, days, platforms }: { rows: AdDaily[]; days: string[]
 function Creatives({ list, rows, side }: { list: AdCreative[]; rows: AdDaily[]; side: '우리' | '경쟁사' | '해외' }) {
   const [onlyLive, setOnlyLive] = useState(side === '우리')
   const [camp, setCamp] = useState<string | null>(null)
+  const [search, setSearch] = useState('')
   const camps = [...new Set(list.map(c => c.campaign || c.brand))]
-  const shown = list.filter(c => (!onlyLive || !/이전|종료|중지/.test(c.status ?? '')) && (!camp || (c.campaign || c.brand) === camp))
+  const searchText = search.trim().toLocaleLowerCase('ko-KR')
+  const shown = list.filter(c => (!onlyLive || !/이전|종료|중지/.test(c.status ?? '')) && (!camp || (c.campaign || c.brand) === camp) && (!searchText || [c.name, c.brand, c.campaign, c.headline, c.body].join(' ').toLocaleLowerCase('ko-KR').includes(searchText)))
   const groups = camps.filter(k => shown.some(c => (c.campaign || c.brand) === k))
-  if (!list.length) return <Empty>{side === '우리' ? '아직 등록된 소재가 없습니다.' : '아직 수집된 광고 소재가 없습니다. 매일 09시 보고 때 함께 모읍니다.'}</Empty>
+  if (!list.length) return <Empty>{side === '우리' ? '아직 등록된 소재가 없습니다.' : '아직 수집된 광고 소재가 없습니다.'}</Empty>
   return (
     <>
-      <div className="row wrap">
-        <div className="chips">
-          <Chip active={!camp} onClick={() => setCamp(null)}>
-            전체
-          </Chip>
-          {camps.map(k => (
-            <Chip key={k} active={camp === k} onClick={() => setCamp(camp === k ? null : k)}>
-              {k}
-            </Chip>
-          ))}
-        </div>
-        <span className="grow" />
+      <div className="ads-creative-filters">
+        <label className="ads-search"><Search size={16} /><input type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder="소재명·광고 문구 검색" aria-label={`${side} 소재 검색`} /></label>
+        <label className="ads-creative-campaign"><span className="sr-only">캠페인 또는 브랜드</span><select aria-label={`${side} 소재 캠페인`} value={camp ?? ''} onChange={e => setCamp(e.target.value || null)}><option value="">전체 캠페인·브랜드</option>{camps.map(k => <option key={k} value={k}>{k}</option>)}</select></label>
         {side === '우리' && (
           <label className="row t-small" style={{ gap: 4 }}>
             <input type="checkbox" checked={onlyLive} onChange={e => setOnlyLive(e.target.checked)} /> 최신 소재만
@@ -514,12 +528,13 @@ function Creatives({ list, rows, side }: { list: AdCreative[]; rows: AdDaily[]; 
         )}
         <span className="t-cap">{shown.length}개</span>
       </div>
+      {shown.length === 0 && <div className="ads-empty compact"><h2>조건에 맞는 소재가 없습니다</h2><p>검색어나 캠페인, 최신 소재 필터를 바꿔 보세요.</p><button type="button" className="btn" onClick={() => { setSearch(''); setCamp(null); setOnlyLive(false) }}>필터 초기화</button></div>}
       {groups.map(g => {
         const items = shown.filter(c => (c.campaign || c.brand) === g)
         const perf = side === '우리' ? agg(rows.filter(r => r.campaign === g)) : null
         return (
           <section key={g} className="col gap-6">
-            <SectionHead title={g} count={items.length} right={perf && perf.imp ? <span className="t-cap">캠페인 누적 광고비 {won(perf.cost)} · CTR {pct(perf.clk, perf.imp)}</span> : undefined} />
+            <SectionHead title={g} count={items.length} right={perf && perf.imp ? <span className="t-cap">조회 기간 광고비 {won(perf.cost)} · CTR {pct(perf.clk, perf.imp)}</span> : undefined} />
             <div className="ad-creatives">
               {items.map(c => (
                 <a key={c.id} className="ad-creative" href={c.link ?? c.image_url ?? undefined} target="_blank" rel="noreferrer" title={c.note ?? c.name}>
@@ -547,26 +562,25 @@ function Creatives({ list, rows, side }: { list: AdCreative[]; rows: AdDaily[]; 
 }
 
 function Analysis({ kind, reports, creatives, rows }: { kind: AdReportKind; reports: AdReport[]; creatives: AdCreative[]; rows: AdDaily[] }) {
-  const { query } = useRouter()
-  const list = reports.filter(r => r.kind === kind)
-  const [openId, setOpenId] = useState<string | null>(query.get('id') ?? list[0]?.id ?? null)
-  const open = list.find(r => r.id === openId) ?? list[0] ?? null
+  const { query, path, navigate } = useRouter()
+  const list = reports.filter(r => r.kind === kind).sort((a, b) => b.report_date.localeCompare(a.report_date))
+  const open = list.find(r => r.id === query.get('id')) ?? list[0] ?? null
+  const selectReport = (id: string) => navigate(withQuery(path, query, { id }))
   const intro =
     kind === '일일 보고'
-      ? '매일 09:00 — 어제 광고 성과, 개선점, 경쟁사 광고 현황 (WKLY 총괄)'
+      ? '광고 성과, 개선점, 경쟁사 현황을 날짜별로 확인하세요.'
       : kind === '경쟁사 분석'
         ? '국내 공간 · 팝업 · 전시 · 브랜드 경험 회사의 광고 소재와 집행 방식 분석 (WKLY 총괄)'
         : '우리와 비슷한 매체 · 사업을 하는 해외 회사의 광고 집행 사례 분석 (WKLY 총괄)'
-  // 넓은 화면: 보고서 본문은 오른쪽 칸, 가운데는 목록 · 소재
-  const wide = usePanelWide()
   const report = open && (
-    <article className="report-paper">
-      <div className="row">
+    <article className="report-paper ads-report-paper" aria-label={open.title}>
+      <div className="row wrap">
         <Badge tone="acid">{kind}</Badge>
         <span className="t-meta grow">
-          {shortDate(open.report_date)} · {dateTimeLabel(open.updated_at)}
+          {open.report_date.replaceAll('-', '.')} · 수정 {dateTimeLabel(open.updated_at)}
         </span>
       </div>
+      <h2>{open.title}</h2>
       {open.summary && <p className="t-small pre ad-summary">{open.summary}</p>}
       <ReportBody body={open.body ?? ''} />
       {open.sources && (
@@ -577,23 +591,21 @@ function Analysis({ kind, reports, creatives, rows }: { kind: AdReportKind; repo
       )}
     </article>
   )
-  useRightPanel(wide && open ? `ad-report:${open.id}` : null, kind, report)
   return (
-    <div className={`ad-analysis${wide ? ' one' : ''}`}>
-      <aside className="col gap-4">
-        <span className="t-cap">{intro}</span>
-        {list.length === 0 && <Empty>아직 보고서가 없습니다. 내일 09:00 보고부터 쌓입니다.</Empty>}
+    <><p className="ads-help">{intro}</p>
+    {list.length === 0 && <Empty>아직 등록된 {kind} 보고서가 없습니다.</Empty>}
+    {list.length > 0 && <label className="ads-report-picker"><span className="ads-filter-label">보고서 선택 · {list.length}개</span><select value={open?.id ?? ''} onChange={e => selectReport(e.target.value)}>{list.map(r => <option key={r.id} value={r.id}>{shortDate(r.report_date)} · {r.title}</option>)}</select></label>}
+    <div className={`ad-analysis ads-report-layout${list.length === 0 ? ' no-reports' : ''}`}>
+      {list.length > 0 && <aside className="ads-report-list" aria-label="보고서 목록">
+        <div className="ads-report-list-title"><strong>보고서</strong><span>{list.length}개</span></div>
         {list.map(r => (
-          <button key={r.id} type="button" className={`team-person${open?.id === r.id ? ' active' : ''}`} onClick={() => setOpenId(r.id)}>
-            <span className="col grow" style={{ minWidth: 0 }}>
-              <span className="t-smallb truncate">{r.title}</span>
-              <span className="t-meta">{shortDate(r.report_date)}</span>
-            </span>
+          <button key={r.id} type="button" aria-current={open?.id === r.id ? 'true' : undefined} className={open?.id === r.id ? 'active' : ''} onClick={() => selectReport(r.id)}>
+            <span className="t-meta">{shortDate(r.report_date)}</span><strong>{r.title}</strong>
           </button>
         ))}
-      </aside>
+      </aside>}
       <div className="col gap-8" style={{ minWidth: 0 }}>
-        {open && !wide && report}
+        {report}
         {creatives.length > 0 && (
           <>
             <SectionHead title={kind === '해외 사례' ? '해외 광고 소재' : '경쟁사 광고 소재'} count={creatives.length} />
@@ -602,5 +614,6 @@ function Analysis({ kind, reports, creatives, rows }: { kind: AdReportKind; repo
         )}
       </div>
     </div>
+    </>
   )
 }

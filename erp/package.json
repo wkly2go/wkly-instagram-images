@@ -8,7 +8,7 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "typecheck": "tsc -b",
-    "test:marketing": "node --experimental-strip-types --test tests/marketing.test.ts tests/marketing-db.test.mjs"
+    "test:marketing": "node --experimental-strip-types --test tests/ad-workspace.test.ts tests/marketing.test.ts tests/marketing-db.test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.3",
