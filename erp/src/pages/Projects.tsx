@@ -728,6 +728,8 @@ function ProjectDetail({ project: p, data, onEdit, onBack, panel = false }: { pr
   const todoSorted = [...myTodos.filter(t => t.status !== '완료'), ...myTodos.filter(t => t.status === '완료')]
   const [todoAll, setTodoAll] = useState(false)
   const client = data.clients.find(c => c.id === p.client_id)
+  const [pickSt, setPickSt] = useState<'진행' | '기획' | 'NIC' | '보류' | '완료' | '전체'>('진행')
+  const pickList = data.projects.filter(x => pickSt === '전체' || x.status === pickSt).sort((a, b) => (b.code ?? '').localeCompare(a.code ?? ''))
   // 이 프로젝트에 연결된 자료는 오른쪽 칸(검색 창 자리)에 표시
   useRightPanel(panel ? null : `project:${p.id}`, '프로젝트 자료', <ProjectMaterials projectId={p.id} />)
   const { data: extra } = useAsync(
@@ -762,28 +764,43 @@ function ProjectDetail({ project: p, data, onEdit, onBack, panel = false }: { pr
           <ArrowLeft size={18} />
         </button>
         {p.code && <span className="proj-code" style={{ background: DIVISIONS[projectBrand(p)].color }} title={DIVISIONS[projectBrand(p)].full}>{p.code}</span>}
-        {/* 프로젝트 이름을 눌러 다른 프로젝트로 바로 바꾸기 (대표 지시 2026-11-11) */}
-        <label className="proj-pick" title="다른 프로젝트 고르기">
+        {/* 프로젝트 고르기 (대표 지시 2026-11-11): 이름을 누르면 '진행' 프로젝트만, 다른 상태는 옆 드롭다운으로 바꿔서 */}
+        <select className="proj-scope" value={pickSt} onChange={e => setPickSt(e.target.value as typeof pickSt)} aria-label="고를 프로젝트 상태" title="이름 목록에 나올 프로젝트 상태">
+          {(['진행', '기획', 'NIC', '보류', '완료', '전체'] as const).map(st => (
+            <option key={st} value={st}>
+              {st} {st === '전체' ? data.projects.length : data.projects.filter(x => x.status === st).length}
+            </option>
+          ))}
+        </select>
+        <label className="proj-pick" title={`${pickSt} 프로젝트 고르기`}>
           <h2 className="t-title truncate">{p.name}</h2>
           <ChevronDown size={16} className="proj-pick-chev" aria-hidden="true" />
           <select aria-label="프로젝트 고르기" value={p.id} onChange={e => e.target.value !== p.id && navigate(`/projects?id=${e.target.value}`)}>
-            {(['진행', '기획', 'NIC', '보류', '완료'] as const).map(st => {
-              const list = data.projects.filter(x => x.status === st).sort((a, b) => (b.code ?? '').localeCompare(a.code ?? ''))
-              return list.length ? (
-                <optgroup key={st} label={`${st} (${list.length})`}>
-                  {list.map(x => (
-                    <option key={x.id} value={x.id}>
-                      {x.code ? `${x.code} · ` : ''}
-                      {x.name}
-                    </option>
-                  ))}
-                </optgroup>
-              ) : null
-            })}
+            {!pickList.some(x => x.id === p.id) && (
+              <option value={p.id}>
+                (지금) {p.code ? `${p.code} · ` : ''}
+                {p.name}
+              </option>
+            )}
+            <optgroup label={`${pickSt} 프로젝트 (${pickList.length})`}>
+              {pickList.map(x => (
+                <option key={x.id} value={x.id}>
+                  {x.code ? `${x.code} · ` : ''}
+                  {x.name}
+                </option>
+              ))}
+            </optgroup>
           </select>
         </label>
         <StatusBadge status={p.status} />
-        <Badge>{p.category}</Badge>
+        {/* 분류 바로 바꾸기 (대표 지시 2026-11-11) */}
+        <select className="proj-cat" value={p.category} disabled={busy} onChange={e => run(() => api.saveProject({ id: p.id, category: e.target.value as Project['category'] } as Project), `분류를 '${e.target.value}'(으)로 바꿨습니다.`)} aria-label="프로젝트 분류" title="프로젝트 분류 바꾸기">
+          {PROJECT_CATEGORIES.map(c => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </select>
         <span className="grow" />
         <a className="btn btn-outline btn-sm drive-btn" href={projectDriveUrl(p).url} target="_blank" rel="noreferrer" title={projectDriveUrl(p).exact ? '구글 드라이브 프로젝트 폴더 열기' : '폴더 주소가 아직 없어 드라이브에서 연번 · 이름으로 찾기'}>
           <FolderOpen size={13} /> 드라이브{projectDriveUrl(p).exact ? '' : ' 찾기'}

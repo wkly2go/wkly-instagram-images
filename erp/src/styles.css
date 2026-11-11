@@ -4504,3 +4504,6 @@ body.dock-resizing iframe { pointer-events: none; }
 .proj-pick h2 { margin: 0; }
 .proj-pick-chev { flex: none; color: var(--blue); }
 .proj-pick select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; border: 0; font-size: 14px; }
+.proj-scope, .proj-cat { height: 28px; padding: 0 22px 0 8px; border: 1px solid var(--line); background-color: var(--white); font: inherit; font-size: var(--fs-cap); font-weight: 700; color: var(--blue); cursor: pointer; }
+.proj-cat { color: var(--ink, #2c2c28); }
+.proj-scope:hover, .proj-cat:hover { border-color: var(--blue); }
