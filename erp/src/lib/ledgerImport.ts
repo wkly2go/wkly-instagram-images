@@ -284,6 +284,12 @@ const RULES: { re: RegExp; dir?: LedgerDirection; cat: string; transfer?: boolea
   { re: /shutterstock|셔터스톡|게티|getty|envato|canva|캔바|openai|chatgpt|claude|apple\.com|nice\(빌링\)|apple|autodesk|넷플릭스|netflix|유튜브|youtube|멜론|코웨이|렌탈|멤버십/i, dir: '출금', cat: '구독 · 소프트웨어' },
   { re: /식당|카페|커피|다방|스타벅스|투썸|이디야|메가|컴포즈|편의점|씨유|CU\)|GS25|세븐일레븐|이마트24|마트|국밥|짬뽕|짜장|돈까스|돈가스|치킨|피자|버거|롯데리아|KFC|맥도날드|설렁탕|순대|김밥|분식|밥|식육|고기|갈비|삼겹|족발|보쌈|초밥|스시|라멘|우동|국수|냉면|베이커리|빵|제과|떡|도시락|푸드|키친|다이닝|레스토랑|비스트로|주점|호프|포차|닭|쌀국수|타코|샐러드|백화점|파리바게뜨|뚜레쥬르|카츠|던킨|배스킨|공차|쥬스|주스|샤브|반점|회관|곰탕|삼계탕|흑돼지|장어|찌개|덤플링|브루어리|탭하우스|써브웨이|애슐리|식품관|노래바|양대창|한식/i, dir: '출금', cat: '식대 · 경비' },
   { re: /호텔|리조트|모텔|숙박|에어비앤비|airbnb/i, dir: '출금', cat: '교통 · 운반' },
+  // 2025 카드 명세서 대사에서 확인한 가게 (2026-11-12)
+  { re: /휴대폰메시지|승인안내|연회비/, dir: '출금', cat: '수수료' },
+  { re: /agoda|아고다|나이스인프라|와이이에스|동일빌딩|서교흥업|리더스타워|서울디자인재단|타다|TADA|자동차.*(센터|서비스)|블루핸즈|FreewayMarket/i, dir: '출금', cat: '교통 · 운반' },
+  { re: /엔에이엘소프트|다우데이타/, dir: '출금', cat: '구독 · 소프트웨어' },
+  { re: /교보문고|영풍문고|무인양품|포장|올리브영/, dir: '출금', cat: '재료 · 소품' },
+  { re: /지에스\s*(\(GS\))?25|노브랜드|스타필드마켓|하나로|농협.*유통|오아시스|우아한형제들|감자탕|마라탕|만두|면옥|생선|어가|과메기|파스타|오픈더도우|크리스피|노티드|포케|다운타우너|아웃백|할리스|금옥당|한과|꿀타래|크리스탈제이드|스테이키|애니버셔리|생활협동/i, dir: '출금', cat: '식대 · 경비' },
 ]
 const clean = (s: string) => s.replace(/\(주\)|주식회사|㈜|\s/g, '').toLowerCase()
 
@@ -418,7 +424,7 @@ export async function parseCardLike(grid: Grid, hi: number, kind: '카드' | '�
     }
   }
   const top = grid.slice(0, hi + 1).flat().map(x => String(x ?? '')).join(' ') + ' ' + file
-  const company = ['현대', '우리', '국민', 'KB', '신한', '삼성', '롯데', '하나', 'IBK', '기업', '비씨', 'BC', 'NH', '농협'].find(b => top.includes(b))
+  const company = ['현대', '우리', '국민', 'KB', '신한', '삼성', '롯데', '하나', 'IBK', '기업', '비씨', 'BC', 'NH', '농협'].find(b => top.toUpperCase().includes(b))
   const label = /홈택스|사업용/.test(top) || !company ? '사업용 카드' : company === 'IBK' || company === '기업' ? '기업카드' : `${company}카드`
   const seen = new Map<string, number>()
   const head = grid[hi].map(norm)
@@ -452,12 +458,13 @@ export async function parseCardLike(grid: Grid, hi: number, kind: '카드' | '�
       continue
     }
     const dir: LedgerDirection = total < 0 ? '입금' : '출금' // 카드 취소는 들어온 돈으로
-    const k = classify(merchant, dir, Math.abs(total), date, payments)
+    // 취소도 같은 가게의 출금 규칙으로 알아보고, 알아보면 '이자 · 환급' (다시 분류 버튼과 같은 방식)
+    const k = classify(merchant.replace(/^취소/, ''), '출금', Math.abs(total), date, dir === '입금' ? [] : payments)
     rows.push({
       entry_date: date,
       direction: dir,
       amount: Math.abs(total),
-      category: k.is_transfer ? '기타 출금' : k.category,
+      category: dir === '입금' ? (k.needs_review ? '기타 입금' : '이자 · 환급') : k.is_transfer ? '기타 출금' : k.category,
       counterparty: merchant || null,
       method: '카드',
       memo: `${label}${total < 0 ? ' · 취소' : ''}`,
