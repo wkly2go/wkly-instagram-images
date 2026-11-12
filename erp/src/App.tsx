@@ -27,6 +27,7 @@ const Clients = lazy(() => import('./pages/Clients'))
 const Projects = lazy(() => import('./pages/Projects'))
 const Admin = lazy(() => import('./pages/Admin'))
 const Library = lazy(() => import('./pages/Library'))
+const ReportTemplatesPage = lazy(() => import('./pages/ReportTemplates'))
 const Help = lazy(() => import('./pages/Help'))
 const Team = lazy(() => import('./pages/Team'))
 const Site = lazy(() => import('./pages/Site').then(m => ({ default: m.Site })))
@@ -43,6 +44,7 @@ const PAGES: Record<string, React.ComponentType> = {
   '/projects': Projects,
   '/clients': Clients,
   '/library': Library,
+  '/report-templates': ReportTemplatesPage,
   '/drive': Drive,
   '/team': Team,
   '/site': Site,

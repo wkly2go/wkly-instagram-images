@@ -86,6 +86,8 @@ export function Link({ to, className, children, title, style, onNavigate }: { to
 
 /** 예전·외부 링크 별칭 (알림 링크 등) → 실제 화면 주소 */
 export function normalizePath(to: string): string {
+  const [pathname, search = ''] = to.split('?')
+  if (pathname === '/library' && new URLSearchParams(search).get('tab') === 'reports') return '/report-templates'
   if (to.startsWith('/finance')) return '/projects?view=payments'
   const chat = to.match(/^\/chat\/([\w-]+)/)
   if (chat) return `/chat?room=${chat[1]}`
