@@ -88,6 +88,14 @@ export function Link({ to, className, children, title, style, onNavigate }: { to
 export function normalizePath(to: string): string {
   const [pathname, search = ''] = to.split('?')
   if (pathname === '/library' && new URLSearchParams(search).get('tab') === 'reports') return '/report-templates'
+  if (pathname === '/library') {
+    const query = new URLSearchParams(search)
+    if (!query.get('tab') || query.get('tab') === 'research') {
+      query.delete('tab')
+      query.set('section', 'research')
+      return `/approvals?${query.toString()}`
+    }
+  }
   if (to.startsWith('/finance')) return '/projects?view=payments'
   const chat = to.match(/^\/chat\/([\w-]+)/)
   if (chat) return `/chat?room=${chat[1]}`

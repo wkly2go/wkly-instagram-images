@@ -35,7 +35,7 @@ export type TabKey = 'home' | 'reportTemplates' | 'approvals' | 'chat' | 'work' 
 
 export const TABS: { key: TabKey; label: string; path: string; admin?: boolean }[] = [
   { key: 'home', label: '홈', path: '/' },
-  { key: 'approvals', label: '보고서 결제', path: '/approvals' },
+  { key: 'approvals', label: '리서치 · 보고서', path: '/approvals' },
   { key: 'reportTemplates', label: '보고서 양식', path: '/report-templates' },
   { key: 'chat', label: '채팅', path: '/chat' },
   { key: 'projects', label: '프로젝트', path: '/projects' },
@@ -69,7 +69,7 @@ const ICONS: Record<TabKey, LucideIcon> = {
   admin: Settings,
 }
 const MAIN_TABS: TabKey[] = ['home', 'approvals', 'chat', 'projects', 'site']
-const SHORT: Partial<Record<TabKey, string>> = { approvals: '결제' }
+const SHORT: Partial<Record<TabKey, string>> = { approvals: '보고서' }
 const NAV_GROUPS: { label: string; tabs: TabKey[] }[] = [
   { label: '업무', tabs: ['home', 'approvals', 'reportTemplates', 'projects', 'site'] },
   { label: '협업·자료', tabs: ['chat', 'drive', 'team'] },
@@ -356,7 +356,7 @@ function NewMenu({ onExpand }: { onExpand: () => void }) {
   }, [open])
   const items: [string, LucideIcon, () => void][] = [
     ['할 일 · 업무 지시', ListTodo, () => setTask(true)],
-    ['보고서 결제 올리기', ClipboardCheck, () => navigate('/approvals?new=1')],
+    ['보고서 결재 올리기', ClipboardCheck, () => navigate('/approvals?new=1')],
     ['새 프로젝트', FolderKanban, () => navigate('/projects?new=1')],
     ['업무 일지 쓰기', Briefcase, () => navigate('/work')],
     ['메시지 · 1:1 대화', MessageCircle, () => navigate('/chat')],
