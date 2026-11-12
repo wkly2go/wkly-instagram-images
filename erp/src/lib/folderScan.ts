@@ -9,7 +9,7 @@ import { FOLDER_MIME, listChildren, type GFile } from './gdrive'
 
 export const SHEET_MIME = 'application/vnd.google-apps.spreadsheet'
 /** 개인 자료라 열지 않는 폴더 · 파일 이름 */
-export const PRIVATE_RE = /연말정산|근로계약|주민등록|인사기록|급여명세|원천징수영수증|신분증|가족관계/
+export const PRIVATE_RE = /연말정산|근로계약|고용계약|채용|주민등록|등본|개인정보|주주명부|인사기록|급여명세|원천징수영수증|신분증|가족관계/
 export const SHEET_RE = /\.(xlsx|xls|csv)$/i
 export const REFERENCE_RE = /운행기록부|경조사|매입장|매출장|잔액\s*확인|확인요망|확인건|청구내역|재무제표|결산서|급여대장|연구인력/
 
