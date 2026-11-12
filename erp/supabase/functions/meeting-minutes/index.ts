@@ -7,6 +7,7 @@
 // 필요한 비밀값: ANTHROPIC_API_KEY (Edge Functions Secrets). 키는 로그·오류에 남기지 않는다.
 import Anthropic from 'npm:@anthropic-ai/sdk@0.134.0'
 import { createClient } from 'npm:@supabase/supabase-js@2.117.3'
+import { cleanupExpiredRecordings } from './cleanup.ts'
 
 declare const EdgeRuntime: { waitUntil(p: Promise<unknown>): void } | undefined
 
@@ -21,7 +22,6 @@ const URL_ = Deno.env.get('SUPABASE_URL')!
 const ANON = Deno.env.get('SUPABASE_ANON_KEY')!
 const sb = createClient(URL_, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false, autoRefreshToken: false } })
 const MODEL = 'claude-haiku-5-5'
-const KEEP_DAYS = 30
 const MAX_CHARS = 300_000
 
 interface Rec { id: string; created_by: string; title: string | null; attendees: string | null; audio_path: string | null; mime: string | null; transcript: string | null; created_at: string }
@@ -93,12 +93,22 @@ async function process(rec: Rec) {
   }
 }
 
-async function cleanup() {
-  const before = new Date(Date.now() - KEEP_DAYS * 86400_000).toISOString()
-  const { data } = await sb.from('meeting_recordings').select('id, audio_path').lt('created_at', before).not('audio_path', 'is', null).limit(50)
-  if (!data?.length) return
-  await sb.storage.from('meeting-audio').remove(data.map(r => r.audio_path as string))
-  await sb.from('meeting_recordings').update({ audio_path: null }).in('id', data.map(r => r.id))
+let cleanupRunning: Promise<void> | null = null
+function cleanup(): Promise<void> {
+  if (cleanupRunning) return cleanupRunning
+  cleanupRunning = cleanupExpiredRecordings({
+    expired: async (before, limit) => await sb.from('meeting_recordings')
+      .select('id, audio_path, created_at, status').lt('created_at', before).not('audio_path', 'is', null)
+      .neq('status', '처리 중').order('created_at', { ascending: true }).limit(limit),
+    references: async paths => await sb.from('meeting_recordings')
+      .select('id, audio_path, created_at, status', { count: 'exact' }).in('audio_path', paths).limit(1000),
+    remove: async paths => await sb.storage.from('meeting-audio').remove(paths),
+    clearReferences: async (ids, paths, before) => await sb.from('meeting_recordings')
+      .update({ audio_path: null }).in('id', ids).in('audio_path', paths).lt('created_at', before).neq('status', '처리 중'),
+  }).then(report => {
+    if (report.failure) console.warn('meeting_audio_cleanup_failed', { phase: report.failure })
+  }).finally(() => { cleanupRunning = null })
+  return cleanupRunning
 }
 
 Deno.serve(async req => {

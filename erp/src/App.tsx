@@ -67,7 +67,10 @@ export default function App() {
 
   const session = useSessionPolicy(api, userId)
 
-  const bump = useCallback(() => setVersion(v => v + 1), [])
+  const bump = useCallback(() => {
+    api.invalidateReadRequests()
+    setVersion(v => v + 1)
+  }, [])
   const toast = useCallback((m: string) => {
     setToastMsg(m)
     window.clearTimeout(toastTimer.current)

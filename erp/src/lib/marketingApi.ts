@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import type { SignedUrlCache } from './signedUrlCache'
 import { ApiError, type Api } from './api'
 import type { Profile } from './types'
 import { patchMarketingCampaign, validateMarketingCampaign, marketingImageSignatureMatches, MARKETING_ASSET_MAX_BYTES, MARKETING_ASSET_MIME_TYPES, type MarketingAsset, type MarketingCampaign } from './marketing'
@@ -57,20 +58,24 @@ function validateSave(c: MarketingCampaign, assets: MarketingAsset[]) {
   if (check.errors.length) throw new ApiError(check.errors.join('\n'))
 }
 
-export function createSupabaseMarketingApi(sb: SupabaseClient): MarketingApi {
-  async function listAssets(campaignId: string): Promise<MarketingAsset[]> {
-    const result = await sb.from('marketing_assets').select('*').eq('campaign_id', campaignId).is('deleted_at', null).order('created_at')
+export function createSupabaseMarketingApi(sb: SupabaseClient, signedUrls: SignedUrlCache): MarketingApi {
+  async function listAssets(campaignId: string, includeUrls = true): Promise<MarketingAsset[]> {
+    const result = await sb.from('marketing_assets').select('id,campaign_id,name,mime,size,path,created_at').eq('campaign_id', campaignId).is('deleted_at', null).order('created_at')
     fail(result.error)
     const rows = (result.data ?? []) as AssetRow[]
     if (!rows.length) return []
-    const signed = await sb.storage.from(BUCKET).createSignedUrls(rows.map(r => r.path), 3600)
-    fail(signed.error)
-    const urls = new Map((signed.data ?? []).map(r => [r.path, r]))
-    return rows.map(row => {
-      const item = urls.get(row.path)
-      if (!item?.signedUrl || item.error) throw new ApiError('소재 파일을 열 수 없습니다. 파일 저장소 권한과 연결을 확인해 주세요.')
-      return { ...assetFromRow(row), url: item.signedUrl }
+    if (!includeUrls) return rows.map(assetFromRow)
+    const urls = await signedUrls.getMany(rows.map(row => ({ bucket: BUCKET, path: row.path })), async missing => {
+      const signed = await sb.storage.from(BUCKET).createSignedUrls(missing.map(r => r.path), 3600)
+      fail(signed.error)
+      const byPath = new Map((signed.data ?? []).map(r => [r.path, r]))
+      return missing.map(request => {
+        const item = byPath.get(request.path)
+        if (!item?.signedUrl || item.error) throw new ApiError('소재 파일을 열 수 없습니다. 파일 저장소 권한과 연결을 확인해 주세요.')
+        return item.signedUrl
+      })
     })
+    return rows.map((row, i) => ({ ...assetFromRow(row), url: urls[i] }))
   }
 
   return {
@@ -85,7 +90,7 @@ export function createSupabaseMarketingApi(sb: SupabaseClient): MarketingApi {
       }
     },
     async saveMarketingCampaign(c) {
-      const assets = c.revision ? await listAssets(c.id) : []
+      const assets = c.revision ? await listAssets(c.id, false) : []
       validateSave(c, assets)
       const result = await sb.rpc('marketing_save_campaign', { p_id: c.id, p_document: campaignDocument(c), p_expected_revision: c.revision })
       fail(result.error)
@@ -126,6 +131,7 @@ export function createSupabaseMarketingApi(sb: SupabaseClient): MarketingApi {
       const archived = await sb.rpc('marketing_archive_asset', { p_id: id })
       fail(archived.error)
       if (!archived.data) throw new ApiError('삭제할 소재를 찾을 수 없습니다.')
+      signedUrls.invalidate(BUCKET, String(archived.data))
       const removed = await sb.storage.from(BUCKET).remove([String(archived.data)])
       if (removed.error) throw new ApiError('소재 연결은 해제됐지만 파일 정리가 끝나지 않았습니다. 다시 시도하거나 관리자에게 알려 주세요.')
     },

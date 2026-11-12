@@ -11,7 +11,7 @@ import { Download, Maximize, Minus, Plus, X } from 'lucide-react'
 const MIN = 0.05
 /** 사실상 한도 없음: 10,000배(1,000,000%)면 사진 점 하나가 화면을 채움 — 그 이상은 브라우저 계산이 깨져서 멈춤 */
 const MAX = 10000
-export function ImageViewer({ src, name, onClose, onDownload }: { src: string; name: string; onClose: () => void; onDownload?: () => void }) {
+export function ImageViewer({ src, name, onClose, onDownload, onError }: { src: string; name: string; onClose: () => void; onDownload?: () => void; onError?: () => void }) {
   const box = useRef<HTMLDivElement>(null)
   const img = useRef<HTMLImageElement>(null)
   const [v, setV] = useState({ s: 1, x: 0, y: 0 })
@@ -146,6 +146,7 @@ export function ImageViewer({ src, name, onClose, onDownload }: { src: string; n
           alt={name}
           draggable={false}
           onLoad={reset}
+          onError={onError}
           style={{ transform: `translate(${v.x}px, ${v.y}px) scale(${v.s})`, imageRendering: v.s > 4 ? 'pixelated' : 'auto' }}
         />
       </div>

@@ -81,22 +81,18 @@ export interface Summary {
   unread: number
   /** 나중에 보기 (안 끝낸 것) */
   saved?: number
+  countsError?: string | null
+  retryCounts?: () => void
 }
 
 /** 프로필 칸·탭·카운터에 쓰는 요약 숫자 */
 export function useSummary(): Summary {
   const { api, me, version } = useApp()
-  const { data } = useAsync<Summary>(
+  const { data, error: countsError, reload: retryCounts } = useAsync<Summary>(
     async () => {
-      const [tasks, approvals, saved] = await Promise.all([api.listTasks(), api.listApprovals(), api.listSaved().catch(() => [])])
-      return {
-        myOpenTasks: tasks.filter(t => t.assignee_id === me.id && t.status !== '완료').length,
-        pendingToDecide: approvals.filter(a => a.status === '대기' && a.can_decide && (a.requested_by !== me.id || me.role === 'admin')).length,
-        unread: 0,
-        saved: saved.length,
-      }
+      return { ...await api.getNavigationCounts(me), unread: 0 }
     },
-    [version, me.id],
+    [version, me.id, me.role],
     { myOpenTasks: 0, pendingToDecide: 0, unread: 0, saved: 0 },
   )
   // 안 읽은 채팅 수는 채팅 신호로만 (새 메시지마다 할 일 · 결재까지 다시 불러오지 않음)
@@ -111,7 +107,7 @@ export function useSummary(): Summary {
     [version, chatTick, me.id],
     0,
   )
-  return { ...data, unread }
+  return { ...data, unread, countsError, retryCounts }
 }
 
 /** 왼쪽 프로필 사진: 눌러서 올리기 · 바꾸기 (256px 로 줄여 저장) */
@@ -295,7 +291,7 @@ function SideNav({ active, summary, onExpand }: { active: TabKey; summary: Summa
   const { me } = useApp()
   const { navigate } = useRouter()
   const tabs = TABS.filter(t => !t.admin || me.role === 'admin')
-  const count = (k: TabKey) => (k === 'approvals' ? summary.pendingToDecide : k === 'chat' ? summary.unread : k === 'projects' ? summary.myOpenTasks : 0)
+  const count = (k: TabKey) => (k === 'chat' ? summary.unread : summary.countsError ? 0 : k === 'approvals' ? summary.pendingToDecide : k === 'projects' ? summary.myOpenTasks : 0)
   return (
     <nav className="side-nav" aria-label="메뉴">
       <NewMenu onExpand={onExpand} />
@@ -319,13 +315,14 @@ function SideNav({ active, summary, onExpand }: { active: TabKey; summary: Summa
           })}
         </div>
       })}
-      {!!summary.saved && (
+      {!!summary.saved && !summary.countsError && (
         <Link to="/chat?view=saved" className="side-item sub">
           <Bookmark size={13} aria-hidden="true" />
           <span className="grow">나중에 보기</span>
           <span className="side-n soft">{summary.saved}</span>
         </Link>
       )}
+      {summary.countsError && <button type="button" className="btn-ghost t-cap t-red" onClick={summary.retryCounts} title={summary.countsError}>메뉴 숫자 확인 실패 · 다시 확인</button>}
     </nav>
   )
 }
@@ -808,7 +805,7 @@ function MobileNav({ active, summary }: { active: TabKey; summary: Summary }) {
   const [more, setMore] = useState(false)
   const tabs = TABS.filter(t => !t.admin || me.role === 'admin')
   const rest = tabs.filter(t => !MAIN_TABS.includes(t.key))
-  const dotOf = (k: TabKey) => (k === 'approvals' ? summary.pendingToDecide : k === 'chat' ? summary.unread : 0)
+  const dotOf = (k: TabKey) => (k === 'approvals' && !summary.countsError ? summary.pendingToDecide : k === 'chat' ? summary.unread : 0)
   const restActive = rest.some(t => t.key === active)
   return (
     <>

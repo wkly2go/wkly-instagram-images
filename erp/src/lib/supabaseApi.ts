@@ -1,4 +1,9 @@
 import { createSupabaseMarketingApi } from './marketingApi'
+import { readNavigationCounts } from './navigationCounts'
+import { createPendingReads } from './pendingReads'
+import { createSignedUrlCache } from './signedUrlCache'
+import { resolveUploadedRecord } from './uploadRecord'
+import { removeStoredObject } from './storageRemoval'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { isHiddenName, isReferencePath } from './gdrive'
 import type { FieldUpload, KakaoImport, KakaoMessage, MailFile, SlackChannel, SlackLink, SlackMessage, LedgerStatus, MailItem, MaterialItem, MaterialMove, MaterialStockRow } from './types'
@@ -108,6 +113,16 @@ export function createSupabaseApi(url: string, key: string): Api {
   const sb: SupabaseClient = createClient(url, key, {
     auth: { persistSession: true, autoRefreshToken: true },
   })
+  const reads = createPendingReads()
+  const signedUrls = createSignedUrlCache()
+  let activeUserId: string | null = null
+  let profileAccess: string | undefined
+  const setReadScope = (userId: string | null) => {
+    if (activeUserId !== userId) profileAccess = undefined
+    activeUserId = userId
+    reads.setScope(userId)
+    signedUrls.setScope(userId)
+  }
 
   async function save<T extends { id?: string }>(table: string, row: T): Promise<T> {
     const body = strip(row, READONLY) as Record<string, unknown>
@@ -169,15 +184,22 @@ export function createSupabaseApi(url: string, key: string): Api {
   }
 
   return {
-    ...createSupabaseMarketingApi(sb),
+    ...createSupabaseMarketingApi(sb, signedUrls),
     mode: 'supabase',
+    invalidateReadRequests: () => reads.clear(),
+    getNavigationCounts: viewer => readNavigationCounts(sb, viewer),
 
     async getSessionUserId() {
       const { data } = await sb.auth.getSession()
+      setReadScope(data.session?.user.id ?? null)
       return data.session?.user.id ?? null
     },
     onAuthChange(cb) {
-      const { data } = sb.auth.onAuthStateChange((_e, session) => cb(session?.user.id ?? null))
+      const { data } = sb.auth.onAuthStateChange((event, session) => {
+        setReadScope(session?.user.id ?? null)
+        if (event === 'USER_UPDATED') { reads.clear(); signedUrls.clear() }
+        cb(session?.user.id ?? null)
+      })
       return () => data.subscription.unsubscribe()
     },
     async signIn(email, password) {
@@ -185,6 +207,7 @@ export function createSupabaseApi(url: string, key: string): Api {
       if (error) throw new ApiError(error.message)
     },
     async signOut() {
+      setReadScope(null)
       await sb.auth.signOut()
     },
     async changePassword(password) {
@@ -196,10 +219,16 @@ export function createSupabaseApi(url: string, key: string): Api {
     },
 
     async listProfiles() {
-      return must(await sb.from('profiles').select('*').order('created_at')) as Profile[]
+      const rows = must(await sb.from('profiles').select('*').order('created_at')) as Profile[]
+      const self = rows.find(p => p.id === activeUserId)
+      const access = self ? `${self.role}:${self.active}` : 'unavailable'
+      if (profileAccess !== undefined && profileAccess !== access) { reads.clear(); signedUrls.clear() }
+      profileAccess = access
+      return rows
     },
     async updateProfile(id, patch) {
       mustAffect(await sb.from('profiles').update(patch).eq('id', id).select('id'))
+      if (id === activeUserId && (patch.role !== undefined || patch.active !== undefined)) { reads.clear(); signedUrls.clear() }
     },
 
     async listClients() {
@@ -215,16 +244,18 @@ export function createSupabaseApi(url: string, key: string): Api {
     deleteContact: id => remove('contacts', id),
 
     async listProjects() {
-      return must(await sb.from('projects').select('*').order('start_date', { ascending: false, nullsFirst: false })) as Project[]
+      return reads.run('projects', async () => must(await sb.from('projects').select('*').order('start_date', { ascending: false, nullsFirst: false })) as Project[])
     },
     saveProject: p => save('projects', p) as Promise<Project>,
     deleteProject: id => remove('projects', id),
     async listTasks(filter = {}) {
-      let q = sb.from('tasks').select('*')
-      if (filter.projectId) q = q.eq('project_id', filter.projectId)
-      if (filter.from) q = q.gte('due_date', filter.from)
-      if (filter.to) q = q.lte('due_date', filter.to)
-      return must(await q.order('due_date', { nullsFirst: false }).order('created_at')) as Task[]
+      return reads.run(JSON.stringify(['tasks', filter.projectId ?? null, filter.from ?? null, filter.to ?? null]), async () => {
+        let q = sb.from('tasks').select('*')
+        if (filter.projectId) q = q.eq('project_id', filter.projectId)
+        if (filter.from) q = q.gte('due_date', filter.from)
+        if (filter.to) q = q.lte('due_date', filter.to)
+        return must(await q.order('due_date', { nullsFirst: false }).order('created_at')) as Task[]
+      })
     },
     saveTask: t => save('tasks', t) as Promise<Task>,
     deleteTask: id => remove('tasks', id),
@@ -312,16 +343,19 @@ export function createSupabaseApi(url: string, key: string): Api {
       if (up.error) throw new ApiError(`파일을 올리지 못했습니다: ${up.error.message}`)
       const attachment = { path, name: file.name, size: file.size, type }
       const res = await sb.from('chat_messages').insert({ room_id: roomId, content: caption?.trim() || `📎 ${file.name}`, attachment }).select().single()
-      if (res.error) {
-        await sb.storage.from('chat-files').remove([path])
-        throw new ApiError(res.error.message)
-      }
-      return res.data as ChatMessage
+      return resolveUploadedRecord<ChatMessage>({
+        writeResult: res,
+        reconcile: async () => await sb.from('chat_messages').select('*').eq('room_id', roomId).contains('attachment', { path }).maybeSingle(),
+        cleanup: () => removeStoredObject(sb, 'chat-files', path),
+      })
     },
-    async fileUrl(att, download) {
-      const r = await sb.storage.from('chat-files').createSignedUrl(att.path, 60 * 60, download ? { download: att.name } : undefined)
-      if (r.error || !r.data) throw new ApiError('파일을 열 수 없습니다.')
-      return r.data.signedUrl
+    async fileUrl(att, download, refresh) {
+      if (refresh) signedUrls.invalidate('chat-files', att.path, { keepPending: true })
+      return signedUrls.get({ bucket: 'chat-files', path: att.path, ...(download ? { download: att.name } : {}) }, async () => {
+        const r = await sb.storage.from('chat-files').createSignedUrl(att.path, 3600, download ? { download: att.name } : undefined)
+        if (r.error || !r.data) throw new ApiError('파일을 열 수 없습니다.')
+        return r.data.signedUrl
+      })
     },
     deleteMessage: id => remove('chat_messages', id),
     async editMessage(id, content) {
@@ -415,9 +449,12 @@ export function createSupabaseApi(url: string, key: string): Api {
     async saveApprovalRoute(kind, approverId) {
       must(await sb.from('approval_routes').upsert({ kind, approver_id: approverId }, { onConflict: 'kind' }))
     },
-    subscribeChanges(tables, cb) {
+    subscribeChanges(tables, cb, filter) {
       let ch = sb.channel(`changes-${tables.join('-')}-${Math.random().toString(36).slice(2)}`)
-      for (const table of tables) ch = ch.on('postgres_changes', { event: '*', schema: 'public', table }, () => cb())
+      for (const table of tables) ch = ch.on('postgres_changes', { event: '*', schema: 'public', table, ...(filter ? { filter } : {}) }, () => {
+        reads.clear()
+        cb()
+      })
       ch.subscribe()
       return () => {
         sb.removeChannel(ch)
@@ -541,10 +578,16 @@ export function createSupabaseApi(url: string, key: string): Api {
       if (isText && audio.size > 5 * 1024 * 1024) throw new ApiError('받아쓰기 텍스트는 5MB 까지 올릴 수 있습니다.')
       const mime = isText ? (/\.md$/i.test(meta.filename ?? '') ? 'text/markdown' : 'text/plain') : (audio.type || 'audio/webm').split(';')[0]
       const ext = meta.filename?.match(/\.[A-Za-z0-9]{2,5}$/)?.[0]?.toLowerCase() ?? (mime.includes('mp4') || mime.includes('m4a') ? '.m4a' : mime.includes('mpeg') ? '.mp3' : mime.includes('wav') ? '.wav' : '.webm')
-      const path = `${u.user.id}/${crypto.randomUUID()}${ext}`
+      const recordingId = crypto.randomUUID()
+      const path = `${u.user.id}/${recordingId}${ext}`
       const up = await sb.storage.from('meeting-audio').upload(path, audio, { contentType: mime, upsert: false })
       if (up.error) throw new ApiError(`녹음을 올리지 못했습니다: ${up.error.message}`)
-      const rec = must(await sb.from('meeting_recordings').insert({ title: meta.title || null, attendees: meta.attendees || null, duration_sec: meta.duration_sec ?? null, audio_path: path, mime }).select('*').single()) as MeetingRecording
+      const recorded = await sb.from('meeting_recordings').insert({ id: recordingId, title: meta.title || null, attendees: meta.attendees || null, duration_sec: meta.duration_sec ?? null, audio_path: path, mime }).select('*').single()
+      const rec = await resolveUploadedRecord<MeetingRecording>({
+        writeResult: recorded,
+        reconcile: async () => await sb.from('meeting_recordings').select('*').eq('id', recordingId).maybeSingle(),
+        cleanup: () => removeStoredObject(sb, 'meeting-audio', path),
+      })
       const r = await sb.functions.invoke('meeting-minutes', { body: { id: rec.id } })
       if (r.error) throw new ApiError('AI 정리를 시작하지 못했습니다. 잠시 뒤 다시 시도해 주세요.')
       return { ...rec, status: '처리 중' }
@@ -594,10 +637,13 @@ export function createSupabaseApi(url: string, key: string): Api {
       const signed = await sb.storage.from('site-photos').createSignedUrl(path, 60 * 60 * 24 * 30)
       return { path, url: signed.data?.signedUrl ?? '' }
     },
-    async sitePhotoUrl(path) {
-      const r = await sb.storage.from('site-photos').createSignedUrl(path, 60 * 60)
-      if (r.error || !r.data) throw new ApiError('사진을 열 수 없습니다.')
-      return r.data.signedUrl
+    async sitePhotoUrl(path, refresh) {
+      if (refresh) signedUrls.invalidate('site-photos', path, { keepPending: true })
+      return signedUrls.get({ bucket: 'site-photos', path }, async () => {
+        const r = await sb.storage.from('site-photos').createSignedUrl(path, 3600)
+        if (r.error || !r.data) throw new ApiError('사진을 열 수 없습니다.')
+        return r.data.signedUrl
+      })
     },
     async listPayments(filter = {}) {
       const read = (table: string) =>
@@ -1006,12 +1052,16 @@ export function createSupabaseApi(url: string, key: string): Api {
       }
       const url = f.url?.trim() || null
       if (!storage_path && !url) throw new ApiError('파일을 고르거나 링크를 넣어 주세요.')
-      const row = { client_id: f.client_id, contact_id: f.contact_id ?? null, project_id: f.project_id ?? null, direction: f.direction, name: name || url!, url, storage_path, size, mime, note: f.note?.trim() || null, ...(f.file_date ? { file_date: f.file_date } : {}) }
-      const res = await sb.from('exchange_files').insert(row).select('id')
-      if (res.error) {
-        if (storage_path) await sb.storage.from('exchange-files').remove([storage_path])
-        throw new ApiError(res.error.message)
-      }
+      const id = crypto.randomUUID()
+      const row = { id, client_id: f.client_id, contact_id: f.contact_id ?? null, project_id: f.project_id ?? null, direction: f.direction, name: name || url!, url, storage_path, size, mime, note: f.note?.trim() || null, ...(f.file_date ? { file_date: f.file_date } : {}) }
+      const res = await sb.from('exchange_files').insert(row).select('id').single()
+      if (!storage_path) { must(res); return }
+      const uploadedPath = storage_path
+      await resolveUploadedRecord<{ id: string }>({
+        writeResult: res,
+        reconcile: async () => await sb.from('exchange_files').select('id').eq('id', id).maybeSingle(),
+        cleanup: () => removeStoredObject(sb, 'exchange-files', uploadedPath),
+      })
     },
     async updateExchangeFile(id, patch) {
       const row = must(await sb.from('exchange_files').update(patch).eq('id', id).select('id')) as { id: string }[]
@@ -1033,15 +1083,30 @@ export function createSupabaseApi(url: string, key: string): Api {
     },
     removeProjectDriveFile: id => remove('project_drive_files', id),
     async deleteExchangeFile(id) {
-      const row = must(await sb.from('exchange_files').delete().eq('id', id).select('storage_path')) as { storage_path: string | null }[]
-      if (!row.length) throw new ApiError('지울 수 없습니다 (올린 사람 · 관리자만).')
-      if (row[0].storage_path) await sb.storage.from('exchange-files').remove([row[0].storage_path])
+      const row = must(await sb.from('exchange_files').select('id,storage_path,created_by').eq('id', id).single()) as Pick<ExchangeFile, 'id' | 'storage_path' | 'created_by'>
+      const { data: auth } = await sb.auth.getUser()
+      if (!auth.user || (row.created_by !== auth.user.id && !must(await sb.rpc('is_admin')))) throw new ApiError('지울 수 없습니다 (올린 사람 · 관리자만).')
+      if (row.storage_path) {
+        const shared = await sb.from('exchange_files').select('id', { count: 'exact', head: true }).eq('storage_path', row.storage_path).neq('id', id)
+        if (shared.error || shared.count === null) throw new ApiError('다른 자료의 파일 연결을 확인하지 못했습니다. 잠시 뒤 다시 시도해 주세요.')
+        if (shared.count === 0) {
+          const removed = await removeStoredObject(sb, 'exchange-files', row.storage_path)
+          if (removed.error) throw new ApiError('파일 정리가 끝나지 않아 자료 기록을 남겼습니다. 잠시 뒤 다시 시도해 주세요.')
+          signedUrls.invalidate('exchange-files', row.storage_path)
+        }
+      }
+      let deletion = sb.from('exchange_files').delete().eq('id', id)
+      deletion = row.storage_path ? deletion.eq('storage_path', row.storage_path) : deletion.is('storage_path', null)
+      mustAffect(await deletion.select('id'))
     },
     async exchangeFileUrl(f, download) {
       if (!f.storage_path) return f.url ?? ''
-      const r = await sb.storage.from('exchange-files').createSignedUrl(f.storage_path, 60 * 60, download ? { download: f.name } : undefined)
-      if (r.error || !r.data) throw new ApiError('파일을 열 수 없습니다.')
-      return r.data.signedUrl
+      const path = f.storage_path
+      return signedUrls.get({ bucket: 'exchange-files', path, ...(download ? { download: f.name } : {}) }, async () => {
+        const r = await sb.storage.from('exchange-files').createSignedUrl(path, 3600, download ? { download: f.name } : undefined)
+        if (r.error || !r.data) throw new ApiError('파일을 열 수 없습니다.')
+        return r.data.signedUrl
+      })
     },
     async getAccessInfo() {
       const { data, error } = await sb.rpc('my_access_info')
@@ -1141,7 +1206,8 @@ export function createSupabaseApi(url: string, key: string): Api {
     },
     async listSlackLinks(projectId) {
       const { data, error } = await sb.from('slack_links').select('*').eq('project_id', projectId).order('created_at')
-      return error ? [] : (data as SlackLink[])
+      if (error) throw new ApiError(error.message)
+      return (data ?? []) as SlackLink[]
     },
     async slackLink(projectId, channel) {
       const { data, error } = await sb.functions.invoke('slack-import', { body: { action: 'link', project_id: projectId, channel_id: channel.id, channel_name: channel.name } })
@@ -1158,7 +1224,8 @@ export function createSupabaseApi(url: string, key: string): Api {
     },
     async listSlackMessages(projectId, limit = 80) {
       const { data, error } = await sb.from('slack_messages').select('*').eq('project_id', projectId).order('posted_at', { ascending: false }).limit(limit)
-      return error ? [] : (data as SlackMessage[])
+      if (error) throw new ApiError(error.message)
+      return (data ?? []) as SlackMessage[]
     },
     async listMailFiles(projectId, clientId) {
       let q = sb.from('mail_files').select('id,mail_id,thread_id,name,kind,source,vendor,client_id,project_ids,drive_url,folder_id,sent_at').order('sent_at', { ascending: false }).limit(60)
