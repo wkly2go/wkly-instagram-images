@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
-import { BarChart3, CalendarClock, FolderInput, PieChart, ChevronLeft, ChevronRight, Download, KeyRound, Lock, Pencil, Search, Trash2, Wallet, X } from 'lucide-react'
+import { BarChart3, CalendarClock, FolderInput, PieChart, Receipt, ChevronLeft, ChevronRight, Download, KeyRound, Lock, Pencil, Search, Trash2, Wallet, X } from 'lucide-react'
 import { CompareView, RecurringView } from '../components/LedgerViews'
+import { InvoiceView } from '../components/LedgerInvoice'
 import { LedgerStats } from '../components/LedgerStats'
 import { LedgerFolder, useLedgerAutoImport } from '../components/LedgerFolder'
 import { Shell } from '../components/Shell'
@@ -115,7 +116,7 @@ function LedgerBoard({ onLock, onExpired }: { onLock: () => void; onExpired: () 
   const [q, setQ] = useState('')
   const [changingPw, setChangingPw] = useState(false)
   // 이번 달 · 정기 출금 · 월별 비교 (2026-10-28 "정기 출금일과 금액 · 월별 비교 대시보드")
-  const [tab, setTab] = useState<'month' | 'recurring' | 'compare' | 'stats' | 'folder'>('month')
+  const [tab, setTab] = useState<'month' | 'recurring' | 'compare' | 'invoice' | 'stats' | 'folder'>('month')
   const amountRef = useRef<HTMLInputElement>(null)
   const [reloadKey, setReloadKey] = useState(0)
   // 회계 자료 폴더에 새 파일이 있으면 장부를 열 때 자동 기입 (대표 지시 2026-11-11)
@@ -244,6 +245,7 @@ function LedgerBoard({ onLock, onExpired }: { onLock: () => void; onExpired: () 
           { key: 'month' as const, label: '월 장부', icon: <Wallet size={14} /> },
           { key: 'recurring' as const, label: '정기 출금', icon: <CalendarClock size={14} /> },
           { key: 'compare' as const, label: '연간 장부', icon: <BarChart3 size={14} /> },
+          { key: 'invoice' as const, label: '계산서 기준', icon: <Receipt size={14} /> },
           { key: 'stats' as const, label: '통계', icon: <PieChart size={14} /> },
           { key: 'folder' as const, label: '회계 자료', icon: <FolderInput size={14} /> },
         ]}
@@ -279,6 +281,7 @@ function LedgerBoard({ onLock, onExpired }: { onLock: () => void; onExpired: () 
           </>
         )}
         {tab === 'compare' && <span className="t-cap">1월 ~ 12월</span>}
+        {tab === 'invoice' && <span className="t-cap">세금계산서 발행일 기준</span>}
         {tab === 'recurring' && <b className="t-title">매달 나가는 돈</b>}
         {tab === 'stats' && <b className="t-title">입출금 통계</b>}
         {tab === 'folder' && <b className="t-title">은행 · 홈택스 자료 자동 기입</b>}
@@ -300,6 +303,8 @@ function LedgerBoard({ onLock, onExpired }: { onLock: () => void; onExpired: () 
         <LedgerStats year={y} onExpired={onExpired} />
       ) : tab === 'recurring' ? (
         <RecurringView onExpired={onExpired} />
+      ) : tab === 'invoice' ? (
+        <InvoiceView year={y} onExpired={onExpired} />
       ) : tab === 'compare' ? (
         <CompareView year={y} onExpired={onExpired} />
       ) : (
