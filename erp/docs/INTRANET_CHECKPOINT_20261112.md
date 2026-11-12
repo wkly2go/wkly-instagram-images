@@ -37,3 +37,18 @@ Deno: /tmp/wkly-deno/deno
 - 읽기 전용 설치 점검 SQL 1개와 설치 전/후 검사 추가. 전체 163개 테스트 통과.
 - 운영 접속 도구 부재로 DB·서버·웹 배포는 여전히 미실행. 진행률 약 75% 유지.
 - 다음 작업은 GROWTH_DEPLOYMENT.md와 supabase/diagnostics/growth_preflight_readonly.sql을 기준으로 실제 설치 상태 확인.
+
+## 사용자 제공 운영 DB 조회 결과 확인
+
+2026-11-12 사용자가 SQL Editor 조회 결과 캡처 3장을 제공했습니다. 서버에 직접 접속해 재조회한 결과가 아니라 사용자 제공 화면을 판독한 기록입니다.
+
+- 기반 테이블 6개 존재: clients, contacts, mail_index, marketing_campaigns, profiles, projects.
+- 신규 테이블 8개 모두 없음: sales_opportunities, sales_activities, sales_revisions, growth_items, growth_revisions, growth_ai_models, growth_ai_budgets, growth_ai_usage.
+- 점검 대상 DB 함수 5개 모두 없음: sales_save_opportunity, growth_save, growth_backfill_mail, growth_ai_reserve, growth_ai_finish.
+- 메일 자동 후보 트리거 growth_mail_capture / growth_mail_backfill 없음.
+- supabase_migrations.schema_migrations 테이블 있음. 실제 version/name 행은 아직 확인 전.
+- 테이블 존재는 데이터 무결성·권한·필수 열 또는 전체 설치 정상 여부를 증명하지 않음. 이 결과만으로 Edge Function 배포 여부를 알 수 없음.
+
+조회 시점에는 새 기능이 미설치인 것으로 확인됩니다. 다음은 최근 migration version/name을 확인해 번호 충돌과 선행 설치를 비교한 후 0113 → 0114 → 0115 중 미설치 파일만 적용하는 것입니다. 0107 재실행 및 전체 db push 금지. 새 파일은 각각 트랜잭션으로 묶여 있습니다. 별도 growth-ai 서버 함수 배포와 웹 배포가 남아 있습니다.
+
+브라우저 제어·Supabase 배포 인증 도구는 여전히 제공되지 않아 이번 작업에서 DB를 변경하지 않았습니다. 진행률 약 75% 유지. 기존 163개 테스트·타입·빌드 통과 기록은 이전 구현 검증 결과이며 이번에는 기록 문서만 수정했습니다.
