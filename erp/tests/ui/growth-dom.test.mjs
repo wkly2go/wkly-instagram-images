@@ -8,7 +8,7 @@ import { createServer } from 'vite'
 // This verifies form/URL state, not browser layout, production roles or RLS.
 const require = createRequire(import.meta.url)
 const { JSDOM } = require('jsdom')
-let dom, server, React, act, createRoot, within, user, api, RouterProvider, AppProvider, Sales, GrowthWorkspace, MeetingRecorder, MeetingStartUncertainError, root, originals
+let dom, server, React, act, createRoot, within, user, api, RouterProvider, AppProvider, Sales, Ads, CommandPalette, GrowthWorkspace, MeetingRecorder, MeetingStartUncertainError, root, originals
 
 before(async () => {
   dom = new JSDOM('<!doctype html><html><body><div id="root"></div></body></html>', { url: 'http://localhost/sales', pretendToBeVisual: true })
@@ -21,6 +21,8 @@ before(async () => {
   window.matchMedia = query => ({ matches: false, media: query, addEventListener() {}, removeEventListener() {} })
   window.confirm = () => false
   window.scrollTo = () => {}
+  HTMLElement.prototype.scrollTo = () => {}
+  globalThis.ResizeObserver = class { observe() {} disconnect() {} }
   Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: {
     getUserMedia: async () => { throw new Error('Microphone access disabled in DOM tests') },
     getDisplayMedia: async () => { throw new Error('Screen capture disabled in DOM tests') },
@@ -39,6 +41,8 @@ before(async () => {
   ;({ api, AppProvider } = await server.ssrLoadModule('/src/lib/app.tsx'))
   ;({ RouterProvider } = await server.ssrLoadModule('/src/lib/router.tsx'))
   ;({ default: Sales } = await server.ssrLoadModule('/src/pages/Sales.tsx'))
+  ;({ default: Ads } = await server.ssrLoadModule('/src/pages/Ads.tsx'))
+  ;({ CommandPalette } = await server.ssrLoadModule('/src/components/CommandPalette.tsx'))
   ;({ GrowthWorkspace } = await server.ssrLoadModule('/src/components/GrowthWorkspace.tsx'))
   ;({ MeetingRecorder } = await server.ssrLoadModule('/src/components/MeetingRecorder.tsx'))
   ;({ MeetingStartUncertainError } = await server.ssrLoadModule('/src/lib/meetingProgress.ts'))
@@ -53,16 +57,17 @@ afterEach(async () => {
 })
 after(async () => { await server?.close(); dom?.window.close() })
 
-async function mount(role, kind = 'sales', props = {}) {
+async function mount(role, kind = 'sales', props = {}, initialUrl) {
   localStorage.removeItem('wkly-sales-demo-v1')
   localStorage.removeItem('wkly-growth-demo-v1')
-  window.history.replaceState(null, '', kind === 'sales' ? '/sales?campaign=retained' : kind === 'tender' ? '/tenders' : '/leads')
+  window.history.replaceState(null, '', initialUrl ?? (kind === 'sales' ? '/sales?campaign=retained' : kind === 'tender' ? '/tenders' : kind === 'ads' ? '/ads' : '/leads'))
   await api.signIn(role === 'admin' ? 'admin@thewklyn.com' : 'haneul@thewklyn.com', '')
   const profiles = await api.listProfiles(), me = profiles.find(p => p.id === (role === 'admin' ? '00000000-0000-4000-8000-000000000001' : '00000000-0000-4000-8000-000000000002'))
   root = createRoot(document.getElementById('root'))
   await act(async () => root.render(React.createElement(RouterProvider, null,
     React.createElement(AppProvider, { me, profiles, version: 0, bump() {}, toast() {}, openQuick() {} },
-      React.createElement(kind === 'sales' ? Sales : kind === 'meeting' ? MeetingRecorder : GrowthWorkspace, kind === 'sales' ? {} : kind === 'meeting' ? props : { kind })))))
+      kind === 'ads' ? React.createElement(React.Fragment, null, React.createElement(Ads), React.createElement(CommandPalette)) :
+        React.createElement(kind === 'sales' ? Sales : kind === 'meeting' ? MeetingRecorder : GrowthWorkspace, kind === 'sales' ? {} : kind === 'meeting' ? props : { kind })))))
   return within(document.body)
 }
 async function click(element) { await act(async () => user.click(element)) }
@@ -70,6 +75,67 @@ async function type(element, value) { await act(async () => { await user.clear(e
 function panel(name) { return within(within(document.body).getByRole('dialog', { name, exact: true })) }
 function query(key) { return new URL(location.href).searchParams.get(key) }
 function closeButton(view) { return view.getAllByRole('button', { name: '닫기', exact: true }).at(-1) }
+
+test('unified ads menu reaches every existing screen and preserves performance filters', async () => {
+  const screen = await mount('member', 'ads', {}, '/ads?tab=overseas&period=30&platform=Meta&campaign=retained')
+  const menu = within(screen.getByRole('navigation', { name: '광고 업무', exact: true }))
+  assert.equal(menu.getByRole('button', { name: '리서치·검색', exact: true }).getAttribute('aria-current'), 'page')
+  assert.equal(screen.getByRole('region', { name: '해외 사례', exact: true }) != null, true)
+  const groups = [
+    ['콘텐츠·배포', [['content', '콘텐츠·배포']]],
+    ['캠페인 준비', [['studio', '캠페인 준비']]],
+    ['소재 관리', [['creatives', '우리 소재']]],
+    ['성과·보고서', [[null, '대시보드'], ['platform', '매체별 성과'], ['charts', '추이 그래프'], ['daily-table', '일별 수치'], ['daily', '일일 보고']]],
+    ['리서치·검색', [['competitors', '경쟁사 분석'], ['overseas', '해외 사례'], ['seo', '검색 노출 (SEO · AEO · GEO)']]],
+  ]
+  for (const [name, tabs] of groups) {
+    await click(menu.getByRole('button', { name, exact: true }))
+    for (const [tab, label] of tabs) {
+      if (tabs.length > 1) await click(within(screen.getByRole('navigation', { name: `${name} 상세 메뉴`, exact: true })).getByRole('button', { name: label, exact: true }))
+      assert.equal(query('tab'), tab)
+      assert.equal(query('period'), '30')
+      assert.equal(query('platform'), 'Meta')
+      assert.equal(query('campaign'), 'retained')
+      assert.equal(screen.getByRole('region', { name: label, exact: true }) != null, true)
+    }
+  }
+})
+
+test('unified ads menu keeps unsaved content when a tab change is declined', async () => {
+  const screen = await mount('admin', 'ads', {}, '/ads?tab=content&period=7&platform=Meta')
+  await click(screen.getByRole('button', { name: '+ 콘텐츠 만들기', exact: true }))
+  const editor = panel('새 콘텐츠·배포')
+  await type(editor.getByLabelText('제목 *'), '보존할 인스타그램 초안')
+  let confirmations = 0
+  window.confirm = () => { confirmations++; return false }
+  // The modal obscures the menu for pointer input; dispatching the navigation
+  // event also verifies keyboard/programmatic tab changes respect the guard.
+  const target = within(screen.getByRole('navigation', { name: '광고 업무', exact: true })).getByRole('button', { name: '성과·보고서', exact: true })
+  await act(async () => target.click())
+  assert.equal(confirmations, 1)
+  assert.equal(query('tab'), 'content')
+  assert.equal(editor.getByLabelText('제목 *').value, '보존할 인스타그램 초안')
+  window.confirm = () => true
+  await act(async () => target.click())
+  assert.equal(query('tab'), null)
+  assert.equal(query('period'), '7')
+  assert.equal(query('platform'), 'Meta')
+  assert.equal(screen.queryByRole('dialog', { name: '새 콘텐츠·배포', exact: true }), null)
+})
+
+test('channel names in global search lead to the same advertising workspace', async () => {
+  const screen = await mount('member', 'ads', {}, '/ads?tab=content')
+  await act(async () => user.keyboard('{Control>}k{/Control}'))
+  const search = panel('전체 검색 · 빠른 이동')
+  for (const channel of ['인스타그램', '블로그', '유튜브', '캠페인', '소재']) {
+    await type(search.getByRole('textbox', { name: '전체 검색', exact: true }), channel)
+    assert.equal(search.getAllByRole('option', { name: '광고·콘텐츠 메뉴', exact: true }).length, 1)
+  }
+  await click(search.getByRole('option', { name: '광고·콘텐츠 메뉴', exact: true }))
+  assert.equal(location.pathname, '/ads')
+  assert.equal(query('tab'), null)
+  assert.equal(screen.queryByRole('dialog', { name: '전체 검색 · 빠른 이동', exact: true }), null)
+})
 
 for (const role of ['admin', 'member']) {
   test(`${role}: actual sales form keeps URL parameters and guards unsaved close`, async () => {
