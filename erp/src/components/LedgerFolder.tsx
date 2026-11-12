@@ -32,7 +32,7 @@ async function download(token: string, f: GFile): Promise<{ data: ArrayBuffer; n
 }
 
 /** 파일 읽는 법을 마지막으로 바꾼 날 — 그 전에 못 읽은 파일은 다시 시도 */
-const READER_VERSION = '2026-11-12'
+const READER_VERSION = '2026-11-12T01:00:00'
 
 export interface ImportResult {
   files: number
@@ -53,7 +53,8 @@ export async function runLedgerImport(api: ReturnType<typeof useApp>['api'], onS
   const done = await api.listLedgerFiles()
   // 형식을 못 알아본 파일은 읽는 법이 나아지면 다시 시도
   // (읽는 법이 바뀐 2026-11-12 이후에 다시 못 읽은 파일은 매번 다시 받지 않음)
-  const doneKey = new Set(done.filter(d => d.kind !== '알 수 없음' || (d.processed_at ?? '') >= READER_VERSION).map(d => `${d.drive_file_id}|${d.modified_time ?? ''}`))
+  const failed = (d: LedgerFile) => d.kind === '알 수 없음' || (d.rows === 0 && (d.kind === '은행' || d.kind === '카드'))
+  const doneKey = new Set(done.filter(d => !failed(d) || (d.processed_at ?? '') >= READER_VERSION).map(d => `${d.drive_file_id}|${d.modified_time ?? ''}`))
   // 폴더 전체(하위 폴더 끝까지) 읽기 — 대표 지시 2026-11-12
   onStep?.('폴더 전체 살펴보는 중')
   const { files } = await scanDriveFolder(token, [folder.root, folder.bank, folder.hometax])
