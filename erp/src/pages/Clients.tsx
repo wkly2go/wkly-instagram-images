@@ -291,7 +291,7 @@ function ClientReportBody({ id, onEdit }: { id: string; onEdit: (r: ResearchItem
   const { api, version } = useApp()
   const { data, loading, error, reload } = useAsync(() => api.getResearch(id), [id, version], null as ResearchItem | null)
   if (!data) return <span className="t-cap">{loading ? '본문 불러오는 중…' : error || '자료를 찾을 수 없습니다.'}{error && <Button onClick={reload}>다시 시도</Button>}</span>
-  return <>{data.summary && <div className="note pre">{data.summary}</div>}{data.body && <ReportBody body={data.body} />}<div className="row"><Link to={`/library?id=${id}`} className="btn btn-outline btn-sm">자료실에서 보기</Link><Button kind="ghost" size="sm" onClick={() => onEdit(data)}>고치기</Button></div></>
+  return <>{data.summary && <div className="note pre"><Linkify text={data.summary} /></div>}{data.body && <ReportBody body={data.body} />}<div className="row"><Link to={`/library?id=${id}`} className="btn btn-outline btn-sm">자료실에서 보기</Link><Button kind="ghost" size="sm" onClick={() => onEdit(data)}>고치기</Button></div></>
 }
 
 function ClientReports({ reports, onWrite, onEdit }: { reports: ResearchSummary[]; onWrite: () => void; onEdit: (r: ResearchItem) => void }) {
