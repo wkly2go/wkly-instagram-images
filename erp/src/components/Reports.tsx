@@ -181,7 +181,7 @@ export function ReportForm({ item, clients, presetClient, onClose, onSaved }: { 
   )
 }
 
-/** 자료실 › 보고서 양식 */
+/** 보고서 양식: 독립 화면과 기존 자료실에서 공통 사용 */
 export function ReportTemplates({ tabs }: { tabs: ReactNode }) {
   const { api, me, version } = useApp()
   const { busy, run } = useAction()
@@ -199,7 +199,7 @@ export function ReportTemplates({ tabs }: { tabs: ReactNode }) {
         {tabs}
         <span className="grow" />
         <Button onClick={() => setCur({ name: '', body: list[0]?.body ?? '', is_default: false })}>
-          양식
+          + 새 양식
         </Button>
       </div>
       <div className="note">
