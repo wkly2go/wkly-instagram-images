@@ -1,7 +1,14 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { newGrowth, validateGrowth, contactCandidates, changeChannel, safeWebUrl, koreaDateTimeInput, formatAiCost } from '../src/lib/growth.ts'
+import { newGrowth, validateGrowth, contactCandidates, changeChannel, safeWebUrl, koreaDateTimeInput, formatAiCost, appendGrowthNote } from '../src/lib/growth.ts'
 import { reserveCost, validateRequest } from '../supabase/functions/growth-ai/policy.ts'
+test('AI note application preserves the entire result or rejects overflow without silent truncation',()=>{
+ assert.equal(appendGrowthNote('', '결과'), '결과')
+ assert.equal(appendGrowthNote('기존', '결과'), '기존\n\n결과')
+ assert.equal(appendGrowthNote('a'.repeat(9997), 'b').length, 10000)
+ assert.throws(()=>appendGrowthNote('a'.repeat(10000), '새 결과'), /10,000자/)
+ assert.throws(()=>appendGrowthNote('a'.repeat(9998), 'b'), /10,000자/)
+})
 test('AI cost display distinguishes tiny charges from zero',()=>{
  assert.equal(formatAiCost(0),'$0.000000')
  assert.equal(formatAiCost(0.000015),'$0.000015')
@@ -20,6 +27,28 @@ test('contact extraction normalizes duplicates without inventing names',()=>{
 test('instagram extraction excludes post paths and deduplicates handles',()=>{
  const rows=contactCandidates('https://instagram.com/brand @brand https://instagram.com/p/123 @other','인스타그램','owner')
  assert.deepEqual(rows.map(r=>r.document.instagram),['brand','other'])
+})
+test('instagram extraction accepts complete official profile URLs and standalone mentions in source order',()=>{
+ const rows=contactCandidates('(HTTPS://WWW.INSTAGRAM.COM/Brand_One/?igsh=abc) @BRAND_One, instagram.com/brand.two/ 문의: @Brand3 https://instagram.com/brand4#profile "@brand5",@brand6 https://instagram.com/brand7/?email=hello@example.com','인스타그램','owner')
+ assert.deepEqual(rows.map(r=>r.document.instagram),['brand_one','brand.two','brand3','brand4','brand5','brand6','brand7'])
+ assert.equal(rows[0].document.source_url,'https://www.instagram.com/brand_one/')
+ assert.ok(rows.every(r=>r.status==='검토'&&r.owner_id==='owner'&&r.document.name===''))
+})
+test('instagram extraction rejects email addresses, lookalike hosts, credentials and nested links',()=>{
+ const text=['hello@brand.com','"support team"@brand.com','\'team\'@brand.com','한국어@brand.kr','first+last@brand.com','https://notinstagram.com/fake','notinstagram.com/fake','https://instagram.com.example.com/fake','https://evil.instagram.com/fake','https://user:pass@instagram.com/fake','ftp://instagram.com/fake','https://example.com/?next=https://instagram.com/fake&user=@fake','https://example.com/?email=foo@brand.com,@fake','https://example.com/instagram.com/fake','@valid'].join(' ')
+ assert.deepEqual(contactCandidates(text,'인스타그램','owner').map(r=>r.document.instagram),['valid'])
+})
+test('instagram extraction rejects whole invalid or overlong names and non-profile routes',()=>{
+ const tooLong='a'.repeat(31),maximum='b'.repeat(30)
+ const text=[`@${tooLong}`,`https://instagram.com/${tooLong}/`,'@invalid-name','@invalid/name','https://instagram.com/brand/reels/','https://instagram.com/p/123','https://instagram.com/reel/123','https://instagram.com/stories/brand/123','https://instagram.com/accounts/','https://instagram.com/direct/','@explore',`@${maximum}`].join(' ')
+ assert.deepEqual(contactCandidates(text,'인스타그램','owner').map(r=>r.document.instagram),[maximum])
+ assert.deepEqual(contactCandidates('a'.repeat(99990)+' @valid','인스타그램','owner').map(r=>r.document.instagram),['valid'])
+})
+test('instagram extraction deduplicates before applying the fifty-candidate limit',()=>{
+ const text=Array.from({length:55},(_,i)=>`@Brand_${i} https://www.instagram.com/brand_${i}/`).join('\n')
+ const rows=contactCandidates(text,'인스타그램','owner')
+ assert.equal(rows.length,50)
+ assert.deepEqual(rows.map(r=>r.document.instagram),Array.from({length:50},(_,i)=>`brand_${i}`))
 })
 test('content edit invalidates approvals and publication identity',()=>{
  const v={...newGrowth('content','owner').document.versions![0],title:'제목',status:'발행' as const,publication_url:'https://example.com',external_id:'12'}

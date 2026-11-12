@@ -3,6 +3,7 @@ import { useApp, useAsync } from '../lib/app'
 import { friendlyError } from '../lib/api'
 import { todayKey } from '../lib/date'
 import { Link, useRouter } from '../lib/router'
+import { requestViewChange } from '../lib/navigationGuard'
 import { SALES_COMPANIES, SALES_SOURCES, SALES_STAGES, canEditSales, needsFollowup, newSalesDraft, validateSales, type SalesDraft, type SalesFilter, type SalesOpportunity } from '../lib/sales'
 import { Button, Field, Modal } from '../components/ui'
 import { Shell } from '../components/Shell'
@@ -21,8 +22,20 @@ export default function Sales() {
   }, [search])
   const { data, loading, error, reload } = useAsync(() => api.listSales(filter), [filter, version], { items: [], hasMore: false })
   const change = (p: Partial<SalesFilter>) => setFilter(f => ({ ...f, ...p, page: 0 }))
+  const openOpportunity = (id: string) => {
+    if (selection === id && !adding) return
+    if (!requestViewChange(`/sales?id=${encodeURIComponent(id)}`)) return
+    setAdding(false)
+    setSelection(id)
+  }
+  const startAdding = () => {
+    if (adding) return
+    if (!requestViewChange('/sales?new=1')) return
+    setSelection(null)
+    setAdding(true)
+  }
   return <Shell active="sales"><div className="sales-page">
-    <div className="sales-header"><div className="sales-heading"><h1 className="t-title">영업·수주</h1><p className="t-small">거래처별 기회와 다음 행동을 관리합니다.</p></div><a href="/manual/growth.html#sales" target="_blank" rel="noreferrer" className="btn btn-outline">화면 사용설명</a><Link to="/clients" className="btn btn-outline">거래처·담당자</Link><Button onClick={() => setAdding(true)}>+ 영업 기회</Button></div>
+    <div className="sales-header"><div className="sales-heading"><h1 className="t-title">영업·수주</h1><p className="t-small">거래처별 기회와 다음 행동을 관리합니다.</p></div><a href="/manual/growth.html#sales" target="_blank" rel="noreferrer" className="btn btn-outline">화면 사용설명</a><Link to="/clients" className="btn btn-outline">거래처·담당자</Link><Button onClick={startAdding}>+ 영업 기회</Button></div>
     {api.mode === 'demo' && <p className="sales-notice">체험 모드 · 이 브라우저에만 저장됩니다. 실제 회사 자료와 분리됩니다.</p>}
     <div className="sales-filters">
       <Field label="영업 건 검색"><input className="input" value={search} onChange={e => setSearch(e.target.value)} placeholder="영업 건 이름" /></Field>
@@ -35,7 +48,7 @@ export default function Sales() {
     {loading ? <p role="status">영업 기회를 불러오는 중…</p> : !error && <>
       <p className="t-cap">{filter.page + 1}페이지 · {data.items.length}건 · 예상 금액은 확정 매출과 별도로 관리합니다.</p>
       {!data.items.length && <div className="sales-empty"><strong>표시할 영업 기회가 없습니다.</strong><p>새 영업 기회를 등록하거나 검색 조건을 바꿔 주세요.</p></div>}
-      <div className="sales-list">{data.items.map(row => <button key={row.id} type="button" className="sales-item" onClick={() => setSelection(row.id)}>
+      <div className="sales-list">{data.items.map(row => <button key={row.id} type="button" className="sales-item" onClick={() => openOpportunity(row.id)}>
         <span className="sales-item-main"><strong>{row.title}</strong><span>{SALES_COMPANIES[row.division]} · {profileName(row.owner_id)} · {row.source}</span></span>
         <span className="sales-stage">{row.stage}</span>
         <span className={needsFollowup(row, todayKey()) ? 'sales-due' : ''}>{row.next_date ?? '연락일 미정'}<small>{row.next_action || '다음 행동 미등록'}</small></span>
