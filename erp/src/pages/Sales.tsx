@@ -3,7 +3,8 @@ import { useApp, useAsync } from '../lib/app'
 import { friendlyError } from '../lib/api'
 import { todayKey } from '../lib/date'
 import { Link, useRouter } from '../lib/router'
-import { requestViewChange } from '../lib/navigationGuard'
+import { registerDraftNavigation } from '../lib/navigationGuard'
+import { afterSalesDraftConfirmed, closeSalesDraft, readSalesView, salesViewUrl } from '../lib/salesNavigation'
 import { SALES_COMPANIES, SALES_SOURCES, SALES_STAGES, canEditSales, needsFollowup, newSalesDraft, validateSales, type SalesDraft, type SalesFilter, type SalesOpportunity } from '../lib/sales'
 import { Button, Field, Modal } from '../components/ui'
 import { Shell } from '../components/Shell'
@@ -13,9 +14,10 @@ export default function Sales() {
   const { api, me, profileName, version } = useApp()
   const [filter, setFilter] = useState<SalesFilter>({ page: 0 })
   const [search, setSearch] = useState('')
-  const { query } = useRouter()
-  const [selection, setSelection] = useState<string | null>(query.get('id'))
-  const [adding, setAdding] = useState(false)
+  const { query, navigate } = useRouter()
+  const view = readSalesView(query)
+  const selection = view.kind === 'detail' ? view.id : null
+  const adding = view.kind === 'new'
   useEffect(() => {
     const t = window.setTimeout(() => setFilter(f => f.search === search ? f : ({ ...f, page: 0, search })), 350)
     return () => window.clearTimeout(t)
@@ -24,16 +26,13 @@ export default function Sales() {
   const change = (p: Partial<SalesFilter>) => setFilter(f => ({ ...f, ...p, page: 0 }))
   const openOpportunity = (id: string) => {
     if (selection === id && !adding) return
-    if (!requestViewChange(`/sales?id=${encodeURIComponent(id)}`)) return
-    setAdding(false)
-    setSelection(id)
+    navigate(salesViewUrl(query, { kind: 'detail', id }))
   }
   const startAdding = () => {
     if (adding) return
-    if (!requestViewChange('/sales?new=1')) return
-    setSelection(null)
-    setAdding(true)
+    navigate(salesViewUrl(query, { kind: 'new' }))
   }
+  const closePanel = () => navigate(salesViewUrl(query, { kind: 'list' }), { replace: true })
   return <Shell active="sales"><div className="sales-page">
     <div className="sales-header"><div className="sales-heading"><h1 className="t-title">영업·수주</h1><p className="t-small">거래처별 기회와 다음 행동을 관리합니다.</p></div><a href="/manual/growth.html#sales" target="_blank" rel="noreferrer" className="btn btn-outline">화면 사용설명</a><Link to="/clients" className="btn btn-outline">거래처·담당자</Link><Button onClick={startAdding}>+ 영업 기회</Button></div>
     {api.mode === 'demo' && <p className="sales-notice">체험 모드 · 이 브라우저에만 저장됩니다. 실제 회사 자료와 분리됩니다.</p>}
@@ -56,8 +55,8 @@ export default function Sales() {
       </button>)}</div>
       <div className="row wrap sales-pager"><Button kind="outline" disabled={!filter.page} onClick={() => setFilter(f => ({ ...f, page: f.page - 1 }))}>이전</Button><span>{filter.page + 1}페이지</span><Button kind="outline" disabled={!data.hasMore} onClick={() => setFilter(f => ({ ...f, page: f.page + 1 }))}>다음</Button></div>
     </>}
-    {adding && <SalesEditor initial={null} onClose={() => setAdding(false)} onSaved={id => { setAdding(false); setSelection(id); reload() }} />}
-    {selection && <SalesDetail key={selection} id={selection} onClose={() => setSelection(null)} onChanged={reload} />}
+    {adding && <SalesEditor initial={null} onClose={closePanel} onSaved={id => { navigate(salesViewUrl(query, { kind: 'detail', id }), { replace: true }); reload() }} />}
+    {selection && <SalesDetail key={selection} id={selection} onClose={closePanel} onChanged={reload} />}
     {!me.active && <p role="alert">비활성 계정은 저장할 수 없습니다.</p>}
   </div></Shell>
 }
@@ -72,8 +71,8 @@ function SalesDetail({ id, onClose, onChanged }: { id: string; onClose: () => vo
   const lock = useRef(false)
   const request = useRef({ id: crypto.randomUUID(), signature: '' })
   const state = useAsync(async () => ({ row: await api.getSales(id), activities: await api.listSalesActivities(id) }), [id], null)
-  const close = () => { if (!lock.current && (!body.trim() || window.confirm('저장하지 않은 활동 내용이 있습니다. 닫을까요?'))) onClose() }
-  useDraftGuard(!!body.trim(), busy)
+  const guard = useDraftGuard(!!body.trim(), busy)
+  const close = () => { if (!lock.current) guard.close('저장하지 않은 활동 내용이 있습니다. 닫을까요?', onClose) }
   if (editing && state.data) return <SalesEditor initial={state.data.row} onClose={() => setEditing(false)} onSaved={() => { setEditing(false); state.reload(); onChanged() }} />
   const row = state.data?.row
   const add = async () => {
@@ -101,14 +100,13 @@ function SalesDetail({ id, onClose, onChanged }: { id: string; onClose: () => vo
 }
 
 function useDraftGuard(dirty: boolean, busy: boolean) {
-  useEffect(() => {
-    if (!dirty && !busy) return
-    const nav = (e: Event) => { if (busy || !window.confirm('저장하지 않은 내용이 있습니다. 이동할까요?')) e.preventDefault() }
-    const unload = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = '' }
-    window.addEventListener('wkly:before-navigate', nav)
-    window.addEventListener('beforeunload', unload)
-    return () => { window.removeEventListener('wkly:before-navigate', nav); window.removeEventListener('beforeunload', unload) }
-  }, [dirty, busy])
+  const state = useRef({ dirty, busy })
+  state.current = { dirty, busy }
+  useEffect(() => registerDraftNavigation(window, () => state.current, () => window.confirm('저장하지 않은 내용이 있습니다. 이동할까요?')), [])
+  return {
+    close: (message: string, action: () => void) => closeSalesDraft(state, () => window.confirm(message), action),
+    afterSaved: (action: () => void) => afterSalesDraftConfirmed(state, action),
+  }
 }
 
 function SalesEditor({ initial, onClose, onSaved }: { initial: SalesOpportunity | null; onClose: () => void; onSaved: (id: string) => void }) {
@@ -120,26 +118,34 @@ function SalesEditor({ initial, onClose, onSaved }: { initial: SalesOpportunity 
   })
   const original = useRef(JSON.stringify(draft))
   const id = useRef(initial?.id ?? crypto.randomUUID())
+  const revision = useRef(initial?.revision ?? 0)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const lock = useRef(false)
   const dirty = JSON.stringify(draft) !== original.current
-  useDraftGuard(dirty, busy)
+  const guard = useDraftGuard(dirty, busy)
   const set = (patch: Partial<SalesDraft>) => setDraft(d => ({ ...d, ...patch }))
   const refs = useAsync(async () => {
     const [clients, contacts, projects] = await Promise.all([api.listClients(), api.listContacts(), api.listProjects()])
     return { clients, contacts, projects }
   }, [], { clients: [], contacts: [], projects: [] })
-  const close = () => { if (!lock.current && (!dirty || window.confirm('저장하지 않은 변경이 있습니다. 닫을까요?'))) onClose() }
+  const close = () => { if (!lock.current) guard.close('저장하지 않은 변경이 있습니다. 닫을까요?', onClose) }
   const save = async () => {
     if (lock.current) return
     const invalid = validateSales(draft)
     if (invalid) { setError(invalid); return }
     lock.current = true; setBusy(true); setError('')
-    try { const row = await api.saveSales(id.current, draft, initial?.revision ?? 0); onSaved(row.id) }
-    catch (e) { setError(friendlyError(e)) } finally { lock.current = false; setBusy(false) }
+    let saved = false
+    try {
+      const row = await api.saveSales(id.current, draft, revision.current)
+      revision.current = row.revision
+      original.current = JSON.stringify(draft)
+      saved = true
+      guard.afterSaved(() => onSaved(row.id))
+    } catch (e) { setError(saved ? '저장은 완료했습니다. 화면을 다시 열어 결과를 확인해 주세요.' : friendlyError(e)) }
+    finally { lock.current = false; setBusy(false) }
   }
-  return <Modal title={initial ? '영업 정보 수정' : '새 영업 기회'} onClose={close} wide actions={<><Button kind="ghost" disabled={busy} onClick={close}>취소</Button><Button disabled={busy || refs.loading || !!refs.error} onClick={save}>{busy ? '저장 중…' : '저장'}</Button></>}>
+  return <Modal title={revision.current ? '영업 정보 수정' : '새 영업 기회'} onClose={close} wide actions={<><Button kind="ghost" disabled={busy} onClick={close}>취소</Button><Button disabled={busy || refs.loading || !!refs.error} onClick={save}>{busy ? '저장 중…' : '저장'}</Button></>}>
     {error && <p role="alert" className="sales-error">{error}</p>}
     {refs.error && <div role="alert" className="sales-error">{refs.error}<Button kind="outline" onClick={refs.reload}>연결 자료 다시 확인</Button></div>}
     <fieldset disabled={busy} className="sales-fieldset form-grid">
