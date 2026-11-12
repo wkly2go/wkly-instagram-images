@@ -5,11 +5,12 @@
 //  2) 나눠서: 거래처 이름이 같은 입출금을 날짜순으로 계산서 순서대로 채움 (계약금 · 잔금)
 //  3) 개인 사업자: 통장에 대표 이름으로 찍힌 같은 금액 (발행 30일 전 ~ 90일 뒤, 가까운 것부터)
 //  4) 같은 금액이 그 기간에 계산서도 거래도 하나뿐
-//  5) 카드로 낸 것 (±10일)
+//  5) 카드로 낸 것 (발행 10일 전 ~ 25일 뒤 · 통신비 자동납부는 늦게 결제)
 //  6) 두 번에 나눠 낸 돈 (같은 상대에게 두 번 = 계산서 금액)
 //  7) 계산서 두 장을 한 번에 낸 돈
 //  8) 늦게 받은 계산서: 이름이 맞는 거래가 발행 200일 전까지 있으면 (한 번 또는 두 번 합)
-//  9) 끝전 차이: 남은 돈이 계산서의 1% 이하이면서 20만 원 이하 (끝자리 떼고 보냄 · 수수료)
+//  9) 여러 번 합계: 카드 2 ~ 3번(광고비처럼 월말 정산 · 이름 앞 두 글자) · 통장 3번(같은 상대)이 남은 돈과 같음
+// 10) 끝전 차이: 남은 돈이 계산서의 1% 이하이면서 20만 원 이하 (끝자리 떼고 보냄 · 수수료)
 export interface SettleInvoice {
   id: string
   direction: '매출' | '매입'
@@ -34,7 +35,9 @@ export interface Settlement {
 }
 
 const day = (s: string) => Math.round(Date.parse(`${s}T00:00:00Z`) / 864e5)
-const norm = (s: string) => s.toLowerCase().replace(/\(주\)|（주）|주식회사|㈜|\s/g, '')
+// 계산서 이름 ↔ 통장 · 카드에 찍히는 이름 (케이티 → KT 등)
+const ALIAS: [RegExp, string][] = [[/케이티/g, 'kt'], [/엘지유플러스/g, 'lg유플러스'], [/에스케이텔레콤/g, 'skt']]
+const norm = (s: string) => ALIAS.reduce((t, [re, to]) => t.replace(re, to), s.toLowerCase().replace(/\(주\)|（주）|주식회사|㈜|\s/g, ''))
 export const partnerKey = (s: string | null) => norm((s ?? '').replace(/[(（][^)）]*[)）]/g, '')).slice(0, 4)
 
 export function settleInvoices(invoices: SettleInvoice[], rows: SettleRow[], staff: string[] = []): Map<string, Settlement> {
@@ -133,7 +136,7 @@ export function settleInvoices(invoices: SettleInvoice[], rows: SettleRow[], sta
     open()
       .filter(i => i.dir === '출금')
       .flatMap(i => {
-        const ls = lg.filter(l => l.card && l.dir === '출금' && l.amt === i.tot && Math.abs(l.d - i.wd) <= 10 && lleft(l) === l.amt)
+        const ls = lg.filter(l => l.card && l.dir === '출금' && l.amt === i.tot && l.d - i.wd >= -10 && l.d - i.wd <= 25 && lleft(l) === l.amt)
         return ls.filter(l => hit(l, i.p) || ls.length === 1).map(l => ({ i, l, gap: Math.abs(l.d - i.wd) }))
       }),
     '카드',
@@ -187,7 +190,37 @@ export function settleInvoices(invoices: SettleInvoice[], rows: SettleRow[], sta
           break pair
         }
   }
-  // 9) 끝전 차이
+  // 9) 여러 번 합계
+  const subset = <T extends { amt: number }>(cands: T[], target: number, maxK: number): T[] | null => {
+    const c = cands.slice(0, 40)
+    const go = (start: number, k: number, left: number, acc: T[]): T[] | null => {
+      if (left === 0 && acc.length >= 2) return acc
+      if (k === 0 || left <= 0) return null
+      for (let x = start; x < c.length; x++) {
+        const r = go(x + 1, k - 1, left - c[x].amt, [...acc, c[x]])
+        if (r) return r
+      }
+      return null
+    }
+    return go(0, maxK, target, [])
+  }
+  for (const i of iv.filter(x => !x.neg && ileft(x) > 0)) {
+    const left = ileft(i)
+    const p2 = i.p.slice(0, 2)
+    if (i.dir === '출금' && p2.length === 2) {
+      const cards = lg.filter(l => l.card && l.dir === '출금' && lleft(l) === l.amt && l.d - i.wd >= -35 && l.d - i.wd <= 5 && l.n.includes(p2)).sort((a, b) => a.d - b.d)
+      const pick = subset(cards, left, 3)
+      if (pick) {
+        for (const l of pick) give(i, l, l.amt, '카드 여러 번')
+        continue
+      }
+    }
+    if (!i.p) continue
+    const banks = bank.filter(l => l.dir === i.dir && lleft(l) === l.amt && l.d - i.wd >= -60 && l.d - i.wd <= 120 && hit(l, i.p)).sort((a, b) => Math.abs(a.d - i.wd) - Math.abs(b.d - i.wd))
+    const pick = subset(banks, left, 3)
+    if (pick) for (const l of pick) give(i, l, l.amt, '세 번에')
+  }
+  // 10) 끝전 차이
   for (const i of iv) {
     const left = ileft(i)
     if (left > 0 && out.get(i.id)!.settled > 0 && left <= Math.min(200_000, i.tot * 0.01)) give(i, null, left, '끝전 차이')

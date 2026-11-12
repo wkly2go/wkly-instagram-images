@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { ExternalLink, FolderPlus, RefreshCw, Upload } from 'lucide-react'
 import { useApp } from '../lib/app'
 import { driveApi, driveIdOf, listChildren, newFolder, FOLDER_MIME, type GFile } from '../lib/gdrive'
-import { fileKind, scanDriveFolder, sheetsInZip, SHEET_RE, type ScannedFile } from '../lib/folderScan'
+import { fileKind, scanDriveFolder, sheetsInZip, SHEET_RE, type ScannedFile, REFERENCE_RE } from '../lib/folderScan'
 import { runSettlement } from '../lib/invoiceSettle'
 import { attachEvidence, classify, detectKind, setStaffNames, parseBank, parseCardLike, readGrid, type Evidence, type LedgerRow } from '../lib/ledgerImport'
 import { LEDGER_CATEGORIES, LEDGER_TRANSFER_CATEGORIES, type LedgerEntry, type LedgerFile, type Payment } from '../lib/types'
@@ -631,24 +631,62 @@ export function LedgerFolder({ onExpired }: { onExpired: () => void }) {
       )}
 
       <div className="col gap-6">
-        <b>처리한 파일 {files.length}개</b>
         {files.length === 0 ? (
-          <span className="t-cap">아직 처리한 파일이 없습니다. 위 '은행 · 홈택스 파일 올리기'로 올려 주세요.</span>
+          <>
+            <b>처리한 파일 0개</b>
+            <span className="t-cap">아직 처리한 파일이 없습니다. 위 '은행 · 홈택스 파일 올리기'로 올려 주세요.</span>
+          </>
         ) : (
-          <table className="lgf-table">
-            <tbody>
-              {files.map(f => (
-                <tr key={f.drive_file_id}>
-                  <td className="truncate">{f.name}</td>
-                  <td>{f.kind}</td>
-                  <td className="t-cap">
-                    {f.rows}줄 · 새로 {f.added}건{f.note ? ` · ${f.note}` : ''}
-                  </td>
-                  <td className="t-cap mono">{f.processed_at.slice(0, 16).replace('T', ' ')}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          (() => {
+            // 처리 완료 · 미처리 구분 (대표 지시 2026-11-12 "처리완료한 파일과 미처리 파일을 구분해")
+            const state = (f: LedgerFile): '미처리' | '참고 자료' | '반영 완료' | '같은 내용' => {
+              if (REFERENCE_RE.test(f.name) || (f.note ?? '').includes('운행기록부')) return '참고 자료'
+              if (f.kind === '압축' || f.kind === '세금계산서' || f.kind === '현금영수증') return '반영 완료'
+              if (f.kind === '알 수 없음' || f.rows === 0) return '미처리'
+              return f.added > 0 ? '반영 완료' : '같은 내용'
+            }
+            const group = (k: ReturnType<typeof state>) => files.filter(f => state(f) === k)
+            const Table = ({ list, why }: { list: LedgerFile[]; why?: (f: LedgerFile) => string }) => (
+              <table className="lgf-table">
+                <tbody>
+                  {list.map(f => (
+                    <tr key={f.drive_file_id}>
+                      <td className="truncate">{f.name}</td>
+                      <td>{f.kind}</td>
+                      <td className="t-cap">{why ? why(f) : `${f.rows}줄 · 새로 ${f.added}건${f.note ? ` · ${f.note}` : ''}`}</td>
+                      <td className="t-cap mono">{f.processed_at.slice(0, 16).replace('T', ' ')}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )
+            const todo = group('미처리')
+            const ref = group('참고 자료')
+            const done = group('반영 완료')
+            const same = group('같은 내용')
+            return (
+              <>
+                <b className={todo.length ? 'lgf-todo' : ''}>
+                  미처리 {todo.length}개 <span className="t-cap">— 거래 내역을 읽지 못한 파일 · 다시 올리거나 원본(엑셀) 확인 필요</span>
+                </b>
+                {todo.length ? <Table list={todo} why={f => f.note || (f.kind === '알 수 없음' ? '날짜 · 금액 칸을 찾지 못함' : '거래 0줄')} /> : <span className="t-cap">없음</span>}
+                <b>
+                  처리 완료 {done.length}개 <span className="t-cap">— 장부에 기입 · 증빙 연결</span>
+                </b>
+                {done.length ? <Table list={done} /> : <span className="t-cap">없음</span>}
+                <details>
+                  <summary className="t-cap">
+                    이미 반영된 자료와 같은 파일 {same.length}개 (사본 · 다른 폴더의 같은 파일 — 두 번 넣지 않음)
+                  </summary>
+                  <Table list={same} why={f => `${f.rows}줄 모두 이미 장부에 있음`} />
+                </details>
+                <details>
+                  <summary className="t-cap">거래 내역이 아닌 참고 자료 {ref.length}개 (운행기록부 · 잔액 확인표 · 매입장 등 — 장부에 넣지 않음)</summary>
+                  <Table list={ref} why={() => '참고 자료 · 장부에 넣지 않음'} />
+                </details>
+              </>
+            )
+          })()
         )}
       </div>
     </div>
