@@ -249,6 +249,41 @@ export function InvoiceView({ year, onExpired }: { year: string; onExpired: () =
             <b className={money.length ? 'lgf-todo' : ''}>
               홈택스 합계표 대조 · 거래처 {same + diffs.length}곳 중 일치 {same}곳{diffs.length ? ` · 차이 ${diffs.length}곳 (금액 차이 ${money.length}곳 · ${won(money.reduce((n, d) => n + d.ht - d.it, 0))})` : ' — 계산서 대장이 홈택스와 같습니다'}
             </b>
+            {/* 홈택스 · 계산서 · 통장 3자 대조 (대표 지시 2026-11-12 "다시 확인하고 계좌와 비교해") */}
+            <table className="ledger-table" aria-label="홈택스 · 계산서 · 통장 대조">
+              <thead>
+                <tr>
+                  <th>기간</th>
+                  <th>구분</th>
+                  <th className="num">홈택스 합계표</th>
+                  <th className="num">인트라넷 계산서</th>
+                  <th className="num">통장 · 카드 (입금 · 지급)</th>
+                  <th className="num">아직 (미수 · 미지급)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {periods.map(p => {
+                  const [dir, from, to] = p.split('|')
+                  const ht = sums.filter(x => `${x.direction}|${x.period_from}|${x.period_to}` === p).reduce((n, x) => n + x.total, 0)
+                  const inside = allInv.filter(i => i.direction === dir && i.write_date >= from && i.write_date <= to)
+                  const it = inside.reduce((n, i) => n + i.total, 0)
+                  // 수정 발행으로 서로 지운 계산서는 통장과 상관없음
+                  const live = inside.filter(i => i.settle_how !== '수정 발행 취소')
+                  const paid = live.reduce((n, i) => n + Math.min(i.settled ?? 0, i.total), 0)
+                  const open = live.reduce((n, i) => n + Math.max(0, i.total - (i.settled ?? 0)), 0)
+                  return (
+                    <tr key={p}>
+                      <td className="mono">{from.slice(2, 7).replace('-', '.')}~{to.slice(2, 7).replace('-', '.')}</td>
+                      <td>{dir}</td>
+                      <td className="num">{won(ht)}</td>
+                      <td className={`num ${ht !== it ? 'out' : ''}`}>{won(it)}</td>
+                      <td className="num">{won(paid)}</td>
+                      <td className={`num ${open ? 'out' : ''}`}>{won(open)}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
             {diffs.length > 0 && (
               <table className="ledger-table">
                 <thead>
