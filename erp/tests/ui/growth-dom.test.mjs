@@ -62,6 +62,7 @@ async function mount(role, kind = 'sales', props = {}, initialUrl) {
   localStorage.removeItem('wkly-growth-demo-v1')
   window.history.replaceState(null, '', initialUrl ?? (kind === 'sales' ? '/sales?campaign=retained' : kind === 'tender' ? '/tenders' : kind === 'ads' ? '/ads' : '/leads'))
   await api.signIn(role === 'admin' ? 'admin@thewklyn.com' : 'haneul@thewklyn.com', '')
+  if (props.seedItems) localStorage.setItem('wkly-growth-demo-v1', JSON.stringify(props.seedItems))
   const profiles = await api.listProfiles(), me = profiles.find(p => p.id === (role === 'admin' ? '00000000-0000-4000-8000-000000000001' : '00000000-0000-4000-8000-000000000002'))
   root = createRoot(document.getElementById('root'))
   await act(async () => root.render(React.createElement(RouterProvider, null,
@@ -135,6 +136,108 @@ test('channel names in global search lead to the same advertising workspace', as
   assert.equal(location.pathname, '/ads')
   assert.equal(query('tab'), null)
   assert.equal(screen.queryByRole('dialog', { name: '전체 검색 · 빠른 이동', exact: true }), null)
+})
+
+test('a member can read every channel of another owner’s content without editing or saving', async () => {
+  const { newGrowth } = await server.ssrLoadModule('/src/lib/growth.ts')
+  const draft = newGrowth('content', '00000000-0000-4000-8000-000000000001')
+  draft.title = '팀 공유 콘텐츠'; draft.document.original = '공유 원본 사실'
+  draft.document.versions.forEach(v => { v.title = `${v.channel} 제목`; v.body = `${v.channel} 본문` })
+  const row = { ...draft, id: crypto.randomUUID(), revision: 1, linked_sales_id: null, created_by: draft.owner_id, created_at: '2026-11-13T00:00:00Z', updated_at: '2026-11-13T00:00:00Z' }
+  const screen = await mount('member', 'content', { seedItems: [row] })
+  let writes = 0
+  api.saveGrowth = async () => { writes++; throw new Error('읽기 전용 자료 저장 금지') }
+  await click(screen.getByRole('button', { name: /팀 공유 콘텐츠/ }))
+  const editor = panel('팀 공유 콘텐츠')
+  for (const channel of ['네이버 블로그', '인스타그램', '유튜브']) {
+    await click(editor.getByRole('tab', { name: channel, exact: true }))
+    assert.equal(editor.getByRole('tab', { name: channel, exact: true }).getAttribute('aria-selected'), 'true')
+    assert.equal(editor.getByLabelText('채널 본문').value, `${channel} 본문`)
+    assert.equal(editor.getByLabelText('채널 본문').matches(':disabled'), true)
+  }
+  assert.equal(editor.queryByRole('button', { name: '저장', exact: true }), null)
+  await act(async () => user.keyboard('{Home}{ArrowRight}'))
+  assert.equal(document.activeElement, editor.getByRole('tab', { name: '인스타그램', exact: true }))
+  assert.equal(editor.getByLabelText('채널 본문').value, '인스타그램 본문')
+  assert.equal(editor.getByRole('tabpanel', { name: '인스타그램', exact: true }) != null, true)
+  assert.equal(writes, 0)
+  assert.deepEqual(JSON.parse(localStorage.getItem('wkly-growth-demo-v1')), [row])
+})
+
+test('saving new and existing content keeps the selected channel and its approval context', async () => {
+  const screen = await mount('admin', 'content')
+  await click(screen.getByRole('button', { name: '+ 콘텐츠 만들기', exact: true }))
+  let editor = panel('새 콘텐츠·배포')
+  await type(editor.getByLabelText('제목 *'), '인스타 검수 흐름')
+  await type(editor.getByLabelText('원본 사실·출처 요약 *'), '공식 확인한 행사 정보')
+  await click(editor.getByRole('tab', { name: '인스타그램', exact: true }))
+  await type(editor.getByLabelText('채널 제목'), '인스타 제목')
+  await type(editor.getByLabelText('채널 본문'), '인스타 본문')
+  await click(editor.getByLabelText('이미지·영상·문구 사용 권리 확인'))
+  await click(editor.getByRole('button', { name: '저장', exact: true }))
+  editor = panel('인스타 검수 흐름')
+  assert.equal(editor.getByRole('tab', { name: '인스타그램', exact: true }).getAttribute('aria-selected'), 'true')
+  assert.equal(editor.getByLabelText('채널 본문').value, '인스타 본문')
+  await act(async () => user.selectOptions(editor.getByLabelText('채널 상태'), '승인'))
+  await click(editor.getByRole('button', { name: '저장', exact: true }))
+  editor = panel('인스타 검수 흐름')
+  assert.equal(editor.getByRole('tab', { name: '인스타그램', exact: true }).getAttribute('aria-selected'), 'true')
+  assert.equal(editor.getByLabelText('채널 상태').value, '승인')
+  const versions = JSON.parse(localStorage.getItem('wkly-growth-demo-v1'))[0].document.versions
+  assert.deepEqual(versions.map(v => v.status), ['초안', '승인', '초안'])
+  await type(editor.getByLabelText('채널 본문'), '승인 후 수정한 본문')
+  assert.equal(editor.getByLabelText('채널 상태').value, '초안')
+  await click(editor.getByRole('button', { name: '저장', exact: true }))
+  editor = panel('인스타 검수 흐름')
+  assert.equal(editor.getByLabelText('채널 본문').value, '승인 후 수정한 본문')
+  assert.equal(editor.getByRole('tab', { name: '인스타그램', exact: true }).getAttribute('aria-selected'), 'true')
+  assert.deepEqual(JSON.parse(localStorage.getItem('wkly-growth-demo-v1'))[0].document.versions.map(v => v.status), ['초안', '초안', '초안'])
+})
+
+test('content saving disables channel changes and keeps the selected channel after completion', async () => {
+  const screen = await mount('member', 'content')
+  await click(screen.getByRole('button', { name: '+ 콘텐츠 만들기', exact: true }))
+  let editor = panel('새 콘텐츠·배포')
+  await type(editor.getByLabelText('제목 *'), '저장 중 채널 보호')
+  await type(editor.getByLabelText('원본 사실·출처 요약 *'), '저장할 원본')
+  await click(editor.getByRole('tab', { name: '유튜브', exact: true }))
+  await type(editor.getByLabelText('채널 본문'), '보존할 유튜브 본문')
+  let finish
+  const pending = new Promise(resolve => { finish = resolve })
+  api.saveGrowth = async (...args) => { await pending; return originals.saveGrowth(...args) }
+  await click(editor.getByRole('button', { name: '저장', exact: true }))
+  for (const tab of editor.getAllByRole('tab')) assert.equal(tab.disabled, true)
+  await click(editor.getByRole('tab', { name: '네이버 블로그', exact: true }))
+  await act(async () => user.keyboard('{Escape}'))
+  assert.equal(editor.getByLabelText('채널 본문').value, '보존할 유튜브 본문')
+  assert.equal(screen.queryByRole('dialog', { name: '새 콘텐츠·배포', exact: true }) != null, true)
+  await act(async () => finish())
+  editor = panel('저장 중 채널 보호')
+  assert.equal(editor.getByRole('tab', { name: '유튜브', exact: true }).getAttribute('aria-selected'), 'true')
+  assert.equal(editor.getByRole('option', { name: '승인', exact: true }).disabled, true)
+  assert.equal(editor.getByLabelText('채널 본문').value, '보존할 유튜브 본문')
+})
+
+test('failed content save and declined close keep channel drafts; opening a new item resets selection', async () => {
+  const screen = await mount('admin', 'content')
+  await click(screen.getByRole('button', { name: '+ 콘텐츠 만들기', exact: true }))
+  let editor = panel('새 콘텐츠·배포')
+  await type(editor.getByLabelText('제목 *'), '저장 실패 초안')
+  await type(editor.getByLabelText('원본 사실·출처 요약 *'), '확인한 원본')
+  await click(editor.getByRole('tab', { name: '인스타그램', exact: true }))
+  await type(editor.getByLabelText('채널 본문'), '실패해도 유지할 내용')
+  api.saveGrowth = async () => { throw new Error('모의 저장 실패') }
+  await click(editor.getByRole('button', { name: '저장', exact: true }))
+  assert.equal(editor.getAllByRole('alert').length > 0, true)
+  await click(closeButton(editor))
+  assert.equal(editor.getByRole('tab', { name: '인스타그램', exact: true }).getAttribute('aria-selected'), 'true')
+  assert.equal(editor.getByLabelText('채널 본문').value, '실패해도 유지할 내용')
+  window.confirm = () => true
+  await click(closeButton(editor))
+  await click(screen.getByRole('button', { name: '+ 콘텐츠 만들기', exact: true }))
+  editor = panel('새 콘텐츠·배포')
+  assert.equal(editor.getByRole('tab', { name: '네이버 블로그', exact: true }).getAttribute('aria-selected'), 'true')
+  assert.equal(editor.getByLabelText('채널 본문').value, '')
 })
 
 for (const role of ['admin', 'member']) {
