@@ -68,6 +68,14 @@ export function contactCandidates(text: string, source: '받은 메일' | '인�
 export interface AiModel { key: string; label: string; model_id: string; input_rate: number; output_rate: number; enabled: boolean }
 export interface AiBudget { id: string; starts_at: string; ends_at: string; limit_usd: number; enabled: boolean }
 export interface AiUsage { id: string; task: string; status: string; reserved_usd: number; actual_usd: number | null; created_at: string }
+/** Keep microcharges visible; unknown amounts must never appear to be free. */
+export function formatAiCost(value: unknown): string {
+  if ((typeof value !== 'number' && typeof value !== 'string') || (typeof value === 'string' && !value.trim())) return '확인 필요'
+  const amount = Number(value)
+  if (!Number.isFinite(amount) || amount < 0) return '확인 필요'
+  if (amount > 0 && amount < 0.000001) return '<$0.000001'
+  return `$${amount.toFixed(6)}`
+}
 export interface AiState { models: AiModel[]; budgets: AiBudget[]; usage: AiUsage[] }
 export interface GrowthApi {
   listGrowth(f: GrowthFilter): Promise<{ items: GrowthSummary[]; hasMore: boolean }>
