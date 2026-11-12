@@ -7,7 +7,7 @@ import { Button, Empty } from './ui'
 import { useApp } from '../lib/app'
 import { manwon, todayKey, won } from '../lib/date'
 import { downloadText, toCsv } from '../lib/csv'
-import type { LedgerEntry, TaxInvoice } from '../lib/types'
+import type { LedgerEntry, TaxInvoice, TaxInvoiceSummary } from '../lib/types'
 import { day, matchInvoices, type InvoiceMatch } from '../lib/invoiceMatch'
 import { runSettlement } from '../lib/invoiceSettle'
 
@@ -15,6 +15,8 @@ export function InvoiceView({ year, onExpired }: { year: string; onExpired: () =
   const { api, toast } = useApp()
   const [invoices, setInvoices] = useState<TaxInvoice[]>([])
   const [rows, setRows] = useState<LedgerEntry[]>([])
+  const [allInv, setAllInv] = useState<TaxInvoice[]>([])
+  const [sums, setSums] = useState<TaxInvoiceSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [tick, setTick] = useState(0)
@@ -33,10 +35,12 @@ export function InvoiceView({ year, onExpired }: { year: string; onExpired: () =
   }
   useEffect(() => {
     setLoading(true)
-    Promise.all([api.listTaxInvoices(), api.listLedger(`${Number(year) - 1}-11-01`, `${Number(year) + 1}-02-28`)])
-      .then(([inv, led]) => {
+    Promise.all([api.listTaxInvoices(), api.listLedger(`${Number(year) - 1}-11-01`, `${Number(year) + 1}-02-28`), api.listTaxInvoiceSummaries().catch(() => [] as TaxInvoiceSummary[])])
+      .then(([inv, led, sm]) => {
         setInvoices(inv.filter(i => i.total && i.write_date.startsWith(year)))
+        setAllInv(inv)
         setRows(led)
+        setSums(sm.filter(x => x.period_from.startsWith(year) || x.period_to.startsWith(year)))
       })
       .catch(() => onExpired())
       .finally(() => setLoading(false))
@@ -214,6 +218,66 @@ export function InvoiceView({ year, onExpired }: { year: string; onExpired: () =
         </Button>
       </div>
 
+      {(() => {
+        // 홈택스 세금계산서 합계표 대조 (0109 · 2026-11-12): 기간 · 거래처별 매수 · 합계금액이 인트라넷 대장과 같은지
+        if (!sums.length)
+          return <p className="t-meta">홈택스 › 세금계산서 합계표(매출처별 · 매입처별) 엑셀을 회계 자료 탭에 올리면, 인트라넷에 빠진 계산서를 찾아 여기 보여 줍니다.</p>
+        const periods = [...new Set(sums.map(x => `${x.direction}|${x.period_from}|${x.period_to}`))]
+        const diffs: { key: string; dir: string; from: string; to: string; biz: string; name: string; hc: number; ht: number; ic: number; it: number }[] = []
+        let same = 0
+        for (const p of periods) {
+          const [dir, from, to] = p.split('|')
+          const inside = allInv.filter(i => i.direction === dir && i.write_date >= from && i.write_date <= to)
+          const hs = sums.filter(x => `${x.direction}|${x.period_from}|${x.period_to}` === p)
+          const bizs = new Set([...hs.map(x => x.partner_biz_no), ...inside.map(i => i.partner_biz_no ?? '')])
+          for (const biz of bizs) {
+            if (!biz) continue
+            const h = hs.find(x => x.partner_biz_no === biz)
+            const mine = inside.filter(i => i.partner_biz_no === biz)
+            const it = mine.reduce((n, i) => n + i.total, 0)
+            if (h && h.total === it && h.count === mine.length) {
+              same++
+              continue
+            }
+            diffs.push({ key: `${p}|${biz}`, dir, from, to, biz, name: h?.partner_name || mine[0]?.partner_name || '(이름 없음)', hc: h?.count ?? 0, ht: h?.total ?? 0, ic: mine.length, it })
+          }
+        }
+        diffs.sort((a, b) => Math.abs(b.ht - b.it) - Math.abs(a.ht - a.it))
+        const money = diffs.filter(d => d.ht !== d.it)
+        return (
+          <section className="col gap-6" aria-label="홈택스 합계표 대조">
+            <b className={money.length ? 'lgf-todo' : ''}>
+              홈택스 합계표 대조 · 거래처 {same + diffs.length}곳 중 일치 {same}곳{diffs.length ? ` · 차이 ${diffs.length}곳 (금액 차이 ${money.length}곳 · ${won(money.reduce((n, d) => n + d.ht - d.it, 0))})` : ' — 계산서 대장이 홈택스와 같습니다'}
+            </b>
+            {diffs.length > 0 && (
+              <table className="ledger-table">
+                <thead>
+                  <tr>
+                    <th>기간</th>
+                    <th>구분</th>
+                    <th>거래처</th>
+                    <th className="num">홈택스</th>
+                    <th className="num">인트라넷</th>
+                    <th className="num">차이</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {diffs.map(d => (
+                    <tr key={d.key} title={d.ht !== d.it ? (d.ht > d.it ? '인트라넷에 없는 계산서가 있습니다 — 홈택스 계산서 목록(엑셀)을 다시 올려 주세요' : '홈택스 합계표에 없는 계산서가 인트라넷에 있습니다') : '금액은 같고 매수만 다릅니다 (수정 발행 · 0원 계산서)'}>
+                      <td className="mono">{d.from.slice(2, 7).replace('-', '.')}~{d.to.slice(2, 7).replace('-', '.')}</td>
+                      <td>{d.dir}</td>
+                      <td className="truncate">{d.name} <span className="t-meta">{d.biz}</span></td>
+                      <td className="num">{d.hc}매 · {won(d.ht)}</td>
+                      <td className="num">{d.ic}매 · {won(d.it)}</td>
+                      <td className={`num ${d.ht !== d.it ? 'out' : ''}`}>{d.ht !== d.it ? won(d.ht - d.it) : '매수만 다름'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </section>
+        )
+      })()}
       <List title="미수 (매출 계산서 발행 · 아직 입금 확인 안 됨)" list={recv} kind="매출" />
       <List title="미지급 (매입 계산서 받음 · 아직 지급 확인 안 됨)" list={pay} kind="매입" />
       <p className="t-meta">

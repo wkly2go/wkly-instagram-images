@@ -13,6 +13,7 @@ import type { LedgerEntry, LedgerFile, LedgerRecurring, LedgerStatus, MaterialIt
   PersonalEvent,
   TaxInvoice,
   TaxInvoiceDraft,
+  TaxInvoiceSummary,
   ExchangeFile,
   ProjectDriveFile,
   MeetingRecording,
@@ -316,6 +317,9 @@ export interface Api {
   importTaxInvoices(rows: TaxInvoiceDraft[]): Promise<{ added: number; skipped: number }>
   updateTaxInvoice(id: string, patch: Partial<Pick<TaxInvoice, 'project_id' | 'payment_id' | 'memo'>>): Promise<void>
   /** 계산서 ↔ 은행 대사 결과 저장 (0108 · 바뀐 것만) */
+  /** 홈택스 세금계산서 합계표 (0109) — 같은 기간 · 거래처는 새 값으로 바꿈 */
+  listTaxInvoiceSummaries(): Promise<TaxInvoiceSummary[]>
+  importTaxInvoiceSummaries(rows: Omit<TaxInvoiceSummary, 'id' | 'uploaded_at'>[]): Promise<number>
   saveTaxSettlement(rows: { id: string; settled: number; ledger_ids: number[] | null; settle_how: string | null }[]): Promise<void>
   /** 캘린더 개인 일정 (본인 것만) */
   listPersonalEvents(): Promise<PersonalEvent[]>

@@ -10,7 +10,7 @@
  */
 import { LEDGER_CATEGORIES, type LedgerDirection, type Payment } from './types'
 
-export type LedgerFileKind = '은행' | '카드' | '현금영수증' | '세금계산서' | '알 수 없음'
+export type LedgerFileKind = '은행' | '카드' | '현금영수증' | '세금계산서' | '계산서 합계표' | '알 수 없음'
 export interface LedgerRow {
   entry_date: string
   direction: LedgerDirection
@@ -122,6 +122,11 @@ const pick = (head: string[], names: string[]) => {
 }
 
 export function detectKind(grids: Grid[], name: string): { kind: LedgerFileKind; grid: Grid; hi: number } {
+  // 홈택스 '세금계산서 합계표'(매출처별 · 매입처별 기간 합계) — 거래 내역이 아니라 계산서 대장 대조용 (2026-11-12)
+  for (const grid of grids) {
+    const hi = grid.findIndex(r => norm(r[0]) === '일련번호' && r.some(c => /등록번호/.test(String(c ?? ''))))
+    if (hi >= 0 && grid.slice(0, hi).some(r => r.some(c => /합계표\s*명세서|매출처\s*수|매입처\s*수/.test(String(c ?? ''))))) return { kind: '계산서 합계표', grid, hi }
+  }
   for (const grid of grids) {
     for (let i = 0; i < Math.min(grid.length, 60); i++) {
       const h = grid[i].map(norm)
@@ -523,6 +528,36 @@ export function attachEvidence(rows: { id?: number; entry_date: string; directio
         out.push({ index: best, ev: e })
       }
     }
+  }
+  return out
+}
+
+/** 홈택스 세금계산서 합계표 읽기: 머리 '거래기간 2026-01-01 ~ 2026-06-30' · '매출(매입) 합계표 명세서' 아래 거래처별 줄 */
+export interface InvoiceSummaryRow {
+  direction: '매출' | '매입'
+  period_from: string
+  period_to: string
+  partner_biz_no: string
+  partner_name: string | null
+  count: number
+  supply: number
+  vat: number
+  total: number
+}
+export function parseInvoiceSummary(grid: Grid, hi: number): InvoiceSummaryRow[] {
+  const top = grid.slice(0, hi).flat().map(c => String(c ?? '')).join(' ')
+  const period = top.match(/(\d{4}-\d{2}-\d{2})\s*~\s*(\d{4}-\d{2}-\d{2})/)
+  if (!period) return []
+  const direction = /매출\s*합계표|매출처\s*수/.test(top) ? '매출' : '매입'
+  const head = grid[hi].map(norm)
+  const col = (k: string[]) => head.findIndex(h => k.some(x => h.includes(x)))
+  const c = { biz: col(['등록번호']), name: col(['상호']), cnt: col(['매수']), supply: col(['공급가액']), vat: col(['세액']), total: col(['합계금액', '합계']) }
+  const out: InvoiceSummaryRow[] = []
+  for (const r of grid.slice(hi + 1)) {
+    if (!/^\d+$/.test(String(r[0] ?? '').trim())) continue
+    const biz = String(r[c.biz] ?? '').trim()
+    if (!biz) continue
+    out.push({ direction, period_from: period[1], period_to: period[2], partner_biz_no: biz, partner_name: String(r[c.name] ?? '').trim() || null, count: num(r[c.cnt]), supply: num(r[c.supply]), vat: num(r[c.vat]), total: num(r[c.total]) })
   }
   return out
 }
