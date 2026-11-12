@@ -13,6 +13,7 @@
 - 작업이 끝나면 결과 화면 캡처를 보여 준다.
 
 ## 구조
+- 2026-11-13 서버 후속 배포: `meeting-minutes`·`gmail`·`g2b-search` 실제 운영 배포, 코드 일치·기존 인증 설정·GET 405 확인. 조직 Usage 및 읽기 전용 DB·버킷·예약 조회 완료. 나라장터 서버 키 미등록·실계정 업무 검증은 남음. 이전 배포 대기 문구보다 `erp/docs/SERVER_DEPLOYMENT_20261113.md`를 우선한다. 설치 SQL 재실행·유료 AI 호출·파일 삭제·광고 집행은 하지 않았다.
 - `erp/` : React + TypeScript + Vite 웹앱 (Cloudflare Pages · main 에 합치면 자동 배포)
   - `src/pages/` 화면 · `src/components/` 부품 · `src/lib/api.ts` (API 정의) · `supabaseApi.ts` (운영) · `demoApi.ts` (체험 모드)
   - `src/styles.css` : 디자인 토큰 · WKLY v7 디자인 시스템 (사각 모서리, 글자 크기 단계 `--fs-cap 12 · sm 12.5 · body 13.5 · sub 14.5 · title 16 · num 19 · hero 28` (2026-11-09 위계 다시 잡음 · 맨 아래 :root 가 최종값 · 터치 화면은 반 단계 큼))
