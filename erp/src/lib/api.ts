@@ -1,3 +1,4 @@
+import type { SalesApi } from './sales'
 import type { ApprovalSummary, ResearchSummary, ResearchBodyMatch } from './types'
 import type { MarketingCampaign, MarketingAsset } from './marketing'
 import type { NavigationCounts } from './navigationCounts'
@@ -163,7 +164,7 @@ export type AgentDraft = { agent_id: string; seq: number; text: string; status: 
  * - supabaseApi: 실제 운영 (Supabase)
  * - demoApi: 환경변수가 없을 때 브라우저 저장소로 동작하는 체험판
  */
-export interface Api {
+export interface Api extends SalesApi {
   mode: 'supabase' | 'demo'
 
   // 인증
