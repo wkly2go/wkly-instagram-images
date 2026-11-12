@@ -56,7 +56,7 @@ function validationTarget(message: string): { step: Step; field: string } {
   return { step: 'plan', field: 'md-title' }
 }
 
-export function MarketingDesk({ onDirtyChange }: { onDirtyChange?: (dirty: boolean) => void }) {
+export function MarketingDesk({ onDirtyChange, initialCampaignId }: { onDirtyChange?: (dirty: boolean) => void; initialCampaignId?: string }) {
   const { api, me, toast, profileName } = useApp()
   const canEdit = me.active && me.role === 'admin'
   const [campaigns, setCampaigns] = useState<MarketingCampaign[]>([])
@@ -104,7 +104,8 @@ export function MarketingDesk({ onDirtyChange }: { onDirtyChange?: (dirty: boole
       const list = await api.listMarketingCampaigns()
       if (!alive.current) return
       setCampaigns(list)
-      const selected = list.find(item => item.id === selectId) ?? list[0] ?? null
+      const selected = selectId ? list.find(item => item.id === selectId) ?? null : list[0] ?? null
+      if (selectId && !selected) setLoadError('연결된 캠페인을 찾을 수 없습니다. 콘텐츠의 연결 정보를 확인해 주세요.')
       setDraft(selected ? clone(selected) : null)
       setSavedSnapshot(selected ? JSON.stringify(selected) : '')
       setActionError('')
@@ -117,9 +118,9 @@ export function MarketingDesk({ onDirtyChange }: { onDirtyChange?: (dirty: boole
 
   useEffect(() => {
     alive.current = true
-    void load()
+    void load(initialCampaignId)
     return () => { alive.current = false; assetRequest.current += 1 }
-  }, [load])
+  }, [load, initialCampaignId])
 
   useEffect(() => {
     onDirtyChange?.(dirty || !!busy || partialImport)

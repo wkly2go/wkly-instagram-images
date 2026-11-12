@@ -1,3 +1,5 @@
+import { createSupabaseGrowthApi } from './growthApi'
+import { createSupabaseSalesApi } from './salesApi'
 import { makeImagePreview, sitePreviewPath } from './imagePreview'
 import { APPROVAL_LIST_COLUMNS, RESEARCH_LIST_COLUMNS, bodySearchPattern } from './reportReads'
 import type { ApprovalSummary, ResearchSummary } from './types'
@@ -188,6 +190,8 @@ export function createSupabaseApi(url: string, key: string): Api {
   }
 
   return {
+    ...createSupabaseSalesApi(sb),
+    ...createSupabaseGrowthApi(sb),
     ...createSupabaseMarketingApi(sb, signedUrls),
     mode: 'supabase',
     invalidateReadRequests: () => reads.clear(),

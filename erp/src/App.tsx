@@ -25,6 +25,10 @@ import Download from './pages/Download'
 // 처음 화면(홈)만 바로 불러오고, 나머지 화면은 열 때 불러옴 (첫 로딩 단축)
 const Approvals = lazy(() => import('./pages/Approvals'))
 const Chat = lazy(() => import('./pages/Chat'))
+const Tenders = lazy(() => import('./pages/Growth').then(m => ({default:m.Tenders})))
+const Leads = lazy(() => import('./pages/Growth').then(m => ({default:m.Leads})))
+const AiUsage = lazy(() => import('./pages/Growth').then(m => ({default:m.AiUsage})))
+const Sales = lazy(() => import('./pages/Sales'))
 const Clients = lazy(() => import('./pages/Clients'))
 const Projects = lazy(() => import('./pages/Projects'))
 const Admin = lazy(() => import('./pages/Admin'))
@@ -45,6 +49,10 @@ const PAGES: Record<string, React.ComponentType> = {
   '/work': Team,
   '/projects': Projects,
   '/clients': Clients,
+  '/sales': Sales,
+  '/tenders': Tenders,
+  '/leads': Leads,
+  '/ai-usage': AiUsage,
   '/library': Library,
   '/research': ReportTemplatesPage,
   '/report-templates': ReportTemplatesPage,
