@@ -6,9 +6,9 @@ import { desktop } from '../lib/desktop'
 
 /**
  * 회의록 AI (대표 지시 2026-10-18 · 방법 B)
- *  - 회의를 녹음하거나(이 기기 마이크) 휴대폰 녹음 파일을 올리면
- *    서버(meeting-minutes)가 Gemini 로 화자를 나눠 받아쓰고 회의록 양식으로 정리한다.
- *  - 녹음 시작 때 참석자에게 기록됨을 알리는 안내를 띄운다. 원본은 30일 뒤 자동 삭제.
+ *  - 음성 직접 받아쓰기는 중지. 외부에서 받아쓴 텍스트를 올리면
+ *    서버(meeting-minutes)가 Claude로 회의록 초안을 정리한다(API 별도 과금).
+ *  - 녹음 중 참석자에게 기록됨을 알리는 안내를 띄운다. 30일 지난 원본은 후속 처리 때 정리 대상.
  *  - AI 는 초안만: 결과를 회의록 내용 칸에 채우면 사람이 고쳐서 올린다.
  *  - 구글 Meet (대표 지시 2026-10-20 · 방법 A): 'Meet 회의 열기' + '마이크 + Meet 소리' 녹음.
  *    크롬 · 엣지는 Meet 탭 소리를, 윈도우 PC 프로그램(1.23+)은 컴퓨터 소리를 마이크와 섞어 녹음한다.
@@ -184,7 +184,7 @@ export function MeetingRecorder({ title, onResult }: { title: string; onResult: 
     <div className="meet-rec">
       <div className="meet-rec-head">
         <b><Mic size={14} style={{ verticalAlign: -2 }} aria-hidden="true" /> 회의록 AI</b>
-        <span className="t-cap">회의를 녹음하면 AI가 말한 사람을 나눠 받아쓰고 회의록으로 정리합니다.</span>
+        <span className="t-cap">받아쓴 텍스트를 올리면 AI가 회의록 초안을 정리합니다. 음성 직접 받아쓰기는 현재 지원하지 않습니다.</span>
       </div>
       {(phase === 'idle' || phase === 'error') && (
         <>
@@ -208,10 +208,11 @@ export function MeetingRecorder({ title, onResult }: { title: string; onResult: 
           ) : (
             !meet.ok && <span className="t-cap">{meet.why}</span>
           )}
-          <input className="input" value={attendees} onChange={e => setAttendees(e.target.value)} placeholder="참석자 (선택 · 이름을 적으면 말한 사람을 더 정확히 구분)" aria-label="참석자" />
+          <input className="input" value={attendees} onChange={e => setAttendees(e.target.value)} placeholder="참석자 (선택 · 회의록 정리에 참고할 이름)" aria-label="참석자" />
           <span className="t-cap">
             클로바노트 등에서 받아쓴 텍스트(.txt)를 올리면 AI가 회의록으로 정리합니다. (음성 파일 직접 받아쓰기는 현재 중지 — 클로바노트에서 받아쓴 뒤 .txt로 내보내 올려 주세요)
           </span>
+          <span className="t-cap">회의록 정리는 Claude API 비용이 발생하며 AI 사용·비용 화면의 한도·집계와 별도로 처리됩니다. 녹음·음성 파일만으로는 회의록을 만들 수 없습니다.</span>
           <div className="row gap-6" style={{ flexWrap: 'wrap' }}>
             <button type="button" className="btn btn-blue btn-sm" onClick={start}>
               <Mic size={13} /> 녹음 시작
@@ -253,13 +254,13 @@ export function MeetingRecorder({ title, onResult }: { title: string; onResult: 
               </button>
             )}
             <button type="button" className="btn btn-yellow btn-sm" onClick={stop}>
-              <Square size={13} /> 끝내고 AI 정리
+              <Square size={13} /> 녹음 종료·원본 업로드
             </button>
           </div>
         </>
       )}
       {phase === 'uploading' && <span className="t-small">파일을 올리는 중…</span>}
-      {phase === 'processing' && <span className="t-small">AI가 받아쓰고 정리하는 중입니다… (1시간 회의 기준 몇 분, 이 창을 닫아도 계속 처리됩니다)</span>}
+      {phase === 'processing' && <span className="t-small">서버에서 파일을 확인하고 회의록 정리를 처리 중입니다. 음성 파일만 올렸다면 받아쓰기 텍스트가 필요하다는 안내가 표시됩니다.</span>}
       {phase === 'done' && (
         <div className="col gap-4">
           <span className="t-small t-blue">✓ 회의록 초안을 아래 내용 칸에 채웠습니다. 확인 · 수정한 뒤 올려 주세요.</span>

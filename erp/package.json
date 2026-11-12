@@ -12,7 +12,9 @@
     "test:efficiency": "node --experimental-strip-types --test tests/navigation-counts.test.ts tests/pending-reads.test.ts tests/signed-url-cache.test.ts tests/collaboration-polling.test.ts tests/upload-record.test.ts tests/storage-removal.test.ts tests/meeting-cleanup.test.mjs tests/supabase-storage-flow.test.mjs tests/egress-savings.test.mjs",
     "test:sales": "node --experimental-strip-types --test tests/sales.test.ts tests/sales-navigation.test.ts tests/sales-db.test.mjs",
     "test:growth": "node --experimental-strip-types --test tests/growth.test.ts tests/navigation-guard.test.ts tests/contact-import.test.ts tests/growth-db.test.mjs tests/growth-ai-handler.test.ts tests/growth-ai-dashboard.test.mjs",
-    "build:growth-dashboard": "node scripts/build-growth-ai-dashboard.mjs"
+    "build:growth-dashboard": "node scripts/build-growth-ai-dashboard.mjs",
+    "build:meeting-dashboard": "node scripts/build-meeting-minutes-dashboard.mjs",
+    "test:meeting": "node --experimental-strip-types --test tests/meeting-cleanup.test.mjs tests/meeting-dashboard.test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.3",
