@@ -1,3 +1,5 @@
+import { createVisiblePoller } from './lib/visiblePolling'
+import { runTabTask } from './lib/tabTask'
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { WebPanelHost } from './components/WebSearch'
@@ -111,28 +113,26 @@ export default function App() {
       // 앱 전체를 새로 고치지 않고 채팅 숫자 · 방 목록만 (2026-10-26 채팅 속도)
       pokeChat()
     })
-    const offChanges = api.subscribeChanges(['approvals', 'profiles', 'notifications'], bump)
+    const offChanges = api.subscribeChanges(['approvals', 'profiles'], bump)
     return () => {
       offMsg()
       offChanges()
     }
   }, [userId, bump])
 
-  // 알람: 1분마다 시각이 지난 할 일을 알림으로 (서버 pg_cron 이 없어도 앱이 열려 있으면 동작)
+  // 보이는 탭 중 같은 계정의 한 탭만 알람 확인. 서버 예약 알림은 그대로 유지.
   useEffect(() => {
     if (!userId) return
-    let alive = true
-    const run = async () => {
-      const sent = await api.runReminders().catch(() => 0)
-      if (alive && sent > 0) bump()
-    }
-    run()
-    const id = window.setInterval(run, 60_000)
-    return () => {
-      alive = false
-      window.clearInterval(id)
-    }
-  }, [userId, bump])
+    const poller = createVisiblePoller({
+      load: () => runTabTask(`reminders:${userId}`, 55_000, () => api.runReminders()),
+      onValue: sent => { if (sent) window.dispatchEvent(new Event('wkly-notifications-changed')) },
+      onError: () => undefined,
+      isVisible: () => document.visibilityState === 'visible', intervalMs: 60_000,
+    })
+    document.addEventListener('visibilitychange', poller.visibilityChanged)
+    poller.setEnabled(true)
+    return () => { poller.stop(); document.removeEventListener('visibilitychange', poller.visibilityChanged) }
+  }, [userId])
 
   // 예전·외부 링크(알림 링크 등)를 화면 주소로
   useEffect(() => {

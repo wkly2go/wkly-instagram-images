@@ -7,7 +7,7 @@ import { openGmail } from '../lib/links'
 import { maskAccount } from '../lib/finance'
 import { Meter } from '../components/charts'
 import { Link, useRouter, withQuery } from '../lib/router'
-import { APPROVAL_KINDS, CONTRACT_TYPES, type Approval, type ApprovalKind, type ApprovalRoute, type Project, type WorkLog } from '../lib/types'
+import { APPROVAL_KINDS, CONTRACT_TYPES, type Approval, type ApprovalSummary, type ApprovalKind, type ApprovalRoute, type Project, type WorkLog } from '../lib/types'
 import { DocFullText } from '../components/DocFullText'
 import { Shell } from '../components/Shell'
 import { ApprovalThread } from '../components/ApprovalThread'
@@ -21,7 +21,7 @@ type View = 'todo' | 'mine' | 'all'
 const Research = lazy(() => import('./Library').then(module => ({ default: module.Research })))
 
 /** 승인/반려 버튼 (홈·상세 공용) */
-export function DecideButtons({ approval, compact }: { approval: Approval; compact?: boolean }) {
+export function DecideButtons({ approval, compact }: { approval: ApprovalSummary; compact?: boolean }) {
   const { api } = useApp()
   const { busy, run } = useAction()
   const [rejecting, setRejecting] = useState(false)
@@ -192,16 +192,15 @@ function ApprovalContent() {
     setCreating(true)
     navigate(withQuery(path, query, { new: null }), { replace: true })
   }, [query, path, navigate])
-  const { data, loading } = useAsync(() => api.listApprovals(), [version], [] as Approval[])
+  const { data, loading } = useAsync(() => api.listApprovals(), [version], [] as ApprovalSummary[])
 
   const todo = data.filter(a => a.status === '대기' && a.can_decide && (a.requested_by !== me.id || me.role === 'admin'))
   const base = view === 'todo' ? todo : view === 'mine' ? data.filter(a => a.requested_by === me.id) : data
   const list = kind ? base.filter(a => a.kind === kind) : base
-  const selected = data.find(a => a.id === selectedId) ?? null
   const go = (patch: Record<string, string | null>) => navigate(withQuery(path, query, patch), { replace: true })
   const daily = data.filter(a => a.kind === '일일 보고' && a.status === '대기' && a.can_decide).length
   const wide = usePanelWide()
-  useRightPanel(selected && wide ? `approval:${selected.id}` : null, '승인 상세', selected ? <ApprovalDetail a={selected} onBack={() => go({ id: null })} /> : null)
+  useRightPanel(selectedId && wide ? `approval:${selectedId}` : null, '승인 상세', selectedId ? <ApprovalDetailLoader key={selectedId} id={selectedId} onBack={() => go({ id: null })} /> : null)
 
   return (
     <>
@@ -252,9 +251,9 @@ function ApprovalContent() {
           <NotebookPen size={13} /> 회의록 쓰기
         </Chip>
       </div>
-      {selected && !wide ? (
+      {selectedId && !wide ? (
         <div className="pane-detail">
-          <ApprovalDetail a={selected} onBack={() => go({ id: null })} />
+          <ApprovalDetailLoader key={selectedId} id={selectedId} onBack={() => go({ id: null })} />
         </div>
       ) : (
         <ApprovalBoards list={list} byKind={!kind} loading={loading} view={view} selectedId={selectedId} onOpen={id => go({ id })} />
@@ -266,17 +265,17 @@ function ApprovalContent() {
 }
 
 /** 승인 게시판: 종류별로 묶어 (색 머리띠) 번호 · 제목 · 요청자 · 요청일 · 상태 · 처리 */
-function ApprovalBoards({ list, byKind, loading, view, selectedId, onOpen }: { list: Approval[]; byKind: boolean; loading: boolean; view: View; selectedId?: string | null; onOpen: (id: string) => void }) {
+function ApprovalBoards({ list, byKind, loading, view, selectedId, onOpen }: { list: ApprovalSummary[]; byKind: boolean; loading: boolean; view: View; selectedId?: string | null; onOpen: (id: string) => void }) {
   const { profileName } = useApp()
-  const groups: [string, Approval[]][] = byKind ? APPROVAL_KINDS.map(k => [k, list.filter(a => a.kind === k)] as [string, Approval[]]).filter(([, l]) => l.length) : [['', list]]
+  const groups: [string, ApprovalSummary[]][] = byKind ? APPROVAL_KINDS.map(k => [k, list.filter(a => a.kind === k)] as [string, ApprovalSummary[]]).filter(([, l]) => l.length) : [['', list]]
   const empty = loading ? '불러오는 중…' : view === 'todo' ? '처리할 승인이 없습니다.' : '요청이 없습니다.'
-  if (!groups.length) return <Board<Approval> rows={[]} rowKey={a => a.id} cols={[]} empty={empty} />
+  if (!groups.length) return <Board<ApprovalSummary> rows={[]} rowKey={a => a.id} cols={[]} empty={empty} />
   return (
     <div className="col gap-12">
       {groups.map(([k, rows]) => (
         <div key={k || 'all'} className="col">
           {k && <BoardHead title={<KindTag kind={k} />} count={rows.length} />}
-          <Board<Approval>
+          <Board<ApprovalSummary>
             rows={rows}
             rowKey={a => a.id}
             onRow={a => onOpen(a.id)}
@@ -284,7 +283,7 @@ function ApprovalBoards({ list, byKind, loading, view, selectedId, onOpen }: { l
             numbered={!k}
             empty={empty}
             cols={[
-              ...(k ? [] : [{ key: 'kind', label: '종류', width: 84, cell: (a: Approval) => <KindTag kind={a.kind} /> }]),
+              ...(k ? [] : [{ key: 'kind', label: '종류', width: 84, cell: (a: ApprovalSummary) => <KindTag kind={a.kind} /> }]),
             {
               key: 'title',
               label: '제목',
@@ -312,6 +311,13 @@ function ApprovalBoards({ list, byKind, loading, view, selectedId, onOpen }: { l
   )
 }
 
+
+function ApprovalDetailLoader({ id, onBack }: { id: string; onBack: () => void }) {
+  const { api, version, me } = useApp()
+  const { data, loading, error, reload } = useAsync(() => api.getApproval(id), [id, version, me.id], null)
+  if (!data) return <div className="box"><Button kind="ghost" onClick={onBack}>목록으로</Button><p>{loading ? '본문 불러오는 중…' : error || '자료가 없거나 볼 수 없습니다.'}</p>{error && <Button onClick={reload}>다시 시도</Button>}</div>
+  return <ApprovalDetail a={data} onBack={onBack} />
+}
 
 function ApprovalDetail({ a, onBack }: { a: Approval; onBack: () => void }) {
   const { api, me, profileName, profileOf } = useApp()

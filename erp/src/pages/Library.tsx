@@ -1,3 +1,4 @@
+import { useResearchBodyMatches } from '../lib/researchSearch'
 import { useMemo, useRef, useState, type ReactNode } from 'react'
 import { TextLinks } from '../components/ui'
 import { ArrowLeft, FileText, Pencil, Plus, Search, Trash2 } from 'lucide-react'
@@ -18,6 +19,7 @@ import {
   type EmailTemplate,
   type Project,
   type ResearchItem,
+  type ResearchSummary,
   type ResearchStatus,
 } from '../lib/types'
 import { Shell } from '../components/Shell'
@@ -85,6 +87,7 @@ export function Research({ tabs }: { tabs: ReactNode }) {
   const selectedId = query.get('id')
   const status = (query.get('status') as ResearchStatus | 'all' | null) ?? '새 자료'
   const [q, setQ] = useState('')
+  const bodySearch = useResearchBodyMatches(q)
   const [editing, setEditing] = useState<ResearchItem | 'new' | 'report' | null>(null)
   const kind = query.get('kind')
   const go = (patch: Record<string, string | null>) => navigate(withQuery(path, query, patch), { replace: true })
@@ -94,7 +97,7 @@ export function Research({ tabs }: { tabs: ReactNode }) {
       return { items, projects, rooms, clients }
     },
     [version],
-    { items: [] as ResearchItem[], projects: [] as Project[], rooms: [] as ChatRoomSummary[], clients: [] as Client[] },
+    { items: [] as ResearchSummary[], projects: [] as Project[], rooms: [] as ChatRoomSummary[], clients: [] as Client[] },
   )
   const words = q.trim().toLowerCase().split(/\s+/).filter(Boolean)
   // 검색어가 있으면 상태와 관계없이 전체에서 찾음 (본문 포함)
@@ -102,9 +105,8 @@ export function Research({ tabs }: { tabs: ReactNode }) {
     r =>
       (words.length > 0 || status === 'all' || r.status === status) &&
       (!kind || r.kind === kind) &&
-      (!words.length || words.every(w => [r.title, r.summary, r.brand_name, r.tags.join(' '), r.source_name, r.body].join(' ').toLowerCase().includes(w))),
+      (!words.length || words.every(w => ([r.title, r.summary, r.brand_name, r.tags.join(' '), r.source_name].join(' ').toLowerCase().includes(w) || bodySearch.matches.some(m => m.word === w && m.id === r.id)))),
   )
-  const selected = data.items.find(r => r.id === selectedId) ?? null
   // 상태: 기본 넷 + 실제 자료에 있는 것 (승인 대기 등 에이전트가 쓰는 상태도 빠짐없이). 숫자는 고른 종류 기준
   const STATUS_ORDER = ['새 자료', '승인 대기', '검토 완료', '활용', '승인', '반려', '보관']
   const inKind = data.items.filter(r => !kind || r.kind === kind)
@@ -128,16 +130,16 @@ export function Research({ tabs }: { tabs: ReactNode }) {
 
   const wide = usePanelWide()
   useRightPanel(
-    selected && wide ? `research:${selected.id}` : null,
+    selectedId && wide ? `research:${selectedId}` : null,
     '자료 상세',
-    selected ? <ResearchDetail r={selected} projects={data.projects} rooms={data.rooms} clients={data.clients} onBack={() => go({ id: null })} onEdit={() => setEditing(selected)} /> : null,
+    selectedId ? <ResearchDetailLoader key={selectedId} id={selectedId} projects={data.projects} rooms={data.rooms} clients={data.clients} onBack={() => go({ id: null })} onEdit={setEditing} /> : null,
   )
 
-  if (selected && !wide) {
+  if (selectedId && !wide) {
     return (
       <div className="split has-detail">
         <div className="pane-detail">
-          <ResearchDetail r={selected} projects={data.projects} rooms={data.rooms} clients={data.clients} onBack={() => go({ id: null })} onEdit={() => setEditing(selected)} />
+          <ResearchDetailLoader key={selectedId} id={selectedId} projects={data.projects} rooms={data.rooms} clients={data.clients} onBack={() => go({ id: null })} onEdit={setEditing} />
         </div>
         {editing === 'report' || (editing && editing !== 'new' && editing.kind === REPORT_KIND) ? (
           <ReportForm key={editing === 'report' ? 'new' : (editing as ResearchItem).id} item={editing === 'report' ? null : (editing as ResearchItem)} clients={data.clients} onClose={() => setEditing(null)} onSaved={id => go({ id })} />
@@ -186,13 +188,14 @@ export function Research({ tabs }: { tabs: ReactNode }) {
             ))}
           </div>
         </div>
+        {bodySearch.error && <div role="alert" className="note">본문 검색을 완료하지 못했습니다. {bodySearch.error}</div>}
         <div className="pane-body" style={{ padding: '0 12px 12px' }}>
-          <Board<ResearchItem>
+          <Board<ResearchSummary>
             rows={list}
             rowKey={r => r.id}
             onRow={r => go({ id: r.id })}
             selectedId={selectedId}
-            empty={loading ? '불러오는 중…' : status === '새 자료' ? '새 자료가 없습니다. 에이전트가 모은 자료가 여기에 쌓입니다.' : '자료가 없습니다.'}
+            empty={loading || bodySearch.loading ? '불러오는 중…' : status === '새 자료' ? '새 자료가 없습니다. 에이전트가 모은 자료가 여기에 쌓입니다.' : '자료가 없습니다.'}
             cols={[
               { key: 'kind', label: '종류', width: 100, cell: r => <KindTag kind={r.kind} /> },
               {
@@ -222,6 +225,13 @@ export function Research({ tabs }: { tabs: ReactNode }) {
       )}
     </div>
   )
+}
+
+function ResearchDetailLoader({ id, ...props }: { id: string; projects: Project[]; rooms: ChatRoomSummary[]; clients: Client[]; onBack: () => void; onEdit: (r: ResearchItem) => void }) {
+  const { api, version, me } = useApp()
+  const { data, loading, error, reload } = useAsync(() => api.getResearch(id), [id, version, me.id], null as ResearchItem | null)
+  if (!data) return <div className="box"><Button kind="ghost" onClick={props.onBack}>목록으로</Button><p>{loading ? '본문 불러오는 중…' : error || '자료가 없거나 볼 수 없습니다.'}</p>{error && <Button onClick={reload}>다시 시도</Button>}</div>
+  return <ResearchDetail {...props} r={data} onEdit={() => props.onEdit(data)} />
 }
 
 function ResearchDetail({ r, projects, rooms, clients, onBack, onEdit }: { r: ResearchItem; projects: Project[]; rooms: ChatRoomSummary[]; clients: Client[]; onBack: () => void; onEdit: () => void }) {

@@ -6,7 +6,7 @@ import { EXPORT_TABLES, type ExportTable } from '../lib/api'
 import { downloadText, toCsv } from '../lib/csv'
 import { relativeLabel, shortDate, timeLabel, toDateKey, todayKey } from '../lib/date'
 import { Link } from '../lib/router'
-import { AGENT_SCOPES, APPROVAL_KINDS, type AdminOverview, type AgentScope, type AgentToken, type Approval, type ApprovalKind, type ApprovalRoute, type Department, type HrRecord, type LeaveRecord, type Profile, type ResearchItem } from '../lib/types'
+import { AGENT_SCOPES, APPROVAL_KINDS, type AdminOverview, type AgentScope, type AgentToken, type ApprovalSummary, type ApprovalKind, type ApprovalRoute, type Department, type HrRecord, type LeaveRecord, type Profile, type ResearchSummary } from '../lib/types'
 import { Meter } from '../components/charts'
 import { Shell } from '../components/Shell'
 import { EMPTY_HR, HrForm, PersonName } from '../components/Person'
@@ -22,8 +22,8 @@ interface Data {
   overview: AdminOverview | null
   routes: ApprovalRoute[]
   tokens: AgentToken[]
-  approvals: Approval[]
-  research: ResearchItem[]
+  approvals: ApprovalSummary[]
+  research: ResearchSummary[]
 }
 
 export default function Admin() {
@@ -716,7 +716,7 @@ function randomPassword(): string {
 }
 
 /** WKLY 총괄(AI 프로젝트 총괄) 등록: AI 팀원 계정 + 연결 키를 한 번에 */
-function PmAgent({ tokens, approvals }: { tokens: AgentToken[]; approvals: Approval[] }) {
+function PmAgent({ tokens, approvals }: { tokens: AgentToken[]; approvals: ApprovalSummary[] }) {
   const { api, profiles } = useApp()
   const { busy, run } = useAction()
   const agent = profiles.find(p => p.is_agent && p.active && /총괄/.test(`${p.name} ${p.title ?? ''}`))
@@ -890,7 +890,7 @@ function Backup() {
   )
 }
 
-function Activity({ approvals, research }: { approvals: Approval[]; research: ResearchItem[] }) {
+function Activity({ approvals, research }: { approvals: ApprovalSummary[]; research: ResearchSummary[] }) {
   const { profileName, profileOf } = useApp()
   const items = [
     ...approvals.map(a => ({ at: a.created_at, who: a.requested_by, text: `${a.kind === '일일 보고' ? '일일 보고 제출' : `${a.kind} 승인 요청`} · ${a.title}` })),

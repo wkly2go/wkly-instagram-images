@@ -15,7 +15,7 @@ import {
 } from "../lib/date";
 import { Link, useRouter, withQuery } from "../lib/router";
 import { presenceOf, useAttendance } from "../lib/attendance";
-import { DIVISIONS, projectBrand, type Approval, type Client, type Project, type Task, type WorkLog as Log } from "../lib/types";
+import { DIVISIONS, projectBrand, type ApprovalSummary, type Client, type Project, type Task, type WorkLog as Log } from "../lib/types";
 import { Board, BoardHead, type BoardCol } from "../components/Board";
 import { LogComposer, isMail } from "../components/LogForm";
 import { usePanelWide, useRightPanel } from "../components/RightPanel";
@@ -555,7 +555,7 @@ function MyProjects({ uid, projects, tasks, who }: { uid: string; projects: Proj
   );
 }
 
-function ReportStrip({ reports, period }: { reports: Approval[]; period: Period }) {
+function ReportStrip({ reports, period }: { reports: ApprovalSummary[]; period: Period }) {
   const { profileName } = useApp();
   const list = [...reports].sort((a, b) => reportDate(b).localeCompare(reportDate(a)));
   return (
@@ -594,7 +594,7 @@ function TeamSide({
   viewUser: string | undefined;
   team: boolean;
   logs: Log[];
-  reports: Approval[];
+  reports: ApprovalSummary[];
   from: string;
   to: string;
   go: (p: Record<string, string | null>) => void;

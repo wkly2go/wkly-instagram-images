@@ -2,7 +2,7 @@ import { useApp, useAsync } from '../lib/app'
 import { shortDate } from '../lib/date'
 import { Link } from '../lib/router'
 import { DIVISIONS, projectBrand } from '../lib/types'
-import type { Approval, ChatRoomSummary, Client, Contact, Payment, Project, WorkLog } from '../lib/types'
+import type { ApprovalSummary, ChatRoomSummary, Client, Contact, Payment, Project, WorkLog } from '../lib/types'
 import { Badge, Empty, SectionHead } from './ui'
 import { ContactTimeline, ExchangeFilesSection, ProjectContactsSection } from './ContactHistory'
 
@@ -20,13 +20,13 @@ export function ProjectMaterials({ projectId }: { projectId: string }) {
         api.listContacts().catch(() => [] as Contact[]),
         api.listWorkLogs({ projectId, limit: 80 }),
         api.listRooms(),
-        api.listApprovals().catch(() => [] as Approval[]),
+        api.listApprovals().catch(() => [] as ApprovalSummary[]),
         admin ? api.listPayments({ projectId }).catch(() => [] as Payment[]) : Promise.resolve([] as Payment[]),
       ])
       return { project: projects.find(p => p.id === projectId) ?? null, projects, clients, contacts, logs, room: rooms.find(r => r.project_id === projectId) ?? null, approvals: approvals.filter(a => a.target_id === projectId), payments }
     },
     [projectId, version, admin],
-    { project: null as Project | null, projects: [] as Project[], clients: [] as Client[], contacts: [] as Contact[], logs: [] as WorkLog[], room: null as ChatRoomSummary | null, approvals: [] as Approval[], payments: [] as Payment[] },
+    { project: null as Project | null, projects: [] as Project[], clients: [] as Client[], contacts: [] as Contact[], logs: [] as WorkLog[], room: null as ChatRoomSummary | null, approvals: [] as ApprovalSummary[], payments: [] as Payment[] },
   )
   const p = data.project
   if (!p) return <Empty>{loading ? '불러오는 중…' : '프로젝트를 찾을 수 없습니다.'}</Empty>

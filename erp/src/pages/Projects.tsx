@@ -6,7 +6,7 @@ import { SiteLogsSection } from '../components/SiteLogs'
 import { ProjectDriveSection, useProjectFolderSync } from '../components/DriveFiles'
 import { SlackSection } from '../components/SlackSection'
 import { usePanelWide, useRightPanel } from '../components/RightPanel'
-import type { Approval } from '../lib/types'
+import type { ApprovalSummary } from '../lib/types'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { addMonths, dateLabel, monthGrid, shortDate, timeLabel, toDateKey, todayKey, weekRange, weekday, periodLabel } from '../lib/date'
 import { Link, useRouter, withQuery } from '../lib/router'
@@ -739,13 +739,13 @@ function ProjectDetail({ project: p, data, onEdit, onBack, panel = false }: { pr
         api.listWorkLogs({ projectId: p.id, limit: 50 }),
         api.listRooms(),
         api.listContacts().catch(() => [] as Contact[]),
-        api.listApprovals().catch(() => [] as Approval[]),
+        api.listApprovals().catch(() => [] as ApprovalSummary[]),
       ])
-      const related = approvals.filter(a => a.target_id === p.id || a.payload?.project_id === p.id)
+      const related = approvals.filter(a => a.target_id === p.id || a.project_id === p.id)
       return { logs, room: rooms.find(r => r.project_id === p.id && !r.members) ?? null, contacts, approvals: related }
     },
     [p.id, version],
-    { logs: [] as WorkLog[], room: null as ChatRoomSummary | null, contacts: [] as Contact[], approvals: [] as Approval[] },
+    { logs: [] as WorkLog[], room: null as ChatRoomSummary | null, contacts: [] as Contact[], approvals: [] as ApprovalSummary[] },
   )
 
   const openRoom = async () => {

@@ -1,6 +1,8 @@
+import { createVisiblePoller } from '../lib/visiblePolling'
+import { runTabTask } from '../lib/tabTask'
 import { useEffect, useRef, useState } from 'react'
 import { Bell, Volume2 } from 'lucide-react'
-import { useApp, useAsync } from '../lib/app'
+import { useApp } from '../lib/app'
 import { relativeLabel } from '../lib/date'
 import { normalizePath, useRouter } from '../lib/router'
 import type { AppNotification } from '../lib/types'
@@ -9,18 +11,18 @@ import { PushToggle } from './PushSetup'
 import { pushOn } from '../lib/push'
 import { playAlert, setSoundLevel, soundLevel, type SoundLevel } from '../lib/sound'
 
-const SEEN_KEY = 'wkly-erp-notified-max'
+const seenKey = (userId: string) => `wkly-erp-notified-max:${userId}`
 
-function readSeen(): number {
+function readSeen(userId: string): number {
   try {
-    return Number(localStorage.getItem(SEEN_KEY)) || 0
+    return Number(localStorage.getItem(seenKey(userId))) || 0
   } catch {
     return 0
   }
 }
-function writeSeen(n: number) {
+function writeSeen(userId: string, n: number) {
   try {
-    localStorage.setItem(SEEN_KEY, String(n))
+    localStorage.setItem(seenKey(userId), String(n))
   } catch {
     /* noop */
   }
@@ -30,13 +32,15 @@ const canNotify = () => typeof window !== 'undefined' && 'Notification' in windo
 
 /** 상단 종: 알림함 + PC 알림 + 알람 시각 확인 */
 export function NotificationBell() {
-  const { api, me, version, bump } = useApp()
+  const { api, me } = useApp()
   const { navigate } = useRouter()
   const [open, setOpen] = useState(false)
   const [tick, setTick] = useState(0)
   const [perm] = useState<NotificationPermission | 'unsupported'>(canNotify() ? Notification.permission : 'unsupported')
   const box = useRef<HTMLDivElement>(null)
-  const { data: list } = useAsync<AppNotification[]>(() => api.listNotifications(40), [version, tick, me.id], [])
+  const [snapshot, setSnapshot] = useState<{ userId: string; list: AppNotification[] } | null>(null)
+  const list = snapshot?.userId === me.id ? snapshot.list : []
+  const refreshRef = useRef<() => void>(() => undefined)
   const unread = list.filter(n => !n.read_at)
   // 알림함 거르기: 전체 · 멘션·답글 · 승인 · 할 일
   const [filter, setFilter] = useState<string | null>(null)
@@ -47,17 +51,54 @@ export function NotificationBell() {
   ]
   const shown = filter ? list.filter(FILTERS.find(f => f[0] === filter)![2]) : list
 
-  // 1분마다 알림함 새로 고침 (알람 확인은 App 에서 한 번만 돌림)
+  // 알림 변경만 구독하고 숨긴 탭에서는 조회하지 않음. 다른 탭은 메모리 방송으로 결과 공유.
   useEffect(() => {
-    const id = window.setInterval(() => setTick(t => t + 1), 60_000)
-    return () => window.clearInterval(id)
-  }, [])
+    let alive = true
+    let first = true
+    let changed = false
+    const channel = typeof BroadcastChannel === 'undefined' ? null : new BroadcastChannel(`wkly-notifications:${me.id}`)
+    const accept = (value: AppNotification[]) => {
+      if (alive) { first = false; setSnapshot({ userId: me.id, list: value }) }
+    }
+    if (channel) channel.onmessage = event => {
+      if (event.data?.kind === 'snapshot' && Array.isArray(event.data.list)) accept(event.data.list)
+      if (event.data?.kind === 'changed') refresh()
+    }
+    const poller = createVisiblePoller({
+      load: async () => {
+        const interval = changed ? 0 : 55_000
+        changed = false
+        // 새 탭의 첫 목록은 반드시 확보. 이후 주기 조회는 한 탭만 실행.
+        if (first || !channel) return api.listNotifications(40)
+        return runTabTask(`notifications:${me.id}`, interval, () => api.listNotifications(40))
+      },
+      onValue: value => {
+        if (!value) return
+        accept(value)
+        channel?.postMessage({ kind: 'snapshot', list: value })
+      }, onError: () => undefined,
+      isVisible: () => document.visibilityState === 'visible', intervalMs: 60_000,
+    })
+    function refresh() { changed = true; void poller.refresh(true) }
+    refreshRef.current = () => { first = true; refresh(); channel?.postMessage({ kind: 'changed' }) }
+    const off = api.subscribeChanges(['notifications'], refresh, `user_id=eq.${me.id}`)
+    document.addEventListener('visibilitychange', poller.visibilityChanged)
+    window.addEventListener('wkly-notifications-changed', refresh)
+    poller.setEnabled(true)
+    return () => {
+      alive = false; poller.stop(); off(); channel?.close()
+      document.removeEventListener('visibilitychange', poller.visibilityChanged)
+      window.removeEventListener('wkly-notifications-changed', refresh)
+      refreshRef.current = () => undefined
+    }
+  }, [api, me.id])
+  useEffect(() => { if (tick) refreshRef.current() }, [tick])
 
   // 새 알림 → PC 알림 (처음 열 때는 기준점만 저장)
   useEffect(() => {
     if (!list.length) return
     const max = Math.max(...list.map(n => n.id))
-    const seen = readSeen()
+    const seen = readSeen(me.id)
     // 새 알림 · 알람 → 크게 울림
     if (seen && list.some(x => x.id > seen && !x.read_at)) playAlert('notify')
     // PC 푸시가 켜져 있으면 서비스 워커가 띄우므로 여기서는 생략 (중복 방지)
@@ -75,8 +116,8 @@ export function NotificationBell() {
         }
       }
     }
-    if (max > seen) writeSeen(max)
-  }, [list, perm, navigate])
+    if (max > seen) writeSeen(me.id, max)
+  }, [list, perm, navigate, me.id])
 
   // 바깥을 누르면 닫기
   useEffect(() => {
@@ -95,13 +136,13 @@ export function NotificationBell() {
     setOpen(false)
     if (!n.read_at) {
       await api.markNotificationsRead([n.id]).catch(() => undefined)
-      bump()
+      setTick(t => t + 1)
     }
     if (n.link) navigate(normalizePath(n.link))
   }
   const readAll = async () => {
     await api.markNotificationsRead('all').catch(() => undefined)
-    bump()
+    setTick(t => t + 1)
   }
 
   return (

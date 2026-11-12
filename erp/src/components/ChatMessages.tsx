@@ -314,21 +314,23 @@ const sizeLabel = (n: number) => (n >= 1024 * 1024 ? `${(n / 1024 / 1024).toFixe
 function AttachmentView({ att }: { att: ChatAttachment }) {
   const { api, me, toast } = useApp()
   const isImage = att.type.startsWith('image/')
-  const imageKey = JSON.stringify([me.id, att.path])
+  const imageKey = JSON.stringify([me.id, att.path, att.preview_path])
   const [image, setImage] = useState<{ key: string; url: string } | null>(null)
   const src = image?.key === imageKey ? image.url : null
   const imageAttempt = useRef<{ key: string; active: boolean; retried: boolean; loading: boolean } | null>(null)
+  const [original, setOriginal] = useState<string | null>(null)
   const [viewing, setViewing] = useState(false)
   const [fileUrl, setFileUrl] = useState<string | null>(null)
   useEffect(() => {
     setViewing(false)
+    setOriginal(null)
     setFileUrl(null)
     const current = { key: imageKey, active: true, retried: false, loading: true }
     imageAttempt.current = current
     if (!isImage) return
     api
-      .fileUrl(att)
-      .then(url => current.active && setImage({ key: imageKey, url }))
+      .filePreviewUrl(att)
+      .then(url => current.active && setImage(url ? { key: imageKey, url } : null))
       .catch(() => undefined)
       .finally(() => { current.loading = false })
     return () => {
@@ -343,8 +345,8 @@ function AttachmentView({ att }: { att: ChatAttachment }) {
     if (current.retried) return
     current.retried = true
     current.loading = true
-    void api.fileUrl(att, false, true)
-      .then(url => current.active && setImage({ key: imageKey, url }))
+    void api.filePreviewUrl(att, true)
+      .then(url => current.active && setImage(url ? { key: imageKey, url } : null))
       .catch(() => undefined)
       .finally(() => { current.loading = false })
   }
@@ -357,13 +359,21 @@ function AttachmentView({ att }: { att: ChatAttachment }) {
       // Reopening after a long session refreshes an expired link through the API cache.
       const url = await api.fileUrl(att)
       if (!current.active) return
-      setImage({ key: imageKey, url })
+      setOriginal(url)
+      originalRetried.current = false
       setViewing(true)
     } catch (e) {
       toast(friendlyError(e))
     } finally {
       current.loading = false
     }
+  }
+  const originalRetried = useRef(false)
+  const retryOriginal = () => {
+    if (originalRetried.current) return
+    originalRetried.current = true
+    const current = imageAttempt.current
+    void api.fileUrl(att, false, true).then(url => current?.active && setOriginal(url)).catch(e => toast(friendlyError(e)))
   }
   const open = async (download: boolean) => {
     try {
@@ -385,9 +395,9 @@ function AttachmentView({ att }: { att: ChatAttachment }) {
     return (
       <>
         <button type="button" className="att-img" onClick={() => void previewImage()} title={`${att.name} · 눌러서 크게 보기 (확대 한도 없음)`}>
-          {src ? <img src={src} alt={att.name} loading="lazy" decoding="async" onError={retryImage} /> : <span className="t-cap">사진 불러오기 · 눌러서 다시 보기</span>}
+          {src ? <img src={src} alt={att.name} loading="lazy" decoding="async" onError={retryImage} /> : <span className="t-cap">{att.name} · 원본 보기</span>}
         </button>
-        {viewing && src && <ImageViewer src={src} name={att.name} onClose={() => setViewing(false)} onDownload={() => open(true)} onError={retryImage} />}
+        {viewing && original && <ImageViewer src={original} name={att.name} onClose={() => setViewing(false)} onDownload={() => open(true)} onError={retryOriginal} />}
       </>
     )
   const viewable = canView(att.name, att.type)

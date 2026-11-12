@@ -1,3 +1,6 @@
+import { makeImagePreview, sitePreviewPath } from './imagePreview'
+import { APPROVAL_LIST_COLUMNS, RESEARCH_LIST_COLUMNS, bodySearchPattern } from './reportReads'
+import type { ApprovalSummary, ResearchSummary } from './types'
 import { createSupabaseMarketingApi } from './marketingApi'
 import { readNavigationCounts } from './navigationCounts'
 import { createPendingReads } from './pendingReads'
@@ -341,12 +344,32 @@ export function createSupabaseApi(url: string, key: string): Api {
       const type = file.type || 'application/octet-stream'
       const up = await sb.storage.from('chat-files').upload(path, file, { contentType: type, upsert: false })
       if (up.error) throw new ApiError(`파일을 올리지 못했습니다: ${up.error.message}`)
-      const attachment = { path, name: file.name, size: file.size, type }
+      const preview = await makeImagePreview(file)
+      const previewPath = `${path}.preview.webp`
+      let previewSaved = false
+      if (preview) {
+        try { previewSaved = !(await sb.storage.from('chat-files').upload(previewPath, preview, { contentType: preview.type, upsert: false })).error } catch { /* 원본 보존 */ }
+      }
+      const attachment = { path, name: file.name, size: file.size, type, ...(previewSaved ? { preview_path: previewPath } : {}) }
       const res = await sb.from('chat_messages').insert({ room_id: roomId, content: caption?.trim() || `📎 ${file.name}`, attachment }).select().single()
       return resolveUploadedRecord<ChatMessage>({
         writeResult: res,
         reconcile: async () => await sb.from('chat_messages').select('*').eq('room_id', roomId).contains('attachment', { path }).maybeSingle(),
-        cleanup: () => removeStoredObject(sb, 'chat-files', path),
+        cleanup: async () => {
+          const results = await Promise.all([removeStoredObject(sb, 'chat-files', path), ...(previewSaved ? [removeStoredObject(sb, 'chat-files', previewPath)] : [])])
+          return { error: results.find(r => r.error)?.error ?? null }
+        },
+      })
+    },
+    async filePreviewUrl(att, refresh) {
+      // 경로를 임의로 바꿔 다른 파일을 요청하지 않는다. 기존 첨부에는 미리보기가 없다.
+      if (!att.preview_path || att.preview_path !== `${att.path}.preview.webp`) return null
+      const path = att.preview_path
+      if (refresh) signedUrls.invalidate('chat-files', path, { keepPending: true })
+      return signedUrls.get({ bucket: 'chat-files', path }, async () => {
+        const r = await sb.storage.from('chat-files').createSignedUrl(path, 3600)
+        if (r.error || !r.data) throw new ApiError('사진 미리보기를 열 수 없습니다.')
+        return r.data.signedUrl
       })
     },
     async fileUrl(att, download, refresh) {
@@ -411,16 +434,19 @@ export function createSupabaseApi(url: string, key: string): Api {
       }
     },
 
-    async listApprovals() {
+    listApprovals: () => reads.run('approvals:list', async () => {
       const rows = must(
         await sb
           .from('approvals')
-          .select('*, can_decide, approval_activity(count)')
+          .select(APPROVAL_LIST_COLUMNS)
           .in('approval_activity.kind', ['댓글', '진행', '결과', 'AI 답변'])
           .order('created_at', { ascending: false })
           .limit(300),
-      ) as (Approval & { approval_activity?: { count: number }[] })[]
+      ) as unknown as (ApprovalSummary & { approval_activity?: { count: number }[] })[]
       return rows.map(({ approval_activity, ...a }) => ({ ...a, activity_count: approval_activity?.[0]?.count ?? 0 }))
+    }),
+    async getApproval(id) {
+      return must(await sb.from('approvals').select('*, can_decide').eq('id', id).maybeSingle()) as Approval | null
     },
     async listApprovalActivity(approvalId) {
       return must(await sb.from('approval_activity').select('*').eq('approval_id', approvalId).order('created_at').order('id')) as ApprovalActivity[]
@@ -631,11 +657,34 @@ export function createSupabaseApi(url: string, key: string): Api {
     async uploadSitePhoto(projectId, file) {
       if (file.size > 15 * 1024 * 1024) throw new ApiError('사진은 15MB 까지 올릴 수 있습니다.')
       const ext = (file.name.match(/\.[A-Za-z0-9]{1,5}$/)?.[0] ?? '.jpg').toLowerCase()
-      const path = `${projectId}/${crypto.randomUUID()}${ext}`
+      const id = crypto.randomUUID()
+      let path = `${projectId}/${id}${ext}`
+      const preview = await makeImagePreview(file)
+      const previewOriginal = `${projectId}/preview-v1-${id}${ext}`
+      const previewPath = sitePreviewPath(previewOriginal)!
+      if (preview) {
+        try {
+          const saved = await sb.storage.from('site-photos').upload(previewPath, preview, { contentType: preview.type, upsert: false })
+          if (!saved.error) path = previewOriginal
+        } catch { /* 미리보기 없이 원본만 올림 */ }
+      }
       const up = await sb.storage.from('site-photos').upload(path, file, { contentType: file.type || 'image/jpeg', upsert: false })
-      if (up.error) throw new ApiError(`사진을 올리지 못했습니다: ${up.error.message}`)
+      if (up.error) {
+        if (path === previewOriginal) await removeStoredObject(sb, 'site-photos', previewPath)
+        throw new ApiError(`사진을 올리지 못했습니다: ${up.error.message}`)
+      }
       const signed = await sb.storage.from('site-photos').createSignedUrl(path, 60 * 60 * 24 * 30)
       return { path, url: signed.data?.signedUrl ?? '' }
+    },
+    async sitePhotoPreviewUrl(original, refresh) {
+      const path = sitePreviewPath(original)
+      if (!path) return null
+      if (refresh) signedUrls.invalidate('site-photos', path, { keepPending: true })
+      return signedUrls.get({ bucket: 'site-photos', path }, async () => {
+        const r = await sb.storage.from('site-photos').createSignedUrl(path, 3600)
+        if (r.error || !r.data) throw new ApiError('사진 미리보기를 열 수 없습니다.')
+        return r.data.signedUrl
+      })
     },
     async sitePhotoUrl(path, refresh) {
       if (refresh) signedUrls.invalidate('site-photos', path, { keepPending: true })
@@ -788,7 +837,17 @@ export function createSupabaseApi(url: string, key: string): Api {
     },
 
     async listResearch() {
-      return must(await sb.from('research_items').select('*').order('created_at', { ascending: false }).limit(500)) as ResearchItem[]
+      return reads.run('research:list', async () => must(await sb.from('research_items').select(RESEARCH_LIST_COLUMNS).order('created_at', { ascending: false }).limit(500)) as unknown as ResearchSummary[])
+    },
+    async getResearch(id) {
+      return must(await sb.from('research_items').select('*').eq('id', id).maybeSingle()) as ResearchItem | null
+    },
+    async findResearchBodies(words) {
+      const matches = await Promise.all([...new Set(words)].filter(Boolean).map(async word => {
+        const rows = must(await sb.from('research_items').select('id, client_id').ilike('body', bodySearchPattern(word)).order('created_at', { ascending: false }).limit(500)) as { id: string; client_id: string | null }[]
+        return rows.map(row => ({ ...row, word }))
+      }))
+      return matches.flat()
     },
     saveResearch: r => save('research_items', r) as Promise<ResearchItem>,
     deleteResearch: id => remove('research_items', id),

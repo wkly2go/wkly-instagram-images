@@ -1,3 +1,4 @@
+import { approvalSummary, researchSummary } from './reportReads'
 import { createDemoMarketingApi } from './marketingApi'
 import { desktop } from './desktop'
 import type { MaterialMove, MaterialStockRow, SlackLink, SlackMessage } from './types'
@@ -1074,6 +1075,7 @@ export function createDemoApi(): Api {
       emit('chat_messages', { type: 'INSERT', message: msg } satisfies MessageEvent)
       return clone(msg)
     },
+    async filePreviewUrl(att) { return att.url ?? null },
     async fileUrl(att) {
       if (!att.url) throw new ApiError('파일을 열 수 없습니다.')
       return att.url
@@ -1150,8 +1152,13 @@ export function createDemoApi(): Api {
         store.approvals
           .filter(a => isAdmin() || a.requested_by === self || a.approver_id === self)
           .sort((a, b) => b.created_at.localeCompare(a.created_at))
-          .map(a => ({ ...withCanDecide(a), activity_count: talk(a.id) })),
+          .map(a => approvalSummary({ ...withCanDecide(a), activity_count: talk(a.id) })),
       )
+    },
+    async getApproval(id) {
+      const self = requireMe()
+      const a = store.approvals.find(a => a.id === id && (isAdmin() || a.requested_by === self || a.approver_id === self))
+      return a ? clone(withCanDecide(a)) : null
     },
     async listApprovalActivity(approvalId) {
       const self = requireMe()
@@ -1575,6 +1582,7 @@ export function createDemoApi(): Api {
       })
       return { path: url, url }
     },
+    async sitePhotoPreviewUrl(path) { return path.startsWith('data:') ? path : null },
     async sitePhotoUrl(path) {
       return path
     },
@@ -1848,7 +1856,16 @@ export function createDemoApi(): Api {
     },
 
     async listResearch() {
-      return clone([...store.research_items].sort((a, b) => b.created_at.localeCompare(a.created_at)))
+      requireMe()
+      return clone([...store.research_items].sort((a, b) => b.created_at.localeCompare(a.created_at)).map(researchSummary))
+    },
+    async getResearch(id) {
+      requireMe()
+      return clone(store.research_items.find(r => r.id === id) ?? null)
+    },
+    async findResearchBodies(words) {
+      requireMe()
+      return words.flatMap(word => store.research_items.filter(r => r.body?.toLowerCase().includes(word.toLowerCase())).map(r => ({ word, id: r.id, client_id: r.client_id })))
     },
     async saveResearch(r) {
       requireMe()
