@@ -60,9 +60,35 @@ export function changeChannel(v: ChannelDraft, patch: Partial<ChannelDraft>): Ch
   const changed = (['title', 'body', 'tags', 'rights'] as const).some(k => k in patch && v[k] !== patch[k])
   return { ...v, ...patch, ...(changed ? { status: '초안' as const, publication_url: '', external_id: '' } : {}) }
 }
+export function appendGrowthNote(note: string, result: string): string {
+  const combined = [note, result].filter(Boolean).join('\n\n')
+  if (combined.length > 10000) throw new Error('메모가 10,000자를 넘습니다. 기존 메모나 AI 결과를 줄인 뒤 다시 적용해 주세요. 결과는 그대로 유지됩니다.')
+  return combined
+}
+const INSTAGRAM_ROUTES = new Set(['p', 'reel', 'reels', 'stories', 'explore', 'accounts', 'direct', 'about', 'developer', 'legal', 'privacy', 'terms', 'challenge', 'web'])
+function instagramHandles(text: string): string[] {
+  const handles: string[] = []
+  // Consume entire URLs, emails and mentions; never extract a partial name inside another token.
+  for (const match of text.matchAll(/(?<![^\s()[\]{}<>"'“”‘’:;,!?])(?:(?:[a-z][a-z\d+.-]*:\/\/|(?:www\.)?instagram\.com\/)[^\s<>"'“”‘’]+|(?:"[^"\r\n]+"|[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+)@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}|@[^\s<>"'“”‘’,;:!?()[\]{}]+)/gi)) {
+    const before = text[(match.index ?? 0) - 1]
+    if (before && !/[\s()[\]{}<>"'“”‘’:;,!?]/u.test(before)) continue
+    const token = match[0].replace(/[),;:!?\]}]+$/g, '')
+    let handle: string | undefined
+    if (token.startsWith('@')) handle = token.slice(1)
+    else {
+      try {
+        const url = new URL(token.includes('://') ? token : `https://${token}`)
+        if (!['https:', 'http:'].includes(url.protocol) || !['instagram.com', 'www.instagram.com'].includes(url.hostname) || url.username || url.password || url.port) continue
+        handle = /^\/([a-z\d_.]+)\/?$/i.exec(url.pathname)?.[1]
+      } catch { continue }
+    }
+    if (handle && /^[a-z\d_.]{1,30}$/i.test(handle) && !INSTAGRAM_ROUTES.has(handle.toLowerCase())) handles.push(handle.toLowerCase())
+  }
+  return handles
+}
 export function contactCandidates(text: string, source: '받은 메일' | '인스타그램', owner: string): GrowthDraft[] {
   if (text.length > 100000) throw new Error('한 번에 100,000자 이하로 가져와 주세요.')
-  const values = [...new Set(source === '받은 메일' ? (text.match(/[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g) ?? []).map(x => x.toLowerCase()) : [...text.matchAll(/(?:instagram\.com\/|@)([a-zA-Z0-9_.]{1,30})/g)].map(x => x[1].toLowerCase()).filter(x => !['p','reel','reels','stories','explore','accounts'].includes(x)))].slice(0,50)
+  const values = [...new Set(source === '받은 메일' ? (text.match(/[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g) ?? []).map(x => x.toLowerCase()) : instagramHandles(text))].slice(0,50)
   return values.map(value => { const d = newGrowth('contact', owner); d.title = value; d.document.source = source; if (source === '받은 메일') d.document.email = value; else { d.document.instagram = value; d.document.source_url = `https://www.instagram.com/${value}/` }; return d })
 }
 export interface AiModel { key: string; label: string; model_id: string; input_rate: number; output_rate: number; enabled: boolean }
