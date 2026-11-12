@@ -4,7 +4,7 @@ import { countedUnread } from '../lib/chat'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { dateLabel, dateTimeLabel, relativeLabel, todayKey } from '../lib/date'
 import { Link, useRouter } from '../lib/router'
-import type { Approval, ChatMessage, ChatRoomSummary, Project, Task, WorkLog } from '../lib/types'
+import type { Approval, ApprovalSummary, ChatMessage, ChatRoomSummary, Project, Task, WorkLog } from '../lib/types'
 import { CheckInCard } from '../components/CheckIn'
 import { Shell } from '../components/Shell'
 import { AgentDesk } from '../components/AgentDesk'
@@ -15,7 +15,7 @@ import { MonthCalendar } from './Schedule'
 import { TodayWork } from '../components/TodayWork'
 
 interface HomeData {
-  approvals: Approval[]
+  approvals: ApprovalSummary[]
   logs: WorkLog[]
   tasks: Task[]
   projects: Project[]
@@ -157,7 +157,14 @@ export default function Home() {
 }
 
 /** 홈에서는 숫자 칸과 '이슈 · 리스크'만 */
-function ReportPreview({ a }: { a: Approval }) {
+function ReportPreview({ a }: { a: ApprovalSummary }) {
+  const [open, setOpen] = useState(false)
+  return <div className="col gap-6"><Button kind="ghost" onClick={() => setOpen(v => !v)}>{open ? '보고서 접기' : '요약 · 이슈 보기'}</Button>{open && <ReportPreviewBody key={a.id} id={a.id} />}</div>
+}
+function ReportPreviewBody({ id }: { id: string }) {
+  const { api, version } = useApp()
+  const { data: a, loading, error, reload } = useAsync(() => api.getApproval(id), [id, version], null as Approval | null)
+  if (!a) return <span className="t-cap">{loading ? '본문 불러오는 중…' : error || '보고서를 찾을 수 없습니다.'}{error && <Button onClick={reload}>다시 시도</Button>}</span>
   const secs = reportSections(a.content)
   const summary = secs.find(x => /요약/.test(x.title))
   const issues = secs.find(x => /이슈|리스크/.test(x.title))

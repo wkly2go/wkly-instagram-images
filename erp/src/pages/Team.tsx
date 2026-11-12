@@ -6,7 +6,7 @@ import { addDays, minutesLabel, shortDate, timeLabel, todayKey } from '../lib/da
 import { Link, useRouter, withQuery } from '../lib/router'
 import { presenceOf, useAccessLog, useAttendance, useDesktopOnly, type Presence } from '../lib/attendance'
 import { SOURCE_LABEL } from '../lib/desktop'
-import type { Attendance, AttendanceCheckin, LeaveRecord, Profile, Project, ResearchItem, Task, WorkLog, WorkPlan } from '../lib/types'
+import type { Attendance, AttendanceCheckin, LeaveRecord, Profile, Project, ResearchSummary, Task, WorkLog, WorkPlan } from '../lib/types'
 import { Shell } from '../components/Shell'
 import { WorkPane } from './WorkLog'
 import { usePanelWide, useRightPanel } from '../components/RightPanel'
@@ -155,13 +155,13 @@ function PersonHub({ p, onBack }: { p: Profile; onBack: () => void }) {
         api.listWorkLogs({ userId: p.id, limit: 40 }),
         api.listWorkPlans(addDays(today, -30)),
         api.listLeave().catch(() => [] as LeaveRecord[]),
-        api.listResearch().catch(() => [] as ResearchItem[]),
+        api.listResearch().catch(() => [] as ResearchSummary[]),
         api.listCheckins(today),
       ])
       return { days, tasks: tasks.filter(t => t.assignee_id === p.id), projects, logs, plans: plans.filter(x => x.user_id === p.id), leave: leave.filter(l => l.profile_id === p.id), research: research.filter(r => r.created_by === p.id), checkin: checkins.find(c => c.user_id === p.id) ?? null }
     },
     [p.id, version],
-    { days: [] as Attendance[], tasks: [] as Task[], projects: [] as Project[], logs: [] as WorkLog[], plans: [] as WorkPlan[], leave: [] as LeaveRecord[], research: [] as ResearchItem[], checkin: null as AttendanceCheckin | null },
+    { days: [] as Attendance[], tasks: [] as Task[], projects: [] as Project[], logs: [] as WorkLog[], plans: [] as WorkPlan[], leave: [] as LeaveRecord[], research: [] as ResearchSummary[], checkin: null as AttendanceCheckin | null },
   )
   const todayRow = attendance.get(p.id)
   const open = data.tasks.filter(t => t.status !== '완료')

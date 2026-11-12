@@ -526,6 +526,8 @@ export interface ChatCard {
 
 /** 채팅 첨부 파일 (파일은 비공개 저장소, 방 사람만 열 수 있음) */
 export interface ChatAttachment {
+  /** 원본과 같은 비공개 경로에 저장한 작은 미리보기 */
+  preview_path?: string
   path: string
   name: string
   size: number
@@ -603,6 +605,12 @@ export interface Approval {
   can_decide?: boolean
   /** 주고받은 글 수 (답글 · 진행 · 결과 · AI 답변) */
   activity_count?: number
+}
+
+/** 목록에는 본문·메일 내용·큰 JSON을 담지 않는다. */
+export type ApprovalSummary = Omit<Approval, 'content' | 'payload' | 'decision_comment'> & {
+  report_date?: string | null
+  project_id?: string | null
 }
 
 /** 결재 · 보고 기록: 사람이 남기는 글(답글 · 진행 · 결과) + 저절로 남는 과정(요청 · 수정 · 승인 · 반려 · 취소 · AI 답변) */
@@ -824,6 +832,9 @@ export interface ResearchItem {
   created_at: string
   updated_at: string
 }
+
+export type ResearchSummary = Omit<ResearchItem, 'body'>
+export type ResearchBodyMatch = { word: string; id: string; client_id: string | null }
 
 /** 리서치 보고서 공통 양식: {{거래처}} {{구분}} {{작성일}} {{작성자}} 를 채워 씀 */
 export interface ReportTemplate {

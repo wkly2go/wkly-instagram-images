@@ -1,4 +1,6 @@
-import { useEffect } from 'react'
+import { useEffect, useMemo, useSyncExternalStore } from 'react'
+import type { Api } from './api'
+import { createSharedFeed } from './sharedFeed'
 import { useApp, useAsync } from './app'
 import { todayKey } from './date'
 import type { AccessLog, Attendance, Profile, TodayStatus } from './types'
@@ -11,12 +13,32 @@ export function presenceOf(p: Profile, row: Attendance | undefined): Presence {
   return row ? p.today_status : '미출근'
 }
 
-/** 특정 날짜 근태 기록 (user_id → 기록). 누가 접속하면 실시간으로 다시 불러옴 */
+type AttendanceFeed = ReturnType<typeof createSharedFeed<Attendance[]>>
+const attendanceFeeds = new WeakMap<Api, Map<string, AttendanceFeed>>()
+
+/** 근태 화면·사이드바가 사용자와 날짜별로 조회·구독을 공유한다. */
 export function useAttendance(day: string = todayKey()) {
-  const { api, version } = useApp()
-  const { data, reload } = useAsync(() => api.listAttendance(day), [version, day], [] as Attendance[])
-  useEffect(() => api.subscribeChanges(['attendance'], reload), [api, reload])
-  return new Map(data.map(a => [a.user_id, a]))
+  const { api, me } = useApp()
+  const feed = useMemo(() => {
+    let feeds = attendanceFeeds.get(api)
+    if (!feeds) { feeds = new Map(); attendanceFeeds.set(api, feeds) }
+    const key = JSON.stringify([me.id, day])
+    let shared = feeds.get(key)
+    if (!shared) {
+      shared = createSharedFeed<Attendance[]>({ initial: [], load: () => api.listAttendance(day),
+        connect: changed => api.subscribeChanges(['attendance'], changed, `day=eq.${day}`),
+        isVisible: () => document.visibilityState === 'visible',
+        onVisibility: changed => {
+          document.addEventListener('visibilitychange', changed)
+          return () => document.removeEventListener('visibilitychange', changed)
+        },
+      })
+      feeds.set(key, shared)
+    }
+    return shared
+  }, [api, me.id, day])
+  const data = useSyncExternalStore(feed.subscribe, feed.getSnapshot)
+  return useMemo(() => new Map(data.map(a => [a.user_id, a])), [data])
 }
 
 /** 그날 경로별 접속 기록 (user_id → 기록 목록) */

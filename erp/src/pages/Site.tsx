@@ -25,24 +25,23 @@ const readLast = () => {
 }
 
 /** 저장소 경로 → 볼 수 있는 주소 (API의 사용자별 서명 캐시 공유) */
-function useSignedUrl(path: string | null | undefined) {
+function useSignedUrl(path: string | null | undefined, preview = false) {
   const { api, me } = useApp()
-  const key = JSON.stringify([me.id, path])
+  const key = JSON.stringify([me.id, path, preview])
   const [image, setImage] = useState<{ key: string; url: string } | null>(null)
   const attempt = useRef<{ key: string; active: boolean; retried: boolean; loading: boolean } | null>(null)
   useEffect(() => {
     const current = { key, active: true, retried: false, loading: true }
     attempt.current = current
     if (!path) return
-    api
-      .sitePhotoUrl(path)
-      .then(url => current.active && setImage({ key, url }))
+    ;(preview ? api.sitePhotoPreviewUrl(path) : api.sitePhotoUrl(path))
+      .then(url => current.active && setImage(url ? { key, url } : null))
       .catch(() => current.active && setImage(null))
       .finally(() => { current.loading = false })
     return () => {
       current.active = false
     }
-  }, [api, path, key])
+  }, [api, path, key, preview])
   const retry = () => {
     const current = attempt.current
     if (!path || !current?.active || current.key !== key || current.loading) return
@@ -51,8 +50,8 @@ function useSignedUrl(path: string | null | undefined) {
     if (current.retried) return
     current.retried = true
     current.loading = true
-    void api.sitePhotoUrl(path, true)
-      .then(url => current.active && setImage({ key, url }))
+    void (preview ? api.sitePhotoPreviewUrl(path, true) : api.sitePhotoUrl(path, true))
+      .then(url => current.active && setImage(url ? { key, url } : null))
       .catch(() => current.active && setImage(null))
       .finally(() => { current.loading = false })
   }
@@ -269,11 +268,11 @@ function PhotoTab({ project, projects }: { project: Project; projects: Project[]
 }
 
 function Thumb({ shot, item, onOpen, picked }: { shot: SiteShot; item?: SiteSurveyItem; onOpen: () => void; picked?: boolean }) {
-  const { url, retry } = useSignedUrl(shot.path)
+  const { url, retry } = useSignedUrl(shot.path, true)
   return (
     <button type="button" className={`site-thumb${picked ? ' picked' : ''}`} onClick={onOpen} aria-pressed={picked}>
       {picked !== undefined && <span className={`site-pick-box${picked ? ' on' : ''}`}>{picked ? <Check size={14} /> : null}</span>}
-      {url ? <img src={url} alt="현장 사진" loading="lazy" decoding="async" onError={retry} /> : <span className="site-thumb-ph" />}
+      {url ? <img src={url} alt="현장 사진" loading="lazy" decoding="async" onError={retry} /> : <span className="site-thumb-ph t-cap">사진 열기</span>}
       <span className="site-thumb-meta">
         {shot.marks.length ? <b>치수 {shot.marks.length}</b> : <span>치수 없음</span>}
         {item ? <span className="truncate">{item.item}</span> : shot.memo ? <span className="truncate">{shot.memo}</span> : null}
@@ -547,10 +546,10 @@ function PlanTab({ project, projects }: { project: Project; projects: Project[] 
 }
 
 function PickThumb({ shot, on, onPick }: { shot: SiteShot; on: boolean; onPick: () => void }) {
-  const { url, retry } = useSignedUrl(shot.path)
+  const { url, retry } = useSignedUrl(shot.path, true)
   return (
     <button type="button" className={`site-pick-thumb ${on ? 'on' : ''}`} onClick={onPick} aria-pressed={on}>
-      {url ? <img src={url} alt="현장 사진" loading="lazy" decoding="async" onError={retry} /> : <span className="site-thumb-ph" />}
+      {url ? <img src={url} alt="현장 사진" loading="lazy" decoding="async" onError={retry} /> : <span className="site-thumb-ph t-cap">{shot.memo || "사진 선택"}</span>}
       {shot.marks.length > 0 && <b>{shot.marks.length}</b>}
     </button>
   )

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Mail, Phone } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { Link } from '../lib/router'
-import type { Client, Contact, Project, ProjectContact, ResearchItem } from '../lib/types'
+import type { Client, Contact, Project, ProjectContact, ResearchSummary } from '../lib/types'
 import { shortDate } from '../lib/date'
 import { REPORT_KIND, ReportForm } from './Reports'
 import { SectionHead } from './ui'
@@ -17,7 +17,7 @@ export function ProjectClientLink({ project: p, clients, contacts }: { project: 
   const { api, version } = useApp()
   const { busy, run } = useAction()
   const { data: links } = useAsync(() => api.listProjectContacts({ projectId: p.id }), [version, p.id], [] as ProjectContact[])
-  const { data: reports } = useAsync(() => api.listResearch().catch(() => [] as ResearchItem[]), [version], [] as ResearchItem[])
+  const { data: reports } = useAsync(() => api.listResearch().catch(() => [] as ResearchSummary[]), [version], [] as ResearchSummary[])
   const [adding, setAdding] = useState(false)
   const [nc, setNc] = useState({ name: '', title: '', phone: '', email: '' })
   const [writing, setWriting] = useState(false)
