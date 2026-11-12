@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { ExternalLink, FolderPlus, RefreshCw, Upload } from 'lucide-react'
 import { useApp } from '../lib/app'
 import { driveApi, driveIdOf, listChildren, newFolder, FOLDER_MIME, type GFile } from '../lib/gdrive'
+import { fileKind, scanDriveFolder, sheetsInZip, SHEET_RE, type ScannedFile } from '../lib/folderScan'
 import { attachEvidence, classify, detectKind, setStaffNames, parseBank, parseCardLike, readGrid, type Evidence, type LedgerRow } from '../lib/ledgerImport'
 import { LEDGER_CATEGORIES, LEDGER_TRANSFER_CATEGORIES, type LedgerEntry, type LedgerFile, type Payment } from '../lib/types'
 import { parseHometax } from './TaxInvoices'
@@ -19,7 +20,6 @@ interface Folder {
   url: string
 }
 const SHEET_MIME = 'application/vnd.google-apps.spreadsheet'
-const isSheet = (f: GFile) => f.mimeType === SHEET_MIME || /\.(xlsx|xls|csv)$/i.test(f.name)
 
 async function download(token: string, f: GFile): Promise<{ data: ArrayBuffer; name: string }> {
   const url =
@@ -30,6 +30,9 @@ async function download(token: string, f: GFile): Promise<{ data: ArrayBuffer; n
   if (!r.ok) throw new Error(`${f.name}: 드라이브에서 받지 못했습니다 (${r.status})`)
   return { data: await r.arrayBuffer(), name: f.mimeType === SHEET_MIME ? `${f.name}.xlsx` : f.name }
 }
+
+/** 파일 읽는 법을 마지막으로 바꾼 날 — 그 전에 못 읽은 파일은 다시 시도 */
+const READER_VERSION = '2026-11-12'
 
 export interface ImportResult {
   files: number
@@ -49,24 +52,36 @@ export async function runLedgerImport(api: ReturnType<typeof useApp>['api'], onS
   const token = tk.token
   const done = await api.listLedgerFiles()
   // 형식을 못 알아본 파일은 읽는 법이 나아지면 다시 시도
-  const doneKey = new Set(done.filter(d => d.kind !== '알 수 없음').map(d => `${d.drive_file_id}|${d.modified_time ?? ''}`))
-  const files: GFile[] = []
-  for (const id of [folder.bank, folder.hometax, folder.root]) {
-    const list = await listChildren(token, id).catch(() => [] as GFile[])
-    for (const f of list) if (f.mimeType !== FOLDER_MIME && isSheet(f)) files.push(f)
-    // 한 단계 아래 폴더(월별 등)도 봄
-    for (const sub of list.filter(f => f.mimeType === FOLDER_MIME)) for (const f of await listChildren(token, sub.id).catch(() => [] as GFile[])) if (f.mimeType !== FOLDER_MIME && isSheet(f)) files.push(f)
-  }
-  const fresh = files.filter((f, i, a) => a.findIndex(x => x.id === f.id) === i && !doneKey.has(`${f.id}|${f.modifiedTime ?? ''}`))
+  // (읽는 법이 바뀐 2026-11-12 이후에 다시 못 읽은 파일은 매번 다시 받지 않음)
+  const doneKey = new Set(done.filter(d => d.kind !== '알 수 없음' || (d.processed_at ?? '') >= READER_VERSION).map(d => `${d.drive_file_id}|${d.modified_time ?? ''}`))
+  // 폴더 전체(하위 폴더 끝까지) 읽기 — 대표 지시 2026-11-12
+  onStep?.('폴더 전체 살펴보는 중')
+  const { files } = await scanDriveFolder(token, [folder.root, folder.bank, folder.hometax])
+  const fresh = files.filter(x => (x.kind === '장부 자료' || x.kind === '압축') && !doneKey.has(`${x.file.id}|${x.file.modifiedTime ?? ''}`))
   if (!fresh.length) return { files: 0, added: 0, skipped: 0, review: 0, evidence: 0, errors: [] }
-  return processLedgerFiles(
-    api,
-    fresh.map(f => ({ id: f.id, name: f.name, modified: f.modifiedTime ?? null, load: () => download(token, f) })),
-    onStep,
-  )
+  const inputs: LedgerInput[] = []
+  const errors: string[] = []
+  for (const x of fresh) {
+    const f = x.file
+    if (x.kind === '장부 자료') {
+      inputs.push({ id: f.id, name: f.name, modified: f.modifiedTime ?? null, load: () => download(token, f) })
+      continue
+    }
+    // zip: 풀어서 안의 엑셀 · CSV 를 하나씩 기입
+    onStep?.(`${f.name} 압축 푸는 중`)
+    try {
+      const { data } = await download(token, f)
+      const inner = await sheetsInZip(data)
+      inner.forEach((e, i) => inputs.push({ id: `${f.id}#${i}`, name: e.name, modified: f.modifiedTime ?? null, load: async () => ({ data: e.data, name: e.name }) }))
+      await api.saveLedgerFile({ drive_file_id: f.id, name: f.name, kind: '압축', modified_time: f.modifiedTime ?? null, rows: 0, added: 0, note: inner.length ? `안의 엑셀 · CSV ${inner.length}개를 따로 기입` : '안에 엑셀 · CSV 없음' })
+    } catch (e) {
+      errors.push(`${f.name}: ${e instanceof Error ? e.message : String(e)}`)
+    }
+  }
+  const r = await processLedgerFiles(api, inputs, onStep)
+  return { ...r, errors: [...errors, ...r.errors] }
 }
 
-const SHEET_RE = /\.(xlsx|xls|csv)$/i
 /** 끌어다 놓은 것에 폴더가 섞여 있으면 안의 파일까지 모두 꺼냄 (대표 2026-11-11 '자료올리기에 폴더를 넣었는데 오류') */
 async function filesFromDrop(dt: DataTransfer): Promise<File[]> {
   const entries = [...dt.items].map(i => (i.kind === 'file' ? i.webkitGetAsEntry?.() : null)).filter((e): e is FileSystemEntry => !!e)
@@ -191,6 +206,9 @@ export function LedgerFolder({ onExpired }: { onExpired: () => void }) {
   const { api, toast } = useApp()
   const [folder, setFolder] = useState<Folder | null | undefined>(undefined)
   const [files, setFiles] = useState<LedgerFile[]>([])
+  // 폴더 전체 점검: 하위 폴더 끝까지 모든 파일과 읽었는지 여부 (대표 지시 2026-11-12)
+  const [scan, setScan] = useState<{ files: ScannedFile[]; skippedFolders: string[] } | null>(null)
+  const [scanning, setScanning] = useState(false)
   const [review, setReview] = useState<LedgerEntry[]>([])
   const [reviewTotal, setReviewTotal] = useState(0)
   const [yearRows, setYearRows] = useState<LedgerEntry[]>([])
@@ -201,8 +219,17 @@ export function LedgerFolder({ onExpired }: { onExpired: () => void }) {
   const [over, setOver] = useState(false)
   const folderInput = useRef<HTMLInputElement>(null)
   const upload = async (all: File[]) => {
-    const list = all.filter(f => SHEET_RE.test(f.name) && f.size > 0 && !f.name.startsWith('~$'))
-    const ignored = all.length - list.length
+    // zip 은 풀어서 안의 엑셀 · CSV 까지 (대표 지시 2026-11-12 '모든 파일')
+    const unzipped: File[] = []
+    for (const z of all.filter(f => /\.zip$/i.test(f.name))) {
+      try {
+        for (const e of await sheetsInZip(await z.arrayBuffer())) unzipped.push(new File([e.data], e.name, { lastModified: z.lastModified }))
+      } catch {
+        /* 깨진 zip 은 건너뜀 */
+      }
+    }
+    const list = [...all, ...unzipped].filter(f => SHEET_RE.test(f.name) && f.size > 0 && !f.name.startsWith('~$') && fileKind(f.name) === '장부 자료')
+    const ignored = all.filter(f => !/\.zip$/i.test(f.name)).length + unzipped.length - list.length
     if (!list.length) {
       if (all.length) toast(`엑셀(.xlsx · .xls) · CSV 파일이 없습니다${ignored ? ` (다른 파일 ${ignored}개는 건너뜀)` : ''}.`)
       return
@@ -227,7 +254,7 @@ export function LedgerFolder({ onExpired }: { onExpired: () => void }) {
       onDragLeave={() => setOver(false)}
       onDrop={e => { e.preventDefault(); setOver(false); void filesFromDrop(e.dataTransfer).then(upload, () => toast('폴더를 읽지 못했습니다.')) }}
     >
-      <input ref={fileInput} type="file" multiple hidden accept=".xls,.xlsx,.csv" onChange={e => { const fl = e.target.files ? [...e.target.files] : []; e.target.value = ''; void upload(fl) }} />
+      <input ref={fileInput} type="file" multiple hidden accept=".xls,.xlsx,.csv,.zip" onChange={e => { const fl = e.target.files ? [...e.target.files] : []; e.target.value = ''; void upload(fl) }} />
       <input ref={folderInput} type="file" multiple hidden {...({ webkitdirectory: '', directory: '' } as Record<string, string>)} onChange={e => { const fl = e.target.files ? [...e.target.files] : []; e.target.value = ''; void upload(fl) }} />
       <Button onClick={() => folderInput.current?.click()} disabled={!!busy}>
         <FolderPlus size={14} /> {busy ?? '폴더 전체 올리기'}
@@ -368,6 +395,20 @@ export function LedgerFolder({ onExpired }: { onExpired: () => void }) {
       toast(e instanceof Error ? e.message : '다시 분류하지 못했습니다.')
     } finally {
       setBusy(null)
+    }
+  }
+  const runScan = async () => {
+    if (!folder) return
+    setScanning(true)
+    try {
+      const tk = await api.driveAccessToken()
+      if (!tk) throw new Error('회사 구글 드라이브 연결이 필요합니다 (관리 › 구글 드라이브).')
+      setScan(await scanDriveFolder(tk.token, [folder.root, folder.bank, folder.hometax]))
+      await load()
+    } catch (e) {
+      toast(e instanceof Error ? e.message : '폴더를 살펴보지 못했습니다.')
+    } finally {
+      setScanning(false)
     }
   }
   const fix = async (r: LedgerEntry, category: string) => {
@@ -517,6 +558,59 @@ export function LedgerFolder({ onExpired }: { onExpired: () => void }) {
           </table>
         )}
       </div>
+
+      {folder && (
+        <div className="col gap-6">
+          <div className="row" style={{ gap: 8, alignItems: 'center' }}>
+            <b>폴더 전체 점검</b>
+            <span className="t-cap">하위 폴더 끝까지 모든 파일을 찾아 장부에 들어갔는지 보여 줍니다</span>
+            <span className="grow" />
+            <Button size="sm" kind="outline" disabled={scanning} onClick={() => void runScan()}>
+              <RefreshCw size={13} className={scanning ? 'spin' : undefined} /> {scanning ? '살펴보는 중…' : scan ? '다시 점검' : '폴더 전체 점검'}
+            </Button>
+          </div>
+          {scan && (() => {
+            const doneMap = new Map(files.map(f => [f.drive_file_id, f]))
+            const status = (x: ScannedFile) => {
+              const d = doneMap.get(x.file.id)
+              if (x.kind === '장부 자료' || x.kind === '압축') return d ? (d.kind === '알 수 없음' ? `거래 내역 아님 · ${d.note ?? ''}` : `읽음 · ${d.rows}줄`) : '아직 안 읽음'
+              if (x.kind === '개인 자료') return '개인 자료라 열지 않음'
+              return `${x.kind}라 장부에 넣지 않음`
+            }
+            const order = ['아직 안 읽음', '거래 내역 아님', 'PDF', '이미지', '문서', '압축', '프로그램', '기타', '개인 자료', '읽음']
+            const rows = scan.files.map(x => ({ x, st: status(x) })).sort((a, b) => order.findIndex(o => a.st.startsWith(o)) - order.findIndex(o => b.st.startsWith(o)) || a.x.path.localeCompare(b.x.path))
+            const count = (pre: string) => rows.filter(r => r.st.startsWith(pre)).length
+            return (
+              <>
+                <span className="t-cap">
+                  모든 파일 {rows.length}개 · 읽음 {count('읽음')} · 아직 안 읽음 {count('아직 안 읽음')} · 거래 내역 아님 {count('거래 내역 아님')} · PDF · 이미지 등 {rows.length - count('읽음') - count('아직 안 읽음') - count('거래 내역 아님') - count('개인 자료')} · 개인 자료 {count('개인 자료')}
+                  {scan.skippedFolders.length > 0 && ` · 열지 않은 개인 자료 폴더 ${scan.skippedFolders.length}개`}
+                </span>
+                {count('아직 안 읽음') > 0 && (
+                  <Button size="sm" onClick={() => void run()} disabled={!!busy}>
+                    아직 안 읽은 {count('아직 안 읽음')}개 지금 읽기
+                  </Button>
+                )}
+                <table className="lgf-table">
+                  <tbody>
+                    {rows.map(({ x, st }) => (
+                      <tr key={x.file.id}>
+                        <td className="truncate" title={x.path}>{x.path}</td>
+                        <td>
+                          <a href={x.file.webViewLink ?? `https://drive.google.com/file/d/${x.file.id}/view`} target="_blank" rel="noreferrer">
+                            {x.file.name}
+                          </a>
+                        </td>
+                        <td className={st.startsWith('아직') ? 'lgf-bad' : st.startsWith('읽음') ? 'lgf-ok' : 't-cap'}>{st}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </>
+            )
+          })()}
+        </div>
+      )}
 
       <div className="col gap-6">
         <b>처리한 파일 {files.length}개</b>
