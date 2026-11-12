@@ -1,5 +1,7 @@
 # 나라장터 공고 조회 — 배포 준비
 
+> **2026-11-13 갱신:** `g2b-search` 운영 배포·코드 일치·JWT ON·GET 405를 확인했습니다. `DATA_GO_KR_SERVICE_KEY`는 미등록이며 실제 공고 요청은 하지 않았습니다. 아래의 배포 대기 설명은 과거 준비 기록입니다. [최신 배포 기록](../../../docs/SERVER_DEPLOYMENT_20261113.md)을 우선합니다.
+
 공식 요청 명세: <https://www.data.go.kr/data/15129394/openapi.do>, 2026-11-12 확인. 2026-11-10 변경된 `BidPublicInfoService02`의 용역/공사 검색과 최대 7일 조회 기간을 사용합니다. 이 함수는 조회 결과만 반환하며 DB 저장·입찰 제출·영업 발송을 하지 않습니다.
 
 필요한 환경값은 Supabase 기본 `SUPABASE_URL`, `SUPABASE_ANON_KEY`와 공공데이터포털 해당 서비스 활용 승인을 받은 **Decoding** 키 `DATA_GO_KR_SERVICE_KEY`입니다. 키를 프론트엔드·소스·채팅에 넣지 않습니다. service_role 키는 쓰지 않습니다. 함수 배포와 실제 승인된 계정 응답 확인이 별도로 필요합니다. 기존 SQL 재실행이나 새 DB 설치는 필요하지 않습니다.
