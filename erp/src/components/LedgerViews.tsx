@@ -144,8 +144,16 @@ export function RecurringView({ onExpired }: { onExpired: () => void }) {
         </div>
       </div>
 
-      {/* 이번 달 출금일 띠 */}
-      <section className="rec-strip" aria-label="이번 달 출금일">
+      {/* 이번 달 출금일 달력 (2026-11-12 대표 지시 '읽을 수 있게': 31칸 한 줄 → 요일별 달력 · 금액 끝자리까지 · 출금 이름) */}
+      <section className="rec-cal" aria-label="이번 달 출금일">
+        {['일', '월', '화', '수', '목', '금', '토'].map((w, i) => (
+          <span key={w} className={`rec-wd${i === 0 ? ' sun' : ''}`}>
+            {w}
+          </span>
+        ))}
+        {Array.from({ length: new Date(Number(month.slice(0, 4)), Number(month.slice(5, 7)) - 1, 1).getDay() }, (_, i) => (
+          <span key={`b${i}`} className="rec-blank" aria-hidden />
+        ))}
         {Array.from({ length: n }, (_, i) => i + 1).map(d => {
           const items = byDay.get(d) ?? []
           const key = `${month}-${String(d).padStart(2, '0')}`
@@ -153,12 +161,29 @@ export function RecurringView({ onExpired }: { onExpired: () => void }) {
           const state = !items.length ? '' : items.every(x => x.done) ? 'done' : key < today ? 'late' : 'due'
           return (
             <div key={d} className={`rec-day ${state}${key === today ? ' today' : ''}`} title={items.map(x => `${x.r.name} ${won(x.r.amount)}${x.done ? ' (기록됨)' : ''}`).join('\n') || undefined}>
-              <span className="rec-d">{d}</span>
-              {items.length > 0 && <span className="rec-amt">{manwon(sumDay)}</span>}
+              <span className="rec-d">
+                {d}
+                {items.length > 1 && <em>{items.length}건</em>}
+              </span>
+              {items.length > 0 && <b className="rec-amt">{manwon(sumDay)}</b>}
+              {items.length > 0 && (
+                <span className="rec-names">
+                  {items
+                    .slice(0, 2)
+                    .map(x => x.r.name)
+                    .join(' · ')}
+                  {items.length > 2 ? ` 외 ${items.length - 2}` : ''}
+                </span>
+              )}
             </div>
           )
         })}
       </section>
+      <div className="rec-legend t-meta">
+        <span><i className="late" /> 출금일 지남 · 장부 미기록</span>
+        <span><i className="due" /> 출금 예정</span>
+        <span><i className="done" /> 장부에 기록됨</span>
+      </div>
 
       <div className="row">
         <b className="t-bodyb grow">정기 출금 목록</b>
