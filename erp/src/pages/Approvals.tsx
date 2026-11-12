@@ -1,6 +1,6 @@
-import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Linkify } from '../components/ui'
-import { ArrowLeft, BookOpen, FileText, Filter, Inbox, List, MessageSquare, NotebookPen, Plus, Send } from 'lucide-react'
+import { ArrowLeft, FileText, Filter, Inbox, List, MessageSquare, NotebookPen, Plus, Send } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { dateLabel, dateTimeLabel, minutesLabel, timeLabel, toDateKey, todayKey, won } from '../lib/date'
 import { openGmail } from '../lib/links'
@@ -15,10 +15,10 @@ import { Board, BoardHead } from '../components/Board'
 import { usePanelWide, useRightPanel } from '../components/RightPanel'
 import { Button, Chip, Field, KindBadge, KindTag, Modal, StatusBadge, ViewTabs } from '../components/ui'
 import { MeetingRecorder } from '../components/MeetingRecorder'
+import { ReportDashboard } from '../components/ReportDashboard'
 
 type View = 'todo' | 'mine' | 'all'
 
-const Research = lazy(() => import('./Library').then(module => ({ default: module.Research })))
 
 /** 승인/반려 버튼 (홈·상세 공용) */
 export function DecideButtons({ approval, compact }: { approval: ApprovalSummary; compact?: boolean }) {
@@ -140,39 +140,18 @@ export function DecideButtons({ approval, compact }: { approval: ApprovalSummary
 
 export default function Approvals() {
   const { query, navigate } = useRouter()
-  const section = query.get('section') === 'research' ? 'research' : 'approvals'
+  // 리서치는 메뉴 '리서치'로 분리 (대표 지시 2026-11-12 "리서치와 보고서를 두개로 분리해")
+  const toResearch = query.get('section') === 'research'
+  useEffect(() => {
+    if (toResearch) navigate('/research', { replace: true })
+  }, [toResearch, navigate])
   return (
     <Shell active="approvals">
-      <div className="row wrap" style={{ justifyContent: 'space-between', gap: 12 }}>
-        <h1 className="t-title" style={{ margin: 0 }}>리서치 · 보고서</h1>
-        <Link to="/report-templates" className="btn btn-outline btn-sm">보고서 양식</Link>
-      </div>
-      <ViewTabs
-        label="리서치 · 보고서 구분"
-        active={section}
-        onPick={next => {
-          if (next !== section) navigate(next === 'research' ? '/approvals?section=research' : '/approvals')
-        }}
-        items={[
-          { key: 'research', label: '리서치 자료', icon: <BookOpen size={16} /> },
-          { key: 'approvals', label: '보고서 결재', icon: <FileText size={16} /> },
-        ]}
-      />
-      <section role="region" aria-label={section === 'research' ? '리서치 자료' : '보고서 결재'} className="col gap-10" style={{ minWidth: 0 }}>
-        <p className="t-cap" style={{ margin: 0 }}>
-          {section === 'research' ? '수집한 자료와 거래처 리서치 보고서를 찾아보고 관리합니다.' : '제출한 보고서를 확인하고 승인 · 반려 등 결재를 처리합니다.'}
-        </p>
-        {section === 'research' ? (
-          <Suspense fallback={<p className="t-cap" role="status">리서치 자료를 불러오는 중…</p>}>
-            <Research tabs={
-              <nav className="row wrap" aria-label="리서치 관련 자료" style={{ gap: 12 }}>
-                <Link to="/library?tab=contacts" className="t-small">브랜드 담당자</Link>
-                <Link to="/library?tab=templates" className="t-small">메일 템플릿</Link>
-                <Link to="/library?tab=agents" className="t-small">에이전트 연결 안내</Link>
-              </nav>
-            } />
-          </Suspense>
-        ) : <ApprovalContent />}
+      <h1 className="t-title" style={{ margin: 0 }}>보고서</h1>
+      <ReportDashboard mode="report" />
+      <section role="region" aria-label="보고서 결재" className="col gap-10" style={{ minWidth: 0 }}>
+        <p className="t-cap" style={{ margin: 0 }}>제출한 보고서를 확인하고 승인 · 반려 등 결재를 처리합니다.</p>
+        <ApprovalContent />
       </section>
     </Shell>
   )

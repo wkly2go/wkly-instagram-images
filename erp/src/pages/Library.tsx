@@ -35,14 +35,14 @@ export default function Library() {
   const { query, path, navigate } = useRouter()
   const tab = (query.get('tab') as Tab | null) ?? 'research'
   const go = (t: Tab) => {
-    if (t === 'reports') navigate('/report-templates')
-    else if (t === 'research') navigate('/approvals?section=research')
+    if (t === 'reports') navigate('/research')
+    else if (t === 'research') navigate('/research')
     else navigate(withQuery(path, new URLSearchParams(), { tab: t }), { replace: true })
   }
   // 리서치와 결재는 통합 페이지에서, 보조 자료는 기존 메뉴에서 관리한다.
   const tabs = (
     <div className="chips one-line" role="tablist" aria-label="자료실 메뉴">
-      <Chip onClick={() => navigate('/approvals?section=research')}>← 리서치 · 보고서</Chip>
+      <Chip onClick={() => navigate('/research')}>← 리서치</Chip>
       {(
         [
           ['research', '리서치'],
