@@ -97,6 +97,8 @@ async function hash(s: string) {
 }
 
 export async function readGrid(data: ArrayBuffer, name: string): Promise<Grid[]> {
+  // PDF 카드 명세서 (2026-11-12)
+  if (/\.pdf$/i.test(name)) return (await import('./pdfGrid')).pdfGrids(data, name)
   const XLSX = await import('xlsx')
   const isCsv = /\.csv$/i.test(name)
   let wb
