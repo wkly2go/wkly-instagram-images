@@ -10,7 +10,7 @@
  */
 import { LEDGER_CATEGORIES, type LedgerDirection, type Payment } from './types'
 
-export type LedgerFileKind = '은행' | '카드' | '현금영수증' | '세금계산서' | '계산서 합계표' | '알 수 없음'
+export type LedgerFileKind = '은행' | '카드' | '현금영수증' | '세금계산서' | '계산서 합계표' | '카드 청구 요약' | '알 수 없음'
 export interface LedgerRow {
   entry_date: string
   direction: LedgerDirection
@@ -124,6 +124,8 @@ const pick = (head: string[], names: string[]) => {
 }
 
 export function detectKind(grids: Grid[], name: string): { kind: LedgerFileKind; grid: Grid; hi: number } {
+  // PDF 카드 청구 요약 (건별 내역 없이 청구 금액만 — pdfGrid.cardBillFromLines)
+  for (const grid of grids) if (grid[0]?.[0] === '카드 청구 요약') return { kind: '카드 청구 요약', grid, hi: 0 }
   // 홈택스 '세금계산서 합계표'(매출처별 · 매입처별 기간 합계) — 거래 내역이 아니라 계산서 대장 대조용 (2026-11-12)
   for (const grid of grids) {
     const hi = grid.findIndex(r => norm(r[0]) === '일련번호' && r.some(c => /등록번호/.test(String(c ?? ''))))

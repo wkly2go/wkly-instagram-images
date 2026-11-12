@@ -53,7 +53,8 @@ export async function pdfLines(data: ArrayBuffer, name = ''): Promise<string[][]
     const tc = await page.getTextContent()
     const items: Item[] = []
     for (const it of tc.items as { str?: string; transform?: number[]; width?: number; height?: number }[]) {
-      const s = (it.str ?? '').replace(/\s+/g, ' ')
+      // 카드사 웹 명세서를 인쇄한 PDF 는 띄어쓰기가 제어 문자(\u0001)로 나옴
+      const s = (it.str ?? '').replace(/[\u0000-\u001f\u00a0]/g, ' ').replace(/\s+/g, ' ')
       if (!s.trim() || !it.transform) continue
       const h = Math.abs(it.height || it.transform[3] || 8)
       items.push({ s, x: it.transform[4], y: it.transform[5], w: it.width ?? s.length * h * 0.5, h })
@@ -166,6 +167,36 @@ export function cardGridFromLines(lines: string[][], today = new Date()): Grid |
   return [[top || null], ['이용일자', '가맹점명', '이용금액', '승인번호'], ...rows]
 }
 
+/** 카드 청구 요약(이용대금명세서 첫 화면만 인쇄한 PDF): 카드사 · 청구 금액 · 결제일 · 이용기간 · 결제 계좌 */
+export interface CardBill {
+  company: string
+  total: number
+  payDate: string | null
+  from: string | null
+  to: string | null
+  account: string | null
+}
+export const CARD_BILL_MARK = '카드 청구 요약'
+export function cardBillFromLines(lines: string[][]): CardBill | null {
+  const text = lines.map(l => l.join(' ')).join('\n')
+  if (!/이용\s*대금\s*명세서|청구서/.test(text)) return null
+  const amt = text.match(/결제금액\s*요약내역\s+([\d,]+)\s*원/) ?? text.match(/총\s*결제\s*금액[\s\S]{0,300}?([\d,]{5,})\s*원/) ?? text.match(/청구\s*금액[\s\S]{0,60}?([\d,]{5,})\s*원/)
+  if (!amt) return null
+  const d = (y: string, m: string, dd: string) => `${y}-${pad(m)}-${pad(dd)}`
+  const pay = text.match(/결제일[\s\S]{0,60}?(20\d{2})\s*년\s*(\d{1,2})\s*월\s*(\d{1,2})\s*일/) ?? text.match(/결제일[\s\S]{0,30}?(20\d{2})[.\-/](\d{1,2})[.\-/](\d{1,2})/)
+  const per = text.match(/일시불[^\n]*이용\s*기간\s*:?\s*(20\d{2})\s*년\s*(\d{1,2})\s*월\s*(\d{1,2})\s*일\s*~\s*(20\d{2})\s*년\s*(\d{1,2})\s*월\s*(\d{1,2})\s*일/) ?? text.match(/이용\s*기간\s*:?\s*(20\d{2})[.\-/년\s]*(\d{1,2})[.\-/월\s]*(\d{1,2})일?\s*~\s*(20\d{2})[.\-/년\s]*(\d{1,2})[.\-/월\s]*(\d{1,2})/)
+  const company = text.match(/(우리|현대|국민|KB국민|신한|삼성|롯데|하나|비씨|BC|NH농협|농협|IBK|기업)\s*카드/)?.[1] ?? '카드'
+  const acc = text.match(/결제\s*계좌\s+(\S*?은행)\s*([\d*\-]+)/)
+  return {
+    company: company === 'KB국민' ? '국민' : company === 'NH농협' ? '농협' : company,
+    total: Number(amt[1].replace(/,/g, '')),
+    payDate: pay ? d(pay[1], pay[2], pay[3]) : null,
+    from: per ? d(per[1], per[2], per[3]) : null,
+    to: per ? d(per[4], per[5], per[6]) : null,
+    account: acc ? `${acc[1]} ${acc[2].replace(/[^\d]/g, '').slice(-3)}` : null,
+  }
+}
+
 /** PDF → readGrid 와 같은 모양 (카드 명세서면 카드 표, 은행 거래내역이면 줄 그대로) */
 export async function pdfGrids(data: ArrayBuffer, name: string): Promise<Grid[]> {
   const lines = await pdfLines(data, name)
@@ -176,5 +207,8 @@ export async function pdfGrids(data: ArrayBuffer, name: string): Promise<Grid[]>
   })
   const card = bankish ? null : cardGridFromLines(lines)
   if (card) return [card]
+  // 건별 내역 없이 청구 요약만 있는 명세서 (예: 우리카드 웹 명세서 첫 화면 인쇄)
+  const bill = bankish ? null : cardBillFromLines(lines)
+  if (bill) return [[[CARD_BILL_MARK, bill.company, bill.total, bill.payDate, bill.from, bill.to, bill.account]]]
   return [lines]
 }
