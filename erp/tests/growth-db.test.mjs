@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import { PGlite } from '@electric-sql/pglite'
+import { saveContactImportBatch } from '../src/lib/contactImport.ts'
 const db=new PGlite(),ADMIN=randomUUID(),OWNER=randomUUID(),OTHER=randomUUID(),INACTIVE=randomUUID(),CAMPAIGN=randomUUID()
 const preflight=await readFile(new URL('../supabase/diagnostics/growth_preflight_readonly.sql',import.meta.url),'utf8')
 const postflight=await readFile(new URL('../supabase/diagnostics/growth_postflight_readonly.sql',import.meta.url),'utf8')
@@ -63,6 +64,34 @@ test('growth owner saves; other member cannot write or reassign; revision confli
 test('duplicate tender and normalized email cannot create duplicate records',async()=>{
  const d=doc();await save(d);await assert.rejects(save(d),e=>e.code==='23505')
  const c=doc('contact');c.document.email='Brand@Example.com';await save(c);c.document.email=' brand@example.com ';await assert.rejects(save(c),e=>e.code==='23505')
+})
+test('contact import recovers a committed response loss against the real SQL normalization without another revision',async()=>{
+ const draft=doc('contact'),id=randomUUID()
+ draft.title='  가져온 브랜드  ';draft.document.email=`Brand.${randomUUID()}@Example.COM`;delete draft.document.instagram
+ const candidate={id,draft}
+ const api={
+  saveGrowth:async(key,value,revision)=>{assert.equal(revision,0);await save(value,key,revision);throw new Error('response lost after commit')},
+  getGrowth:async key=>as(OWNER,async()=>{const row=(await db.query('select * from growth_items where id=$1',[key])).rows[0];if(!row)throw new Error('not found');return row}),
+ }
+ const first=await saveContactImportBatch([candidate],api)
+ assert.equal(first.saved.length,1);assert.equal(first.pending.length,0);assert.equal(first.recovered,1)
+ const retry=await saveContactImportBatch([candidate],api)
+ assert.equal(retry.saved.length,1);assert.equal(retry.pending.length,0);assert.equal(retry.recovered,1)
+ const row=await api.getGrowth(id)
+ assert.equal(row.title,'가져온 브랜드');assert.equal(row.document.email,draft.document.email.toLowerCase());assert.equal(row.document.instagram,'');assert.equal(row.revision,1)
+ assert.equal((await db.query('select count(*)::int n from growth_revisions where item_id=$1',[id])).rows[0].n,1)
+})
+test('contact import keeps different-ID duplicates and changed same-ID rows pending without overwriting SQL data',async()=>{
+ const draft=doc('contact'),stored=await save(draft),id=randomUUID()
+ const api={saveGrowth:(key,value,revision)=>save(value,key,revision),getGrowth:async key=>as(OWNER,async()=>{const row=(await db.query('select * from growth_items where id=$1',[key])).rows[0];if(!row)throw new Error('not found');return row})}
+ const duplicate=await saveContactImportBatch([{id,draft}],api)
+ assert.equal(duplicate.saved.length,0);assert.equal(duplicate.pending[0].id,id)
+ const updated=structuredClone(draft);updated.document.note='다른 작업에서 수정한 메모'
+ await save(updated,stored.id,1)
+ const mismatch=await saveContactImportBatch([{id:stored.id,draft}],api)
+ assert.equal(mismatch.saved.length,0);assert.equal(mismatch.pending[0].id,stored.id)
+ const row=await api.getGrowth(stored.id)
+ assert.equal(row.revision,2);assert.equal(row.document.note,updated.document.note)
 })
 test('tender qualification, URLs, campaign company and amount validated at server',async()=>{
  const d=doc();d.document.qualification='충족';await assert.rejects(save(d),/근거/);d.document.evidence='공고 3쪽';d.document.amount=-1;await assert.rejects(save(d),/금액/)

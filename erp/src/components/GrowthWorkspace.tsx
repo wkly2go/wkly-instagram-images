@@ -4,6 +4,7 @@ import { friendlyError } from '../lib/api'
 import { Link } from '../lib/router'
 import { requestViewChange } from '../lib/navigationGuard'
 import { useDraftNavigation } from '../lib/useDraftNavigation'
+import { contactImportIdentity, saveContactImportBatch, type ContactImportCandidate } from '../lib/contactImport'
 import { Button, Field, Modal } from './ui'
 import { AiAssist } from './GrowthAi'
 import { CHANNELS, GROWTH_LABELS, GROWTH_STATUSES, koreaDateTimeInput, appendGrowthNote, changeChannel, contactCandidates, newGrowth, validateGrowth, type GrowthDraft, type GrowthItem, type GrowthKind, type GrowthDocument, type ChannelDraft } from '../lib/growth'
@@ -79,12 +80,40 @@ function GrowthEditor({kind,initial,onClose,onSaved}:{kind:GrowthKind;initial:Gr
 }
 
 function ContactImport({onClose,onSaved}:{onClose:()=>void;onSaved:()=>void}){
- const {api,me}=useApp(),[text,setText]=useState(''),[source,setSource]=useState<'받은 메일'|'인스타그램'>('받은 메일'),[rows,setRows]=useState<GrowthDraft[]>([]),[result,setResult]=useState(''),[busy,setBusy]=useState(false)
- const ids=useRef<string[]>([]),lock=useRef(false),processed=useRef('')
- const dirty=rows.length>0||(!!text.trim()&&processed.current!==JSON.stringify([source,text]))
+ const {api,me}=useApp(),[text,setText]=useState(''),[source,setSource]=useState<'받은 메일'|'인스타그램'>('받은 메일'),[rows,setRows]=useState<ContactImportCandidate[]>([]),[result,setResult]=useState(''),[busy,setBusy]=useState(false),[attempted,setAttempted]=useState(false)
+ const lock=useRef(false),processed=useRef(''),previewed=useRef(''),known=useRef(new Map<string,ContactImportCandidate>()),saved=useRef(new Set<string>())
+ const signature=JSON.stringify([source,text]),dirty=rows.length>0||(!!text.trim()&&processed.current!==signature)
  useDraftNavigation(dirty,busy)
  const close=()=>{if(!lock.current&&(!dirty||window.confirm('저장하지 않은 가져오기 자료가 있습니다. 닫을까요?')))onClose()}
- const preview=()=>{try{const a=contactCandidates(text,source,me.id);setRows(a);ids.current=a.map(()=>crypto.randomUUID());setResult(`${a.length}개 후보 · 최대 50개. 이름·브랜드는 저장 후 확인해 주세요.`)}catch(e){setResult(friendlyError(e))}}
- const save=async()=>{if(lock.current)return;lock.current=true;setBusy(true);let saved=0;const errors:string[]=[];for(let i=0;i<rows.length;i++){try{await api.saveGrowth(ids.current[i],rows[i],0);saved++}catch(e){errors.push(`${rows[i].title}: ${friendlyError(e)}`)}}setResult(`${saved}개 저장, ${errors.length}개 미저장\n${errors.join('\n')}`);setRows([]);if(!errors.length)processed.current=JSON.stringify([source,text]);setBusy(false);lock.current=false;onSaved()}
- return <Modal title="연락처 자료 가져오기" onClose={close} wide actions={<><Button kind="ghost" disabled={busy} onClick={close}>닫기</Button><Button disabled={busy||!rows.length} onClick={save}>{busy?'저장 중…':'후보를 검토함에 저장'}</Button></>}><p>업무용으로 보관한 메일 또는 인스타 내보내기 자료를 붙여넣습니다. 추출 후보를 확인한 뒤 저장합니다.</p><Field label="자료 종류"><select className="select" disabled={busy} value={source} onChange={e=>{setSource(e.target.value as typeof source);setRows([])}}><option>받은 메일</option><option>인스타그램</option></select></Field><Field label="가져온 텍스트"><textarea className="textarea" rows={7} maxLength={100000} value={text} disabled={busy} onChange={e=>{setText(e.target.value);setRows([])}}/></Field><Button kind="outline" disabled={busy||!text.trim()} onClick={preview}>추출 미리보기</Button><ul>{rows.map((r,i)=><li key={r.title}>{r.title} <button type="button" disabled={busy} onClick={()=>{ids.current.splice(i,1);setRows(a=>a.filter((_,n)=>n!==i))}}>제외</button></li>)}</ul><p role="status" className="growth-copy">{result}</p></Modal>
+ const changeInput=(nextSource:typeof source,nextText:string)=>{
+  if(lock.current||JSON.stringify([nextSource,nextText])===signature)return
+  if(attempted&&rows.length&&!window.confirm(`확인이 필요한 후보 ${rows.length}개가 남아 있습니다. 현재 후보 목록을 닫고 자료를 바꿀까요? 이미 저장된 연락처는 유지됩니다.`))return
+  setSource(nextSource);setText(nextText);setRows([]);setAttempted(false);setResult('');previewed.current=''
+ }
+ const preview=()=>{
+  if(lock.current)return
+  if(attempted&&previewed.current===signature){setResult(rows.length?`확인이 필요한 후보 ${rows.length}개를 유지했습니다. 아래 버튼으로 남은 후보만 다시 확인·저장해 주세요.`:'이 자료에서 선택한 후보는 모두 처리했습니다. 이미 저장된 연락처는 다시 넣지 않습니다.');return}
+  try{
+   const drafts=contactCandidates(text,source,me.id),next:ContactImportCandidate[]=[]
+   let alreadySaved=0
+   for(const draft of drafts){const key=contactImportIdentity(draft);if(saved.current.has(key)){alreadySaved++;continue}const candidate={id:known.current.get(key)?.id??crypto.randomUUID(),draft};known.current.set(key,candidate);next.push(candidate)}
+   setRows(next);setAttempted(false);previewed.current=signature
+   setResult(`${next.length}개 후보 · 최대 50개.${alreadySaved?` 이 창에서 이미 저장한 ${alreadySaved}개는 제외했습니다.`:''} 이름·브랜드는 저장 후 확인해 주세요.`)
+  }catch(e){setResult(friendlyError(e))}
+ }
+ const save=async()=>{
+  if(lock.current||!rows.length)return
+  lock.current=true;setBusy(true)
+  try{
+   const outcome=await saveContactImportBatch(rows,api)
+   for(const candidate of outcome.saved){const key=contactImportIdentity(candidate.draft);saved.current.add(key);known.current.set(key,candidate)}
+   for(const candidate of outcome.pending)known.current.set(contactImportIdentity(candidate.draft),candidate)
+   setRows(outcome.pending);setAttempted(true)
+   if(!outcome.pending.length)processed.current=signature
+   setResult(`${outcome.saved.length}개 저장 확인${outcome.recovered?` (응답 재확인 ${outcome.recovered}개 포함)`:''}, ${outcome.pending.length}개 확인 필요\n${outcome.pending.map(candidate=>`${candidate.draft.title}: ${friendlyError(candidate.error)}`).join('\n')}`)
+   onSaved()
+  }catch(e){setResult(`처리 결과를 모두 확인하지 못했습니다. 남은 후보는 유지됩니다. ${friendlyError(e)}`)}finally{lock.current=false;setBusy(false)}
+ }
+ const exclude=(id:string)=>{if(lock.current)return;const next=rows.filter(candidate=>candidate.id!==id);setRows(next);if(attempted&&!next.length)processed.current=signature}
+ return <Modal title="연락처 자료 가져오기" onClose={close} wide actions={<><Button kind="ghost" disabled={busy} onClick={close}>닫기</Button><Button disabled={busy||!rows.length} onClick={save}>{busy?'저장·확인 중…':attempted?'남은 후보만 다시 확인·저장':'후보를 검토함에 저장'}</Button></>}><p>업무용으로 보관한 메일 또는 인스타 내보내기 자료를 붙여넣습니다. 추출 후보를 확인한 뒤 저장합니다.</p><Field label="자료 종류"><select className="select" disabled={busy} value={source} onChange={e=>changeInput(e.target.value as typeof source,text)}><option>받은 메일</option><option>인스타그램</option></select></Field><Field label="가져온 텍스트"><textarea className="textarea" rows={7} maxLength={100000} value={text} disabled={busy} onChange={e=>changeInput(source,e.target.value)}/></Field><Button kind="outline" disabled={busy||!text.trim()} onClick={preview}>추출 미리보기</Button>{attempted&&rows.length>0&&<p className="t-cap">저장을 확인한 후보는 제외했습니다. 오류를 확인한 뒤 남은 후보만 재시도하거나 제외해 주세요. 같은 연락처가 이미 있다는 오류는 기존 검토함 항목을 먼저 확인해 주세요.</p>}<ul>{rows.map(candidate=><li key={candidate.id}>{candidate.draft.title} <button type="button" disabled={busy} onClick={()=>exclude(candidate.id)}>제외</button>{attempted&&<small className="growth-error"> {friendlyError(candidate.error)}</small>}</li>)}</ul><p role="status" className="growth-copy">{result}</p></Modal>
 }
