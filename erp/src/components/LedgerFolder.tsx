@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { ExternalLink, FolderPlus, RefreshCw, Upload } from 'lucide-react'
 import { useApp } from '../lib/app'
 import { driveApi, driveIdOf, listChildren, newFolder, FOLDER_MIME, type GFile } from '../lib/gdrive'
-import { fileKind, scanDriveFolder, sheetsInZip, SHEET_RE, type ScannedFile, REFERENCE_RE } from '../lib/folderScan'
+import { fileKind, scanDriveFolder, sheetsInZip, LEDGER_FILE_RE, SECURE_MAIL_RE, type ScannedFile, REFERENCE_RE } from '../lib/folderScan'
 import { runSettlement } from '../lib/invoiceSettle'
 import { attachEvidence, classify, detectKind, parseInvoiceSummary, setStaffNames, parseBank, parseCardLike, readGrid, type Evidence, type LedgerRow } from '../lib/ledgerImport'
 import { LEDGER_CATEGORIES, LEDGER_TRANSFER_CATEGORIES, type LedgerEntry, type LedgerFile, type Payment } from '../lib/types'
@@ -172,9 +172,37 @@ export async function processLedgerFiles(api: ReturnType<typeof useApp>['api'], 
         await api.importTaxInvoiceSummaries(sums.map(x => ({ ...x, file_name: f.name })))
         const s0 = sums[0]
         note = s0 ? `${s0.direction} 합계표 ${s0.period_from}~${s0.period_to} · 거래처 ${sums.length}곳 · ${sums.reduce((n, x) => n + x.count, 0)}매 — 계산서 기준 탭에서 대조` : '합계표 기간을 찾지 못했습니다'
+      } else if (kind === '카드 청구 요약') {
+        // 건별 내역 없이 청구 금액만 있는 카드 명세서 PDF: 장부에는 넣지 않고 기록 + 장부에 들어간 그 카드 이용과 비교 (2026-11-12)
+        const [, company, total, payDate, from, to, account] = grid[0] as [string, string, number, string | null, string | null, string | null, string | null]
+        let have = ''
+        if (from && to) {
+          const used = (await api.listLedger(from, to)).filter(x => x.method === '카드' && (x.account ?? '').includes(company))
+          const sum = used.reduce((n, x) => n + (x.direction === '출금' ? x.amount : -x.amount), 0)
+          have = used.length ? ` · 장부에 든 ${company}카드 이용 ${used.length}건 ${sum.toLocaleString()}원 (차이 ${(Number(total) - sum).toLocaleString()}원)` : ` · 장부에 이 기간 ${company}카드 이용 기록 없음`
+        }
+        note = `${company}카드 청구 ${Number(total).toLocaleString()}원${payDate ? ` · 결제일 ${payDate}` : ''}${from ? ` · 이용기간 ${from}~${to}` : ''}${account ? ` · 결제계좌 ${account}` : ''}${have} — 건별 내역이 없는 요약 명세서입니다. 명세서의 '카드이용내역' 화면을 인쇄(PDF)하거나 카드사 엑셀을 올려 주세요`
       } else {
         note = '거래 내역(날짜 · 금액) 칸을 찾지 못했습니다 — 요약표 · 매입장 등은 건너뜁니다'
         res.errors.push(`${f.name}: ${note}`)
+      }
+      // PDF 카드 명세서: 같은 카드 결제가 엑셀로 이미 들어가 있으면(날짜 · 금액 · 카드 같음) 다시 넣지 않음 — 가맹점 이름 표기가 달라 중복 막기 번호가 다름
+      if (rows.length && /\.(pdf|html?|eml)$/i.test(name) && kind === '카드') {
+        const ds = rows.map(r => r.entry_date).sort()
+        const have = (await api.listLedger(ds[0], ds[ds.length - 1])).filter(x => x.method === '카드')
+        const refs = new Set(rows.map(r => r.source_ref))
+        const left = new Map<string, number>()
+        const key = (x: { entry_date: string; amount: number; direction: string; account?: string | null }) => `${x.entry_date}|${x.amount}|${x.direction}|${x.account ?? ''}`
+        for (const x of have) if (!x.source_ref || !refs.has(x.source_ref)) left.set(key(x), (left.get(key(x)) ?? 0) + 1)
+        const before = rows.length
+        rows = rows.filter(r => {
+          const n = left.get(key(r)) ?? 0
+          if (!n) return true
+          left.set(key(r), n - 1)
+          return false
+        })
+        if (before > rows.length) note = `이미 엑셀로 들어간 카드 결제 ${before - rows.length}건은 건너뜀`
+        res.skipped += before - rows.length
       }
       for (const r of rows) {
         if (r.entry_date < minDate) minDate = r.entry_date
@@ -273,17 +301,19 @@ export function LedgerFolder({ onExpired }: { onExpired: () => void }) {
         /* 깨진 zip 은 건너뜀 */
       }
     }
-    const list = [...all, ...unzipped].filter(f => SHEET_RE.test(f.name) && f.size > 0 && !f.name.startsWith('~$') && fileKind(f.name) === '장부 자료')
+    // PDF 는 직접 올리면 이름과 상관없이 읽어 봄 (카드 명세서 · 2026-11-12)
+    // 카드사 보안메일 명세서(.html · .eml)도 직접 올리면 비밀번호를 물어 읽음 (2026-11-12)
+    const list = [...all, ...unzipped].filter(f => f.size > 0 && !f.name.startsWith('~$') && fileKind(f.name) !== '개인 자료' && ((LEDGER_FILE_RE.test(f.name) && (fileKind(f.name) === '장부 자료' || fileKind(f.name) === 'PDF')) || SECURE_MAIL_RE.test(f.name)))
     const ignored = all.filter(f => !/\.zip$/i.test(f.name)).length + unzipped.length - list.length
     if (!list.length) {
-      if (all.length) toast(`엑셀(.xlsx · .xls) · CSV 파일이 없습니다${ignored ? ` (다른 파일 ${ignored}개는 건너뜀)` : ''}.`)
+      if (all.length) toast(`엑셀(.xlsx · .xls) · CSV · PDF · 카드 보안메일 파일이 없습니다${ignored ? ` (다른 파일 ${ignored}개는 건너뜀)` : ''}.`)
       return
     }
     setBusy('올린 파일 읽는 중')
     try {
       const inputs: LedgerInput[] = list.map(f => ({ id: `upload:${f.name}:${f.size}:${f.lastModified}`, name: f.name, modified: String(f.lastModified), load: async () => ({ data: await f.arrayBuffer(), name: f.name }) }))
       const r = await processLedgerFiles(api, inputs, s => setBusy(s))
-      setLast(ignored ? { ...r, errors: [...r.errors, `엑셀 · CSV 가 아닌 파일 ${ignored}개는 건너뛰었습니다`] } : r)
+      setLast(ignored ? { ...r, errors: [...r.errors, `엑셀 · CSV · PDF · 보안메일이 아닌 파일 ${ignored}개는 건너뛰었습니다`] } : r)
       toast(`${r.files}개 파일 · ${r.added}건 기입${r.skipped ? ` (이미 있던 ${r.skipped}건 건너뜀)` : ''} · 증빙 ${r.evidence}건 연결${r.review ? ` · 확인 필요 ${r.review}건` : ''}`)
       await load()
     } catch (e) {
@@ -299,7 +329,7 @@ export function LedgerFolder({ onExpired }: { onExpired: () => void }) {
       onDragLeave={() => setOver(false)}
       onDrop={e => { e.preventDefault(); setOver(false); void filesFromDrop(e.dataTransfer).then(upload, () => toast('폴더를 읽지 못했습니다.')) }}
     >
-      <input ref={fileInput} type="file" multiple hidden accept=".xls,.xlsx,.csv,.zip" onChange={e => { const fl = e.target.files ? [...e.target.files] : []; e.target.value = ''; void upload(fl) }} />
+      <input ref={fileInput} type="file" multiple hidden accept=".xls,.xlsx,.csv,.pdf,.html,.htm,.eml,.zip" onChange={e => { const fl = e.target.files ? [...e.target.files] : []; e.target.value = ''; void upload(fl) }} />
       <input ref={folderInput} type="file" multiple hidden {...({ webkitdirectory: '', directory: '' } as Record<string, string>)} onChange={e => { const fl = e.target.files ? [...e.target.files] : []; e.target.value = ''; void upload(fl) }} />
       <Button onClick={() => folderInput.current?.click()} disabled={!!busy}>
         <FolderPlus size={14} /> {busy ?? '폴더 전체 올리기'}
@@ -307,7 +337,7 @@ export function LedgerFolder({ onExpired }: { onExpired: () => void }) {
       <Button kind="outline" onClick={() => fileInput.current?.click()} disabled={!!busy}>
         <Upload size={14} /> 파일만 골라 올리기
       </Button>
-      <span className="t-cap">은행 거래내역(엑셀 · CSV) · 홈택스 세금계산서 목록 · 사업용 카드 · 현금영수증 엑셀을 여러 개 한 번에 고르거나, 폴더 전체를 올리거나, 여기로 끌어다 놓아도 됩니다(폴더 안 엑셀 · CSV 만 읽음). 같은 거래는 두 번 들어가지 않습니다.</span>
+      <span className="t-cap">은행 거래내역(엑셀 · CSV) · 홈택스 세금계산서 목록 · 사업용 카드 · 현금영수증 엑셀 · 카드 명세서 PDF · 카드사 보안메일(.html · .eml)을 여러 개 한 번에 고르거나, 폴더 전체를 올리거나, 여기로 끌어다 놓아도 됩니다(폴더 안 엑셀 · CSV · PDF · 보안메일만 읽음 · 보안메일은 비밀번호를 물어봄). 같은 거래는 두 번 들어가지 않습니다.</span>
     </div>
   )
   // 다른 계정의 폴더 쓰기 (대표 지시 2026-11-11 "폴더 위치를 다른 계정으로")
@@ -668,7 +698,7 @@ export function LedgerFolder({ onExpired }: { onExpired: () => void }) {
             // 처리 완료 · 미처리 구분 (대표 지시 2026-11-12 "처리완료한 파일과 미처리 파일을 구분해")
             const state = (f: LedgerFile): '미처리' | '참고 자료' | '반영 완료' | '같은 내용' => {
               if (REFERENCE_RE.test(f.name) || (f.note ?? '').includes('운행기록부')) return '참고 자료'
-              if (f.kind === '압축' || f.kind === '세금계산서' || f.kind === '현금영수증' || f.kind === '계산서 합계표') return '반영 완료'
+              if (f.kind === '압축' || f.kind === '세금계산서' || f.kind === '현금영수증' || f.kind === '계산서 합계표' || f.kind === '카드 청구 요약') return '반영 완료'
               if (f.kind === '알 수 없음' || f.rows === 0) return '미처리'
               return f.added > 0 ? '반영 완료' : '같은 내용'
             }
@@ -680,7 +710,7 @@ export function LedgerFolder({ onExpired }: { onExpired: () => void }) {
                     <tr key={f.drive_file_id}>
                       <td className="truncate">{f.name}</td>
                       <td>{f.kind}</td>
-                      <td className="t-cap">{why ? why(f) : f.kind === '계산서 합계표' && f.note ? f.note : `${f.rows}줄 · 새로 ${f.added}건${f.note ? ` · ${f.note}` : ''}`}</td>
+                      <td className="t-cap">{why ? why(f) : (f.kind === '계산서 합계표' || f.kind === '카드 청구 요약') && f.note ? f.note : `${f.rows}줄 · 새로 ${f.added}건${f.note ? ` · ${f.note}` : ''}`}</td>
                       <td className="t-cap mono">{f.processed_at.slice(0, 16).replace('T', ' ')}</td>
                     </tr>
                   ))}

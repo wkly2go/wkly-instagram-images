@@ -10,12 +10,14 @@
     "typecheck": "tsc -b",
     "test:marketing": "node --experimental-strip-types --test tests/ad-workspace.test.ts tests/marketing.test.ts tests/marketing-db.test.mjs",
     "test:efficiency": "node --experimental-strip-types --test tests/navigation-counts.test.ts tests/pending-reads.test.ts tests/signed-url-cache.test.ts tests/collaboration-polling.test.ts tests/upload-record.test.ts tests/storage-removal.test.ts tests/meeting-cleanup.test.mjs tests/supabase-storage-flow.test.mjs tests/egress-savings.test.mjs",
-    "test:sales": "node --experimental-strip-types --test tests/sales.test.ts tests/sales-db.test.mjs"
+    "test:sales": "node --experimental-strip-types --test tests/sales.test.ts tests/sales-db.test.mjs",
+    "test:growth": "node --experimental-strip-types --test tests/growth.test.ts tests/growth-db.test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.3",
     "fflate": "^0.8.2",
     "lucide-react": "^0.460.0",
+    "pdfjs-dist": "^4.10.38",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "xlsx": "^0.18.5"

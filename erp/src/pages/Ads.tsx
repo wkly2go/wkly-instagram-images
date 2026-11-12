@@ -1,3 +1,4 @@
+import { GrowthWorkspace } from '../components/GrowthWorkspace'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowRight, BarChart3, ChevronDown, ExternalLink, Images, LayoutDashboard, Loader2, Megaphone, RefreshCw, Search, TriangleAlert } from 'lucide-react'
 import { useApp, useAsync } from '../lib/app'
@@ -19,8 +20,9 @@ const num = (n: number) => Math.round(n).toLocaleString('ko-KR')
 const pct = (a: number, b: number) => (b ? `${((a / b) * 100).toFixed(2)}%` : '–')
 const shortNum = (n: number) => (n >= 10000 ? `${(n / 10000).toFixed(n >= 100000 ? 0 : 1)}만` : num(n))
 
-type Tab = 'summary' | 'studio' | 'platform' | 'charts' | 'daily-table' | 'creatives' | 'competitors' | 'overseas' | 'daily' | 'seo'
+type Tab = 'content' | 'summary' | 'studio' | 'platform' | 'charts' | 'daily-table' | 'creatives' | 'competitors' | 'overseas' | 'daily' | 'seo'
 const TABS: [Tab, string][] = [
+  ['content', '콘텐츠·배포'],
   ['summary', '대시보드'],
   ['studio', '캠페인 준비'],
   ['platform', '매체별 성과'],
@@ -33,6 +35,7 @@ const TABS: [Tab, string][] = [
   ['seo', '검색 노출 (SEO · AEO · GEO)'],
 ]
 const GROUPS = [
+  { label: '콘텐츠·배포', icon: Images, tabs: ['content'] as Tab[], description: '원본과 채널별 발행본을 광고와 함께 관리합니다.' },
   { label: '대시보드', icon: LayoutDashboard, tabs: ['summary'] as Tab[], description: '광고 현황과 확인할 일을 한눈에 살펴보세요.' },
   { label: '캠페인 준비', icon: Megaphone, tabs: ['studio'] as Tab[], description: '기획부터 소재 준비, 집행 전 확인까지 순서대로 진행하세요.' },
   { label: '성과·보고서', icon: BarChart3, tabs: ['platform', 'charts', 'daily-table', 'daily'] as Tab[], description: '매체별 성과와 추이를 비교하고, 보고서를 확인하세요.' },
@@ -94,7 +97,7 @@ export default function Ads() {
           {group.tabs.map(t => <button key={t} type="button" aria-current={tab === t ? 'page' : undefined} className={tab === t ? 'active' : ''} onClick={() => setTab(t)}>{TABS.find(([key]) => key === t)![1]}</button>)}
         </nav>}
         <section className="ads-content" aria-label={TABS.find(([key]) => key === tab)![1]}>
-          {tab === 'studio' ? <MarketingDesk /> : NUMBER_TABS.includes(tab) ? <NumbersWorkspace tab={tab} range={range} platform={platform} period={period} setRange={setRange} setPlatform={setPlatform} goTab={setTab} />
+          {tab === 'content' ? <GrowthWorkspace kind="content" /> : tab === 'studio' ? <MarketingDesk key={query.get('id')??'default'} initialCampaignId={query.get('id')??undefined} /> : NUMBER_TABS.includes(tab) ? <NumbersWorkspace tab={tab} range={range} platform={platform} period={period} setRange={setRange} setPlatform={setPlatform} goTab={setTab} />
             : tab === 'creatives' ? <CreativeWorkspace period={period} />
             : tab === 'seo' ? <SearchWorkspace />
             : <ReportWorkspace key={tab} kind={tab === 'competitors' ? '경쟁사 분석' : tab === 'overseas' ? '해외 사례' : '일일 보고'} />}

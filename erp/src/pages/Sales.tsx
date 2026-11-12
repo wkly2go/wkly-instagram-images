@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useApp, useAsync } from '../lib/app'
 import { friendlyError } from '../lib/api'
 import { todayKey } from '../lib/date'
-import { Link } from '../lib/router'
+import { Link, useRouter } from '../lib/router'
 import { SALES_COMPANIES, SALES_SOURCES, SALES_STAGES, canEditSales, needsFollowup, newSalesDraft, validateSales, type SalesDraft, type SalesFilter, type SalesOpportunity } from '../lib/sales'
 import { Button, Field, Modal } from '../components/ui'
 import { Shell } from '../components/Shell'
@@ -12,7 +12,8 @@ export default function Sales() {
   const { api, me, profileName, version } = useApp()
   const [filter, setFilter] = useState<SalesFilter>({ page: 0 })
   const [search, setSearch] = useState('')
-  const [selection, setSelection] = useState<string | null>(null)
+  const { query } = useRouter()
+  const [selection, setSelection] = useState<string | null>(query.get('id'))
   const [adding, setAdding] = useState(false)
   useEffect(() => {
     const t = window.setTimeout(() => setFilter(f => f.search === search ? f : ({ ...f, page: 0, search })), 350)
@@ -21,7 +22,7 @@ export default function Sales() {
   const { data, loading, error, reload } = useAsync(() => api.listSales(filter), [filter, version], { items: [], hasMore: false })
   const change = (p: Partial<SalesFilter>) => setFilter(f => ({ ...f, ...p, page: 0 }))
   return <Shell active="sales"><div className="sales-page">
-    <div className="sales-header"><div className="sales-heading"><h1 className="t-title">영업·수주</h1><p className="t-small">거래처별 기회와 다음 행동을 관리합니다.</p></div><Link to="/clients" className="btn btn-outline">거래처·담당자</Link><Button onClick={() => setAdding(true)}>+ 영업 기회</Button></div>
+    <div className="sales-header"><div className="sales-heading"><h1 className="t-title">영업·수주</h1><p className="t-small">거래처별 기회와 다음 행동을 관리합니다.</p></div><a href="/manual/growth.html#sales" target="_blank" rel="noreferrer" className="btn btn-outline">화면 사용설명</a><Link to="/clients" className="btn btn-outline">거래처·담당자</Link><Button onClick={() => setAdding(true)}>+ 영업 기회</Button></div>
     {api.mode === 'demo' && <p className="sales-notice">체험 모드 · 이 브라우저에만 저장됩니다. 실제 회사 자료와 분리됩니다.</p>}
     <div className="sales-filters">
       <Field label="영업 건 검색"><input className="input" value={search} onChange={e => setSearch(e.target.value)} placeholder="영업 건 이름" /></Field>

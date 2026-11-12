@@ -11,6 +11,12 @@ export const SHEET_MIME = 'application/vnd.google-apps.spreadsheet'
 /** 개인 자료라 열지 않는 폴더 · 파일 이름 */
 export const PRIVATE_RE = /연말정산|근로계약|고용계약|채용|주민등록|등본|개인정보|주주명부|인사기록|급여명세|원천징수영수증|신분증|가족관계/
 export const SHEET_RE = /\.(xlsx|xls|csv)$/i
+/** 장부에 읽어 넣는 파일: 엑셀 · CSV + PDF 카드 명세서 (2026-11-12) */
+export const LEDGER_FILE_RE = /\.(xlsx|xls|csv|pdf)$/i
+/** 직접 올리기에서만 읽는 카드사 보안메일 명세서 (비밀번호를 물어야 해서 드라이브 자동 읽기는 안 함) */
+export const SECURE_MAIL_RE = /\.(html?|eml)$/i
+/** 드라이브 폴더에서 자동으로 읽을 PDF: 이름이 카드 · 은행 명세서처럼 보이는 것만 (계산서 · 견적서 PDF 는 안 읽음) */
+export const PDF_STATEMENT_RE = /카드|명세|이용\s*내역|이용\s*대금|거래\s*내역|입출금|statement/i
 export const REFERENCE_RE = /운행기록부|경조사|매입장|매출장|잔액\s*확인|확인요망|확인건|청구내역|재무제표|결산서|급여대장|연구인력/
 
 export type FileKind = '장부 자료' | '참고 자료' | '압축' | 'PDF' | '이미지' | '문서' | '프로그램' | '개인 자료' | '기타'
@@ -20,6 +26,7 @@ export function fileKind(name: string, mime = ''): FileKind {
   if ((mime === SHEET_MIME || SHEET_RE.test(name)) && REFERENCE_RE.test(name)) return '참고 자료'
   if (mime === SHEET_MIME || SHEET_RE.test(name)) return '장부 자료'
   if (/\.zip$/i.test(name) || mime === 'application/zip') return '압축'
+  if ((/\.pdf$/i.test(name) || mime === 'application/pdf') && PDF_STATEMENT_RE.test(name) && !REFERENCE_RE.test(name)) return '장부 자료'
   if (/\.pdf$/i.test(name) || mime === 'application/pdf') return 'PDF'
   if (/\.(png|jpe?g|gif|heic|webp|bmp)$/i.test(name) || mime.startsWith('image/')) return '이미지'
   if (/\.(hwp|hwpx|docx?|pptx?|txt|md)$/i.test(name) || mime.startsWith('application/vnd.google-apps.')) return '문서'
@@ -64,7 +71,7 @@ export async function scanDriveFolder(token: string, rootIds: string[], maxDepth
 export async function sheetsInZip(data: ArrayBuffer): Promise<{ name: string; data: ArrayBuffer }[]> {
   const { unzipSync } = await import('fflate')
   const out: { name: string; data: ArrayBuffer }[] = []
-  const entries = unzipSync(new Uint8Array(data), { filter: f => SHEET_RE.test(f.name) && !/(^|\/)__MACOSX\//.test(f.name) })
+  const entries = unzipSync(new Uint8Array(data), { filter: f => LEDGER_FILE_RE.test(f.name) && !/(^|\/)__MACOSX\//.test(f.name) })
   for (const [raw, bytes] of Object.entries(entries)) {
     const name = zipName(raw)
     if (!bytes.length || PRIVATE_RE.test(name) || REFERENCE_RE.test(name)) continue
