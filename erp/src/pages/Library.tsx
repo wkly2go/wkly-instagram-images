@@ -32,7 +32,10 @@ type Tab = 'research' | 'reports' | 'contacts' | 'templates' | 'agents'
 export default function Library() {
   const { query, path, navigate } = useRouter()
   const tab = (query.get('tab') as Tab | null) ?? 'research'
-  const go = (t: Tab) => navigate(withQuery(path, new URLSearchParams(), { tab: t === 'research' ? null : t }), { replace: true })
+  const go = (t: Tab) => {
+    if (t === 'reports') navigate('/report-templates')
+    else navigate(withQuery(path, new URLSearchParams(), { tab: t === 'research' ? null : t }), { replace: true })
+  }
   // 자료실은 '보고서 결제' 탭 안으로 (대표 지시 2026-10-22 "자료실을 보고서 결제에 포함")
   const tabs = (
     <div className="chips one-line" role="tablist" aria-label="자료실 메뉴">
