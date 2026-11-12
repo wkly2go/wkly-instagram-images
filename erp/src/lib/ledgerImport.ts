@@ -256,7 +256,10 @@ const RULES: { re: RegExp; dir?: LedgerDirection; cat: string; transfer?: boolea
   // 카드사 리스 · 렌트료는 카드대금이 아니라 비용 (2026-11-11 대사에서 확인)
   { re: /카드\s*(리스|렌트)/, dir: '출금', cat: '임대료' },
   { re: /(국민|신한|삼성|현대|롯데|하나|우리|비씨|BC|NH|농협|KB)\s*카드|카드대금|카드결제/, dir: '출금', cat: '카드대금', transfer: true },
-  { re: /더위클리|아트리어|본인|자기앞|계좌이동|대체/, cat: '내 통장 이체', transfer: true },
+  // 우리 회사(아트리어) 통장끼리 옮긴 돈. 더위클리컴퍼니는 세금계산서를 받는 거래처라 매출 (2026-11-12 대사: 계산서 8억 3천 = 입금 순액)
+  // 신탁사가 대신 보낸 돈(받는 이름에 우리 회사가 찍힘)은 이체가 아님
+  { re: /^(?!.*신탁)(?=.*(아트리어|본인|자기앞|계좌이동|대체))/, cat: '내 통장 이체', transfer: true },
+  { re: /더위클리컴퍼니|신탁/, dir: '입금', cat: '매출 · 용역' }, // 가민 프로젝트 거래처 · 신탁사 대리 입금
   // 대표가 직접 정한 가게 (2026-11-11)
   { re: /프리웨이파켓/, dir: '출금', cat: '교통 · 운반' },
   { re: /바이브컴퍼니/, dir: '출금', cat: '구독 · 소프트웨어' },
@@ -487,20 +490,36 @@ export async function parseCardLike(grid: Grid, hi: number, kind: '카드' | '�
 export function attachEvidence(rows: { id?: number; entry_date: string; direction: LedgerDirection; amount: number; counterparty: string | null; memo: string | null; evidence?: string | null }[], ev: Evidence[]) {
   const used = new Set<number>()
   const out: { index: number; ev: Evidence }[] = []
-  for (const e of ev) {
-    const d0 = Date.parse(e.date)
-    let best = -1
-    rows.forEach((r, i) => {
-      if (used.has(i) || r.evidence || r.direction !== e.direction || r.amount !== e.total) return
-      const gap = Math.abs(Date.parse(r.entry_date) - d0)
-      if (gap > 45 * 864e5) return
-      const name = clean(`${r.counterparty ?? ''}${r.memo ?? ''}`)
-      const p = clean(e.partner).slice(0, 4)
-      if (best < 0 || (p && name.includes(p))) best = i
-    })
-    if (best >= 0) {
-      used.add(best)
-      out.push({ index: best, ev: e })
+  const hit = (r: (typeof rows)[number], e: Evidence) => {
+    const p = clean(e.partner.replace(/\(.*?\)/g, '')).slice(0, 4)
+    return !!p && clean(`${r.counterparty ?? ''}${r.memo ?? ''}`).includes(p)
+  }
+  // 이름이 맞는 짝을 모두 먼저 정한 뒤(1차), 금액만 맞는 짝은 개인 사업자(대표 이름) · 신탁사 대리 입금만 7일 안에서(2차)
+  // — 2026-11-12 대사: 금액만 보고 붙이면 다른 업체 · 팀원 급여에 잘못 붙음
+  for (const pass of [1, 2]) {
+    for (const e of ev) {
+      if (out.some(o => o.ev === e)) continue
+      const d0 = Date.parse(e.date)
+      let best = -1
+      let bestGap = Infinity
+      rows.forEach((r, i) => {
+        if (used.has(i) || r.evidence || r.direction !== e.direction || r.amount !== e.total) return
+        const gap = Math.abs(Date.parse(r.entry_date) - d0)
+        if (pass === 1 ? gap > 45 * 864e5 || !hit(r, e) : gap > 7 * 864e5) return
+        if (pass === 2) {
+          const who = (r.counterparty ?? '').trim()
+          const ok = e.kind !== '세금계산서' || (e.direction === '출금' ? /^[가-힣]{2,4}([（(].*)?$/.test(who) && !STAFF.has(who) : /신탁/.test(`${who}${r.memo ?? ''}`))
+          if (!ok) return
+        }
+        if (gap < bestGap) {
+          best = i
+          bestGap = gap
+        }
+      })
+      if (best >= 0) {
+        used.add(best)
+        out.push({ index: best, ev: e })
+      }
     }
   }
   return out

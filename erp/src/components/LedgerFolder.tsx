@@ -168,6 +168,14 @@ export async function processLedgerFiles(api: ReturnType<typeof useApp>['api'], 
       res.errors.push(`${f.name}: ${msg}`)
     }
   }
+  // 통장 내역을 새로 넣었으면 예전에 올린 세금계산서도 다시 맞춰 봄 (계산서를 먼저 올리고 통장을 나중에 올린 경우 — 2026-11-12)
+  if (res.added && minDate <= maxDate) {
+    const d = (s: string, n: number) => new Date(Date.parse(s) + n * 864e5).toISOString().slice(0, 10)
+    const known = new Set(evidence.map(e => e.ref))
+    for (const t of await api.listTaxInvoices().catch(() => []))
+      if (t.write_date >= d(minDate, -45) && t.write_date <= d(maxDate, 45) && !known.has(t.approval_no) && t.total)
+        evidence.push({ date: t.write_date, direction: t.direction === '매입' ? '출금' : '입금', total: Math.abs(t.total), supply: Math.abs(t.supply), vat: Math.abs(t.vat), partner: t.partner_name ?? '', kind: '세금계산서', ref: t.approval_no })
+  }
   // 증빙(세금계산서 · 현금영수증)을 은행 줄에 붙이기
   if (evidence.length) {
     onStep?.('증빙 맞추는 중')
@@ -176,7 +184,10 @@ export async function processLedgerFiles(api: ReturnType<typeof useApp>['api'], 
     const d = (s: string, n: number) => new Date(Date.parse(s) + n * 864e5).toISOString().slice(0, 10)
     const list = await api.listLedger(d(from, -60), d(to, 60))
     const target = list.filter(r => !r.evidence && !r.is_transfer)
-    for (const m of attachEvidence(target, evidence)) {
+    // 이미 어느 줄에 붙은 계산서는 다시 붙이지 않음 (같은 금액 · 45일 안에 증빙 붙은 줄이 있으면 붙은 것으로 봄)
+    const attached = list.filter(r => r.evidence === '세금계산서')
+    const fresh = evidence.filter(e => e.kind !== '세금계산서' || !attached.some(r => r.direction === e.direction && r.amount === e.total && Math.abs(Date.parse(r.entry_date) - Date.parse(e.date)) <= 45 * 864e5))
+    for (const m of attachEvidence(target, fresh)) {
       const r = target[m.index]
       await api.saveLedger({ id: r.id, supply: m.ev.supply, vat: m.ev.vat, evidence: m.ev.kind } as Partial<LedgerEntry> as LedgerEntry)
       res.evidence++
