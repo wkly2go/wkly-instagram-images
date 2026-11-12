@@ -1,3 +1,4 @@
+import { useResearchBodyMatches } from '../lib/researchSearch'
 import { useMemo, useState } from 'react'
 import { Linkify } from '../components/ui'
 import { TextLinks } from '../components/ui'
@@ -7,7 +8,7 @@ import { manwon, shortDate, todayKey } from '../lib/date'
 import { isOverdue, sameName, vendorSummary } from '../lib/finance'
 import { openGmail, telUrl } from '../lib/links'
 import { Link, useRouter, withQuery } from '../lib/router'
-import { CLIENT_CATEGORIES, type Client, type ClientCategory, type Contact, type ExchangeFile, type Payment, type Project, type ResearchItem, type WorkLog } from '../lib/types'
+import { CLIENT_CATEGORIES, type Client, type ClientCategory, type Contact, type ExchangeFile, type Payment, type Project, type ResearchItem, type ResearchSummary, type WorkLog } from '../lib/types'
 import { REPORT_KIND, ReportBody, ReportForm, clientCatLabel } from '../components/Reports'
 import { ContactProjectsSection, ContactTimeline, ExchangeFilesSection } from '../components/ContactHistory'
 import { Shell } from '../components/Shell'
@@ -19,17 +20,18 @@ export default function Clients() {
   const { api, version } = useApp()
   const { query, path, navigate } = useRouter()
   const [q, setQ] = useState('')
+  const bodySearch = useResearchBodyMatches(q)
   const [cat, setCat] = useState<ClientCategory | null>(null)
   const [editing, setEditing] = useState<Client | 'new' | null>(null)
   const { data: clients, loading } = useAsync(() => api.listClients(), [version], [] as Client[])
   // 검색: 거래처 정보 + 담당자(이름·메일·연락처) + 리서치 보고서 내용
   const { data: extra } = useAsync(
     async () => {
-      const [contacts, research] = await Promise.all([api.listContacts().catch(() => [] as Contact[]), api.listResearch().catch(() => [] as ResearchItem[])])
+      const [contacts, research] = await Promise.all([api.listContacts().catch(() => [] as Contact[]), api.listResearch().catch(() => [] as ResearchSummary[])])
       return { contacts, reports: research.filter(r => r.kind === REPORT_KIND && r.client_id) }
     },
     [version],
-    { contacts: [] as Contact[], reports: [] as ResearchItem[] },
+    { contacts: [] as Contact[], reports: [] as ResearchSummary[] },
   )
   const selectedId = query.get('id')
   const selected = clients.find(c => c.id === selectedId) ?? null
@@ -38,13 +40,13 @@ export default function Clients() {
     const add = (id: string, ...v: (string | null | undefined)[]) => m.set(id, `${m.get(id) ?? ''} ${v.filter(Boolean).join(' ')}`)
     for (const c of clients) add(c.id, c.name, c.memo, c.email, c.phone, c.website, c.business_no, c.address)
     for (const x of extra.contacts) add(x.client_id, x.name, x.title, x.email, x.phone, x.memo)
-    for (const r of extra.reports) add(r.client_id!, r.title, r.summary, r.tags.join(' '), r.body)
+    for (const r of extra.reports) add(r.client_id!, r.title, r.summary, r.tags.join(' '))
     for (const [k, v] of m) m.set(k, v.toLowerCase())
     return m
   }, [clients, extra])
   const reported = useMemo(() => new Set(extra.reports.map(r => r.client_id)), [extra.reports])
   const words = q.trim().toLowerCase().split(/\s+/).filter(Boolean)
-  const list = clients.filter(c => (!cat || c.category === cat) && (!words.length || words.every(w => haystack.get(c.id)?.includes(w))))
+  const list = clients.filter(c => (!cat || c.category === cat) && (!words.length || words.every(w => haystack.get(c.id)?.includes(w) || bodySearch.matches.some(m => m.word === w && m.client_id === c.id && extra.reports.some(r => r.id === m.id)))))
   const go = (id: string | null) => navigate(withQuery(path, query, { id, view: null, pid: null }), { replace: true })
   const people = query.get('view') === 'people'
   const setView = (v: 'people' | null) => navigate(withQuery(path, query, { view: v, pid: null }), { replace: true })
@@ -155,7 +157,7 @@ export function ClientDetail({ client: c, clients, onEdit, onBack }: { client: C
       return { contacts, logs, projects: projects.filter(p => p.client_id === c.id), allProjects: projects, reports: research.filter(r => r.client_id === c.id) }
     },
     [c.id, version],
-    { contacts: [] as Contact[], logs: [] as WorkLog[], projects: [] as Project[], allProjects: [] as Project[], reports: [] as ResearchItem[] },
+    { contacts: [] as Contact[], logs: [] as WorkLog[], projects: [] as Project[], allProjects: [] as Project[], reports: [] as ResearchSummary[] },
   )
   const setPrimary = async (contacts: Contact[], id: string) => {
     await Promise.all(contacts.filter(o => o.is_primary && o.id !== id).map(o => api.saveContact({ id: o.id, is_primary: false })))
@@ -285,13 +287,19 @@ export function ClientDetail({ client: c, clients, onEdit, onBack }: { client: C
 }
 
 /** 거래처 리서치 보고서: 최신 보고서는 펼쳐서, 이전 것은 목록으로 */
-function ClientReports({ reports, onWrite, onEdit }: { reports: ResearchItem[]; onWrite: () => void; onEdit: (r: ResearchItem) => void }) {
+function ClientReportBody({ id, onEdit }: { id: string; onEdit: (r: ResearchItem) => void }) {
+  const { api, version } = useApp()
+  const { data, loading, error, reload } = useAsync(() => api.getResearch(id), [id, version], null as ResearchItem | null)
+  if (!data) return <span className="t-cap">{loading ? '본문 불러오는 중…' : error || '자료를 찾을 수 없습니다.'}{error && <Button onClick={reload}>다시 시도</Button>}</span>
+  return <>{data.summary && <div className="note pre">{data.summary}</div>}{data.body && <ReportBody body={data.body} />}<div className="row"><Link to={`/library?id=${id}`} className="btn btn-outline btn-sm">자료실에서 보기</Link><Button kind="ghost" size="sm" onClick={() => onEdit(data)}>고치기</Button></div></>
+}
+
+function ClientReports({ reports, onWrite, onEdit }: { reports: ResearchSummary[]; onWrite: () => void; onEdit: (r: ResearchItem) => void }) {
   const { profileName, profileOf } = useApp()
   const list = reports.filter(r => r.kind === REPORT_KIND).sort((a, b) => b.created_at.localeCompare(a.created_at))
   const others = reports.filter(r => r.kind !== REPORT_KIND)
-  // 처음에는 최신 보고서를 펼침 (undefined = 자동)
-  const [picked, setOpen] = useState<string | null | undefined>(undefined)
-  const open = picked === undefined ? list[0]?.id ?? null : picked
+  // 본문은 보고서를 펼칠 때만 조회한다.
+  const [open, setOpen] = useState<string | null>(null)
   return (
     <div className="col gap-6">
       <SectionHead
@@ -313,20 +321,7 @@ function ClientReports({ reports, onWrite, onEdit }: { reports: ResearchItem[]; 
               {r.shared_to ? ` · ${profileName(r.shared_to)}님께 보고` : ''}
             </span>
           </button>
-          {open === r.id && (
-            <>
-              {r.summary && <div className="note pre">{r.summary}</div>}
-              {r.body && <ReportBody body={r.body} />}
-              <div className="row" style={{ gap: 6 }}>
-                <Link to={`/library?id=${r.id}`} className="btn btn-outline btn-sm">
-                  자료실에서 보기
-                </Link>
-                <Button kind="ghost" size="sm" onClick={() => onEdit(r)}>
-                  고치기
-                </Button>
-              </div>
-            </>
-          )}
+          {open === r.id && <ClientReportBody key={r.id} id={r.id} onEdit={onEdit} />}
         </div>
       ))}
       {others.length > 0 && (

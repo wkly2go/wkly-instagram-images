@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { Bot, Briefcase, Building2, FileText, FolderKanban, Globe, Hash, HardDrive, ListTodo, Search, User, LayoutGrid } from 'lucide-react'
 import { useApp } from '../lib/app'
 import { useRouter } from '../lib/router'
-import type { AgentInstruction, ChatRoomSummary, Client, Contact, DriveIndexFile, Project, ResearchItem, Task } from '../lib/types'
+import type { AgentInstruction, ChatRoomSummary, Client, Contact, DriveIndexFile, Project, ResearchSummary, Task } from '../lib/types'
 import { useOpenDoc } from './DriveFiles'
 import { TABS } from './Shell'
 import { useMyAgents } from './AgentDesk'
@@ -52,7 +52,7 @@ export function CommandPalette() {
   const [open, setOpen] = useState(false)
   const [q, setQ] = useState('')
   const [sel, setSel] = useState(0)
-  const [data, setData] = useState<{ projects: Project[]; clients: Client[]; contacts: Contact[]; rooms: ChatRoomSummary[]; tasks: Task[]; research: ResearchItem[]; drive: DriveIndexFile[] } | null>(null)
+  const [data, setData] = useState<{ projects: Project[]; clients: Client[]; contacts: Contact[]; rooms: ChatRoomSummary[]; tasks: Task[]; research: ResearchSummary[]; drive: DriveIndexFile[] } | null>(null)
   const input = useRef<HTMLInputElement>(null)
   // 검색창 안 AI 답변: 보낸 지시 id → 답이 오면 그 자리에서 보여 줌
   const [ai, setAi] = useState<{ id: string | null; name: string; text: string; row?: AgentInstruction; error?: string } | null>(null)

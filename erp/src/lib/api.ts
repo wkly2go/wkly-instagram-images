@@ -1,3 +1,4 @@
+import type { ApprovalSummary, ResearchSummary, ResearchBodyMatch } from './types'
 import type { MarketingCampaign, MarketingAsset } from './marketing'
 import type { NavigationCounts } from './navigationCounts'
 import { UploadRecordResolutionError } from './uploadRecord'
@@ -241,6 +242,7 @@ export interface Api {
   /** 사진 · 파일 보내기 (한 파일 20MB 까지). caption 이 없으면 '📎 파일 이름' */
   sendFile(roomId: string, file: File, caption?: string): Promise<ChatMessage>
   /** 첨부 파일을 열 수 있는 주소 (1시간 유효). download 면 원래 이름으로 내려받기 */
+  filePreviewUrl(att: ChatAttachment, refresh?: boolean): Promise<string | null>
   fileUrl(att: ChatAttachment, download?: boolean, refresh?: boolean): Promise<string>
   deleteMessage(id: number): Promise<void>
   /** 내 메시지 고치기 (고친 시각 edited_at 이 남음) */
@@ -269,7 +271,8 @@ export interface Api {
   subscribeAgentDrafts(roomId: string, cb: (d: AgentDraft) => void): () => void
 
   // 승인
-  listApprovals(): Promise<Approval[]>
+  listApprovals(): Promise<ApprovalSummary[]>
+  getApproval(id: string): Promise<Approval | null>
   createApproval(a: Draft<Approval>): Promise<Approval>
   decideApproval(id: string, status: Extract<ApprovalStatus, '승인' | '반려'>, comment?: string): Promise<void>
   cancelApproval(id: string): Promise<void>
@@ -340,6 +343,7 @@ export interface Api {
   /** 현장 사진 올리기 (휴대폰 카메라 · 앨범). url 은 드라이브 저장 작업용 30일 서명 링크 */
   uploadSitePhoto(projectId: string, file: File): Promise<{ path: string; url: string }>
   /** 화면에 보일 사진 링크 (1시간) */
+  sitePhotoPreviewUrl(path: string, refresh?: boolean): Promise<string | null>
   sitePhotoUrl(path: string, refresh?: boolean): Promise<string>
   listPayments(filter?: { projectId?: string; clientId?: string }): Promise<Payment[]>
   /** 자재 입출고 (프로젝트별) — 입고 · 반품은 지급 결제가 자동으로 생김 */
@@ -388,7 +392,9 @@ export interface Api {
   revokeAgentToken(id: string): Promise<void>
 
   // 자료실
-  listResearch(): Promise<ResearchItem[]>
+  listResearch(): Promise<ResearchSummary[]>
+  getResearch(id: string): Promise<ResearchItem | null>
+  findResearchBodies(words: string[]): Promise<ResearchBodyMatch[]>
   // Claude AI 에이전트 (관리자)
   listAgentJobs(): Promise<AgentJob[]>
   listAgentReports(from: string, to: string): Promise<AgentReport[]>

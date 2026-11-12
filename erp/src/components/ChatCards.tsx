@@ -4,14 +4,14 @@ import { useApp, useAsync } from '../lib/app'
 import { friendlyError } from '../lib/api'
 import { addDays, dateLabel, todayKey } from '../lib/date'
 import { useRouter } from '../lib/router'
-import type { Approval, ChatCard, Task } from '../lib/types'
+import type { ApprovalSummary, ChatCard, Task } from '../lib/types'
 import { useOpenDoc } from './DriveFiles'
 
 /**
  * 대화 속 카드 (2026-10-23 "손에 붙게"): 할 일 · 결재 · 파일이 대화에 올라오고, 카드 버튼으로 바로 처리
  *  - 지금 상태(완료 · 승인 등)는 방을 열 때 한 번 불러온 목록에서 보여 줌
  */
-type CardData = { tasks: Task[]; approvals: Approval[]; reload: () => void }
+type CardData = { tasks: Task[]; approvals: ApprovalSummary[]; reload: () => void }
 const Ctx = createContext<CardData | null>(null)
 
 export function CardDataProvider({ children }: { children: ReactNode }) {
@@ -22,7 +22,7 @@ export function CardDataProvider({ children }: { children: ReactNode }) {
       return { tasks, approvals }
     },
     [version],
-    { tasks: [] as Task[], approvals: [] as Approval[] },
+    { tasks: [] as Task[], approvals: [] as ApprovalSummary[] },
   )
   return <Ctx.Provider value={{ ...data, reload }}>{children}</Ctx.Provider>
 }
@@ -93,7 +93,7 @@ function TaskCard({ card, task, reload }: { card: ChatCard; task?: Task; reload?
   )
 }
 
-function ApprovalCard({ card, a, reload }: { card: ChatCard; a?: Approval; reload?: () => void }) {
+function ApprovalCard({ card, a, reload }: { card: ChatCard; a?: ApprovalSummary; reload?: () => void }) {
   const { api, me, profileName, toast, bump } = useApp()
   const { navigate } = useRouter()
   const decide = async (status: '승인' | '반려') => {

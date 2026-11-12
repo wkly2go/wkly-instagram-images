@@ -3,21 +3,21 @@ import { CheckSquare, ChevronDown, ChevronRight, Folder, Pencil, Plus, Square } 
 import { useAction, useApp, useAsync } from '../lib/app'
 import { addDays, shortDate, todayKey } from '../lib/date'
 import { Link } from '../lib/router'
-import type { Approval, Client, Project, Task } from '../lib/types'
+import type { ApprovalSummary, Client, Project, Task } from '../lib/types'
 import { guessLinks, SearchPick } from './LogForm'
 import { Badge, Empty, Linkify } from './ui'
 
 export const REPORT_KIND = '업무 보고'
-export const reportDate = (a: Approval) => (typeof a.payload?.date === 'string' ? a.payload.date : a.created_at.slice(0, 10))
+export const reportDate = (a: ApprovalSummary) => (typeof a.report_date === 'string' ? a.report_date : a.created_at.slice(0, 10))
 
 /** 업무 보고 목록 (내가 올린 것 + 내가 승인할 것) */
 export function useWorkReports() {
   const { api, version } = useApp()
-  return useAsync(async () => (await api.listApprovals()).filter(a => a.kind === REPORT_KIND), [version], [] as Approval[])
+  return useAsync(async () => (await api.listApprovals()).filter(a => a.kind === REPORT_KIND), [version], [] as ApprovalSummary[])
 }
 
 /** 업무 보고 승인 체크박스: 승인할 수 있는 사람만 누름. 승인되면 할 일 목록에서 빠짐 */
-export function ReportCheck({ a }: { a: Approval }) {
+export function ReportCheck({ a }: { a: ApprovalSummary }) {
   const { api, profileName } = useApp()
   const { busy, run } = useAction()
   const done = a.status === '승인'
@@ -38,7 +38,7 @@ export function ReportCheck({ a }: { a: Approval }) {
 }
 
 /** 미승인 업무 보고: 내가 승인할 것 + 내가 올리고 아직 승인 안 된 것 */
-export function PendingReports({ reports, title = '미승인 업무 보고', userId }: { reports: Approval[]; title?: string; userId?: string | null }) {
+export function PendingReports({ reports, title = '미승인 업무 보고', userId }: { reports: ApprovalSummary[]; title?: string; userId?: string | null }) {
   const { me, profileName } = useApp()
   // userId: 그 사람의 보고만 (업무 화면 왼쪽에서 고른 팀원과 연동), 없으면 내가 볼 수 있는 전체
   const list = reports.filter(a => a.status === '대기' && (a.can_decide || a.requested_by === me.id) && (!userId || a.requested_by === userId)).sort((a, b) => reportDate(a).localeCompare(reportDate(b)))
