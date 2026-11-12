@@ -23,7 +23,7 @@ before(async () => {
     insert into public.projects values('${PROJECT}','${CLIENT}','TW');
     grant usage on schema auth,public to authenticated,anon;
   `)
-  await db.exec(await readFile(new URL('../supabase/migrations/0112_sales_pipeline.sql', import.meta.url), 'utf8'))
+  await db.exec(await readFile(new URL('../supabase/migrations/0113_sales_pipeline.sql', import.meta.url), 'utf8'))
 })
 after(async () => { await db.close() })
 async function asUser(id, fn, role = 'authenticated') {

@@ -3,7 +3,7 @@ import { useAction, useApp, useAsync } from '../lib/app'
 import { shortDate, timeLabel, todayKey } from '../lib/date'
 import { Link } from '../lib/router'
 import type { Client, Contact, ExchangeFile, Project, ProjectContact, ProjectMember, WorkLog } from '../lib/types'
-import { Badge, Button, Chip, Field, KindBadge, SectionHead } from './ui'
+import { Badge, Button, Chip, Field, KindBadge, SectionHead, Linkify } from './ui'
 import { Board, type BoardCol } from './Board'
 import { openLink } from './WebSearch'
 import { canView, FileViewer } from './FileViewer'
@@ -30,7 +30,7 @@ export function ContactTimeline({ logs, projects, showContact, contacts }: { log
       cell: l => (
         <>
           {l.email_subject && <span className="t-smallb">{l.email_subject}</span>}
-          <span className={`cell-pre t-small t-blue${l.email_subject ? ' cell-sub' : ''}`}>{l.content}</span>
+          <span className={`cell-pre t-small t-blue${l.email_subject ? ' cell-sub' : ''}`}><Linkify text={l.content} /></span>
         </>
       ),
     },

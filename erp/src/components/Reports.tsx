@@ -4,7 +4,7 @@ import { todayKey } from '../lib/date'
 import { defaultTemplate, fillReport } from '../lib/reports'
 import { CLIENT_CATEGORIES, type Client, type Draft, type ReportTemplate, type ResearchItem } from '../lib/types'
 import { SearchPick } from './LogForm'
-import { Badge, Button, Empty, Field, Modal } from './ui'
+import { Badge, Button, Empty, Field, Linkify, Modal } from './ui'
 import { ask } from './Ask'
 
 export const REPORT_KIND = '거래처 리포트'
@@ -53,7 +53,7 @@ export function ReportBody({ body }: { body: string }) {
     if (h) {
       flush()
       // '# 제목' 은 화면 위 제목과 같아서 생략
-      if (h[1].length > 1) out.push(<h3 key={out.length} className="report-h">{h[2]}</h3>)
+      if (h[1].length > 1) out.push(<h3 key={out.length} className="report-h">{linkify(h[2])}</h3>)
     } else if (li) {
       if (kv.length) flush()
       if (li[1].trim()) list.push(li[1])
@@ -73,18 +73,7 @@ export function ReportBody({ body }: { body: string }) {
   return <div className="col gap-6 report">{out}</div>
 }
 
-function linkify(text: string): ReactNode {
-  const parts = text.split(/(https?:\/\/[^\s)]+)/g)
-  return parts.map((p, i) =>
-    /^https?:\/\//.test(p) ? (
-      <a key={i} href={p} target="_blank" rel="noreferrer noopener">
-        {p.replace(/^https?:\/\//, '').slice(0, 60)}
-      </a>
-    ) : (
-      p
-    ),
-  )
-}
+const linkify = (text: string): ReactNode => <Linkify text={text} />
 
 /** 거래처 리서치 보고서 쓰기 · 고치기 (공통 양식으로 시작) */
 export function ReportForm({ item, clients, presetClient, onClose, onSaved }: { item: ResearchItem | null; clients: Client[]; presetClient?: string | null; onClose: () => void; onSaved?: (id: string) => void }) {

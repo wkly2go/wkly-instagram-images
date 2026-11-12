@@ -26,7 +26,18 @@ export function createSupabaseGrowthApi(sb: SupabaseClient): GrowthApi {
     async getAiState(){const results=await Promise.all([sb.from('growth_ai_models').select('*').order('key'),sb.from('growth_ai_budgets').select('*').order('starts_at',{ascending:false}).limit(5),sb.from('growth_ai_usage').select('id,task,status,reserved_usd,actual_usd,created_at').order('created_at',{ascending:false}).limit(100)]);results.forEach(r=>fail(r.error));return {models:results[0].data??[],budgets:results[1].data??[],usage:results[2].data??[]} as AiState},
     async reconcileAi(id,actual,note){const r=await sb.rpc('growth_ai_reconcile',{p_id:id,p_actual:actual,p_note:note});fail(r.error)},
     async configureAi(budget,models){const r=await sb.rpc('growth_ai_configure',{p_budget:budget,p_models:models});fail(r.error)},
-    async runGrowthAi(request){const {data,error}=await sb.functions.invoke('growth-ai',{body:request});if(error)throw new ApiError('AI 실행 결과를 확인하지 못했습니다. 사용 이력에서 상태를 확인하고 같은 요청으로 다시 확인해 주세요.');if(data?.error)throw new ApiError(data.error);return data},
+    async runGrowthAi(request){
+      const {data,error}=await sb.functions.invoke('growth-ai',{body:request})
+      if(error){
+        let message='AI 실행 결과를 확인하지 못했습니다. 사용 이력에서 상태를 확인하고 같은 요청으로 다시 확인해 주세요.'
+        if(error.context instanceof Response){
+          try{const body=await error.context.clone().json();if(typeof body?.error==='string')message=body.error.slice(0,500)}catch{ /* 서버 응답을 읽지 못하면 상태 확인 안내를 유지한다. */ }
+        }
+        throw new ApiError(message)
+      }
+      if(data?.error)throw new ApiError(data.error)
+      return data
+    },
   }
 }
 export function createDemoGrowthApi(viewer:()=>Profile|undefined,sales:SalesApi):GrowthApi {

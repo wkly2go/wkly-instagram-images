@@ -215,7 +215,7 @@ function TeamShout({ shouts, roomId }: { shouts: ChatMessage[]; roomId?: string 
         {shouts.map(m => (
           <div key={m.id} className="row t-small" style={{ alignItems: 'baseline', gap: 4 }}>
             <span className="t-blue">·</span>
-            <span className="truncate">{m.content}</span>
+            <span className="truncate"><Linkify text={m.content} /></span>
             <span className="t-cap t-blue" style={{ whiteSpace: 'nowrap' }}>
               ({profileName(m.user_id)}
             </span>
@@ -245,7 +245,7 @@ function ShoutAll({ roomId, onClose }: { roomId: string; onClose: () => void }) 
         {[...data].reverse().map(m => (
           <div key={m.id} className="t-small">
             <span className="t-blue">· </span>
-            {m.content} <span className="t-cap t-blue">({profileName(m.user_id)}</span> <span className="t-meta">{dateTimeLabel(m.created_at)})</span>
+            <Linkify text={m.content} /> <span className="t-cap t-blue">({profileName(m.user_id)}</span> <span className="t-meta">{dateTimeLabel(m.created_at)})</span>
           </div>
         ))}
       </div>

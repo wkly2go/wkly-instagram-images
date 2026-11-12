@@ -242,14 +242,28 @@ export function Presence({ status, className = '' }: { status?: string | null; c
  *  - https://… 와 [이름](https://…) 모두. 누르면 오른쪽 인터넷 창에서 열림 (WebSearch 의 링크 가로채기)
  */
 const LINK_RE = /\[([^\]\n]{1,120})\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s<>"'`]+)/g
+/**
+ * 모든 링크 활성화 (2026-11-12 대표 지시 "모든 링크는 활성화 시켜")
+ *  - https://… · [이름](https://…) 에 더해, 'www.…' 와 'xxx.co.kr/…' 처럼 주소만 적힌 것, 메일 주소(mailto)도 링크로
+ *  - 도메인은 흔한 끝자리(.com · .kr · .co.kr · .net · .org · .io · .ai 등)만 — 파일 이름(report.pdf) · 숫자(1.5) 는 링크로 안 바꿈
+ */
+const TLD = '(?:co\\.kr|or\\.kr|go\\.kr|ac\\.kr|ne\\.kr|re\\.kr|com|net|org|kr|io|ai|co|me|so|app|dev|shop|store|studio|design|xyz|info|biz|tv|jp|cn|uk|de|fr|it|es|us|eu|asia|global|page|site|link|ly)'
+const FULL_LINK_RE = new RegExp(
+  '\\[([^\\]\\n]{1,120})\\]\\((https?:\\/\\/[^\\s)]+)\\)' + // [이름](주소)
+    '|(https?:\\/\\/[^\\s<>"\'`]+)' + // https://…
+    '|([A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\\.[A-Za-z0-9-]+)*\\.[A-Za-z]{2,})' + // 메일 주소
+    `|(?<![\\w@./-])((?:www\\.)?[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\\.[A-Za-z0-9-]+)*\\.${TLD}(?![A-Za-z0-9-])(?:\\/[^\\s<>"'\`]*)?)`, // www.… · xxx.co.kr
+  'g',
+)
 export function Linkify({ text }: { text: string | null | undefined }) {
   if (!text) return null
   const out: (string | JSX.Element)[] = []
   let last = 0
   let k = 0
-  for (const m of text.matchAll(LINK_RE)) {
+  for (const m of text.matchAll(FULL_LINK_RE)) {
     const at = m.index ?? 0
-    let url = m[2] ?? m[3]
+    const isMail = !!m[4]
+    let url = m[2] ?? m[3] ?? m[4] ?? m[5]
     let label = m[1] ?? url
     let tail = ''
     if (!m[2]) {
@@ -261,9 +275,10 @@ export function Linkify({ text }: { text: string | null | undefined }) {
         label = url
       }
     }
+    const href = isMail ? `mailto:${url}` : /^https?:\/\//i.test(url) ? url : `https://${url}`
     out.push(text.slice(last, at))
     out.push(
-      <a key={k++} href={url} className="auto-link" target="_blank" rel="noopener noreferrer" title={url} onClick={e => e.stopPropagation()}>
+      <a key={k++} href={href} className="auto-link" target={isMail ? undefined : '_blank'} rel="noopener noreferrer" title={href} onClick={e => e.stopPropagation()}>
         {label.length > 70 ? `${label.slice(0, 67)}…` : label}
       </a>,
     )

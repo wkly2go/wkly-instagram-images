@@ -4,6 +4,8 @@ import { readFile } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import { PGlite } from '@electric-sql/pglite'
 const db=new PGlite(),ADMIN=randomUUID(),OWNER=randomUUID(),OTHER=randomUUID(),INACTIVE=randomUUID(),CAMPAIGN=randomUUID()
+const preflight=await readFile(new URL('../supabase/diagnostics/growth_preflight_readonly.sql',import.meta.url),'utf8')
+let beforeInstall=[]
 before(async()=>{
  await db.exec(`create role authenticated;create role anon;create role service_role;create schema auth;
  create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
@@ -15,13 +17,24 @@ before(async()=>{
  create table marketing_campaigns(id uuid primary key,document jsonb);insert into marketing_campaigns values('${CAMPAIGN}','{"brand":"wkly"}');
  create table mail_index(id text primary key,thread_id text,from_addr text,from_name text,labels text[],subject text,sent_at timestamptz,synced_at timestamptz);
  grant usage on schema auth,public to authenticated,anon,service_role;`)
- for(const file of ['0112_sales_pipeline.sql','0113_growth_workspace.sql','0114_growth_ai_budget.sql'])await db.exec(await readFile(new URL('../supabase/migrations/'+file,import.meta.url),'utf8'))
+ await db.exec('begin read only')
+ try{beforeInstall=(await db.query(preflight)).rows}finally{await db.exec('rollback')}
+ for(const file of ['0113_sales_pipeline.sql','0114_growth_workspace.sql','0115_growth_ai_budget.sql'])await db.exec(await readFile(new URL('../supabase/migrations/'+file,import.meta.url),'utf8'))
 })
 after(()=>db.close())
 async function as(user,fn,role='authenticated'){await db.query("select set_config('request.jwt.claim.sub',$1,false)",[user??'']);await db.exec('set role '+role);try{return await fn()}finally{await db.exec('reset role')}}
 const doc=(kind='tender')=>({kind,title:'공고 테스트',owner_id:OWNER,status:kind==='content'?'작성 중':'검토',campaign_id:null,document:kind==='tender'?{division:'TW',source_url:'https://example.com',note:'검토',number:randomUUID(),round:'00',agency:'발주처',deadline:'2026-12-01T10:00:00+09:00',amount:null,qualification:'추가 확인',evidence:''}:kind==='contact'?{division:'TW',source_url:'',note:'',name:'',brand:'',email:randomUUID()+'@example.com',instagram:'',segment:'미분류',source:'직접 등록'}:{division:'TW',source_url:'',note:'',original:'원본 사실',versions:['네이버 블로그','인스타그램','유튜브'].map(channel=>({channel,title:'글',body:'본문',tags:'',status:'초안',rights:true,publication_url:'',external_id:''}))}})
 const save=(d,id=randomUUID(),rev=0,user=OWNER)=>as(user,async()=>(await db.query('select * from growth_save($1,$2::jsonb,$3)',[id,JSON.stringify(d),rev])).rows[0])
 const denied=e=>e.code==='42501'
+test('deployment preflight runs read-only before and after installation, including missing history schema',async()=>{
+ assert.ok(beforeInstall.filter(r=>r['구분']==='신규 테이블').every(r=>r['상태']==='없음'))
+ await db.exec('begin read only')
+ try{
+  const rows=(await db.query(preflight)).rows
+  assert.ok(rows.filter(r=>['신규 테이블','서버 함수','메일 자동 후보'].includes(r['구분'])).every(r=>r['상태']==='있음'))
+  assert.equal(rows.find(r=>r['구분']==='설치 이력')['상태'],'없음')
+ }finally{await db.exec('rollback')}
+})
 test('growth owner saves; other member cannot write or reassign; revision conflict protects data',async()=>{
  const d=doc(),r=await save(d);assert.equal(r.revision,1)
  await assert.rejects(save(d,r.id,1,OTHER),denied);await assert.rejects(save({...d,owner_id:OTHER},r.id,1),denied)

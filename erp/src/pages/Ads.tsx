@@ -6,7 +6,7 @@ import { addDays, dateTimeLabel, shortDate, todayKey } from '../lib/date'
 import { useRouter, withQuery } from '../lib/router'
 import { AD_PLATFORMS, type AdCampaign, type AdCreative, type AdDaily, type AdPlatform, type AdReport, type AdReportKind, type SeoCheck } from '../lib/types'
 import { Shell } from '../components/Shell'
-import { Badge, Chip, Empty, SectionHead } from '../components/ui'
+import { Badge, Chip, Empty, Linkify, SectionHead } from '../components/ui'
 import { ReportBody } from '../components/Reports'
 import { CompareBars, DayChart, Spark, type Series } from '../components/AdCharts'
 import { SeoPanel } from '../components/SeoPanel'
@@ -584,7 +584,7 @@ function Analysis({ kind, reports, creatives, rows }: { kind: AdReportKind; repo
         </span>
       </div>
       <h2>{open.title}</h2>
-      {open.summary && <p className="t-small pre ad-summary">{open.summary}</p>}
+      {open.summary && <p className="t-small pre ad-summary"><Linkify text={open.summary} /></p>}
       <ReportBody body={open.body ?? ''} />
       {open.sources && (
         <details>
