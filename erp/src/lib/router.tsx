@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type MouseEvent } from 'react'
+import { requestViewChange } from './navigationGuard'
 
 // 화면 수가 적어 라우터 라이브러리 없이 History API 로 처리
 interface RouterValue {
@@ -18,7 +19,7 @@ export function RouterProvider({ children }: { children: ReactNode }) {
   const currentLocation = useRef(loc)
 
   // 작성 화면은 저장 전 이동을 취소할 수 있다. 버튼·단축키·뒤로 가기도 같은 경로를 사용한다.
-  const canNavigate = useCallback((to: string) => window.dispatchEvent(new CustomEvent('wkly:before-navigate', { cancelable: true, detail: { to } })), [])
+  const canNavigate = useCallback((to: string) => requestViewChange(to), [])
 
   useEffect(() => {
     const onPop = () => {

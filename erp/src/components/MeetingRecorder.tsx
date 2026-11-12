@@ -3,12 +3,13 @@ import { Mic, MonitorSpeaker, Pause, Play, Square, Upload, Video } from 'lucide-
 import { useApp } from '../lib/app'
 import type { MeetingRecording } from '../lib/types'
 import { desktop } from '../lib/desktop'
+import { watchMeetingRecording, MeetingStartUncertainError } from '../lib/meetingProgress'
 
 /**
  * 회의록 AI (대표 지시 2026-10-18 · 방법 B)
- *  - 회의를 녹음하거나(이 기기 마이크) 휴대폰 녹음 파일을 올리면
- *    서버(meeting-minutes)가 Gemini 로 화자를 나눠 받아쓰고 회의록 양식으로 정리한다.
- *  - 녹음 시작 때 참석자에게 기록됨을 알리는 안내를 띄운다. 원본은 30일 뒤 자동 삭제.
+ *  - 음성 직접 받아쓰기는 중지. 외부에서 받아쓴 텍스트를 올리면
+ *    서버(meeting-minutes)가 Claude로 회의록 초안을 정리한다(API 별도 과금).
+ *  - 녹음 중 참석자에게 기록됨을 알리는 안내를 띄운다. 30일 지난 원본은 후속 처리 때 정리 대상.
  *  - AI 는 초안만: 결과를 회의록 내용 칸에 채우면 사람이 고쳐서 올린다.
  *  - 구글 Meet (대표 지시 2026-10-20 · 방법 A): 'Meet 회의 열기' + '마이크 + Meet 소리' 녹음.
  *    크롬 · 엣지는 Meet 탭 소리를, 윈도우 PC 프로그램(1.23+)은 컴퓨터 소리를 마이크와 섞어 녹음한다.
@@ -42,6 +43,9 @@ export function MeetingRecorder({ title, onResult }: { title: string; onResult: 
   const [sec, setSec] = useState(0)
   const [msg, setMsg] = useState('')
   const [rec, setRec] = useState<MeetingRecording | null>(null)
+  const [needsReview, setNeedsReview] = useState(false)
+  const onResultRef = useRef(onResult)
+  onResultRef.current = onResult
   const [showText, setShowText] = useState(false)
   const media = useRef<MediaRecorder | null>(null)
   const chunks = useRef<Blob[]>([])
@@ -69,29 +73,19 @@ export function MeetingRecorder({ title, onResult }: { title: string; onResult: 
   // AI 정리 진행 확인 (5초마다, 최대 20분)
   useEffect(() => {
     if (phase !== 'processing' || !rec) return
-    let n = 0
-    const t = window.setInterval(async () => {
-      n++
-      const r = await api.getMeetingRecording(rec.id).catch(() => null)
-      if (!r) return
-      if (r.status === '완료') {
-        window.clearInterval(t)
-        setRec(r)
+    return watchMeetingRecording({ id: rec.id, read: id => api.getMeetingRecording(id), finish: result => {
+      if (result.record) setRec(result.record)
+      if (result.kind === 'done') {
+        setNeedsReview(false)
         setPhase('done')
-        onResult(r.minutes ?? '', r.transcript ?? '')
-      } else if (r.status === '실패') {
-        window.clearInterval(t)
-        setRec(r)
+        onResultRef.current(result.record.minutes ?? '', result.record.transcript ?? '')
+      } else {
+        setNeedsReview(result.needsReview)
         setPhase('error')
-        setMsg(r.error ?? 'AI 정리에 실패했습니다.')
-      } else if (n > 240) {
-        window.clearInterval(t)
-        setPhase('error')
-        setMsg('정리가 오래 걸리고 있습니다. 잠시 뒤 보고서 결제에서 다시 열어 확인해 주세요.')
+        setMsg(result.message)
       }
-    }, 5000)
-    return () => window.clearInterval(t)
-  }, [phase, rec, api, onResult])
+    } })
+  }, [phase, rec?.id, api])
 
   const start = async () => {
     setMsg('')
@@ -165,6 +159,10 @@ export function MeetingRecorder({ title, onResult }: { title: string; onResult: 
       setRec(r)
       setPhase('processing')
     } catch (e) {
+      if (e instanceof MeetingStartUncertainError) {
+        setRec(e.record)
+        setNeedsReview(true)
+      }
       setPhase('error')
       setMsg(e instanceof Error ? e.message : '녹음을 올리지 못했습니다.')
     }
@@ -184,9 +182,9 @@ export function MeetingRecorder({ title, onResult }: { title: string; onResult: 
     <div className="meet-rec">
       <div className="meet-rec-head">
         <b><Mic size={14} style={{ verticalAlign: -2 }} aria-hidden="true" /> 회의록 AI</b>
-        <span className="t-cap">회의를 녹음하면 AI가 말한 사람을 나눠 받아쓰고 회의록으로 정리합니다.</span>
+        <span className="t-cap">받아쓴 텍스트를 올리면 AI가 회의록 초안을 정리합니다. 음성 직접 받아쓰기는 현재 지원하지 않습니다.</span>
       </div>
-      {(phase === 'idle' || phase === 'error') && (
+      {(phase === 'idle' || (phase === 'error' && !needsReview)) && (
         <>
           <div className="row gap-6" style={{ flexWrap: 'wrap' }}>
             <a className="btn btn-outline btn-sm" href="https://meet.google.com/new" target="_blank" rel="noreferrer" data-external title="새 구글 Meet 회의를 새 창으로 엽니다. 링크를 참석자에게 보내세요.">
@@ -208,10 +206,11 @@ export function MeetingRecorder({ title, onResult }: { title: string; onResult: 
           ) : (
             !meet.ok && <span className="t-cap">{meet.why}</span>
           )}
-          <input className="input" value={attendees} onChange={e => setAttendees(e.target.value)} placeholder="참석자 (선택 · 이름을 적으면 말한 사람을 더 정확히 구분)" aria-label="참석자" />
+          <input className="input" value={attendees} onChange={e => setAttendees(e.target.value)} placeholder="참석자 (선택 · 회의록 정리에 참고할 이름)" aria-label="참석자" />
           <span className="t-cap">
             클로바노트 등에서 받아쓴 텍스트(.txt)를 올리면 AI가 회의록으로 정리합니다. (음성 파일 직접 받아쓰기는 현재 중지 — 클로바노트에서 받아쓴 뒤 .txt로 내보내 올려 주세요)
           </span>
+          <span className="t-cap">회의록 정리는 Claude API 비용이 발생하며 AI 사용·비용 화면의 한도·집계와 별도로 처리됩니다. 녹음·음성 파일만으로는 회의록을 만들 수 없습니다.</span>
           <div className="row gap-6" style={{ flexWrap: 'wrap' }}>
             <button type="button" className="btn btn-blue btn-sm" onClick={start}>
               <Mic size={13} /> 녹음 시작
@@ -253,13 +252,14 @@ export function MeetingRecorder({ title, onResult }: { title: string; onResult: 
               </button>
             )}
             <button type="button" className="btn btn-yellow btn-sm" onClick={stop}>
-              <Square size={13} /> 끝내고 AI 정리
+              <Square size={13} /> 녹음 종료·원본 업로드
             </button>
           </div>
         </>
       )}
       {phase === 'uploading' && <span className="t-small">파일을 올리는 중…</span>}
-      {phase === 'processing' && <span className="t-small">AI가 받아쓰고 정리하는 중입니다… (1시간 회의 기준 몇 분, 이 창을 닫아도 계속 처리됩니다)</span>}
+      {phase === 'error' && needsReview && rec && <button type="button" className="btn btn-outline btn-sm" onClick={() => { setMsg(''); setPhase('processing') }}>같은 기록의 상태만 다시 확인</button>}
+      {phase === 'processing' && <span className="t-small">서버에서 파일을 확인하고 회의록 정리를 처리 중입니다. 음성 파일만 올렸다면 받아쓰기 텍스트가 필요하다는 안내가 표시됩니다.</span>}
       {phase === 'done' && (
         <div className="col gap-4">
           <span className="t-small t-blue">✓ 회의록 초안을 아래 내용 칸에 채웠습니다. 확인 · 수정한 뒤 올려 주세요.</span>

@@ -1,3 +1,5 @@
+import { createDemoGrowthApi } from './growthApi'
+import { createDemoSalesApi } from './salesApi'
 import { approvalSummary, researchSummary } from './reportReads'
 import { createDemoMarketingApi } from './marketingApi'
 import { desktop } from './desktop'
@@ -652,6 +654,8 @@ export function createDemoApi(): Api {
   const withCanDecide = (a: Approval): Approval => ({ ...a, can_decide: isAdmin() || (!!me && a.approver_id === me) })
 
   return {
+    ...createDemoSalesApi(meProfile),
+    ...createDemoGrowthApi(meProfile, createDemoSalesApi(meProfile)),
     ...createDemoMarketingApi(meProfile),
     mode: 'demo',
     invalidateReadRequests() { /* no network requests in demo mode */ },

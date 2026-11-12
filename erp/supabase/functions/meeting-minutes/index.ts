@@ -1,13 +1,13 @@
 // 회의록 AI v3 (2026-10-22 대표 승인: 제미나이 사용 중지 → 무료 대안)
-//   받아쓰기는 클로바노트(무료 월 300~600분)에서 하고, 그 텍스트로 Claude(Haiku 5.5, 무료 크레딧)가 회의록을 쓴다.
+//   외부에서 받아쓴 텍스트로 Claude가 회의록을 쓴다. API 비용은 별도이며 무료 사용을 보장하지 않는다.
 //   입력 순서: (1) meeting_recordings.transcript 에 이미 텍스트가 있으면 그것 사용
 //             (2) 올린 파일이 텍스트(.txt, text/plain)면 내려받아 사용
 //             (3) 음성 파일만 있으면 '클로바노트에서 텍스트로 내보내 올려 주세요' 로 실패 처리 (음성 직접 받아쓰기는 하지 않음)
-//   호출: { id } (기존과 같음). 본인 또는 관리자만. 녹음·텍스트 원본은 30일 뒤 지움.
+//   호출: { id } (기존과 같음). 본인 또는 관리자만. 생성 후 30일 지난 완료 기록의 원본만 정리.
 // 필요한 비밀값: ANTHROPIC_API_KEY (Edge Functions Secrets). 키는 로그·오류에 남기지 않는다.
 import Anthropic from 'npm:@anthropic-ai/sdk@0.134.0'
 import { createClient } from 'npm:@supabase/supabase-js@2.117.3'
-import { cleanupExpiredRecordings } from './cleanup.ts'
+import { cleanupExpiredRecordings, isOwnedRecordingPath } from './cleanup.ts'
 
 declare const EdgeRuntime: { waitUntil(p: Promise<unknown>): void } | undefined
 
@@ -24,14 +24,56 @@ const sb = createClient(URL_, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth
 const MODEL = 'claude-haiku-5-5'
 const MAX_CHARS = 300_000
 
-interface Rec { id: string; created_by: string; title: string | null; attendees: string | null; audio_path: string | null; mime: string | null; transcript: string | null; created_at: string }
+interface Rec { id: string; created_by: string; title: string | null; attendees: string | null; audio_path: string | null; mime: string | null; transcript: string | null; created_at: string; updated_at: string; status: string; error: string | null; minutes?: string | null }
 interface Minutes {
   datetime?: string; place?: string; attendees?: string[]; agenda?: string[]; discussion?: string[]; decisions?: string[]
   todos?: { task: string; owner?: string; due?: string }[]
 }
 
-const fail = async (id: string, msg: string) => {
-  await sb.from('meeting_recordings').update({ status: '실패', error: msg.slice(0, 500), updated_at: new Date().toISOString() }).eq('id', id)
+// Existing error text stores a non-secret ownership marker while processing. Never reclaim
+// a processing row by elapsed time: the provider may already have accepted a paid request.
+const CLAIM_PREFIX = 'MEETING_CLAIM:'
+const REVIEW_PREFIX = 'MEETING_REVIEW:'
+const REC_FIELDS = 'id, created_by, title, attendees, audio_path, mime, transcript, created_at, updated_at, status, error, minutes'
+const reviewMessage = 'AI 요청 또는 결과 저장을 확인하지 못했습니다. 중복 비용을 막기 위해 재실행을 중지했습니다. 이 녹음 ID로 관리자에게 결과 확인을 요청해 주세요.'
+
+async function readCurrent(id: string): Promise<Rec | null> {
+  try {
+    const result = await sb.from('meeting_recordings').select(REC_FIELDS).eq('id', id).maybeSingle()
+    return result.error ? null : result.data as Rec | null
+  } catch { return null }
+}
+
+function ownedUpdate(id: string, claim: string, values: Record<string, unknown>) {
+  return sb.from('meeting_recordings').update({ ...values, updated_at: new Date().toISOString() })
+    .eq('id', id).eq('status', '처리 중').eq('error', claim).select(REC_FIELDS).maybeSingle()
+}
+
+async function holdForReview(id: string, claim: string): Promise<void> {
+  try {
+    const result = await ownedUpdate(id, claim, { error: REVIEW_PREFIX + reviewMessage })
+    if (result.error) console.warn('meeting_review_save_failed')
+  } catch { console.warn('meeting_review_save_failed') }
+}
+
+// Only failures before provider dispatch can become retryable. An ambiguous database
+// response leaves the ownership marker intact, rather than overwriting another request.
+async function failBeforeProvider(id: string, claim: string, message: string): Promise<void> {
+  try {
+    const result = await ownedUpdate(id, claim, { status: '실패', error: message.slice(0, 500) })
+    if (result.error) console.warn('meeting_failure_save_failed')
+  } catch { console.warn('meeting_failure_save_failed') }
+}
+
+async function saveMinutes(rec: Rec, claim: string, minutes: string, transcript: string): Promise<boolean> {
+  const matches = (row: Rec | null) => row?.status === '완료' && row.error === null && row.minutes === minutes && row.transcript === transcript
+  try {
+    const result = await ownedUpdate(rec.id, claim, { status: '완료', minutes, transcript, error: null })
+    if (!result.error && matches(result.data as Rec | null)) return true
+  } catch { /* A lost response may follow a committed write. Verify before any further write. */ }
+  if (matches(await readCurrent(rec.id))) return true
+  await holdForReview(rec.id, claim)
+  return false
 }
 
 const isText = (path: string | null, mime: string | null) => /\.(txt|md|srt|vtt)$/i.test(path ?? '') || (mime ?? '').startsWith('text/')
@@ -57,21 +99,35 @@ function minutesText(m: Minutes, rec: Rec, fallbackDate: string): string {
   ].join('\n')
 }
 
-async function process(rec: Rec) {
+async function process(rec: Rec, claim: string): Promise<boolean> {
+  let providerDispatched = false
   try {
+    if (rec.audio_path && !isOwnedRecordingPath(rec.audio_path, rec.created_by)) {
+      await failBeforeProvider(rec.id, claim, '녹음 원본의 소유 경로를 확인할 수 없습니다. 관리자에게 이 녹음 ID를 알려 주세요.')
+      return false
+    }
     let text = (rec.transcript ?? '').trim()
     if (!text && rec.audio_path && isText(rec.audio_path, rec.mime)) {
       const dl = await sb.storage.from('meeting-audio').download(rec.audio_path)
-      if (dl.error || !dl.data) return fail(rec.id, '받아쓰기 파일을 읽지 못했습니다.')
+      if (dl.error || !dl.data) {
+        await failBeforeProvider(rec.id, claim, '받아쓰기 파일을 읽지 못했습니다.')
+        return false
+      }
       text = (await dl.data.text()).trim()
     }
     if (!text) {
-      return fail(rec.id, '음성 직접 받아쓰기는 중지되었습니다(제미나이 사용 중지). 클로바노트에서 받아쓴 뒤 텍스트(.txt)로 내보내 올려 주세요.')
+      await failBeforeProvider(rec.id, claim, '음성 직접 받아쓰기는 중지되었습니다(제미나이 사용 중지). 클로바노트에서 받아쓴 뒤 텍스트(.txt)로 내보내 올려 주세요.')
+      return false
     }
     const apiKey = Deno.env.get('ANTHROPIC_API_KEY')
-    if (!apiKey) return fail(rec.id, 'AI 연결 키가 설정되지 않았습니다. 관리자에게 요청해 주세요.')
+    if (!apiKey) {
+      await failBeforeProvider(rec.id, claim, 'AI 연결 키가 설정되지 않았습니다. 관리자에게 요청해 주세요.')
+      return false
+    }
     const { data: people } = await sb.from('profiles').select('name').eq('active', true).eq('is_agent', false)
-    const client = new Anthropic({ apiKey })
+    // SDK retries can repeat a paid request after a lost response.
+    const client = new Anthropic({ apiKey, maxRetries: 0 })
+    providerDispatched = true
     const res = await client.messages.create({
       model: MODEL,
       max_tokens: 8000,
@@ -82,14 +138,15 @@ async function process(rec: Rec) {
     try {
       m = JSON.parse(out.replace(/^[\s\S]*?(\{)/, '$1').replace(/\}[^}]*$/, '}')) as Minutes
     } catch {
-      return fail(rec.id, 'AI 답을 읽지 못했습니다. 다시 시도해 주세요.')
+      await holdForReview(rec.id, claim)
+      return false
     }
     const date = new Date(new Date(rec.created_at).getTime() + 9 * 3600_000).toISOString().slice(0, 16).replace('T', ' ')
-    await sb.from('meeting_recordings')
-      .update({ status: '완료', minutes: minutesText(m, rec, date), transcript: text.slice(0, MAX_CHARS), error: null, updated_at: new Date().toISOString() })
-      .eq('id', rec.id)
-  } catch (e) {
-    await fail(rec.id, e instanceof Error ? e.message.replace(/sk-ant-[\w-]+/g, '***').slice(0, 300) : 'AI 정리 실패')
+    return await saveMinutes(rec, claim, minutesText(m, rec, date), text.slice(0, MAX_CHARS))
+  } catch {
+    if (providerDispatched) await holdForReview(rec.id, claim)
+    else await failBeforeProvider(rec.id, claim, '회의 자료 확인에 실패했습니다. 파일과 연결 설정을 확인해 주세요.')
+    return false
   }
 }
 
@@ -98,13 +155,13 @@ function cleanup(): Promise<void> {
   if (cleanupRunning) return cleanupRunning
   cleanupRunning = cleanupExpiredRecordings({
     expired: async (before, limit) => await sb.from('meeting_recordings')
-      .select('id, audio_path, created_at, status').lt('created_at', before).not('audio_path', 'is', null)
-      .neq('status', '처리 중').order('created_at', { ascending: true }).limit(limit),
+      .select('id, created_by, audio_path, created_at, status').lt('created_at', before).not('audio_path', 'is', null)
+      .eq('status', '완료').order('created_at', { ascending: true }).limit(limit),
     references: async paths => await sb.from('meeting_recordings')
-      .select('id, audio_path, created_at, status', { count: 'exact' }).in('audio_path', paths).limit(1000),
+      .select('id, created_by, audio_path, created_at, status', { count: 'exact' }).in('audio_path', paths).limit(1000),
     remove: async paths => await sb.storage.from('meeting-audio').remove(paths),
-    clearReferences: async (ids, paths, before) => await sb.from('meeting_recordings')
-      .update({ audio_path: null }).in('id', ids).in('audio_path', paths).lt('created_at', before).neq('status', '처리 중'),
+    clearReferences: async (ids, paths, before, owner) => await sb.from('meeting_recordings')
+      .update({ audio_path: null }).in('id', ids).in('audio_path', paths).eq('created_by', owner).lt('created_at', before).eq('status', '완료'),
   }).then(report => {
     if (report.failure) console.warn('meeting_audio_cleanup_failed', { phase: report.failure })
   }).finally(() => { cleanupRunning = null })
@@ -121,12 +178,29 @@ Deno.serve(async req => {
   if (!u?.user) return json({ error: '로그인이 필요합니다.' }, 401)
   const body = (await req.json().catch(() => null)) as { id?: string } | null
   const id = body?.id ?? ''
-  if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: '녹음을 확인해 주세요.' }, 400)
-  const { data: rec } = await caller.from('meeting_recordings').select('id, created_by, title, attendees, audio_path, mime, transcript, created_at, status').eq('id', id).maybeSingle()
+  if (typeof id !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) return json({ error: '녹음을 확인해 주세요.' }, 400)
+  const { data: rec, error: readError } = await caller.from('meeting_recordings').select(REC_FIELDS).eq('id', id).maybeSingle()
+  if (readError) return json({ error: '녹음 상태를 확인하지 못했습니다. 잠시 뒤 같은 녹음 ID로 확인해 주세요.' }, 503)
   if (!rec) return json({ error: '녹음을 찾을 수 없습니다.' }, 404)
-  if (rec.status === '처리 중') return json({ ok: true, status: '처리 중' })
-  await sb.from('meeting_recordings').update({ status: '처리 중', error: null, updated_at: new Date().toISOString() }).eq('id', id)
-  const job = process(rec as Rec).then(cleanup).catch(() => undefined)
+  const existing = (row: Rec) => json({ ok: true, status: row.status, ...(row.error?.startsWith(REVIEW_PREFIX) ? { needs_review: true, message: row.error.slice(REVIEW_PREFIX.length) } : {}) })
+  if (rec.status === '처리 중' || rec.status === '완료') return existing(rec as Rec)
+  if (!['업로드', '실패'].includes(rec.status) || typeof rec.updated_at !== 'string' || !rec.updated_at) {
+    return json({ error: '녹음 상태를 확인할 수 없어 실행하지 않았습니다. 관리자에게 이 녹음 ID를 알려 주세요.' }, 409)
+  }
+  const claim = CLAIM_PREFIX + crypto.randomUUID()
+  let claimed: Rec | null = null
+  try {
+    const result = await sb.from('meeting_recordings')
+      .update({ status: '처리 중', error: claim, updated_at: new Date().toISOString() })
+      .eq('id', id).eq('status', rec.status).eq('updated_at', rec.updated_at).select(REC_FIELDS).maybeSingle()
+    if (!result.error) claimed = result.data as Rec | null
+  } catch { /* Verify the unique claim after a lost database response. */ }
+  if (claimed?.status !== '처리 중' || claimed.error !== claim) claimed = await readCurrent(id)
+  if (claimed?.status !== '처리 중' || claimed.error !== claim) {
+    if (claimed && (claimed.status === '처리 중' || claimed.status === '완료')) return existing(claimed)
+    return json({ error: '처리 예약을 확인하지 못해 AI를 실행하지 않았습니다. 잠시 뒤 같은 녹음 ID로 상태를 확인해 주세요.' }, 503)
+  }
+  const job = process(claimed, claim).then(async saved => { if (saved) await cleanup() }).catch(() => { console.warn('meeting_job_failed') })
   if (typeof EdgeRuntime !== 'undefined') { EdgeRuntime.waitUntil(job); return json({ ok: true, status: '처리 중' }, 202) }
   await job
   return json({ ok: true })

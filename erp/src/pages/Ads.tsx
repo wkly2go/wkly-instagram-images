@@ -1,5 +1,6 @@
+import { GrowthWorkspace } from '../components/GrowthWorkspace'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowRight, BarChart3, ChevronDown, ExternalLink, Images, LayoutDashboard, Loader2, Megaphone, RefreshCw, Search, TriangleAlert } from 'lucide-react'
+import { ArrowRight, BarChart3, BookOpen, ChevronDown, ExternalLink, Images, Loader2, Megaphone, RefreshCw, Search, TriangleAlert } from 'lucide-react'
 import { useApp, useAsync } from '../lib/app'
 import { addDays, dateTimeLabel, shortDate, todayKey } from '../lib/date'
 import { useRouter, withQuery } from '../lib/router'
@@ -19,8 +20,9 @@ const num = (n: number) => Math.round(n).toLocaleString('ko-KR')
 const pct = (a: number, b: number) => (b ? `${((a / b) * 100).toFixed(2)}%` : '–')
 const shortNum = (n: number) => (n >= 10000 ? `${(n / 10000).toFixed(n >= 100000 ? 0 : 1)}만` : num(n))
 
-type Tab = 'summary' | 'studio' | 'platform' | 'charts' | 'daily-table' | 'creatives' | 'competitors' | 'overseas' | 'daily' | 'seo'
+type Tab = 'content' | 'summary' | 'studio' | 'platform' | 'charts' | 'daily-table' | 'creatives' | 'competitors' | 'overseas' | 'daily' | 'seo'
 const TABS: [Tab, string][] = [
+  ['content', '콘텐츠·배포'],
   ['summary', '대시보드'],
   ['studio', '캠페인 준비'],
   ['platform', '매체별 성과'],
@@ -33,11 +35,11 @@ const TABS: [Tab, string][] = [
   ['seo', '검색 노출 (SEO · AEO · GEO)'],
 ]
 const GROUPS = [
-  { label: '대시보드', icon: LayoutDashboard, tabs: ['summary'] as Tab[], description: '광고 현황과 확인할 일을 한눈에 살펴보세요.' },
+  { label: '콘텐츠·배포', icon: Images, tabs: ['content'] as Tab[], description: '네이버 블로그·인스타그램·유튜브 글을 작성하고, 검수·발행 기록과 연결 광고를 관리하세요.' },
   { label: '캠페인 준비', icon: Megaphone, tabs: ['studio'] as Tab[], description: '기획부터 소재 준비, 집행 전 확인까지 순서대로 진행하세요.' },
-  { label: '성과·보고서', icon: BarChart3, tabs: ['platform', 'charts', 'daily-table', 'daily'] as Tab[], description: '매체별 성과와 추이를 비교하고, 보고서를 확인하세요.' },
-  { label: '소재·리서치', icon: Images, tabs: ['creatives', 'competitors', 'overseas'] as Tab[], description: '우리 소재와 국내외 광고 사례를 찾아보세요.' },
-  { label: '검색 노출', icon: Search, tabs: ['seo'] as Tab[], description: '검색과 AI 답변에서 우리 브랜드가 어떻게 보이는지 확인하세요.' },
+  { label: '소재 관리', icon: Images, tabs: ['creatives'] as Tab[], description: '등록된 광고 소재와 성과를 확인하세요. 새 문구와 이미지는 캠페인 준비에서 관리합니다.' },
+  { label: '성과·보고서', icon: BarChart3, tabs: ['summary', 'platform', 'charts', 'daily-table', 'daily'] as Tab[], description: '대시보드에서 광고 현황을 확인하고, 매체별 성과·추이·일일 보고를 살펴보세요.' },
+  { label: '리서치·검색', icon: Search, tabs: ['competitors', 'overseas', 'seo'] as Tab[], description: '경쟁사·해외 광고 사례와 검색·AI 답변의 브랜드 노출을 확인하세요.' },
 ]
 const NUMBER_TABS: Tab[] = ['summary', 'platform', 'charts', 'daily-table']
 type Period = ReturnType<typeof adPeriod>
@@ -84,8 +86,11 @@ export default function Ads() {
     <Shell active="ads">
       <div className={`ads-workspace${tab === 'studio' ? ' is-preparing' : ''}`} ref={workspaceRef}>
         <header className="ads-heading">
-          <div><span className="ads-eyebrow">MARKETING WORKSPACE</span><h1>광고·마케팅</h1><p>{group.description}</p></div>
-          {tab !== 'studio' && <button type="button" className="btn primary ads-prepare-btn" onClick={() => setTab('studio')}><Megaphone size={16} /> 캠페인 준비하기 <ArrowRight size={15} /></button>}
+          <div><span className="ads-eyebrow">MARKETING WORKSPACE</span><h1>광고·콘텐츠 통합 관리</h1><p>인스타그램 광고와 블로그·유튜브 콘텐츠를 한곳에서 관리합니다.</p></div>
+          <div className="ads-heading-actions">
+            <a className="btn" href="/manual/growth.html#ads" target="_blank" rel="noreferrer"><BookOpen size={16} /> 통합 메뉴 사용설명</a>
+            {tab !== 'studio' && <button type="button" className="btn primary ads-prepare-btn" onClick={() => setTab('studio')}><Megaphone size={16} /> 캠페인 준비하기 <ArrowRight size={15} /></button>}
+          </div>
         </header>
         <nav className="ads-nav" aria-label="광고 업무">
           {GROUPS.map(g => <button key={g.label} type="button" className={g === group ? 'active' : ''} aria-current={g === group ? 'page' : undefined} onClick={() => setTab(g.tabs.includes(tab) ? tab : g.tabs[0])}><g.icon size={18} /><span>{g.label}</span></button>)}
@@ -94,7 +99,8 @@ export default function Ads() {
           {group.tabs.map(t => <button key={t} type="button" aria-current={tab === t ? 'page' : undefined} className={tab === t ? 'active' : ''} onClick={() => setTab(t)}>{TABS.find(([key]) => key === t)![1]}</button>)}
         </nav>}
         <section className="ads-content" aria-label={TABS.find(([key]) => key === tab)![1]}>
-          {tab === 'studio' ? <MarketingDesk /> : NUMBER_TABS.includes(tab) ? <NumbersWorkspace tab={tab} range={range} platform={platform} period={period} setRange={setRange} setPlatform={setPlatform} goTab={setTab} />
+          <p className="ads-help">{group.description}</p>
+          {tab === 'content' ? <GrowthWorkspace kind="content" /> : tab === 'studio' ? <MarketingDesk key={query.get('id')??'default'} initialCampaignId={query.get('id')??undefined} /> : NUMBER_TABS.includes(tab) ? <NumbersWorkspace tab={tab} range={range} platform={platform} period={period} setRange={setRange} setPlatform={setPlatform} goTab={setTab} />
             : tab === 'creatives' ? <CreativeWorkspace period={period} />
             : tab === 'seo' ? <SearchWorkspace />
             : <ReportWorkspace key={tab} kind={tab === 'competitors' ? '경쟁사 분석' : tab === 'overseas' ? '해외 사례' : '일일 보고'} />}
