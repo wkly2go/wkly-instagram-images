@@ -4532,6 +4532,7 @@ body.dock-resizing iframe { pointer-events: none; }
 .lgf-err { padding: 8px 10px; background: #fff3f3; border: 1px solid #f0b4b4; color: var(--red); }
 .lgf-table { width: 100%; border-collapse: collapse; background: var(--white); font-size: var(--fs-sm); }
 .lgf-table td { padding: 6px 8px; border-bottom: 1px solid var(--line); max-width: 380px; }
+.lgf-todo { color: var(--red, #c62828); }
 .lgf-table td.in { color: var(--blue); font-family: var(--mono); font-weight: 700; text-align: right; }
 .lgf-table td.out { color: var(--red); font-family: var(--mono); font-weight: 700; text-align: right; }
 .lgf-table .select { height: auto; min-height: 30px; padding-top: 4px; padding-bottom: 4px; line-height: 1.4; font-size: var(--fs-cap); }
