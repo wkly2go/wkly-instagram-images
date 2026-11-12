@@ -555,6 +555,11 @@ export function createSupabaseApi(url: string, key: string): Api {
     async updateTaxInvoice(id, patch) {
       must(await sb.from('tax_invoices').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', id))
     },
+    async saveTaxSettlement(rows) {
+      const at = new Date().toISOString()
+      for (let i = 0; i < rows.length; i += 20)
+        await Promise.all(rows.slice(i, i + 20).map(async r => must(await sb.from('tax_invoices').update({ settled: r.settled, ledger_ids: r.ledger_ids, settle_how: r.settle_how, settled_at: at }).eq('id', r.id))))
+    },
     async listPersonalEvents() {
       const { data, error } = await sb.from('personal_events').select('*').order('start_date')
       return error ? [] : (data as PersonalEvent[]) // 0100 미적용이면 빈 목록

@@ -687,6 +687,11 @@ export interface TaxInvoice {
   memo: string | null
   /** 완료 (0101) */
   done?: boolean
+  /** 은행 · 카드 대사 결과 (0108): 받은 · 낸 돈 · 짝지어진 장부 줄 · 방식 */
+  settled?: number | null
+  ledger_ids?: number[] | null
+  settle_how?: string | null
+  settled_at?: string | null
   created_at: string
 }
 export type TaxInvoiceDraft = Omit<TaxInvoice, 'id' | 'created_at' | 'project_id' | 'payment_id' | 'memo'> & { project_id?: string | null }

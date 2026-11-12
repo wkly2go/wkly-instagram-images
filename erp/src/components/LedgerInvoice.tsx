@@ -2,20 +2,35 @@
 //  - 매출 · 매입은 홈택스 세금계산서 발행일 · 공급가액 기준으로 봄 (돈이 들어오고 나간 날이 아니라)
 //  - 계산서마다 통장 입금 · 지급과 짝을 지어, 아직 안 들어온 돈(미수) · 안 낸 돈(미지급)을 보여 줌
 import { useEffect, useMemo, useState } from 'react'
-import { Download } from 'lucide-react'
+import { Download, RefreshCw } from 'lucide-react'
 import { Button, Empty } from './ui'
 import { useApp } from '../lib/app'
 import { manwon, todayKey, won } from '../lib/date'
 import { downloadText, toCsv } from '../lib/csv'
 import type { LedgerEntry, TaxInvoice } from '../lib/types'
 import { day, matchInvoices, type InvoiceMatch } from '../lib/invoiceMatch'
+import { runSettlement } from '../lib/invoiceSettle'
 
 export function InvoiceView({ year, onExpired }: { year: string; onExpired: () => void }) {
-  const { api } = useApp()
+  const { api, toast } = useApp()
   const [invoices, setInvoices] = useState<TaxInvoice[]>([])
   const [rows, setRows] = useState<LedgerEntry[]>([])
   const [loading, setLoading] = useState(true)
+  const [busy, setBusy] = useState(false)
+  const [tick, setTick] = useState(0)
   const today = todayKey()
+  const resettle = async () => {
+    setBusy(true)
+    try {
+      const r = await runSettlement(api)
+      toast(`은행 · 카드 거래와 다시 맞췄습니다 · 바뀐 계산서 ${r.changed}건 · 남은 계산서 ${r.open}건`)
+      setTick(t => t + 1)
+    } catch (e) {
+      toast(e instanceof Error ? e.message : '다시 맞추지 못했습니다.')
+    } finally {
+      setBusy(false)
+    }
+  }
   useEffect(() => {
     setLoading(true)
     Promise.all([api.listTaxInvoices(), api.listLedger(`${Number(year) - 1}-11-01`, `${Number(year) + 1}-02-28`)])
@@ -25,9 +40,21 @@ export function InvoiceView({ year, onExpired }: { year: string; onExpired: () =
       })
       .catch(() => onExpired())
       .finally(() => setLoading(false))
-  }, [api, year, onExpired])
+  }, [api, year, onExpired, tick])
 
-  const matches = useMemo(() => matchInvoices(invoices, rows), [invoices, rows])
+  // 저장된 대사 결과(0108 · settled)가 있으면 그것을, 없으면 화면에서 짝지음
+  const matches = useMemo<InvoiceMatch[]>(() => {
+    if (!invoices.length || invoices.some(i => i.settled_at == null)) return matchInvoices(invoices, rows)
+    const byId = new Map(rows.map(r => [r.id, r]))
+    return [...invoices]
+      .sort((a, b) => a.write_date.localeCompare(b.write_date))
+      .map(inv => {
+        const total = Math.abs(inv.total)
+        const paid = Math.min(total, inv.settled ?? 0)
+        const ids = inv.ledger_ids ?? []
+        return { inv, row: ids.length === 1 && paid === total ? byId.get(ids[0]) ?? null : null, paid, left: inv.total < 0 ? 0 : total - paid, canceled: (inv.settle_how ?? '').includes('수정 발행') }
+      })
+  }, [invoices, rows])
   const months = useMemo(() => Array.from({ length: 12 }, (_, i) => `${year}-${String(i + 1).padStart(2, '0')}`), [year])
   const open = (m: InvoiceMatch) => m.left > 0 && !m.inv.done
   const data = months.map(m => {
@@ -53,6 +80,8 @@ export function InvoiceView({ year, onExpired }: { year: string; onExpired: () =
         합계: x.inv.total,
         상태: x.canceled ? '수정 발행으로 취소' : x.row ? `${x.inv.direction === '매출' ? '입금' : '지급'} ${x.row.entry_date}` : x.left === 0 ? '나눠서 완료' : x.inv.done ? '완료 표시' : x.paid ? `일부 (${x.paid.toLocaleString('ko-KR')})` : x.inv.direction === '매출' ? '미수' : '미지급',
         남은돈: x.left,
+        대사: x.inv.settle_how ?? '',
+        장부줄: (x.inv.ledger_ids ?? []).join(' '),
         승인번호: x.inv.approval_no,
       })),
     )
@@ -79,7 +108,7 @@ export function InvoiceView({ year, onExpired }: { year: string; onExpired: () =
               <th>발행일</th>
               <th>거래처</th>
               <th>품목</th>
-              <th className="num" title="부가세 포함">합계</th>
+              <th className="num" title="부가세 포함" style={{ minWidth: 120 }}>합계</th>
               <th className="num">남은 돈</th>
               <th className="num">지난 날</th>
             </tr>
@@ -92,7 +121,7 @@ export function InvoiceView({ year, onExpired }: { year: string; onExpired: () =
                   <td className="mono">{x.inv.write_date.slice(2).replaceAll('-', '.')}</td>
                   <td className="truncate">{x.inv.partner_name}</td>
                   <td className="truncate t-meta">{x.inv.item ?? ''}</td>
-                  <td className="num">{won(Math.abs(x.inv.total))}</td>
+                  <td className="num" style={{ whiteSpace: "nowrap" }}>{won(Math.abs(x.inv.total))}</td>
                   <td className={`num ${kind === '매출' ? 'in' : 'out'}`}>{won(x.left)}</td>
                   <td className={`num ${late > 60 ? 'out' : ''}`}>{late}일</td>
                 </tr>
@@ -177,6 +206,9 @@ export function InvoiceView({ year, onExpired }: { year: string; onExpired: () =
       </table>
       <div className="row">
         <span className="grow" />
+        <Button kind="ghost" size="sm" onClick={() => void resettle()} disabled={busy} title="계산서를 은행 · 카드 거래와 처음부터 다시 맞춤 (자료를 새로 올리면 자동)">
+          <RefreshCw size={14} /> {busy ? '맞추는 중…' : '다시 대사'}
+        </Button>
         <Button kind="ghost" size="sm" onClick={exportCsv} title={`${year}년 계산서마다 입금 · 지급 여부를 엑셀(CSV)로`}>
           <Download size={14} /> 계산서 기준 엑셀
         </Button>
@@ -185,7 +217,7 @@ export function InvoiceView({ year, onExpired }: { year: string; onExpired: () =
       <List title="미수 (매출 계산서 발행 · 아직 입금 확인 안 됨)" list={recv} kind="매출" />
       <List title="미지급 (매입 계산서 받음 · 아직 지급 확인 안 됨)" list={pay} kind="매입" />
       <p className="t-meta">
-        계약금 · 잔금처럼 나눠 받은 돈은 거래처 이름이 같은 입금을 계산서 순서대로 채워 계산합니다. 통장에 대표자 개인 이름으로 찍히는 업체, 카드로 낸 돈은 이름이 달라 미지급으로 남을 수 있습니다. 결제 › 세금계산서 탭에서 '완료'로 표시하면 목록에서 빠집니다.
+        은행 · 카드 거래와 대사한 결과입니다 (한 번에 · 나눠서 · 두 번에 · 여러 계산서 한 번에 · 카드 · 늦게 받은 계산서 · 수정 발행 취소 · 끝전 차이). 통장에 대표자 개인 이름으로 찍히는 업체, 카드로 낸 돈은 이름이 달라 미지급으로 남을 수 있습니다. 결제 › 세금계산서 탭에서 '완료'로 표시하면 목록에서 빠집니다.
       </p>
     </div>
   )

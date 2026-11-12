@@ -1436,6 +1436,15 @@ export function createDemoApi(): Api {
       if (x) Object.assign(x, patch)
       persist()
     },
+    async saveTaxSettlement(rows) {
+      requireAdmin()
+      const at = new Date().toISOString()
+      for (const r of rows) {
+        const x = (store.taxInvoices ?? []).find(t => t.id === r.id)
+        if (x) Object.assign(x, { settled: r.settled, ledger_ids: r.ledger_ids, settle_how: r.settle_how, settled_at: at })
+      }
+      persist()
+    },
     async listPersonalEvents() {
       const self = requireMe()
       return clone((store.personalEvents ?? []).filter(e => e.user_id === self).sort((a, b) => a.start_date.localeCompare(b.start_date)))
