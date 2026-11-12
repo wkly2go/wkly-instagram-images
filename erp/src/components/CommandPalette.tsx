@@ -127,7 +127,7 @@ export function CommandPalette() {
       const s = Math.max(...texts.filter(Boolean).map(t => score(t!, k)))
       if (s > 0) out.push({ ...h, score: s })
     }
-    TABS.filter(t => !t.admin || me.role === 'admin').forEach(t => add({ key: `m${t.key}`, group: '메뉴', icon: LayoutGrid, label: t.label, to: t.path }, t.label))
+    TABS.filter(t => !t.admin || me.role === 'admin').forEach(t => add({ key: `m${t.key}`, group: '메뉴', icon: LayoutGrid, label: t.label, to: t.path }, t.label, ...(t.keywords ?? [])))
     // 다른 탭 안으로 옮긴 메뉴
     add({ key: 'm-clients', group: '메뉴', icon: LayoutGrid, label: '거래처 · 연락처', sub: '프로젝트', to: '/clients' }, '거래처', '연락처')
     add({ key: 'm-library', group: '메뉴', icon: LayoutGrid, label: '자료실', sub: '보고서 결제', to: '/library' }, '자료실', '리서치')
