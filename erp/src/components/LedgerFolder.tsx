@@ -3,6 +3,7 @@ import { ExternalLink, FolderPlus, RefreshCw, Upload } from 'lucide-react'
 import { useApp } from '../lib/app'
 import { driveApi, driveIdOf, listChildren, newFolder, FOLDER_MIME, type GFile } from '../lib/gdrive'
 import { fileKind, scanDriveFolder, sheetsInZip, SHEET_RE, type ScannedFile } from '../lib/folderScan'
+import { runSettlement } from '../lib/invoiceSettle'
 import { attachEvidence, classify, detectKind, setStaffNames, parseBank, parseCardLike, readGrid, type Evidence, type LedgerRow } from '../lib/ledgerImport'
 import { LEDGER_CATEGORIES, LEDGER_TRANSFER_CATEGORIES, type LedgerEntry, type LedgerFile, type Payment } from '../lib/types'
 import { parseHometax } from './TaxInvoices'
@@ -192,6 +193,11 @@ export async function processLedgerFiles(api: ReturnType<typeof useApp>['api'], 
       await api.saveLedger({ id: r.id, supply: m.ev.supply, vat: m.ev.vat, evidence: m.ev.kind } as Partial<LedgerEntry> as LedgerEntry)
       res.evidence++
     }
+  }
+  // 계산서 ↔ 은행 · 카드 대사 다시 (0108 · 2026-11-12 '계산서와 은행거래장부와 대조해서 장부 완성해')
+  if (res.added || evidence.length) {
+    onStep?.('계산서와 은행 거래 대사 중')
+    await runSettlement(api).catch(() => undefined)
   }
   return res
 }
