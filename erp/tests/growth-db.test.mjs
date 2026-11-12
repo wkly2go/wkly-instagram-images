@@ -75,6 +75,12 @@ test('mail sync captures new external senders, preserves excluded contacts, igno
  await db.query("update growth_items set status='제외' where id=$1",[r.id]);await insert('mail6','hello@brand.kr');assert.equal((await db.query('select status from growth_items where id=$1',[r.id])).rows[0].status,'제외')
  assert.equal((await db.query("select * from growth_items where source_key in ('email:info@thewklyn.com','email:noreply@brand.kr','email:sent@brand.kr')")).rows.length,0)
 })
+test('mail sync accepts a whitespace-only sender name and uses email as the contact title',async()=>{
+ await db.query('insert into mail_index(id,thread_id,from_addr,from_name) values($1,$1,$2,$3)',['blank-sender-name','blank-name@brand.kr','   '])
+ const r=(await db.query("select title,status from growth_items where source_key='email:blank-name@brand.kr'")).rows[0]
+ assert.equal(r.title,'blank-name@brand.kr');assert.equal(r.status,'검토')
+ assert.equal((await db.query("select count(*)::int n from mail_index where id='blank-sender-name'")).rows[0].n,1)
+})
 test('historical mail backfill skips ignored senders and advances without duplicating contacts',async()=>{
  await db.exec('alter table mail_index disable trigger growth_mail_capture')
  try{await db.exec("insert into mail_index(id,thread_id,from_addr,sent_at) values ('past1','past1','old@brand.kr',now()),('past2','past2','noreply@brand.kr',now()),('past3','past3','info@thewklyn.com',now()),('past4','past4','invalid',now())")}finally{await db.exec('alter table mail_index enable trigger growth_mail_capture')}

@@ -119,7 +119,7 @@ begin
  select id into owner from public.profiles where role='admin' and active and not is_agent order by id limit 1;
  if owner is null then return new; end if;
  insert into public.growth_items(id,kind,title,owner_id,status,source_key,document)
- values(gen_random_uuid(),'contact',left(coalesce(nullif(new.from_name,''),email),160),owner,'검토','email:'||email,jsonb_build_object('division','TW','source_url','https://mail.google.com/mail/u/0/#all/'||new.thread_id,'note',left(coalesce(new.subject,''),500),'name',coalesce(new.from_name,''),'brand','','email',email,'instagram','','segment','미분류','source','받은 메일'))
+ values(gen_random_uuid(),'contact',left(coalesce(nullif(btrim(new.from_name),''),email),160),owner,'검토','email:'||email,jsonb_build_object('division','TW','source_url','https://mail.google.com/mail/u/0/#all/'||new.thread_id,'note',left(coalesce(new.subject,''),500),'name',coalesce(new.from_name,''),'brand','','email',email,'instagram','','segment','미분류','source','받은 메일'))
  on conflict(kind,source_key) do nothing returning * into inserted;
  if inserted.id is not null then insert into public.growth_revisions values(inserted.id,1,to_jsonb(inserted),now()); end if;
  return new;
