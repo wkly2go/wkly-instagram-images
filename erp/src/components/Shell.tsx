@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useId, useLayoutEffe
 import { useMyAgents } from './AgentDesk'
 import { MobileAppBar, TopAppButton } from './InstallCard'
 import { useTheme } from '../lib/theme'
-import { Ruler, FileText, Bookmark, Bot, ListTodo, Plus, Search, Briefcase, HardDrive, ChevronDown, ChevronLeft, ChevronRight, CircleHelp, PanelLeftClose, PanelLeftOpen, ClipboardCheck, FolderKanban, Home, Library, Megaphone, MessageCircle, MoreHorizontal, Settings, Users, Landmark, type LucideIcon } from 'lucide-react'
+import { Ruler, BookOpen, Bookmark, Bot, ListTodo, Plus, Search, Briefcase, HardDrive, ChevronDown, ChevronLeft, ChevronRight, CircleHelp, PanelLeftClose, PanelLeftOpen, ClipboardCheck, FolderKanban, Home, Library, Megaphone, MessageCircle, MoreHorizontal, Settings, Users, Landmark, type LucideIcon } from 'lucide-react'
 import { accessSource, isDesktopApp } from '../lib/desktop'
 import { useAttendance } from '../lib/attendance'
 import { AssignTaskModal } from './AssignTask'
@@ -35,8 +35,9 @@ export type TabKey = 'home' | 'reportTemplates' | 'approvals' | 'chat' | 'work' 
 
 export const TABS: { key: TabKey; label: string; path: string; admin?: boolean }[] = [
   { key: 'home', label: '홈', path: '/' },
-  { key: 'approvals', label: '리서치 · 보고서', path: '/approvals' },
-  { key: 'reportTemplates', label: '리서치/보고서 결재', path: '/report-templates' },
+  // 리서치와 보고서는 따로 (대표 지시 2026-11-12)
+  { key: 'reportTemplates', label: '리서치', path: '/research' },
+  { key: 'approvals', label: '보고서', path: '/approvals' },
   { key: 'chat', label: '채팅', path: '/chat' },
   { key: 'projects', label: '프로젝트', path: '/projects' },
   { key: 'drive', label: '드라이브', path: '/drive' },
@@ -54,7 +55,7 @@ export const TABS: { key: TabKey; label: string; path: string; admin?: boolean }
 const ICONS: Record<TabKey, LucideIcon> = {
   home: Home,
   approvals: ClipboardCheck,
-  reportTemplates: FileText,
+  reportTemplates: BookOpen,
   chat: MessageCircle,
   work: Briefcase,
   projects: FolderKanban,
@@ -71,7 +72,7 @@ const ICONS: Record<TabKey, LucideIcon> = {
 const MAIN_TABS: TabKey[] = ['home', 'approvals', 'chat', 'projects', 'site']
 const SHORT: Partial<Record<TabKey, string>> = { approvals: '보고서' }
 const NAV_GROUPS: { label: string; tabs: TabKey[] }[] = [
-  { label: '업무', tabs: ['home', 'approvals', 'reportTemplates', 'projects', 'site'] },
+  { label: '업무', tabs: ['home', 'reportTemplates', 'approvals', 'projects', 'site'] },
   { label: '협업·자료', tabs: ['chat', 'drive', 'team'] },
   { label: '운영', tabs: ['agents', 'ads'] },
   { label: '관리자 전용', tabs: ['ledger', 'admin'] },

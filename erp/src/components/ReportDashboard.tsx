@@ -1,6 +1,6 @@
-// 보고서 대시보드 (대표 지시 2026-11-12 "첫페이지에 대시보드 만들어" · 보고서 양식 화면 맨 위)
-//  - 2026-11-12 대표 지시 '보고와 리서치만': 보고(업무 · 일일 보고) · 리서치 자료 · 거래처 리서치 보고서만 셈
-//  - 최근 6개월 작성 추이 · 리서치 종류별 · 작성자별(사람 · AI) · 보고 결재 대기 목록
+// 보고 · 리서치 대시보드 (대표 지시 2026-11-12 "첫페이지에 대시보드 만들어" → "리서치와 보고서를 두개로 분리해")
+//  - mode 'report' : 메뉴 '보고서' 맨 위 — 보고(업무 · 일일 보고)만: 이번 달 보고 · 결재 대기 · 승인 · 반려, 추이 · 종류별 · 작성자 · 대기 목록
+//  - mode 'research': 메뉴 '리서치' 맨 위 — 리서치 자료 · 거래처 리서치 보고서: 이번 달 · 새 자료 · 누적, 추이 · 종류별 · 작성자 · 최근 자료
 import { useEffect, useMemo, useState } from 'react'
 import { useApp } from '../lib/app'
 import { Link } from '../lib/router'
@@ -14,94 +14,109 @@ const addMonth = (m: string, n: number) => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
 }
 
-export function ReportDashboard() {
+export function ReportDashboard({ mode }: { mode: 'report' | 'research' }) {
   const { api, version, profileOf, profileName } = useApp()
   const [approvals, setApprovals] = useState<ApprovalSummary[]>([])
   const [research, setResearch] = useState<ResearchSummary[]>([])
   const [loading, setLoading] = useState(true)
   useEffect(() => {
     let on = true
-    Promise.all([api.listApprovals().catch(() => [] as ApprovalSummary[]), api.listResearch().catch(() => [] as ResearchSummary[])])
-      .then(([a, r]) => {
-        if (!on) return
-        setApprovals(a)
-        setResearch(r)
-      })
-      .finally(() => on && setLoading(false))
+    const load = mode === 'report' ? api.listApprovals().then(a => on && setApprovals(a)) : api.listResearch().then(r => on && setResearch(r))
+    load.catch(() => undefined).finally(() => on && setLoading(false))
     return () => {
       on = false
     }
-  }, [api, version])
+  }, [api, version, mode])
 
   const month = todayKey().slice(0, 7)
   const months = useMemo(() => Array.from({ length: 6 }, (_, i) => addMonth(month, i - 5)), [month])
-  const reportsOnly = approvals.filter(a => a.kind.includes('보고'))
-  const reports = research.filter(r => r.kind === '거래처 리포트')
-  const thisA = reportsOnly.filter(a => ym(a.created_at) === month)
-  const thisRes = research.filter(r => ym(r.created_at) === month)
-  const thisR = reports.filter(r => ym(r.created_at) === month)
-  const waiting = reportsOnly.filter(a => a.status === '대기').sort((a, b) => a.created_at.localeCompare(b.created_at))
-  const lastA = reportsOnly.filter(a => ym(a.created_at) === addMonth(month, -1)).length
-
-  const trend = months.map(m => ({ m, a: reportsOnly.filter(x => ym(x.created_at) === m).length, r: research.filter(x => ym(x.created_at) === m).length }))
-  const tMax = Math.max(1, ...trend.map(t => Math.max(t.a, t.r)))
-  const kinds = useMemo(() => {
+  const days = (s: string) => Math.max(0, Math.round((Date.parse(`${todayKey()}T00:00:00`) - Date.parse(s.slice(0, 10) + 'T00:00:00')) / 864e5))
+  // 공통 모양: 작성일 · 종류 · 작성자
+  const items = useMemo(
+    () =>
+      mode === 'report'
+        ? approvals.filter(a => a.kind.includes('보고')).map(a => ({ id: a.id, at: a.created_at, kind: a.kind as string, by: a.requested_by, title: a.title, status: a.status as string, src: null as string | null }))
+        : research.map(r => ({ id: r.id, at: r.created_at, kind: r.kind as string, by: r.created_by, title: r.title, status: r.status as string, src: r.collected_by_agent })),
+    [mode, approvals, research],
+  )
+  const thisM = items.filter(x => ym(x.at) === month)
+  const lastM = items.filter(x => ym(x.at) === addMonth(month, -1)).length
+  const trend = months.map(m => ({ m, n: items.filter(x => ym(x.at) === m).length }))
+  const tMax = Math.max(1, ...trend.map(t => t.n))
+  const count = (list: typeof items, key: (x: (typeof items)[number]) => string | null) => {
     const mm = new Map<string, number>()
-    for (const r of thisRes) mm.set(r.kind, (mm.get(r.kind) ?? 0) + 1)
-    return [...mm].sort((a, b) => b[1] - a[1]).slice(0, 6)
-  }, [thisRes])
-  const kMax = Math.max(1, ...kinds.map(k => k[1]))
-  const writers = useMemo(() => {
-    const mm = new Map<string, number>()
-    for (const a of thisA) if (a.requested_by) mm.set(a.requested_by, (mm.get(a.requested_by) ?? 0) + 1)
-    for (const r of thisRes) {
-      const w = r.created_by ?? null
-      if (w) mm.set(w, (mm.get(w) ?? 0) + 1)
+    for (const x of list) {
+      const k = key(x)
+      if (k) mm.set(k, (mm.get(k) ?? 0) + 1)
     }
     return [...mm].sort((a, b) => b[1] - a[1]).slice(0, 6)
-  }, [thisA, thisRes])
+  }
+  const kinds = count(thisM, x => x.kind)
+  const kMax = Math.max(1, ...kinds.map(k => k[1]))
+  const writers = count(thisM, x => x.by)
   const wMax = Math.max(1, ...writers.map(w => w[1]))
-  const days = (s: string) => Math.max(0, Math.round((Date.parse(`${todayKey()}T00:00:00`) - Date.parse(s.slice(0, 10) + 'T00:00:00')) / 864e5))
+  const waiting = items.filter(x => x.status === '대기').sort((a, b) => a.at.localeCompare(b.at))
+  const isReport = mode === 'report'
+  const home = isReport ? '/approvals' : '/research'
+  const word = isReport ? '보고' : '리서치'
 
-  if (loading) return <section className="rd card t-cap">보고서 현황 불러오는 중…</section>
+  if (loading) return <section className="rd card t-cap">{word} 현황 불러오는 중…</section>
 
   return (
-    <section className="rd col gap-10" aria-label="보고 · 리서치 현황">
+    <section className="rd col gap-10" aria-label={`${word} 현황`}>
       <div className="ledger-kpis four">
         <div className="ledger-kpi in">
-          <span className="t-cap">이번 달 보고</span>
-          <b>{thisA.length}건</b>
-          <span className="t-meta">지난달 {lastA}건</span>
+          <span className="t-cap">이번 달 {isReport ? '보고' : '리서치 자료'}</span>
+          <b>{thisM.length}건</b>
+          <span className="t-meta">지난달 {lastM}건</span>
         </div>
-        <Link to="/approvals" className={`ledger-kpi rd-kpi ${waiting.length ? 'out' : ''}`}>
-          <span className="t-cap">보고 결재 대기</span>
-          <b>{waiting.length}건</b>
-          <span className="t-meta">{waiting[0] ? `가장 오래된 것 ${days(waiting[0].created_at)}일 전` : '모두 처리됨'}</span>
-        </Link>
-        <Link to="/approvals?section=research" className="ledger-kpi rd-kpi net">
-          <span className="t-cap">이번 달 리서치 보고서</span>
-          <b>{thisR.length}건</b>
-          <span className="t-meta">누적 {reports.length}건</span>
-        </Link>
-        <Link to="/approvals?section=research" className="ledger-kpi rd-kpi">
-          <span className="t-cap">이번 달 리서치 자료</span>
-          <b>{thisRes.length}건</b>
-          <span className="t-meta">누적 {research.length}건</span>
-        </Link>
+        {isReport ? (
+          <>
+            <Link to="/approvals" className={`ledger-kpi rd-kpi ${waiting.length ? 'out' : ''}`}>
+              <span className="t-cap">결재 대기</span>
+              <b>{waiting.length}건</b>
+              <span className="t-meta">{waiting[0] ? `가장 오래된 것 ${days(waiting[0].at)}일 전` : '모두 처리됨'}</span>
+            </Link>
+            <div className="ledger-kpi net">
+              <span className="t-cap">이번 달 승인</span>
+              <b>{thisM.filter(x => x.status === '승인').length}건</b>
+              <span className="t-meta">반려 {thisM.filter(x => x.status === '반려').length}건</span>
+            </div>
+            <div className="ledger-kpi">
+              <span className="t-cap">누적 보고</span>
+              <b>{items.length}건</b>
+              <span className="t-meta">업무 · 일일 보고</span>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="ledger-kpi net">
+              <span className="t-cap">이번 달 거래처 리서치 보고서</span>
+              <b>{thisM.filter(x => x.kind === '거래처 리포트').length}건</b>
+              <span className="t-meta">누적 {items.filter(x => x.kind === '거래처 리포트').length}건</span>
+            </div>
+            <div className={`ledger-kpi ${items.some(x => x.status === '새 자료') ? 'out' : ''}`}>
+              <span className="t-cap">아직 검토 안 한 새 자료</span>
+              <b>{items.filter(x => x.status === '새 자료').length}건</b>
+              <span className="t-meta">검토 완료 {items.filter(x => x.status === '검토 완료').length}건</span>
+            </div>
+            <div className="ledger-kpi">
+              <span className="t-cap">누적 리서치</span>
+              <b>{items.length}건</b>
+              <span className="t-meta">활용 {items.filter(x => x.status === '활용').length}건</span>
+            </div>
+          </>
+        )}
       </div>
 
       <div className="rd-grid">
-        <section className="rd-box" aria-label="최근 6개월 작성 추이">
-          <div className="row t-cap">
-            <b className="grow">최근 6개월 작성</b>
-            <span className="lg-key in" /> 보고 <span className="lg-key net" /> 리서치
-          </div>
+        <section className="rd-box" aria-label="최근 6개월 작성">
+          <b className="t-cap">최근 6개월 {word}</b>
           <div className="rd-bars">
             {trend.map(t => (
-              <div key={t.m} className={`rd-month${t.m === month ? ' cur' : ''}`} title={`${t.m} · 보고 ${t.a}건 · 리서치 ${t.r}건`}>
+              <div key={t.m} className={`rd-month${t.m === month ? ' cur' : ''}`} title={`${t.m} · ${word} ${t.n}건`}>
                 <div className="bar-pair">
-                  <i className="in" style={{ height: `${(t.a / tMax) * 100}%` }} />
-                  <i className="net" style={{ height: `${(t.r / tMax) * 100}%` }} />
+                  <i className={isReport ? 'in' : 'net'} style={{ height: `${(t.n / tMax) * 100}%` }} />
                 </div>
                 <span>{Number(t.m.slice(5))}월</span>
               </div>
@@ -109,11 +124,11 @@ export function ReportDashboard() {
           </div>
         </section>
 
-        <section className="rd-box" aria-label="이번 달 리서치 종류별">
-          <b className="t-cap">이번 달 리서치 종류별</b>
+        <section className="rd-box" aria-label="이번 달 종류별">
+          <b className="t-cap">이번 달 {word} 종류별</b>
           {kinds.length === 0 && <span className="t-meta">아직 없음</span>}
           {kinds.map(([k, v]) => (
-            <Link key={k} to="/approvals?section=research" className="ledger-cat">
+            <Link key={k} to={isReport ? `/approvals?kind=${encodeURIComponent(k)}` : home} className="ledger-cat">
               <span className="truncate">{k}</span>
               <span className="meter">
                 <i className="in" style={{ width: `${(v / kMax) * 100}%` }} />
@@ -140,19 +155,14 @@ export function ReportDashboard() {
           ))}
         </section>
 
-        <section className="rd-box" aria-label="결재 대기">
-          <div className="row t-cap">
-            <b className="grow">보고 결재 대기</b>
-            <Link to="/approvals" className="link-btn">
-              전체 보기
-            </Link>
-          </div>
-          {waiting.length === 0 && <span className="t-meta">대기 중인 보고가 없습니다.</span>}
-          {waiting.slice(0, 5).map(a => (
-            <Link key={a.id} to={`/approvals?id=${a.id}`} className="rd-wait">
-              <span className="truncate">{a.title}</span>
+        <section className="rd-box" aria-label={isReport ? '결재 대기' : '최근 리서치'}>
+          <b className="t-cap">{isReport ? '결재 대기' : '최근 리서치'}</b>
+          {(isReport ? waiting : [...items].sort((a, b) => b.at.localeCompare(a.at))).length === 0 && <span className="t-meta">{isReport ? '대기 중인 보고가 없습니다.' : '아직 없음'}</span>}
+          {(isReport ? waiting : [...items].sort((a, b) => b.at.localeCompare(a.at))).slice(0, 5).map(x => (
+            <Link key={x.id} to={isReport ? `/approvals?id=${x.id}` : home} className="rd-wait">
+              <span className="truncate">{isReport ? x.title : `[${x.kind}] ${x.title}`}</span>
               <span className="t-meta">
-                {profileName(a.requested_by)} · {days(a.created_at)}일 전
+                {x.by ? profileName(x.by) : x.src || '자동 수집'} · {days(x.at)}일 전
               </span>
             </Link>
           ))}

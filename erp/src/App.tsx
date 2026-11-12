@@ -46,6 +46,7 @@ const PAGES: Record<string, React.ComponentType> = {
   '/projects': Projects,
   '/clients': Clients,
   '/library': Library,
+  '/research': ReportTemplatesPage,
   '/report-templates': ReportTemplatesPage,
   '/drive': Drive,
   '/team': Team,
