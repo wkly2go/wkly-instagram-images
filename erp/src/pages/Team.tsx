@@ -13,7 +13,7 @@ import { usePanelWide, useRightPanel } from '../components/RightPanel'
 import { PersonName } from '../components/Person'
 import { MyInfo } from '../components/MyInfo'
 import { LeaveSection } from '../components/Leave'
-import { Badge, Button, Chip, Field, KindBadge, SectionHead, StatusBadge, TodayBadge } from '../components/ui'
+import { Badge, Button, Chip, Field, KindBadge, Linkify, SectionHead, StatusBadge, TodayBadge } from '../components/ui'
 import { AssignTaskButton } from '../components/AssignTask'
 
 type Tab = 'work' | 'attendance' | 'leave' | 'me'
@@ -268,7 +268,7 @@ function PersonHub({ p, onBack }: { p: Profile; onBack: () => void }) {
                   </Link>
                 )}
               </div>
-              <span className="t-small t-blue pre">{l.content}</span>
+              <span className="t-small t-blue pre"><Linkify text={l.content} /></span>
             </div>
           ))}
           {data.logs.length === 0 && <span className="t-cap">업무 일지가 없습니다.</span>}

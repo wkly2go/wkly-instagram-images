@@ -137,7 +137,7 @@ export function WorkPane({ tabs }: { tabs?: ReactNode }) {
       kind: 'title',
       cell: l => (
         <>
-          <span className="cell-pre t-small t-blue">{l.content}</span>
+          <span className="cell-pre t-small t-blue"><Linkify text={l.content} /></span>
           {l.memo && (
             <span className="log-memo cell-pre" title="메모">
               <StickyNote size={12} style={{ verticalAlign: -2 }} aria-hidden="true" /> <Linkify text={l.memo} />
@@ -717,7 +717,7 @@ function LogMemo({ l, onClose }: { l: Log; onClose: () => void }) {
         </>
       }
     >
-      <div className="note pre t-small">{l.content}</div>
+      <div className="note pre t-small"><Linkify text={l.content} /></div>
       <Field label="메모">
         <textarea
           className="textarea"

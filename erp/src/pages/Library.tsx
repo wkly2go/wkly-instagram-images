@@ -26,7 +26,7 @@ import { Shell } from '../components/Shell'
 import { Board } from '../components/Board'
 import { usePanelWide, useRightPanel } from '../components/RightPanel'
 import { REPORT_KIND, ReportBody, ReportForm, ReportTemplates, clientCatLabel } from '../components/Reports'
-import { Badge, Button, Chip, Empty, Field, KindTag, Modal, type Tone } from '../components/ui'
+import { Badge, Button, Chip, Empty, Field, KindTag, Linkify, Modal, type Tone } from '../components/ui'
 import { ask } from '../components/Ask'
 
 type Tab = 'research' | 'reports' | 'contacts' | 'templates' | 'agents'
@@ -290,6 +290,8 @@ function ResearchDetail({ r, projects, rooms, clients, onBack, onEdit }: { r: Re
             <a href={r.source_url} target="_blank" rel="noreferrer noopener">
               {r.source_url.replace(/^https?:\/\//, '')}
             </a>
+          ) : r.source_url ? (
+            <Linkify text={r.source_url} />
           ) : null}
           {r.source_name ? ` · ${r.source_name}` : ''}
         </span>
@@ -307,7 +309,7 @@ function ResearchDetail({ r, projects, rooms, clients, onBack, onEdit }: { r: Re
       )}
       {r.kind === REPORT_KIND ? (
         <>
-          {r.summary && <div className="note pre">{r.summary}</div>}
+          {r.summary && <div className="note pre"><Linkify text={r.summary} /></div>}
           {r.body && <ReportBody body={r.body} />}
         </>
       ) : (
@@ -318,22 +320,22 @@ function ResearchDetail({ r, projects, rooms, clients, onBack, onEdit }: { r: Re
             {r.brand_name && (
               <>
                 <dt>브랜드</dt>
-                <dd>{r.brand_name}</dd>
+                <dd><Linkify text={r.brand_name} /></dd>
               </>
             )}
             {kv.map(([k, v], i) => (
               <span key={i} style={{ display: 'contents' }}>
                 <dt>{k}</dt>
-                <dd>{v}</dd>
+                <dd><Linkify text={v} /></dd>
               </span>
             ))}
           </dl>
         </div>
       )}
-      {r.summary && <p className="t-small pre" style={{ margin: 0 }}>{r.summary}</p>}
+      {r.summary && <p className="t-small pre" style={{ margin: 0 }}><Linkify text={r.summary} /></p>}
       {text.map((t, i) => (
         <p key={i} className="t-small pre" style={{ margin: 0 }}>
-          {t}
+          <Linkify text={t} />
         </p>
       ))}
       </>
