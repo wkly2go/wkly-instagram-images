@@ -172,6 +172,16 @@ export async function processLedgerFiles(api: ReturnType<typeof useApp>['api'], 
         await api.importTaxInvoiceSummaries(sums.map(x => ({ ...x, file_name: f.name })))
         const s0 = sums[0]
         note = s0 ? `${s0.direction} 합계표 ${s0.period_from}~${s0.period_to} · 거래처 ${sums.length}곳 · ${sums.reduce((n, x) => n + x.count, 0)}매 — 계산서 기준 탭에서 대조` : '합계표 기간을 찾지 못했습니다'
+      } else if (kind === '카드 청구 요약') {
+        // 건별 내역 없이 청구 금액만 있는 카드 명세서 PDF: 장부에는 넣지 않고 기록 + 장부에 들어간 그 카드 이용과 비교 (2026-11-12)
+        const [, company, total, payDate, from, to, account] = grid[0] as [string, string, number, string | null, string | null, string | null, string | null]
+        let have = ''
+        if (from && to) {
+          const used = (await api.listLedger(from, to)).filter(x => x.method === '카드' && (x.account ?? '').includes(company))
+          const sum = used.reduce((n, x) => n + (x.direction === '출금' ? x.amount : -x.amount), 0)
+          have = used.length ? ` · 장부에 든 ${company}카드 이용 ${used.length}건 ${sum.toLocaleString()}원 (차이 ${(Number(total) - sum).toLocaleString()}원)` : ` · 장부에 이 기간 ${company}카드 이용 기록 없음`
+        }
+        note = `${company}카드 청구 ${Number(total).toLocaleString()}원${payDate ? ` · 결제일 ${payDate}` : ''}${from ? ` · 이용기간 ${from}~${to}` : ''}${account ? ` · 결제계좌 ${account}` : ''}${have} — 건별 내역이 없는 요약 명세서입니다. 명세서의 '카드이용내역' 화면을 인쇄(PDF)하거나 카드사 엑셀을 올려 주세요`
       } else {
         note = '거래 내역(날짜 · 금액) 칸을 찾지 못했습니다 — 요약표 · 매입장 등은 건너뜁니다'
         res.errors.push(`${f.name}: ${note}`)
@@ -687,7 +697,7 @@ export function LedgerFolder({ onExpired }: { onExpired: () => void }) {
             // 처리 완료 · 미처리 구분 (대표 지시 2026-11-12 "처리완료한 파일과 미처리 파일을 구분해")
             const state = (f: LedgerFile): '미처리' | '참고 자료' | '반영 완료' | '같은 내용' => {
               if (REFERENCE_RE.test(f.name) || (f.note ?? '').includes('운행기록부')) return '참고 자료'
-              if (f.kind === '압축' || f.kind === '세금계산서' || f.kind === '현금영수증' || f.kind === '계산서 합계표') return '반영 완료'
+              if (f.kind === '압축' || f.kind === '세금계산서' || f.kind === '현금영수증' || f.kind === '계산서 합계표' || f.kind === '카드 청구 요약') return '반영 완료'
               if (f.kind === '알 수 없음' || f.rows === 0) return '미처리'
               return f.added > 0 ? '반영 완료' : '같은 내용'
             }
@@ -699,7 +709,7 @@ export function LedgerFolder({ onExpired }: { onExpired: () => void }) {
                     <tr key={f.drive_file_id}>
                       <td className="truncate">{f.name}</td>
                       <td>{f.kind}</td>
-                      <td className="t-cap">{why ? why(f) : f.kind === '계산서 합계표' && f.note ? f.note : `${f.rows}줄 · 새로 ${f.added}건${f.note ? ` · ${f.note}` : ''}`}</td>
+                      <td className="t-cap">{why ? why(f) : (f.kind === '계산서 합계표' || f.kind === '카드 청구 요약') && f.note ? f.note : `${f.rows}줄 · 새로 ${f.added}건${f.note ? ` · ${f.note}` : ''}`}</td>
                       <td className="t-cap mono">{f.processed_at.slice(0, 16).replace('T', ' ')}</td>
                     </tr>
                   ))}
