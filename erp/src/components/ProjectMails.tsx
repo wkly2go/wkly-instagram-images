@@ -17,7 +17,7 @@ export function ProjectMails({ project }: { project: Project }) {
     setRefreshing(true)
     try {
       const r = await api.gmailRefresh()
-      toast(r.skipped ? '방금 받았습니다. 목록을 다시 읽었습니다.' : `메일함을 확인했습니다 (새로 ${r.saved}통).`)
+      toast(r.skipped ? '방금 동기화를 시도했습니다. 목록을 다시 읽었습니다. 1분 후 다시 시도할 수 있습니다.' : `메일함을 확인했습니다 (새로 ${r.saved}통).${r.pending ? ' 남은 메일은 다음 새로고침에서 이어받습니다.' : ''}${r.failed ? ` 처리 실패 ${r.failed}통은 보존했습니다.` : ''}`)
     } catch (e) {
       toast(e instanceof Error ? e.message : '메일함 확인에 실패했습니다. 목록만 다시 읽었습니다.')
     } finally {

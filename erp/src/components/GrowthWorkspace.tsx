@@ -7,6 +7,7 @@ import { useDraftNavigation } from '../lib/useDraftNavigation'
 import { contactImportIdentity, saveContactImportBatch, type ContactImportCandidate } from '../lib/contactImport'
 import { Button, Field, Modal } from './ui'
 import { AiAssist } from './GrowthAi'
+import { TenderSearch } from './TenderSearch'
 import { CHANNELS, GROWTH_LABELS, GROWTH_STATUSES, koreaDateTimeInput, appendGrowthNote, changeChannel, contactCandidates, newGrowth, validateGrowth, type GrowthDraft, type GrowthItem, type GrowthKind, type GrowthDocument, type ChannelDraft } from '../lib/growth'
 import './GrowthWorkspace.css'
 
@@ -14,21 +15,25 @@ export function GrowthWorkspace({ kind }: { kind: GrowthKind }) {
   const { api, me, profileName } = useApp()
   const [search, setSearch] = useState(''), [query, setQuery] = useState(''), [page, setPage] = useState(0), [status, setStatus] = useState('')
   const [selected, setSelected] = useState<string | null>(null), [adding, setAdding] = useState(false), [importing, setImporting] = useState(false)
+  const [tenderSearching, setTenderSearching] = useState(false), [seed, setSeed] = useState<GrowthDraft | null>(null)
   const [notice, setNotice] = useState(''), [busy, setBusy] = useState(false)
-  const openPanel=(target:'new'|'import'|string)=>{if((target==='new'&&adding)||(target==='import'&&importing)||(target===selected&&!adding&&!importing))return;if(!requestViewChange(`growth:${kind}:${target}`))return;setSelected(target==='new'||target==='import'?null:target);setAdding(target==='new');setImporting(target==='import')}
+  const openPanel=(target:'new'|'import'|'tender-search'|string)=>{if((target==='new'&&adding)||(target==='import'&&importing)||(target==='tender-search'&&tenderSearching)||(target===selected&&!adding&&!importing&&!tenderSearching))return;if(!requestViewChange(`growth:${kind}:${target}`))return;setSelected(['new','import','tender-search'].includes(target)?null:target);setAdding(target==='new');setImporting(target==='import');setTenderSearching(target==='tender-search');setSeed(null)}
+  const chooseTender=(draft:GrowthDraft)=>{if(!requestViewChange('growth:tender:prefill'))return false;setSelected(null);setImporting(false);setTenderSearching(false);setSeed(draft);setAdding(true);return true}
   useEffect(() => { const t=setTimeout(()=>{setQuery(search);setPage(0)},350);return ()=>clearTimeout(t) },[search])
   const list=useAsync(()=>api.listGrowth({kind,page,search:query,status}),[kind,page,query,status],{items:[],hasMore:false})
   const backfill=async()=>{if(busy)return;setBusy(true);try{const n=await api.backfillMailLeads();setNotice(`과거 메일 ${n}건 확인 · 새 발신자는 검토함에 저장됩니다.`);list.reload()}catch(e){setNotice(friendlyError(e))}finally{setBusy(false)}}
   return <div className="growth-workspace">
     <header className="growth-heading"><div><h1>{GROWTH_LABELS[kind]}</h1><p>{kind==='tender'?'공고 확인부터 참가 조건 검토, 영업 연결까지.':kind==='content'?'원본 하나에서 채널별 글을 만들고 광고 준비와 연결합니다.':'모은 담당자 정보를 확인하고 영업 기회로 연결합니다.'}</p></div><div className="row wrap"><a href={`/manual/growth.html#${kind}`} className="btn btn-outline" target="_blank" rel="noreferrer">화면 사용설명</a><Button onClick={()=>openPanel('new')}>+ {kind==='tender'?'공고 등록':kind==='content'?'콘텐츠 만들기':'연락처 등록'}</Button></div></header>
-    <p className="growth-notice">{api.mode==='demo'?'체험 모드 · 이 브라우저에만 저장됩니다. ':''}{kind==='tender'?'공고 원문과 참가 자격을 확인해 주세요. 실제 투찰은 담당자가 진행합니다.':kind==='content'?'발행 상태는 실제 게시 결과를 기록합니다. 자동 배포는 매체 계정 연결·검증 후 사용할 수 있습니다.':'메일 동기화 후 신규 발신자가 자동으로 쌓입니다. 연락처 수집은 발송 동의나 영업 대상 확정을 의미하지 않습니다.'}</p>
+    <p className="growth-notice">{api.mode==='demo'?'체험 모드 · 이 브라우저에만 저장됩니다. ':''}{kind==='tender'?'공고 원문과 참가 자격을 확인해 주세요. 실제 투찰은 담당자가 진행합니다.':kind==='content'?'발행 상태는 실제 게시 결과를 기록합니다. 매체 자동 게시 기능은 아직 구현·계정 권한 확인·운영 검증이 필요합니다.':'메일 동기화 후 신규 발신자가 자동으로 쌓입니다. 연락처 수집은 발송 동의나 영업 대상 확정을 의미하지 않습니다.'}</p>
+    {kind==='tender'&&<div className="row wrap"><Button kind="outline" onClick={()=>openPanel('tender-search')}>나라장터 공식 공고 조회</Button><span className="t-cap">조회 후보를 검토한 뒤 등록 · 예약 자동 수집은 미지원</span></div>}
     {kind==='contact'&&<div className="row wrap"><Button kind="outline" onClick={()=>openPanel('import')}>메일·인스타 자료에서 추출</Button>{me.role==='admin'&&<Button kind="outline" disabled={busy||api.mode==='demo'} onClick={backfill}>{busy?'가져오는 중…':'기존 메일 500건 확인'}</Button>}<span className="t-cap">인스타 자동 수집 연결 전 · 내보낸 자료를 가져올 수 있습니다.</span></div>}
-    <div className="growth-filters"><Field label="제목 검색"><input className="input" value={search} onChange={e=>setSearch(e.target.value)} placeholder="찾을 자료 이름" /></Field><Field label="상태"><select className="select" value={status} onChange={e=>{setStatus(e.target.value);setPage(0)}}><option value="">전체</option>{GROWTH_STATUSES[kind].map(s=><option key={s}>{s}</option>)}</select></Field></div>
+    <div className="growth-filters"><Field label="검색"><input className="input" value={search} onChange={e=>setSearch(e.target.value)} placeholder={kind==='contact'?'제목·이메일·인스타·브랜드·담당자':kind==='tender'?'제목·공고번호·발주처':'찾을 자료 이름'} /></Field><Field label="상태"><select className="select" value={status} onChange={e=>{setStatus(e.target.value);setPage(0)}}><option value="">전체</option>{GROWTH_STATUSES[kind].map(s=><option key={s}>{s}</option>)}</select></Field></div>
     {notice&&<p role="status" className="growth-notice">{notice}</p>}{list.error&&<p role="alert">{list.error} <Button kind="outline" onClick={list.reload}>다시 확인</Button></p>}
     {list.loading?<p role="status">자료를 불러오는 중…</p>:!list.error&&<><div className="growth-list">{list.data.items.map(r=><button type="button" key={r.id} className="growth-row" onClick={()=>openPanel(r.id)}><span><strong>{r.title}</strong><small>{profileName(r.owner_id)} · {new Date(r.updated_at).toLocaleDateString('ko-KR',{timeZone:'Asia/Seoul'})}</small></span><span className="badge green">{r.status}</span><span>{r.linked_sales_id?'영업 연결됨':r.campaign_id?'광고 연결됨':'상세 보기 →'}</span></button>)}{!list.data.items.length&&<div className="growth-empty"><strong>등록된 자료가 없습니다.</strong><p>위의 등록 버튼으로 시작해 주세요. 사용설명에서 연습 순서를 볼 수 있습니다.</p></div>}</div><div className="row wrap"><Button kind="outline" disabled={!page} onClick={()=>setPage(p=>p-1)}>이전</Button><span>{page+1}페이지 · {list.data.items.length}건</span><Button kind="outline" disabled={!list.data.hasMore} onClick={()=>setPage(p=>p+1)}>다음</Button></div></>}
-    {adding&&<GrowthEditor kind={kind} initial={null} onClose={()=>setAdding(false)} onSaved={r=>{setAdding(false);setSelected(r.id);list.reload()}}/>}
+    {adding&&<GrowthEditor kind={kind} initial={null} seed={seed??undefined} onClose={()=>{setAdding(false);setSeed(null)}} onSaved={r=>{setAdding(false);setSeed(null);setSelected(r.id);list.reload()}}/>}
     {selected&&<GrowthDetail key={selected} id={selected} onClose={()=>setSelected(null)} onChanged={list.reload}/>}
     {importing&&<ContactImport onClose={()=>setImporting(false)} onSaved={list.reload}/>}
+    {tenderSearching&&<TenderSearch onClose={()=>setTenderSearching(false)} onChoose={chooseTender}/>}
   </div>
 }
 
@@ -39,12 +44,12 @@ function GrowthDetail({id,onClose,onChanged}:{id:string;onClose:()=>void;onChang
   return <GrowthEditor key={state.data.revision} kind={state.data.kind} initial={state.data} onClose={onClose} onSaved={()=>{state.reload();onChanged()}}/>
 }
 
-function GrowthEditor({kind,initial,onClose,onSaved}:{kind:GrowthKind;initial:GrowthItem|null;onClose:()=>void;onSaved:(row:GrowthItem)=>void}){
+function GrowthEditor({kind,initial,seed,onClose,onSaved}:{kind:GrowthKind;initial:GrowthItem|null;seed?:GrowthDraft;onClose:()=>void;onSaved:(row:GrowthItem)=>void}){
   const {api,me,profiles}=useApp()
-  const [draft,setDraft]=useState<GrowthDraft>(()=>initial?{kind:initial.kind,title:initial.title,owner_id:initial.owner_id,status:initial.status,document:structuredClone(initial.document),campaign_id:initial.campaign_id}:newGrowth(kind,me.id))
+  const [draft,setDraft]=useState<GrowthDraft>(()=>initial?{kind:initial.kind,title:initial.title,owner_id:initial.owner_id,status:initial.status,document:structuredClone(initial.document),campaign_id:initial.campaign_id}:seed?structuredClone(seed):newGrowth(kind,me.id))
   const [channel,setChannel]=useState(0),[error,setError]=useState(''),[busy,setBusy]=useState(false),[aiBusy,setAiBusy]=useState(false),[aiDirty,setAiDirty]=useState(false)
   const working=busy||aiBusy
-  const lock=useRef(false),id=useRef(initial?.id??crypto.randomUUID()),original=useRef(JSON.stringify(draft))
+  const lock=useRef(false),id=useRef(initial?.id??crypto.randomUUID()),original=useRef(JSON.stringify(seed?newGrowth(kind,me.id):draft))
   const dirty=original.current!==JSON.stringify(draft)||aiDirty,editable=me.role==='admin'||draft.owner_id===me.id
   const campaigns=useAsync(()=>kind==='content'?api.listMarketingCampaigns():Promise.resolve([]),[kind],[])
   const patch=(p:Partial<GrowthDraft>)=>setDraft(d=>({...d,...p})),doc=(p:Partial<GrowthDocument>)=>patch({document:{...draft.document,...p}})

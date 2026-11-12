@@ -9,6 +9,7 @@
 //    → 기록은 mail_files (거래처 · 프로젝트 화면 · 에이전트가 이 표로 파일을 찾음). 메일은 읽기만
 //  actions: sync {days?} (관리자 · 처음엔 90일), files (관리자 · 첨부 저장만), status (팀원)
 import { createClient } from 'npm:@supabase/supabase-js@2.117.3'
+import { syncGmailWindow, type GmailSyncSnapshot } from './sync.ts'
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -68,67 +69,60 @@ const files = (parts: Part[] | undefined, out: string[] = []) => {
 }
 const decodeEntities = (s: string) => s.replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
 
-async function sync(days: number): Promise<{ fetched: number; saved: number }> {
-  const { data: st } = await sb.from('app_settings').select('value').eq('key', 'gmail_sync').maybeSingle()
-  const last = (st?.value as { synced_at?: string } | null)?.synced_at
-  // 지난번에 다 못 받았으면 그 기간을 이어서
-  const carry = (st?.value as { backfill_days?: number } | null)?.backfill_days ?? 0
-  if (days <= 0 && carry > 0) days = carry
-  // 지난번 이후(겹치게 1일) · 처음이면 days 일
-  const since = last && days <= 0 ? Math.floor(new Date(last).getTime() / 1000) - 86400 : Math.floor(Date.now() / 1000) - Math.max(1, days || 90) * 86400
-  const ids: { id: string }[] = []
-  let pageToken: string | undefined
-  for (let guard = 0; guard < 20; guard++) {
-    const qs = new URLSearchParams({ q: `after:${since} -in:chats -category:promotions -category:social`, maxResults: '500', includeSpamTrash: 'false', ...(pageToken ? { pageToken } : {}) })
-    const r = await gmail<{ messages?: { id: string }[]; nextPageToken?: string }>(`messages?${qs}`)
-    ids.push(...(r.messages ?? []))
-    pageToken = r.nextPageToken
-    if (!pageToken) break
-  }
-  // 이미 저장한 것은 건너뜀
-  const known = new Set<string>()
-  for (let i = 0; i < ids.length; i += 500) {
-    const { data } = await sb.from('mail_index').select('id').in('id', ids.slice(i, i + 500).map(m => m.id))
-    for (const r of data ?? []) known.add(r.id as string)
-  }
-  const todo = ids.filter(m => !known.has(m.id)).slice(0, 400)
-  const rows: Record<string, unknown>[] = []
-  const now = new Date().toISOString()
-  for (let i = 0; i < todo.length; i += 20) {
-    const batch = await Promise.all(
-      todo.slice(i, i + 20).map(m => gmail<Msg>(`messages/${m.id}?format=full&fields=id,threadId,labelIds,snippet,internalDate,payload(headers,parts(filename,mimeType,parts(filename,mimeType,parts(filename))))`).catch(() => null)),
-    )
-    for (const m of batch) {
-      if (!m) continue
-      const from = addr(header(m, 'from'))
-      const to = addr((header(m, 'to') ?? '').split(',')[0] ?? null)
-      const att = files(m.payload?.parts)
-      rows.push({
-        id: m.id,
-        thread_id: m.threadId,
-        from_name: from.name,
-        from_addr: from.email,
-        to_addr: to.email,
-        subject: (header(m, 'subject') ?? '(제목 없음)').slice(0, 500),
-        snippet: decodeEntities(m.snippet ?? '').slice(0, 500),
+type SyncKey = 'gmail_sync' | 'gmail_refresh'
+const objectValue = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === 'object' && !Array.isArray(value)
+async function readSyncState(key: SyncKey): Promise<GmailSyncSnapshot> {
+  const { data, error } = await sb.from('app_settings').select('value,updated_at').eq('key', key).maybeSingle()
+  if (error) throw new Error('메일 동기화 상태 조회 실패: ' + error.message)
+  if (data && (!objectValue(data.value) || typeof data.updated_at !== 'string')) throw new Error('메일 동기화 상태 형식을 확인해 주세요.')
+  return { exists: !!data, value: data?.value ?? {}, updatedAt: data?.updated_at ?? null }
+}
+async function sync(days: number, key: SyncKey = 'gmail_sync') {
+  return await syncGmailWindow({
+    readState: () => readSyncState(key),
+    saveState: async (expected, next) => {
+      const value = { ...next, checkpoint_id: crypto.randomUUID() }
+      const change = { value, updated_at: new Date().toISOString() }
+      let query
+      if (expected.exists) {
+        query = sb.from('app_settings').update(change).eq('key', key)
+        const previous = expected.value.checkpoint_id
+        query = typeof previous === 'string'
+          ? query.eq('value->>checkpoint_id', previous)
+          : query.is('value->>checkpoint_id', null).eq('updated_at', expected.updatedAt!)
+      } else query = sb.from('app_settings').insert({ key, ...change })
+      const { data, error } = await query.select('value,updated_at').maybeSingle()
+      if (error) throw new Error('메일 동기화 진행 저장 실패: ' + error.message)
+      if (!data || !objectValue(data.value)) throw new Error('다른 메일 동기화가 진행 기록을 변경했습니다. 잠시 후 다시 확인해 주세요.')
+      return { exists: true, value: data.value, updatedAt: data.updated_at }
+    },
+    list: async ({ since, until, pageToken, maxResults }) => {
+      const qs = new URLSearchParams({ q: 'after:' + since + ' before:' + until + ' -in:chats -category:promotions -category:social', maxResults: String(maxResults), includeSpamTrash: 'false', ...(pageToken ? { pageToken } : {}) })
+      return await gmail('messages?' + qs)
+    },
+    existing: async ids => {
+      const { data, error } = await sb.from('mail_index').select('id').in('id', ids)
+      if (error) throw new Error('저장된 메일 조회 실패: ' + error.message)
+      if (!Array.isArray(data)) throw new Error('저장된 메일 조회 결과를 확인하지 못했습니다.')
+      return data.map(row => row.id as string)
+    },
+    message: async id => {
+      const m = await gmail<Msg>('messages/' + encodeURIComponent(id) + '?format=full&fields=id,threadId,labelIds,snippet,internalDate,payload(headers,parts(filename,mimeType,parts(filename,mimeType,parts(filename))))')
+      if (m.id !== id || !m.threadId) throw new Error('메일 식별 정보를 확인하지 못했습니다.')
+      const from = addr(header(m, 'from')), to = addr((header(m, 'to') ?? '').split(',')[0] ?? null), att = files(m.payload?.parts)
+      return {
+        id: m.id, thread_id: m.threadId, from_name: from.name, from_addr: from.email, to_addr: to.email,
+        subject: (header(m, 'subject') ?? '(제목 없음)').slice(0, 500), snippet: decodeEntities(m.snippet ?? '').slice(0, 500),
         sent_at: m.internalDate ? new Date(Number(m.internalDate)).toISOString() : null,
-        labels: m.labelIds ?? [],
-        has_attachment: att.length > 0,
-        attachments: att.slice(0, 30),
-        synced_at: now,
-      })
-    }
-  }
-  for (let i = 0; i < rows.length; i += 200) {
-    const { error } = await sb.from('mail_index').upsert(rows.slice(i, i + 200))
-    if (error) throw new Error(`메일 목록 저장 실패: ${error.message}`)
-  }
-  // 아직 못 받은 메일이 남았으면 다음 번에도 같은 기간을 다시 훑음 (이미 받은 것은 건너뜀)
-  const left = ids.length - known.size - rows.length
-  const prev = (st?.value as { backfill_days?: number } | null)?.backfill_days
-  const backfill_days = left > 0 ? Math.max(days, prev ?? 0, 1) : 0
-  await sb.from('app_settings').upsert({ key: 'gmail_sync', value: { synced_at: now, fetched: ids.length, saved: rows.length, left: Math.max(0, left), backfill_days }, updated_at: now })
-  return { fetched: ids.length, saved: rows.length }
+        labels: m.labelIds ?? [], has_attachment: att.length > 0, attachments: att.slice(0, 30), synced_at: new Date().toISOString(),
+      }
+    },
+    saveRows: async rows => {
+      // A retry after an uncertain response must not overwrite an already stored mail.
+      const { error } = await sb.from('mail_index').upsert(rows, { onConflict: 'id', ignoreDuplicates: true })
+      if (error) throw new Error('메일 목록 저장 실패: ' + error.message)
+    },
+  }, days)
 }
 
 // ---------------------------------------------------------------- 첨부 → 드라이브 수신방
@@ -168,7 +162,7 @@ async function uploadBytes(bytes: Uint8Array, name: string, mime: string, parent
   })
   const loc = init.headers.get('Location')
   if (!init.ok || !loc) throw new Error(`올리기 주소 실패 ${init.status}`)
-  const r = await fetch(loc, { method: 'PUT', headers: { 'Content-Type': mime }, body: bytes })
+  const r = await fetch(loc, { method: 'PUT', headers: { 'Content-Type': mime }, body: new Uint8Array(bytes).buffer })
   if (!r.ok) throw new Error(`올리기 실패 ${r.status}`)
   return (await r.json()) as { id: string; webViewLink?: string }
 }
@@ -313,9 +307,16 @@ Deno.serve(async req => {
     if (member !== true) return json({ error: '팀원만 쓸 수 있습니다.' }, 403)
     const body = (await req.json().catch(() => ({}))) as { action?: string; days?: number }
     if (body.action === 'status') {
-      const { data } = await sb.from('app_settings').select('value').eq('key', 'gmail_sync').maybeSingle()
+      const [main, refresh] = await Promise.all([readSyncState('gmail_sync'), readSyncState('gmail_refresh')])
+      const states = [main.value, refresh.value]
+      const latest = [...states].sort((a, b) => (Date.parse(String(b.synced_at)) || 0) - (Date.parse(String(a.synced_at)) || 0))[0]
       const ok = await accessToken().then(() => true).catch(() => false)
-      return json({ connected: ok, ...((data?.value as object | null) ?? {}) })
+      // Keep opaque page tokens and pending message IDs out of the public status response.
+      return json({ connected: ok, synced_at: latest.synced_at, fetched: latest.fetched, saved: latest.saved, failed: latest.failed,
+        pending: states.some(s => s.cursor != null || Number(s.backfill_days) > 0),
+        backfill_pending: main.value.cursor != null || Number(main.value.backfill_days) > 0,
+        refresh_pending: refresh.value.cursor != null,
+      })
     }
     if (body.action === 'files') {
       if (admin !== true) return json({ error: '관리자만 할 수 있습니다.' }, 403)
@@ -323,10 +324,10 @@ Deno.serve(async req => {
     }
     // 프로젝트 메일 '새로고침' (대표 지시 2026-11-11): 팀원 누구나 · 최근 2일 · 1분에 한 번
     if (body.action === 'refresh') {
-      const { data: st } = await sb.from('app_settings').select('value').eq('key', 'gmail_sync').maybeSingle()
-      const last = (st?.value as { synced_at?: string } | null)?.synced_at
+      const st = await readSyncState('gmail_refresh')
+      const last = typeof st.value.synced_at === 'string' ? st.value.synced_at : null
       if (last && Date.now() - Date.parse(last) < 60_000) return json({ fetched: 0, saved: 0, skipped: true, synced_at: last })
-      return json(await sync(2))
+      return json(await sync(2, 'gmail_refresh'))
     }
     if (body.action === 'sync') {
       if (admin !== true) return json({ error: '관리자만 할 수 있습니다.' }, 403)

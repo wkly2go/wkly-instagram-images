@@ -324,14 +324,15 @@ function GmailSetting() {
           onClick={() =>
             run(async () => {
               const r = await api.gmailSync(90)
-              toast(`최근 90일 메일 ${r.fetched}통 확인 · 새로 ${r.saved}통 저장`)
+              toast(`이번 실행 ${r.fetched}통 확인 · 새로 ${r.saved}통 저장${r.pending ? ' · 남은 메일은 다음 실행에서 이어받습니다.' : ''}${r.failed ? ` · 처리 실패 ${r.failed}통은 보존했습니다.` : ''}`)
               setN(v => v + 1)
             })
           }
         >
-          지금 불러오기 (90일)
+          {st?.backfill_pending ? '남은 메일 이어받기' : '지금 불러오기 (90일)'}
         </Button>
       </div>
+      {st?.pending && <span className="t-cap" role="status">아직 수집할 메일이 남아 있습니다. 성공한 메일은 저장했습니다.{st.backfill_pending ? ' 과거 메일은 위 ‘남은 메일 이어받기’에서 재개합니다.' : ''}{st.refresh_pending ? ' 최근 메일은 프로젝트의 메일 ‘새로고침’에서 이어받습니다.' : ''}{st.failed ? ` 최근 실행에서 ${st.failed}통 처리에 실패했습니다. 같은 오류가 반복되면 관리자가 연동 상태를 확인해 주세요.` : ''}</span>}
       {st && !st.connected && <span className="t-cap">위 '회사 구글 계정 연결'을 웹 브라우저에서 한 번 더 눌러(다시 연결) 지메일 읽기 권한까지 허용하면 켜집니다.</span>}
     </div>
   )

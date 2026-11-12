@@ -530,10 +530,10 @@ export interface Api extends SalesApi, GrowthApi {
   /** 큰 파일 이어 올리기 주소 (취재 자료 폴더 안에만) · 못 만들면 null */
   fieldUploadSession(f: { name: string; mime: string; size: number; parent: string }): Promise<string | null>
   saveFieldUpload(row: Pick<FieldUpload, 'shot_on' | 'place' | 'memo' | 'project_id' | 'folder_id' | 'folder_url' | 'files'>): Promise<FieldUpload>
-  gmailStatus(): Promise<{ connected: boolean; synced_at?: string; fetched?: number; saved?: number } | null>
+  gmailStatus(): Promise<{ connected: boolean; synced_at?: string; fetched?: number; saved?: number; failed?: number; pending?: boolean; backfill_pending?: boolean; refresh_pending?: boolean } | null>
   /** 프로젝트 메일 새로고침: 회사 메일함 최근 2일 바로 받기 (팀원 누구나 · 1분에 한 번) */
-  gmailRefresh(): Promise<{ fetched: number; saved: number; skipped?: boolean }>
-  gmailSync(days?: number): Promise<{ fetched: number; saved: number }>
+  gmailRefresh(): Promise<{ fetched: number; saved: number; skipped?: boolean; failed?: number; pending?: boolean }>
+  gmailSync(days?: number): Promise<{ fetched: number; saved: number; failed?: number; pending?: boolean }>
   /** 관리자 · 지금 동기화 (full 이면 전체 다시 훑기) */
   driveSync(full?: boolean): Promise<{ mode: 'full' | 'changes'; files: number; changed: number }>
 

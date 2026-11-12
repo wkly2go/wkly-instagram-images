@@ -3,6 +3,7 @@ import { Mic, MonitorSpeaker, Pause, Play, Square, Upload, Video } from 'lucide-
 import { useApp } from '../lib/app'
 import type { MeetingRecording } from '../lib/types'
 import { desktop } from '../lib/desktop'
+import { watchMeetingRecording, MeetingStartUncertainError } from '../lib/meetingProgress'
 
 /**
  * 회의록 AI (대표 지시 2026-10-18 · 방법 B)
@@ -42,6 +43,9 @@ export function MeetingRecorder({ title, onResult }: { title: string; onResult: 
   const [sec, setSec] = useState(0)
   const [msg, setMsg] = useState('')
   const [rec, setRec] = useState<MeetingRecording | null>(null)
+  const [needsReview, setNeedsReview] = useState(false)
+  const onResultRef = useRef(onResult)
+  onResultRef.current = onResult
   const [showText, setShowText] = useState(false)
   const media = useRef<MediaRecorder | null>(null)
   const chunks = useRef<Blob[]>([])
@@ -69,29 +73,19 @@ export function MeetingRecorder({ title, onResult }: { title: string; onResult: 
   // AI 정리 진행 확인 (5초마다, 최대 20분)
   useEffect(() => {
     if (phase !== 'processing' || !rec) return
-    let n = 0
-    const t = window.setInterval(async () => {
-      n++
-      const r = await api.getMeetingRecording(rec.id).catch(() => null)
-      if (!r) return
-      if (r.status === '완료') {
-        window.clearInterval(t)
-        setRec(r)
+    return watchMeetingRecording({ id: rec.id, read: id => api.getMeetingRecording(id), finish: result => {
+      if (result.record) setRec(result.record)
+      if (result.kind === 'done') {
+        setNeedsReview(false)
         setPhase('done')
-        onResult(r.minutes ?? '', r.transcript ?? '')
-      } else if (r.status === '실패') {
-        window.clearInterval(t)
-        setRec(r)
+        onResultRef.current(result.record.minutes ?? '', result.record.transcript ?? '')
+      } else {
+        setNeedsReview(result.needsReview)
         setPhase('error')
-        setMsg(r.error ?? 'AI 정리에 실패했습니다.')
-      } else if (n > 240) {
-        window.clearInterval(t)
-        setPhase('error')
-        setMsg('정리가 오래 걸리고 있습니다. 잠시 뒤 보고서 결제에서 다시 열어 확인해 주세요.')
+        setMsg(result.message)
       }
-    }, 5000)
-    return () => window.clearInterval(t)
-  }, [phase, rec, api, onResult])
+    } })
+  }, [phase, rec?.id, api])
 
   const start = async () => {
     setMsg('')
@@ -165,6 +159,10 @@ export function MeetingRecorder({ title, onResult }: { title: string; onResult: 
       setRec(r)
       setPhase('processing')
     } catch (e) {
+      if (e instanceof MeetingStartUncertainError) {
+        setRec(e.record)
+        setNeedsReview(true)
+      }
       setPhase('error')
       setMsg(e instanceof Error ? e.message : '녹음을 올리지 못했습니다.')
     }
@@ -186,7 +184,7 @@ export function MeetingRecorder({ title, onResult }: { title: string; onResult: 
         <b><Mic size={14} style={{ verticalAlign: -2 }} aria-hidden="true" /> 회의록 AI</b>
         <span className="t-cap">받아쓴 텍스트를 올리면 AI가 회의록 초안을 정리합니다. 음성 직접 받아쓰기는 현재 지원하지 않습니다.</span>
       </div>
-      {(phase === 'idle' || phase === 'error') && (
+      {(phase === 'idle' || (phase === 'error' && !needsReview)) && (
         <>
           <div className="row gap-6" style={{ flexWrap: 'wrap' }}>
             <a className="btn btn-outline btn-sm" href="https://meet.google.com/new" target="_blank" rel="noreferrer" data-external title="새 구글 Meet 회의를 새 창으로 엽니다. 링크를 참석자에게 보내세요.">
@@ -260,6 +258,7 @@ export function MeetingRecorder({ title, onResult }: { title: string; onResult: 
         </>
       )}
       {phase === 'uploading' && <span className="t-small">파일을 올리는 중…</span>}
+      {phase === 'error' && needsReview && rec && <button type="button" className="btn btn-outline btn-sm" onClick={() => { setMsg(''); setPhase('processing') }}>같은 기록의 상태만 다시 확인</button>}
       {phase === 'processing' && <span className="t-small">서버에서 파일을 확인하고 회의록 정리를 처리 중입니다. 음성 파일만 올렸다면 받아쓰기 텍스트가 필요하다는 안내가 표시됩니다.</span>}
       {phase === 'done' && (
         <div className="col gap-4">
