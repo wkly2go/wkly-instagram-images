@@ -11,10 +11,13 @@ export const SHEET_MIME = 'application/vnd.google-apps.spreadsheet'
 /** 개인 자료라 열지 않는 폴더 · 파일 이름 */
 export const PRIVATE_RE = /연말정산|근로계약|주민등록|인사기록|급여명세|원천징수영수증|신분증|가족관계/
 export const SHEET_RE = /\.(xlsx|xls|csv)$/i
+export const REFERENCE_RE = /운행기록부|경조사|매입장|매출장|잔액\s*확인|확인요망|확인건|청구내역|재무제표|결산서|급여대장|연구인력/
 
-export type FileKind = '장부 자료' | '압축' | 'PDF' | '이미지' | '문서' | '프로그램' | '개인 자료' | '기타'
+export type FileKind = '장부 자료' | '참고 자료' | '압축' | 'PDF' | '이미지' | '문서' | '프로그램' | '개인 자료' | '기타'
 export function fileKind(name: string, mime = ''): FileKind {
   if (PRIVATE_RE.test(name)) return '개인 자료'
+  // 엑셀이지만 거래 내역이 아닌 표: 세무사 잔액 확인표 · 매입장 · 운행기록부 · 경조사비 · 카드 청구 요약 (2026-11-12 운행기록부를 거래로 잘못 읽은 일)
+  if ((mime === SHEET_MIME || SHEET_RE.test(name)) && REFERENCE_RE.test(name)) return '참고 자료'
   if (mime === SHEET_MIME || SHEET_RE.test(name)) return '장부 자료'
   if (/\.zip$/i.test(name) || mime === 'application/zip') return '압축'
   if (/\.pdf$/i.test(name) || mime === 'application/pdf') return 'PDF'
@@ -61,12 +64,27 @@ export async function scanDriveFolder(token: string, rootIds: string[], maxDepth
 export async function sheetsInZip(data: ArrayBuffer): Promise<{ name: string; data: ArrayBuffer }[]> {
   const { unzipSync } = await import('fflate')
   const out: { name: string; data: ArrayBuffer }[] = []
-  const entries = unzipSync(new Uint8Array(data), { filter: f => SHEET_RE.test(f.name) && !/(^|\/)__MACOSX\//.test(f.name) && !PRIVATE_RE.test(f.name) })
-  for (const [name, bytes] of Object.entries(entries)) {
-    if (!bytes.length) continue
+  const entries = unzipSync(new Uint8Array(data), { filter: f => SHEET_RE.test(f.name) && !/(^|\/)__MACOSX\//.test(f.name) })
+  for (const [raw, bytes] of Object.entries(entries)) {
+    const name = zipName(raw)
+    if (!bytes.length || PRIVATE_RE.test(name) || REFERENCE_RE.test(name)) continue
     const copy = new Uint8Array(bytes.length)
     copy.set(bytes)
     out.push({ name: name.split('/').pop() || name, data: copy.buffer })
   }
   return out
+}
+
+/** zip 안 파일 이름: UTF-8 표시가 없는 zip 은 글자가 깨져 들어옴 → 바이트로 되돌려 UTF-8(맥) · EUC-KR(윈도) 로 다시 읽음 */
+export function zipName(raw: string): string {
+  if (!/[\u0080-\u00ff]/.test(raw)) return raw.normalize('NFC')
+  const bytes = Uint8Array.from([...raw].map(c => c.charCodeAt(0) & 0xff))
+  for (const enc of ['utf-8', 'euc-kr']) {
+    try {
+      return new TextDecoder(enc, { fatal: true }).decode(bytes).normalize('NFC')
+    } catch {
+      /* 다음 인코딩 */
+    }
+  }
+  return raw
 }

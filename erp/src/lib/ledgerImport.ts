@@ -134,9 +134,49 @@ export function detectKind(grids: Grid[], name: string): { kind: LedgerFileKind;
       if ((has('거래일') || has('일자') || has('거래일시')) && (has('출금') || has('찾으신') || has('지급') || has('거래금액')) && (has('입금') || has('맡기신') || has('구분') || has('잔액'))) return { kind: '은행', grid, hi: i }
     }
   }
+  // 머리 줄이 없는 카드 사용내역 (기업카드 'IBK컴퍼니카드' 등): 가린 카드번호(4140-****-****-7973) 칸으로 알아봄
+  for (const grid of grids) {
+    const g = guessCardGrid(grid)
+    if (g) return { kind: '카드', grid: g, hi: 0 }
+  }
   // 머리 줄이 없는 은행 파일 (기업은행 거래내역조회 등): 잔액이 맞는 칸 조합을 찾아 읽음
   for (const grid of grids) if (guessBankCols(grid)) return { kind: '은행', grid, hi: -1 }
   return { kind: '알 수 없음', grid: grids[0] ?? [], hi: -1 }
+}
+
+const CARD_NO = /^\d{4}-[*\\]{4,8}-[*\\]{4,8}-\d{3,4}$/
+/** 머리 줄 없는 카드 표 → 머리 줄을 만들어 붙임 (이용일자 · 가맹점명 · 이용금액 · 승인번호) */
+export function guessCardGrid(grid: Grid): Grid | null {
+  const rows = grid.filter(r => r.some(c => CARD_NO.test(String(c ?? '').trim())) && r.some(c => /^\d{4}[.\-/]\d{1,2}[.\-/]\d{1,2}/.test(String(c ?? '').trim())))
+  if (rows.length < 2) return null
+  const width = Math.max(...rows.map(r => r.length))
+  const col = (f: (v: string) => boolean) => {
+    const counts = Array.from({ length: width }, (_, j) => rows.filter(r => f(String(r[j] ?? '').trim())).length)
+    const best = Math.max(...counts)
+    return best >= rows.length * 0.8 ? counts.indexOf(best) : -1
+  }
+  const date = col(v => /^\d{4}[.\-/]\d{1,2}[.\-/]\d{1,2}/.test(v))
+  const card = col(v => CARD_NO.test(v))
+  const amount = col(v => /^-?\d{1,3}(,\d{3})+$|^-?\d{1,6}$/.test(v) && v !== '0' && /,/.test(v) || /^[1-9]\d{2,6}$/.test(v) && false)
+  if (date < 0 || card < 0 || amount < 0) return null
+  // 가맹점: 글자 칸 중 값이 가장 다양한 칸 (카드 종류 · 통화 · 할부 같은 되풀이 칸은 제외)
+  let merchant = -1
+  let most = 0
+  for (let j = 0; j < width; j++) {
+    if ([date, card, amount].includes(j)) continue
+    const vals = rows.map(r => String(r[j] ?? '').trim()).filter(v => v && !isNum(v) && !/^\d{4}[.\-/]/.test(v))
+    const distinct = new Set(vals).size
+    if (vals.length >= rows.length * 0.8 && distinct > most) { most = distinct; merchant = j }
+  }
+  if (merchant < 0) return null
+  // 승인번호: 8자리 숫자 칸
+  const approval = col(v => /^\d{8}$/.test(v))
+  const head: (string | null)[] = Array.from({ length: width }, () => null)
+  head[date] = '이용일자'
+  head[merchant] = '가맹점명'
+  head[amount] = '이용금액'
+  if (approval >= 0) head[approval] = '승인번호'
+  return [head, ...rows]
 }
 
 interface BankCols {
@@ -378,8 +418,8 @@ export async function parseCardLike(grid: Grid, hi: number, kind: '카드' | '�
     }
   }
   const top = grid.slice(0, hi + 1).flat().map(x => String(x ?? '')).join(' ') + ' ' + file
-  const company = ['현대', '우리', '국민', 'KB', '신한', '삼성', '롯데', '하나', '비씨', 'BC', 'NH', '농협'].find(b => top.includes(b))
-  const label = /홈택스|사업용/.test(top) || !company ? '사업용 카드' : `${company}카드`
+  const company = ['현대', '우리', '국민', 'KB', '신한', '삼성', '롯데', '하나', 'IBK', '기업', '비씨', 'BC', 'NH', '농협'].find(b => top.includes(b))
+  const label = /홈택스|사업용/.test(top) || !company ? '사업용 카드' : company === 'IBK' || company === '기업' ? '기업카드' : `${company}카드`
   const seen = new Map<string, number>()
   const head = grid[hi].map(norm)
   const c = {
