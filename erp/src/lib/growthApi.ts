@@ -3,6 +3,8 @@ import { ApiError } from './api'
 import type { Profile } from './types'
 import { validateGrowth, type GrowthApi, type GrowthItem, type GrowthSummary, type AiState } from './growth'
 import { newSalesDraft, type SalesApi } from './sales'
+import { growthSearchFilter, matchesGrowthSearch } from './growthSearch'
+import { readTenderSearchResult, validateTenderQuery } from './tenderSearch'
 const summary = ({ document: _d, ...row }: GrowthItem): GrowthSummary => row
 function fail(e: { message: string; code?: string } | null) {
   if (!e) return
@@ -12,9 +14,21 @@ function fail(e: { message: string; code?: string } | null) {
 }
 export function createSupabaseGrowthApi(sb: SupabaseClient): GrowthApi {
   return {
+    async searchTenders(query) {
+      const invalid = validateTenderQuery(query); if (invalid) throw new ApiError(invalid)
+      const { data, error } = await sb.functions.invoke('g2b-search', { body: query })
+      if (error) {
+        let message = '나라장터 조회 서버에 연결하지 못했습니다. 관리자에게 함수 배포·API 설정 상태를 확인해 주세요.'
+        if (error.context instanceof Response) { try { const body = await error.context.clone().json(); if (typeof body?.error === 'string') message = body.error.slice(0, 500) } catch { /* Keep the controlled connection guidance. */ } }
+        throw new ApiError(message)
+      }
+      if (typeof data?.error === 'string') throw new ApiError(data.error.slice(0, 500))
+      return readTenderSearchResult(data)
+    },
     async listGrowth(f) {
       let q=sb.from('growth_items').select('id,kind,title,owner_id,status,campaign_id,linked_sales_id,revision,created_at,updated_at,created_by').eq('kind',f.kind).order('updated_at',{ascending:false}).order('id')
-      if(f.search.trim())q=q.ilike('title',`%${f.search.trim().replace(/[\\%_]/g,'\\$&')}%`)
+      const search=growthSearchFilter(f.kind,f.search)
+      if(search)q=q.or(search)
       if(f.status)q=q.eq('status',f.status)
       const from=Math.max(0,f.page)*30, r=await q.range(from,from+30); fail(r.error)
       return {items:(r.data??[]).slice(0,30) as GrowthSummary[],hasMore:(r.data?.length??0)>30}
@@ -44,7 +58,8 @@ export function createDemoGrowthApi(viewer:()=>Profile|undefined,sales:SalesApi)
   const key='wkly-growth-demo-v1', get=():GrowthItem[]=>JSON.parse(localStorage.getItem(key)??'[]')
   const user=()=>{const u=viewer();if(!u?.active)throw new ApiError('로그인이 필요합니다.');return u}
   return {
-    async listGrowth(f){user();const a=get().filter(x=>x.kind===f.kind&&(!f.status||x.status===f.status)&&x.title.toLowerCase().includes(f.search.trim().toLowerCase())).sort((a,b)=>b.updated_at.localeCompare(a.updated_at));return {items:a.slice(f.page*30,f.page*30+30).map(summary),hasMore:a.length>f.page*30+30}},
+    async searchTenders(){user();throw new ApiError('체험 모드에서는 실제 나라장터 공고를 조회하지 않습니다. 운영 계정의 서버 함수·공공데이터포털 API 설정 후 사용할 수 있습니다.')},
+    async listGrowth(f){user();const a=get().filter(x=>x.kind===f.kind&&(!f.status||x.status===f.status)&&matchesGrowthSearch(x,f.search)).sort((a,b)=>b.updated_at.localeCompare(a.updated_at));return {items:a.slice(f.page*30,f.page*30+30).map(summary),hasMore:a.length>f.page*30+30}},
     async getGrowth(id){user();const r=get().find(x=>x.id===id);if(!r)throw new ApiError('자료를 찾을 수 없습니다.');return r},
     async saveGrowth(id,d,rev){const u=user(),items=get(),old=items.find(x=>x.id===id),e=validateGrowth(d);if(e)throw new ApiError(e);if(u.role!=='admin'&&(d.owner_id!==u.id||(old&&old.owner_id!==u.id)))throw new ApiError('담당자 또는 관리자만 수정할 수 있습니다.');if((old?.revision??0)!==rev)throw new ApiError('다른 작업에서 변경되었습니다. 다시 불러와 주세요.');
       const sk=(x:GrowthItem|typeof d)=>x.kind==='tender'?`${x.document.number}:${x.document.round}`:x.kind==='contact'?(x.document.email?.toLowerCase()||x.document.instagram?.replace(/^@/,'').toLowerCase()):null

@@ -10,6 +10,7 @@ import { createSignedUrlCache } from './signedUrlCache'
 import { resolveUploadedRecord } from './uploadRecord'
 import { removeStoredObject } from './storageRemoval'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { startMeetingProcessing } from './meetingProgress'
 import { isHiddenName, isReferencePath } from './gdrive'
 import type { FieldUpload, KakaoImport, KakaoMessage, MailFile, SlackChannel, SlackLink, SlackMessage, LedgerStatus, MailItem, MaterialItem, MaterialMove, MaterialStockRow } from './types'
 import { ApiError, CHAT_FILE_MAX, EXCHANGE_FILE_MAX, groupIps, type AgentDraft, type Api, type DriveEnsureResult, type DriveFolder, type DriveStatus, type ImportResult } from './api'
@@ -633,9 +634,7 @@ export function createSupabaseApi(url: string, key: string): Api {
         reconcile: async () => await sb.from('meeting_recordings').select('*').eq('id', recordingId).maybeSingle(),
         cleanup: () => removeStoredObject(sb, 'meeting-audio', path),
       })
-      const r = await sb.functions.invoke('meeting-minutes', { body: { id: rec.id } })
-      if (r.error) throw new ApiError('AI 정리를 시작하지 못했습니다. 잠시 뒤 다시 시도해 주세요.')
-      return { ...rec, status: '처리 중' }
+      return startMeetingProcessing(rec, () => sb.functions.invoke('meeting-minutes', { body: { id: rec.id } }))
     },
     async getMeetingRecording(id) {
       return (must(await sb.from('meeting_recordings').select('*').eq('id', id).maybeSingle()) as MeetingRecording | null) ?? null
@@ -1355,7 +1354,7 @@ export function createSupabaseApi(url: string, key: string): Api {
     },
     async gmailStatus() {
       const { data, error } = await sb.functions.invoke('gmail', { body: { action: 'status' } })
-      return error ? null : (data as { connected: boolean; synced_at?: string; fetched?: number; saved?: number })
+      return error ? null : (data as Awaited<ReturnType<Api['gmailStatus']>>)
     },
     async gmailRefresh() {
       const { data, error } = await sb.functions.invoke('gmail', { body: { action: 'refresh' } })
@@ -1369,7 +1368,7 @@ export function createSupabaseApi(url: string, key: string): Api {
         }
         throw new ApiError(body.error || error.message)
       }
-      return data as { fetched: number; saved: number; skipped?: boolean }
+      return data as Awaited<ReturnType<Api['gmailRefresh']>>
     },
     async gmailSync(days) {
       const { data, error } = await sb.functions.invoke('gmail', { body: { action: 'sync', days: days ?? 90 } })
@@ -1383,7 +1382,7 @@ export function createSupabaseApi(url: string, key: string): Api {
         }
         throw new ApiError(body.error || error.message)
       }
-      return data as { fetched: number; saved: number }
+      return data as Awaited<ReturnType<Api['gmailSync']>>
     },
     async listDriveIndex(projectId) {
       let q = sb.from('drive_index').select('id,project_id,name,mime_type,parent_id,path,url,icon_url,size,modified_at,modified_by').order('modified_at', { ascending: false, nullsFirst: false })

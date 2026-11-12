@@ -1,3 +1,5 @@
+import type { TenderSearchQuery, TenderSearchResult } from './tenderSearch'
+
 export type GrowthKind = 'tender' | 'content' | 'contact'
 export const GROWTH_LABELS = { tender: '나라장터', content: '콘텐츠·배포', contact: '연락처 검토함' }
 export const CHANNELS = ['네이버 블로그', '인스타그램', '유튜브'] as const
@@ -104,6 +106,7 @@ export function formatAiCost(value: unknown): string {
 }
 export interface AiState { models: AiModel[]; budgets: AiBudget[]; usage: AiUsage[] }
 export interface GrowthApi {
+  searchTenders(query: TenderSearchQuery): Promise<TenderSearchResult>
   listGrowth(f: GrowthFilter): Promise<{ items: GrowthSummary[]; hasMore: boolean }>
   getGrowth(id: string): Promise<GrowthItem>
   saveGrowth(id: string, draft: GrowthDraft, revision: number): Promise<GrowthItem>
