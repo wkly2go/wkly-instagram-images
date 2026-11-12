@@ -1,6 +1,6 @@
 # 영업·콘텐츠 확장 운영 적용 순서
 
-대상 프로젝트: `hophgcpszenrvchvbkav` / 개발 PR #354. 2026-11-12 사용자가 0113·0114·0115 전체 설치 SQL 실행의 `Success. No rows returned` 화면을 각각 제공했습니다. 설치 후 조회 결과 확인 및 Edge Function·웹 배포는 미완료입니다. 실제 사용자 저장·권한·동시 수정 검증도 남아 있습니다.
+대상 프로젝트: `hophgcpszenrvchvbkav` / 개발 PR #354. 2026-11-12 사용자가 0113·0114·0115 전체 설치 SQL 실행의 성공 화면과 설치 후 점검 9행 모두 정상인 결과를 제공했습니다. Edge Function·웹 배포는 미완료입니다. 실제 사용자 저장·권한·동시 수정 검증도 남아 있습니다.
 최신 main #363의 변경을 보존한 코드 기준이며, 배포 직전 다른 세션의 추가 변경과 번호를 다시 확인합니다.
 
 ## 1. 지금 확인할 항목 — 변경 없이 조회
@@ -35,7 +35,7 @@ SQL Editor에서 수동 적용한 변경은 migration 이력에 없을 수 있�
 2. `0114_growth_workspace.sql`
 3. `0115_growth_ai_budget.sql`
 
-현재 위치는 **세 SQL 실행 성공 보고 후 통합 확인**입니다. 성공 보고를 받은 0113·0114·0115를 다시 실행하지 않습니다. SQL Editor의 수동 실행 성공이 migration 이력 자동 등록을 뜻하지 않으므로 캡처·파일명·적용 상태를 체크포인트에 함께 기록합니다.
+현재 위치는 **DB 기본 통합 확인 완료 후 Edge Function 배포**입니다. 성공 보고를 받은 0113·0114·0115를 다시 실행하지 않습니다. SQL Editor의 수동 실행 성공이 migration 이력 자동 등록을 뜻하지 않으므로 캡처·파일명·적용 상태를 체크포인트에 함께 기록합니다.
 
 `supabase/diagnostics/growth_postflight_readonly.sql`을 새 쿼리에서 실행하면 9행 결과가 나옵니다. 신규 테이블 8개, RLS 8개, 팀원 조회 정책 8개, 비로그인 테이블 접근 차단 8개, 팀원 조회 권한 8개, 팀원 직접 변경 차단 8개, 필수 DB 함수 11개, AI 예약/정산 서버 전용 권한 2개, 메일 트리거 2개를 확인합니다. 데이터/키는 조회하거나 변경하지 않습니다. 전부 정상이어도 함수 본문 전체 일치나 실제 사용 동작을 증명하지 않으므로 앱 검증은 별도로 진행합니다.
 
@@ -46,6 +46,18 @@ SQL Editor에서 수동 적용한 변경은 migration 이력에 없을 수 있�
 ## 3. AI 서버 함수만 별도 배포
 
 `supabase/functions/growth-ai/`의 **index.ts, handler.ts, policy.ts 세 파일**이 함께 필요합니다. 앱의 main 병합만으로 Edge Function이 배포되지는 않습니다.
+
+현재처럼 브라우저로 진행할 때는 이 세 파일을 합친 **`supabase/deploy/growth-ai-dashboard.ts`** 전체를 사용합니다. 원본 로직을 유지하고 내부 import만 제거한 파일이며 키는 포함하지 않습니다.
+
+1. 대상 프로젝트 → **Edge Functions → Deploy a new function → Via Editor**.
+2. 함수 이름을 정확히 **growth-ai**로 입력하고 새 함수의 **index.ts** 예제 코드 전체를 배포물 내용으로 교체합니다.
+3. JWT 검증 기본값(켜짐)을 유지하고 **Deploy function**을 누릅니다. 기존 다른 함수의 코드를 수정하지 않습니다.
+4. 배포 성공 화면/함수 URL을 확인합니다. 이번 문서 작성 시점에는 아직 실제 배포 성공을 확인하지 않았습니다.
+5. Secrets에서 `ANTHROPIC_API_KEY` 설정 존재 여부를 확인합니다. 있으면 기존 설정을 유지하고, 없으면 관리자가 기존 Claude API 키를 Supabase의 비밀 값 입력란에 직접 등록합니다. 값을 코드·채팅·캡처에 넣지 않습니다.
+
+배포물은 `node scripts/build-growth-ai-dashboard.mjs`로 생성하고 `node scripts/build-growth-ai-dashboard.mjs --check`로 원본 일치를 확인합니다. 변경 시 원본 세 파일을 수정한 뒤 재생성하며 배포물만 직접 수정하지 않습니다. 저장소에서 원본과 배포물 이력을 함께 관리합니다. 전체 167개 테스트와 배포물 Deno 검사 통과.
+
+공식 대시보드 절차: https://supabase.com/docs/guides/functions/quickstart-dashboard . 비밀 설정: https://supabase.com/docs/guides/functions/secrets .
 
 배포 환경에 Supabase CLI 인증이 준비된 경우 `erp`에서 실행합니다.
 
