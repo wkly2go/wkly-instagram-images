@@ -4552,3 +4552,23 @@ tr.lg-review td:first-child { box-shadow: inset 3px 0 0 #e0a800; }
 .lgf-upload.over { background: #fff0f6; border-style: solid; }
 .lgf-upload .t-cap { flex: 1 1 260px; }
 .lgf-or { margin-top: 6px; }
+
+/* 보고서 대시보드 (보고서 양식 화면 맨 위 · 2026-11-12) */
+.rd { margin-bottom: 4px; }
+.rd-kpi { text-decoration: none; color: inherit; }
+.rd-kpi:hover { border-color: var(--green); }
+.rd-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 8px; }
+.rd-box { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border: 1px solid var(--line); background: var(--white); min-width: 0; }
+.rd-box a.ledger-cat { text-decoration: none; color: inherit; }
+.rd-box .ledger-cat i.net { background: var(--blue); }
+.rd-bars { display: flex; gap: 6px; align-items: flex-end; height: 120px; }
+.rd-month { flex: 1; min-width: 0; height: 100%; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.rd-month.cur { background: var(--blue-tint); }
+.rd-month .bar-pair { flex: 1; width: 100%; display: flex; align-items: flex-end; justify-content: center; gap: 2px; padding-top: 4px; }
+.rd-month .bar-pair i { width: 32%; max-width: 16px; min-height: 1px; border-radius: 3px 3px 0 0; }
+.rd-month .bar-pair i.in { background: #1264a3; } .rd-month .bar-pair i.net { background: var(--blue); opacity: .55; }
+.rd-month span { font-size: var(--fs-cap); color: var(--gray); }
+.rd-ai { margin-left: 4px; padding: 0 4px; font-size: 10.5px; color: var(--green); border: 1px solid var(--green); }
+.rd-wait { display: flex; justify-content: space-between; gap: 8px; padding: 4px 0; border-bottom: 1px solid var(--line); text-decoration: none; color: inherit; font-size: var(--fs-sm); min-width: 0; }
+.rd-wait:hover { color: var(--green); }
+.rd-wait .t-meta { white-space: nowrap; flex-shrink: 0; }

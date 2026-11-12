@@ -36,7 +36,7 @@ export type TabKey = 'home' | 'reportTemplates' | 'approvals' | 'chat' | 'work' 
 export const TABS: { key: TabKey; label: string; path: string; admin?: boolean }[] = [
   { key: 'home', label: '홈', path: '/' },
   { key: 'approvals', label: '리서치 · 보고서', path: '/approvals' },
-  { key: 'reportTemplates', label: '보고서 양식', path: '/report-templates' },
+  { key: 'reportTemplates', label: '리서치/보고서 결재', path: '/report-templates' },
   { key: 'chat', label: '채팅', path: '/chat' },
   { key: 'projects', label: '프로젝트', path: '/projects' },
   { key: 'drive', label: '드라이브', path: '/drive' },
