@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
 import { Linkify } from '../components/ui'
 import { ArrowLeft, BookOpen, FileText, Filter, Inbox, List, MessageSquare, NotebookPen, Plus, Send } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
@@ -17,6 +17,8 @@ import { Button, Chip, Field, KindBadge, KindTag, Modal, StatusBadge, ViewTabs }
 import { MeetingRecorder } from '../components/MeetingRecorder'
 
 type View = 'todo' | 'mine' | 'all'
+
+const Research = lazy(() => import('./Library').then(module => ({ default: module.Research })))
 
 /** 승인/반려 버튼 (홈·상세 공용) */
 export function DecideButtons({ approval, compact }: { approval: Approval; compact?: boolean }) {
@@ -137,6 +139,46 @@ export function DecideButtons({ approval, compact }: { approval: Approval; compa
 }
 
 export default function Approvals() {
+  const { query, navigate } = useRouter()
+  const section = query.get('section') === 'research' ? 'research' : 'approvals'
+  return (
+    <Shell active="approvals">
+      <div className="row wrap" style={{ justifyContent: 'space-between', gap: 12 }}>
+        <h1 className="t-title" style={{ margin: 0 }}>리서치 · 보고서</h1>
+        <Link to="/report-templates" className="btn btn-outline btn-sm">보고서 양식</Link>
+      </div>
+      <ViewTabs
+        label="리서치 · 보고서 구분"
+        active={section}
+        onPick={next => {
+          if (next !== section) navigate(next === 'research' ? '/approvals?section=research' : '/approvals')
+        }}
+        items={[
+          { key: 'research', label: '리서치 자료', icon: <BookOpen size={16} /> },
+          { key: 'approvals', label: '보고서 결재', icon: <FileText size={16} /> },
+        ]}
+      />
+      <section role="region" aria-label={section === 'research' ? '리서치 자료' : '보고서 결재'} className="col gap-10" style={{ minWidth: 0 }}>
+        <p className="t-cap" style={{ margin: 0 }}>
+          {section === 'research' ? '수집한 자료와 거래처 리서치 보고서를 찾아보고 관리합니다.' : '제출한 보고서를 확인하고 승인 · 반려 등 결재를 처리합니다.'}
+        </p>
+        {section === 'research' ? (
+          <Suspense fallback={<p className="t-cap" role="status">리서치 자료를 불러오는 중…</p>}>
+            <Research tabs={
+              <nav className="row wrap" aria-label="리서치 관련 자료" style={{ gap: 12 }}>
+                <Link to="/library?tab=contacts" className="t-small">브랜드 담당자</Link>
+                <Link to="/library?tab=templates" className="t-small">메일 템플릿</Link>
+                <Link to="/library?tab=agents" className="t-small">에이전트 연결 안내</Link>
+              </nav>
+            } />
+          </Suspense>
+        ) : <ApprovalContent />}
+      </section>
+    </Shell>
+  )
+}
+
+function ApprovalContent() {
   const { api, me, version } = useApp()
   const { query, path, navigate } = useRouter()
   const view = (query.get('view') as View) || 'todo'
@@ -162,7 +204,7 @@ export default function Approvals() {
   useRightPanel(selected && wide ? `approval:${selected.id}` : null, '승인 상세', selected ? <ApprovalDetail a={selected} onBack={() => go({ id: null })} /> : null)
 
   return (
-    <Shell active="approvals">
+    <>
       {/* 6번 방식 (대표 선택 2026-10-29): 화면 전환은 밑줄 탭, 자주 하는 일(승인 요청)만 진한 버튼, 나머지는 조용한 도구 줄 */}
       <div className="row" style={{ alignItems: 'flex-end', gap: 8 }}>
         <ViewTabs
@@ -209,10 +251,6 @@ export default function Approvals() {
         <Chip onClick={() => setMinutes(true)}>
           <NotebookPen size={13} /> 회의록 쓰기
         </Chip>
-        {/* 자료실 (대표 지시 2026-10-22 "자료실을 보고서 결제에 포함") */}
-        <Chip onClick={() => navigate('/library')}>
-          <BookOpen size={13} /> 자료실
-        </Chip>
       </div>
       {selected && !wide ? (
         <div className="pane-detail">
@@ -223,7 +261,7 @@ export default function Approvals() {
       )}
       {minutes && <NewApproval preset={{ kind: '회의록' }} onClose={() => setMinutes(false)} onCreated={id => go({ view: 'all', kind: '회의록', id })} />}
       {creating && <NewApproval onClose={() => setCreating(false)} onCreated={id => go({ view: 'mine', id })} />}
-    </Shell>
+    </>
   )
 }
 
