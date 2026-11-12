@@ -5,6 +5,8 @@ import { randomUUID } from 'node:crypto'
 import { PGlite } from '@electric-sql/pglite'
 const db=new PGlite(),ADMIN=randomUUID(),OWNER=randomUUID(),OTHER=randomUUID(),INACTIVE=randomUUID(),CAMPAIGN=randomUUID()
 const preflight=await readFile(new URL('../supabase/diagnostics/growth_preflight_readonly.sql',import.meta.url),'utf8')
+const postflight=await readFile(new URL('../supabase/diagnostics/growth_postflight_readonly.sql',import.meta.url),'utf8')
+let beforePostflight=[]
 let beforeInstall=[]
 before(async()=>{
  await db.exec(`create role authenticated;create role anon;create role service_role;create schema auth;
@@ -18,7 +20,7 @@ before(async()=>{
  create table mail_index(id text primary key,thread_id text,from_addr text,from_name text,labels text[],subject text,sent_at timestamptz,synced_at timestamptz);
  grant usage on schema auth,public to authenticated,anon,service_role;`)
  await db.exec('begin read only')
- try{beforeInstall=(await db.query(preflight)).rows}finally{await db.exec('rollback')}
+ try{beforeInstall=(await db.query(preflight)).rows;beforePostflight=(await db.query(postflight)).rows}finally{await db.exec('rollback')}
  for(const file of ['0113_sales_pipeline.sql','0114_growth_workspace.sql','0115_growth_ai_budget.sql'])await db.exec(await readFile(new URL('../supabase/migrations/'+file,import.meta.url),'utf8'))
 })
 after(()=>db.close())
@@ -33,6 +35,21 @@ test('deployment preflight runs read-only before and after installation, includi
   const rows=(await db.query(preflight)).rows
   assert.ok(rows.filter(r=>['신규 테이블','서버 함수','메일 자동 후보'].includes(r['구분'])).every(r=>r['상태']==='있음'))
   assert.equal(rows.find(r=>r['구분']==='설치 이력')['상태'],'없음')
+ }finally{await db.exec('rollback')}
+})
+test('post-install read-only checks detect missing objects and unsafe grants or disabled RLS',async()=>{
+ assert.equal(beforePostflight.length,9)
+ assert.ok(beforePostflight.every(r=>r['결과']==='확인 필요'))
+ await db.exec('begin read only')
+ try{
+  const rows=(await db.query(postflight)).rows
+  assert.equal(rows.length,9);assert.ok(rows.every(r=>r['결과']==='정상'))
+ }finally{await db.exec('rollback')}
+ await db.exec('begin')
+ try{
+  await db.exec('alter table growth_items disable row level security; grant select on growth_items to anon; grant insert on growth_items to authenticated; grant execute on function growth_ai_reserve(uuid,uuid,text,text,text,integer) to authenticated; alter table mail_index disable trigger growth_mail_capture; drop policy growth_history_read on growth_revisions;')
+  const rows=(await db.query(postflight)).rows
+  for(const item of ['행별 접근 제어(RLS)','팀원 조회 정책','비로그인 테이블 접근 차단','팀원 직접 변경 차단','AI 예약·정산 서버 전용 권한','메일 자동 후보 트리거'])assert.equal(rows.find(r=>r['점검 항목']===item)['결과'],'확인 필요',item)
  }finally{await db.exec('rollback')}
 })
 test('growth owner saves; other member cannot write or reassign; revision conflict protects data',async()=>{
