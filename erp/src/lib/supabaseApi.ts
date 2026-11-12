@@ -17,6 +17,7 @@ import type {
   Subscription,
   PersonalEvent,
   TaxInvoice,
+  TaxInvoiceSummary,
   ExchangeFile,
   ProjectDriveFile,
   DriveIndexFile,
@@ -580,6 +581,15 @@ export function createSupabaseApi(url: string, key: string): Api {
     },
     async updateTaxInvoice(id, patch) {
       must(await sb.from('tax_invoices').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', id))
+    },
+    async listTaxInvoiceSummaries() {
+      const { data, error } = await sb.from('tax_invoice_summaries').select('*').order('period_from')
+      return error ? [] : (data as TaxInvoiceSummary[])
+    },
+    async importTaxInvoiceSummaries(rows) {
+      if (!rows.length) return 0
+      must(await sb.from('tax_invoice_summaries').upsert(rows.map(r => ({ ...r, uploaded_at: new Date().toISOString() })), { onConflict: 'direction,period_from,period_to,partner_biz_no' }))
+      return rows.length
     },
     async saveTaxSettlement(rows) {
       const at = new Date().toISOString()

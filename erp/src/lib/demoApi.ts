@@ -14,6 +14,7 @@ import type {
   KakaoImport,
   KakaoMessage,
   TaxInvoice,
+  TaxInvoiceSummary,
   ExchangeFile,
   ProjectDriveFile,
   ProjectContact,
@@ -101,6 +102,7 @@ interface Store {
   kakaoImports?: KakaoImport[]
   kakaoMessages?: KakaoMessage[]
   taxInvoices?: TaxInvoice[]
+  taxInvoiceSummaries?: TaxInvoiceSummary[]
   material_moves?: MaterialMove[]
   ledger?: LedgerEntry[]
   recurring?: LedgerRecurring[]
@@ -1442,6 +1444,22 @@ export function createDemoApi(): Api {
       const x = (store.taxInvoices ?? []).find(t => t.id === id)
       if (x) Object.assign(x, patch)
       persist()
+    },
+    async listTaxInvoiceSummaries() {
+      requireAdmin()
+      return clone(store.taxInvoiceSummaries ?? [])
+    },
+    async importTaxInvoiceSummaries(rows) {
+      requireAdmin()
+      const list = (store.taxInvoiceSummaries ??= [])
+      for (const r of rows) {
+        const i = list.findIndex(x => x.direction === r.direction && x.period_from === r.period_from && x.period_to === r.period_to && x.partner_biz_no === r.partner_biz_no)
+        const row = { ...r, id: i >= 0 ? list[i].id : Date.now() + list.length, uploaded_at: new Date().toISOString() }
+        if (i >= 0) list[i] = row
+        else list.push(row)
+      }
+      persist()
+      return rows.length
     },
     async saveTaxSettlement(rows) {
       requireAdmin()

@@ -4,7 +4,7 @@ import { useApp } from '../lib/app'
 import { driveApi, driveIdOf, listChildren, newFolder, FOLDER_MIME, type GFile } from '../lib/gdrive'
 import { fileKind, scanDriveFolder, sheetsInZip, SHEET_RE, type ScannedFile, REFERENCE_RE } from '../lib/folderScan'
 import { runSettlement } from '../lib/invoiceSettle'
-import { attachEvidence, classify, detectKind, setStaffNames, parseBank, parseCardLike, readGrid, type Evidence, type LedgerRow } from '../lib/ledgerImport'
+import { attachEvidence, classify, detectKind, parseInvoiceSummary, setStaffNames, parseBank, parseCardLike, readGrid, type Evidence, type LedgerRow } from '../lib/ledgerImport'
 import { LEDGER_CATEGORIES, LEDGER_TRANSFER_CATEGORIES, type LedgerEntry, type LedgerFile, type Payment } from '../lib/types'
 import { parseHometax } from './TaxInvoices'
 import { Button } from './ui'
@@ -129,11 +129,28 @@ export async function processLedgerFiles(api: ReturnType<typeof useApp>['api'], 
   const evidence: Evidence[] = []
   let minDate = '9999-12-31'
   let maxDate = '0000-01-01'
+  // 빠르게: 파일 내려받기 · 엑셀 읽기는 4개씩 동시에, 장부 기입은 겹침(중복) 막으려고 차례대로 (2026-11-12 '업데이트를 빠르게')
+  type Loaded = { data: ArrayBuffer; name: string; grids: Awaited<ReturnType<typeof readGrid>> }
+  const loaded = new Map<string, Promise<Loaded>>()
+  let next = 0
+  const pump = () => {
+    while (next < inputs.length && loaded.size - done < 4) {
+      const f = inputs[next++]
+      const job = f.load().then(async ({ data, name }) => ({ data, name, grids: await readGrid(data, name) }))
+      job.catch(() => undefined) // 기다리기 전에 실패해도 경고 없이 — 차례가 오면 아래에서 오류로 기록
+      loaded.set(f.id, job)
+    }
+  }
+  let done = 0
+  pump()
   for (const f of inputs) {
-    onStep?.(`${f.name} 읽는 중`)
+    onStep?.(`${f.name} 읽는 중 (${done + 1}/${inputs.length})`)
+    let counted = false
     try {
-      const { data, name } = await f.load()
-      const grids = await readGrid(data, name)
+      const { data, name, grids } = await loaded.get(f.id)!
+      done++
+      counted = true
+      pump()
       const { kind, grid, hi } = detectKind(grids, name)
       let rows: LedgerRow[] = []
       let note = ''
@@ -149,6 +166,12 @@ export async function processLedgerFiles(api: ReturnType<typeof useApp>['api'], 
         note = `세금계산서 ${drafts.length}건 (새로 ${t.added})`
         for (const d of drafts)
           evidence.push({ date: d.write_date, direction: d.direction === '매입' ? '출금' : '입금', total: Math.abs(d.total), supply: Math.abs(d.supply), vat: Math.abs(d.vat), partner: d.partner_name, kind: '세금계산서', ref: d.approval_no })
+      } else if (kind === '계산서 합계표') {
+        // 홈택스 세금계산서 합계표: 장부에 넣지 않고 저장 → 계산서 기준 탭에서 대장 누락 대조 (2026-11-12)
+        const sums = parseInvoiceSummary(grid, hi)
+        await api.importTaxInvoiceSummaries(sums.map(x => ({ ...x, file_name: f.name })))
+        const s0 = sums[0]
+        note = s0 ? `${s0.direction} 합계표 ${s0.period_from}~${s0.period_to} · 거래처 ${sums.length}곳 · ${sums.reduce((n, x) => n + x.count, 0)}매 — 계산서 기준 탭에서 대조` : '합계표 기간을 찾지 못했습니다'
       } else {
         note = '거래 내역(날짜 · 금액) 칸을 찾지 못했습니다 — 요약표 · 매입장 등은 건너뜁니다'
         res.errors.push(`${f.name}: ${note}`)
@@ -164,6 +187,10 @@ export async function processLedgerFiles(api: ReturnType<typeof useApp>['api'], 
       res.files++
       await api.saveLedgerFile({ drive_file_id: f.id, name: f.name, kind, modified_time: f.modified, rows: rows.length, added: r.added, note: note || null })
     } catch (e) {
+      if (!counted) {
+        done++
+        pump()
+      }
       const n = e instanceof DOMException ? e.name : ''
       const msg = n === 'NotFoundError' || n === 'NotReadableError' ? "파일을 열 수 없습니다. 폴더라면 '폴더 전체 올리기'로 올리거나, 파일이 다른 프로그램에서 열려 있으면 닫고 다시 올려 주세요." : e instanceof Error ? e.message : String(e)
       res.errors.push(`${f.name}: ${msg}`)
@@ -641,7 +668,7 @@ export function LedgerFolder({ onExpired }: { onExpired: () => void }) {
             // 처리 완료 · 미처리 구분 (대표 지시 2026-11-12 "처리완료한 파일과 미처리 파일을 구분해")
             const state = (f: LedgerFile): '미처리' | '참고 자료' | '반영 완료' | '같은 내용' => {
               if (REFERENCE_RE.test(f.name) || (f.note ?? '').includes('운행기록부')) return '참고 자료'
-              if (f.kind === '압축' || f.kind === '세금계산서' || f.kind === '현금영수증') return '반영 완료'
+              if (f.kind === '압축' || f.kind === '세금계산서' || f.kind === '현금영수증' || f.kind === '계산서 합계표') return '반영 완료'
               if (f.kind === '알 수 없음' || f.rows === 0) return '미처리'
               return f.added > 0 ? '반영 완료' : '같은 내용'
             }
@@ -653,7 +680,7 @@ export function LedgerFolder({ onExpired }: { onExpired: () => void }) {
                     <tr key={f.drive_file_id}>
                       <td className="truncate">{f.name}</td>
                       <td>{f.kind}</td>
-                      <td className="t-cap">{why ? why(f) : `${f.rows}줄 · 새로 ${f.added}건${f.note ? ` · ${f.note}` : ''}`}</td>
+                      <td className="t-cap">{why ? why(f) : f.kind === '계산서 합계표' && f.note ? f.note : `${f.rows}줄 · 새로 ${f.added}건${f.note ? ` · ${f.note}` : ''}`}</td>
                       <td className="t-cap mono">{f.processed_at.slice(0, 16).replace('T', ' ')}</td>
                     </tr>
                   ))}

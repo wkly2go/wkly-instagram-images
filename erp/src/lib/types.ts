@@ -702,6 +702,21 @@ export interface TaxInvoice {
   settled_at?: string | null
   created_at: string
 }
+/** 홈택스 세금계산서 합계표 (0109 · 기간 · 거래처별) */
+export interface TaxInvoiceSummary {
+  id: number
+  direction: '매출' | '매입'
+  period_from: string
+  period_to: string
+  partner_biz_no: string
+  partner_name: string | null
+  count: number
+  supply: number
+  vat: number
+  total: number
+  file_name: string | null
+  uploaded_at: string
+}
 export type TaxInvoiceDraft = Omit<TaxInvoice, 'id' | 'created_at' | 'project_id' | 'payment_id' | 'memo'> & { project_id?: string | null }
 
 /** 캘린더 개인 일정 (본인만 봄 · 0100) */
