@@ -8,11 +8,11 @@ import { createServer } from 'vite'
 // This verifies form/URL state, not browser layout, production roles or RLS.
 const require = createRequire(import.meta.url)
 const { JSDOM } = require('jsdom')
-let dom, server, React, act, createRoot, within, user, api, RouterProvider, AppProvider, Sales, Ads, CommandPalette, GrowthWorkspace, MeetingRecorder, MeetingStartUncertainError, root, originals
+let dom, server, React, act, createRoot, within, user, api, RouterProvider, AppProvider, Sales, Ads, Agents, normalizePath, CommandPalette, GrowthWorkspace, MeetingRecorder, MeetingStartUncertainError, root, originals
 
 before(async () => {
   dom = new JSDOM('<!doctype html><html><body><div id="root"></div></body></html>', { url: 'http://localhost/sales', pretendToBeVisual: true })
-  for (const key of ['window', 'document', 'navigator', 'location', 'localStorage', 'sessionStorage', 'Element', 'HTMLElement', 'HTMLInputElement', 'HTMLTextAreaElement', 'MutationObserver', 'Node', 'NodeFilter', 'Event', 'CustomEvent', 'MouseEvent', 'KeyboardEvent', 'StorageEvent', 'PopStateEvent', 'getComputedStyle']) {
+  for (const key of ['window', 'document', 'navigator', 'location', 'localStorage', 'sessionStorage', 'Element', 'HTMLElement', 'HTMLInputElement', 'HTMLTextAreaElement', 'MutationObserver', 'Node', 'NodeFilter', 'EventTarget', 'Event', 'CustomEvent', 'MouseEvent', 'KeyboardEvent', 'StorageEvent', 'PopStateEvent', 'getComputedStyle']) {
     Object.defineProperty(globalThis, key, { configurable: true, writable: true, value: typeof dom.window[key] === 'function' && key === 'getComputedStyle' ? dom.window[key].bind(dom.window) : dom.window[key] })
   }
   globalThis.requestAnimationFrame = dom.window.requestAnimationFrame.bind(dom.window)
@@ -41,13 +41,15 @@ before(async () => {
   ;({ api, AppProvider } = await server.ssrLoadModule('/src/lib/app.tsx'))
   ;({ RouterProvider } = await server.ssrLoadModule('/src/lib/router.tsx'))
   ;({ default: Sales } = await server.ssrLoadModule('/src/pages/Sales.tsx'))
+  ;({ default: Agents } = await server.ssrLoadModule('/src/pages/Agents.tsx'))
+  ;({ normalizePath } = await server.ssrLoadModule('/src/lib/router.tsx'))
   ;({ default: Ads } = await server.ssrLoadModule('/src/pages/Ads.tsx'))
   ;({ CommandPalette } = await server.ssrLoadModule('/src/components/CommandPalette.tsx'))
   ;({ GrowthWorkspace } = await server.ssrLoadModule('/src/components/GrowthWorkspace.tsx'))
   ;({ MeetingRecorder } = await server.ssrLoadModule('/src/components/MeetingRecorder.tsx'))
   ;({ MeetingStartUncertainError } = await server.ssrLoadModule('/src/lib/meetingProgress.ts'))
   assert.equal(api.mode, 'demo')
-  originals = { saveSales: api.saveSales, saveGrowth: api.saveGrowth, startMeetingMinutes: api.startMeetingMinutes, getMeetingRecording: api.getMeetingRecording, searchTenders: api.searchTenders }
+  originals = { getAiState: api.getAiState, runGrowthAi: api.runGrowthAi, configureAi: api.configureAi, reconcileAi: api.reconcileAi, mode: api.mode, listAgentJobs: api.listAgentJobs, saveSales: api.saveSales, saveGrowth: api.saveGrowth, startMeetingMinutes: api.startMeetingMinutes, getMeetingRecording: api.getMeetingRecording, searchTenders: api.searchTenders }
 })
 afterEach(async () => {
   if (root) await act(async () => root.unmount())
@@ -67,7 +69,7 @@ async function mount(role, kind = 'sales', props = {}, initialUrl) {
   root = createRoot(document.getElementById('root'))
   await act(async () => root.render(React.createElement(RouterProvider, null,
     React.createElement(AppProvider, { me, profiles, version: 0, bump() {}, toast() {}, openQuick() {} },
-      kind === 'ads' ? React.createElement(React.Fragment, null, React.createElement(Ads), React.createElement(CommandPalette)) :
+      (kind === 'ads' || kind === 'agents') ? React.createElement(React.Fragment, null, React.createElement(kind === 'agents' ? Agents : Ads), React.createElement(CommandPalette)) :
         React.createElement(kind === 'sales' ? Sales : kind === 'meeting' ? MeetingRecorder : GrowthWorkspace, kind === 'sales' ? {} : kind === 'meeting' ? props : { kind })))))
   return within(document.body)
 }
@@ -748,4 +750,144 @@ test('confirmed event date, proof and space strategy persist through sales save 
  assert.equal(row.source_url,'https://example.com/opening');assert.equal(row.next_date,'2029-12-01')
  assert.match(row.description,/2030-03-01/);assert.match(row.description,/브랜드 공식 공지의 날짜 확인/)
  const detail=panel(row.title);assert.match(detail.getByText(/\[신규 영업 발굴 계획\]/).textContent,/권장 업무 일정/)
+})
+
+
+test('AI menu combines team and costs for members without exposing admin tools or running AI', async () => {
+  let reads = 0, writes = 0, adminReads = 0
+  api.getAiState = async () => { reads++; return { models: [], budgets: [], usage: [] } }
+  api.runGrowthAi = async () => { writes++; throw new Error('Unexpected AI call') }
+  api.listAgentJobs = async () => { adminReads++; return [] }
+  const screen = await mount('member', 'agents', {}, '/agents?campaign=keep')
+  const nav = within(screen.getByRole('navigation', { name: 'AI 팀·비용 메뉴' }))
+  assert.deepEqual(nav.getAllByRole('button').map(b => b.textContent), ['팀원·지시·예약', '사용·비용'])
+  assert.equal(reads, 0)
+  await click(nav.getByRole('button', { name: '사용·비용', exact: true }))
+  assert.equal(location.pathname, '/agents')
+  assert.equal(query('tab'), 'usage')
+  assert.equal(query('campaign'), 'keep')
+  assert.equal(screen.getByRole('heading', { name: 'AI 사용·비용 관리' }) != null, true)
+  assert.match(screen.getByText(/아래 금액은 영업/).textContent, /회의록.*포함되지 않습니다/)
+  assert.equal(screen.queryByRole('button', { name: '모델·기간 한도 설정' }), null)
+  assert.equal(reads, 1)
+  await click(nav.getByRole('button', { name: '팀원·지시·예약', exact: true }))
+  assert.equal(query('tab'), 'team')
+  assert.equal(writes, 0)
+  assert.equal(adminReads, 0)
+})
+
+test('AI admin navigation preserves date and selected team context, including explicit return to team', async () => {
+  const screen = await mount('admin', 'agents', {}, '/agents?date=2026-11-12&campaign=keep')
+  const nav = within(screen.getByRole('navigation', { name: 'AI 팀·비용 메뉴' }))
+  assert.equal(nav.getByRole('button', { name: '일일 보고' }).getAttribute('aria-current'), 'page')
+  for (const [name, key] of [['예약 작업 점검', 'jobs'], ['조직도·관리자', 'org'], ['관리 요청', 'requests'], ['AI 처리 기록', 'actions'], ['사용·비용', 'usage'], ['팀원·지시·예약', 'team']]) {
+    await click(nav.getByRole('button', { name, exact: true }))
+    assert.equal(query('tab'), key)
+    assert.equal(query('date'), '2026-11-12')
+    assert.equal(query('campaign'), 'keep')
+    assert.equal(screen.getByRole('region', { name, exact: true }) != null, true)
+  }
+})
+
+test('old AI cost links resolve to the combined usage tab and retain other parameters', async () => {
+  const alias = normalizePath('/ai-usage?tab=jobs&date=2026-11-12&campaign=keep')
+  assert.equal(alias, '/agents?tab=usage&date=2026-11-12&campaign=keep')
+  assert.equal(normalizePath(alias), alias)
+  const screen = await mount('member', 'agents', {}, alias)
+  assert.equal(screen.getByRole('region', { name: '사용·비용', exact: true }) != null, true)
+  assert.equal(query('date'), '2026-11-12')
+})
+
+test('member admin links and unknown AI tabs fall back to team without loading admin jobs', async () => {
+  let calls = 0
+  api.listAgentJobs = async () => { calls++; return [] }
+  const screen = await mount('member', 'agents', {}, '/agents?tab=jobs')
+  assert.equal(screen.getByRole('region', { name: '팀원·지시·예약', exact: true }) != null, true)
+  assert.equal(calls, 0)
+  await act(async () => { window.history.pushState(null, '', '/agents?tab=unknown'); window.dispatchEvent(new PopStateEvent('popstate')) })
+  assert.equal(screen.getByRole('region', { name: '팀원·지시·예약', exact: true }) != null, true)
+})
+
+test('AI tabs retain an unsaved request on declined navigation and block switching while it runs', async () => {
+  api.getAiState = async () => ({ models: [{ key: 'standard', label: '작성', enabled: true, model_id: 'test', input_rate: 1, output_rate: 1 }], budgets: [], usage: [] })
+  let finish, calls = 0
+  api.runGrowthAi = () => { calls++; return new Promise(resolve => { finish = resolve }) }
+  const screen = await mount('member', 'agents', {}, '/agents?tab=usage&date=2026-11-12')
+  await click(screen.getByText('필요할 때 AI 도움 받기', { exact: true }))
+  await type(screen.getByLabelText('요청문 · 최대 6,000자'), '보존할 요청문')
+  let confirmations = 0
+  window.confirm = () => { confirmations++; return false }
+  const team = within(screen.getByRole('navigation', { name: 'AI 팀·비용 메뉴' })).getByRole('button', { name: '팀원·지시·예약', exact: true })
+  await click(team)
+  assert.equal(query('tab'), 'usage')
+  assert.equal(screen.getByLabelText('요청문 · 최대 6,000자').value, '보존할 요청문')
+  assert.equal(confirmations, 1)
+  await click(screen.getByRole('button', { name: 'API 실행·결과 확인', exact: true }))
+  window.confirm = () => true
+  await click(team)
+  assert.equal(query('tab'), 'usage')
+  assert.equal(calls, 1)
+  await act(async () => finish({ text: '테스트 전용 결과', cost: 0.002, status: 'completed' }))
+  await click(team)
+  assert.equal(query('tab'), 'team')
+  assert.equal(query('date'), '2026-11-12')
+})
+
+test('AI team instructions stay intact when switching to costs is declined', async () => {
+  const screen = await mount('admin', 'agents', {}, '/agents')
+  await type(screen.getByRole('textbox', { name: '업무 지시', exact: true }), '아직 보내지 않은 업무')
+  window.confirm = () => false
+  await click(within(screen.getByRole('navigation', { name: 'AI 팀·비용 메뉴' })).getByRole('button', { name: '사용·비용', exact: true }))
+  assert.equal(query('tab'), null)
+  assert.equal(screen.getByRole('textbox', { name: '업무 지시', exact: true }).value, '아직 보내지 않은 업무')
+})
+
+test('AI search aliases show one combined menu destination', async () => {
+  const screen = await mount('member', 'agents', {}, '/agents')
+  await act(async () => user.keyboard('{Control>}k{/Control}'))
+  const search = panel('전체 검색 · 빠른 이동')
+  for (const keyword of ['AI팀', 'AI 사용', '비용', '예산']) {
+    await type(search.getByRole('textbox', { name: '전체 검색', exact: true }), keyword)
+    assert.equal(search.getAllByRole('option', { name: 'AI 팀·비용 메뉴', exact: true }).length, 1)
+    assert.equal(search.queryByRole('option', { name: 'AI 사용·비용 메뉴', exact: true }), null)
+  }
+})
+
+
+test('AI cost configuration keeps drafts and blocks navigation until a simulated save settles', async () => {
+  api.mode = 'supabase'
+  api.getAiState = async () => ({ models: [], budgets: [], usage: [] })
+  let finish, saves = 0
+  api.configureAi = () => { saves++; return new Promise(resolve => { finish = resolve }) }
+  const screen = await mount('admin', 'agents', {}, '/agents?tab=usage')
+  await click(screen.getByRole('button', { name: '모델·기간 한도 설정', exact: true }))
+  await type(screen.getByLabelText('이 도구에 배정할 달러 한도'), '2')
+  const nav = within(screen.getByRole('navigation', { name: 'AI 팀·비용 메뉴' }))
+  window.confirm = () => false
+  await click(nav.getByRole('button', { name: '팀원·지시·예약', exact: true }))
+  await click(screen.getByRole('button', { name: '설정 닫기', exact: true }))
+  assert.equal(query('tab'), 'usage')
+  assert.equal(screen.getByLabelText('이 도구에 배정할 달러 한도').value, '2')
+  assert.equal(saves, 0)
+  await click(screen.getByRole('button', { name: '설정 저장', exact: true }))
+  window.confirm = () => true
+  await click(nav.getByRole('button', { name: '팀원·지시·예약', exact: true }))
+  assert.equal(query('tab'), 'usage')
+  assert.equal(saves, 1)
+  await act(async () => finish())
+  await click(nav.getByRole('button', { name: '팀원·지시·예약', exact: true }))
+  assert.equal(query('tab'), 'team')
+})
+
+test('a newly created demo AI teammate is selected after its draft guard is released', async () => {
+  const screen = await mount('admin', 'agents', {}, '/agents')
+  await click(screen.getByRole('button', { name: '새 AI 팀원', exact: true }))
+  const form = panel('새 AI 팀원')
+  await type(form.getByLabelText('이름 (채팅에서 @이름 으로 부름)'), '메뉴 통합 테스트 담당')
+  let confirmations = 0
+  window.confirm = () => { confirmations++; return false }
+  await click(form.getByRole('button', { name: '만들기', exact: true }))
+  assert.equal(screen.queryByRole('dialog', { name: '새 AI 팀원', exact: true }) === null, true)
+  assert.ok(query('ai'))
+  assert.equal(confirmations, 0)
 })

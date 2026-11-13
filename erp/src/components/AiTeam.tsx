@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useDraftNavigation } from '../lib/useDraftNavigation'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Bot, CalendarClock, MessageCircle, Pencil, Plus, Power, Send, Trash2 } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { dateTimeLabel, relativeLabel, todayKey } from '../lib/date'
@@ -109,6 +110,7 @@ function AgentDetail({ agent, conf, schedules, instructions, onChanged }: { agen
   const [text, setText] = useState('')
   const [editing, setEditing] = useState(false)
   const [scheduling, setScheduling] = useState<AgentSchedule | 'new' | null>(null)
+  useDraftNavigation(!!text.trim(), busy)
   const recent = instructions.slice(0, 12)
   const send = async () => {
     const v = text.trim()
@@ -268,6 +270,10 @@ function AgentEditor({ agent, conf, onClose, onSaved }: { agent?: Profile; conf?
     tools: conf?.tools ?? ([] as string[]),
     active: agent?.active ?? true,
   })
+  const initialForm = useRef(JSON.stringify(f))
+  const [savedId, setSavedId] = useState<string | null>(null)
+  useDraftNavigation(JSON.stringify(f) !== initialForm.current, busy)
+  useEffect(() => { if (savedId !== null) onSaved(savedId) }, [savedId, onSaved])
   const people = profiles.filter(p => p.active && !p.is_agent)
   const all = !f.tools.length
   const toggleTool = (k: string) => setF(v => {
@@ -285,7 +291,7 @@ function AgentEditor({ agent, conf, onClose, onSaved }: { agent?: Profile; conf?
       } else id = await api.createAiAgent({ name: f.name, title: f.title || null, ...body })
       bump()
     }, agent ? '저장했습니다.' : `${f.name.trim()}을(를) 만들었습니다. 바로 지시 · 1:1 대화 · 예약을 할 수 있습니다.`)
-    if (ok) onSaved(id)
+    if (ok) { initialForm.current = JSON.stringify(f); setSavedId(id) }
   }
   return (
     <Modal
@@ -375,6 +381,8 @@ function ScheduleEditor({ agentId, schedule, onClose, onSaved }: { agentId: stri
     weekdays: schedule?.weekdays ?? [1],
     month_day: schedule?.month_day ?? 1,
   })
+  const initialForm = useRef(JSON.stringify(f))
+  useDraftNavigation(JSON.stringify(f) !== initialForm.current, busy)
   const draft = useMemo(
     () => ({
       repeat: f.repeat,

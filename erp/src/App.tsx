@@ -27,7 +27,6 @@ const Approvals = lazy(() => import('./pages/Approvals'))
 const Chat = lazy(() => import('./pages/Chat'))
 const Tenders = lazy(() => import('./pages/Growth').then(m => ({default:m.Tenders})))
 const Leads = lazy(() => import('./pages/Growth').then(m => ({default:m.Leads})))
-const AiUsage = lazy(() => import('./pages/Growth').then(m => ({default:m.AiUsage})))
 const Sales = lazy(() => import('./pages/Sales'))
 const Clients = lazy(() => import('./pages/Clients'))
 const Projects = lazy(() => import('./pages/Projects'))
@@ -52,7 +51,7 @@ const PAGES: Record<string, React.ComponentType> = {
   '/sales': Sales,
   '/tenders': Tenders,
   '/leads': Leads,
-  '/ai-usage': AiUsage,
+  '/ai-usage': Agents,
   '/library': Library,
   '/research': ReportTemplatesPage,
   '/report-templates': ReportTemplatesPage,
