@@ -1,19 +1,24 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Profile } from './types'
 import { ApiError } from './api'
-import { SALES_PAGE_SIZE, canEditSales, needsFollowup, salesSummary, validateSales, type SalesActivity, type SalesApi, type SalesOpportunity } from './sales'
+import { SALES_PAGE_SIZE, SALES_SOURCES, canEditSales, needsFollowup, salesSummary, validateSales, type SalesActivity, type SalesApi, type SalesOpportunity } from './sales'
 
 function fail(error: { message: string; code?: string } | null) {
   if (!error) return
   if (['42P01', '42883', 'PGRST202', 'PGRST205'].includes(error.code ?? '')) throw new ApiError('영업 공용 저장소가 아직 준비되지 않았습니다. 관리자에게 신규 DB 적용 상태를 확인해 주세요.')
   throw new ApiError(error.message)
 }
+function validateSourceFilter(source: unknown) {
+  if (source !== undefined && source !== '' && !(SALES_SOURCES as readonly unknown[]).includes(source)) throw new ApiError('유입 경로 검색 조건을 다시 선택해 주세요.')
+}
 const SUMMARY = 'id,title,division,client_id,contact_id,owner_id,stage,source,expected_amount,next_action,next_date,project_id,revision,created_by,updated_by,created_at,updated_at'
 
 export function createSupabaseSalesApi(sb: SupabaseClient): SalesApi {
   return {
     async listSales(f) {
+      validateSourceFilter(f.source)
       let q = sb.from('sales_opportunities').select(SUMMARY).order('updated_at', { ascending: false }).order('id')
+      if (f.source) q = q.eq('source', f.source)
       if (f.stage) q = q.eq('stage', f.stage)
       if (f.division) q = q.eq('division', f.division)
       if (f.search?.trim()) q = q.ilike('title', `%${f.search.trim().replace(/[\\%_]/g, '\\$&')}%`)
@@ -59,7 +64,8 @@ export function createDemoSalesApi(viewer: () => Profile | undefined): SalesApi 
   return {
     async listSales(f) {
       user()
-      const rows = read().items.filter(r => (!f.stage || r.stage === f.stage) && (!f.division || r.division === f.division) && (!f.search || r.title.toLowerCase().includes(f.search.trim().toLowerCase())) && (!f.dueBefore || needsFollowup(r, f.dueBefore))).sort((a, b) => b.updated_at.localeCompare(a.updated_at) || a.id.localeCompare(b.id))
+      validateSourceFilter(f.source)
+      const rows = read().items.filter(r => (!f.source || r.source === f.source) && (!f.stage || r.stage === f.stage) && (!f.division || r.division === f.division) && (!f.search || r.title.toLowerCase().includes(f.search.trim().toLowerCase())) && (!f.dueBefore || needsFollowup(r, f.dueBefore))).sort((a, b) => b.updated_at.localeCompare(a.updated_at) || a.id.localeCompare(b.id))
       const offset = f.page * SALES_PAGE_SIZE
       return { items: rows.slice(offset, offset + SALES_PAGE_SIZE).map(salesSummary), hasMore: rows.length > offset + SALES_PAGE_SIZE }
     },

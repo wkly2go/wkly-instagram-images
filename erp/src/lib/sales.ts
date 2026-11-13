@@ -38,6 +38,7 @@ export interface SalesActivity {
 export interface SalesFilter {
   page: number
   search?: string
+  source?: typeof SALES_SOURCES[number] | ''
   stage?: SalesStage | ''
   division?: keyof typeof SALES_COMPANIES | ''
   dueBefore?: string
