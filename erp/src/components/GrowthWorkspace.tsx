@@ -39,7 +39,7 @@ export function GrowthWorkspace({ kind }: { kind: GrowthKind }) {
     {adding&&<GrowthEditor kind={kind} initial={null} seed={seed??undefined} channel={channel} onChannelChange={setChannel} onClose={()=>{setAdding(false);setSeed(null)}} onSaved={r=>{setAdding(false);setSeed(null);setSelected(r.id);list.reload()}}/>}
     {selected&&<GrowthDetail key={selected} id={selected} channel={channel} onChannelChange={setChannel} onClose={()=>setSelected(null)} onChanged={list.reload}/>}
     {importing&&<ContactImport onClose={()=>setImporting(false)} onSaved={list.reload}/>}
-    {researchImporting&&kind!=='content'&&<DiscoveryIntake kind={kind} onClose={()=>setResearchImporting(false)} onChoose={chooseTender}/>}
+    {researchImporting&&kind!=='content'&&<DiscoveryIntake kind={kind} onClose={()=>setResearchImporting(false)} onChoose={chooseTender} onSaved={list.reload}/>}
     {tenderSearching&&<TenderSearch onClose={()=>setTenderSearching(false)} onChoose={chooseTender}/>}
   </div>
 }
@@ -50,7 +50,7 @@ function GrowthDetail({id,channel,onChannelChange,onClose,onChanged}:{id:string;
   const {api}=useApp(),state=useAsync(()=>api.getGrowth(id),[id],null)
   if(state.loading)return <Modal title="자료 열기" onClose={onClose}><p>불러오는 중…</p></Modal>
   if(!state.data||state.error)return <Modal title="자료 열기" onClose={onClose}><p role="alert">{state.error??'자료가 없습니다.'}</p><Button onClick={state.reload}>다시 확인</Button></Modal>
-  return <GrowthEditor key={state.data.revision} kind={state.data.kind} initial={state.data} channel={channel} onChannelChange={onChannelChange} onClose={onClose} onSaved={()=>{state.reload();onChanged()}}/>
+  return <GrowthEditor key={state.data.revision} kind={state.data.kind} initial={state.data} channel={channel} onChannelChange={onChannelChange} onClose={onClose} onSaved={row=>{state.setData(row);onChanged()}}/>
 }
 
 function GrowthEditor({kind,initial,seed,channel,onChannelChange,onClose,onSaved}:{kind:GrowthKind;initial:GrowthItem|null;seed?:GrowthDraft;onClose:()=>void;onSaved:(row:GrowthItem)=>void}&ChannelSelection){
@@ -58,6 +58,7 @@ function GrowthEditor({kind,initial,seed,channel,onChannelChange,onClose,onSaved
   const channelId=useId()
   const [draft,setDraft]=useState<GrowthDraft>(()=>initial?{kind:initial.kind,title:initial.title,owner_id:initial.owner_id,status:initial.status,document:structuredClone(initial.document),campaign_id:initial.campaign_id}:seed?structuredClone(seed):newGrowth(kind,me.id))
   const [error,setError]=useState(''),[busy,setBusy]=useState(false),[aiBusy,setAiBusy]=useState(false),[aiDirty,setAiDirty]=useState(false)
+  const [confirmedSalesId,setConfirmedSalesId]=useState<string|null>(initial?.linked_sales_id??null),[linkNeedsRefresh,setLinkNeedsRefresh]=useState(false)
   const working=busy||aiBusy
   const lock=useRef(false),id=useRef(initial?.id??crypto.randomUUID()),original=useRef(JSON.stringify(seed?newGrowth(kind,me.id):draft))
   const dirty=original.current!==JSON.stringify(draft)||aiDirty,editable=me.role==='admin'||draft.owner_id===me.id
@@ -67,15 +68,33 @@ function GrowthEditor({kind,initial,seed,channel,onChannelChange,onClose,onSaved
   const channelPatch=(p:Partial<ChannelDraft>)=>doc({versions:x.versions?.map((a,i)=>i===channel?changeChannel(a,p):a)})
   const close=()=>{if(!lock.current&&!aiBusy&&(!dirty||window.confirm('저장하지 않은 변경이 있습니다. 닫을까요?')))onClose()}
   useDraftNavigation(dirty,working)
-  const save=async()=>{if(lock.current||aiBusy)return;if(aiDirty&&!window.confirm('AI 요청문·결과를 편집 내용에 적용하지 않았습니다. 적용하지 않고 현재 문서만 저장할까요?'))return;const e=validateGrowth(draft);if(e){setError(e);return}lock.current=true;setBusy(true);setError('');try{const r=await api.saveGrowth(id.current,draft,initial?.revision??0);original.current=JSON.stringify(draft);onSaved(r)}catch(e){setError(friendlyError(e))}finally{lock.current=false;setBusy(false)}}
-  const link=async()=>{if(!initial||dirty||lock.current||aiBusy)return;lock.current=true;setBusy(true);setError('');try{await api.linkGrowthSales(initial.id,initial.revision);onSaved(await api.getGrowth(initial.id))}catch(e){setError(friendlyError(e))}finally{lock.current=false;setBusy(false)}}
+  const save=async()=>{if(lock.current||aiBusy||linkNeedsRefresh)return;if(aiDirty&&!window.confirm('AI 요청문·결과를 편집 내용에 적용하지 않았습니다. 적용하지 않고 현재 문서만 저장할까요?'))return;const e=validateGrowth(draft);if(e){setError(e);return}lock.current=true;setBusy(true);setError('');try{const r=await api.saveGrowth(id.current,draft,initial?.revision??0);original.current=JSON.stringify(draft);onSaved(r)}catch(e){setError(friendlyError(e))}finally{lock.current=false;setBusy(false)}}
+  const refreshLinked = async () => {
+    if (!initial || lock.current || aiBusy) return
+    lock.current=true;setBusy(true);setError('')
+    try { onSaved(await api.getGrowth(initial.id));setLinkNeedsRefresh(false) }
+    catch(e){setError(`영업 연결은 완료됐습니다. 상세 갱신을 다시 확인해 주세요. ${friendlyError(e)}`)}
+    finally{lock.current=false;setBusy(false)}
+  }
+  const link=async()=>{
+    if(!initial||dirty||lock.current||aiBusy||confirmedSalesId)return
+    lock.current=true;setBusy(true);setError('')
+    let linked=false
+    try{
+      const salesId=await api.linkGrowthSales(initial.id,initial.revision)
+      if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(salesId))throw new Error('연결 응답을 확인하지 못했습니다. 자료를 다시 열어 연결 상태를 확인해 주세요.')
+      linked=true;setConfirmedSalesId(salesId);setLinkNeedsRefresh(true)
+      onSaved(await api.getGrowth(initial.id));setLinkNeedsRefresh(false)
+    }catch(e){setError(linked?`영업 연결은 완료됐습니다. 연결 영업 기회는 열 수 있으며, 이 자료를 수정하려면 상세 갱신을 다시 확인해 주세요. ${friendlyError(e)}`:friendlyError(e))}
+    finally{lock.current=false;setBusy(false)}
+  }
   const input=(label:string,key:keyof GrowthDocument,opts:{type?:string;max?:number;area?:boolean}={})=>{
     const value=String(x[key]??'')
     return <Field label={label} className={opts.area?'full':''}>{opts.area?<textarea className="textarea" rows={4} maxLength={opts.max??10000} value={value} onChange={e=>doc({[key]:e.target.value})}/>:<input className="input" type={opts.type??'text'} maxLength={opts.max??200} value={opts.type==='datetime-local'?koreaDateTimeInput(value):value} onChange={e=>doc({[key]:opts.type==='datetime-local'&&e.target.value?e.target.value+':00+09:00':e.target.value})}/>}</Field>
   }
-  return <Modal title={initial?draft.title:`새 ${GROWTH_LABELS[kind]}`} onClose={close} wide actions={<><Button kind="ghost" onClick={close} disabled={working}>닫기</Button>{editable&&<Button onClick={save} disabled={working}>{busy?'처리 중…':'저장'}</Button>}</>}>
+  return <Modal title={initial?draft.title:`새 ${GROWTH_LABELS[kind]}`} onClose={close} wide actions={<><Button kind="ghost" onClick={close} disabled={working}>닫기</Button>{editable&&<Button onClick={save} disabled={working||linkNeedsRefresh}>{busy?'처리 중…':'저장'}</Button>}</>}>
     {error&&<p role="alert" className="growth-error">{error}</p>}
-    <fieldset className="growth-fieldset form-grid" disabled={working||!editable}>
+    <fieldset className="growth-fieldset form-grid" disabled={working||!editable||linkNeedsRefresh}>
       <Field label="제목 *" className="full"><input className="input" maxLength={160} value={draft.title} onChange={e=>patch({title:e.target.value})}/></Field>
       <Field label="수행 회사"><select className="select" value={x.division} onChange={e=>patch({campaign_id:null,document:patchGrowthDocument(x,{division:e.target.value as 'TW'|'AR'})})}><option value="TW">더위클리</option><option value="AR">아트리어</option></select></Field>
       <Field label="담당자"><select className="select" value={draft.owner_id} disabled={me.role!=='admin'} onChange={e=>patch({owner_id:e.target.value})}>{profiles.filter(p=>p.active&&!p.is_agent).map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></Field>
@@ -95,16 +114,16 @@ function GrowthEditor({kind,initial,seed,channel,onChannelChange,onClose,onSaved
         onChannelChange(next)
         e.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[next]?.focus()
       }}>{c}</button>)}</div>
-      <fieldset id={`${channelId}-panel`} role="tabpanel" aria-labelledby={`${channelId}-${channel}`} className="growth-fieldset form-grid" disabled={working||!editable}>
+      <fieldset id={`${channelId}-panel`} role="tabpanel" aria-labelledby={`${channelId}-${channel}`} className="growth-fieldset form-grid" disabled={working||!editable||linkNeedsRefresh}>
       {v&&<><Field label="채널 제목" className="full"><input className="input" maxLength={300} value={v.title} onChange={e=>channelPatch({title:e.target.value})}/></Field><Field label="채널 본문" className="full"><textarea className="textarea" rows={7} maxLength={10000} value={v.body} onChange={e=>channelPatch({body:e.target.value})}/></Field><Field label="태그"><input className="input" maxLength={500} value={v.tags} onChange={e=>channelPatch({tags:e.target.value})}/></Field><Field label="채널 상태"><select className="select" value={v.status} onChange={e=>channelPatch({status:e.target.value as ChannelDraft['status']})}>{['초안','검수','승인','발행'].map(s=><option key={s} disabled={s==='승인'&&me.role!=='admin'}>{s}</option>)}</select></Field><label className="full row"><input type="checkbox" checked={v.rights} onChange={e=>channelPatch({rights:e.target.checked})}/>이미지·영상·문구 사용 권리 확인</label><Field label="실제 발행 주소"><input className="input" type="url" maxLength={2000} value={v.publication_url} onChange={e=>channelPatch({publication_url:e.target.value})}/></Field><Field label="외부 게시물 ID"><input className="input" maxLength={300} value={v.external_id} onChange={e=>channelPatch({external_id:e.target.value})}/></Field><p className="full t-cap">내용·수행 회사·출처 수정 시 승인이 해제됩니다. 초안 저장 → 관리자 승인 → 실제 게시 후 발행 주소를 기록해 주세요. 게시 승인과 광고비 승인은 별개입니다.</p></>}
       </fieldset>
     </>}
-    <fieldset className="growth-fieldset form-grid" disabled={working||!editable}>
+    <fieldset className="growth-fieldset form-grid" disabled={working||!editable||linkNeedsRefresh}>
       {input(kind==='contact'?'연락 맥락·확인할 사항':'메모·체크리스트','note',{area:true})}
     </fieldset>
     {kind==='tender'&&<aside className="growth-notice"><strong>입찰 전 확인</strong><p>공고 원문·정정 여부, 업종·지역·실적·직접생산 자격, 수행 인력과 원가를 확인하세요. 검색 결과만으로 참가 가능을 확정하지 않습니다.</p><p>가격입찰·방문 제안서·참가 등록·질의 마감이 다를 수 있습니다. 위 마감 시각에는 가장 이른 필수 마감을 넣고, 검토 근거에 각 마감과 제출 방식을 따로 기록하세요.</p><p>영업 연결은 ‘발굴’ 단계이며 입찰 제출이나 수주 확정이 아닙니다. 공고 금액은 계약 매출로 자동 반영하지 않습니다. 메모의 조사 당시 정보는 마감·금액을 편집해도 자동 갱신되지 않습니다. 연결 전에 메모도 최신 원문과 대조하고, 연결 후 영업 상세에 다음 행동과 연락일을 지정하세요.</p></aside>}
-    {initial&&<div className="row wrap growth-links">{initial.linked_sales_id?<Link to={`/sales?id=${initial.linked_sales_id}`} className="btn btn-outline">연결 영업 기회 보기</Link>:kind!=='content'&&editable&&<Button kind="outline" disabled={working||dirty} onClick={link}>영업 기회로 연결</Button>}{draft.campaign_id&&<Link to={`/ads?tab=studio&id=${draft.campaign_id}`} className="btn btn-outline">연결 광고 캠페인</Link>}<small>저장 버전 {initial.revision}{dirty?' · 저장 후 연결 가능':''}</small></div>}
-    {editable&&<AiAssist disabled={busy} onBusyChange={setAiBusy} onDraftChange={setAiDirty} resultScope={v?.channel??kind} task={kind==='contact'?'classify':'write'} context={kind==='content'?`${v?.channel}\n원본: ${x.original}`:JSON.stringify(x)} onResult={text=>kind==='content'?channelPatch({body:text}):doc({note:appendGrowthNote(x.note,text)})}/>}
+    {initial&&<div className="row wrap growth-links">{confirmedSalesId?<Link to={`/sales?id=${confirmedSalesId}`} className="btn btn-outline">연결 영업 기회 보기</Link>:kind!=='content'&&editable&&<Button kind="outline" disabled={working||dirty} onClick={link}>영업 기회로 연결</Button>}{draft.campaign_id&&<Link to={`/ads?tab=studio&id=${draft.campaign_id}`} className="btn btn-outline">연결 광고 캠페인</Link>}{linkNeedsRefresh&&<Button kind="outline" disabled={working} onClick={refreshLinked}>연결 자료 다시 확인</Button>}<small>저장 버전 {initial.revision}{dirty?' · 저장 후 연결 가능':''}</small></div>}
+    {editable&&<AiAssist disabled={busy||linkNeedsRefresh} onBusyChange={setAiBusy} onDraftChange={setAiDirty} resultScope={v?.channel??kind} task={kind==='contact'?'classify':'write'} context={kind==='content'?`${v?.channel}\n원본: ${x.original}`:JSON.stringify(x)} onResult={text=>kind==='content'?channelPatch({body:text}):doc({note:appendGrowthNote(x.note,text)})}/>}
   </Modal>
 }
 
