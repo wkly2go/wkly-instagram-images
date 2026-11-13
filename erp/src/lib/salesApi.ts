@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Profile } from './types'
 import { ApiError } from './api'
 import { saveSalesWithRecovery } from './salesSaveRecovery'
+import { checkSalesActivity, isSalesActivityUnconfirmed, normalizeSalesActivityBody, saveSalesActivityWithRecovery } from './salesActivityRecovery'
 import { SALES_PAGE_SIZE, SALES_SOURCES, canEditSales, needsFollowup, salesSummary, validateSales, type SalesActivity, type SalesApi, type SalesOpportunity, type SalesOrigin } from './sales'
 
 function fail(error: { message: string; code?: string } | null) {
@@ -18,6 +19,17 @@ function validateSourceFilter(source: unknown) {
 const SUMMARY = 'id,title,division,client_id,contact_id,owner_id,stage,source,expected_amount,next_action,next_date,project_id,revision,created_by,updated_by,created_at,updated_at'
 
 export function createSupabaseSalesApi(sb: SupabaseClient): SalesApi {
+  const activityStore = {
+    read: async (id: string): Promise<SalesActivity | null> => {
+      const result = await sb.from('sales_activities').select('*').eq('id', id).maybeSingle().retry(false)
+      fail(result.error)
+      return result.data as SalesActivity | null
+    },
+    confirmActor: async () => {
+      const auth = await sb.auth.getUser()
+      return auth.error ? null : auth.data.user?.id ?? null
+    },
+  }
   return {
     async listSales(f) {
       validateSourceFilter(f.source)
@@ -76,9 +88,23 @@ export function createSupabaseSalesApi(sb: SupabaseClient): SalesApi {
       fail(r.error)
       return (r.data ?? []) as SalesActivity[]
     },
-    async addSalesActivity(id, opportunityId, kind, body) {
-      const r = await sb.rpc('sales_add_activity', { p_id: id, p_opportunity_id: opportunityId, p_kind: kind, p_body: body })
-      fail(r.error)
+    async addSalesActivity(id, opportunityId, kind, body, actorId) {
+      const session = await sb.auth.getSession(), actor = session.data.session?.user.id
+      if (session.error || !actor) throw new ApiError('로그인이 필요합니다.')
+      if (actorId && actor !== actorId) throw new ApiError('활동을 입력한 계정으로 다시 로그인해 주세요.')
+      try {
+        await saveSalesActivityWithRecovery({
+          ...activityStore,
+          write: async request => await sb.rpc('sales_add_activity', { p_id: request.id, p_opportunity_id: request.opportunityId, p_kind: request.kind, p_body: request.body }).retry(false),
+        }, { id, opportunityId, kind, body, actorId: actor })
+      } catch (e) {
+        if (isSalesActivityUnconfirmed(e)) throw e
+        if (e && typeof e === 'object' && 'message' in e) fail(e as { message: string; code?: string })
+        throw e
+      }
+    },
+    async checkSalesActivity(id, opportunityId, kind, body, actorId) {
+      return checkSalesActivity(activityStore, { id, opportunityId, kind, body, actorId })
     },
   }
 }
@@ -128,17 +154,25 @@ export function createDemoSalesApi(viewer: () => Profile | undefined): SalesApi 
       user()
       return read().activities.filter(x => x.opportunity_id === id).sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, 50)
     },
-    async addSalesActivity(id, opportunityId, kind, body) {
+    async addSalesActivity(id, opportunityId, kind, body, actorId) {
       const me = user(), state = read(), row = state.items.find(x => x.id === opportunityId)
+      if (actorId && actorId !== me.id) throw new ApiError('활동을 입력한 계정으로 다시 로그인해 주세요.')
       if (!row || !canEditSales(row, me)) throw new ApiError('담당자 또는 관리자만 기록할 수 있습니다.')
-      if (!body.trim() || body.length > 4000) throw new ApiError('활동 내용을 4,000자 이내로 적어 주세요.')
+      const normalized = normalizeSalesActivityBody(body)
+      if (!['메모', '전화', '메일', '미팅'].includes(kind) || !normalized || [...normalized].length > 4000) throw new ApiError('활동 내용을 4,000자 이내로 적어 주세요.')
       const existing = state.activities.find(x => x.id === id)
       if (existing) {
-        if (existing.opportunity_id !== opportunityId || existing.body !== body.trim() || existing.kind !== kind || existing.created_by !== me.id) throw new ApiError('같은 요청에 다른 내용이 있습니다.')
+        if (existing.opportunity_id !== opportunityId || existing.body !== normalized || existing.kind !== kind || existing.created_by !== me.id) throw new ApiError('같은 요청에 다른 내용이 있습니다.')
         return
       }
-      state.activities.push({ id, opportunity_id: opportunityId, kind, body: body.trim(), created_by: me.id, created_at: new Date().toISOString() })
+      state.activities.push({ id, opportunity_id: opportunityId, kind, body: normalized, created_by: me.id, created_at: new Date().toISOString() })
       localStorage.setItem(KEY, JSON.stringify(state))
+    },
+    async checkSalesActivity(id, opportunityId, kind, body, actorId) {
+      return checkSalesActivity({
+        confirmActor: async () => user().id,
+        read: async sameId => read().activities.find(a => a.id === sameId) ?? null,
+      }, { id, opportunityId, kind, body, actorId })
     },
   }
 }

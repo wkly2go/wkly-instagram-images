@@ -49,7 +49,7 @@ before(async () => {
   ;({ MeetingRecorder } = await server.ssrLoadModule('/src/components/MeetingRecorder.tsx'))
   ;({ MeetingStartUncertainError } = await server.ssrLoadModule('/src/lib/meetingProgress.ts'))
   assert.equal(api.mode, 'demo')
-  originals = { listSalesOrigins: api.listSalesOrigins, instagramContacts: api.instagramContacts, getAiState: api.getAiState, runGrowthAi: api.runGrowthAi, configureAi: api.configureAi, reconcileAi: api.reconcileAi, mode: api.mode, listAgentJobs: api.listAgentJobs, saveSales: api.saveSales, saveGrowth: api.saveGrowth, startMeetingMinutes: api.startMeetingMinutes, getMeetingRecording: api.getMeetingRecording, searchTenders: api.searchTenders }
+  originals = { getGrowth: api.getGrowth, linkGrowthSales: api.linkGrowthSales, getSales: api.getSales, listSalesActivities: api.listSalesActivities, addSalesActivity: api.addSalesActivity, checkSalesActivity: api.checkSalesActivity, listProjects: api.listProjects, listSalesOrigins: api.listSalesOrigins, instagramContacts: api.instagramContacts, getAiState: api.getAiState, runGrowthAi: api.runGrowthAi, configureAi: api.configureAi, reconcileAi: api.reconcileAi, mode: api.mode, listAgentJobs: api.listAgentJobs, saveSales: api.saveSales, saveGrowth: api.saveGrowth, startMeetingMinutes: api.startMeetingMinutes, getMeetingRecording: api.getMeetingRecording, searchTenders: api.searchTenders }
 })
 afterEach(async () => {
   if (root) await act(async () => root.unmount())
@@ -985,4 +985,90 @@ test('interior tender presets only prepare construction queries and preserve exp
  await click(form.getByRole('button',{name:'공간 설계',exact:true}));assert.equal(form.getByLabelText('조회 업무').value,'service');assert.equal(calls.length,0)
  await click(form.getByRole('button',{name:'리모델링',exact:true}));await click(form.getByRole('button',{name:'공식 공고 조회',exact:true}));assert.equal(calls.length,1);assert.equal(calls[0].category,'construction')
  await click(form.getByRole('button',{name:'검토해 등록',exact:true}));const ed=panel('새 나라장터');assert.equal(ed.getByLabelText('수행 회사').value,'AR');assert.equal(ed.getByLabelText('참가 조건').value,'추가 확인');assert.equal(localStorage.getItem('wkly-growth-demo-v1'),null)
+})
+
+
+test('confirmed candidate-to-sales link survives a failed detail refresh without linking twice',async()=>{
+ const s=await mount('admin','tender');await click(s.getByRole('button',{name:'+ 공고 등록'}));let ed=panel('새 나라장터')
+ await type(ed.getByLabelText('제목 *'),'연결 응답 보존');await type(ed.getByLabelText('공고번호 *'),'TEST-LINK');await type(ed.getByLabelText('발주처 *'),'테스트 기관')
+ await click(ed.getByRole('button',{name:'저장',exact:true}));ed=panel('연결 응답 보존')
+ let links=0;api.linkGrowthSales=async(...args)=>{links++;return originals.linkGrowthSales(...args)};api.getGrowth=async()=>{throw new Error('갱신 통신 오류')}
+ await click(ed.getByRole('button',{name:'영업 기회로 연결'}))
+ const rows=JSON.parse(localStorage.getItem('wkly-sales-demo-v1')).items;assert.equal(rows.length,1);assert.equal(links,1)
+ assert.equal(ed.getByRole('link',{name:'연결 영업 기회 보기'}).getAttribute('href'),'/sales?id='+rows[0].id)
+ assert.ok(ed.getByText(/영업 연결은 완료됐습니다/));assert.equal(ed.getByRole('button',{name:'저장',exact:true}).disabled,true);assert.equal(ed.getByLabelText('제목 *').matches(':disabled'),true)
+ api.getGrowth=originals.getGrowth;await click(ed.getByRole('button',{name:'연결 자료 다시 확인'}));ed=panel('연결 응답 보존')
+ assert.equal(ed.getByRole('button',{name:'저장',exact:true}).disabled,false);assert.equal(ed.queryByRole('button',{name:'영업 기회로 연결'}),null);assert.equal(links,1)
+})
+
+test('activity history failure leaves opportunity details and editing available with independent retry',async()=>{
+ const s=await mount('admin'),{newSalesDraft}=await server.ssrLoadModule('/src/lib/sales.ts'),owner='00000000-0000-4000-8000-000000000001'
+ await api.saveSales(crypto.randomUUID(),{...newSalesDraft(owner),title:'활동 조회 분리 검사',description:'보존할 요청'},0)
+ let reads=0;api.getSales=async id=>{reads++;return originals.getSales(id)};api.listSalesActivities=async()=>{throw new Error('활동 목록 일시 오류')}
+ await click(s.getByRole('button',{name:'연락일 미정',exact:true}));await click(s.getByRole('button',{name:/활동 조회 분리 검사/}));const d=panel('활동 조회 분리 검사')
+ assert.ok(d.getByText('보존할 요청'));assert.equal(d.getByRole('button',{name:'영업 정보 수정'}).disabled,false);assert.ok(d.getByText(/활동 목록 일시 오류/))
+ api.listSalesActivities=originals.listSalesActivities;await click(d.getByRole('button',{name:'활동 이력 다시 확인'}));assert.equal(reads,1);assert.ok(d.getByText('영업 건 등록 · 발굴'))
+})
+
+for(const kind of ['contact','tender']) test(kind+' research batch keeps unselected and failed candidates and retries stable IDs only',async()=>{
+ const s=await mount('admin','sales',{},'/sales?tab='+ (kind==='tender'?'tenders':'contacts'));await click(s.getByRole('button',{name:'발굴 보고서 가져오기'}));let imp=panel('발굴 결과 가져오기')
+ const rows=[1,2,3].map(i=>({...discoveryTender(),kind,title:'배치 후보 '+i,number:'BATCH-'+i,email:'batch'+i+'@example.test'}))
+ const f=new window.File(['{}'],'batch.json',{type:'application/json'});Object.defineProperty(f,'text',{value:async()=>JSON.stringify(rows)});await act(async()=>user.upload(imp.getByLabelText('발굴 보고서 파일'),f))
+ assert.equal(JSON.parse(localStorage.getItem('wkly-growth-demo-v1')??'[]').length,0)
+ await click(imp.getByLabelText('1번 후보 저장 선택'));await click(imp.getByLabelText('2번 후보 저장 선택'))
+ const writes=[];let reject=true;api.saveGrowth=async(id,draft,revision)=>{writes.push({id,title:draft.title});if(draft.title==='배치 후보 2'&&reject)throw Object.assign(new Error('중복 검토 필요'),{code:'23505'});return originals.saveGrowth(id,draft,revision)}
+ await click(imp.getByRole('button',{name:'선택한 후보 검토함에 저장'}))
+ assert.equal(writes.length,2);assert.equal(JSON.parse(localStorage.getItem('wkly-growth-demo-v1')).length,1);assert.equal(imp.queryByLabelText('1번 후보 저장 선택'),null);assert.ok(imp.getByLabelText('2번 후보 저장 선택'));assert.ok(imp.getByLabelText('3번 후보 저장 선택'))
+ await click(imp.getByRole('button',{name:'발굴 후보 미리보기'}));assert.equal(imp.queryByLabelText('1번 후보 저장 선택'),null)
+ reject=false;await click(imp.getByRole('button',{name:'남은 선택 후보 다시 저장'}))
+ assert.equal(writes.length,3);assert.equal(writes[1].id,writes[2].id)
+ const saved=JSON.parse(localStorage.getItem('wkly-growth-demo-v1'));assert.equal(saved.length,2);assert.ok(saved.every(r=>r.status==='검토'&&!r.linked_sales_id));if(kind==='tender')assert.ok(saved.every(r=>r.document.qualification==='추가 확인'))
+ assert.ok(imp.getByLabelText('3번 후보 저장 선택'));assert.equal(localStorage.getItem('wkly-sales-demo-v1'),null)
+})
+
+test('research batch saving blocks tab changes and preserves remaining inputs',async()=>{
+ const s=await mount('member','sales',{},'/sales?tab=tenders');await click(s.getByRole('button',{name:'발굴 보고서 가져오기'}));const imp=panel('발굴 결과 가져오기')
+ const f=new window.File(['{}'],'batch.json',{type:'application/json'});Object.defineProperty(f,'text',{value:async()=>JSON.stringify(discoveryTender())});await act(async()=>user.upload(imp.getByLabelText('발굴 보고서 파일'),f));await click(imp.getByLabelText('1번 후보 저장 선택'))
+ let finish;api.saveGrowth=(...args)=>new Promise(resolve=>{finish=async()=>resolve(await originals.saveGrowth(...args))})
+ await click(imp.getByRole('button',{name:'선택한 후보 검토함에 저장'}));window.confirm=()=>true
+ await click(within(s.getByRole('navigation',{name:'영업 업무'})).getByRole('button',{name:'수주 파이프라인'}));assert.equal(query('tab'),'tenders');assert.equal(closeButton(imp).disabled,true);assert.equal(imp.getByLabelText('발굴 보고서 JSON').disabled,true)
+ await act(async()=>finish());assert.equal(JSON.parse(localStorage.getItem('wkly-growth-demo-v1')).length,1)
+})
+
+
+test('confirmed growth save and sales link use the returned record without a second detail request',async()=>{
+ const s=await mount('admin','tender');await click(s.getByRole('button',{name:'+ 공고 등록'}));let ed=panel('새 나라장터')
+ await type(ed.getByLabelText('제목 *'),'확정된 자료 유지');await type(ed.getByLabelText('공고번호 *'),'TEST-LINK-SECOND');await type(ed.getByLabelText('발주처 *'),'테스트 기관')
+ await click(ed.getByRole('button',{name:'저장',exact:true}));ed=panel('확정된 자료 유지')
+ let reads=0;api.getGrowth=async id=>{reads++;if(reads>1)throw new Error('불필요한 두 번째 상세조회');return originals.getGrowth(id)}
+ await click(ed.getByRole('button',{name:'영업 기회로 연결'}));ed=panel('확정된 자료 유지');assert.equal(reads,1);assert.ok(ed.getByRole('link',{name:'연결 영업 기회 보기'}))
+ await type(ed.getByLabelText('메모·체크리스트'),'연결 이후 기록');await click(ed.getByRole('button',{name:'저장',exact:true}));ed=panel('확정된 자료 유지')
+ assert.equal(reads,1);assert.equal(ed.getByLabelText('메모·체크리스트').value,'연결 이후 기록');assert.ok(ed.getByRole('link',{name:'연결 영업 기회 보기'}))
+})
+
+test('stage playbook applies only next action after confirmation and keeps date, stage and original notes',async()=>{
+ const s=await mount('admin');await click(s.getByRole('button',{name:'+ 영업 기회',exact:true}));const ed=panel('새 영업 기회')
+ await type(ed.getByLabelText('영업 건 이름 *'),'공공 공간 제안');await act(async()=>user.selectOptions(ed.getByLabelText('수행 회사'),'AR'));await act(async()=>user.selectOptions(ed.getByLabelText('유입 경로'),'나라장터'));await act(async()=>user.selectOptions(ed.getByLabelText('진행 단계'),'제안'))
+ await type(ed.getByLabelText('다음 행동'),'이미 합의한 업무');await type(ed.getByLabelText('다음 연락일'),'2026-11-20');await type(ed.getByLabelText('요청 내용·메모'),'보존할 공고 원문 요약')
+ const guide=within(ed.getByRole('region',{name:'단계별 영업 실행 안내'}));await click(guide.getByRole('button',{name:'다음 행동 예시 적용'}));assert.equal(ed.getByLabelText('다음 행동').value,'이미 합의한 업무')
+ window.confirm=()=>true;await click(guide.getByRole('button',{name:'다음 행동 예시 적용'}));assert.notEqual(ed.getByLabelText('다음 행동').value,'이미 합의한 업무');assert.equal(ed.getByLabelText('진행 단계').value,'제안');assert.equal(ed.getByLabelText('다음 연락일').value,'2026-11-20');assert.equal(ed.getByLabelText('요청 내용·메모').value,'보존할 공고 원문 요약');assert.equal(localStorage.getItem('wkly-sales-demo-v1'),null)
+})
+
+test('uncertain activity freezes original input and confirms the same request without a duplicate write',async()=>{
+ const s=await mount('admin'),{newSalesDraft}=await server.ssrLoadModule('/src/lib/sales.ts'),{SalesActivityUnconfirmedError}=await server.ssrLoadModule('/src/lib/salesActivityRecovery.ts'),owner='00000000-0000-4000-8000-000000000001'
+ await api.saveSales(crypto.randomUUID(),{...newSalesDraft(owner),title:'활동 응답 보존 검사'},0);await click(s.getByRole('button',{name:'연락일 미정',exact:true}));await click(s.getByRole('button',{name:/활동 응답 보존 검사/}));const d=panel('활동 응답 보존 검사')
+ const writes=[];api.addSalesActivity=async(...args)=>{writes.push(args);await originals.addSalesActivity(...args);throw new SalesActivityUnconfirmedError()}
+ await type(d.getByLabelText('활동 내용'),'  확인한 미팅 내용  ');await click(d.getByRole('button',{name:'활동 저장'}));assert.equal(d.getByLabelText('활동 내용').disabled,true);assert.equal(d.getByLabelText('활동 종류').disabled,true);assert.ok(d.getByRole('button',{name:'동일 내용으로 재시도'}))
+ await click(d.getByRole('button',{name:'저장 상태 확인'}));assert.equal(writes.length,1);assert.equal(d.getByLabelText('활동 내용').value,'');assert.equal(d.getByLabelText('활동 내용').disabled,false);assert.ok(d.getByText('확인한 미팅 내용'))
+ assert.equal(JSON.parse(localStorage.getItem('wkly-sales-demo-v1')).activities.filter(a=>a.kind==='메모').length,1)
+})
+
+test('won opportunity refreshes eligible projects while keeping its unsaved handoff draft',async()=>{
+ const s=await mount('admin');api.listProjects=async()=>[];await click(s.getByRole('button',{name:'+ 영업 기회',exact:true}));const ed=panel('새 영업 기회')
+ await type(ed.getByLabelText('영업 건 이름 *'),'수주 인계 보존');await act(async()=>user.selectOptions(ed.getByLabelText('수행 회사'),'AR'));await act(async()=>user.selectOptions(ed.getByLabelText('진행 단계'),'수주'));await type(ed.getByLabelText('결과·사유 (수주·실주·보류 필수)'),'계약 범위 확인');await type(ed.getByLabelText('요청 내용·메모'),'인계 자료')
+ const link=ed.getByRole('link',{name:'새 프로젝트 만들기'});assert.equal(link.getAttribute('href'),'/projects?new=1');assert.equal(link.getAttribute('target'),'_blank')
+ api.listProjects=async()=>[{id:'same',name:'같은 회사의 신규 프로젝트',division:'AR',client_id:null},{id:'other-company',name:'다른 회사 프로젝트',division:'TW',client_id:null},{id:'other-client',name:'다른 거래처 프로젝트',division:'AR',client_id:'client'}]
+ await click(ed.getByRole('button',{name:'프로젝트 목록 새로고침'}));assert.ok(ed.getByRole('option',{name:'같은 회사의 신규 프로젝트'}));assert.equal(ed.queryByRole('option',{name:'다른 회사 프로젝트'}),null);assert.equal(ed.queryByRole('option',{name:'다른 거래처 프로젝트'}),null)
+ await act(async()=>user.selectOptions(ed.getByLabelText('수주 프로젝트 연결'),'same'));await click(ed.getByRole('button',{name:'프로젝트 목록 새로고침'}));assert.equal(ed.getByLabelText('수주 프로젝트 연결').value,'same');assert.equal(ed.getByLabelText('요청 내용·메모').value,'인계 자료');assert.equal(ed.getByLabelText('결과·사유 (수주·실주·보류 필수)').value,'계약 범위 확인')
+ api.listProjects=async()=>[];await click(ed.getByRole('button',{name:'프로젝트 목록 새로고침'}));await click(ed.getByRole('button',{name:'저장',exact:true}));assert.equal(localStorage.getItem('wkly-sales-demo-v1'),null);assert.equal(ed.getByLabelText('영업 건 이름 *').value,'수주 인계 보존')
 })

@@ -6,11 +6,12 @@ import { newSalesDraft, type SalesApi } from './sales'
 import { growthSearchFilter, matchesGrowthSearch } from './growthSearch'
 import { readTenderSearchResult, validateTenderQuery } from './tenderSearch'
 const summary = ({ document: _d, ...row }: GrowthItem): GrowthSummary => row
-function fail(e: { message: string; code?: string } | null) {
+function fail(e: { message: string; code?: string } | null, status?: number) {
   if (!e) return
-  if (['42P01','42883','PGRST202','PGRST205'].includes(e.code ?? '')) throw new ApiError('이 기능의 공용 저장소·서버가 아직 적용되지 않았습니다. 관리자에게 적용 상태를 확인해 주세요.')
-  if (e.code === '23505') throw new ApiError('같은 공고번호·차수 또는 연락처가 이미 있습니다. 기존 항목을 검색해 주세요.')
-  throw new ApiError(e.message)
+  const message = ['42P01','42883','PGRST202','PGRST205'].includes(e.code ?? '') ? '이 기능의 공용 저장소·서버가 아직 적용되지 않았습니다. 관리자에게 적용 상태를 확인해 주세요.'
+    : e.code === '23505' ? '같은 공고번호·차수 또는 연락처가 이미 있습니다. 기존 항목을 검색해 주세요.' : e.message
+  // Keep explicit database rejection separate from a lost transport response.
+  throw Object.assign(new ApiError(message), { code: e.code, status, uncertain: !e.code && status !== undefined && [0,502,503,504].includes(status) })
 }
 export function createSupabaseGrowthApi(sb: SupabaseClient): GrowthApi {
   return {
@@ -40,8 +41,8 @@ export function createSupabaseGrowthApi(sb: SupabaseClient): GrowthApi {
       const from=Math.max(0,f.page)*30, r=await q.range(from,from+30); fail(r.error)
       return {items:(r.data??[]).slice(0,30) as GrowthSummary[],hasMore:(r.data?.length??0)>30}
     },
-    async getGrowth(id){const r=await sb.from('growth_items').select('*').eq('id',id).single();fail(r.error);return r.data as GrowthItem},
-    async saveGrowth(id,draft,revision){const e=validateGrowth(draft);if(e)throw new ApiError(e);const r=await sb.rpc('growth_save',{p_id:id,p_document:draft,p_expected_revision:revision});fail(r.error);return r.data as GrowthItem},
+    async getGrowth(id){const r=await sb.from('growth_items').select('*').eq('id',id).single().retry(false);fail(r.error,r.status);return r.data as GrowthItem},
+    async saveGrowth(id,draft,revision){const submitted=structuredClone(draft),e=validateGrowth(submitted);if(e)throw new ApiError(e);const r=await sb.rpc('growth_save',{p_id:id,p_document:submitted,p_expected_revision:revision}).retry(false);fail(r.error,r.status);return r.data as GrowthItem},
     async linkGrowthSales(id,revision){const r=await sb.rpc('growth_link_sales',{p_id:id,p_expected_revision:revision});fail(r.error);return r.data as string},
     async backfillMailLeads(){const r=await sb.rpc('growth_backfill_mail');fail(r.error);return r.data as number},
     async getAiState(){const results=await Promise.all([sb.from('growth_ai_models').select('*').order('key'),sb.from('growth_ai_budgets').select('*').order('starts_at',{ascending:false}).limit(5),sb.from('growth_ai_usage').select('id,task,status,reserved_usd,actual_usd,created_at').order('created_at',{ascending:false}).limit(100)]);results.forEach(r=>fail(r.error));return {models:results[0].data??[],budgets:results[1].data??[],usage:results[2].data??[]} as AiState},
