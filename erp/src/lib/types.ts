@@ -1375,7 +1375,7 @@ export interface MailFile {
   mail_id: string | null
   thread_id: string | null
   name: string
-  kind: '첨부' | '세금계산서' | '계약서' | '견적서' | '도면' | '일정표' | '사진'
+  kind: '첨부' | '세금계산서' | '청구서' | '계약서' | '견적서' | '도면' | '일정표' | '사진'
   /** mail = 메일 첨부 · drive = 드라이브에 넣은 자료 (2026-11-01) */
   source?: 'mail' | 'drive'
   vendor: string
