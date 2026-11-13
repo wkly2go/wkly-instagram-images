@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useApp } from '../lib/app'
 import { friendlyError } from '../lib/api'
 import { registerDraftNavigation } from '../lib/navigationGuard'
-import { defaultTenderQuery, tenderCandidateDraft, validateTenderQuery, type TenderCandidate, type TenderSearchQuery, type TenderSearchResult } from '../lib/tenderSearch'
+import { TENDER_SEARCH_PRESETS, defaultTenderQuery, tenderCandidateDraft, validateTenderQuery, type TenderCandidate, type TenderSearchQuery, type TenderSearchResult } from '../lib/tenderSearch'
 import type { GrowthDraft } from '../lib/growth'
 import { Button, Field, Modal } from './ui'
 
@@ -42,8 +42,8 @@ export function TenderSearch({ onClose, onChoose }: { onClose: () => void; onCho
   return <Modal title="나라장터 공식 공고 조회" onClose={close} wide actions={<Button kind="ghost" onClick={close} disabled={busy}>닫기</Button>}>
     <p className="growth-notice">공식 API 조회 후보입니다. 예약 수집·자동 저장·투찰은 하지 않습니다. 후보를 선택한 뒤 원문과 참가 조건을 검토하고 저장해 주세요.</p>
     <p className="t-cap">조회 서버는 배포되어 있습니다. 공공데이터포털 활용 승인·서버 키 설정·실제 응답은 별도 확인이 필요합니다.{api.mode === 'demo' && ' 체험 모드에서는 실제 나라장터 API를 호출하지 않습니다.'}</p>
-    <div className="row wrap" aria-label="영업 분야별 공고 검색">{['SNS 홍보', '콘텐츠 제작', '행사 운영', '전시', '공간'].map(keyword => <Button key={keyword} kind="outline" disabled={busy} onClick={() => change({ keyword })}>{keyword}</Button>)}</div>
-    <p className="t-cap">분야를 고르면 검색어만 바뀝니다. 공식 공고 조회를 눌러야 조회합니다. 공고명에 해당 문구가 없는 사업은 누락될 수 있습니다.</p>
+    <div className="row wrap" aria-label="영업 분야별 공고 검색">{TENDER_SEARCH_PRESETS.map(preset => <Button key={preset.keyword} kind="outline" disabled={busy} onClick={() => change(preset)}>{preset.keyword}</Button>)}</div>
+    <p className="t-cap">분야를 고르면 검색어와 조회 업무(용역·공사)가 바뀝니다. 인테리어·실내건축·리모델링은 공사, 공간 설계는 용역입니다. 공식 공고 조회를 눌러야 조회합니다. 공고명에 해당 문구가 없는 사업은 누락될 수 있습니다.</p>
     <fieldset className="growth-fieldset form-grid" disabled={busy}>
       <Field label="조회 업무"><select className="select" value={query.category} onChange={e => change({ category: e.target.value as TenderSearchQuery['category'] })}><option value="service">용역</option><option value="construction">공사</option></select></Field>
       <Field label="공고명 검색어"><input className="input" maxLength={100} value={query.keyword} onChange={e => change({ keyword: e.target.value })} placeholder="예: 전시, 행사, 공간" /></Field>

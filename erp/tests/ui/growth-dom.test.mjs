@@ -49,7 +49,7 @@ before(async () => {
   ;({ MeetingRecorder } = await server.ssrLoadModule('/src/components/MeetingRecorder.tsx'))
   ;({ MeetingStartUncertainError } = await server.ssrLoadModule('/src/lib/meetingProgress.ts'))
   assert.equal(api.mode, 'demo')
-  originals = { instagramContacts: api.instagramContacts, getAiState: api.getAiState, runGrowthAi: api.runGrowthAi, configureAi: api.configureAi, reconcileAi: api.reconcileAi, mode: api.mode, listAgentJobs: api.listAgentJobs, saveSales: api.saveSales, saveGrowth: api.saveGrowth, startMeetingMinutes: api.startMeetingMinutes, getMeetingRecording: api.getMeetingRecording, searchTenders: api.searchTenders }
+  originals = { listSalesOrigins: api.listSalesOrigins, instagramContacts: api.instagramContacts, getAiState: api.getAiState, runGrowthAi: api.runGrowthAi, configureAi: api.configureAi, reconcileAi: api.reconcileAi, mode: api.mode, listAgentJobs: api.listAgentJobs, saveSales: api.saveSales, saveGrowth: api.saveGrowth, startMeetingMinutes: api.startMeetingMinutes, getMeetingRecording: api.getMeetingRecording, searchTenders: api.searchTenders }
 })
 afterEach(async () => {
   if (root) await act(async () => root.unmount())
@@ -940,7 +940,7 @@ test('research file is reviewed then linked once with provenance and no contract
  let ed=panel('새 나라장터');assert.equal(ed.getByLabelText('참가 조건').value,'추가 확인');assert.match(ed.getByLabelText('메모·체크리스트').value,/방문제출11:00/)
  await click(ed.getByRole('button',{name:'저장',exact:true}));ed=panel('테스트용 행사 공고');await click(ed.getByRole('button',{name:'영업 기회로 연결'}))
  const a=JSON.parse(localStorage.getItem('wkly-sales-demo-v1')).items;assert.equal(a.length,1);assert.equal(a[0].source,'나라장터');assert.equal(a[0].expected_amount,null);assert.equal(a[0].stage,'발굴');assert.match(a[0].description,/방문제출11:00/);assert.match(a[0].description,/자격 증빙 확인/)
- await click(panel('테스트용 행사 공고').getByRole('link',{name:'연결 영업 기회 보기'}));assert.equal(query('id'),a[0].id);assert.ok(panel('테스트용 행사 공고').getByRole('heading',{name:'요청 내용'}))
+ await click(panel('테스트용 행사 공고').getByRole('link',{name:'연결 영업 기회 보기'}));assert.equal(query('id'),a[0].id);assert.ok(panel('테스트용 행사 공고').getByRole('heading',{name:'요청 내용'}));assert.ok(panel('테스트용 행사 공고').getByText('TEST-ONLY / 000'));assert.ok(panel('테스트용 행사 공고').getByText('추가 확인'))
 })
 test('pending research file read blocks tab navigation and closing',async()=>{
  const s=await mount('member','sales',{},'/sales?tab=tenders');await click(s.getByRole('button',{name:'발굴 보고서 가져오기'}));const imp=panel('발굴 결과 가져오기');let finish
@@ -953,4 +953,36 @@ test('sales source filter shows public leads without changing other records',asy
  await api.saveSales(crypto.randomUUID(),{...newSalesDraft(owner),title:'민간 테스트',source:'직접 발굴'},0);await api.saveSales(crypto.randomUUID(),{...newSalesDraft(owner),title:'공공 테스트',source:'나라장터'},0)
  await act(async()=>user.selectOptions(s.getByLabelText('유입 경로 필터'),'나라장터'));assert.ok(s.getByRole('button',{name:/공공 테스트/}));assert.equal(s.queryByRole('button',{name:/민간 테스트/}),null)
  await act(async()=>user.selectOptions(s.getByLabelText('유입 경로 필터'),''));assert.ok(s.getByRole('button',{name:/민간 테스트/}));assert.equal(JSON.parse(localStorage.getItem('wkly-sales-demo-v1')).items.length,2)
+})
+
+
+test('sales execution queues find unscheduled leads, assigned work and won handoffs', async()=>{
+ const s=await mount('admin'),{newSalesDraft}=await server.ssrLoadModule('/src/lib/sales.ts'),owner='00000000-0000-4000-8000-000000000001',other='00000000-0000-4000-8000-000000000002'
+ await api.saveSales(crypto.randomUUID(),{...newSalesDraft(owner),title:'연락일 없는 신규 후보'},0)
+ await api.saveSales(crypto.randomUUID(),{...newSalesDraft(other),title:'다른 담당 후보'},0)
+ await api.saveSales(crypto.randomUUID(),{...newSalesDraft(owner),title:'계약 확인 후 인계',stage:'수주',result_note:'테스트용 계약 근거'},0)
+ await click(s.getByRole('button',{name:'연락일 미정',exact:true}));assert.ok(s.getByRole('button',{name:/연락일 없는 신규 후보/}));assert.ok(s.getByRole('button',{name:/다른 담당 후보/}));assert.equal(s.queryByRole('button',{name:/계약 확인 후 인계/}),null)
+ await click(s.getByLabelText('내 담당만'));assert.equal(s.queryByRole('button',{name:/다른 담당 후보/}),null)
+ await click(s.getByRole('button',{name:'수주 후 프로젝트 연결 대기',exact:true}));assert.ok(s.getByRole('button',{name:/계약 확인 후 인계/}));assert.equal(s.queryByRole('button',{name:/연락일 없는 신규 후보/}),null)
+ await click(s.getByRole('button',{name:'전체 기회',exact:true}));assert.ok(s.getByRole('button',{name:/연락일 없는 신규 후보/}));assert.ok(s.getByRole('button',{name:/계약 확인 후 인계/}));assert.equal(JSON.parse(localStorage.getItem('wkly-sales-demo-v1')).items.length,3)
+})
+test('origin load failure leaves the sales detail editable and can retry independently',async()=>{
+ const s=await mount('admin'),{newSalesDraft}=await server.ssrLoadModule('/src/lib/sales.ts'),owner='00000000-0000-4000-8000-000000000001'
+ await api.saveSales(crypto.randomUUID(),{...newSalesDraft(owner),title:'발굴 자료 오류 검사'},0)
+ api.listSalesOrigins=async()=>{throw new Error('원문 조회 일시 오류')}
+ await click(s.getByRole('button',{name:'연락일 미정',exact:true}));await click(s.getByRole('button',{name:/발굴 자료 오류 검사/}));let d=panel('발굴 자료 오류 검사')
+ assert.ok(d.getByText('원문 조회 일시 오류'));assert.equal(d.getByRole('button',{name:'영업 정보 수정'}).disabled,false)
+ api.listSalesOrigins=async()=>[{id:'origin',kind:'tender',title:'보존된 공고',status:'검토',updated_at:'2026-11-13',document:{division:'AR',source_url:'https://example.com/notice',note:'방문 제출 11시 / 가격 제출 14시',number:'TEST-26',round:'001',agency:'테스트 기관',deadline:'2026-11-20T11:00:00+09:00',qualification:'추가 확인'}}]
+ await click(d.getByRole('button',{name:'발굴 자료 다시 확인'}));assert.ok(d.getByText('TEST-26 / 001'));assert.ok(d.getByText('테스트 기관'));assert.equal(d.getByRole('link',{name:'발굴 자료 출처 열기'}).getAttribute('href'),'https://example.com/notice');assert.ok(d.getByText('방문 제출 11시 / 가격 제출 14시'))
+})
+
+
+test('interior tender presets only prepare construction queries and preserve explicit review',async()=>{
+ const s=await mount('admin','sales',{},'/sales?tab=tenders'),calls=[]
+ api.searchTenders=async q=>{calls.push(structuredClone(q));return tenderResult()}
+ await click(s.getByRole('button',{name:'나라장터 공식 공고 조회',exact:true}));const form=panel('나라장터 공식 공고 조회')
+ await click(form.getByRole('button',{name:'실내건축',exact:true}));assert.equal(form.getByLabelText('조회 업무').value,'construction');assert.equal(form.getByLabelText('공고명 검색어').value,'실내건축');assert.equal(calls.length,0)
+ await click(form.getByRole('button',{name:'공간 설계',exact:true}));assert.equal(form.getByLabelText('조회 업무').value,'service');assert.equal(calls.length,0)
+ await click(form.getByRole('button',{name:'리모델링',exact:true}));await click(form.getByRole('button',{name:'공식 공고 조회',exact:true}));assert.equal(calls.length,1);assert.equal(calls[0].category,'construction')
+ await click(form.getByRole('button',{name:'검토해 등록',exact:true}));const ed=panel('새 나라장터');assert.equal(ed.getByLabelText('수행 회사').value,'AR');assert.equal(ed.getByLabelText('참가 조건').value,'추가 확인');assert.equal(localStorage.getItem('wkly-growth-demo-v1'),null)
 })

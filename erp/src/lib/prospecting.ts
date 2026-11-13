@@ -4,6 +4,8 @@ export const PROSPECT_PLAYS = [
   { id: 'launch', label: '팝업·신제품', signal: '팝업 오픈 신제품 출시', target: '브랜드 마케팅·PR 담당자, 팝업 운영사', offer: '팝업 소개·현장 취재·콘텐츠 제작·광고 준비', question: '오픈 전 인지도와 현장 방문 중 어떤 성과가 우선인가요?', evidence: '공식 오픈 공지, 기간·장소, 기존 홍보 채널', lead: 42, division: 'TW' },
   { id: 'exhibition', label: '전시·박람회 참가사', signal: '전시 박람회 참가기업 참가사', target: '참가 브랜드, 전시 주최사, 부스 운영 담당자', offer: '참가사 인터뷰·부스 콘텐츠·전후 홍보 패키지', question: '이번 전시에서 만나려는 고객과 확보하려는 문의는 무엇인가요?', evidence: '주최사 일정, 참가기업 목록, 부스·홍보 담당 부서', lead: 60, division: 'TW' },
   { id: 'space', label: '신규 매장·리뉴얼', signal: '플래그십 신규 매장 리뉴얼 오픈', target: '브랜드 공간·VMD·점포 개발 담당자, 건물 운영사', offer: '공간 기획·설계·시공과 오픈 콘텐츠 연계', question: '오픈 목표일과 공간 변경 범위, 의사결정 일정은 어떻게 되나요?', evidence: '공식 출점 계획, 공사·발주 일정, 현장 조건', lead: 90, division: 'AR' },
+  { id: 'office', label: '오피스 이전·리뉴얼', signal: '사무실 이전 신사옥 오피스 리뉴얼 인테리어', target: '기업 총무·구매·시설 담당자, 건물 자산 운영사', offer: '업무 공간 진단·레이아웃 설계·단계별 시공', question: '입주일·면적·현재 임대차 일정과 근무 중 공사 가능 범위는 어떻게 되나요?', evidence: '공식 이전 계획, 현장 도면·설비 조건, 발주 담당과 예산 승인 일정', lead: 120, division: 'AR' },
+  { id: 'retail', label: '매장·쇼룸 인테리어', signal: '신규 출점 쇼룸 리뉴얼 실내건축 인테리어 발주', target: '브랜드 점포 개발·VMD·구매 담당자, 프랜차이즈 본사', offer: '매장·쇼룸 설계·시공·집기·사인과 오픈 콘텐츠', question: '공간 계약과 설계·시공사 선정은 어디까지 진행됐고 아직 발주하지 않은 범위는 무엇인가요?', evidence: '공식 오픈 계획, 면적·현장 인도일, 미발주 범위, 의사결정자', lead: 90, division: 'AR' },
   { id: 'season', label: '시즌·기념일 캠페인', signal: '시즌 캠페인 기념일 프로모션', target: '뷰티·패션·F&B 브랜드 마케팅팀', offer: '시즌 메시지·연재 콘텐츠·채널별 광고 소재', question: '이번 시즌에 집중할 제품과 고객 행동은 무엇인가요?', evidence: '공식 캠페인 일정, 제품 정보, 이전 시즌 결과', lead: 45, division: 'TW' },
   { id: 'public', label: '공공·지원사업', signal: '홍보 행사 운영 용역 모집 공고', target: '발주기관·공고 담당 부서, 선정 기업', offer: '공고 범위에 맞춘 행사·콘텐츠·홍보 제안', question: '참가 자격·제출 서류·질의 마감과 평가 기준은 무엇인가요?', evidence: '원문 공고, 참가 자격, 질의·입찰 마감, 예산', lead: 45, division: 'TW' },
   { id: 'partner', label: '대행사·공간 제휴', signal: '브랜드 대행사 공간 대관 제휴', target: '광고·PR 대행사, 공간 운영사, 제작 파트너', offer: '공동 제안·제작 지원·상호 소개', question: '현재 보완이 필요한 제작 역량과 협업 가능한 프로젝트가 있나요?', evidence: '최근 수행 프로젝트, 협업 문의 창구, 역할·수익 배분', lead: 30, division: 'AR' },
@@ -53,7 +55,7 @@ export function researchLinks(p: ProspectPlan) {
   const queries = [
     ['수요·일정 찾기', `${base} ${prospectPlay(p.play).signal}`],
     ['공식 공지 찾기', `${base} ${p.event} 공식 일정 보도자료`],
-    ['담당 부서 찾기', `${p.target || p.industry} 공식 제휴 문의 마케팅 담당`],
+    ['담당 부서 찾기', `${p.target || p.industry} ${prospectPlay(p.play).division === 'AR' ? '공식 시설 구매 점포개발 공간 VMD 담당' : '공식 제휴 문의 마케팅 담당'}`],
     ['참가사·협력사 찾기', `${base} ${p.event} 참가기업 주최사 협력사`],
   ]
   return queries.map(([label, query]) => ({ label, query, google: `https://www.google.com/search?q=${encodeURIComponent(query)}`, naver: `https://search.naver.com/search.naver?query=${encodeURIComponent(query)}` }))

@@ -69,3 +69,44 @@ test('unknown sources fail visibly before querying instead of showing unfiltered
   }
   assert.equal(calls.length, 0)
 })
+
+
+test('action queues and owner filters reach the server before pagination', async () => {
+  const { api, calls } = remote()
+  await api.listSales({ page: 1, work: 'unscheduled', ownerId: 'owner', source: '나라장터' })
+  let q = calls[0].searchParams
+  assert.equal(q.get('next_date'), 'is.null')
+  assert.equal(q.get('stage'), 'not.in.(수주,실주,보류)')
+  assert.equal(q.get('owner_id'), 'eq.owner')
+  assert.equal(q.get('source'), 'eq.나라장터')
+  assert.equal(q.get('offset'), '30')
+  await api.listSales({ page: 0, work: 'handoff' })
+  q = calls[1].searchParams
+  assert.equal(q.get('stage'), 'eq.수주'); assert.equal(q.get('project_id'), 'is.null')
+  await assert.rejects(api.listSales({ page: 0, work: 'invalid' }), /업무 목록 조건/)
+  assert.equal(calls.length, 2)
+})
+test('unscheduled queue includes connected leads and paginates after ownership and status filtering', async () => {
+  const rows = Array.from({length: 35}, (_,i) => ({...row(i,'나라장터'), next_date: null}))
+  rows.push({...row(50,'직접 발굴'),next_date:null,stage:'실주'}, {...row(51,'나라장터'),next_date:null,owner_id:'another'})
+  const api = demo(rows)
+  const a = await api.listSales({page:0,work:'unscheduled',ownerId:'member'})
+  const b = await api.listSales({page:1,work:'unscheduled',ownerId:'member'})
+  assert.equal(a.items.length,30); assert.equal(a.hasMore,true)
+  assert.equal(b.items.length,5); assert.equal(b.hasMore,false)
+  assert.equal(new Set([...a.items,...b.items].map((x:SalesOpportunity)=>x.id)).size,35)
+})
+test('handoff queue includes only won opportunities missing a project', async () => {
+  const api = demo([{...row(1,'나라장터'),stage:'수주'}, {...row(2,'직접 발굴'),stage:'수주',project_id:'linked'}, row(3,'직접 발굴')])
+  assert.deepEqual((await api.listSales({page:0,work:'handoff'})).items.map((x:SalesOpportunity)=>x.id),['001'])
+})
+test('origin reads are scoped to one linked opportunity and capped independently of the main detail', async () => {
+  const {api,calls}=remote()
+  await api.listSalesOrigins('opportunity')
+  const q=calls[0].searchParams
+  assert.equal(calls[0].pathname,'/rest/v1/growth_items')
+  assert.equal(q.get('linked_sales_id'),'eq.opportunity')
+  assert.equal(q.get('kind'),'in.(contact,tender)')
+  assert.equal(q.get('limit'),'20')
+  assert.equal(q.get('select'),'id,kind,title,status,document,updated_at')
+})
