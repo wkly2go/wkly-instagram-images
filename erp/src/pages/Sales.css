@@ -29,7 +29,8 @@
 
 .sales-page { container-type: inline-size; }
 .sales-header { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
-.sales-heading { flex: 1 1 280px; min-width: 0; }
+.sales-heading { min-width: 0; }
+.sales-header > .sales-heading { flex: 1 1 280px; }
 @container (max-width: 650px) { .sales-item { grid-template-columns: minmax(0, 1fr) 75px; } .sales-item-main { grid-column: 1; } .sales-stage { grid-column: 2; } }
 .prospect-planner { border: 1px solid var(--line, #ddd); border-top: 3px solid #0b6333; padding: 18px; margin-bottom: 20px; display: flex; flex-direction: column; gap: 16px; min-width: 0; background: var(--paper, #fff); }
 .prospect-planner h3, .prospect-planner h4, .prospect-planner p { margin: 0 0 8px; }
