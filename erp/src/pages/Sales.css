@@ -41,3 +41,7 @@
 @media (max-width:600px) { .prospect-planner { padding:12px; }.prospect-planner .form-grid { grid-template-columns:minmax(0,1fr); } }
 
 .sales-pipeline { display:flex; flex-direction:column; gap:18px; min-width:0; }
+
+.sales-origin { border: 1px solid var(--line); padding: 16px; margin: 12px 0; overflow-wrap: anywhere; }
+.sales-origin h4 { margin: 0 0 6px; }
+.sales-origin details { margin-top: 12px; }

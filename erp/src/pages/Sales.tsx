@@ -7,6 +7,7 @@ import { registerDraftNavigation } from '../lib/navigationGuard'
 import { afterSalesDraftConfirmed, closeSalesDraft, readSalesView, salesViewUrl } from '../lib/salesNavigation'
 import { SALES_COMPANIES, SALES_SOURCES, SALES_STAGES, canEditSales, needsFollowup, newSalesDraft, validateSales, type SalesDraft, type SalesFilter, type SalesOpportunity } from '../lib/sales'
 import { Button, Field, Modal } from '../components/ui'
+import { SalesOrigins } from '../components/SalesOrigins'
 import { ProspectingPlanner } from '../components/ProspectingPlanner'
 import { Shell } from '../components/Shell'
 import { GrowthWorkspace } from '../components/GrowthWorkspace'
@@ -57,8 +58,16 @@ function SalesPipeline() {
       <Field label="수행 회사"><select className="select" value={filter.division ?? ''} onChange={e => change({ division: e.target.value as SalesFilter['division'] })}><option value="">전체 회사</option>{Object.entries(SALES_COMPANIES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></Field>
       <Field label="유입 경로 필터"><select className="select" value={filter.source ?? ''} onChange={e => change({ source: e.target.value as SalesFilter['source'] })}><option value="">전체 경로</option>{SALES_SOURCES.map(source => <option key={source}>{source}</option>)}</select></Field>
       <Field label="진행 단계"><select className="select" value={filter.stage ?? ''} onChange={e => change({ stage: e.target.value as SalesFilter['stage'] })}><option value="">전체 단계</option>{SALES_STAGES.map(s => <option key={s}>{s}</option>)}</select></Field>
-      <label className="row"><input type="checkbox" checked={!!filter.dueBefore} onChange={e => change({ dueBefore: e.target.checked ? todayKey() : undefined })} />오늘까지 후속 연락</label>
+      <label className="row"><input type="checkbox" checked={!!filter.dueBefore} onChange={e => change({ dueBefore: e.target.checked ? todayKey() : undefined, work: '' })} />오늘까지 후속 연락</label>
     </div>
+    <div className="sales-stages" aria-label="영업 실행 목록">
+      <Button kind={!filter.work && !filter.dueBefore ? 'blue' : 'outline'} onClick={() => change({ work: '', dueBefore: undefined, stage: '' })}>전체 기회</Button>
+      <Button kind={filter.work === 'unscheduled' ? 'blue' : 'outline'} onClick={() => change({ work: 'unscheduled', dueBefore: undefined, stage: '' })}>연락일 미정</Button>
+      <Button kind={filter.work === 'handoff' ? 'blue' : 'outline'} onClick={() => change({ work: 'handoff', dueBefore: undefined, stage: '' })}>수주 후 프로젝트 연결 대기</Button>
+      <label className="row"><input type="checkbox" checked={!!filter.ownerId} onChange={e => change({ ownerId: e.target.checked ? me.id : undefined })} />내 담당만</label>
+    </div>
+    {filter.work === 'unscheduled' && <p className="sales-notice">연락일이 없는 진행 중 영업입니다. 상세 → 영업 정보 수정에서 다음 행동과 연락일을 지정하세요. 후보에서 연결한 신규 건도 여기에서 확인할 수 있습니다.</p>}
+    {filter.work === 'handoff' && <p className="sales-notice">수주로 기록했지만 프로젝트를 연결하지 않은 건입니다. 계약 근거를 확인하고 같은 회사·거래처의 프로젝트를 연결하세요.</p>}
     <div className="sales-stages" aria-label="진행 단계 필터">{SALES_STAGES.map(s => <button type="button" key={s} className={`btn ${filter.stage === s ? '' : 'btn-outline'}`} aria-pressed={filter.stage === s} onClick={() => change({ stage: filter.stage === s ? '' : s })}>{s}</button>)}</div>
     {error && <div className="sales-error" role="alert">{error} <Button kind="outline" onClick={reload}>다시 확인</Button></div>}
     {loading ? <p role="status">영업 기회를 불러오는 중…</p> : !error && <>
@@ -108,7 +117,7 @@ function SalesDetail({ id, onClose, onChanged }: { id: string; onClose: () => vo
     {row && <div className="sales-detail">
       <dl><dt>회사·단계</dt><dd>{SALES_COMPANIES[row.division]} · {row.stage}</dd><dt>담당자</dt><dd>{profileName(row.owner_id)}</dd><dt>예상 금액</dt><dd>{row.expected_amount === null ? '미확인' : `${row.expected_amount.toLocaleString()}원`}</dd><dt>다음 행동</dt><dd>{row.next_date ?? '날짜 미정'} · {row.next_action || '미등록'}</dd><dt>유입 경로</dt><dd>{row.source}{row.source_url && <> · <a href={row.source_url} target="_blank" rel="noreferrer">출처 보기</a></>}</dd></dl>
       <div className="row wrap">{row.client_id && <Link to={`/clients?id=${row.client_id}`} className="btn btn-outline">연결 거래처</Link>}{row.project_id && <Link to={`/projects?id=${row.project_id}`} className="btn btn-outline">연결 프로젝트</Link>}</div>
-      <section><h3 className="t-sub">요청 내용</h3><p className="sales-copy">{row.description || '등록된 요청 내용이 없습니다.'}</p></section>
+      <SalesOrigins id={row.id} /><section><h3 className="t-sub">요청 내용</h3><p className="sales-copy">{row.description || '등록된 요청 내용이 없습니다.'}</p></section>
       {row.result_note && <section><h3 className="t-sub">결과·사유</h3><p className="sales-copy">{row.result_note}</p></section>}
       {canEditSales(row, me) && <section><h3 className="t-sub">활동 기록</h3><Field label="활동 종류"><select className="select" value={kind} disabled={busy} onChange={e => setKind(e.target.value as typeof kind)}>{['메모', '전화', '메일', '미팅'].map(k => <option key={k}>{k}</option>)}</select></Field><Field label="활동 내용"><textarea className="textarea" rows={3} maxLength={4000} disabled={busy} value={body} onChange={e => setBody(e.target.value)} placeholder="연락 결과와 다음에 확인할 내용을 적어 주세요." /></Field><Button disabled={busy || !body.trim()} onClick={add}>{busy ? '저장 중…' : '활동 저장'}</Button>{error && <p role="alert" className="sales-error">{error}</p>}</section>}
       <section><h3 className="t-sub">최근 이력 · 최대 50건</h3>{state.data?.activities.map(a => <article className="sales-activity" key={a.id}><strong>{a.kind}</strong> · {profileName(a.created_by)} <time>{new Date(a.created_at).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })}</time><p className="sales-copy">{a.body}</p></article>)}</section>
@@ -181,6 +190,7 @@ function SalesEditor({ initial, onClose, onSaved, discovery = false }: { discove
       <Field label="진행 단계"><select className="select" value={draft.stage} onChange={e => set({ stage: e.target.value as SalesDraft['stage'], project_id: e.target.value === '수주' ? draft.project_id : null })}>{SALES_STAGES.map(s => <option key={s}>{s}</option>)}</select></Field>
       <Field label="유입 경로"><select className="select" value={draft.source} onChange={e => set({ source: e.target.value as SalesDraft['source'] })}>{SALES_SOURCES.map(s => <option key={s}>{s}</option>)}</select></Field>
       <Field label="예상 금액 (원 · 미확인은 빈칸)"><input className="input" type="number" min={0} max={Number.MAX_SAFE_INTEGER} step={1} value={draft.expected_amount ?? ''} onChange={e => set({ expected_amount: e.target.value === '' ? null : Number(e.target.value) })} /></Field>
+      {!['수주', '실주', '보류'].includes(draft.stage) && !draft.next_date && <p className="sales-notice full">다음 연락일을 정하면 ‘오늘까지 후속 연락’에 표시됩니다. 미정인 채 저장해도 ‘연락일 미정’ 목록에서 다시 찾을 수 있습니다.</p>}
       <Field label="다음 연락일"><input className="input" type="date" value={draft.next_date ?? ''} onChange={e => set({ next_date: e.target.value || null })} /></Field>
       <Field label="다음 행동" className="full"><input className="input" maxLength={500} value={draft.next_action} onChange={e => set({ next_action: e.target.value })} placeholder="예: 공간 후보와 견적 전달" /></Field>
       <Field label="출처 주소" className="full"><input className="input" type="url" maxLength={2000} value={draft.source_url} onChange={e => set({ source_url: e.target.value })} placeholder="https://" /></Field>

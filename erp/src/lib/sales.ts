@@ -1,3 +1,5 @@
+import type { GrowthDocument } from './growth'
+
 export const SALES_STAGES = ['발굴', '접촉', '미팅', '제안', '협상', '수주', '실주', '보류'] as const
 export type SalesStage = typeof SALES_STAGES[number]
 export const SALES_SOURCES = ['직접 발굴', '홈페이지', '소개', 'SNS', '광고', '나라장터', '기타'] as const
@@ -42,6 +44,8 @@ export interface SalesFilter {
   stage?: SalesStage | ''
   division?: keyof typeof SALES_COMPANIES | ''
   dueBefore?: string
+  ownerId?: string
+  work?: 'unscheduled' | 'handoff' | ''
 }
 export const SALES_PAGE_SIZE = 30
 export function newSalesDraft(ownerId: string): SalesDraft {
@@ -73,7 +77,12 @@ export function canEditSales(row: Pick<SalesOpportunity, 'owner_id'>, user: { id
 export function needsFollowup(row: Pick<SalesSummary, 'stage' | 'next_date'>, today: string): boolean {
   return !['수주', '실주', '보류'].includes(row.stage) && !!row.next_date && row.next_date <= today
 }
+export interface SalesOrigin {
+  id: string; kind: 'contact' | 'tender'; title: string; status: string; document: GrowthDocument; updated_at: string
+}
 export interface SalesApi {
+  listSalesOrigins(id: string): Promise<SalesOrigin[]>
+
   listSales(filter: SalesFilter): Promise<{ items: SalesSummary[]; hasMore: boolean }>
   getSales(id: string): Promise<SalesOpportunity>
   saveSales(id: string, draft: SalesDraft, expectedRevision: number): Promise<SalesOpportunity>

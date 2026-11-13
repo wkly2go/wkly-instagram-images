@@ -50,9 +50,8 @@ export const TABS: { key: TabKey; label: string; path: string; admin?: boolean; 
   { key: 'ads', label: '광고·콘텐츠', path: '/ads', keywords: ['인스타그램', 'Instagram', 'Meta', '블로그', '유튜브', '캠페인', '소재', '마케팅', 'SEO'] },
   { key: 'ledger', label: '입출금 장부', path: '/ledger', admin: true },
   { key: 'admin', label: '관리', path: '/admin', admin: true },
-  { key: 'tenders', label: '나라장터', path: '/tenders' },
   { key: 'leads', label: '연락처 검토함', path: '/leads' },
-  { key: 'sales', label: '영업·수주', path: '/sales' },
+  { key: 'sales', label: '영업·수주', path: '/sales', keywords: ['나라장터', '공고', '입찰', '신규 영업', '인테리어'] },
 ]
 
 /** 휴대폰 · 태블릿 아래 메뉴: 자주 쓰는 4개 + 더보기 */
@@ -81,7 +80,7 @@ const SHORT: Partial<Record<TabKey, string>> = { approvals: '보고서' }
 const NAV_GROUPS: { label: string; tabs: TabKey[] }[] = [
   { label: '업무', tabs: ['home', 'reportTemplates', 'approvals', 'projects', 'site'] },
   { label: '협업·자료', tabs: ['chat', 'drive', 'team'] },
-  { label: '운영', tabs: ['sales', 'tenders', 'leads', 'agents', 'ads'] },
+  { label: '운영', tabs: ['sales', 'leads', 'agents', 'ads'] },
   { label: '관리자 전용', tabs: ['ledger', 'admin'] },
 ]
 

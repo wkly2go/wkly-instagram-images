@@ -1,12 +1,16 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Profile } from './types'
 import { ApiError } from './api'
-import { SALES_PAGE_SIZE, SALES_SOURCES, canEditSales, needsFollowup, salesSummary, validateSales, type SalesActivity, type SalesApi, type SalesOpportunity } from './sales'
+import { saveSalesWithRecovery } from './salesSaveRecovery'
+import { SALES_PAGE_SIZE, SALES_SOURCES, canEditSales, needsFollowup, salesSummary, validateSales, type SalesActivity, type SalesApi, type SalesOpportunity, type SalesOrigin } from './sales'
 
 function fail(error: { message: string; code?: string } | null) {
   if (!error) return
   if (['42P01', '42883', 'PGRST202', 'PGRST205'].includes(error.code ?? '')) throw new ApiError('영업 공용 저장소가 아직 준비되지 않았습니다. 관리자에게 신규 DB 적용 상태를 확인해 주세요.')
   throw new ApiError(error.message)
+}
+function validateWorkFilter(work: unknown) {
+  if (work !== undefined && work !== '' && work !== 'unscheduled' && work !== 'handoff') throw new ApiError('업무 목록 조건을 다시 선택해 주세요.')
 }
 function validateSourceFilter(source: unknown) {
   if (source !== undefined && source !== '' && !(SALES_SOURCES as readonly unknown[]).includes(source)) throw new ApiError('유입 경로 검색 조건을 다시 선택해 주세요.')
@@ -17,7 +21,11 @@ export function createSupabaseSalesApi(sb: SupabaseClient): SalesApi {
   return {
     async listSales(f) {
       validateSourceFilter(f.source)
+      validateWorkFilter(f.work)
       let q = sb.from('sales_opportunities').select(SUMMARY).order('updated_at', { ascending: false }).order('id')
+      if (f.ownerId) q = q.eq('owner_id', f.ownerId)
+      if (f.work === 'unscheduled') q = q.is('next_date', null).not('stage', 'in', '(수주,실주,보류)')
+      if (f.work === 'handoff') q = q.eq('stage', '수주').is('project_id', null)
       if (f.source) q = q.eq('source', f.source)
       if (f.stage) q = q.eq('stage', f.stage)
       if (f.division) q = q.eq('division', f.division)
@@ -28,18 +36,40 @@ export function createSupabaseSalesApi(sb: SupabaseClient): SalesApi {
       fail(r.error)
       return { items: (r.data ?? []).slice(0, SALES_PAGE_SIZE), hasMore: (r.data?.length ?? 0) > SALES_PAGE_SIZE }
     },
+    async listSalesOrigins(id) {
+      const r = await sb.from('growth_items').select('id,kind,title,status,document,updated_at').eq('linked_sales_id', id).in('kind', ['contact', 'tender']).order('updated_at', { ascending: false }).order('id').limit(20)
+      fail(r.error)
+      return (r.data ?? []) as SalesOrigin[]
+    },
     async getSales(id) {
       const r = await sb.from('sales_opportunities').select('*').eq('id', id).single()
       fail(r.error)
       return r.data as SalesOpportunity
     },
     async saveSales(id, draft, expectedRevision) {
-      const error = validateSales(draft)
+      const submitted = structuredClone(draft)
+      const error = validateSales(submitted)
       if (error) throw new ApiError(error)
-      const r = await sb.rpc('sales_save_opportunity', { p_id: id, p_document: draft, p_expected_revision: expectedRevision })
-      fail(r.error)
-      if (!r.data) throw new ApiError('저장 결과를 확인하지 못했습니다. 새로고침 후 확인해 주세요.')
-      return r.data as SalesOpportunity
+      const session = await sb.auth.getSession()
+      const actor = session.data.session?.user.id
+      if (session.error || !actor) throw new ApiError('로그인이 필요합니다.')
+      try {
+        return await saveSalesWithRecovery({
+          write: async document => await sb.rpc('sales_save_opportunity', { p_id: id, p_document: document, p_expected_revision: expectedRevision }).retry(false),
+          read: async sameId => {
+            const result = await sb.from('sales_opportunities').select('*').eq('id', sameId).single().retry(false)
+            fail(result.error)
+            return result.data as SalesOpportunity | null
+          },
+          confirmActor: async () => {
+            const auth = await sb.auth.getUser()
+            return auth.error ? null : auth.data.user?.id ?? null
+          },
+        }, id, submitted, expectedRevision, actor)
+      } catch (e) {
+        if (e && typeof e === 'object' && 'message' in e) fail(e as { message: string; code?: string })
+        throw e
+      }
     },
     async listSalesActivities(id) {
       const r = await sb.from('sales_activities').select('*').eq('opportunity_id', id).order('created_at', { ascending: false }).order('id').limit(50)
@@ -65,9 +95,15 @@ export function createDemoSalesApi(viewer: () => Profile | undefined): SalesApi 
     async listSales(f) {
       user()
       validateSourceFilter(f.source)
-      const rows = read().items.filter(r => (!f.source || r.source === f.source) && (!f.stage || r.stage === f.stage) && (!f.division || r.division === f.division) && (!f.search || r.title.toLowerCase().includes(f.search.trim().toLowerCase())) && (!f.dueBefore || needsFollowup(r, f.dueBefore))).sort((a, b) => b.updated_at.localeCompare(a.updated_at) || a.id.localeCompare(b.id))
-      const offset = f.page * SALES_PAGE_SIZE
+      validateWorkFilter(f.work)
+      const rows = read().items.filter(r => (!f.ownerId || r.owner_id === f.ownerId) && (!f.work || (f.work === 'unscheduled' ? !r.next_date && !['수주','실주','보류'].includes(r.stage) : r.stage === '수주' && !r.project_id)) && (!f.source || r.source === f.source) && (!f.stage || r.stage === f.stage) && (!f.division || r.division === f.division) && (!f.search || r.title.toLowerCase().includes(f.search.trim().toLowerCase())) && (!f.dueBefore || needsFollowup(r, f.dueBefore))).sort((a, b) => b.updated_at.localeCompare(a.updated_at) || a.id.localeCompare(b.id))
+      const offset = Math.max(0, Math.trunc(f.page)) * SALES_PAGE_SIZE
       return { items: rows.slice(offset, offset + SALES_PAGE_SIZE).map(salesSummary), hasMore: rows.length > offset + SALES_PAGE_SIZE }
+    },
+    async listSalesOrigins(id) {
+      user()
+      const items = JSON.parse(localStorage.getItem('wkly-growth-demo-v1') ?? '[]') as (SalesOrigin & { linked_sales_id: string | null })[]
+      return items.filter(r => r.linked_sales_id === id && ['contact', 'tender'].includes(r.kind)).sort((a,b) => b.updated_at.localeCompare(a.updated_at) || a.id.localeCompare(b.id)).slice(0,20).map(({id,kind,title,status,document,updated_at})=>({id,kind,title,status,document,updated_at}))
     },
     async getSales(id) {
       user()
