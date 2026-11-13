@@ -31,7 +31,7 @@ import { QuickChat } from '../pages/Quick'
 import type { ChatRoomSummary } from '../lib/types'
 import './ShellUsability.css'
 
-export type TabKey = 'tenders' | 'leads' | 'aiUsage' | 'sales' | 'home' | 'reportTemplates' | 'approvals' | 'chat' | 'work' | 'projects' | 'clients' | 'library' | 'drive' | 'team' | 'site' | 'agents' | 'ads' | 'ledger' | 'admin'
+export type TabKey = 'tenders' | 'leads' | 'sales' | 'home' | 'reportTemplates' | 'approvals' | 'chat' | 'work' | 'projects' | 'clients' | 'library' | 'drive' | 'team' | 'site' | 'agents' | 'ads' | 'ledger' | 'admin'
 
 export const TABS: { key: TabKey; label: string; path: string; admin?: boolean; keywords?: string[] }[] = [
   { key: 'home', label: '홈', path: '/' },
@@ -44,14 +44,13 @@ export const TABS: { key: TabKey; label: string; path: string; admin?: boolean; 
   { key: 'team', label: '업무·근태', path: '/team' },
   // 현장 실측: 사진 위 치수 · 도면 배치 · 체크리스트 (2026-11-04)
   { key: 'site', label: '현장', path: '/site' },
-  { key: 'agents', label: 'AI팀', path: '/agents' },
+  { key: 'agents', label: 'AI 팀·비용', path: '/agents', keywords: ['AI팀', 'AI 팀', 'AI 사용', '사용량', '비용', '예산', 'API', '에이전트'] },
   // 광고는 팀원 모두에게 공개 (대표 지시 2026-11-06)
   { key: 'ads', label: '광고·콘텐츠', path: '/ads', keywords: ['인스타그램', 'Instagram', 'Meta', '블로그', '유튜브', '캠페인', '소재', '마케팅', 'SEO'] },
   { key: 'ledger', label: '입출금 장부', path: '/ledger', admin: true },
   { key: 'admin', label: '관리', path: '/admin', admin: true },
   { key: 'tenders', label: '나라장터', path: '/tenders' },
   { key: 'leads', label: '연락처 검토함', path: '/leads' },
-  { key: 'aiUsage', label: 'AI 사용·비용', path: '/ai-usage' },
   { key: 'sales', label: '영업·수주', path: '/sales' },
 ]
 
@@ -60,7 +59,6 @@ const ICONS: Record<TabKey, LucideIcon> = {
   sales: Briefcase,
   tenders: Briefcase,
   leads: Briefcase,
-  aiUsage: Briefcase,
   home: Home,
   approvals: ClipboardCheck,
   reportTemplates: BookOpen,
@@ -82,7 +80,7 @@ const SHORT: Partial<Record<TabKey, string>> = { approvals: '보고서' }
 const NAV_GROUPS: { label: string; tabs: TabKey[] }[] = [
   { label: '업무', tabs: ['home', 'reportTemplates', 'approvals', 'projects', 'site'] },
   { label: '협업·자료', tabs: ['chat', 'drive', 'team'] },
-  { label: '운영', tabs: ['sales', 'tenders', 'leads', 'agents', 'aiUsage', 'ads'] },
+  { label: '운영', tabs: ['sales', 'tenders', 'leads', 'agents', 'ads'] },
   { label: '관리자 전용', tabs: ['ledger', 'admin'] },
 ]
 
