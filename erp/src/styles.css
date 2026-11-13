@@ -2253,6 +2253,13 @@ header .main-nav { margin: 0; gap: 2px; }
 .today-title { flex: 1; min-width: 0; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .today-proj { font: 400 var(--fs-cap)/1.4 var(--mono); color: var(--gray); white-space: nowrap; }
 .today-empty { padding: 8px 2px; color: var(--gray); font-size: var(--fs-cap); }
+/* 관리자 '내 업무' 근태 결재 (2026-11-12) */
+.att-list { border-bottom: 2px solid var(--line); margin-bottom: 2px; }
+.att-todo .today-title { white-space: normal; }
+.att-todo .badge { flex-shrink: 0; }
+.att-todo-btns { display: inline-flex; gap: 4px; flex-shrink: 0; }
+.att-todo .att-sub { font-weight: 400; font-size: var(--fs-sm); color: var(--gray); }
+.att-todo .att-sub.t-red { color: var(--alert); font-weight: 700; }
 
 /* 자료실 필터: 상태 탭 한 줄 + 종류 칩 (겹치던 풀다운 정리) */
 .lib-status { display: flex; align-items: center; gap: 2px; border-bottom: 1px solid var(--line); min-width: 0; overflow-x: auto; scrollbar-width: none; }

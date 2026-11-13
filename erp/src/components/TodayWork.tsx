@@ -4,6 +4,7 @@ import { dateLabel, todayKey } from '../lib/date'
 import { Link } from '../lib/router'
 import type { Project, Task } from '../lib/types'
 import { SectionHead } from './ui'
+import { AttendanceTodo, useAttendanceTodo } from './AttendanceTodo'
 
 /** 오늘 할 업무: 오늘이 기간 안에 있거나 오늘 마감 + 지연된 일 */
 export function todayTasks(tasks: Task[], today = todayKey()): Task[] {
@@ -21,6 +22,7 @@ export function todayTasks(tasks: Task[], today = todayKey()): Task[] {
 /**
  * 홈 맨 위 '오늘 업무' (대표 지시 2026-10-28, 전체 공통)
  *  - 기본은 내 업무, '팀 전체'로 바꿔 볼 수 있음. 체크하면 완료
+ *  - 관리자 '내 업무'에는 직원 근태 결재(휴가 · 외근 · 휴대폰 출근)와 오늘 근태 한 줄도 (대표 지시 2026-11-12)
  */
 export function TodayWork({ tasks, projects }: { tasks: Task[]; projects: Project[] }) {
   const { api, me, profileName } = useApp()
@@ -30,18 +32,20 @@ export function TodayWork({ tasks, projects }: { tasks: Task[]; projects: Projec
   const all = todayTasks(tasks, today)
   const mine = all.filter(t => t.assignee_id === me.id)
   const list = team ? all : mine
+  const att = useAttendanceTodo()
+  const showAtt = !team && att.admin
   const proj = new Map(projects.map(p => [p.id, p]))
   return (
     <section className="section today-work" aria-label="오늘 업무">
       <SectionHead
         title="오늘 업무"
-        count={list.length}
+        count={list.length + (showAtt ? att.count : 0)}
         right={
           <span className="row gap-6">
             <span className="t-cap">{dateLabel(today)}</span>
             <span className="seg">
               <button type="button" className={!team ? 'on' : ''} onClick={() => setTeam(false)}>
-                내 업무 {mine.length}
+                내 업무 {mine.length + (att.admin ? att.count : 0)}
               </button>
               <button type="button" className={team ? 'on' : ''} onClick={() => setTeam(true)}>
                 팀 전체 {all.length}
@@ -50,6 +54,11 @@ export function TodayWork({ tasks, projects }: { tasks: Task[]; projects: Projec
           </span>
         }
       />
+      {showAtt && (
+        <div className="today-list att-list" aria-label="근태 결재">
+          <AttendanceTodo todo={att} />
+        </div>
+      )}
       {list.length === 0 ? (
         <div className="today-empty">{team ? '오늘 팀 업무가 없습니다.' : '오늘 할 업무가 없습니다.'}</div>
       ) : (

@@ -7,6 +7,7 @@ import { isDesktopApp } from '../lib/desktop'
 import { WORK_PLAN_KINDS, type AccessInfo, type AttendanceCheckin, type AttendanceDevice, type AttendanceMonthRow, type DecideStatus, type WorkPlan, type WorkPlanKind } from '../lib/types'
 import { Badge, Button, Chip, Empty, Field, SectionHead } from './ui'
 import { ask } from './Ask'
+import { PLAN_LOOKBACK } from './AttendanceTodo'
 
 const S_TONE: Record<DecideStatus, 'acid' | 'yellow' | 'red'> = { 승인: 'acid', 대기: 'yellow', 반려: 'red' }
 
@@ -145,7 +146,7 @@ export function WorkPlanSection() {
   const tomorrow = addDays(today, 1)
   const { data } = useAsync(
     async () => {
-      const [plans, checkins, rules] = await Promise.all([api.listWorkPlans(addDays(today, -7)), api.listCheckins(today), api.getAttendanceRules()])
+      const [plans, checkins, rules] = await Promise.all([api.listWorkPlans(addDays(today, -PLAN_LOOKBACK)), api.listCheckins(today), api.getAttendanceRules()])
       return { plans, checkins, rules }
     },
     [version, today],
@@ -156,7 +157,8 @@ export function WorkPlanSection() {
   // 외근은 언제든 → 기본 날짜는 오늘 (휴대폰 근태에서 바로 신청)
   const [f, setF] = useState({ day: today, kind: '외근' as WorkPlanKind, place: '', reason: '' })
   const mine = data.plans.filter(p => p.user_id === me.id && p.day >= today)
-  const pending = data.plans.filter(p => p.status === '대기' && p.day >= today)
+  // 외근은 지난 날짜도 신청할 수 있어 지난 신청도 승인 목록에 (2026-11-12 · 예전엔 오늘 이후만 보여 지난 신청이 묻혔음)
+  const pending = data.plans.filter(p => p.status === '대기')
   const pendingCheckins = data.checkins.filter(c => c.status === '대기')
   const submit = async () => {
     if (await run(() => api.requestWorkPlan({ day: f.day, kind: f.kind, place: f.place.trim() || null, reason: f.reason.trim() || null }), f.day === today ? '당일 신청했습니다. 대표 승인 후 인정됩니다.' : '신청했습니다.')) setF({ ...f, place: '', reason: '' })
