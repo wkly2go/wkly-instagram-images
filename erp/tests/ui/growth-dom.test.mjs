@@ -924,3 +924,33 @@ test('Instagram capture preserves a retryable checkpoint and blocks duplicate su
   assert.ok(screen.getByText('저장 확인 실패'))
   assert.equal(screen.getByRole('button',{name:'다음 대화 후보 가져오기',exact:true}).disabled,false)
 })
+
+
+test('sales hub preserves URL context and guards unsaved tender across tabs',async()=>{
+ const s=await mount('admin','sales',{},'/sales?tab=tenders&campaign=retained'),nav=within(s.getByRole('navigation',{name:'영업 업무'}))
+ await click(s.getByRole('button',{name:'+ 공고 등록'}));await type(panel('새 나라장터').getByLabelText('제목 *'),'미저장 공고')
+ await click(nav.getByRole('button',{name:'민간 영업 후보'}));assert.equal(query('tab'),'tenders');assert.equal(panel('새 나라장터').getByLabelText('제목 *').value,'미저장 공고')
+ window.confirm=()=>true;await click(nav.getByRole('button',{name:'민간 영업 후보'}));assert.equal(query('tab'),'contacts');assert.equal(query('campaign'),'retained');assert.ok(s.getByRole('button',{name:'+ 연락처 등록'}))
+})
+const discoveryTender=()=>({kind:'tender',title:'테스트용 행사 공고',target:'예시 기관',source_url:'https://example.com/tender',verified_on:'2026-01-01',evidence:'테스트용 원문 검토',need:'행사 수요',offer:'현장 운영',next_action:'자격 증빙 확인',number:'TEST-ONLY',round:'000',deadline:'2099-11-23T11:00:00+09:00',deadlines:'방문제출11:00 / 전자가격14:00 KST',amount:46500000,qualification:'충족'})
+test('research file is reviewed then linked once with provenance and no contract amount',async()=>{
+ const s=await mount('admin','sales',{},'/sales?tab=tenders');await click(s.getByRole('button',{name:'발굴 보고서 가져오기'}));const imp=panel('발굴 결과 가져오기')
+ const f=new window.File(['{}'],'candidate.json',{type:'application/json'});Object.defineProperty(f,'text',{value:async()=>JSON.stringify(discoveryTender())});await act(async()=>user.upload(imp.getByLabelText('발굴 보고서 파일'),f))
+ assert.equal(JSON.parse(localStorage.getItem('wkly-growth-demo-v1')??'[]').length,0);await click(imp.getByRole('button',{name:'이 후보 검토해 등록'}))
+ let ed=panel('새 나라장터');assert.equal(ed.getByLabelText('참가 조건').value,'추가 확인');assert.match(ed.getByLabelText('메모·체크리스트').value,/방문제출11:00/)
+ await click(ed.getByRole('button',{name:'저장',exact:true}));ed=panel('테스트용 행사 공고');await click(ed.getByRole('button',{name:'영업 기회로 연결'}))
+ const a=JSON.parse(localStorage.getItem('wkly-sales-demo-v1')).items;assert.equal(a.length,1);assert.equal(a[0].source,'나라장터');assert.equal(a[0].expected_amount,null);assert.equal(a[0].stage,'발굴');assert.match(a[0].description,/방문제출11:00/);assert.match(a[0].description,/자격 증빙 확인/)
+ await click(panel('테스트용 행사 공고').getByRole('link',{name:'연결 영업 기회 보기'}));assert.equal(query('id'),a[0].id);assert.ok(panel('테스트용 행사 공고').getByRole('heading',{name:'요청 내용'}))
+})
+test('pending research file read blocks tab navigation and closing',async()=>{
+ const s=await mount('member','sales',{},'/sales?tab=tenders');await click(s.getByRole('button',{name:'발굴 보고서 가져오기'}));const imp=panel('발굴 결과 가져오기');let finish
+ const f=new window.File(['{}'],'candidate.json',{type:'application/json'});Object.defineProperty(f,'text',{value:()=>new Promise(resolve=>{finish=resolve})});await act(async()=>user.upload(imp.getByLabelText('발굴 보고서 파일'),f))
+ window.confirm=()=>true;await click(within(s.getByRole('navigation',{name:'영업 업무'})).getByRole('button',{name:'수주 파이프라인'}));assert.equal(query('tab'),'tenders');assert.equal(closeButton(imp).disabled,true);await click(imp.getAllByRole('button',{name:'닫기',exact:true})[0]);assert.ok(panel('발굴 결과 가져오기'))
+ await act(async()=>finish(JSON.stringify(discoveryTender())));assert.ok(imp.getByRole('button',{name:'이 후보 검토해 등록'}))
+})
+test('sales source filter shows public leads without changing other records',async()=>{
+ const s=await mount('admin'),{newSalesDraft}=await server.ssrLoadModule('/src/lib/sales.ts'),owner='00000000-0000-4000-8000-000000000001'
+ await api.saveSales(crypto.randomUUID(),{...newSalesDraft(owner),title:'민간 테스트',source:'직접 발굴'},0);await api.saveSales(crypto.randomUUID(),{...newSalesDraft(owner),title:'공공 테스트',source:'나라장터'},0)
+ await act(async()=>user.selectOptions(s.getByLabelText('유입 경로 필터'),'나라장터'));assert.ok(s.getByRole('button',{name:/공공 테스트/}));assert.equal(s.queryByRole('button',{name:/민간 테스트/}),null)
+ await act(async()=>user.selectOptions(s.getByLabelText('유입 경로 필터'),''));assert.ok(s.getByRole('button',{name:/민간 테스트/}));assert.equal(JSON.parse(localStorage.getItem('wkly-sales-demo-v1')).items.length,2)
+})

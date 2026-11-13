@@ -9,6 +9,7 @@ import { Button, Field, Modal } from './ui'
 import { AiAssist } from './GrowthAi'
 import { InstagramContacts } from './InstagramContacts'
 import { TenderSearch } from './TenderSearch'
+import { DiscoveryIntake } from './DiscoveryIntake'
 import { CHANNELS, GROWTH_LABELS, GROWTH_STATUSES, koreaDateTimeInput, appendGrowthNote, changeChannel, patchGrowthDocument, contactCandidates, newGrowth, validateGrowth, type GrowthDraft, type GrowthItem, type GrowthKind, type GrowthDocument, type ChannelDraft } from '../lib/growth'
 import './GrowthWorkspace.css'
 
@@ -16,17 +17,19 @@ export function GrowthWorkspace({ kind }: { kind: GrowthKind }) {
   const { api, me, profileName } = useApp()
   const [search, setSearch] = useState(''), [query, setQuery] = useState(''), [page, setPage] = useState(0), [status, setStatus] = useState('')
   const [selected, setSelected] = useState<string | null>(null), [adding, setAdding] = useState(false), [importing, setImporting] = useState(false)
+  const [researchImporting, setResearchImporting] = useState(false)
   const [tenderSearching, setTenderSearching] = useState(false), [seed, setSeed] = useState<GrowthDraft | null>(null)
   const [notice, setNotice] = useState(''), [busy, setBusy] = useState(false)
   const [channel, setChannel] = useState(0)
-  const openPanel=(target:'new'|'import'|'tender-search'|string)=>{if((target==='new'&&adding)||(target==='import'&&importing)||(target==='tender-search'&&tenderSearching)||(target===selected&&!adding&&!importing&&!tenderSearching))return;if(!requestViewChange(`growth:${kind}:${target}`))return;setSelected(['new','import','tender-search'].includes(target)?null:target);setAdding(target==='new');setImporting(target==='import');setTenderSearching(target==='tender-search');setSeed(null);setChannel(0)}
-  const chooseTender=(draft:GrowthDraft)=>{if(!requestViewChange('growth:tender:prefill'))return false;setSelected(null);setImporting(false);setTenderSearching(false);setSeed(draft);setAdding(true);return true}
+  const openPanel=(target:'new'|'import'|'tender-search'|'research-import'|string)=>{if((target==='research-import'&&researchImporting)||(target==='new'&&adding)||(target==='import'&&importing)||(target==='tender-search'&&tenderSearching)||(target===selected&&!adding&&!importing&&!tenderSearching&&!researchImporting))return;if(!requestViewChange(`growth:${kind}:${target}`))return;setSelected(['new','import','tender-search','research-import'].includes(target)?null:target);setAdding(target==='new');setImporting(target==='import');setTenderSearching(target==='tender-search');setResearchImporting(target==='research-import');setSeed(null);setChannel(0)}
+  const chooseTender=(draft:GrowthDraft)=>{if(!requestViewChange('growth:tender:prefill'))return false;setSelected(null);setImporting(false);setTenderSearching(false);setResearchImporting(false);setSeed(draft);setAdding(true);return true}
   useEffect(() => { const t=setTimeout(()=>{setQuery(search);setPage(0)},350);return ()=>clearTimeout(t) },[search])
   const list=useAsync(()=>api.listGrowth({kind,page,search:query,status}),[kind,page,query,status],{items:[],hasMore:false})
   const backfill=async()=>{if(busy)return;setBusy(true);try{const n=await api.backfillMailLeads();setNotice(`과거 메일 ${n}건 확인 · 새 발신자는 검토함에 저장됩니다.`);list.reload()}catch(e){setNotice(friendlyError(e))}finally{setBusy(false)}}
   return <div className="growth-workspace">
     <header className="growth-heading"><div><h1>{GROWTH_LABELS[kind]}</h1><p>{kind==='tender'?'공고 확인부터 참가 조건 검토, 영업 연결까지.':kind==='content'?'원본 하나에서 채널별 글을 만들고 광고 준비와 연결합니다.':'모은 담당자 정보를 확인하고 영업 기회로 연결합니다.'}</p></div><div className="row wrap"><a href={`/manual/growth.html#${kind}`} className="btn btn-outline" target="_blank" rel="noreferrer">화면 사용설명</a><Button onClick={()=>openPanel('new')}>+ {kind==='tender'?'공고 등록':kind==='content'?'콘텐츠 만들기':'연락처 등록'}</Button></div></header>
     <p className="growth-notice">{api.mode==='demo'?'체험 모드 · 이 브라우저에만 저장됩니다. ':''}{kind==='tender'?'공고 원문과 참가 자격을 확인해 주세요. 실제 투찰은 담당자가 진행합니다.':kind==='content'?'발행 상태는 실제 게시 결과를 기록합니다. 매체 자동 게시 기능은 아직 구현·계정 권한 확인·운영 검증이 필요합니다.':'메일 동기화 후 신규 발신자가 자동으로 쌓입니다. 연락처 수집은 발송 동의나 영업 대상 확정을 의미하지 않습니다.'}</p>
+    {kind!=='content'&&<div className="row wrap"><Button kind="outline" onClick={()=>openPanel('research-import')}>발굴 보고서 가져오기</Button><Link className="btn btn-outline" to="/sales">수주 파이프라인</Link><span className="t-cap">조사한 출처·확인일·제안 이유를 검토 후 저장합니다. 이 버튼은 AI 조사나 유료 호출을 실행하지 않습니다.</span></div>}
     {kind==='tender'&&<div className="row wrap"><Button kind="outline" onClick={()=>openPanel('tender-search')}>나라장터 공식 공고 조회</Button><span className="t-cap">조회 후보를 검토한 뒤 등록 · 예약 자동 수집은 미지원</span></div>}
     {kind==='contact'&&<div className="row wrap"><Button kind="outline" onClick={()=>openPanel('import')}>메일·인스타 자료에서 추출</Button>{me.role==='admin'&&<Button kind="outline" disabled={busy||api.mode==='demo'} onClick={backfill}>{busy?'가져오는 중…':'기존 메일 500건 확인'}</Button>}<span className="t-cap">인스타 자동 수집 연결 전 · 내보낸 자료를 가져올 수 있습니다.</span></div>}
     <div className="growth-filters"><Field label="검색"><input className="input" value={search} onChange={e=>setSearch(e.target.value)} placeholder={kind==='contact'?'제목·이메일·인스타·브랜드·담당자':kind==='tender'?'제목·공고번호·발주처':'찾을 자료 이름'} /></Field><Field label="상태"><select className="select" value={status} onChange={e=>{setStatus(e.target.value);setPage(0)}}><option value="">전체</option>{GROWTH_STATUSES[kind].map(s=><option key={s}>{s}</option>)}</select></Field></div>
@@ -36,6 +39,7 @@ export function GrowthWorkspace({ kind }: { kind: GrowthKind }) {
     {adding&&<GrowthEditor kind={kind} initial={null} seed={seed??undefined} channel={channel} onChannelChange={setChannel} onClose={()=>{setAdding(false);setSeed(null)}} onSaved={r=>{setAdding(false);setSeed(null);setSelected(r.id);list.reload()}}/>}
     {selected&&<GrowthDetail key={selected} id={selected} channel={channel} onChannelChange={setChannel} onClose={()=>setSelected(null)} onChanged={list.reload}/>}
     {importing&&<ContactImport onClose={()=>setImporting(false)} onSaved={list.reload}/>}
+    {researchImporting&&kind!=='content'&&<DiscoveryIntake kind={kind} onClose={()=>setResearchImporting(false)} onChoose={chooseTender}/>}
     {tenderSearching&&<TenderSearch onClose={()=>setTenderSearching(false)} onChoose={chooseTender}/>}
   </div>
 }
@@ -98,6 +102,7 @@ function GrowthEditor({kind,initial,seed,channel,onChannelChange,onClose,onSaved
     <fieldset className="growth-fieldset form-grid" disabled={working||!editable}>
       {input(kind==='contact'?'연락 맥락·확인할 사항':'메모·체크리스트','note',{area:true})}
     </fieldset>
+    {kind==='tender'&&<aside className="growth-notice"><strong>입찰 전 확인</strong><p>공고 원문·정정 여부, 업종·지역·실적·직접생산 자격, 수행 인력과 원가를 확인하세요. 검색 결과만으로 참가 가능을 확정하지 않습니다.</p><p>가격입찰·방문 제안서·참가 등록·질의 마감이 다를 수 있습니다. 위 마감 시각에는 가장 이른 필수 마감을 넣고, 검토 근거에 각 마감과 제출 방식을 따로 기록하세요.</p><p>영업 연결은 ‘발굴’ 단계이며 입찰 제출이나 수주 확정이 아닙니다. 공고 금액은 계약 매출로 자동 반영하지 않습니다. 메모의 조사 당시 정보는 마감·금액을 편집해도 자동 갱신되지 않습니다. 연결 전에 메모도 최신 원문과 대조하고, 연결 후 영업 상세에 다음 행동과 연락일을 지정하세요.</p></aside>}
     {initial&&<div className="row wrap growth-links">{initial.linked_sales_id?<Link to={`/sales?id=${initial.linked_sales_id}`} className="btn btn-outline">연결 영업 기회 보기</Link>:kind!=='content'&&editable&&<Button kind="outline" disabled={working||dirty} onClick={link}>영업 기회로 연결</Button>}{draft.campaign_id&&<Link to={`/ads?tab=studio&id=${draft.campaign_id}`} className="btn btn-outline">연결 광고 캠페인</Link>}<small>저장 버전 {initial.revision}{dirty?' · 저장 후 연결 가능':''}</small></div>}
     {editable&&<AiAssist disabled={busy} onBusyChange={setAiBusy} onDraftChange={setAiDirty} resultScope={v?.channel??kind} task={kind==='contact'?'classify':'write'} context={kind==='content'?`${v?.channel}\n원본: ${x.original}`:JSON.stringify(x)} onResult={text=>kind==='content'?channelPatch({body:text}):doc({note:appendGrowthNote(x.note,text)})}/>}
   </Modal>

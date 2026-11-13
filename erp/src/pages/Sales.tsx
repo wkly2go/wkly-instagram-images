@@ -2,16 +2,29 @@ import { useEffect, useRef, useState } from 'react'
 import { useApp, useAsync } from '../lib/app'
 import { friendlyError } from '../lib/api'
 import { todayKey } from '../lib/date'
-import { Link, useRouter } from '../lib/router'
+import { Link, useRouter, withQuery } from '../lib/router'
 import { registerDraftNavigation } from '../lib/navigationGuard'
 import { afterSalesDraftConfirmed, closeSalesDraft, readSalesView, salesViewUrl } from '../lib/salesNavigation'
 import { SALES_COMPANIES, SALES_SOURCES, SALES_STAGES, canEditSales, needsFollowup, newSalesDraft, validateSales, type SalesDraft, type SalesFilter, type SalesOpportunity } from '../lib/sales'
 import { Button, Field, Modal } from '../components/ui'
 import { ProspectingPlanner } from '../components/ProspectingPlanner'
 import { Shell } from '../components/Shell'
+import { GrowthWorkspace } from '../components/GrowthWorkspace'
 import './Sales.css'
 
 export default function Sales() {
+  const { query, navigate } = useRouter()
+  const tab = query.has('id') || query.get('new') === '1' ? 'pipeline' : ['contacts', 'tenders'].includes(query.get('tab') ?? '') ? query.get('tab')! : 'pipeline'
+  const tabs = [['pipeline', '수주 파이프라인'], ['contacts', '민간 영업 후보'], ['tenders', '나라장터 공고']] as const
+  return <Shell active="sales"><div className="sales-page">
+    <header className="sales-heading"><h1 className="t-title">영업 발굴·수주</h1><p>브랜드·행사 발굴과 나라장터 공고를 검토하고, 제안부터 계약까지 연결합니다.</p></header>
+    <nav aria-label="영업 업무" className="sales-stages">{tabs.map(([key, label]) => <button type="button" key={key} className={`btn ${tab === key ? '' : 'btn-outline'}`} aria-current={tab === key ? 'page' : undefined} onClick={() => navigate(withQuery('/sales', query, { tab: key === 'pipeline' ? null : key, id: null, new: null, research: null }))}>{label}</button>)}</nav>
+    <p className="sales-notice">조사 결과 검토 → 영업 기회 연결 → 접촉·미팅 → 제안·협상 → 수주·프로젝트 연결. 발굴 후보는 수주 확정이나 연락 동의를 의미하지 않습니다.</p>
+    {tab === 'pipeline' ? <SalesPipeline /> : <GrowthWorkspace key={tab} kind={tab === 'tenders' ? 'tender' : 'contact'} />}
+  </div></Shell>
+}
+
+function SalesPipeline() {
   const { api, me, profileName, version } = useApp()
   const [filter, setFilter] = useState<SalesFilter>({ page: 0 })
   const [search, setSearch] = useState('')
@@ -36,12 +49,13 @@ export default function Sales() {
     navigate(salesViewUrl(next, { kind: 'new' }))
   }
   const closePanel = () => navigate(salesViewUrl(query, { kind: 'list' }), { replace: true })
-  return <Shell active="sales"><div className="sales-page">
-    <div className="sales-header"><div className="sales-heading"><h1 className="t-title">영업·수주</h1><p className="t-small">거래처별 기회와 다음 행동을 관리합니다.</p></div><a href="/manual/growth.html#sales" target="_blank" rel="noreferrer" className="btn btn-outline">화면 사용설명</a><Link to="/clients" className="btn btn-outline">거래처·담당자</Link><Button kind="outline" onClick={() => startAdding(true)}>신규 대상 발굴</Button><Button onClick={() => startAdding()}>+ 영업 기회</Button></div>
+  return <div className="sales-pipeline">
+    <div className="sales-header"><div className="sales-heading"><h2 className="t-sub">수주 파이프라인</h2><p className="t-small">거래처별 기회와 다음 행동을 관리합니다.</p></div><a href="/manual/growth.html#sales" target="_blank" rel="noreferrer" className="btn btn-outline">화면 사용설명</a><Link to="/clients" className="btn btn-outline">거래처·담당자</Link><Button kind="outline" onClick={() => startAdding(true)}>신규 대상 발굴</Button><Button onClick={() => startAdding()}>+ 영업 기회</Button></div>
     {api.mode === 'demo' && <p className="sales-notice">체험 모드 · 이 브라우저에만 저장됩니다. 실제 회사 자료와 분리됩니다.</p>}
     <div className="sales-filters">
       <Field label="영업 건 검색"><input className="input" value={search} onChange={e => setSearch(e.target.value)} placeholder="영업 건 이름" /></Field>
       <Field label="수행 회사"><select className="select" value={filter.division ?? ''} onChange={e => change({ division: e.target.value as SalesFilter['division'] })}><option value="">전체 회사</option>{Object.entries(SALES_COMPANIES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></Field>
+      <Field label="유입 경로 필터"><select className="select" value={filter.source ?? ''} onChange={e => change({ source: e.target.value as SalesFilter['source'] })}><option value="">전체 경로</option>{SALES_SOURCES.map(source => <option key={source}>{source}</option>)}</select></Field>
       <Field label="진행 단계"><select className="select" value={filter.stage ?? ''} onChange={e => change({ stage: e.target.value as SalesFilter['stage'] })}><option value="">전체 단계</option>{SALES_STAGES.map(s => <option key={s}>{s}</option>)}</select></Field>
       <label className="row"><input type="checkbox" checked={!!filter.dueBefore} onChange={e => change({ dueBefore: e.target.checked ? todayKey() : undefined })} />오늘까지 후속 연락</label>
     </div>
@@ -61,7 +75,7 @@ export default function Sales() {
     {adding && <SalesEditor discovery={query.get('research') === '1'} initial={null} onClose={closePanel} onSaved={id => { navigate(salesViewUrl(query, { kind: 'detail', id }), { replace: true }); reload() }} />}
     {selection && <SalesDetail key={selection} id={selection} onClose={closePanel} onChanged={reload} />}
     {!me.active && <p role="alert">비활성 계정은 저장할 수 없습니다.</p>}
-  </div></Shell>
+  </div>
 }
 
 function SalesDetail({ id, onClose, onChanged }: { id: string; onClose: () => void; onChanged: () => void }) {
