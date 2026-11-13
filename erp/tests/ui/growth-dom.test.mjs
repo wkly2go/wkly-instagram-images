@@ -49,7 +49,7 @@ before(async () => {
   ;({ MeetingRecorder } = await server.ssrLoadModule('/src/components/MeetingRecorder.tsx'))
   ;({ MeetingStartUncertainError } = await server.ssrLoadModule('/src/lib/meetingProgress.ts'))
   assert.equal(api.mode, 'demo')
-  originals = { getAiState: api.getAiState, runGrowthAi: api.runGrowthAi, configureAi: api.configureAi, reconcileAi: api.reconcileAi, mode: api.mode, listAgentJobs: api.listAgentJobs, saveSales: api.saveSales, saveGrowth: api.saveGrowth, startMeetingMinutes: api.startMeetingMinutes, getMeetingRecording: api.getMeetingRecording, searchTenders: api.searchTenders }
+  originals = { instagramContacts: api.instagramContacts, getAiState: api.getAiState, runGrowthAi: api.runGrowthAi, configureAi: api.configureAi, reconcileAi: api.reconcileAi, mode: api.mode, listAgentJobs: api.listAgentJobs, saveSales: api.saveSales, saveGrowth: api.saveGrowth, startMeetingMinutes: api.startMeetingMinutes, getMeetingRecording: api.getMeetingRecording, searchTenders: api.searchTenders }
 })
 afterEach(async () => {
   if (root) await act(async () => root.unmount())
@@ -890,4 +890,37 @@ test('a newly created demo AI teammate is selected after its draft guard is rele
   assert.equal(screen.queryByRole('dialog', { name: '새 AI 팀원', exact: true }) === null, true)
   assert.ok(query('ai'))
   assert.equal(confirmations, 0)
+})
+
+
+test('Instagram capture checks status on opening and hides admin controls from members', async () => {
+  let calls=[]
+  api.instagramContacts=async action=>{calls.push(action);return {configured:false,hasMore:false}}
+  let screen=await mount('member','contact')
+  assert.equal(screen.queryByText('인스타그램 담당자 후보 연결'),null)
+  assert.deepEqual(calls,[])
+  await act(async()=>root.unmount());root=null
+  screen=await mount('admin','contact')
+  assert.deepEqual(calls,[])
+  await click(screen.getByText('인스타그램 담당자 후보 연결'))
+  await act(async()=>{await new Promise(r=>setTimeout(r,20))})
+  assert.deepEqual(calls,['status'])
+  assert.equal(screen.getByRole('button',{name:'대화 후보 가져오기',exact:true}).disabled,true)
+})
+test('Instagram capture preserves a retryable checkpoint and blocks duplicate submissions',async()=>{
+  let syncs=0,finish
+  api.instagramContacts=async action=>action==='status'?{configured:true,hasMore:true}:new Promise(resolve=>{syncs++;finish=resolve})
+  const screen=await mount('admin','contact')
+  api.mode='supabase'
+  await click(screen.getByText('인스타그램 담당자 후보 연결'))
+  await act(async()=>{await new Promise(r=>setTimeout(r,20))})
+  await click(screen.getByRole('button',{name:'다음 대화 후보 가져오기',exact:true}))
+  assert.equal(screen.getByRole('button',{name:'후보 확인·저장 중…',exact:true}).disabled,true)
+  assert.equal(syncs,1)
+  await act(async()=>finish({inserted:2,kept:3,hasMore:true}))
+  assert.ok(screen.getByText(/새 후보 2건 · 기존 후보 3건 유지/))
+  api.instagramContacts=async action=>{if(action==='sync')throw new Error('저장 확인 실패');return {configured:true,hasMore:true}}
+  await click(screen.getByRole('button',{name:'다음 대화 후보 가져오기',exact:true}))
+  assert.ok(screen.getByText('저장 확인 실패'))
+  assert.equal(screen.getByRole('button',{name:'다음 대화 후보 가져오기',exact:true}).disabled,false)
 })

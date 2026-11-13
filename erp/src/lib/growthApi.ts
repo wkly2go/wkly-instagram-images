@@ -14,6 +14,13 @@ function fail(e: { message: string; code?: string } | null) {
 }
 export function createSupabaseGrowthApi(sb: SupabaseClient): GrowthApi {
   return {
+    async instagramContacts(action) {
+      const {data,error}=await sb.functions.invoke('instagram-contacts',{body:{action}})
+      if(error){let message='인스타그램 연락처 서버 연결·배포 상태를 확인해 주세요.';if(error.context instanceof Response){try{const body=await error.context.clone().json();if(typeof body?.error==='string')message=body.error.slice(0,500)}catch{}}throw new ApiError(message)}
+      if(data?.error)throw new ApiError(String(data.error).slice(0,500))
+      if(!data||typeof data.hasMore!=='boolean'||(action==='status'&&typeof data.configured!=='boolean')||(action==='sync'&&(!Number.isSafeInteger(data.inserted)||data.inserted<0||!Number.isSafeInteger(data.kept)||data.kept<0)))throw new ApiError('수집 결과를 확인하지 못했습니다. 상태를 다시 확인해 주세요.')
+      return data
+    },
     async searchTenders(query) {
       const invalid = validateTenderQuery(query); if (invalid) throw new ApiError(invalid)
       const { data, error } = await sb.functions.invoke('g2b-search', { body: query })
@@ -58,13 +65,14 @@ export function createDemoGrowthApi(viewer:()=>Profile|undefined,sales:SalesApi)
   const key='wkly-growth-demo-v1', get=():GrowthItem[]=>JSON.parse(localStorage.getItem(key)??'[]')
   const user=()=>{const u=viewer();if(!u?.active)throw new ApiError('로그인이 필요합니다.');return u}
   return {
+    async instagramContacts(action){user();if(action==='sync')throw new ApiError('체험 모드에서는 실제 인스타그램을 조회하지 않습니다.');return {configured:false,hasMore:false,lastSyncedAt:null,lastCompletedAt:null}},
     async searchTenders(){user();throw new ApiError('체험 모드에서는 실제 나라장터 공고를 조회하지 않습니다. 운영 계정의 서버 함수·공공데이터포털 API 설정 후 사용할 수 있습니다.')},
     async listGrowth(f){user();const a=get().filter(x=>x.kind===f.kind&&(!f.status||x.status===f.status)&&matchesGrowthSearch(x,f.search)).sort((a,b)=>b.updated_at.localeCompare(a.updated_at));return {items:a.slice(f.page*30,f.page*30+30).map(summary),hasMore:a.length>f.page*30+30}},
     async getGrowth(id){user();const r=get().find(x=>x.id===id);if(!r)throw new ApiError('자료를 찾을 수 없습니다.');return r},
     async saveGrowth(id,d,rev){const u=user(),items=get(),old=items.find(x=>x.id===id),e=validateGrowth(d);if(e)throw new ApiError(e);if(u.role!=='admin'&&(d.owner_id!==u.id||(old&&old.owner_id!==u.id)))throw new ApiError('담당자 또는 관리자만 수정할 수 있습니다.');if((old?.revision??0)!==rev)throw new ApiError('다른 작업에서 변경되었습니다. 다시 불러와 주세요.');
       const sk=(x:GrowthItem|typeof d)=>x.kind==='tender'?`${x.document.number}:${x.document.round}`:x.kind==='contact'?(x.document.email?.toLowerCase()||x.document.instagram?.replace(/^@/,'').toLowerCase()):null
       if(sk(d)&&items.some(x=>x.id!==id&&x.kind===d.kind&&sk(x)===sk(d)))throw new ApiError('같은 공고 또는 연락처가 이미 있습니다.')
-      for(const v of d.document.versions??[]){const prev=old?.document.versions?.find(x=>x.channel===v.channel);if(['승인','발행'].includes(v.status)){if(!prev||old?.document.original!==d.document.original||['title','body','tags','rights'].some(k=>prev[k as keyof typeof prev]!==v[k as keyof typeof v]))throw new ApiError('초안으로 저장한 뒤 다시 승인해 주세요.');if(u.role!=='admin'&&!['승인','발행'].includes(prev.status))throw new ApiError('관리자가 승인해야 합니다.')}}
+      for(const v of d.document.versions??[]){const prev=old?.document.versions?.find(x=>x.channel===v.channel);if(['승인','발행'].includes(v.status)){if(!prev||['original','division','source_url'].some(k=>old?.document[k as keyof typeof d.document]!==d.document[k as keyof typeof d.document])||['title','body','tags','rights'].some(k=>prev[k as keyof typeof prev]!==v[k as keyof typeof v]))throw new ApiError('초안으로 저장한 뒤 다시 승인해 주세요.');if(u.role!=='admin'&&!['승인','발행'].includes(prev.status))throw new ApiError('관리자가 승인해야 합니다.')}}
       const now=new Date().toISOString(),saved={...structuredClone(d),id,revision:rev+1,linked_sales_id:old?.linked_sales_id??null,created_by:old?.created_by??u.id,created_at:old?.created_at??now,updated_at:now};localStorage.setItem(key,JSON.stringify([...items.filter(x=>x.id!==id),saved]));return saved},
     async linkGrowthSales(id,rev){const u=user(),items=get(),r=items.find(x=>x.id===id);if(!r||(u.role!=='admin'&&r.owner_id!==u.id))throw new ApiError('담당자 또는 관리자만 연결할 수 있습니다.');if(r.linked_sales_id)return r.linked_sales_id;if(r.revision!==rev)throw new ApiError('다시 불러와 주세요.');if(r.kind==='content'||['제외','취소','종료'].includes(r.status)||(r.kind==='contact'&&r.status!=='확인')||r.document.qualification==='불충족')throw new ApiError('검토·확인한 영업 대상만 연결해 주세요.');const sid=crypto.randomUUID();await sales.saveSales(sid,{...newSalesDraft(r.owner_id),title:r.title,division:r.document.division,source:r.kind==='tender'?'나라장터':'기타',source_url:r.document.source_url,next_action:'대상 확인 및 첫 연락 준비',description:[r.document.note,r.document.agency,r.document.evidence,r.document.email,r.document.instagram].filter(Boolean).join('\n')},0);r.linked_sales_id=sid;r.revision++;localStorage.setItem(key,JSON.stringify(items));return sid},
     async backfillMailLeads(){throw new ApiError('체험 모드에서는 실제 메일을 가져오지 않습니다.')},
