@@ -596,3 +596,90 @@ test('failed tender pagination preserves the previous page and explicitly retrie
   assert.equal(requests.length, 5, 'changing criteria must remove the stale retry without automatic lookup')
   assert.equal(localStorage.getItem('wkly-growth-demo-v1'), null)
 })
+
+test('company and source changes revoke approvals across channels and preserve copy', async () => {
+  const { newGrowth } = await server.ssrLoadModule('/src/lib/growth.ts')
+  const draft = newGrowth('content', '00000000-0000-4000-8000-000000000001')
+  draft.title = '승인한 회사와 출처'; draft.document.original = '확인한 원본'
+  draft.document.source_url = 'https://example.com/original'
+  draft.document.versions.forEach(v => { v.title = '검수 제목'; v.body = '보존할 원고'; v.rights = true; v.status = '승인' })
+  const row = { ...draft, id: crypto.randomUUID(), revision: 1, linked_sales_id: null, created_by: draft.owner_id, created_at: '2026-11-13T00:00:00Z', updated_at: '2026-11-13T00:00:00Z' }
+  const screen = await mount('admin', 'content', { seedItems: [row] })
+  await click(screen.getByRole('button', { name: /승인한 회사와 출처/ }))
+  let editor = panel(draft.title)
+  await type(editor.getByLabelText('원문·출처 주소'), 'https://example.com/new-source')
+  for (const channel of ['네이버 블로그', '인스타그램', '유튜브']) {
+    await click(editor.getByRole('tab', { name: channel, exact: true }))
+    assert.equal(editor.getByLabelText('채널 상태').value, '초안')
+    assert.equal(editor.getByLabelText('채널 본문').value, '보존할 원고')
+  }
+  await click(editor.getByRole('button', { name: '저장', exact: true }))
+  editor = panel(draft.title)
+  await act(async () => user.selectOptions(editor.getByLabelText('채널 상태'), '승인'))
+  await click(editor.getByRole('button', { name: '저장', exact: true }))
+  editor = panel(draft.title)
+  await act(async () => user.selectOptions(editor.getByLabelText('수행 회사'), 'AR'))
+  assert.equal(editor.getByLabelText('채널 상태').value, '초안')
+})
+for (const kind of ['contact', 'tender']) test(kind + ' creates one sales opportunity with its source', async () => {
+  const screen = await mount('admin', kind)
+  await click(screen.getByRole('button', { name: kind === 'contact' ? '+ 연락처 등록' : '+ 공고 등록', exact: true }))
+  let editor = panel(kind === 'contact' ? '새 연락처 검토함' : '새 나라장터')
+  const title = kind === 'contact' ? '검토한 브랜드 담당자' : '검토한 공고'
+  await type(editor.getByLabelText('제목 *'), title)
+  await type(editor.getByLabelText('원문·출처 주소'), 'https://example.com/qa/' + kind)
+  if (kind === 'contact') {
+    await type(editor.getByLabelText('이메일'), 'sales-qa@example.com')
+    await act(async () => user.selectOptions(editor.getByLabelText('관리 상태'), '확인'))
+  } else {
+    await type(editor.getByLabelText('공고번호 *'), 'QA-TENDER-001')
+    await type(editor.getByLabelText('발주처 *'), '테스트 발주처')
+    await act(async () => user.selectOptions(editor.getByLabelText('참가 조건'), '충족'))
+    await type(editor.getByLabelText('검토 근거·필요 서류'), '공고 원문에서 참가 조건 확인')
+  }
+  await click(editor.getByRole('button', { name: '저장', exact: true }))
+  editor = panel(title)
+  await click(editor.getByRole('button', { name: '영업 기회로 연결', exact: true }))
+  editor = panel(title)
+  const id = new URL(editor.getByRole('link', { name: '연결 영업 기회 보기', exact: true }).href).searchParams.get('id')
+  const saved = await api.getSales(id)
+  assert.equal(saved.title, title); assert.equal(saved.stage, '발굴')
+  assert.equal(saved.source_url, 'https://example.com/qa/' + kind)
+  assert.equal(editor.queryByRole('button', { name: '영업 기회로 연결', exact: true }) === null, true)
+  assert.equal((await api.listSales({ page: 0 })).items.length, 1)
+})
+
+test('missing linked campaign stays missing on retry even with another accessible campaign', async () => {
+  const { defaultMarketingCampaign } = await server.ssrLoadModule('/src/lib/marketing.ts')
+  const previous = api.listMarketingCampaigns
+  api.listMarketingCampaigns = async () => [{ ...defaultMarketingCampaign(), revision: 1 }]
+  try {
+    const screen = await mount('admin', 'ads', {}, '/ads?tab=studio&id=' + crypto.randomUUID())
+    const view = within(screen.getByRole('region', { name: '마케팅 데스크', exact: true }))
+    assert.match(view.getByRole('alert').textContent, /연결된 캠페인을 찾을 수 없습니다/)
+    await click(view.getByRole('button', { name: '다시 불러오기', exact: true }))
+    assert.equal(view.queryByRole('alert') !== null, true)
+    assert.equal(view.queryByLabelText('캠페인 이름') === null, true)
+  } finally { api.listMarketingCampaigns = previous }
+})
+test('campaign editor recovers an acknowledged stored write without a second save', async () => {
+  const previous = { listMarketingCampaigns: api.listMarketingCampaigns, saveMarketingCampaign: api.saveMarketingCampaign, listMarketingAssets: api.listMarketingAssets }
+  let rows = [], writes = 0
+  api.listMarketingCampaigns = async () => rows
+  api.listMarketingAssets = async () => []
+  api.saveMarketingCampaign = async draft => {
+    writes++
+    rows = [{ ...structuredClone(draft), revision: draft.revision + 1, updatedBy: '00000000-0000-4000-8000-000000000001' }]
+    throw new Error('response lost')
+  }
+  try {
+    const screen = await mount('admin', 'ads', {}, '/ads?tab=studio')
+    const view = within(screen.getByRole('region', { name: '마케팅 데스크', exact: true }))
+    await click(view.getByRole('button', { name: '새 캠페인', exact: true }))
+    await type(view.getByLabelText('캠페인 이름'), '응답 유실 복구 검사')
+    await click(view.getByRole('button', { name: '저장', exact: true }))
+    assert.equal(view.queryByRole('alert') === null, true)
+    assert.equal(view.getByRole('button', { name: '저장', exact: true }).disabled, true)
+    assert.equal(writes, 1); assert.equal(rows.length, 1); assert.equal(rows[0].revision, 1)
+  } finally { Object.assign(api, previous) }
+})

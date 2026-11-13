@@ -62,6 +62,12 @@ export function changeChannel(v: ChannelDraft, patch: Partial<ChannelDraft>): Ch
   const changed = (['title', 'body', 'tags', 'rights'] as const).some(k => k in patch && v[k] !== patch[k])
   return { ...v, ...patch, ...(changed ? { status: '초안' as const, publication_url: '', external_id: '' } : {}) }
 }
+export function patchGrowthDocument(document: GrowthDocument, patch: Partial<GrowthDocument>): GrowthDocument {
+  const changed = (['division', 'original', 'source_url'] as const).some(key => key in patch && patch[key] !== document[key])
+  const next = { ...document, ...patch }
+  if (changed && next.versions) next.versions = next.versions.map(version => ({ ...version, status: '초안', publication_url: '', external_id: '' }))
+  return next
+}
 export function appendGrowthNote(note: string, result: string): string {
   const combined = [note, result].filter(Boolean).join('\n\n')
   if (combined.length > 10000) throw new Error('메모가 10,000자를 넘습니다. 기존 메모나 AI 결과를 줄인 뒤 다시 적용해 주세요. 결과는 그대로 유지됩니다.')
