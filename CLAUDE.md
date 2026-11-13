@@ -68,6 +68,8 @@
 ## 남은 일 (2026-11-01 기준)
 - 수신방 날짜별 폴더 (`수신방/YYMMDD/연번 프로젝트/분류`): drive-upload · gdrive(v9) 배포됨,
   gmail 함수도 배포됨 (2026-11-11 v12 · 프로젝트 메일 '새로고침' action refresh 포함)
+- 메일 청구서 (2026-11-13 · gmail v14 · 0116): 서비스 알림 메일(구글 · Anthropic · Supabase 등)이라도 제목이 인보이스 · 영수증 · 청구서면 PDF 만 `수신방/청구서/YYYY-MM/<회사>` 에 저장 (mail_files.kind '청구서'). gmail 함수는 `npm run build:gmail-dashboard` 로 만든 `supabase/deploy/gmail-dashboard.ts` 한 파일로 배포
+- 현장 실측 사진 → 드라이브 (2026-11-13 · 함수 site-photos-drive · verify_jwt false): 짧은 열쇠(app_settings 'site_photos_drive_token' · 만료 · 허용 폴더)로만 동작. prepare → 프로젝트 `03.현장일보/01.현장사진/YYMMDD_실측사진/{원본,치수선}` 폴더 + 사진 받기 주소, put → 허용 폴더에 올림. 치수선 사진은 앱과 같은 모양(노란 선 · 초록 이름표)으로 그려 올림. 쓰고 나면 열쇠 행을 지움
 - gdrive 수신방 자동 분류: 다른 프로젝트에 먼저 있던 파일(이름 · 크기 같음)을 복사해 넣으면 수신 자료로 올리지 않음
   (2026-11-01 로제코 폴더 '견적서 참고/실행내역' 에 나름대로 사본 34개 → 나름대로 05.견적서 로 옮김)
 - 오른쪽 '프로젝트 일정' 칸: 디자인 단순화 + 스크롤이 안 돼 지난 · 앞으로 일정이 안 보이는 오류 수정
