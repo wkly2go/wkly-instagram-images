@@ -28,6 +28,7 @@ import { TODAY_STATUSES, type TodayStatus } from '../lib/types'
 import { Presence, toneOf } from './ui'
 import { countedUnread, rememberRoomLevels, useChatTick } from '../lib/chat'
 import { QuickChat } from '../pages/Quick'
+import { DockTodo } from './DockTodo'
 import type { ChatRoomSummary } from '../lib/types'
 import './ShellUsability.css'
 
@@ -268,6 +269,7 @@ function ChatDock() {
           <ChevronLeft size={15} />
         </button>
       </div>
+      <DockTodo />
       <div className="quick q2 chat-dock-in">
         <QuickChat rooms={rooms} />
       </div>

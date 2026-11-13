@@ -4592,3 +4592,20 @@ tr.lg-review td:first-child { box-shadow: inset 3px 0 0 #e0a800; }
 .rd-wait { display: flex; justify-content: space-between; gap: 8px; padding: 4px 0; border-bottom: 1px solid var(--line); text-decoration: none; color: inherit; font-size: var(--fs-sm); min-width: 0; }
 .rd-wait:hover { color: var(--green); }
 .rd-wait .t-meta { white-space: nowrap; flex-shrink: 0; }
+
+/* 접힌 채팅 칸을 더 넓게 (2026-11-13 대표 지시 · 40px → 64px) */
+.chat-dock.closed { width: 64px; }
+.chat-dock-open { gap: 10px; padding: 16px 0; }
+.chat-dock-open svg { width: 24px; height: 24px; }
+.chat-dock-vert { font-size: var(--fs-body); }
+
+/* 채팅 칸 위쪽 '오늘 할 일 · 결재' (2026-11-13 대표 지시) */
+.dock-todo { flex: none; display: flex; flex-direction: column; max-height: 42%; min-height: 0; background: var(--white); border-bottom: 2px solid var(--blue); }
+.dock-todo-h { display: flex; align-items: center; gap: 6px; width: 100%; min-height: 36px; padding: 0 10px 0 12px; border: 0; background: var(--blue-tint); color: var(--blue); font: inherit; cursor: pointer; text-align: left; }
+.dock-todo-h b { font-size: var(--fs-sm); }
+.dock-todo-h .side-n { background: var(--pink); color: #fff; }
+.dock-todo-body { overflow-y: auto; min-height: 0; padding: 2px 10px 6px; }
+.dock-todo-body .today-row { flex-wrap: wrap; row-gap: 4px; }
+.dock-todo-body .today-title { font-size: var(--fs-sm); }
+.dock-todo-link { color: inherit; text-decoration: none; }
+.dock-todo-empty { padding: 8px 2px; font-size: var(--fs-cap); color: var(--gray); }
