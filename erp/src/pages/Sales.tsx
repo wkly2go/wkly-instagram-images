@@ -7,6 +7,7 @@ import { registerDraftNavigation } from '../lib/navigationGuard'
 import { afterSalesDraftConfirmed, closeSalesDraft, readSalesView, salesViewUrl } from '../lib/salesNavigation'
 import { SALES_COMPANIES, SALES_SOURCES, SALES_STAGES, canEditSales, needsFollowup, newSalesDraft, validateSales, type SalesDraft, type SalesFilter, type SalesOpportunity } from '../lib/sales'
 import { Button, Field, Modal } from '../components/ui'
+import { ProspectingPlanner } from '../components/ProspectingPlanner'
 import { Shell } from '../components/Shell'
 import './Sales.css'
 
@@ -28,13 +29,15 @@ export default function Sales() {
     if (selection === id && !adding) return
     navigate(salesViewUrl(query, { kind: 'detail', id }))
   }
-  const startAdding = () => {
+  const startAdding = (research = false) => {
     if (adding) return
-    navigate(salesViewUrl(query, { kind: 'new' }))
+    const next = new URLSearchParams(query)
+    if (research) next.set('research', '1'); else next.delete('research')
+    navigate(salesViewUrl(next, { kind: 'new' }))
   }
   const closePanel = () => navigate(salesViewUrl(query, { kind: 'list' }), { replace: true })
   return <Shell active="sales"><div className="sales-page">
-    <div className="sales-header"><div className="sales-heading"><h1 className="t-title">영업·수주</h1><p className="t-small">거래처별 기회와 다음 행동을 관리합니다.</p></div><a href="/manual/growth.html#sales" target="_blank" rel="noreferrer" className="btn btn-outline">화면 사용설명</a><Link to="/clients" className="btn btn-outline">거래처·담당자</Link><Button onClick={startAdding}>+ 영업 기회</Button></div>
+    <div className="sales-header"><div className="sales-heading"><h1 className="t-title">영업·수주</h1><p className="t-small">거래처별 기회와 다음 행동을 관리합니다.</p></div><a href="/manual/growth.html#sales" target="_blank" rel="noreferrer" className="btn btn-outline">화면 사용설명</a><Link to="/clients" className="btn btn-outline">거래처·담당자</Link><Button kind="outline" onClick={() => startAdding(true)}>신규 대상 발굴</Button><Button onClick={() => startAdding()}>+ 영업 기회</Button></div>
     {api.mode === 'demo' && <p className="sales-notice">체험 모드 · 이 브라우저에만 저장됩니다. 실제 회사 자료와 분리됩니다.</p>}
     <div className="sales-filters">
       <Field label="영업 건 검색"><input className="input" value={search} onChange={e => setSearch(e.target.value)} placeholder="영업 건 이름" /></Field>
@@ -55,7 +58,7 @@ export default function Sales() {
       </button>)}</div>
       <div className="row wrap sales-pager"><Button kind="outline" disabled={!filter.page} onClick={() => setFilter(f => ({ ...f, page: f.page - 1 }))}>이전</Button><span>{filter.page + 1}페이지</span><Button kind="outline" disabled={!data.hasMore} onClick={() => setFilter(f => ({ ...f, page: f.page + 1 }))}>다음</Button></div>
     </>}
-    {adding && <SalesEditor initial={null} onClose={closePanel} onSaved={id => { navigate(salesViewUrl(query, { kind: 'detail', id }), { replace: true }); reload() }} />}
+    {adding && <SalesEditor discovery={query.get('research') === '1'} initial={null} onClose={closePanel} onSaved={id => { navigate(salesViewUrl(query, { kind: 'detail', id }), { replace: true }); reload() }} />}
     {selection && <SalesDetail key={selection} id={selection} onClose={closePanel} onChanged={reload} />}
     {!me.active && <p role="alert">비활성 계정은 저장할 수 없습니다.</p>}
   </div></Shell>
@@ -109,7 +112,7 @@ function useDraftGuard(dirty: boolean, busy: boolean) {
   }
 }
 
-function SalesEditor({ initial, onClose, onSaved }: { initial: SalesOpportunity | null; onClose: () => void; onSaved: (id: string) => void }) {
+function SalesEditor({ initial, onClose, onSaved, discovery = false }: { discovery?: boolean; initial: SalesOpportunity | null; onClose: () => void; onSaved: (id: string) => void }) {
   const { api, me, profiles } = useApp()
   const [draft, setDraft] = useState<SalesDraft>(() => {
     if (!initial) return newSalesDraft(me.id)
@@ -122,7 +125,8 @@ function SalesEditor({ initial, onClose, onSaved }: { initial: SalesOpportunity 
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const lock = useRef(false)
-  const dirty = JSON.stringify(draft) !== original.current
+  const [prospectPending, setProspectPending] = useState(false)
+  const dirty = JSON.stringify(draft) !== original.current || prospectPending
   const guard = useDraftGuard(dirty, busy)
   const set = (patch: Partial<SalesDraft>) => setDraft(d => ({ ...d, ...patch }))
   const refs = useAsync(async () => {
@@ -132,6 +136,7 @@ function SalesEditor({ initial, onClose, onSaved }: { initial: SalesOpportunity 
   const close = () => { if (!lock.current) guard.close('저장하지 않은 변경이 있습니다. 닫을까요?', onClose) }
   const save = async () => {
     if (lock.current) return
+    if (prospectPending) { setError('발굴 계획을 영업 정보에 먼저 적용해 주세요.'); return }
     const invalid = validateSales(draft)
     if (invalid) { setError(invalid); return }
     lock.current = true; setBusy(true); setError('')
@@ -145,11 +150,16 @@ function SalesEditor({ initial, onClose, onSaved }: { initial: SalesOpportunity 
     } catch (e) { setError(saved ? '저장은 완료했습니다. 화면을 다시 열어 결과를 확인해 주세요.' : friendlyError(e)) }
     finally { lock.current = false; setBusy(false) }
   }
-  return <Modal title={revision.current ? '영업 정보 수정' : '새 영업 기회'} onClose={close} wide actions={<><Button kind="ghost" disabled={busy} onClick={close}>취소</Button><Button disabled={busy || refs.loading || !!refs.error} onClick={save}>{busy ? '저장 중…' : '저장'}</Button></>}>
+  return <Modal title={revision.current ? '영업 정보 수정' : '새 영업 기회'} onClose={close} wide actions={<><Button kind="ghost" disabled={busy} onClick={close}>취소</Button><Button disabled={busy || prospectPending || refs.loading || !!refs.error} onClick={save}>{busy ? '저장 중…' : '저장'}</Button></>}>
     {error && <p role="alert" className="sales-error">{error}</p>}
+    {discovery && !initial && <ProspectingPlanner owner={draft.owner_id} disabled={busy} onPending={setProspectPending} onApply={seed => {
+      if (JSON.stringify(draft) !== original.current && !window.confirm('입력한 제목·회사·출처·다음 행동·메모를 발굴 계획으로 바꿀까요? 회사가 바뀌면 거래처·담당자·프로젝트 연결은 해제합니다.')) return false
+      setDraft(d => ({ ...d, title: seed.title, division: seed.division, source: seed.source, source_url: seed.source_url, next_date: seed.next_date, next_action: seed.next_action, description: seed.description, ...(d.division !== seed.division ? { client_id: null, contact_id: null, project_id: null } : {}) })); setError(''); return true
+    }} />}
+    {prospectPending && <p role="status" className="sales-notice">발굴 계획의 변경을 적용하면 저장할 수 있습니다. 닫으면 미저장 계획은 사라집니다.</p>}
     {refs.error && <div role="alert" className="sales-error">{refs.error}<Button kind="outline" onClick={refs.reload}>연결 자료 다시 확인</Button></div>}
     <fieldset disabled={busy} className="sales-fieldset form-grid">
-      <Field label="영업 건 이름 *" className="full"><input className="input" autoFocus maxLength={160} value={draft.title} onChange={e => set({ title: e.target.value })} /></Field>
+      <Field label="영업 건 이름 *" className="full"><input className="input" autoFocus={!discovery} maxLength={160} value={draft.title} onChange={e => set({ title: e.target.value })} /></Field>
       <Field label="수행 회사"><select className="select" value={draft.division} onChange={e => set({ division: e.target.value as SalesDraft['division'], project_id: null })}>{Object.entries(SALES_COMPANIES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></Field>
       <Field label="담당자"><select className="select" value={draft.owner_id} disabled={me.role !== 'admin'} onChange={e => set({ owner_id: e.target.value })}>{profiles.filter(p => p.active && !p.is_agent).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></Field>
       <Field label="거래처"><select className="select" value={draft.client_id ?? ''} onChange={e => set({ client_id: e.target.value || null, contact_id: null, project_id: null })}><option value="">아직 미연결</option>{refs.data.clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></Field>
