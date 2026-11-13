@@ -1,6 +1,10 @@
 # 2026-11-13 남은 기능 보완·완성도 점검
 
-기준 main: 9ec11ad (PR #376). 최신 main의 AI 팀·비용 통합, 영업 발굴 고도화 및 다른 세션의 Gmail/Drive 변경을 보존했습니다. 이 문서는 전체 기능 100% 운영 완료의 증거가 아닙니다.
+개발 기준 main: 9ec11ad (PR #376). 최신 main의 AI 팀·비용 통합, 영업 발굴 고도화 및 다른 세션의 Gmail/Drive 변경을 보존했습니다. 이 문서는 전체 기능 100% 운영 완료의 증거가 아닙니다.
+
+## 웹 반영 확인
+
+PR #377은 main `ac16e3d12880f0548354d8f8336fbe5cfaad2d0a`에 병합됐습니다. 검증 로컬·원격·병합 트리 `9a11ea356747390a79a94e6c75c18a0c461cc0f8`이 일치하고, Cloudflare 운영 `https://95319e36.wkly-erp.pages.dev` 및 GitHub build/deploy/report-build-status가 성공했습니다. 이 기록은 웹 배포 근거이며 신규 DB/Edge 적용의 증거가 아닙니다.
 
 ## 이번 코드 변경
 
