@@ -20,7 +20,8 @@
     "test:g2b": "node --experimental-strip-types --test tests/g2b-handler.test.ts tests/g2b-dashboard.test.mjs tests/tender-search.test.mjs",
     "test:all": "node --experimental-strip-types --test --test-concurrency=2 tests/*.test.ts tests/*.test.mjs",
     "build:gmail-dashboard": "node scripts/build-gmail-dashboard.mjs",
-    "test:gmail": "node --experimental-strip-types --test tests/gmail-sync.test.mjs tests/gmail-sync-handler.test.mjs tests/gmail-dashboard.test.mjs"
+    "test:gmail": "node --experimental-strip-types --test tests/gmail-sync.test.mjs tests/gmail-sync-handler.test.mjs tests/gmail-dashboard.test.mjs",
+    "build:instagram-dashboard": "node scripts/build-instagram-dashboard.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.3",

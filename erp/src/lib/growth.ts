@@ -111,7 +111,9 @@ export function formatAiCost(value: unknown): string {
   return `$${amount.toFixed(6)}`
 }
 export interface AiState { models: AiModel[]; budgets: AiBudget[]; usage: AiUsage[] }
+export interface InstagramContactResult { configured?:boolean; hasMore:boolean; lastSyncedAt?:string|null; lastCompletedAt?:string|null; inserted?:number; kept?:number; revision?:number }
 export interface GrowthApi {
+  instagramContacts(action:'status'|'sync'):Promise<InstagramContactResult>
   searchTenders(query: TenderSearchQuery): Promise<TenderSearchResult>
   listGrowth(f: GrowthFilter): Promise<{ items: GrowthSummary[]; hasMore: boolean }>
   getGrowth(id: string): Promise<GrowthItem>
