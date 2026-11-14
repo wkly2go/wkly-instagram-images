@@ -160,7 +160,7 @@ export function SeoulEventDiscovery({ onEvent, loadEvents }: { onEvent: (event: 
         if (fileName && !window.confirm('불러온 CSV 목록을 서울시 최신 조회 결과로 바꿀까요? 작성 중인 영업 정보와 검색 조건은 유지됩니다.')) return
         void loadLatest()
       }}>최신 행사 다시 불러오기</Button>
-      <a className="btn btn-outline" href={SEOUL_EVENT_DATASET} target="_blank" rel="noreferrer">서울시 원본 데이터</a>
+      <a className="btn btn-outline" href={loadEvents ? 'https://data.seoul.go.kr/dataList/OA-15486/S/1/datasetView.do' : SEOUL_EVENT_DATASET} target="_blank" rel="noreferrer">서울시 원본 데이터</a>
     </div>
     <p className="t-small">{loadEvents ? '매일 8시에 서울시 공식 API로 취합한 예정·진행 중인 행사입니다. 검색은 취합된 전체 행사에 적용됩니다.' : '서울시 공개 목록에서 예정·진행 중인 행사를 불러옵니다. 조회 결과는 최대 30분간 재사용하며, 검색은 불러온 행사에 적용됩니다.'}</p>
     {loading && <p role="status">서울시 행사를 불러오는 중입니다.{events.length > 0 && ' 기존 목록과 검색 조건은 유지됩니다.'}</p>}
