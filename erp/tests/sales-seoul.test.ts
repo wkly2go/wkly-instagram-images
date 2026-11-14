@@ -7,7 +7,7 @@ const request=()=>new Request('https://example.test',{method:'POST',body:JSON.st
 test('official API separates events from companies and removes expired events, unsafe links',()=>{
  const p=parseSeoulApi(envelope([row,{...row,TITLE:'지난 전시',END_DATE:'2026-11-01'},{...row,TITLE:'출처 확인',ORG_LINK:'https://evil.test/?key=secret',HMPG_ADDR:'javascript:alert(1)'}]),'2026-11-14')
  assert.equal(p.rows.length,2);assert.equal(p.rows[0].organization,'행사 주최사');assert.equal(p.rows[0].id,'cultcode:123');assert.equal(p.rows[1].url,'');assert.equal(p.scanned,3)
- assert.throws(()=>parseSeoulApi({RESULT:{CODE:'ERROR-301'}},'2026-11-14'),/API 승인/)
+ assert.throws(()=>parseSeoulApi({RESULT:{CODE:'ERROR-301'}},'2026-11-14'),/ERROR-301/)
 })
 test('worker authenticates before using the key and paginates with no client URL input',async()=>{
  const urls:string[]=[],saved:unknown[]=[],finished:unknown[][]=[]
