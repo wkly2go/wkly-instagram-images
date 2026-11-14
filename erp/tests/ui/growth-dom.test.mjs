@@ -49,7 +49,7 @@ before(async () => {
   ;({ MeetingRecorder } = await server.ssrLoadModule('/src/components/MeetingRecorder.tsx'))
   ;({ MeetingStartUncertainError } = await server.ssrLoadModule('/src/lib/meetingProgress.ts'))
   assert.equal(api.mode, 'demo')
-  originals = { getGrowth: api.getGrowth, linkGrowthSales: api.linkGrowthSales, getSales: api.getSales, listSalesActivities: api.listSalesActivities, addSalesActivity: api.addSalesActivity, checkSalesActivity: api.checkSalesActivity, listProjects: api.listProjects, listSalesOrigins: api.listSalesOrigins, instagramContacts: api.instagramContacts, getAiState: api.getAiState, runGrowthAi: api.runGrowthAi, configureAi: api.configureAi, reconcileAi: api.reconcileAi, mode: api.mode, listAgentJobs: api.listAgentJobs, saveSales: api.saveSales, saveGrowth: api.saveGrowth, startMeetingMinutes: api.startMeetingMinutes, getMeetingRecording: api.getMeetingRecording, searchTenders: api.searchTenders }
+  originals = { getGrowth: api.getGrowth, linkGrowthSales: api.linkGrowthSales, getSales: api.getSales, listSalesActivities: api.listSalesActivities, addSalesActivity: api.addSalesActivity, checkSalesActivity: api.checkSalesActivity, listProjects: api.listProjects, listSalesOrigins: api.listSalesOrigins, instagramContacts: api.instagramContacts, getAiState: api.getAiState, runGrowthAi: api.runGrowthAi, configureAi: api.configureAi, reconcileAi: api.reconcileAi, mode: api.mode, listAgentJobs: api.listAgentJobs, saveSales: api.saveSales, saveGrowth: api.saveGrowth, startMeetingMinutes: api.startMeetingMinutes, getMeetingRecording: api.getMeetingRecording, searchTenders: api.searchTenders, salesLookupStatus: api.salesLookupStatus, searchSalesSources: api.searchSalesSources }
 })
 afterEach(async () => {
   if (root) await act(async () => root.unmount())
@@ -1071,4 +1071,27 @@ test('won opportunity refreshes eligible projects while keeping its unsaved hand
  await click(ed.getByRole('button',{name:'프로젝트 목록 새로고침'}));assert.ok(ed.getByRole('option',{name:'같은 회사의 신규 프로젝트'}));assert.equal(ed.queryByRole('option',{name:'다른 회사 프로젝트'}),null);assert.equal(ed.queryByRole('option',{name:'다른 거래처 프로젝트'}),null)
  await act(async()=>user.selectOptions(ed.getByLabelText('수주 프로젝트 연결'),'same'));await click(ed.getByRole('button',{name:'프로젝트 목록 새로고침'}));assert.equal(ed.getByLabelText('수주 프로젝트 연결').value,'same');assert.equal(ed.getByLabelText('요청 내용·메모').value,'인계 자료');assert.equal(ed.getByLabelText('결과·사유 (수주·실주·보류 필수)').value,'계약 범위 확인')
  api.listProjects=async()=>[];await click(ed.getByRole('button',{name:'프로젝트 목록 새로고침'}));await click(ed.getByRole('button',{name:'저장',exact:true}));assert.equal(localStorage.getItem('wkly-sales-demo-v1'),null);assert.equal(ed.getByLabelText('영업 건 이름 *').value,'수주 인계 보존')
+})
+
+
+test('external sales source opens a reviewable draft without writing until Save', async () => {
+  api.mode = 'supabase'
+  api.salesLookupStatus = async () => ({ bizinfo: true })
+  const calls = []
+  api.searchSalesSources = async (source, params) => {
+    calls.push({ source, params })
+    return { rows: [{ id: 'PBLN_TEST', title: '팝업 참가 모집', facts: [{ label: '주최 기관', value: '테스트 기관' }], url: 'https://www.bizinfo.go.kr/example' }], total: 1 }
+  }
+  const screen = await mount('admin', 'sales', {}, '/sales?tab=lookup')
+  await type(screen.getByLabelText('검색어'), '팝업')
+  await click(screen.getByRole('button', { name: '조회', exact: true }))
+  assert.deepEqual(calls, [{ source: 'bizinfo', params: { keyword: '팝업', page: 1 } }])
+  await click(screen.getByRole('button', { name: '영업 기회 작성', exact: true }))
+  const review = panel('새 영업 기회')
+  assert.equal(review.getByLabelText('영업 건 이름 *').value, '팝업 참가 모집')
+  assert.match(review.getByLabelText('요청 내용·메모').value, /테스트 기관/)
+  assert.equal(localStorage.getItem('wkly-sales-demo-v1'), null)
+  await click(review.getByRole('button', { name: '저장', exact: true }))
+  assert.ok(query('id'))
+  assert.ok(panel('팝업 참가 모집').getByText(/테스트 기관/))
 })

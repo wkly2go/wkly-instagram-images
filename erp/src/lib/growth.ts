@@ -1,3 +1,5 @@
+import type { LookupConfiguration, LookupSource } from '../../supabase/functions/sales-api/sources'
+import type { SalesLookupResult } from '../../supabase/functions/sales-api/lookupTypes'
 import type { TenderSearchQuery, TenderSearchResult } from './tenderSearch'
 
 export type GrowthKind = 'tender' | 'content' | 'contact'
@@ -113,6 +115,8 @@ export function formatAiCost(value: unknown): string {
 export interface AiState { models: AiModel[]; budgets: AiBudget[]; usage: AiUsage[] }
 export interface InstagramContactResult { configured?:boolean; hasMore:boolean; lastSyncedAt?:string|null; lastCompletedAt?:string|null; inserted?:number; kept?:number; revision?:number }
 export interface GrowthApi {
+  salesLookupStatus(): Promise<LookupConfiguration>
+  searchSalesSources(source: LookupSource, params: Record<string, string | number | boolean>): Promise<SalesLookupResult>
   instagramContacts(action:'status'|'sync'):Promise<InstagramContactResult>
   searchTenders(query: TenderSearchQuery): Promise<TenderSearchResult>
   listGrowth(f: GrowthFilter): Promise<{ items: GrowthSummary[]; hasMore: boolean }>
