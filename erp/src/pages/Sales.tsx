@@ -1,3 +1,4 @@
+import { SalesReport } from '../components/SalesReport'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useApp, useAsync } from '../lib/app'
 import { todayKey } from '../lib/date'
@@ -21,7 +22,7 @@ import './Sales.css'
 
 export default function Sales() {
   const { query, navigate } = useRouter()
-  const { me } = useApp()
+  const { me, api } = useApp()
   const [seoulDraft, setSeoulDraft] = useState<SalesDraft | null>(null)
   const [candidatePlan, setCandidatePlan] = useState<{ id: string; candidate: GrowthItem } | null>(null)
   const tab = query.has('id') || query.get('new') === '1' ? 'pipeline' : ['contacts', 'tenders', 'seoul'].includes(query.get('tab') ?? '') ? query.get('tab')! : 'pipeline'
@@ -62,10 +63,11 @@ export default function Sales() {
     })
   }
   return <Shell active="sales"><div className="sales-page">
-    <header className="sales-heading"><h1 className="t-title">영업 발굴·수주</h1><p>팝업스토어 대행이 필요한 브랜드를 발굴하고, 첫 연락부터 제안·계약까지 관리합니다.</p></header>
+    <SalesReport />
+    <header className="sales-heading"><h2 className="t-title">진행 중인 영업</h2><p>발굴 → 접촉 → 미팅 → 제안 → 협상 → 수주 순서로 진행 상태와 다음 행동을 기록합니다.</p></header>
     <nav aria-label="영업 업무" className="sales-stages">{tabs.map(([key, label]) => <button type="button" key={key} className={`btn ${tab === key ? '' : 'btn-outline'}`} aria-current={tab === key ? 'page' : undefined} onClick={() => navigate(withQuery('/sales', query, { tab: key === 'pipeline' ? null : key, id: null, new: null, research: null }))}>{label}</button>)}</nav>
     {tab === 'pipeline' ? <SalesPipeline candidatePlan={candidatePlan} clearCandidate={() => setCandidatePlan(null)} /> : tab === 'seoul' ? <>
-      <SeoulEventDiscovery onEvent={reviewEvent} />
+      <SeoulEventDiscovery onEvent={reviewEvent} loadEvents={api.getCollectedSeoulEvents} />
       <SeoulPopulationCompare onEvidence={useLocationEvidence} />
       {seoulDraft && <SalesEditor initial={null} seed={seoulDraft} onClose={() => setSeoulDraft(null)} onSaved={id => {
         setSeoulDraft(null)

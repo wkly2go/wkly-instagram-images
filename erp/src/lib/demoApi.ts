@@ -1,3 +1,4 @@
+import { createDemoSalesReportApi } from './salesReport'
 import { createDemoGrowthApi } from './growthApi'
 import { createDemoSalesApi } from './salesApi'
 import { approvalSummary, researchSummary } from './reportReads'
@@ -656,6 +657,7 @@ export function createDemoApi(): Api {
 
   return {
     ...createDemoSalesApi(meProfile),
+    ...createDemoSalesReportApi(),
     ...createDemoGrowthApi(meProfile, createDemoSalesApi(meProfile)),
     ...createDemoMarketingApi(meProfile),
     mode: 'demo',
