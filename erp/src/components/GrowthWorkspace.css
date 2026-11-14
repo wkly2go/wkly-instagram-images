@@ -125,7 +125,7 @@
   }
 }
 
-.growth-contact-workspace .growth-row > .growth-candidate-facts {
+.growth-contact-workspace .growth-row > span.growth-candidate-facts {
   grid-column: 1 / -1;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -157,7 +157,7 @@
   .growth-contact-desk.is-open .growth-candidate-facts { grid-template-columns: 1fr; }
 }
 @media (max-width: 700px) {
-  .growth-contact-workspace .growth-row > .growth-candidate-facts { grid-template-columns: 1fr; }
+  .growth-contact-workspace .growth-row > span.growth-candidate-facts { grid-template-columns: 1fr; }
   .growth-candidate-detail dl { grid-template-columns: 1fr; gap: 4px; }
   .growth-candidate-detail dd { margin-bottom: 10px; }
 }
