@@ -16,7 +16,8 @@ export function SalesActivities({ id, editable, onDraftChange }: { id: string; e
   const request = useRef({ id: crypto.randomUUID(), signature: '' })
   const [pending, setPending] = useState<SalesActivityRequest | null>(null)
   const activities = useAsync<SalesActivity[]>(() => api.listSalesActivities(id), [id], [])
-  useDraftNavigation(!!body.trim() || !!pending, busy)
+  // Detail panels own their navigation guard; standalone contact plans use this one.
+  useDraftNavigation(!onDraftChange && (!!body.trim() || !!pending), !onDraftChange && busy)
   useEffect(() => { onDraftChange?.(!!body.trim() || !!pending, busy) }, [body, pending, busy, onDraftChange])
   const confirmed = () => {
     setBody(''); setPending(null); setError(''); request.current = { id: crypto.randomUUID(), signature: '' }; activities.reload()

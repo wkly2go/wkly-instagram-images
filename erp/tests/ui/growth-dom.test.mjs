@@ -274,8 +274,9 @@ for (const role of ['admin', 'member']) {
     await click(closeButton(detail))
     assert.equal(confirmations, 2)
     assert.equal(detail.getByLabelText('활동 내용').value, '미저장 연락 기록')
-    window.confirm = () => true
+    window.confirm = () => { confirmations++; return true }
     await click(closeButton(detail))
+    assert.equal(confirmations, 3)
     assert.equal(query('id'), null)
     assert.equal(query('campaign'), 'retained')
     assert.equal(screen.queryByRole('region', { name: 'DOM 검증 영업 기회', exact: true }), null)
