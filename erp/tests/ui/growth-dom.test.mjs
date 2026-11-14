@@ -52,7 +52,7 @@ before(async () => {
   ;({ MeetingRecorder } = await server.ssrLoadModule('/src/components/MeetingRecorder.tsx'))
   ;({ MeetingStartUncertainError } = await server.ssrLoadModule('/src/lib/meetingProgress.ts'))
   assert.equal(api.mode, 'demo')
-  originals = { getSalesCompanyContext:api.getSalesCompanyContext,getResearch:api.getResearch,getSalesProspect:api.getSalesProspect,verifySalesProspect:api.verifySalesProspect,listTasks:api.listTasks, saveTask:api.saveTask, getSalesReport: api.getSalesReport, reviewSalesProspect:api.reviewSalesProspect, startSalesProspect:api.startSalesProspect, getGrowth: api.getGrowth, linkGrowthSales: api.linkGrowthSales, getSales: api.getSales, listSalesActivities: api.listSalesActivities, addSalesActivity: api.addSalesActivity, checkSalesActivity: api.checkSalesActivity, listProjects: api.listProjects, listSalesOrigins: api.listSalesOrigins, instagramContacts: api.instagramContacts, getAiState: api.getAiState, runGrowthAi: api.runGrowthAi, configureAi: api.configureAi, reconcileAi: api.reconcileAi, mode: api.mode, listAgentJobs: api.listAgentJobs, saveSales: api.saveSales, saveGrowth: api.saveGrowth, startMeetingMinutes: api.startMeetingMinutes, getMeetingRecording: api.getMeetingRecording, searchTenders: api.searchTenders }
+  originals = { listSalesStrategies:api.listSalesStrategies,requestSalesStrategy:api.requestSalesStrategy,decideSalesStrategy:api.decideSalesStrategy,listStrategyTasks:api.listStrategyTasks,updateStrategyTask:api.updateStrategyTask,setSalesStrategyAutomatic:api.setSalesStrategyAutomatic,getSalesCompanyContext:api.getSalesCompanyContext,getResearch:api.getResearch,getSalesProspect:api.getSalesProspect,verifySalesProspect:api.verifySalesProspect,listTasks:api.listTasks, saveTask:api.saveTask, getSalesReport: api.getSalesReport, reviewSalesProspect:api.reviewSalesProspect, startSalesProspect:api.startSalesProspect, getGrowth: api.getGrowth, linkGrowthSales: api.linkGrowthSales, getSales: api.getSales, listSalesActivities: api.listSalesActivities, addSalesActivity: api.addSalesActivity, checkSalesActivity: api.checkSalesActivity, listProjects: api.listProjects, listSalesOrigins: api.listSalesOrigins, instagramContacts: api.instagramContacts, getAiState: api.getAiState, runGrowthAi: api.runGrowthAi, configureAi: api.configureAi, reconcileAi: api.reconcileAi, mode: api.mode, listAgentJobs: api.listAgentJobs, saveSales: api.saveSales, saveGrowth: api.saveGrowth, startMeetingMinutes: api.startMeetingMinutes, getMeetingRecording: api.getMeetingRecording, searchTenders: api.searchTenders }
 })
 afterEach(async () => {
   if (root) await act(async () => root.unmount())
@@ -1461,6 +1461,29 @@ test('standalone contact desk shows details, edits metadata and records activity
   assert.equal(location.href, url)
 })
 
+
+test('AI sales planning accepts new business categories, retains decision drafts and expands approved work in place',async()=>{
+ const plan={title:'상권 공동 체험 상품',category:'상권 연합 영업',customer:'상인회·브랜드',opportunity:'연결된 협업 기록에서 공동 상품 가설 발굴',offer:'체험 동선과 공동 판촉',why_now:'제휴 가능성 검토 시기',approach:'상인회 제휴 창구 확인',effect:'참여 증가 가설',resources:'인력·제작비 산정 필요',stop_rule:'비용 부담 주체 없으면 보류',first_message:'공동 체험 제안을 검토할 담당자를 확인하고 싶습니다.',evidence_ids:[],questions:['실제 참여 매장 확인'],metrics:['참여 의향 회신 건수'],steps:[{action:'참여 후보 조사',output:'근거 목록',day:1},{action:'제안 초안 준비',output:'1쪽 기획',day:2},{action:'접촉 준비',output:'수신자·문안 확인',day:3}]}
+ let row={id:crypto.randomUUID(),report_date:'2026-11-15',status:'승인 대기',plan,sources:[],source_status:[],feedback:'',error:'',revision:2,created_at:'2026-11-15T00:00:00Z',decided_at:null,decided_by:null},tasks=[],decisions=[]
+ api.listSalesStrategies=async()=>({items:[structuredClone(row)],total:1,automatic:true})
+ api.decideSalesStrategy=async(...args)=>{decisions.push(args);row={...row,status:args[2],revision:3,feedback:args[3]};tasks=plan.steps.map((step,i)=>({id:String(i),strategy_id:row.id,owner_id:'00000000-0000-4000-8000-000000000001',ordinal:i+1,title:step.action,output:step.output,due_date:'2026-11-16',status:'대기',result:'',revision:1}))}
+ api.listStrategyTasks=async()=>structuredClone(tasks)
+ const s=await mount('admin'),url=location.href,desk=within(s.getByRole('article',{name:'AI 영업 기획실'}))
+ assert.ok(document.querySelector('.sales-page.sales-wide'));await click(s.getByRole('button',{name:'일정 펼치기'}));assert.equal(document.querySelector('.sales-wide'),null);await click(s.getByRole('button',{name:'본문 넓게 보기'}));assert.ok(document.querySelector('.sales-wide'))
+ assert.ok(desk.getByText(/상권 연합 영업/));await click(desk.getByRole('button',{name:'기획 보고서'}));let report=panel('영업 기획 보고서')
+ assert.ok(report.getByText(/특정 회사의 수요를 뒷받침하는 근거가 없습니다/))
+ await type(report.getByLabelText('수정·보류 의견'),'대표 의견 유지');await click(report.getByRole('button',{name:'기획 보고서 닫기'}));assert.equal(report.getByLabelText('수정·보류 의견').value,'대표 의견 유지')
+ await click(report.getByRole('button',{name:'기획 승인·실행 준비'}));assert.equal(decisions.length,1);assert.equal(decisions[0][1],2);assert.equal(decisions[0][3],'대표 의견 유지')
+ await click(desk.getByRole('button',{name:'기획 보고서'}));report=panel('영업 기획 보고서');assert.ok(report.getByRole('region',{name:'승인된 영업 실행 업무'}));assert.equal(report.queryByRole('button',{name:'기획 승인·실행 준비'}),null)
+ assert.equal(location.href,url);assert.equal(tasks.length,3);assert.ok(tasks.every(t=>t.status==='대기'&&t.result===''))
+})
+
+test('sales planning keeps paid request identity after a lost response and prevents member approvals',async()=>{
+ const ids=[];let fail=true;api.mode='supabase'
+ api.requestSalesStrategy=async(id)=>{ids.push(id);if(fail){fail=false;throw new Error('응답을 확인하지 못했습니다.')}return id}
+ let s=await mount('admin');await click(s.getByRole('button',{name:'AI 새 영업안 기획'}));assert.ok(s.getByText('응답을 확인하지 못했습니다.'));await click(s.getByRole('button',{name:'AI 새 영업안 기획'}));assert.equal(ids.length,2);assert.equal(ids[0],ids[1])
+ await act(async()=>root.unmount());root=null;s=await mount('member');assert.equal(s.queryByRole('button',{name:'AI 새 영업안 기획'}),null);assert.equal(s.queryByRole('button',{name:'자동 기획 켜기'}),null)
+})
 
 test('sales report lists evidence, guards drafts and requires verification before pipeline creation', async () => {
   const { EMPTY_REPORT } = await server.ssrLoadModule('/src/lib/salesReport.ts')
