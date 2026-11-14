@@ -39,3 +39,13 @@ test('readiness is transparent input completeness and does not count expired tim
  assert.equal(researchReadiness(newProspectPlan(),today).score,0);assert.equal(researchReadiness(plan(),today).score,100)
  assert.equal(researchReadiness({...plan(),start:'2026-01-01'},today).score,85)
 })
+
+test('popup agency brief preserves scope and budget and brings forward an urgent selection', () => {
+ const brief = { ...plan(), agencyScope: '공간 섭외와 운영', agencyBudget: '협의 중', agencyDecision: today }
+ const draft = buildProspectDraft(brief, 'owner', today)
+ assert.equal(draft.next_date, today)
+ assert.match(draft.next_action, /미발주 범위/)
+ assert.match(draft.description, /미발주 대행 범위: 공간 섭외와 운영/)
+ assert.match(draft.description, /고객 예산 범위: 협의 중/)
+ assert.equal(draft.expected_amount, null)
+})

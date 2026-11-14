@@ -1,6 +1,7 @@
 import { newSalesDraft, validateSales, type SalesDraft } from './sales.ts'
 
 export const PROSPECT_PLAYS = [
+  { id: 'popup-agency', label: '팝업스토어 대행 수주', signal: '팝업스토어 대행사 모집 공간 대관 신제품 출시 오프라인 캠페인', target: '팝업을 준비하는 브랜드 마케팅·VMD팀 및 대행사', offer: '공간 섭외·기획·설계/시공·운영·홍보 중 미발주 범위 제안', question: '기존에 확정된 파트너와 아직 발주하지 않은 업무는 무엇인가요? 오픈일과 대행사 결정일, 예산 범위를 알려주실 수 있나요?', evidence: '공식 출시·캠페인·대관 신호, 대행사 선정 상태와 업무 범위', lead: 60, division: 'TW' },
   { id: 'launch', label: '팝업·신제품', signal: '팝업 오픈 신제품 출시', target: '브랜드 마케팅·PR 담당자, 팝업 운영사', offer: '팝업 소개·현장 취재·콘텐츠 제작·광고 준비', question: '오픈 전 인지도와 현장 방문 중 어떤 성과가 우선인가요?', evidence: '공식 오픈 공지, 기간·장소, 기존 홍보 채널', lead: 42, division: 'TW' },
   { id: 'exhibition', label: '전시·박람회 참가사', signal: '전시 박람회 참가기업 참가사', target: '참가 브랜드, 전시 주최사, 부스 운영 담당자', offer: '참가사 인터뷰·부스 콘텐츠·전후 홍보 패키지', question: '이번 전시에서 만나려는 고객과 확보하려는 문의는 무엇인가요?', evidence: '주최사 일정, 참가기업 목록, 부스·홍보 담당 부서', lead: 60, division: 'TW' },
   { id: 'space', label: '신규 매장·리뉴얼', signal: '플래그십 신규 매장 리뉴얼 오픈', target: '브랜드 공간·VMD·점포 개발 담당자, 건물 운영사', offer: '공간 기획·설계·시공과 오픈 콘텐츠 연계', question: '오픈 목표일과 공간 변경 범위, 의사결정 일정은 어떻게 되나요?', evidence: '공식 출점 계획, 공사·발주 일정, 현장 조건', lead: 90, division: 'AR' },
@@ -16,6 +17,7 @@ export interface ProspectPlan {
   play: ProspectPlayId; target: string; industry: string; region: string; month: string
   event: string; start: string; end: string; certainty: '미확인' | '예정' | '확인'; sourceUrl: string; verifiedOn: string
   contact: string; need: string; evidence: string; leadDays: number
+  agencyScope?: string; agencyBudget?: string; agencyDecision?: string
 }
 export const RESEARCH_SOURCES = [
   { label: '코엑스 공식 행사 일정', url: 'https://www.coex.co.kr/event/exhibitions-calendar/', hint: '행사 원문 → 주최사 → 참가기업 목록 확인' },
@@ -23,7 +25,7 @@ export const RESEARCH_SOURCES = [
   { label: 'K-Startup', url: 'https://www.k-startup.go.kr/', hint: '모집 공고와 행사·기업 소식 확인' },
 ] as const
 export function newProspectPlan(): ProspectPlan {
-  return { play: 'launch', target: '', industry: '', region: '', month: '', event: '', start: '', end: '', certainty: '미확인', sourceUrl: '', verifiedOn: '', contact: '', need: '', evidence: '', leadDays: 42 }
+  return { play: 'popup-agency', target: '', industry: '', region: '', month: '', event: '', start: '', end: '', certainty: '미확인', sourceUrl: '', verifiedOn: '', contact: '', need: '', evidence: '', leadDays: 60 }
 }
 export function prospectPlay(id: ProspectPlayId) { return PROSPECT_PLAYS.find(x => x.id === id) ?? PROSPECT_PLAYS[0] }
 export function validDate(value: string): boolean {
@@ -44,6 +46,10 @@ export function validateProspect(p: ProspectPlan, today: string): string | null 
   if (p.verifiedOn && p.verifiedOn > today) return '확인일은 오늘 이후로 지정할 수 없습니다.'
   if (p.start && !p.event.trim()) return '일정의 행사·사업명을 입력해 주세요.'
   if (p.certainty === '확인' && (!p.start || !p.sourceUrl || !p.verifiedOn || !p.evidence.trim())) return '확인한 일정에는 시작일·출처·확인일·확인 근거가 필요합니다.'
+  if (p.play === 'popup-agency') {
+    if (p.agencyDecision && !validDate(p.agencyDecision)) return '대행사 선정 목표일을 확인해 주세요.'
+    if ((p.agencyScope?.length ?? 0) > 500 || (p.agencyBudget?.length ?? 0) > 200) return '대행 범위와 예산 메모를 줄여 주세요.'
+  }
   if (p.sourceUrl) {
     try { const u = new URL(p.sourceUrl); if (!['https:', 'http:'].includes(u.protocol) || u.username || u.password) return '공식 출처는 http(s) 주소로 입력해 주세요.' } catch { return '공식 출처 주소를 확인해 주세요.' }
   }
@@ -86,15 +92,18 @@ export function buildProspectDraft(p: ProspectPlan, owner: string, today: string
   const play = prospectPlay(p.play), timeline = prospectTimeline(p, today)
   const past = !!p.start && (p.end || p.start) < today
   const action = past ? '종료 행사 결과·다음 회차 수요 확인' : p.certainty === '확인' ? '담당 부서·수요 확인 후 맞춤 제안 준비' : '공식 일정·담당 부서·수요 먼저 확인'
+  const popup = p.play === 'popup-agency'
   const firstDate = timeline[0]?.date
-  const date = !past && p.certainty === '확인' && firstDate && firstDate > today ? firstDate : today
+  const plannedDate = !past && p.certainty === '확인' && firstDate && firstDate > today ? firstDate : today
+  const date = popup && p.agencyDecision && p.agencyDecision <= plannedDate ? today : plannedDate
   const d = { ...newSalesDraft(owner), title: `${p.target.trim()} · ${p.event.trim() || play.label}`.slice(0, 160), division: play.division,
-    source: (p.play === 'public' ? '기타' : '직접 발굴') as SalesDraft['source'], source_url: p.sourceUrl.trim(), next_date: date, next_action: action,
+    source: (p.play === 'public' ? '기타' : '직접 발굴') as SalesDraft['source'], source_url: p.sourceUrl.trim(), next_date: date, next_action: popup && !past && p.certainty === '확인' ? '브랜드 담당자에게 미발주 범위·예산·대행사 선정일 확인' : action,
     description: [
       '[신규 영업 발굴 계획]', `대상: ${p.target.trim()}`, `발굴 경로: ${play.label}`, `업종·지역·검색월: ${[p.industry,p.region,p.month].filter(Boolean).join(' / ') || '미확인'}`,
       `행사·사업: ${p.event || '미확인'}`, `일정: ${p.start || '미정'} ~ ${p.end || p.start || '미정'} (${p.certainty})`,
       `공식 출처: ${p.sourceUrl || '미확인'}`, `출처 확인일: ${p.verifiedOn || '미확인'}`, `확인 근거: ${p.evidence || '미확인'}`,
       `문의 창구: ${p.contact || '미확인'}`, `수요·접근 계기: ${p.need || '미확인'}`, `제안 방향: ${play.offer}`, `첫 미팅 질문: ${play.question}`,
+      ...(popup ? [`미발주 대행 범위: ${p.agencyScope?.trim() || '미확인'}`, `고객 예산 범위: ${p.agencyBudget?.trim() || '미확인'}`, `대행사 선정 목표일: ${p.agencyDecision || '미확인'}`] : []),
       '', '[권장 업무 일정 · 실제 계약 일정 아님]', ...timeline.map(x => `${x.date} · ${x.label}${x.overdue ? ' (경과: 재조정 필요)' : ''}`),
       !timeline.length ? '일정 미정: 공식 공지 확인 후 다음 연락일을 조정하세요.' : '',
       '', '검색 결과는 사실 확인이 필요합니다. 일정 변경 시 이 계획과 다음 연락일을 함께 수정하세요. 자동 발송·예약 등록은 하지 않습니다.',

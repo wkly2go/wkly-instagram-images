@@ -14,7 +14,7 @@ export function ProspectingPlanner({ owner, disabled, onPending, onApply }: { ow
     try { const draft = buildProspectDraft(plan, owner, today); if (onApply(draft)) { onPending(false); setApplied(true); setError('') } }
     catch (e) { setError(e instanceof Error ? e.message : '발굴 계획을 확인해 주세요.') }
   }
-  const field = (label: string, key: 'target'|'industry'|'region'|'event'|'contact'|'sourceUrl'|'verifiedOn'|'start'|'end'|'month', type = 'text', max = 80) => <Field label={label}><input className="input" type={type} maxLength={max} value={plan[key]} onChange={e => patch({ [key]: e.target.value })} /></Field>
+  const field = (label: string, key: 'target'|'industry'|'region'|'event'|'contact'|'sourceUrl'|'verifiedOn'|'start'|'end'|'month'|'agencyScope'|'agencyBudget'|'agencyDecision', type = 'text', max = 80) => <Field label={label}><input className="input" type={type} maxLength={max} value={plan[key] ?? ''} onChange={e => patch({ [key]: e.target.value })} /></Field>
   return <section className="prospect-planner" aria-label="신규 대상 발굴 계획">
     <h3 className="t-sub">대상 찾기 → 공식 일정 확인 → 맞춤 제안</h3>
     <a href="/manual/growth.html#prospecting" target="_blank" rel="noopener noreferrer">발굴 계획 따라 하기</a>
@@ -33,6 +33,12 @@ export function ProspectingPlanner({ owner, disabled, onPending, onApply }: { ow
       {field('담당 부서·공개 문의 창구', 'contact', 'text', 300)}
       <Field label="권장 준비 기간 (일)"><input className="input" type="number" min={7} max={180} step={1} value={plan.leadDays} onChange={e => patch({ leadDays: Number(e.target.value) })} /><small>업무별 제안값입니다. 실제 일정에 맞게 조정하세요.</small></Field>
       <Field label="수요·접근 계기" className="full"><textarea className="textarea" rows={3} maxLength={1000} value={plan.need} onChange={e => patch({ need: e.target.value })} placeholder="왜 지금 연락해야 하는지, 어떤 도움을 제안할지 적어 주세요." /></Field>
+      {plan.play === 'popup-agency' && <>
+        {field('미발주 대행 범위', 'agencyScope', 'text', 500)}
+        {field('고객 예산 범위', 'agencyBudget', 'text', 200)}
+        {field('대행사 선정 목표일', 'agencyDecision', 'date')}
+        {plan.agencyDecision && plan.agencyDecision <= today && <p className="sales-notice full">선정 목표일이 도래했습니다. 대행사 확정 여부와 추가 발주 가능 범위를 먼저 확인하세요.</p>}
+      </>}
       <div className="full prospect-readiness"><strong>검토 준비도 {readiness.score}/100</strong><p className="t-cap">입력 충실도이며 수주 확률·검증된 신뢰 점수가 아닙니다.</p>{readiness.checks.map(c => <span key={c.label}>{c.done ? '✓' : '○'} {c.label} {c.points}점</span>)}</div>
       <div className="full"><h4>행사일에서 역산한 제안 일정</h4>{timeline.length ? <><p className="t-cap">{plan.certainty === '확인' ? '입력한 확인 일정 기준' : '미확정 일정 기준 가안'} · 한국 날짜 · 계약 마감과 입찰 마감은 별도 확인</p><ol className="prospect-timeline">{timeline.map((item,i) => <li key={i}><time>{item.date}</time><strong>{item.label}</strong>{item.overdue && <span className="sales-due">경과 · 일정 재조정</span>}</li>)}</ol></> : <p>행사 시작일을 확인하면 권장 일정이 표시됩니다.</p>}{plan.start && (plan.end || plan.start) < today && <p className="sales-notice">종료된 행사입니다. 결과 분석·다음 회차 제안으로 전환하세요.</p>}</div>
       <div className="full row wrap"><Button kind="outline" onClick={apply}>발굴 계획을 영업 정보에 적용</Button>{applied && <span role="status">적용했습니다. 아래 영업 정보를 확인한 뒤 저장하세요.</span>}</div>
