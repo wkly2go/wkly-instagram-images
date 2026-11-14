@@ -21,4 +21,9 @@
 .sales-verification-header{display:flex;justify-content:space-between;gap:20px;align-items:center}.sales-verification-header span{font-size:12px;color:#657267}
 .sales-verification-source{padding:20px;background:#f1f4ed;margin:20px 0}.sales-verification-source blockquote{margin:12px 0;white-space:pre-wrap;overflow-wrap:anywhere}.sales-verification-source small{color:#657267}.sales-verification-source a{color:#155a39;text-decoration:underline}
 .sales-report-review.sales-verification-form{display:grid;grid-template-columns:1fr 1fr;gap:16px}.sales-verification-form>h3,.sales-verification-form>p,.sales-verification-form>.row{grid-column:1/-1}.sales-verification-form textarea{min-height:100px}.sales-report-method summary{cursor:pointer;font-weight:700}
+.sales-company-context{border-block:1px solid var(--report-line);padding:20px 0;margin:20px 0;overflow-wrap:anywhere}
+.sales-company-context>header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.sales-company-context h4{font-size:15px;margin:12px 0 6px}.sales-company-context h4 small{font-size:12px;font-weight:400;color:#657267}
+.sales-company-records{border-top:1px solid var(--report-line);margin-top:18px;padding-top:6px}.sales-company-records ul{list-style:none;margin:0;padding:0}.sales-company-records>ul>li{padding:12px 0;border-bottom:1px solid var(--report-line)}
+.sales-company-memo{white-space:pre-wrap}.sales-company-body{border-left:2px solid #8da795;padding-left:16px;margin-top:14px;max-width:100%}.sales-company-body:empty{display:none}.sales-company-body .report{overflow-wrap:anywhere}
 @media(max-width:640px){.sales-report-review.sales-verification-form{grid-template-columns:1fr}.sales-verification-header{align-items:flex-start}.sales-prospect-verification{padding-block:20px}.sales-verification-source{padding:14px}}

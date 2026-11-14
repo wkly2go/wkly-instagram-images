@@ -3,6 +3,7 @@ import { useApp } from '../lib/app'
 import { effectiveAssessment, effectiveKind, ENTITY_KINDS, type EntityKind, PROSPECT_ROLES, type ProspectRole, type ProspectVerification, type SalesProspect } from '../lib/salesReport'
 import { recommendSalesMethod, salesEvidenceLinks } from '../lib/salesMethods'
 import { SalesMethodAdvice } from './SalesMethodAdvice'
+import { SalesCompanyContext } from './SalesCompanyContext'
 import { useDraftGuard } from './SalesEditor'
 import { Button, Field } from './ui'
 
@@ -32,12 +33,13 @@ export function SalesProspectReview({prospect,onUpdated,onClose,onStart,opening}
  }
  return <section ref={panel} tabIndex={-1} className="sales-prospect-verification" aria-label={`내용 검증 · ${p.name}`}>
   <header className="sales-verification-header"><div><span>{effectiveKind(p)} · {effectiveAssessment(p)}</span><h2>{p.name} · 내용 검증</h2></div><Button kind="ghost" disabled={busy||opening} onClick={()=>guard.close('저장하지 않은 검증 내용을 닫을까요?',onClose)}>검증 닫기</Button></header>
-  <p><b>어떤 영업인가요?</b> {p.verification_current?`${p.verification?.role} · ${p.verification?.need}`:method.intent}</p>
+  <p><b>어떤 영업인가요?</b> {p.verification?.need?.trim()?`${p.verification.role} · ${p.verification.need}`:method.intent}</p>
   <p className="sales-report-note">{p.verification_current?'담당자가 확인한 수요와 범위입니다.':'아직 확인된 발주 건이 아닙니다. 아래 원문을 읽고 실제 수요와 역할을 검증하세요.'}</p>
   <dl className="sales-report-facts"><div><dt>회사·연락처</dt><dd>{p.organization||'소속 미확인'} · {p.contact||'연락처 미확인'}</dd></div><div><dt>자료 시각</dt><dd>{p.source_updated_at?new Date(p.source_updated_at).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'}):'원문 작성 시각 미확인'}</dd></div></dl>
   <div className="sales-verification-source"><h3>판단에 사용한 원문 기록</h3><blockquote>{p.evidence||'저장된 원문 내용이 없습니다. 출처에서 확인한 뒤 근거를 남겨 주세요.'}</blockquote><p>{p.source}{salesEvidenceLinks(p).map(link=><span key={link.url}> · <a href={link.url} target="_blank" rel="noopener noreferrer">{link.label} ↗</a></span>)}</p><small>수집된 기록을 그대로 표시합니다. 제목·메모만 저장된 자료는 원문 전체와 대조해야 합니다.</small></div>
   <p><b>자동 분류 근거</b> · {p.reasons}</p>
   {p.verification?.verified_at&&<p className="sales-report-note">마지막 검토: {profileName(p.verification.verified_by??'')} · {new Date(p.verification.verified_at).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'})} · {p.verification.status}{!p.verification_current&&p.verification.status==='확인'?' · 원본 또는 제외 상태가 달라져 재검증이 필요합니다.':''}</p>}
+  {p.client_id?<SalesCompanyContext key={p.client_id} clientId={p.client_id}/>:<p className="sales-report-note">연결된 거래처가 없어 회사의 다른 기록을 함께 불러올 수 없습니다. 이름만으로 다른 회사의 자료를 연결하지 않습니다.</p>}
   <form className="sales-report-review sales-verification-form" onSubmit={e=>{e.preventDefault();void save()}}>
    <h3>영업 연결 전 확인</h3><p>아는 사실만 기록하세요. 수요가 없거나 확인하지 못했다면 ‘추가 확인’으로 남겨 둡니다.</p>
    <Field label="회사·사람 구분"><select className="select" disabled={!editable||busy} value={kind} onChange={e=>setKind(e.target.value as EntityKind)}>{ENTITY_KINDS.map(k=><option key={k}>{k}</option>)}</select></Field>

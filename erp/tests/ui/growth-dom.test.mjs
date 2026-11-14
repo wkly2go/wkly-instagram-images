@@ -52,7 +52,7 @@ before(async () => {
   ;({ MeetingRecorder } = await server.ssrLoadModule('/src/components/MeetingRecorder.tsx'))
   ;({ MeetingStartUncertainError } = await server.ssrLoadModule('/src/lib/meetingProgress.ts'))
   assert.equal(api.mode, 'demo')
-  originals = { getSalesProspect:api.getSalesProspect,verifySalesProspect:api.verifySalesProspect,listTasks:api.listTasks, saveTask:api.saveTask, getSalesReport: api.getSalesReport, reviewSalesProspect:api.reviewSalesProspect, startSalesProspect:api.startSalesProspect, getGrowth: api.getGrowth, linkGrowthSales: api.linkGrowthSales, getSales: api.getSales, listSalesActivities: api.listSalesActivities, addSalesActivity: api.addSalesActivity, checkSalesActivity: api.checkSalesActivity, listProjects: api.listProjects, listSalesOrigins: api.listSalesOrigins, instagramContacts: api.instagramContacts, getAiState: api.getAiState, runGrowthAi: api.runGrowthAi, configureAi: api.configureAi, reconcileAi: api.reconcileAi, mode: api.mode, listAgentJobs: api.listAgentJobs, saveSales: api.saveSales, saveGrowth: api.saveGrowth, startMeetingMinutes: api.startMeetingMinutes, getMeetingRecording: api.getMeetingRecording, searchTenders: api.searchTenders }
+  originals = { getSalesCompanyContext:api.getSalesCompanyContext,getResearch:api.getResearch,getSalesProspect:api.getSalesProspect,verifySalesProspect:api.verifySalesProspect,listTasks:api.listTasks, saveTask:api.saveTask, getSalesReport: api.getSalesReport, reviewSalesProspect:api.reviewSalesProspect, startSalesProspect:api.startSalesProspect, getGrowth: api.getGrowth, linkGrowthSales: api.linkGrowthSales, getSales: api.getSales, listSalesActivities: api.listSalesActivities, addSalesActivity: api.addSalesActivity, checkSalesActivity: api.checkSalesActivity, listProjects: api.listProjects, listSalesOrigins: api.listSalesOrigins, instagramContacts: api.instagramContacts, getAiState: api.getAiState, runGrowthAi: api.runGrowthAi, configureAi: api.configureAi, reconcileAi: api.reconcileAi, mode: api.mode, listAgentJobs: api.listAgentJobs, saveSales: api.saveSales, saveGrowth: api.saveGrowth, startMeetingMinutes: api.startMeetingMinutes, getMeetingRecording: api.getMeetingRecording, searchTenders: api.searchTenders }
 })
 afterEach(async () => {
   if (root) await act(async () => root.unmount())
@@ -1494,6 +1494,59 @@ test('sales report lists evidence, guards drafts and requires verification befor
   await originals.saveSales(p.id,{...newSalesDraft('00000000-0000-4000-8000-000000000001'),title:'검증 완료 운영 견적'},0)
   await click(region.getByRole('button',{name:'검증한 내용으로 영업 시작'}));assert.equal(started,1)
   assert.ok(s.getByRole('region',{name:'영업 진행 내용'}));assert.equal(location.href,url)
+})
+
+test('saved review and linked company records stay readable in place without approving or losing drafts', async()=>{
+ const {EMPTY_REPORT}=await server.ssrLoadModule('/src/lib/salesReport.ts')
+ const {COMPANY_CONTEXT_PAGES}=await server.ssrLoadModule('/src/lib/salesCompanyContext.ts')
+ const clientId=crypto.randomUUID(),researchId=crypto.randomUUID(),salesId=crypto.randomUUID()
+ const p={id:crypto.randomUUID(),client_id:clientId,name:'검토 중인 협력사',entity_kind:'회사',organization:'검토 중인 협력사',source:'거래처',contact:'',evidence:'크루 참여 제안 회신',source_url:'',assessment:'확인 필요',review_note:'',revision:1,blocked:false,verification_current:false,verification:{role:'협력사',need:'공동 고객 건은 추가 확인 필요',scope:'패키지 협업 조건 확인',evidence:'저장된 자료 대조',status:'추가 확인'}}
+ api.getSalesReport=async()=>({...structuredClone(EMPTY_REPORT),prospects:[p],total:1});api.getSalesProspect=async()=>structuredClone(p)
+ const page=items=>({items,total:items.length,error:null}),contextCalls=[]
+ api.getSalesCompanyContext=async(id,pages)=>{contextCalls.push([id,{...pages}]);return {
+  company:{id:clientId,name:p.name,category:'협력사',memo:'수수료와 계약 주체를 확인해야 함',updated_at:'2026-11-14T00:00:00Z'},
+  contacts:{...page([{id:'contact',name:pages.contacts?'다음 담당자':'저장된 담당자',title:'마케팅',email:'contact@example.test',memo:'공동 수주 문의 담당',is_primary:true}]),total:11},
+  research:page([{id:researchId,title:'협력 조건 리서치',kind:'거래처 리포트',summary:'아직 결정되지 않은 협업 조건',status:'새 자료',updated_at:'2026-11-14T00:00:00Z'}]),
+  sales:page([{id:salesId,title:'이전 협업 검토',stage:'보류',owner_id:'',next_action:'조건 재확인',next_date:null,updated_at:'2026-11-14T00:00:00Z'}]),
+  projects:page([{id:'project',name:'기존 제작 프로젝트',status:'완료',description:'기존 행사 제작 기록',updated_at:'2026-11-14T00:00:00Z'}])
+ }}
+ let reads=0,starts=0,saves=0
+ api.getResearch=async()=>{reads++;return {id:researchId,client_id:clientId,body:`## 협업 조건\n${'저장 원문 내용 '.repeat(800)}\n원문 마지막: 유료 전환과 정산은 미확정`,updated_at:'2026-11-14T00:00:00Z'}}
+ api.getSales=async()=>({id:salesId,client_id:clientId,stage:'보류',description:'과거 영업의 실제 검토 내용',result_note:'발주 건 미확정',next_action:'회신 대기',updated_at:'2026-11-14T00:00:00Z'})
+ api.startSalesProspect=async()=>{starts++;return salesId};api.verifySalesProspect=async()=>{saves++;return p}
+ const s=await mount('admin'),url=location.href,list=within(s.getByRole('table',{name:'신규 영업처 목록'}))
+ assert.ok(list.getByText(p.verification.need));assert.ok(list.getByText(p.verification.scope));assert.ok(list.getByText('추가 확인'))
+ await click(list.getByRole('button',{name:'내용 검증'}));const review=panel('내용 검증 · 검토 중인 협력사')
+ const company=within(review.getByRole('region',{name:'연결된 회사 자료'}))
+ assert.deepEqual(contextCalls[0],[clientId,COMPANY_CONTEXT_PAGES]);assert.equal(reads,0)
+ assert.ok(company.getByText('수수료와 계약 주체를 확인해야 함'));assert.ok(company.getByText('저장된 담당자 · 대표 연락처'));assert.ok(company.getByText('기존 행사 제작 기록'))
+ await type(review.getByLabelText('실제 요청·수요'),'작성 중인 검증 내용 유지')
+ await click(company.getByRole('button',{name:'보고서 전체 본문 펼치기'}));assert.equal(reads,1)
+ assert.ok(company.getByText('원문 마지막'));assert.ok(company.getByText('유료 전환과 정산은 미확정'))
+ await click(company.getByRole('button',{name:'영업 상세 내용 펼치기'}));assert.ok(company.getByText('과거 영업의 실제 검토 내용'))
+ const navigation=within(company.getByRole('navigation',{name:'담당자 페이지'}))
+ await click(navigation.getByRole('button',{name:'다음'}));assert.equal(contextCalls.at(-1)[1].contacts,1)
+ assert.ok(company.getByText('다음 담당자 · 대표 연락처'))
+ assert.equal(review.getByLabelText('실제 요청·수요').value,'작성 중인 검증 내용 유지')
+ assert.equal(review.getByRole('button',{name:'검증한 내용으로 영업 시작'}).disabled,true)
+ assert.equal(location.href,url);assert.equal(starts,0);assert.equal(saves,0)
+})
+
+test('company record errors and changed research links never appear as empty or unrelated evidence', async()=>{
+ const {EMPTY_REPORT}=await server.ssrLoadModule('/src/lib/salesReport.ts')
+ const p={id:crypto.randomUUID(),client_id:crypto.randomUUID(),name:'회사 자료 점검',entity_kind:'회사',organization:'',source:'거래처',contact:'',evidence:'저장 기록',source_url:'',assessment:'확인 필요',revision:1,blocked:false,verification_current:false}
+ api.getSalesReport=async()=>({...structuredClone(EMPTY_REPORT),prospects:[p],total:1});api.getSalesProspect=async()=>p
+ const empty={items:[],total:0,error:null};let failed=true
+ api.getSalesCompanyContext=async()=>({company:{id:p.client_id,name:p.name,category:'협력사',memo:'조회 가능한 회사 메모',updated_at:'2026-11-14T00:00:00Z'},contacts:empty,sales:empty,projects:empty,research:failed?{items:[],total:null,error:'보고서 조회에 실패했습니다.'}:{items:[{id:'research',title:'연결을 다시 확인할 보고서',kind:'브랜드',status:'새 자료',updated_at:'2026-11-14T00:00:00Z'}],total:1,error:null}})
+ api.getResearch=async()=>({id:'research',client_id:crypto.randomUUID(),body:'다른 회사의 내용은 표시하지 않음'})
+ const s=await mount('member');await click(s.getByRole('button',{name:'내용 검증'}));const review=panel('내용 검증 · 회사 자료 점검')
+ assert.ok(review.getByText('조회 가능한 회사 메모'))
+ let research=within(review.getByRole('region',{name:'리서치 보고서'}));assert.match(research.getByRole('alert').textContent,/조회에 실패/)
+ assert.equal(research.queryByText(/조회 가능한 자료가 없습니다/),null)
+ failed=false;await click(research.getByRole('button',{name:'리서치 보고서 다시 불러오기'}))
+ research=within(review.getByRole('region',{name:'리서치 보고서'}));await click(research.getByRole('button',{name:'보고서 전체 본문 펼치기'}))
+ assert.match(research.getByRole('alert').textContent,/거래처 연결이 변경/);assert.equal(research.queryByText('다른 회사의 내용은 표시하지 않음'),null)
+ assert.equal(review.queryByRole('button',{name:'검증 결과 저장'}),null)
 })
 
 test('stale verification refresh preserves the draft and retries only after reviewing the latest source',async()=>{
