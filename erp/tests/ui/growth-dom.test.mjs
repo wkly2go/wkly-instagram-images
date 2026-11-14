@@ -699,7 +699,7 @@ for(const role of ['admin','member']) test(role + ': research plan becomes a sav
  assert.equal(editor.getByRole('button',{name:'저장',exact:true}).disabled,true)
  assert.equal((await api.listSales({page:0})).items.length,0)
  await click(editor.getByRole('button',{name:'발굴 계획을 영업 정보에 적용',exact:true}))
- assert.equal(editor.getByLabelText('영업 건 이름 *').value,'테스트 신규 고객 · 팝업·신제품')
+ assert.equal(editor.getByLabelText('영업 건 이름 *').value,'테스트 신규 고객 · 팝업스토어 대행 수주')
  assert.match(editor.getByLabelText('요청 내용·메모').value,/신제품 방문 유도 콘텐츠 필요/)
  await click(editor.getByRole('button',{name:'저장',exact:true}))
  const row=await api.getSales(query('id'))
@@ -727,7 +727,7 @@ test('changing research after applying blocks stale save and declined replacemen
  assert.equal(editor.getByLabelText('영업 건 이름 *').value,'수정한 제목');assert.equal(editor.getByRole('button',{name:'저장',exact:true}).disabled,true)
  window.confirm=()=>true
  await click(editor.getByRole('button',{name:'발굴 계획을 영업 정보에 적용',exact:true}))
- assert.equal(editor.getByLabelText('영업 건 이름 *').value,'두 번째 후보 · 팝업·신제품');assert.equal(editor.getByRole('button',{name:'저장',exact:true}).disabled,false)
+ assert.equal(editor.getByLabelText('영업 건 이름 *').value,'두 번째 후보 · 팝업스토어 대행 수주');assert.equal(editor.getByRole('button',{name:'저장',exact:true}).disabled,false)
 })
 
 test('confirmed event date, proof and space strategy persist through sales save and reopening',async()=>{

@@ -20,9 +20,9 @@ export default function Sales() {
   const tab = query.has('id') || query.get('new') === '1' ? 'pipeline' : ['contacts', 'tenders'].includes(query.get('tab') ?? '') ? query.get('tab')! : 'pipeline'
   const tabs = [['pipeline', '수주 파이프라인'], ['contacts', '민간 영업 후보'], ['tenders', '나라장터 공고']] as const
   return <Shell active="sales"><div className="sales-page">
-    <header className="sales-heading"><h1 className="t-title">영업 발굴·수주</h1><p>브랜드·행사 발굴과 나라장터 공고를 검토하고, 제안부터 계약까지 연결합니다.</p></header>
+    <header className="sales-heading"><h1 className="t-title">영업 발굴·수주</h1><p>팝업스토어 대행이 필요한 브랜드를 발굴하고, 첫 연락부터 제안·계약까지 관리합니다.</p></header>
     <nav aria-label="영업 업무" className="sales-stages">{tabs.map(([key, label]) => <button type="button" key={key} className={`btn ${tab === key ? '' : 'btn-outline'}`} aria-current={tab === key ? 'page' : undefined} onClick={() => navigate(withQuery('/sales', query, { tab: key === 'pipeline' ? null : key, id: null, new: null, research: null }))}>{label}</button>)}</nav>
-    <p className="sales-notice">조사 결과 검토 → 영업 기회 연결 → 접촉·미팅 → 제안·협상 → 수주·프로젝트 연결. 발굴 후보는 수주 확정이나 연락 동의를 의미하지 않습니다.</p>
+    <p className="sales-notice">브랜드의 오픈 계기와 미발주 범위 확인 → 담당자와 다음 연락일 지정 → 대행 제안·견적 → 계약·프로젝트 연결.</p>
     {tab === 'pipeline' ? <SalesPipeline /> : <GrowthWorkspace key={tab} kind={tab === 'tenders' ? 'tender' : 'contact'} />}
   </div></Shell>
 }
