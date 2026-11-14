@@ -1476,7 +1476,7 @@ test('sales report lists evidence, guards drafts and requires verification befor
   await click(list.getByRole('button',{name:'내용 검증'}))
   let region=panel('내용 검증 · 분류할 담당자')
   assert.equal(region.getByRole('button',{name:'검증한 내용으로 영업 시작'}).disabled,true)
-  assert.equal(region.getByRole('link',{name:'원문 열기 ↗'}).getAttribute('href'),'https://example.test')
+  assert.equal(region.getByRole('link',{name:'등록 출처 열기 ↗'}).getAttribute('href'),'https://example.test')
   await act(async()=>user.selectOptions(region.getByLabelText('회사·사람 구분'),'사람'))
   await type(region.getByLabelText('실제 요청·수요'),'12월 팝업 운영 견적 요청')
   await click(list.getByRole('button',{name:'내용 검증'}))
@@ -1494,6 +1494,25 @@ test('sales report lists evidence, guards drafts and requires verification befor
   await originals.saveSales(p.id,{...newSalesDraft('00000000-0000-4000-8000-000000000001'),title:'검증 완료 운영 견적'},0)
   await click(region.getByRole('button',{name:'검증한 내용으로 영업 시작'}));assert.equal(started,1)
   assert.ok(s.getByRole('region',{name:'영업 진행 내용'}));assert.equal(location.href,url)
+})
+
+test('stale verification refresh preserves the draft and retries only after reviewing the latest source',async()=>{
+ const {EMPTY_REPORT}=await server.ssrLoadModule('/src/lib/salesReport.ts')
+ let p={id:crypto.randomUUID(),name:'갱신된 후보',entity_kind:'회사',organization:'공식 브랜드',contact:'',source:'거래처',source_url:'',evidence:'처음 받은 협력 제안',assessment:'확인 필요',review_note:'',revision:1,blocked:false,verification_current:false}
+ api.getSalesReport=async()=>({...structuredClone(EMPTY_REPORT),prospects:[p],total:1});api.getSalesProspect=async()=>structuredClone(p)
+ const revisions=[]
+ api.verifySalesProspect=async(id,revision,value,kind)=>{revisions.push(revision);if(revision!==p.revision)throw new Error('자료가 변경됐습니다. 다시 불러와 검증해 주세요.');p={...p,revision:revision+1,verification:value,reviewed_kind:kind};return structuredClone(p)}
+ const s=await mount('admin');await click(s.getByRole('button',{name:'내용 검증'}));let review=panel('내용 검증 · 갱신된 후보')
+ await type(review.getByLabelText('실제 요청·수요'),'공동 고객 건은 확인 필요')
+ await type(review.getByLabelText('검증 근거·확인일'),'저장 기록 대조, 원문 회신은 추가 확인')
+ p={...p,revision:2,evidence:'담당자의 수정된 협력 제안'}
+ await click(review.getByRole('button',{name:'검증 결과 저장'}));assert.ok(review.getByRole('alert'))
+ await click(review.getByRole('button',{name:'입력 유지하고 최신 자료 확인'}))
+ assert.equal(review.getByLabelText('실제 요청·수요').value,'공동 고객 건은 확인 필요')
+ assert.ok(review.getByText('담당자의 수정된 협력 제안'));assert.match(review.getByRole('status').textContent,/작성한 검증 내용은 유지/)
+ assert.deepEqual(revisions,[1]);assert.equal(review.getByRole('button',{name:'검증한 내용으로 영업 시작'}).disabled,true)
+ await click(review.getByRole('button',{name:'검증 결과 저장'}));assert.deepEqual(revisions,[1,2]);review=panel('내용 검증 · 갱신된 후보')
+ assert.equal(review.queryByRole('alert'),null);assert.equal(review.getByLabelText('실제 요청·수요').value,'공동 고객 건은 확인 필요')
 })
 
 test('member can inspect supplier evidence and methods without approving a shared prospect',async()=>{

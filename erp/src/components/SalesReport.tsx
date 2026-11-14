@@ -36,7 +36,7 @@ export function SalesReport(){
  const {data,loading,error,reload}=useAsync(()=>api.getSalesReport(filter),[filter,version],EMPTY_REPORT)
  useEffect(()=>{const t=window.setTimeout(()=>setFilter(f=>({...f,search:input,page:0})),300);return()=>window.clearTimeout(t)},[input])
  const pending=data.sources.some(s=>s.status==='수집 중')
- useEffect(()=>{if(!pending)return;const t=window.setInterval(reload,15000);return()=>window.clearInterval(t)},[pending,reload])
+ useEffect(()=>{if(!pending||loading)return;const t=window.setTimeout(reload,15000);return()=>window.clearTimeout(t)},[pending,loading,reload])
  const run=async(task:()=>Promise<void>)=>{if(busy)return;setBusy(true);setActionError('');try{await task()}catch(e){setActionError(e instanceof Error?e.message:'처리하지 못했습니다. 다시 확인해 주세요.')}finally{setBusy(false)}}
  const open=async(p:SalesProspect)=>run(async()=>{const id=p.linked_sales_id??await api.startSalesProspect(p.id);const sales=await api.getSales(id);setReview(null);setSelected(sales);reload()})
  const inspect=(id:string)=>{if(!requestViewChange(`/sales/prospect/${id}`))return;reviewTrigger.current=document.activeElement as HTMLElement;void run(async()=>{setSelected(null);setReview(await api.getSalesProspect(id))})}
