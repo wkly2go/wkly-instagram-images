@@ -15,7 +15,7 @@
     "build:growth-dashboard": "node scripts/build-growth-ai-dashboard.mjs",
     "build:meeting-dashboard": "node scripts/build-meeting-minutes-dashboard.mjs",
     "test:meeting": "node --experimental-strip-types --test tests/meeting-cleanup.test.mjs tests/meeting-dashboard.test.mjs tests/meeting-processing.test.mjs tests/meeting-progress.test.ts",
-    "test:ui": "node --test tests/ui/growth-dom.test.mjs",
+    "test:ui": "node --test tests/ui/growth-dom.test.mjs tests/ui/sales-desk-dom.test.mjs",
     "build:g2b-dashboard": "node scripts/build-g2b-dashboard.mjs",
     "test:g2b": "node --experimental-strip-types --test tests/g2b-handler.test.ts tests/g2b-dashboard.test.mjs tests/tender-search.test.mjs",
     "test:all": "node --experimental-strip-types --test --test-concurrency=2 tests/*.test.ts tests/*.test.mjs",

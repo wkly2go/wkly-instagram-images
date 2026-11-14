@@ -4,14 +4,14 @@ import { PROSPECT_PLAYS, RESEARCH_SOURCES, newProspectPlan, prospectPlay, resear
 import type { SalesDraft } from '../lib/sales'
 import { Button, Field } from './ui'
 
-export function ProspectingPlanner({ owner, disabled, onPending, onApply }: { owner: string; disabled: boolean; onPending: (pending: boolean) => void; onApply: (draft: SalesDraft) => boolean }) {
+export function ProspectingPlanner({ owner, disabled, onPending, onApply }: { owner: string; disabled: boolean; onPending: (pending: boolean) => void; onApply: (draft: SalesDraft, plan: ProspectPlan) => boolean }) {
   const [plan, setPlan] = useState(newProspectPlan)
   const [error, setError] = useState('')
   const [applied, setApplied] = useState(false)
   const patch = (value: Partial<ProspectPlan>) => { setPlan(p => ({ ...p, ...value })); setApplied(false); onPending(true); setError('') }
   const play = prospectPlay(plan.play), today = todayKey(), timeline = prospectTimeline(plan, today), readiness = researchReadiness(plan, today)
   const apply = () => {
-    try { const draft = buildProspectDraft(plan, owner, today); if (onApply(draft)) { onPending(false); setApplied(true); setError('') } }
+    try { const draft = buildProspectDraft(plan, owner, today); if (onApply(draft, plan)) { onPending(false); setApplied(true); setError('') } }
     catch (e) { setError(e instanceof Error ? e.message : '발굴 계획을 확인해 주세요.') }
   }
   const field = (label: string, key: 'target'|'industry'|'region'|'event'|'contact'|'sourceUrl'|'verifiedOn'|'start'|'end'|'month'|'agencyScope'|'agencyBudget'|'agencyDecision', type = 'text', max = 80) => <Field label={label}><input className="input" type={type} maxLength={max} value={plan[key] ?? ''} onChange={e => patch({ [key]: e.target.value })} /></Field>

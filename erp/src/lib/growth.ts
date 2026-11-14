@@ -1,3 +1,4 @@
+import type { SalesCandidateReview } from './salesCandidateReview'
 import type { TenderSearchQuery, TenderSearchResult } from './tenderSearch'
 
 export type GrowthKind = 'tender' | 'content' | 'contact'
@@ -13,7 +14,7 @@ export interface GrowthDocument {
 }
 export interface GrowthDraft { kind: GrowthKind; title: string; owner_id: string; status: string; document: GrowthDocument; campaign_id: string | null }
 export interface GrowthItem extends GrowthDraft { id: string; revision: number; linked_sales_id: string | null; created_at: string; updated_at: string; created_by: string | null }
-export type GrowthSummary = Omit<GrowthItem, 'document'>
+export type GrowthSummary = Omit<GrowthItem, 'document'> & { sales_review?: SalesCandidateReview }
 export interface GrowthFilter { kind: GrowthKind; page: number; search: string; status: string }
 export const GROWTH_STATUSES = { tender: ['검토', '준비', '제출', '종료', '취소'], content: ['작성 중', '검수 중', '발행 기록'], contact: ['검토', '확인', '제외'] }
 export function newGrowth(kind: GrowthKind, owner_id: string): GrowthDraft {
