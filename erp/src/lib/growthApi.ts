@@ -6,7 +6,7 @@ import { newSalesDraft, type SalesApi } from './sales'
 import { growthSearchFilter, matchesGrowthSearch } from './growthSearch'
 import { reviewSalesCandidate } from './salesCandidateReview'
 import { readTenderSearchResult, validateTenderQuery } from './tenderSearch'
-const summary = ({ document, ...row }: GrowthItem): GrowthSummary => ({ ...row, ...(row.kind === 'content' ? {} : { sales_review: reviewSalesCandidate({ ...row, source: document.source, segment: document.segment, deadline: document.deadline, qualification: document.qualification }) }) })
+const summary = ({ document, ...row }: GrowthItem): GrowthSummary => ({ ...row, ...(row.kind === 'contact' ? { document } : {}), ...(row.kind === 'content' ? {} : { sales_review: reviewSalesCandidate({ ...row, source: document.source, segment: document.segment, deadline: document.deadline, qualification: document.qualification }) }) })
 const summaryColumns = 'id,kind,title,owner_id,status,campaign_id,linked_sales_id,revision,created_at,updated_at,created_by'
 type ReviewSummaryRow = GrowthSummary & { review_source?: unknown; review_segment?: unknown; review_deadline?: unknown; review_qualification?: unknown }
 function reviewedSummary(item: ReviewSummaryRow): GrowthSummary {
@@ -41,7 +41,7 @@ export function createSupabaseGrowthApi(sb: SupabaseClient): GrowthApi {
       return readTenderSearchResult(data)
     },
     async listGrowth(f) {
-      const reviewColumns = f.kind === 'contact' ? ',review_source:document->>source,review_segment:document->>segment' : f.kind === 'tender' ? ',review_deadline:document->>deadline,review_qualification:document->>qualification' : ''
+      const reviewColumns = f.kind === 'contact' ? ',document,review_source:document->>source,review_segment:document->>segment' : f.kind === 'tender' ? ',review_deadline:document->>deadline,review_qualification:document->>qualification' : ''
       let q=sb.from('growth_items').select(summaryColumns + reviewColumns).eq('kind',f.kind).order('updated_at',{ascending:false}).order('id')
       const search=growthSearchFilter(f.kind,f.search)
       if(search)q=q.or(search)

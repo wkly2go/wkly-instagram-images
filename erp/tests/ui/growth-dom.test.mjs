@@ -8,7 +8,7 @@ import { createServer } from 'vite'
 // This verifies form/URL state, not browser layout, production roles or RLS.
 const require = createRequire(import.meta.url)
 const { JSDOM } = require('jsdom')
-let dom, server, React, act, createRoot, within, user, api, RouterProvider, AppProvider, Sales, Ads, Agents, normalizePath, CommandPalette, GrowthWorkspace, MeetingRecorder, MeetingStartUncertainError, root, originals
+let dom, server, React, act, createRoot, within, user, api, RouterProvider, AppProvider, Sales, Leads, Ads, Agents, normalizePath, CommandPalette, GrowthWorkspace, MeetingRecorder, MeetingStartUncertainError, root, originals
 
 before(async () => {
   dom = new JSDOM('<!doctype html><html><body><div id="root"></div></body></html>', { url: 'http://localhost/sales', pretendToBeVisual: true })
@@ -40,6 +40,7 @@ before(async () => {
   user = require('@testing-library/user-event').default.setup({ document })
   ;({ api, AppProvider } = await server.ssrLoadModule('/src/lib/app.tsx'))
   ;({ RouterProvider } = await server.ssrLoadModule('/src/lib/router.tsx'))
+  ;({ Leads } = await server.ssrLoadModule('/src/pages/Growth.tsx'))
   ;({ default: Sales } = await server.ssrLoadModule('/src/pages/Sales.tsx'))
   ;({ default: Agents } = await server.ssrLoadModule('/src/pages/Agents.tsx'))
   ;({ normalizePath } = await server.ssrLoadModule('/src/lib/router.tsx'))
@@ -70,7 +71,7 @@ async function mount(role, kind = 'sales', props = {}, initialUrl) {
   await act(async () => root.render(React.createElement(RouterProvider, null,
     React.createElement(AppProvider, { me, profiles, version: 0, bump() {}, toast() {}, openQuick() {} },
       (kind === 'ads' || kind === 'agents') ? React.createElement(React.Fragment, null, React.createElement(kind === 'agents' ? Agents : Ads), React.createElement(CommandPalette)) :
-        React.createElement(kind === 'sales' ? Sales : kind === 'meeting' ? MeetingRecorder : GrowthWorkspace, kind === 'sales' ? {} : kind === 'meeting' ? props : { kind })))))
+        React.createElement(kind === 'sales' ? Sales : kind === 'leads' ? Leads : kind === 'meeting' ? MeetingRecorder : GrowthWorkspace, kind === 'sales' ? {} : kind === 'meeting' ? props : { kind })))))
   return within(document.body)
 }
 async function click(element) { await act(async () => user.click(element)) }
@@ -1376,7 +1377,12 @@ test('uncertain activity freezes original input and confirms the same request wi
 test('won opportunity refreshes eligible projects while keeping its unsaved handoff draft',async()=>{
  const s=await mount('admin');api.listProjects=async()=>[];await click(s.getByRole('button',{name:'+ 영업 기회',exact:true}));const ed=panel('새 영업 기회')
  await type(ed.getByLabelText('영업 건 이름 *'),'수주 인계 보존');await act(async()=>user.selectOptions(ed.getByLabelText('수행 회사'),'AR'));await act(async()=>user.selectOptions(ed.getByLabelText('진행 단계'),'수주'));await type(ed.getByLabelText('결과·사유 (수주·실주·보류 필수)'),'계약 범위 확인');await type(ed.getByLabelText('요청 내용·메모'),'인계 자료')
- const link=ed.getByRole('link',{name:'새 프로젝트 만들기'});assert.equal(link.getAttribute('href'),'/projects?new=1');assert.equal(link.getAttribute('target'),'_blank')
+ const currentUrl = location.href
+ await click(ed.getByRole('button',{name:'새 프로젝트 만들기'}))
+ const projectForm = within(s.getByRole('dialog', { name: '새 프로젝트', exact: true }))
+ assert.equal(location.href, currentUrl)
+ await click(projectForm.getByRole('button', { name: '취소', exact: true }))
+ assert.equal(ed.getByLabelText('요청 내용·메모').value,'인계 자료')
  api.listProjects=async()=>[{id:'same',name:'같은 회사의 신규 프로젝트',division:'AR',client_id:null},{id:'other-company',name:'다른 회사 프로젝트',division:'TW',client_id:null},{id:'other-client',name:'다른 거래처 프로젝트',division:'AR',client_id:'client'}]
  await click(ed.getByRole('button',{name:'프로젝트 목록 새로고침'}));assert.ok(ed.getByRole('option',{name:'같은 회사의 신규 프로젝트'}));assert.equal(ed.queryByRole('option',{name:'다른 회사 프로젝트'}),null);assert.equal(ed.queryByRole('option',{name:'다른 거래처 프로젝트'}),null)
  await act(async()=>user.selectOptions(ed.getByLabelText('수주 프로젝트 연결'),'same'));await click(ed.getByRole('button',{name:'프로젝트 목록 새로고침'}));assert.equal(ed.getByLabelText('수주 프로젝트 연결').value,'same');assert.equal(ed.getByLabelText('요청 내용·메모').value,'인계 자료');assert.equal(ed.getByLabelText('결과·사유 (수주·실주·보류 필수)').value,'계약 범위 확인')
@@ -1407,4 +1413,45 @@ test('Seoul files create an event draft and same-basis comparison for review bef
   editor = panel('새 영업 기회')
   assert.match(editor.getByLabelText('요청 내용·메모').value, /홍대입구역 \(3120103\)/)
   assert.equal(localStorage.getItem('wkly-sales-demo-v1'), null)
+})
+
+
+test('standalone contact desk shows details, edits metadata and records activity without leaving the list', async () => {
+  const { newGrowth } = await server.ssrLoadModule('/src/lib/growth.ts')
+  const owner = '00000000-0000-4000-8000-000000000001'
+  const draft = newGrowth('contact', owner)
+  draft.title = '한 화면 업무 후보'
+  Object.assign(draft.document, { email: 'contact@example.test', brand: '시연 브랜드', name: '김담당', note: '연말 팝업 운영 문의', source_url: 'https://example.test/event' })
+  const row = { ...draft, id: crypto.randomUUID(), revision: 1, linked_sales_id: null, created_by: owner, created_at: '2026-11-14T00:00:00Z', updated_at: '2026-11-14T00:00:00Z' }
+  const s = await mount('admin', 'leads', { seedItems: [row] }, '/leads?campaign=keep')
+  const url = location.href
+  const card = s.getByRole('button', { name: /^한 화면 업무 후보/ })
+  for (const text of ['contact@example.test', '시연 브랜드', '연말 팝업 운영 문의', 'https://example.test/event']) assert.ok(card.textContent.includes(text))
+  await click(card)
+  let plan = panel('영업 계획 · 한 화면 업무 후보')
+  await click(plan.getByRole('button', { name: '후보 정보', exact: true }))
+  assert.ok(!s.queryByRole('dialog', { name: '한 화면 업무 후보', exact: true }))
+  let info = panel('한 화면 업무 후보')
+  await type(info.getByLabelText('브랜드'), '수정 브랜드')
+  await click(info.getByRole('button', { name: '저장', exact: true }))
+  await click(closeButton(panel('한 화면 업무 후보')))
+  plan = panel('영업 계획 · 한 화면 업무 후보')
+  assert.equal(plan.getByLabelText('브랜드·발주기관').value, '수정 브랜드')
+  await click(plan.getByRole('button', { name: '영업 대상 확인', exact: true }))
+  await click(plan.getByRole('button', { name: '저장', exact: true }))
+  await type(plan.getByLabelText('활동 내용'), '첫 통화에서 일정 확인')
+  await click(plan.getByRole('button', { name: '활동 저장', exact: true }))
+  assert.ok(plan.getByText('첫 통화에서 일정 확인'))
+  await type(plan.getByLabelText('활동 내용'), '저장 전 통화 메모')
+  await click(plan.getByRole('button', { name: '닫기', exact: true }))
+  assert.equal(plan.getByLabelText('활동 내용').value, '저장 전 통화 메모')
+  await click(plan.getByRole('button', { name: '활동 저장', exact: true }))
+  await click(plan.getByRole('button', { name: '닫기', exact: true }))
+  assert.equal(location.href, url)
+  await click(s.getByRole('button', { name: /^한 화면 업무 후보/ }))
+  plan = panel('영업 계획 · 한 화면 업무 후보')
+  assert.ok(plan.getByText('첫 통화에서 일정 확인'))
+  assert.ok(plan.getByText('저장 전 통화 메모'))
+  assert.equal(plan.queryByRole('link'), null)
+  assert.equal(location.href, url)
 })

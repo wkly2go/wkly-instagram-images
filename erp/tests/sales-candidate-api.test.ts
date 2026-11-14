@@ -34,13 +34,13 @@ test('content list select and summary stay free of candidate fields',async()=>{
  assert.ok(!calls[0].searchParams.get('select')?.includes('document'))
  assert.ok(result.items.every((r:object)=>!('sales_review' in r)))
 })
-test('demo keeps source document untouched and exposes only compact derived review',async()=>{
+test('demo includes contact card details without modifying source document',async()=>{
  const draft=newGrowth('contact','test');draft.title='테스트 팝업';draft.document.email='private@example.test';draft.document.note='private memo';draft.document.source='받은 메일'
  const row={...draft,id:'test',linked_sales_id:null,revision:1,created_at:'',updated_at:'',created_by:'test'},stored=JSON.stringify([row])
  Object.defineProperty(globalThis,'localStorage',{configurable:true,value:{getItem:()=>stored}})
  const api=createDemoGrowthApi(()=>({id:'test',active:true,role:'member'}),{})
  const result=await api.listGrowth({kind:'contact',page:0,search:'',status:''})
  assert.equal(result.items[0].sales_review.source,'mail');assert.equal(result.items[0].sales_review.bucket,'verify')
- assert.ok(!JSON.stringify(result).includes('private'));assert.equal(JSON.stringify([row]),stored)
+ assert.deepEqual(result.items[0].document, row.document);assert.equal(JSON.stringify([row]),stored)
  assert.deepEqual(await api.getGrowth('test'),row)
 })
