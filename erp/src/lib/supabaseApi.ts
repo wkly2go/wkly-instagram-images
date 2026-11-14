@@ -1,3 +1,4 @@
+import { createSupabaseSalesStrategyApi } from './salesStrategyApi'
 import { createSupabaseSalesReportApi } from './salesReport'
 import { createSupabaseGrowthApi } from './growthApi'
 import { createSupabaseSalesApi } from './salesApi'
@@ -194,6 +195,7 @@ export function createSupabaseApi(url: string, key: string): Api {
 
   return {
     ...createSupabaseSalesApi(sb),
+    ...createSupabaseSalesStrategyApi(sb),
     ...createSupabaseSalesReportApi(sb),
     ...createSupabaseGrowthApi(sb),
     ...createSupabaseMarketingApi(sb, signedUrls),
