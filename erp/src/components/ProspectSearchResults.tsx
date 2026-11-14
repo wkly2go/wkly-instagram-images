@@ -89,7 +89,7 @@ export function ProspectSearchResults({ query, sources, onSelect, disabled = fal
           [event.title, event.category, event.district, event.venue, event.organization].join(' '), words,
         ))
         return {
-          note: archived || snapshot.archived ? `이전에 확보한 공개 자료 · ${snapshot.fetchedAt.slice(0, 10)} 조회` : '공개 목록의 조회 범위 안에서 검색합니다.',
+          note: archived ? `이전에 확보한 공개 자료 · ${snapshot.fetchedAt.slice(0, 10)} 조회` : '공개 목록의 조회 범위 안에서 검색합니다.',
           results: items.slice(0, 8).map(event => ({
             id: `seoul:${event.id}`, title: event.title, sourceLabel: label, sourceUrl: event.url,
             snippet: [`${event.start} ~ ${event.end}`, event.district, event.venue, event.organization, event.category].filter(Boolean).join(' · '),
@@ -101,8 +101,11 @@ export function ProspectSearchResults({ query, sources, onSelect, disabled = fal
     if (official) {
       const label = '코엑스 일정'
       jobs.push({ label, load: async () => {
-        const read = async (path: string) => {
-          const response = await fetch(path, { signal: controller.signal, headers: { Accept: 'application/json' } })
+        const read = async (path: string, publicArchive = false) => {
+          const response = await fetch(path, {
+            signal: controller.signal, headers: { Accept: 'application/json' },
+            ...(publicArchive ? { credentials: 'omit' as const, referrerPolicy: 'no-referrer' as const } : {}),
+          })
           if (!response.ok) throw new Error('코엑스 조회 오류')
           return await response.json() as { rows?: unknown; fetchedAt?: unknown } | null
         }
@@ -110,8 +113,13 @@ export function ProspectSearchResults({ query, sources, onSelect, disabled = fal
         try { data = await read('/api/prospect-events') }
         catch (error) {
           if (controller.signal.aborted) throw error
-          data = await read('/data/coex-events.json')
           archived = true
+          try {
+            data = await read('https://raw.githubusercontent.com/wkly2go/wkly-instagram-images/refs/heads/data/seoul-events/coex-events.json', true)
+          } catch (archiveError) {
+            if (controller.signal.aborted) throw archiveError
+            data = await read('/data/coex-events.json')
+          }
         }
         const rows = data?.rows
         if (!Array.isArray(rows) || rows.length > 12) throw new Error('잘못된 코엑스 행사 목록')

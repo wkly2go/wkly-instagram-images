@@ -1,3 +1,4 @@
+import { fetchCoexProspectEvents } from '../src/lib/prospectPublicSources.ts'
 import { fetchSeoulEvents, SEOUL_SHEET_URL } from '../src/lib/seoulEventsTransport.ts'
 
 // Prefer the public sheet's broader coverage and allow the culture portal if the
@@ -20,10 +21,13 @@ async function fetchSnapshot() {
 }
 
 try {
-  const snapshot = await fetchSnapshot()
+  const source = process.argv[2] ?? 'seoul'
+  if (!['seoul', 'coex'].includes(source)) throw new Error('Unsupported event source.')
+  const snapshot = source === 'coex' ? await fetchCoexProspectEvents() : await fetchSnapshot()
+  const events = 'rows' in snapshot ? snapshot.rows : snapshot.events
   const payload = JSON.stringify(snapshot)
-  if (!snapshot.events.length || snapshot.scanned < snapshot.events.length || Buffer.byteLength(payload, 'utf8') > 100000) {
-    throw new Error('Seoul event snapshot must contain current events and fit within 100 KB.')
+  if (!events.length || snapshot.scanned < events.length || Buffer.byteLength(payload, 'utf8') > 100000) {
+    throw new Error('The snapshot must contain current events and fit within 100 KB.')
   }
   process.stdout.write(payload)
 } catch (error) {

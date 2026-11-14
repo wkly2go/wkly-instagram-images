@@ -7,7 +7,6 @@ export interface SeoulEventSnapshot {
   scanned: number
   limited: boolean
   sourceKind?: 'portal' | 'sheet'
-  archived?: boolean
 }
 
 const INVALID_RESPONSE = '서울시 행사 응답을 확인하지 못했습니다. 다시 불러오거나 CSV 파일을 이용해 주세요.'
@@ -38,17 +37,33 @@ export function parseSeoulEventSnapshot(raw: unknown): SeoulEventSnapshot {
     total: data.total as number, scanned: data.scanned as number,
     limited: data.limited || (data.scanned as number) < (data.total as number),
     sourceKind: data.sourceKind === 'portal' ? 'portal' : 'sheet',
-    archived: data.archived === true,
   }
 }
 
-/** Never place an upstream API key or arbitrary fetch URL in the browser. */
+const LIVE_URL = '/api/seoul-events'
+const ARCHIVE_URL = 'https://raw.githubusercontent.com/wkly2go/wkly-instagram-images/refs/heads/data/seoul-events/seoul-events.json'
+const BUNDLED_URL = '/data/seoul-events.json'
+
+/** All endpoints are fixed. The public archive receives no account data. */
 export async function fetchSeoulEvents(signal: AbortSignal, archived = false): Promise<SeoulEventSnapshot> {
-  const path = archived ? '/data/seoul-events.json' : '/api/seoul-events'
-  const response = await fetch(path, { signal, headers: { Accept: 'application/json' }, credentials: 'same-origin' })
-  if (!response.ok) throw new Error('서울시 행사를 자동으로 불러오지 못했습니다. 잠시 후 다시 시도하거나 CSV 파일을 이용해 주세요.')
-  let data: unknown
-  try { data = await response.json() }
-  catch { throw new Error(INVALID_RESPONSE) }
-  return parseSeoulEventSnapshot(data)
+  async function read(path: string, publicArchive = false) {
+    const response = await fetch(path, {
+      signal, headers: { Accept: 'application/json' },
+      credentials: publicArchive ? 'omit' : 'same-origin',
+      ...(publicArchive ? { referrerPolicy: 'no-referrer' as const } : {}),
+    })
+    if (!response.ok) throw new Error('서울시 행사를 자동으로 불러오지 못했습니다. 잠시 후 다시 시도하거나 CSV 파일을 이용해 주세요.')
+    let data: unknown
+    try { data = await response.json() }
+    catch { throw new Error(INVALID_RESPONSE) }
+    return parseSeoulEventSnapshot(data)
+  }
+  if (!archived) return read(LIVE_URL)
+  try {
+    const latest = await read(ARCHIVE_URL, true)
+    if (latest.events.length) return latest
+  } catch (error) {
+    if (signal.aborted) throw error
+  }
+  return read(BUNDLED_URL)
 }

@@ -44,7 +44,7 @@ afterEach(async () => {
 after(async () => { await server.close(); dom.window.close() })
 async function mount() {
   globalThis.fetch = (url, init) => {
-    assert.ok(['/api/seoul-events', '/data/seoul-events.json'].includes(url), 'no external network is permitted')
+    assert.ok(['/api/seoul-events', '/data/seoul-events.json', 'https://raw.githubusercontent.com/wkly2go/wkly-instagram-images/refs/heads/data/seoul-events/seoul-events.json'].includes(url), 'no external network is permitted')
     calls.push({ url, init })
     return new Promise(resolve => pending.push(resolve))
   }
@@ -116,7 +116,10 @@ test('unmount aborts automatic fetch and ignores a server response arriving afte
 test('a failed first lookup automatically shows the dated snapshot without claiming a live response', async () => {
   await mount()
   await respond({ error: 'upstream failed' }, 502)
-  assert.equal(calls[1].url, '/data/seoul-events.json')
+  assert.match(calls[1].url, /raw\.githubusercontent\.com.+seoul-events\.json$/)
+  assert.equal(calls[1].init.credentials, 'omit')
+  await respond({ error: 'archive unavailable' }, 503)
+  assert.equal(calls[2].url, '/data/seoul-events.json')
   await respond(snapshot())
   assert.ok(screen.getByText('테스트 축제'))
   assert.ok(screen.getByText(/이전에 확보한 서울시 목록/))
