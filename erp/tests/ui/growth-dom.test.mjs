@@ -50,7 +50,7 @@ before(async () => {
   ;({ MeetingRecorder } = await server.ssrLoadModule('/src/components/MeetingRecorder.tsx'))
   ;({ MeetingStartUncertainError } = await server.ssrLoadModule('/src/lib/meetingProgress.ts'))
   assert.equal(api.mode, 'demo')
-  originals = { getGrowth: api.getGrowth, linkGrowthSales: api.linkGrowthSales, getSales: api.getSales, listSalesActivities: api.listSalesActivities, addSalesActivity: api.addSalesActivity, checkSalesActivity: api.checkSalesActivity, listProjects: api.listProjects, listSalesOrigins: api.listSalesOrigins, instagramContacts: api.instagramContacts, getAiState: api.getAiState, runGrowthAi: api.runGrowthAi, configureAi: api.configureAi, reconcileAi: api.reconcileAi, mode: api.mode, listAgentJobs: api.listAgentJobs, saveSales: api.saveSales, saveGrowth: api.saveGrowth, startMeetingMinutes: api.startMeetingMinutes, getMeetingRecording: api.getMeetingRecording, searchTenders: api.searchTenders }
+  originals = { getSalesReport: api.getSalesReport, reviewSalesProspect:api.reviewSalesProspect, startSalesProspect:api.startSalesProspect, getGrowth: api.getGrowth, linkGrowthSales: api.linkGrowthSales, getSales: api.getSales, listSalesActivities: api.listSalesActivities, addSalesActivity: api.addSalesActivity, checkSalesActivity: api.checkSalesActivity, listProjects: api.listProjects, listSalesOrigins: api.listSalesOrigins, instagramContacts: api.instagramContacts, getAiState: api.getAiState, runGrowthAi: api.runGrowthAi, configureAi: api.configureAi, reconcileAi: api.reconcileAi, mode: api.mode, listAgentJobs: api.listAgentJobs, saveSales: api.saveSales, saveGrowth: api.saveGrowth, startMeetingMinutes: api.startMeetingMinutes, getMeetingRecording: api.getMeetingRecording, searchTenders: api.searchTenders }
 })
 afterEach(async () => {
   if (root) await act(async () => root.unmount())
@@ -1455,4 +1455,22 @@ test('standalone contact desk shows details, edits metadata and records activity
   assert.ok(plan.getByText('저장 전 통화 메모'))
   assert.equal(plan.queryByRole('link'), null)
   assert.equal(location.href, url)
+})
+
+
+test('sales report explains source failures and saves evidence-based company/person classification in place', async () => {
+  const { EMPTY_REPORT } = await server.ssrLoadModule('/src/lib/salesReport.ts')
+  const p={id:crypto.randomUUID(),name:'분류할 담당자',entity_kind:'미분류',organization:'공식 브랜드',contact:'person@example.test',source:'민간 영업 후보',source_url:'https://example.test',evidence:'팝업 운영 문의',source_updated_at:'2026-11-14T00:00:00Z',collected_at:'2026-11-14T00:00:00Z',created_at:'2026-11-14T00:00:00Z',linked_sales_id:null,assessment:'확인 필요',score:65,reasons:'소속과 권한 확인 필요',next_action:'담당 부서 확인',blocked:false,reviewed_kind:null,reviewed_assessment:null,review_note:'',revision:1}
+  api.getSalesReport=async()=>({...structuredClone(EMPTY_REPORT),prospects:[p],total:1,counts:{total:1,companies:0,people:0,new:1,priority:0},sources:[{source:'서울시 문화행사',status:'실패',count:0,source_at:null,note:'공식 API 승인 확인 필요'}]})
+  let submitted
+  api.reviewSalesProspect=async(...args)=>{submitted=args;Object.assign(p,{reviewed_kind:args[2],reviewed_assessment:args[3],review_note:args[4],revision:2})}
+  const s=await mount('admin'),url=location.href
+  assert.ok(s.getByRole('heading',{name:'오늘의 영업 보고'}));assert.ok(s.getByText('공식 API 승인 확인 필요'))
+  const region=within(s.getByRole('region',{name:'영업처 · 분류할 담당자'}))
+  await click(region.getByRole('button',{name:'분류 수정'}))
+  await act(async()=>user.selectOptions(region.getByLabelText('회사·사람 구분'),'사람'))
+  await type(region.getByLabelText('판단 근거'),'공식 담당자 소개에서 소속 확인')
+  await click(region.getByRole('button',{name:'분류 저장'}))
+  assert.equal(submitted[2],'사람');assert.equal(submitted[1],1);assert.equal(location.href,url)
+  assert.ok(region.getByText('사람',{exact:true}));assert.ok(region.getByText(/담당 검토: 공식 담당자 소개/))
 })

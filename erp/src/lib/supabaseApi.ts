@@ -1,3 +1,4 @@
+import { createSupabaseSalesReportApi } from './salesReport'
 import { createSupabaseGrowthApi } from './growthApi'
 import { createSupabaseSalesApi } from './salesApi'
 import { makeImagePreview, sitePreviewPath } from './imagePreview'
@@ -193,6 +194,7 @@ export function createSupabaseApi(url: string, key: string): Api {
 
   return {
     ...createSupabaseSalesApi(sb),
+    ...createSupabaseSalesReportApi(sb),
     ...createSupabaseGrowthApi(sb),
     ...createSupabaseMarketingApi(sb, signedUrls),
     mode: 'supabase',
