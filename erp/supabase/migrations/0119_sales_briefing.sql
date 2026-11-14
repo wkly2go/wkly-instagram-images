@@ -101,6 +101,10 @@ begin
  if not pg_try_advisory_xact_lock(hashtextextended('sales_daily_collect',0)) then return; end if;
  -- Manual retries cannot overlap or create a request storm.
  if exists(select 1 from public.sales_collection_runs where started_at>now()-interval '5 minutes') then return; end if;
+ -- Ended events disappear from fresh API pages; age the saved assessment too.
+ -- Keep the original record and explicit human review for next-edition follow-up.
+ update public.sales_prospects set assessment='보류',score=0,reasons='행사 종료 · 다음 회차 또는 후속 수요 확인 필요',next_action='다음 행사 일정과 미발주 범위를 확인한 뒤 다시 검토',revision=revision+1
+ where source in ('서울시 문화행사','코엑스 행사') and end_date<(now() at time zone 'Asia/Seoul')::date and not blocked and assessment not in ('보류','제외');
  n:=private.sales_collect_internal();
  insert into public.sales_collection_runs(source,status,count,source_at,finished_at,note) values('사내 영업 자료','완료',n,now(),now(),'거래처·담당자·브랜드 연락처·민간 후보·보관 공고·리서치 통합. 진행 영업은 실시간 집계.');
  foreach s in array array['서울시 문화행사','코엑스 행사'] loop

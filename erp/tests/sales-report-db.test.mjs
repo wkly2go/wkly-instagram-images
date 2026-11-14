@@ -84,3 +84,11 @@ test('daily briefing is exactly once, flags stale coverage, retains source evide
  const schedules=(await db.query('select * from cron.job')).rows;assert.equal(schedules.find(s=>s.jobname==='wkly_sales_collect').schedule,'0,20,40 23 * * *');assert.equal(schedules.find(s=>s.jobname==='wkly_sales_brief').schedule,'0 0 * * *');
  const report=(await asUser(member,()=>db.query("select sales_report('', '사람', '', 0) r"))).rows[0].r;assert.equal(report.total,1);assert.equal(report.prospects[0].entity_kind,'사람');assert.equal(report.counts.companies,2);
 })
+test('daily collection retires ended events absent from API pages while preserving human review and identity',async()=>{
+ const p=await prospect('서울시 문화행사');
+ await asUser(admin,()=>db.query("select sales_prospect_review($1,$2,'영업 기회','확인 필요','다음 회차 협의 예정')",[p.id,p.revision]));
+ await db.query("update sales_prospects set end_date='2000-01-01' where id=$1",[p.id]);
+ await db.query("update sales_collection_runs set started_at=now()-interval '6 minutes'");
+ await db.query('select private.sales_collect()');
+ const aged=await prospect('서울시 문화행사');assert.equal(aged.id,p.id);assert.equal(aged.assessment,'보류');assert.equal(aged.score,0);assert.equal(aged.reviewed_assessment,'확인 필요');assert.equal(aged.review_note,'다음 회차 협의 예정');assert.ok(await prospect('담당자'));
+})
