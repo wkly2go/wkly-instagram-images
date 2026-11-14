@@ -1496,6 +1496,25 @@ test('sales report lists evidence, guards drafts and requires verification befor
   assert.ok(s.getByRole('region',{name:'영업 진행 내용'}));assert.equal(location.href,url)
 })
 
+test('stale verification refresh preserves the draft and retries only after reviewing the latest source',async()=>{
+ const {EMPTY_REPORT}=await server.ssrLoadModule('/src/lib/salesReport.ts')
+ let p={id:crypto.randomUUID(),name:'갱신된 후보',entity_kind:'회사',organization:'공식 브랜드',contact:'',source:'거래처',source_url:'',evidence:'처음 받은 협력 제안',assessment:'확인 필요',review_note:'',revision:1,blocked:false,verification_current:false}
+ api.getSalesReport=async()=>({...structuredClone(EMPTY_REPORT),prospects:[p],total:1});api.getSalesProspect=async()=>structuredClone(p)
+ const revisions=[]
+ api.verifySalesProspect=async(id,revision,value,kind)=>{revisions.push(revision);if(revision!==p.revision)throw new Error('자료가 변경됐습니다. 다시 불러와 검증해 주세요.');p={...p,revision:revision+1,verification:value,reviewed_kind:kind};return structuredClone(p)}
+ const s=await mount('admin');await click(s.getByRole('button',{name:'내용 검증'}));let review=panel('내용 검증 · 갱신된 후보')
+ await type(review.getByLabelText('실제 요청·수요'),'공동 고객 건은 확인 필요')
+ await type(review.getByLabelText('검증 근거·확인일'),'저장 기록 대조, 원문 회신은 추가 확인')
+ p={...p,revision:2,evidence:'담당자의 수정된 협력 제안'}
+ await click(review.getByRole('button',{name:'검증 결과 저장'}));assert.ok(review.getByRole('alert'))
+ await click(review.getByRole('button',{name:'입력 유지하고 최신 자료 확인'}))
+ assert.equal(review.getByLabelText('실제 요청·수요').value,'공동 고객 건은 확인 필요')
+ assert.ok(review.getByText('담당자의 수정된 협력 제안'));assert.match(review.getByRole('status').textContent,/작성한 검증 내용은 유지/)
+ assert.deepEqual(revisions,[1]);assert.equal(review.getByRole('button',{name:'검증한 내용으로 영업 시작'}).disabled,true)
+ await click(review.getByRole('button',{name:'검증 결과 저장'}));assert.deepEqual(revisions,[1,2]);review=panel('내용 검증 · 갱신된 후보')
+ assert.equal(review.queryByRole('alert'),null);assert.equal(review.getByLabelText('실제 요청·수요').value,'공동 고객 건은 확인 필요')
+})
+
 test('member can inspect supplier evidence and methods without approving a shared prospect',async()=>{
  const {EMPTY_REPORT}=await server.ssrLoadModule('/src/lib/salesReport.ts')
  const p={id:crypto.randomUUID(),name:'패키지 파트너',entity_kind:'회사',organization:'패키지 파트너',source:'민간 영업 후보',contact:'partner@example.test',evidence:'패키지 제작 크루 참여 협업 제안',source_url:'https://example.test',assessment:'확인 필요',review_note:'',revision:1,blocked:false,verification_current:false}

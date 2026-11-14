@@ -6,20 +6,28 @@ import { SalesMethodAdvice } from './SalesMethodAdvice'
 import { useDraftGuard } from './SalesEditor'
 import { Button, Field } from './ui'
 
-export function SalesProspectReview({prospect:p,onUpdated,onClose,onStart,opening}:{prospect:SalesProspect;onUpdated:(p:SalesProspect)=>void;onClose:()=>void;onStart:()=>void;opening:boolean}){
+export function SalesProspectReview({prospect,onUpdated,onClose,onStart,opening}:{prospect:SalesProspect;onUpdated:(p:SalesProspect)=>void;onClose:()=>void;onStart:()=>void;opening:boolean}){
  const {api,me,profileName}=useApp(),panel=useRef<HTMLElement>(null)
+ const [latest,setLatest]=useState<SalesProspect|null>(null),p=latest??prospect
  const initial:ProspectVerification={role:p.verification?.role??'미확인',need:p.verification?.need??'',scope:p.verification?.scope??'',evidence:p.verification?.evidence??'',status:p.verification?.status??'추가 확인'}
  const [kind,setKind]=useState<EntityKind>(effectiveKind(p))
- const [value,setValue]=useState(initial),[busy,setBusy]=useState(false),[error,setError]=useState('')
+ const [value,setValue]=useState(initial),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('')
  const dirty=kind!==effectiveKind(p)||JSON.stringify(value)!==JSON.stringify(initial),guard=useDraftGuard(dirty,busy||opening)
  const editable=me.role==='admin',method=recommendSalesMethod({...p,assessment:effectiveAssessment(p),verifiedRole:p.verification_current?p.verification?.role:undefined})
  useEffect(()=>{panel.current?.focus()},[p.id])
  const set=<K extends keyof ProspectVerification>(key:K,v:ProspectVerification[K])=>setValue(old=>({...old,[key]:v}))
  const save=async()=>{
   if(busy)return
-  setBusy(true);setError('')
+  setBusy(true);setError('');setNotice('')
   try{const row=await api.verifySalesProspect(p.id,p.revision,value,kind);guard.afterSaved(()=>onUpdated(row))}
   catch(e){setError(e instanceof Error?e.message:'검증 결과를 저장하지 못했습니다.')}
+  finally{setBusy(false)}
+ }
+ const refresh=async()=>{
+  if(busy)return
+  setBusy(true);setError('');setNotice('')
+  try{setLatest(await api.getSalesProspect(p.id));setNotice('최신 자료를 불러왔습니다. 작성한 검증 내용은 유지했습니다. 원문 변경 사항과 대조한 뒤 다시 저장해 주세요.')}
+  catch(e){setError(e instanceof Error?e.message:'최신 자료를 불러오지 못했습니다.')}
   finally{setBusy(false)}
  }
  return <section ref={panel} tabIndex={-1} className="sales-prospect-verification" aria-label={`내용 검증 · ${p.name}`}>
@@ -38,7 +46,8 @@ export function SalesProspectReview({prospect:p,onUpdated,onClose,onStart,openin
    <Field label="우리가 맡을 업무 범위"><textarea className="input" disabled={!editable||busy} value={value.scope} maxLength={2000} required={value.status==='확인'} placeholder="예: 공간 설계·제작 견적. 협력사는 실제 고객 건과 공동 수행 범위를 기록" onChange={e=>set('scope',e.target.value)}/></Field>
    <Field label="검증 근거·확인일"><textarea className="input" disabled={!editable||busy} value={value.evidence} maxLength={2000} required placeholder="원문 제목·날짜·담당자 답변 등 확인한 사실과 아직 모르는 사항" onChange={e=>set('evidence',e.target.value)}/></Field>
    <Field label="검증 결과"><select className="select" disabled={!editable||busy} value={value.status} onChange={e=>set('status',e.target.value as ProspectVerification['status'])}><option>추가 확인</option><option disabled={p.blocked}>확인</option><option>보류</option><option>제외</option></select></Field>
-   {error&&<p role="alert" className="sales-report-alert">{error}</p>}
+   {error&&<div><p role="alert" className="sales-report-alert">{error}</p>{editable&&<Button kind="outline" disabled={busy||opening} onClick={()=>void refresh()}>입력 유지하고 최신 자료 확인</Button>}</div>}
+   {notice&&<p role="status" className="sales-report-note">{notice}</p>}
    <div className="row wrap">{editable?<Button type="submit" disabled={busy||opening||!value.evidence.trim()||(value.status==='확인'&&(value.role==='미확인'||!value.need.trim()||!value.scope.trim()||p.blocked))}>{busy?'저장 중…':'검증 결과 저장'}</Button>:<p className="sales-report-note">관리자가 공용 영업망의 검증 결과를 저장할 수 있습니다.</p>}
    <Button kind="outline" disabled={busy||opening||dirty||(!p.linked_sales_id&&(!p.verification_current||['제외','보류'].includes(effectiveAssessment(p))))} onClick={onStart}>{p.linked_sales_id?'진행 내용 열기':'검증한 내용으로 영업 시작'}</Button></div>
    {!p.linked_sales_id&&!p.verification_current&&<p className="sales-report-note">역할·실제 수요·수행 범위·근거를 확인으로 저장하면 영업을 시작할 수 있습니다.</p>}

@@ -31,6 +31,7 @@ before(async()=>{
  await db.exec(await sql('0113_sales_pipeline.sql'))
  await db.exec(await sql('0119_sales_briefing.sql'))
  await db.exec(await sql('0120_sales_verification.sql'))
+ await db.exec(await sql('0121_sales_verification_fast_path.sql'))
  await db.query('insert into clients values($1,$2,$3,$4,$5,$6,$7,now())',[client,'테스트 브랜드','클라이언트','팝업 전시 기획','team@example.com','02-000-0000','https://example.com'])
  await db.query('insert into contacts values($1,$2,$3,$4,$5,$6,$7,now())',[person,client,'동명 담당자','마케팅 팀장','','human@example.com','팝업 문의'])
 })
@@ -114,7 +115,7 @@ test('verification enforces role, proof, revision and administrator permissions'
  }
  const held=await verify(p,'추가 확인','미확인');assert.equal(held.verification_current,false);
  await assert.rejects(asUser(member,()=>db.query('select sales_prospect_start($1)',[p.id])),/검증/);
- await assert.rejects(verify(p),e=>e.code==='40001');
+ await assert.rejects(verify(p),e=>e.code==='PT409');
  const checked=await verify(held);assert.equal(checked.verification_current,true);assert.equal(checked.verification.verified_by,admin);assert.equal(checked.reviewed_kind,'회사');
  const id=(await asUser(member,()=>db.query('select sales_prospect_start($1) id',[p.id]))).rows[0].id;
  const saved=(await db.query('select * from sales_opportunities where id=$1',[id])).rows[0];assert.match(saved.title,/팝업 제작 견적 요청/);assert.match(saved.description,/검증 근거:/);assert.equal(saved.expected_amount,null);
