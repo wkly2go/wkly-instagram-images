@@ -9,6 +9,8 @@ import { emptySalesPlan, readSalesPlan, SALES_PLAN_LIMITS, seedSalesPlanFromCand
 import { Button, Field, Modal } from './ui'
 import { SalesOrigins } from './SalesOrigins'
 import { SalesPlaybook } from './SalesPlaybook'
+import { SalesMethodAdvice } from './SalesMethodAdvice'
+import { methodInputFromDraft, methodInputFromGrowth } from '../lib/salesMethods'
 import { SalesPlanOutput, SalesPlanSheet } from './SalesPlanSheet'
 import { ProspectingPlanner } from './ProspectingPlanner'
 import { SalesActivities } from './SalesActivities'
@@ -241,6 +243,10 @@ export function SalesEditor({ initial, seed, candidate, onClose, onSaved, discov
 
       <Field label="출처 주소" className="full"><input className="input" type="url" maxLength={2000} value={draft.source_url} onChange={e => set({ source_url: e.target.value })} placeholder="https://" /></Field>
     </fieldset>
+    {(!discovery || prospectApplied) && <SalesMethodAdvice input={contact?methodInputFromGrowth(contact.candidate):methodInputFromDraft(draft)} disabled={busy || prospectPending} onApplyNext={value=>{
+      if(draft.next_action&&draft.next_action!==value&&!window.confirm('기존 다음 행동을 제안한 영업 방법으로 바꿀까요?'))return
+      set({next_action:value})
+    }}/>}
     {(!discovery || prospectApplied) && <SalesPlanSheet draft={draft} onChange={set} disabled={busy || prospectPending} ownerName={profileName(draft.owner_id)} />}
     <fieldset disabled={busy} className="sales-fieldset form-grid sales-editor-basics">
       <Field label="다음 연락일"><input className="input" type="date" value={draft.next_date ?? ''} onChange={e => set({ next_date: e.target.value || null })} /></Field>

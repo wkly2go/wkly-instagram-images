@@ -30,6 +30,7 @@ before(async()=>{
  grant usage on schema public,auth to authenticated,anon;`)
  await db.exec(await sql('0113_sales_pipeline.sql'))
  await db.exec(await sql('0119_sales_briefing.sql'))
+ await db.exec(await sql('0120_sales_verification.sql'))
  await db.query('insert into clients values($1,$2,$3,$4,$5,$6,$7,now())',[client,'테스트 브랜드','클라이언트','팝업 전시 기획','team@example.com','02-000-0000','https://example.com'])
  await db.query('insert into contacts values($1,$2,$3,$4,$5,$6,$7,now())',[person,client,'동명 담당자','마케팅 팀장','','human@example.com','팝업 문의'])
 })
@@ -37,7 +38,7 @@ after(()=>db.close())
 async function asUser(id,fn,role='authenticated'){await db.query("select set_config('request.jwt.claim.sub',$1,false)",[id??'']);await db.exec(`set role ${role}`);try{return await fn()}finally{await db.exec('reset role')}}
 async function prospect(source='거래처'){return(await db.query('select * from sales_prospects where source=$1 limit 1',[source])).rows[0]}
 test('company/person stay separate with real affiliation; repeat collection preserves identity and manual review',async()=>{
- await db.query('select private.sales_collect_internal()');const company=await prospect(),human=await prospect('담당자');assert.equal(company.entity_kind,'회사');assert.equal(human.entity_kind,'사람');assert.equal(human.client_id,company.client_id);assert.equal(company.assessment,'우선 검토');
+ await db.query('select private.sales_collect_internal()');const company=await prospect(),human=await prospect('담당자');assert.equal(company.entity_kind,'회사');assert.equal(human.entity_kind,'사람');assert.equal(human.client_id,company.client_id);assert.equal(company.assessment,'확인 필요');
  await asUser(admin,()=>db.query("select sales_prospect_review($1,$2,'회사','보류','다음 분기 협의')",[company.id,company.revision]));
  await db.query('select private.sales_collect_internal()');const again=await prospect();assert.equal(again.id,company.id);assert.equal(again.reviewed_assessment,'보류');assert.equal(again.review_note,'다음 분기 협의');assert.equal((await db.query('select count(*) n from sales_prospects')).rows[0].n,2);
  await assert.rejects(asUser(admin,()=>db.query("select sales_prospect_review($1,$2,'회사','우선 검토','갱신 충돌')",[company.id,company.revision])),e=>e.code==='40001');
@@ -55,7 +56,10 @@ test('opt-out overrides suitability and manual classification and prevents new p
  await assert.rejects(asUser(admin,()=>db.query("select sales_prospect_review($1,$2,'회사','우선 검토','우회')",[p.id,p.revision])),/수신 거부/);
 })
 test('starting sales is idempotent, preserves company/contact links, and starts in discovery',async()=>{
- const p=await prospect('담당자');const start=()=>asUser(member,()=>db.query('select sales_prospect_start($1) id',[p.id]));const a=(await start()).rows[0].id,b=(await start()).rows[0].id;assert.equal(a,b);
+ const p=await prospect('담당자');
+ await assert.rejects(asUser(member,()=>db.query('select sales_prospect_start($1)',[p.id])),/검증/);
+ await asUser(admin,()=>db.query("select sales_prospect_verify($1,$2,'발주처','팝업 제작 견적 요청','미발주 공간 제작','담당자의 원문 요청 확인','확인','사람')",[p.id,p.revision]));
+ const start=()=>asUser(member,()=>db.query('select sales_prospect_start($1) id',[p.id]));const a=(await start()).rows[0].id,b=(await start()).rows[0].id;assert.equal(a,b);
  const saved=(await db.query('select * from sales_opportunities where id=$1',[a])).rows[0];assert.equal(saved.stage,'발굴');assert.equal(saved.owner_id,member);assert.equal(saved.client_id,client);assert.equal(saved.contact_id,person);assert.equal(saved.expected_amount,null);
 })
 test('collection deduplicates requests, official API worker claims once, fallback is used only for COEX',async()=>{
@@ -91,4 +95,44 @@ test('daily collection retires ended events absent from API pages while preservi
  await db.query("update sales_collection_runs set started_at=now()-interval '6 minutes'");
  await db.query('select private.sales_collect()');
  const aged=await prospect('서울시 문화행사');assert.equal(aged.id,p.id);assert.equal(aged.assessment,'보류');assert.equal(aged.score,0);assert.equal(aged.reviewed_assessment,'확인 필요');assert.equal(aged.review_note,'다음 회차 협의 예정');assert.ok(await prospect('담당자'));
+})
+
+async function indexFixture(key,data){await db.query('select private.sales_index($1,$2,$3)', ['민간 영업 후보',key,JSON.stringify(data)]);return (await db.query('select * from sales_prospects where source_key=$1',[key])).rows[0]}
+async function verify(p,status='확인',role='발주처') {return(await asUser(admin,()=>db.query("select sales_prospect_verify($1,$2,$3,'팝업 제작 견적 요청','미발주 공간 제작','원문과 담당자 회신 대조',$4,'회사') p",[p.id,p.revision,role,status]))).rows[0].p}
+test('supplier pitches and public events are not ranked as verified customer demand; briefing retains source evidence',async()=>{
+ const supplier=await indexFixture(randomUUID(),{name:'패키지 파트너',evidence:'팝업 패키지 제작 크루 참여 협업 제안',source_url:'https://example.com',contact:'partner@example.com',source_updated_at:new Date().toISOString()});
+ assert.equal(supplier.assessment,'확인 필요');assert.ok(supplier.score<=40);assert.match(supplier.reasons,/공급·협력/);assert.match(supplier.next_action,/실제 공동 고객/);
+ const event=await prospect('코엑스 행사');assert.equal(event.assessment,'확인 필요');
+ const actions=(await db.query('select private.sales_brief_actions() a')).rows[0].a;assert.ok(actions.every(a=>'evidence' in a&&'verification_current' in a));assert.ok(actions.every(a=>!a.verification_current));
+})
+test('verification enforces role, proof, revision and administrator permissions',async()=>{
+ const p=await indexFixture(randomUUID(),{name:'검증 권한',evidence:'팝업 견적 요청'});
+ await assert.rejects(asUser(null,()=>db.query('select sales_prospect_get($1)',[p.id]),'anon'),e=>e.code==='42501');
+ await assert.rejects(asUser(member,()=>db.query("select sales_prospect_verify($1,$2,'발주처','수요','범위','근거','확인','회사')",[p.id,p.revision])),e=>e.code==='42501');
+ for(const [role,need,scope,proof] of [['미확인','수요','범위','근거'],['발주처',' ','범위','근거'],['발주처','수요','','근거'],['발주처','수요','범위',' ']]){
+  await assert.rejects(asUser(admin,()=>db.query("select sales_prospect_verify($1,$2,$3,$4,$5,$6,'확인','회사')",[p.id,p.revision,role,need,scope,proof])));
+ }
+ const held=await verify(p,'추가 확인','미확인');assert.equal(held.verification_current,false);
+ await assert.rejects(asUser(member,()=>db.query('select sales_prospect_start($1)',[p.id])),/검증/);
+ await assert.rejects(verify(p),e=>e.code==='40001');
+ const checked=await verify(held);assert.equal(checked.verification_current,true);assert.equal(checked.verification.verified_by,admin);assert.equal(checked.reviewed_kind,'회사');
+ const id=(await asUser(member,()=>db.query('select sales_prospect_start($1) id',[p.id]))).rows[0].id;
+ const saved=(await db.query('select * from sales_opportunities where id=$1',[id])).rows[0];assert.match(saved.title,/팝업 제작 견적 요청/);assert.match(saved.description,/검증 근거:/);assert.equal(saved.expected_amount,null);
+})
+test('unchanged daily refresh preserves verification but source changes require review again',async()=>{
+ const key=randomUUID(),data={name:'재검증 브랜드',evidence:'팝업 견적 요청',contact:'review@example.com',source_updated_at:'2026-01-01T00:00:00Z'};
+ let p=await indexFixture(key,data);p=await verify(p);assert.equal(p.verification_current,true);
+ p=await indexFixture(key,{...data,source_updated_at:new Date().toISOString()});
+ const get=async()=>(await asUser(member,()=>db.query('select sales_prospect_get($1) p',[p.id]))).rows[0].p;
+ assert.equal((await get()).verification_current,true);
+ p=await indexFixture(key,{...data,evidence:'견적 요청 취소. 다른 업체 선정'});assert.equal((await get()).verification_current,false);
+ await assert.rejects(asUser(member,()=>db.query('select sales_prospect_start($1)',[p.id])),/검증/);
+ assert.equal((await get()).verification.need,'팝업 제작 견적 요청');
+})
+test('current opt-out defeats earlier verification even before the next collection',async()=>{
+ let p=await indexFixture(randomUUID(),{name:'연락 중단',evidence:'팝업 견적 요청',contact:'stopped@example.com'});p=await verify(p);assert.equal(p.verification_current,true);
+ await db.query('insert into brand_contacts(id,email,opt_out) values($1,$2,true)',[randomUUID(),'stopped@example.com']);
+ const current=(await asUser(member,()=>db.query('select sales_prospect_get($1) p',[p.id]))).rows[0].p;assert.equal(current.verification_current,false);assert.equal(current.blocked,true);
+ await assert.rejects(asUser(member,()=>db.query('select sales_prospect_start($1)',[p.id])),/제외/);
+ await assert.rejects(verify(p),/수신 거부/);
 })
