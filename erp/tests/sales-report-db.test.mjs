@@ -6,7 +6,7 @@ import {PGlite} from '@electric-sql/pglite'
 const db=new PGlite(), admin=randomUUID(), member=randomUUID(), client=randomUUID(), person=randomUUID()
 const sql=name=>readFile(new URL(`../supabase/migrations/${name}`,import.meta.url),'utf8')
 before(async()=>{
- await db.exec(`create role authenticated;create role anon;create role service_role;create schema auth;create schema private;create schema net;create schema cron;
+ await db.exec(`create role authenticated;create role anon;create role service_role;create schema vault;create table vault.decrypted_secrets(name text,decrypted_secret text);create schema auth;create schema private;create schema net;create schema cron;
  create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
  create table profiles(id uuid primary key,role text,active boolean,is_agent boolean default false);
  insert into profiles values('${admin}','admin',true,false),('${member}','member',true,false);

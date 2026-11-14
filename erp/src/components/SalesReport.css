@@ -7,3 +7,6 @@
 @media print{.sales-report{padding:0;border:0;font-size:11pt}.sales-report .btn,.sales-report-toolbar,.sales-report-filters,.sales-report-pagination,.sales-report-review{display:none!important}.sales-report-section{break-inside:auto}.sales-report-masthead,.sales-report-summary,.sales-report-method{break-inside:avoid}.sales-report{print-color-adjust:exact}}
 
 .sales-report-pipeline{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:8px}.sales-report-pipeline>div{border:1px solid var(--report-line);padding:12px;text-align:center;background:#fafbf7;border-radius:6px}.sales-report-pipeline span{display:block;font-size:12px;color:#657267}.sales-report-pipeline strong{display:block;font-size:24px}.sales-report-pipeline small{font-size:11px;margin-left:3px;font-weight:400}@media(max-width:800px){.sales-report-pipeline{grid-template-columns:repeat(4,minmax(0,1fr))}}
+
+.sales-report-print{display:none}
+@media print{html:has(>body.sales-report-printing),body.sales-report-printing{height:auto;overflow:visible;background:white}body.sales-report-printing>:not(.sales-report-print){display:none!important}body.sales-report-printing>.sales-report-print{display:block;visibility:visible!important;padding:6mm;position:static;margin:0;width:auto}body.sales-report-printing>.sales-report-print *{visibility:visible!important}}

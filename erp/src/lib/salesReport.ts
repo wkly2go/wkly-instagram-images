@@ -1,3 +1,4 @@
+import type { SeoulEventSnapshot } from './seoulEventClient'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { ApiError } from './api'
 export const ENTITY_KINDS = ['회사','사람','영업 기회','미분류'] as const
@@ -23,6 +24,7 @@ export const effectiveAssessment=(p:SalesProspect):Assessment=>p.blocked?'제외
 export const effectiveKind=(p:SalesProspect):EntityKind=>p.reviewed_kind??p.entity_kind
 export const sourceIsStale=(s:CollectionSource,now=Date.now())=>!s.source_at||!Number.isFinite(Date.parse(s.source_at))||now-Date.parse(s.source_at)>86400000
 export interface SalesReportApi {
+ getCollectedSeoulEvents():Promise<SeoulEventSnapshot>;
  getSalesReport(filter:ReportFilter):Promise<SalesReport>;
  collectSalesReport():Promise<void>;
  reviewSalesProspect(id:string,revision:number,kind:EntityKind,assessment:Assessment,note:string):Promise<void>;
@@ -30,12 +32,14 @@ export interface SalesReportApi {
 }
 function fail(error:{code?:string;message:string}|null){if(error)throw new ApiError(['PGRST202','42883','42P01'].includes(error.code??'')?'영업 보고 서버를 준비하고 있습니다. 기존 영업 업무는 아래에서 계속 사용할 수 있습니다.':error.message)}
 export function createSupabaseSalesReportApi(sb:SupabaseClient):SalesReportApi{return {
+ async getCollectedSeoulEvents(){const r=await sb.rpc('sales_seoul_events');fail(r.error);return r.data as SeoulEventSnapshot},
  async getSalesReport(f){const r=await sb.rpc('sales_report',{p_search:f.search,p_kind:f.kind,p_assessment:f.assessment,p_page:f.page});fail(r.error);return r.data as SalesReport},
  async collectSalesReport(){const r=await sb.rpc('sales_collect_now');fail(r.error)},
  async reviewSalesProspect(id,revision,kind,assessment,note){const r=await sb.rpc('sales_prospect_review',{p_id:id,p_revision:revision,p_kind:kind,p_assessment:assessment,p_note:note});fail(r.error)},
  async startSalesProspect(id){const r=await sb.rpc('sales_prospect_start',{p_id:id});fail(r.error);return r.data as string},
 }}
 export function createDemoSalesReportApi():SalesReportApi{return {
+ async getCollectedSeoulEvents(){throw new ApiError('운영 계정에서 서울시 공식 API 자료를 확인해 주세요.')},
  async getSalesReport(){return structuredClone(EMPTY_REPORT)},
  async collectSalesReport(){throw new ApiError('체험 모드에서는 실제 자동 수집을 실행하지 않습니다.')},
  async reviewSalesProspect(){throw new ApiError('운영 계정에서 분류를 저장해 주세요.')},

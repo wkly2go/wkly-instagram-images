@@ -1,9 +1,16 @@
 import {test} from 'node:test'
 import assert from 'node:assert/strict'
-import {createSeoulWorker,parseSeoulApi,type SeoulWorkerDeps} from '../supabase/functions/sales-seoul/handler.ts'
+import {createSeoulWorker,parseSeoulApi,normalizeSeoulApiKey,type SeoulWorkerDeps} from '../supabase/functions/sales-seoul/handler.ts'
 const row={TITLE:'공식 전시',ORG_NAME:'행사 주최사',PLACE:'서울',STRTDATE:'2026-12-01 00:00:00',END_DATE:'2026-12-20 00:00:00',ORG_LINK:'https://culture.seoul.go.kr/culture/culture/cultureEvent/view.do?cultcode=123',CODENAME:'전시'}
 const envelope=(rows:unknown[],total=rows.length)=>({culturalEventInfo:{RESULT:{CODE:'INFO-000'},row:rows,list_total_count:total}})
 const request=()=>new Request('https://example.test',{method:'POST',body:JSON.stringify({runId:'11111111-1111-4111-8111-111111111111',token:'22222222-2222-4222-8222-222222222222'})})
+test('normalizes official saved URL or quoted key without accepting sample credentials or arbitrary hosts',()=>{
+ assert.equal(normalizeSeoulApiKey(' SEOUL_CULTURAL_EVENT_API_KEY="registeredKey" '),'registeredKey')
+ assert.equal(normalizeSeoulApiKey('http://openapi.seoul.go.kr:8088/registeredKey/json/culturalEventInfo/1/5/'),'registeredKey')
+ assert.equal(normalizeSeoulApiKey('https://other.test/registeredKey/json'),undefined)
+ assert.equal(normalizeSeoulApiKey('http://openapi.seoul.go.kr:8088/sample/json/culturalEventInfo/1/5'),undefined)
+ assert.equal(normalizeSeoulApiKey('http://openapi.seoul.go.kr:8088/(인증키)/json/culturalEventInfo/1/5'),undefined)
+})
 test('official API separates events from companies and removes expired events, unsafe links',()=>{
  const p=parseSeoulApi(envelope([row,{...row,TITLE:'지난 전시',END_DATE:'2026-11-01'},{...row,TITLE:'출처 확인',ORG_LINK:'https://evil.test/?key=secret',HMPG_ADDR:'javascript:alert(1)'}]),'2026-11-14')
  assert.equal(p.rows.length,2);assert.equal(p.rows[0].organization,'행사 주최사');assert.equal(p.rows[0].id,'cultcode:123');assert.equal(p.rows[1].url,'');assert.equal(p.scanned,3)

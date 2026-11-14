@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useApp, useAsync } from '../lib/app'
 import { todayKey } from '../lib/date'
 import { ASSESSMENTS, ENTITY_KINDS, EMPTY_REPORT, effectiveAssessment, effectiveKind, sourceIsStale, type Assessment, type EntityKind, type ReportFilter, type SalesProspect } from '../lib/salesReport'
@@ -10,6 +10,20 @@ import './SalesReport.css'
 const time=(s:string|null)=>s?new Date(s).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):'확인 전'
 export function SalesReport(){
  const {api,me,version}=useApp()
+ const reportNode=useRef<HTMLElement|null>(null),printCleanup=useRef<(()=>void)|null>(null)
+ useEffect(()=>()=>printCleanup.current?.(),[])
+ const printReport=()=>{
+  printCleanup.current?.()
+  if(!reportNode.current)return
+  const clone=reportNode.current.cloneNode(true) as HTMLElement
+  clone.classList.add('sales-report-print')
+  clone.querySelectorAll('.sales-report-toolbar,.sales-report-filters,.sales-report-pagination,.sales-report-review,.sales-work-panel,button').forEach(el=>el.remove())
+  clone.querySelectorAll('[id]').forEach(el=>el.removeAttribute('id'))
+  const cleanup=()=>{clone.remove();document.body.classList.remove('sales-report-printing');window.removeEventListener('afterprint',cleanup)}
+  printCleanup.current=cleanup
+  document.body.append(clone);document.body.classList.add('sales-report-printing');window.addEventListener('afterprint',cleanup,{once:true})
+  try{window.print()}catch{cleanup();setActionError('인쇄 창을 열지 못했습니다. 브라우저 인쇄 기능을 확인해 주세요.')}
+ }
  const [filter,setFilter]=useState<ReportFilter>({search:'',kind:'',assessment:'',page:0})
  const [input,setInput]=useState('')
  const [busy,setBusy]=useState(false),[notice,setNotice]=useState(''),[actionError,setActionError]=useState('')
@@ -25,12 +39,12 @@ export function SalesReport(){
  const current=briefing?.report_date===todayKey()
  const stale=data.sources.filter(s=>sourceIsStale(s)||s.status==='실패')
  const change=(patch:Partial<ReportFilter>)=>setFilter(f=>({...f,...patch,page:0}))
- return <article className="sales-report" aria-label="영업 일일 보고서">
+ return <article ref={reportNode} className="sales-report" aria-label="영업 일일 보고서">
   <header className="sales-report-masthead">
    <div><p className="sales-report-eyebrow">THE WKLY · DAILY SALES REPORT</p><h1>오늘의 영업 보고</h1><p>{new Date().toLocaleDateString('ko-KR',{timeZone:'Asia/Seoul',year:'numeric',month:'long',day:'numeric',weekday:'long'})}</p></div>
    <div className="sales-report-schedule"><strong>{automatic?'매일 자동 보고':'자동 보고 설정 확인 중'}</strong><span>08:00 자료 취합 → 09:00 브리핑 · 한국 시간</span><small>이 화면을 닫아도 서버에서 실행합니다.</small></div>
   </header>
-  <div className="sales-report-toolbar"><p>현황을 읽고, 아래 항목에서 바로 영업을 진행하세요.</p><div className="row wrap"><Button kind="outline" disabled={busy||loading} onClick={reload}>새로고침</Button>{me.role==='admin'&&<Button kind="outline" disabled={busy||pending||api.mode==='demo'} onClick={()=>run(async()=>{await api.collectSalesReport();setNotice('자료 취합을 시작했습니다. 외부 자료가 도착하면 자동으로 갱신됩니다.');reload()})}>지금 자료 취합</Button>}<Button kind="outline" onClick={()=>window.print()}>보고서 인쇄</Button></div></div>
+  <div className="sales-report-toolbar"><p>현황을 읽고, 아래 항목에서 바로 영업을 진행하세요.</p><div className="row wrap"><Button kind="outline" disabled={busy||loading} onClick={reload}>새로고침</Button>{me.role==='admin'&&<Button kind="outline" disabled={busy||pending||api.mode==='demo'} onClick={()=>run(async()=>{await api.collectSalesReport();setNotice('자료 취합을 시작했습니다. 외부 자료가 도착하면 자동으로 갱신됩니다.');reload()})}>지금 자료 취합</Button>}<Button kind="outline" onClick={printReport}>보고서 인쇄</Button></div></div>
   {api.mode==='demo'&&<p className="sales-report-note">체험 화면입니다. 운영 계정에서 실제 수집 자료와 매일 브리핑이 표시됩니다.</p>}
   {(error||actionError)&&<p role="alert" className="sales-report-alert">{actionError||error}</p>}
   {notice&&<p role="status" className="sales-report-note">{notice}</p>}
@@ -39,7 +53,8 @@ export function SalesReport(){
    <p className="sales-report-lead">{briefing?.summary??'연결된 영업 자료를 취합하면 신규 후보와 우선순위를 이곳에서 확인할 수 있습니다.'}</p>
    <p>{briefing?.direction??'회사·담당자·공개 행사 자료를 분석하고, 후속 연락과 신규 발굴의 실행 순서를 정리합니다.'}</p>
    {!current&&briefing&&<p className="sales-report-note">오늘 브리핑이 아직 없습니다. 위 내용은 마지막 발행본이며 아래 현황은 현재 자료입니다.</p>}
-   <div className="sales-report-metrics" aria-label="현재 영업 현황">{[['오늘 신규',data.counts.new,'건'],['우선 검토',data.counts.priority,'건'],['후속 연락',data.due,'건'],['회사',data.counts.companies,'곳'],['사람',data.counts.people,'명']].map(([label,value,unit])=><div key={label}><span>{label}</span><strong>{value}<small>{unit}</small></strong></div>)}</div>
+   <p className="sales-report-note">첫 취합에는 기존에 저장한 영업 자료가 포함됩니다.</p>
+   <div className="sales-report-metrics" aria-label="현재 영업 현황">{[['오늘 첫 취합',data.counts.new,'건'],['우선 검토',data.counts.priority,'건'],['후속 연락',data.due,'건'],['회사',data.counts.companies,'곳'],['사람',data.counts.people,'명']].map(([label,value,unit])=><div key={label}><span>{label}</span><strong>{value}<small>{unit}</small></strong></div>)}</div>
   </section>
   <section className="sales-report-section" aria-labelledby="sales-action-title"><div className="sales-report-section-title"><span>02</span><h2 id="sales-action-title">오늘의 실행 순서</h2></div>
    {data.due>0&&<p className="sales-report-priority">진행 영업 {data.due}건의 후속 연락일이 도래했습니다. 아래 ‘진행 중인 영업’에서 담당자·다음 행동을 먼저 확인하세요.</p>}
@@ -59,7 +74,7 @@ export function SalesReport(){
   <section className="sales-report-section" aria-labelledby="sales-source-title"><div className="sales-report-section-title"><span>05</span><h2 id="sales-source-title">자료 취합 현황</h2><small>{pending?'수집 진행 중':stale.length?`${stale.length}개 출처 확인 필요`:'출처별 수집 결과'}</small></div>
    {data.sources.map(s=><div className="sales-report-source" key={s.source}><div><strong>{s.source}</strong><span className={sourceIsStale(s)||s.status==='실패'?'sales-report-warn':''}>{s.status} · {s.count}건 · 자료 시각 {time(s.source_at)}</span></div><p>{s.note}</p></div>)}
    {!data.sources.length&&<p className="sales-report-empty">수집 이력이 아직 없습니다.</p>}
-   <p className="sales-report-note">서울시·코엑스 공개 목록과 인트라넷에 연결된 영업 자료를 취합합니다. 공개 목록의 제공 범위와 오류를 표시하며, 미연결 외부 자료는 포함하지 않습니다.</p>
+   <p className="sales-report-note">서울시 공식 API·코엑스 공개 목록과 인트라넷에 연결된 영업 자료를 취합합니다. 공개 목록의 제공 범위와 오류를 표시하며, 미연결 외부 자료는 포함하지 않습니다.</p>
   </section>
  </article>
 }

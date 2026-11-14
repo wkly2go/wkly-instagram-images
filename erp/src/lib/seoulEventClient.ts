@@ -6,7 +6,7 @@ export interface SeoulEventSnapshot {
   total: number
   scanned: number
   limited: boolean
-  sourceKind?: 'portal' | 'sheet'
+  sourceKind?: 'portal' | 'sheet' | 'api'
 }
 
 const INVALID_RESPONSE = '서울시 행사 응답을 확인하지 못했습니다. 다시 불러오거나 CSV 파일을 이용해 주세요.'

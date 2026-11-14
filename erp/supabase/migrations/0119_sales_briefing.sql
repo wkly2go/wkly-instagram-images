@@ -10,7 +10,7 @@ create table public.sales_prospects (
  linked_sales_id uuid references public.sales_opportunities(id),
  assessment text not null default '확인 필요' check(assessment in ('우선 검토','확인 필요','보류','제외')),
  score integer not null default 0 check(score between 0 and 100), reasons text not null default '', next_action text not null default '',
- blocked boolean not null default false, end_date date,
+ blocked boolean not null default false, end_date date, event_data jsonb not null default '{}'::jsonb,
  reviewed_kind text check(reviewed_kind in ('회사','사람','영업 기회','미분류')),
  reviewed_assessment text check(reviewed_assessment in ('우선 검토','확인 필요','보류','제외')),
  review_note text not null default '', reviewed_by uuid references public.profiles(id), reviewed_at timestamptz,
@@ -20,7 +20,7 @@ create index sales_prospects_rank on public.sales_prospects(score desc,created_a
 create table public.sales_collection_runs (
  id uuid primary key default gen_random_uuid(), report_date date not null default (now() at time zone 'Asia/Seoul')::date,
  source text not null, status text not null check(status in ('수집 중','완료','일부 수집','실패')),
- count integer not null default 0, source_at timestamptz, note text not null default '',
+ count integer not null default 0, scanned integer, total integer, source_at timestamptz, note text not null default '',
  started_at timestamptz not null default now(), finished_at timestamptz
 );
 create table private.sales_collection_requests (
@@ -69,9 +69,9 @@ begin
  if not public.growth_safe_url(p.source_url) then p.source_url:=''; end if;
  p.blocked:=coalesce(p.blocked,false) or exists(select 1 from public.brand_contacts b where b.opt_out and b.email<>'' and strpos(lower(p.contact),lower(b.email))>0); p.entity_kind:=coalesce(p.entity_kind,'미분류');
  p:=private.sales_assess(p);
- insert into public.sales_prospects(source,source_key,name,entity_kind,organization,contact,evidence,source_url,source_updated_at,client_id,contact_id,linked_sales_id,blocked,end_date,assessment,score,reasons,next_action)
- values(p_source,p_key,p.name,p.entity_kind,p.organization,p.contact,p.evidence,p.source_url,p.source_updated_at,p.client_id,p.contact_id,p.linked_sales_id,p.blocked,p.end_date,p.assessment,p.score,p.reasons,p.next_action)
- on conflict(source,source_key) do update set name=excluded.name,entity_kind=excluded.entity_kind,organization=excluded.organization,contact=excluded.contact,evidence=excluded.evidence,source_url=excluded.source_url,source_updated_at=excluded.source_updated_at,client_id=excluded.client_id,contact_id=excluded.contact_id,linked_sales_id=coalesce(sales_prospects.linked_sales_id,excluded.linked_sales_id),blocked=excluded.blocked,end_date=excluded.end_date,assessment=excluded.assessment,score=excluded.score,reasons=excluded.reasons,next_action=excluded.next_action,collected_at=now(),revision=sales_prospects.revision+1;
+ insert into public.sales_prospects(source,source_key,name,entity_kind,organization,contact,evidence,source_url,source_updated_at,client_id,contact_id,linked_sales_id,blocked,end_date,event_data,assessment,score,reasons,next_action)
+ values(p_source,p_key,p.name,p.entity_kind,p.organization,p.contact,p.evidence,p.source_url,p.source_updated_at,p.client_id,p.contact_id,p.linked_sales_id,p.blocked,p.end_date,coalesce(p.event_data,'{}'::jsonb),p.assessment,p.score,p.reasons,p.next_action)
+ on conflict(source,source_key) do update set name=excluded.name,entity_kind=excluded.entity_kind,organization=excluded.organization,contact=excluded.contact,evidence=excluded.evidence,source_url=excluded.source_url,source_updated_at=excluded.source_updated_at,client_id=excluded.client_id,contact_id=excluded.contact_id,linked_sales_id=coalesce(sales_prospects.linked_sales_id,excluded.linked_sales_id),blocked=excluded.blocked,end_date=excluded.end_date,event_data=excluded.event_data,assessment=excluded.assessment,score=excluded.score,reasons=excluded.reasons,next_action=excluded.next_action,collected_at=now(),revision=sales_prospects.revision+1;
 end $$;
 
 create function private.sales_collect_internal() returns integer language plpgsql set search_path='' as $$
@@ -156,6 +156,12 @@ begin
  update private.sales_seoul_jobs j set claimed=true from public.sales_collection_runs r where j.run_id=p_run and j.token=p_token and not j.claimed and r.id=j.run_id and r.status='수집 중' and r.started_at>now()-interval '15 minutes';
  return found;
 end $$;
+-- An existing server-held Seoul key may be reused. No client role can read it.
+create function public.sales_seoul_key() returns text language sql security definer set search_path='' as $$
+ select btrim(decrypted_secret) from vault.decrypted_secrets where name='SEOUL_DATA_KEY' limit 1
+$$;
+revoke all on function public.sales_seoul_key() from public,anon,authenticated;
+grant execute on function public.sales_seoul_key() to service_role;
 create function public.sales_seoul_page(p_run uuid,p_rows jsonb,p_stamp timestamptz) returns void language plpgsql security definer set search_path='' as $$
 declare item jsonb;
 begin
@@ -164,13 +170,13 @@ begin
  if jsonb_typeof(p_rows) is distinct from 'array' or jsonb_array_length(p_rows)>1000 or p_stamp is null or p_stamp>now()+interval '5 minutes' then raise exception '수집 형식 오류'; end if;
  for item in select * from jsonb_array_elements(p_rows) loop
   if coalesce(item->>'id','')='' or coalesce(item->>'title','')='' then raise exception '행사 식별자 오류'; end if;
-  perform private.sales_index('서울시 문화행사',item->>'id',jsonb_build_object('name',item->>'title','entity_kind','영업 기회','organization',item->>'organization','source_url',item->>'url','source_updated_at',p_stamp,'end_date',nullif(item->>'end',''),'evidence',concat_ws(' · ','서울시 공식 API culturalEventInfo',item->>'category',item->>'district',item->>'venue',(item->>'start')||' ~ '||(item->>'end'))));
+  perform private.sales_index('서울시 문화행사',item->>'id',jsonb_build_object('name',item->>'title','entity_kind','영업 기회','organization',item->>'organization','source_url',item->>'url','source_updated_at',p_stamp,'event_data',item,'contact',item->>'contact','end_date',nullif(item->>'end',''),'evidence',concat_ws(' · ','서울시 공식 API culturalEventInfo',item->>'category',item->>'district',item->>'venue',(item->>'start')||' ~ '||(item->>'end'))));
  end loop;
 end $$;
 create function public.sales_seoul_finish(p_run uuid,p_status text,p_count integer,p_scanned integer,p_total integer,p_note text,p_stamp timestamptz) returns void language plpgsql security definer set search_path='' as $$
 begin
  if p_status not in ('완료','일부 수집','실패') or p_count<0 or p_scanned<0 or p_total<0 or char_length(p_note)>1000 then raise exception '수집 결과 오류'; end if;
- update public.sales_collection_runs r set status=p_status,count=p_count,source_at=p_stamp,note=p_note||format(' · 조회 %s / 제공기관 전체 %s건',p_scanned,p_total),finished_at=now() where r.id=p_run and r.status='수집 중' and exists(select 1 from private.sales_seoul_jobs j where j.run_id=r.id and j.claimed);
+ update public.sales_collection_runs r set status=p_status,count=p_count,scanned=p_scanned,total=p_total,source_at=p_stamp,note=p_note||format(' · 조회 %s / 제공기관 전체 %s건',p_scanned,p_total),finished_at=now() where r.id=p_run and r.status='수집 중' and exists(select 1 from private.sales_seoul_jobs j where j.run_id=r.id and j.claimed);
  if not found then raise exception '완료된 작업이거나 만료되었습니다.'; end if;
 end $$;
 revoke all on function public.sales_seoul_claim(uuid,uuid),public.sales_seoul_page(uuid,jsonb,timestamptz),public.sales_seoul_finish(uuid,text,integer,integer,integer,text,timestamptz) from public,anon,authenticated;
@@ -189,10 +195,10 @@ begin
  if sources='[]' then issues:=1; end if;
  select coalesce(jsonb_agg(to_jsonb(x)),'[]') into stages from (select stage,count(*) count,coalesce(sum(expected_amount),0) amount from public.sales_opportunities group by stage) x;
  select coalesce(jsonb_agg(to_jsonb(x)),'[]') into actions from (select id,name,organization,coalesce(reviewed_assessment,assessment) assessment,score,next_action,source,source_url from public.sales_prospects where not blocked and coalesce(reviewed_assessment,assessment) not in ('제외','보류') and linked_sales_id is null order by (coalesce(reviewed_assessment,assessment)='우선 검토') desc,score desc,created_at desc,id limit 5) x;
- insert into public.sales_briefings(report_date,title,summary,direction,actions,source_status,pipeline) values(day,day::text||' 영업 브리핑',format('등록 자료 %s건 · 오늘 신규 %s건 · 우선 검토 %s건 · 후속 연락 %s건. %s',total,fresh,ready,due,case when issues>0 then '최신 수집을 확인하지 못한 출처가 있습니다. 출처별 상태를 확인하세요.' else '연결된 출처의 수집 시각을 확인했습니다.' end),case when due>0 then '오늘은 진행 중인 영업의 약속된 후속 연락부터 처리합니다. 기존 제안의 결정 일정과 장애 요인을 확인한 후 신규 발굴로 이어갑니다.' when ready>0 then '팝업·공간·행사 단서와 연락 창구가 있는 대상을 우선 검토합니다. 공식 일정과 미발주 범위를 확인하고, 목표·수행 범위·예산 가설을 담은 1쪽 제안을 준비합니다.' else '담당 부서와 실제 발주 수요를 확인하는 것이 우선입니다. 연락 창구가 확인된 회사부터 사업 적합성을 검토하고, 사람은 소속 회사와 의사결정 역할을 연결합니다.' end,actions,sources,stages);
+ insert into public.sales_briefings(report_date,title,summary,direction,actions,source_status,pipeline) values(day,day::text||' 영업 브리핑',format('등록 자료 %s건 · 오늘 첫 취합 %s건 · 우선 검토 %s건 · 후속 연락 %s건. %s',total,fresh,ready,due,case when issues>0 then '최신 수집을 확인하지 못한 출처가 있습니다. 출처별 상태를 확인하세요.' else '연결된 출처의 수집 시각을 확인했습니다.' end),case when due>0 then '오늘은 진행 중인 영업의 약속된 후속 연락부터 처리합니다. 기존 제안의 결정 일정과 장애 요인을 확인한 후 신규 발굴로 이어갑니다.' when ready>0 then '팝업·공간·행사 단서와 연락 창구가 있는 대상을 우선 검토합니다. 공식 일정과 미발주 범위를 확인하고, 목표·수행 범위·예산 가설을 담은 1쪽 제안을 준비합니다.' else '담당 부서와 실제 발주 수요를 확인하는 것이 우선입니다. 연락 창구가 확인된 회사부터 사업 적합성을 검토하고, 사람은 소속 회사와 의사결정 역할을 연결합니다.' end,actions,sources,stages);
  -- Internal report notification, one per day to active human sales owners/admins.
  for who in select id from public.profiles where p_notify and active and not is_agent and (role='admin' or id in(select owner_id from public.sales_opportunities)) loop
-  perform public.notify(who.id,'일일 보고','09:00 영업 브리핑',format('오늘 신규 %s건 · 후속 연락 %s건 · 보고서에서 오늘의 실행 순서를 확인하세요.',fresh,due),'/sales');
+  perform public.notify(who.id,'일일 보고','09:00 영업 브리핑',format('오늘 첫 취합 %s건 · 후속 연락 %s건 · 보고서에서 오늘의 실행 순서를 확인하세요.',fresh,due),'/sales');
  end loop;
 end $$;
 
@@ -217,6 +223,19 @@ begin
  update public.sales_prospects set linked_sales_id=saved.id,revision=revision+1 where id=p.id;
  return saved.id;
 end $$;
+
+create function public.sales_seoul_events() returns jsonb language plpgsql security definer set search_path='' as $$
+declare r public.sales_collection_runs; items jsonb; n integer;
+begin
+ if not public.is_active_member() then raise exception '로그인이 필요합니다.' using errcode='42501'; end if;
+ select * into r from public.sales_collection_runs where source='서울시 문화행사' and status in ('완료','일부 수집') order by started_at desc limit 1;
+ if r.id is null then raise exception '서울시 공식 API 취합이 아직 완료되지 않았습니다. 보고서의 자료 취합 상태를 확인해 주세요.'; end if;
+ select count(*) into n from public.sales_prospects where source='서울시 문화행사' and event_data<>'{}'::jsonb and end_date>=(now() at time zone 'Asia/Seoul')::date;
+ select coalesce(jsonb_agg(x.event_data),'[]') into items from (select event_data from public.sales_prospects where source='서울시 문화행사' and event_data<>'{}'::jsonb and end_date>=(now() at time zone 'Asia/Seoul')::date order by event_data->>'start',id limit 10000) x;
+ return jsonb_build_object('events',items,'fetchedAt',r.source_at,'total',coalesce(r.total,r.count),'scanned',coalesce(r.scanned,r.count),'limited',r.status<>'완료' or n>10000,'sourceKind','api');
+end $$;
+revoke all on function public.sales_seoul_events() from public,anon;
+grant execute on function public.sales_seoul_events() to authenticated;
 
 create function public.sales_collect_now() returns void language plpgsql security definer set search_path='' as $$
 begin

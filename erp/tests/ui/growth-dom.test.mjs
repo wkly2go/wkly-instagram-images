@@ -8,7 +8,7 @@ import { createServer } from 'vite'
 // This verifies form/URL state, not browser layout, production roles or RLS.
 const require = createRequire(import.meta.url)
 const { JSDOM } = require('jsdom')
-let dom, server, React, act, createRoot, within, user, api, RouterProvider, AppProvider, Sales, Leads, Ads, Agents, normalizePath, CommandPalette, GrowthWorkspace, MeetingRecorder, MeetingStartUncertainError, root, originals
+let dom, server, React, act, createRoot, within, user, api, RouterProvider, AppProvider, Sales, Leads, Ads, Agents, Projects, DockTodo, normalizePath, CommandPalette, GrowthWorkspace, MeetingRecorder, MeetingStartUncertainError, root, originals
 
 before(async () => {
   dom = new JSDOM('<!doctype html><html><body><div id="root"></div></body></html>', { url: 'http://localhost/sales', pretendToBeVisual: true })
@@ -42,6 +42,8 @@ before(async () => {
   ;({ RouterProvider } = await server.ssrLoadModule('/src/lib/router.tsx'))
   ;({ Leads } = await server.ssrLoadModule('/src/pages/Growth.tsx'))
   ;({ default: Sales } = await server.ssrLoadModule('/src/pages/Sales.tsx'))
+  ;({ default: Projects } = await server.ssrLoadModule('/src/pages/Projects.tsx'))
+  ;({ DockTodo } = await server.ssrLoadModule('/src/components/DockTodo.tsx'))
   ;({ default: Agents } = await server.ssrLoadModule('/src/pages/Agents.tsx'))
   ;({ normalizePath } = await server.ssrLoadModule('/src/lib/router.tsx'))
   ;({ default: Ads } = await server.ssrLoadModule('/src/pages/Ads.tsx'))
@@ -50,7 +52,7 @@ before(async () => {
   ;({ MeetingRecorder } = await server.ssrLoadModule('/src/components/MeetingRecorder.tsx'))
   ;({ MeetingStartUncertainError } = await server.ssrLoadModule('/src/lib/meetingProgress.ts'))
   assert.equal(api.mode, 'demo')
-  originals = { getSalesReport: api.getSalesReport, reviewSalesProspect:api.reviewSalesProspect, startSalesProspect:api.startSalesProspect, getGrowth: api.getGrowth, linkGrowthSales: api.linkGrowthSales, getSales: api.getSales, listSalesActivities: api.listSalesActivities, addSalesActivity: api.addSalesActivity, checkSalesActivity: api.checkSalesActivity, listProjects: api.listProjects, listSalesOrigins: api.listSalesOrigins, instagramContacts: api.instagramContacts, getAiState: api.getAiState, runGrowthAi: api.runGrowthAi, configureAi: api.configureAi, reconcileAi: api.reconcileAi, mode: api.mode, listAgentJobs: api.listAgentJobs, saveSales: api.saveSales, saveGrowth: api.saveGrowth, startMeetingMinutes: api.startMeetingMinutes, getMeetingRecording: api.getMeetingRecording, searchTenders: api.searchTenders }
+  originals = { listTasks:api.listTasks, saveTask:api.saveTask, getSalesReport: api.getSalesReport, reviewSalesProspect:api.reviewSalesProspect, startSalesProspect:api.startSalesProspect, getGrowth: api.getGrowth, linkGrowthSales: api.linkGrowthSales, getSales: api.getSales, listSalesActivities: api.listSalesActivities, addSalesActivity: api.addSalesActivity, checkSalesActivity: api.checkSalesActivity, listProjects: api.listProjects, listSalesOrigins: api.listSalesOrigins, instagramContacts: api.instagramContacts, getAiState: api.getAiState, runGrowthAi: api.runGrowthAi, configureAi: api.configureAi, reconcileAi: api.reconcileAi, mode: api.mode, listAgentJobs: api.listAgentJobs, saveSales: api.saveSales, saveGrowth: api.saveGrowth, startMeetingMinutes: api.startMeetingMinutes, getMeetingRecording: api.getMeetingRecording, searchTenders: api.searchTenders }
 })
 afterEach(async () => {
   if (root) await act(async () => root.unmount())
@@ -71,7 +73,7 @@ async function mount(role, kind = 'sales', props = {}, initialUrl) {
   await act(async () => root.render(React.createElement(RouterProvider, null,
     React.createElement(AppProvider, { me, profiles, version: 0, bump() {}, toast() {}, openQuick() {} },
       (kind === 'ads' || kind === 'agents') ? React.createElement(React.Fragment, null, React.createElement(kind === 'agents' ? Agents : Ads), React.createElement(CommandPalette)) :
-        React.createElement(kind === 'sales' ? Sales : kind === 'leads' ? Leads : kind === 'meeting' ? MeetingRecorder : GrowthWorkspace, kind === 'sales' ? {} : kind === 'meeting' ? props : { kind })))))
+        React.createElement(kind === 'projects' ? Projects : kind === 'dock' ? DockTodo : kind === 'sales' ? Sales : kind === 'leads' ? Leads : kind === 'meeting' ? MeetingRecorder : GrowthWorkspace, kind === 'sales' ? {} : kind === 'meeting' ? props : { kind })))))
   return within(document.body)
 }
 async function click(element) { await act(async () => user.click(element)) }
@@ -1473,4 +1475,31 @@ test('sales report explains source failures and saves evidence-based company/per
   await click(region.getByRole('button',{name:'분류 저장'}))
   assert.equal(submitted[2],'사람');assert.equal(submitted[1],1);assert.equal(location.href,url)
   assert.ok(region.getByText('사람',{exact:true}));assert.ok(region.getByText(/담당 검토: 공식 담당자 소개/))
+})
+
+
+test('daily report printing isolates the report and removes private chat and editing controls', async()=>{
+ const s=await mount('admin'),originalPrint=window.print
+ let printed=false
+ window.print=()=>{printed=true;const copy=document.querySelector('body>.sales-report-print');assert.ok(copy);assert.ok(copy.textContent.includes('오늘의 영업 보고'));assert.equal(copy.querySelector('button'),null);assert.equal(copy.querySelector('.chat-dock'),null);assert.ok(document.body.classList.contains('sales-report-printing'))}
+ try{await click(s.getByRole('button',{name:'보고서 인쇄'}));assert.equal(printed,true);await act(async()=>window.dispatchEvent(new Event('afterprint')));assert.equal(document.querySelector('body>.sales-report-print'),null);assert.equal(document.body.classList.contains('sales-report-printing'),false)}finally{window.print=originalPrint}
+})
+
+
+test('dock task title navigates to its full detail without completing it; direct URLs and missing tasks are supported',async()=>{
+ const id=crypto.randomUUID(),owner='00000000-0000-4000-8000-000000000001'
+ const task={id,title:'클릭하여 상세 확인',assignee_id:owner,project_id:null,status:'할 일',start_date:'2026-01-01',due_date:'2026-01-02',memo:'기획안과 담당자 확인\n세부 업무 내용',phase:'검토',remind_at:null}
+ api.listTasks=async()=>[task]
+ let saves=0;api.saveTask=async()=>{saves++}
+ localStorage.setItem('wkly-dock-todo','open')
+ let s=await mount('admin','dock',{},'/')
+ const title=s.getByRole('link',{name:'클릭하여 상세 확인'});assert.equal(title.getAttribute('href'),`/projects?view=mine&task=${id}`)
+ await click(title);assert.equal(query('task'),id);assert.equal(saves,0)
+ await act(async()=>root.unmount());root=null
+ s=await mount('admin','projects',{},`/projects?view=mine&task=${id}`)
+ assert.ok(s.getByRole('heading',{name:'클릭하여 상세 확인'}));assert.ok(s.getByText(/세부 업무 내용/));assert.ok(s.getByRole('button',{name:'업무 수정'}));assert.equal(saves,0)
+ await click(s.getByRole('button',{name:'← 업무 목록'}));assert.equal(query('task'),null);assert.equal(query('view'),'mine')
+ await act(async()=>root.unmount());root=null
+ s=await mount('admin','projects',{},'/projects?view=mine&task=missing')
+ assert.ok(s.getByText('업무를 찾을 수 없거나 접근할 수 없습니다.'))
 })
