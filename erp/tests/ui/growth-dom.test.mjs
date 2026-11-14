@@ -1072,3 +1072,27 @@ test('won opportunity refreshes eligible projects while keeping its unsaved hand
  await act(async()=>user.selectOptions(ed.getByLabelText('수주 프로젝트 연결'),'same'));await click(ed.getByRole('button',{name:'프로젝트 목록 새로고침'}));assert.equal(ed.getByLabelText('수주 프로젝트 연결').value,'same');assert.equal(ed.getByLabelText('요청 내용·메모').value,'인계 자료');assert.equal(ed.getByLabelText('결과·사유 (수주·실주·보류 필수)').value,'계약 범위 확인')
  api.listProjects=async()=>[];await click(ed.getByRole('button',{name:'프로젝트 목록 새로고침'}));await click(ed.getByRole('button',{name:'저장',exact:true}));assert.equal(localStorage.getItem('wkly-sales-demo-v1'),null);assert.equal(ed.getByLabelText('영업 건 이름 *').value,'수주 인계 보존')
 })
+
+test('Seoul files create an event draft and same-basis comparison for review before saving', async () => {
+  const screen = await mount('admin', 'sales', {}, '/sales?tab=seoul')
+  const csv = async (field, filename, text) => {
+    const file = new window.File([text], filename, { type: 'text/csv' })
+    Object.defineProperty(file, 'arrayBuffer', { value: async () => new TextEncoder().encode(text).buffer })
+    await act(async () => user.upload(screen.getByLabelText(field), file))
+  }
+  await csv('서울시 문화행사 CSV', '문화행사.csv', '공연/행사명,기관명,장소,시작일,종료일\n팝업 협력 행사,공식 주최사,DDP,2099-11-27,2099-11-29')
+  await click(screen.getByRole('button', { name: '협업 후보로 검토' }))
+  let editor = panel('새 영업 기회')
+  assert.match(editor.getByLabelText('요청 내용·메모').value, /공식 주최사/)
+  assert.equal(localStorage.getItem('wkly-sales-demo-v1'), null)
+  await click(editor.getByRole('button', { name: '취소', exact: true }))
+  await csv('서울시 상권 생활인구 CSV', '상권.csv',
+    '기준_년분기_코드,상권_구분_코드_명,상권_코드,상권_코드_명,총_유동인구_수\n20262,발달상권,3120052,성수역,100\n20262,발달상권,3120103,홍대입구역,200')
+  await click(screen.getByRole('button', { name: '성수역 3120052 비교에 추가' }))
+  assert.equal(screen.queryByRole('button', { name: '비교 근거로 영업 기회 작성' }), null)
+  await click(screen.getByRole('button', { name: '홍대입구역 3120103 비교에 추가' }))
+  await click(screen.getByRole('button', { name: '비교 근거로 영업 기회 작성' }))
+  editor = panel('새 영업 기회')
+  assert.match(editor.getByLabelText('요청 내용·메모').value, /홍대입구역 \(3120103\)/)
+  assert.equal(localStorage.getItem('wkly-sales-demo-v1'), null)
+})

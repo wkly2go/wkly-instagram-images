@@ -13,17 +13,61 @@ import { SalesPlaybook } from '../components/SalesPlaybook'
 import { ProspectingPlanner } from '../components/ProspectingPlanner'
 import { Shell } from '../components/Shell'
 import { GrowthWorkspace } from '../components/GrowthWorkspace'
+import { SeoulPopulationCompare } from '../components/SeoulPopulationCompare'
+import { SeoulEventDiscovery } from '../components/SeoulEventDiscovery'
+import { SEOUL_EVENT_DATASET, SEOUL_POPULATION_DATASET, type SeoulEvent } from '../lib/seoulSales'
 import './Sales.css'
 
 export default function Sales() {
   const { query, navigate } = useRouter()
-  const tab = query.has('id') || query.get('new') === '1' ? 'pipeline' : ['contacts', 'tenders'].includes(query.get('tab') ?? '') ? query.get('tab')! : 'pipeline'
-  const tabs = [['pipeline', '수주 파이프라인'], ['contacts', '민간 영업 후보'], ['tenders', '나라장터 공고']] as const
+  const { me } = useApp()
+  const [seoulDraft, setSeoulDraft] = useState<SalesDraft | null>(null)
+  const tab = query.has('id') || query.get('new') === '1' ? 'pipeline' : ['contacts', 'tenders', 'seoul'].includes(query.get('tab') ?? '') ? query.get('tab')! : 'pipeline'
+  const tabs = [['pipeline', '수주 파이프라인'], ['contacts', '민간 영업 후보'], ['tenders', '나라장터 공고'], ['seoul', '서울 행사·입지']] as const
+  useEffect(() => { if (tab !== 'seoul') setSeoulDraft(null) }, [tab])
+
+  const reviewEvent = (event: SeoulEvent) => {
+    const today = todayKey()
+    const ended = Boolean(event.end && event.end < today)
+    const nextAction = ended ? '다음 회차 일정과 주최기관 문의처 확인' : '주최기관 원문에서 모집 상태와 미발주 범위 확인'
+    setSeoulDraft({
+      ...newSalesDraft(me.id),
+      title: event.title.slice(0, 160),
+      source_url: event.url || SEOUL_EVENT_DATASET,
+      next_date: today,
+      next_action: nextAction,
+      description: [
+        '[서울 열린데이터광장 · 문화행사 협업 검토]',
+        `행사: ${event.title}`,
+        `일정: ${event.start || '미확인'} ~ ${event.end || '미확인'}`,
+        `장소: ${[event.district, event.venue].filter(Boolean).join(' · ') || '미확인'}`,
+        `기관: ${event.organization || '미확인'}`,
+        '확인할 사항: 모집 여부, 의사결정자, 예산, 아직 발주하지 않은 기획·시공·운영 범위.',
+        `출처: ${SEOUL_EVENT_DATASET}`,
+      ].join('\n'),
+    })
+  }
+
+  const useLocationEvidence = (description: string) => {
+    setSeoulDraft({
+      ...newSalesDraft(me.id),
+      source_url: SEOUL_POPULATION_DATASET,
+      next_action: '후보 공간의 대관비·사용 가능일·반입 및 시공 조건 확인',
+      description,
+    })
+  }
   return <Shell active="sales"><div className="sales-page">
     <header className="sales-heading"><h1 className="t-title">영업 발굴·수주</h1><p>팝업스토어 대행이 필요한 브랜드를 발굴하고, 첫 연락부터 제안·계약까지 관리합니다.</p></header>
     <nav aria-label="영업 업무" className="sales-stages">{tabs.map(([key, label]) => <button type="button" key={key} className={`btn ${tab === key ? '' : 'btn-outline'}`} aria-current={tab === key ? 'page' : undefined} onClick={() => navigate(withQuery('/sales', query, { tab: key === 'pipeline' ? null : key, id: null, new: null, research: null }))}>{label}</button>)}</nav>
     <p className="sales-notice">브랜드의 오픈 계기와 미발주 범위 확인 → 담당자와 다음 연락일 지정 → 대행 제안·견적 → 계약·프로젝트 연결.</p>
-    {tab === 'pipeline' ? <SalesPipeline /> : <GrowthWorkspace key={tab} kind={tab === 'tenders' ? 'tender' : 'contact'} />}
+    {tab === 'pipeline' ? <SalesPipeline /> : tab === 'seoul' ? <>
+      <SeoulEventDiscovery onEvent={reviewEvent} />
+      <SeoulPopulationCompare onEvidence={useLocationEvidence} />
+      {seoulDraft && <SalesEditor initial={null} seed={seoulDraft} onClose={() => setSeoulDraft(null)} onSaved={id => {
+        setSeoulDraft(null)
+        navigate(withQuery('/sales', query, { tab: null, new: null, research: null, id }))
+      }} />}
+    </> : <GrowthWorkspace key={tab} kind={tab === 'tenders' ? 'tender' : 'contact'} />}
   </div></Shell>
 }
 
@@ -155,10 +199,10 @@ function useDraftGuard(dirty: boolean, busy: boolean) {
   }
 }
 
-function SalesEditor({ initial, onClose, onSaved, discovery = false }: { discovery?: boolean; initial: SalesOpportunity | null; onClose: () => void; onSaved: (id: string) => void }) {
+function SalesEditor({ initial, seed, onClose, onSaved, discovery = false }: { seed?: SalesDraft; discovery?: boolean; initial: SalesOpportunity | null; onClose: () => void; onSaved: (id: string) => void }) {
   const { api, me, profiles } = useApp()
   const [draft, setDraft] = useState<SalesDraft>(() => {
-    if (!initial) return newSalesDraft(me.id)
+    if (!initial) return seed ?? newSalesDraft(me.id)
     const { id: _id, revision: _revision, created_by: _cb, updated_by: _ub, created_at: _ca, updated_at: _ua, ...d } = initial
     return d
   })
