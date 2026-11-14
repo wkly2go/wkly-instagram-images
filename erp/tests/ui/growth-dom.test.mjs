@@ -884,6 +884,127 @@ for(const role of ['admin','member']) test(role + ': research plan becomes a sav
  assert.equal(row.owner_id,role==='admin'?'00000000-0000-4000-8000-000000000001':'00000000-0000-4000-8000-000000000002')
  assert.equal((await api.listSales({page:0})).items.length,1)
 })
+test('embedded prospect search grows the current research draft without navigating or saving', async () => {
+  const previousFetch = globalThis.fetch
+  const previousLocalSearch = api.searchProspectingClients
+  const previousOpen = window.open
+  const requests = []
+  const localRequests = []
+  const sourceUrl = 'https://culture.seoul.go.kr/culture/cultureEvent/view.do?cultcode=900123'
+  const { addDays, todayKey } = await server.ssrLoadModule('/src/lib/date.ts')
+  const fetchedAt = new Date().toISOString()
+  const future = addDays(todayKey(), 20)
+  let popups = 0
+  globalThis.fetch = async input => {
+    const url = new URL(String(input), location.origin)
+    requests.push(url.pathname)
+    if (url.pathname !== '/api/seoul-events') return new Response('{}', { status: 503 })
+    return Response.json({
+      events: [
+        { title: '성수 브랜드 팝업 협업 행사', district: '성동구', category: '전시', organization: '합성 서울행사 주최기관', venue: '성수 테스트홀', start: future, end: future, url: sourceUrl },
+        { title: '서초 오케스트라 공연', district: '서초구', category: '클래식', organization: '별도 주최기관', venue: '공연 테스트홀', start: future, end: future, url: 'https://culture.seoul.go.kr/culture/cultureEvent/view.do?cultcode=900124' },
+      ],
+      fetchedAt, total: 2, scanned: 2, limited: false, sourceKind: 'portal',
+    })
+  }
+  api.searchProspectingClients = async keyword => {
+    localRequests.push(keyword)
+    throw new Error('거래처 조회 테스트 오류')
+  }
+  window.open = () => { popups++; return null }
+  try {
+    const screen = await mount('admin')
+    await click(screen.getByRole('button', { name: '신규 대상 발굴', exact: true }))
+    const editor = panel('새 영업 기회')
+    const planner = within(editor.getByRole('region', { name: '신규 대상 발굴 계획', exact: true }))
+    const originalUrl = location.href
+    const keyword = planner.getByLabelText('발굴 검색어')
+    await type(keyword, '성수')
+    await type(planner.getByLabelText('대상 브랜드·기관 *'), '직접 확인한 브랜드')
+    await type(planner.getByLabelText('확인 근거'), '기존 근거를 보존')
+    assert.equal(requests.includes('/api/seoul-events'), false)
+    assert.equal(localRequests.length, 0)
+
+    await click(planner.getByRole('button', { name: '이 화면에서 대상 찾기', exact: true }))
+    const results = within(await planner.findByRole('region', { name: '자료 검색 결과', exact: true }))
+    assert.ok(await results.findByText('성수 브랜드 팝업 협업 행사'))
+    assert.equal(results.queryByText('서초 오케스트라 공연'), null)
+    const official = within(results.getByRole('region', { name: '서울 문화행사', exact: true }))
+    const internal = within(results.getByRole('region', { name: '기존 거래처·담당자', exact: true }))
+    assert.match(internal.getByRole('alert').textContent, /자료를 불러오지 못했습니다/)
+    assert.equal(official.getByRole('link', { name: '원문 보기', exact: true }).getAttribute('href'), sourceUrl)
+    assert.ok(requests.includes('/api/seoul-events'))
+    assert.deepEqual(localRequests, ['성수'])
+
+    await click(results.getByRole('button', { name: '계획에 넣기', exact: true }))
+    assert.equal(planner.getByLabelText('대상 브랜드·기관 *').value, '직접 확인한 브랜드')
+    assert.equal(planner.getByLabelText('확인 근거').value, '기존 근거를 보존')
+    assert.equal(planner.getByLabelText('공식 출처 주소').value, sourceUrl)
+    assert.equal(planner.getByLabelText('출처 확인일').value, '')
+    assert.equal(planner.getByLabelText('일정 확인 상태').value, '미확인')
+    assert.equal(planner.getByLabelText('행사·사업명').value, '성수 브랜드 팝업 협업 행사')
+    assert.equal(planner.getByLabelText('행사·사업 시작일').value, future)
+    assert.equal(location.href, originalUrl)
+    assert.equal(popups, 0)
+    assert.equal((await api.listSales({ page: 0 })).items.length, 0)
+
+    let confirms = 0
+    window.confirm = () => { confirms++; return false }
+    await click(editor.getByRole('button', { name: '취소', exact: true }))
+    assert.equal(confirms, 1)
+    assert.equal(location.href, originalUrl)
+    assert.equal(planner.getByLabelText('공식 출처 주소').value, sourceUrl)
+    await click(planner.getByRole('button', { name: '발굴 계획을 영업 정보에 적용', exact: true }))
+    assert.equal(editor.getByLabelText('출처 주소').value, sourceUrl)
+    assert.equal((await api.listSales({ page: 0 })).items.length, 0)
+  } finally {
+    globalThis.fetch = previousFetch
+    api.searchProspectingClients = previousLocalSearch
+    window.open = previousOpen
+  }
+})
+
+test('embedded prospect search ignores a superseded lookup and inserts a newly selected local result', async () => {
+  const previousLocalSearch = api.searchProspectingClients
+  const pending = new Map()
+  api.searchProspectingClients = keyword => new Promise(resolve => { pending.set(keyword, resolve) })
+  try {
+    const screen = await mount('admin')
+    await click(screen.getByRole('button', { name: '신규 대상 발굴', exact: true }))
+    const planner = within(panel('새 영업 기회').getByRole('region', { name: '신규 대상 발굴 계획', exact: true }))
+    const originalUrl = location.href
+    const keyword = planner.getByLabelText('발굴 검색어')
+    const submit = () => planner.getByRole('button', { name: '이 화면에서 대상 찾기', exact: true })
+    await click(planner.getByRole('checkbox', { name: '공식 문화행사', exact: true }))
+    await type(keyword, '첫 검색')
+    await click(submit())
+    assert.ok(pending.has('첫 검색'))
+
+    await type(keyword, '두 번째 검색')
+    await click(submit())
+    assert.ok(pending.has('두 번째 검색'))
+    const first = { clientId: 'client-first', clientName: '이전 거래처 결과', category: '클라이언트' }
+    const second = {
+      clientId: 'client-second', clientName: '신규 거래처 결과', category: '파트너',
+      contactId: 'contact-1', contactName: '합성 마케팅 담당자', contactTitle: '브랜드 제휴',
+      website: 'https://example.test/partner',
+    }
+    await act(async () => pending.get('두 번째 검색')([second]))
+    const results = within(await planner.findByRole('region', { name: '자료 검색 결과', exact: true }))
+    assert.ok(results.getByText(/신규 거래처 결과/))
+    assert.ok(results.getByText(/합성 마케팅 담당자/))
+    await act(async () => pending.get('첫 검색')([first]))
+    assert.equal(results.queryByText(/이전 거래처 결과/), null)
+    await click(results.getByRole('button', { name: '계획에 넣기', exact: true }))
+    assert.equal(planner.getByLabelText('대상 브랜드·기관 *').value, '신규 거래처 결과')
+    assert.equal(planner.getByLabelText('공식 출처 주소').value, 'https://example.test/partner')
+    assert.equal(location.href, originalUrl)
+    assert.equal((await api.listSales({ page: 0 })).items.length, 0)
+  } finally {
+    api.searchProspectingClients = previousLocalSearch
+  }
+})
+
 test('research requires evidence for confirmed dates and preserves un-applied edits on declined close',async()=>{
  const screen=await mount('admin');await click(screen.getByRole('button',{name:'신규 대상 발굴',exact:true}))
  const editor=panel('새 영업 기회');await type(editor.getByLabelText('대상 브랜드·기관 *'),'공식 확인 전 후보')

@@ -2,6 +2,7 @@ import { createSupabaseGrowthApi } from './growthApi'
 import { createSupabaseSalesApi } from './salesApi'
 import { makeImagePreview, sitePreviewPath } from './imagePreview'
 import { APPROVAL_LIST_COLUMNS, RESEARCH_LIST_COLUMNS, bodySearchPattern } from './reportReads'
+import { searchSupabaseProspectingClients } from './prospectingClientSearch'
 import type { ApprovalSummary, ResearchSummary } from './types'
 import { createSupabaseMarketingApi } from './marketingApi'
 import { readNavigationCounts } from './navigationCounts'
@@ -243,6 +244,7 @@ export function createSupabaseApi(url: string, key: string): Api {
     async listClients() {
       return must(await sb.from('clients').select('*').order('name')) as Client[]
     },
+    searchProspectingClients: query => searchSupabaseProspectingClients(sb, query),
     saveClient: c => save('clients', c) as Promise<Client>,
     deleteClient: id => remove('clients', id),
     async listContacts(clientId) {

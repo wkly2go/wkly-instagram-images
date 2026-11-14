@@ -1,6 +1,7 @@
 import { createDemoGrowthApi } from './growthApi'
 import { createDemoSalesApi } from './salesApi'
 import { approvalSummary, researchSummary } from './reportReads'
+import { searchDemoProspectingClients } from './prospectingClientSearch'
 import { createDemoMarketingApi } from './marketingApi'
 import { desktop } from './desktop'
 import type { MaterialMove, MaterialStockRow, SlackLink, SlackMessage } from './types'
@@ -724,6 +725,11 @@ export function createDemoApi(): Api {
 
     async listClients() {
       return clone([...store.clients].sort((a, b) => a.name.localeCompare(b.name, 'ko')))
+    },
+    async searchProspectingClients(query) {
+      requireMe()
+      if (!meProfile()?.active) throw new ApiError('활성 팀원만 거래처·담당자를 조회할 수 있습니다.')
+      return searchDemoProspectingClients(store.clients, store.contacts, query)
     },
     async saveClient(c) {
       return upsert<'clients', Client>('clients', c, () => ({ ...base(), name: '', category: '클라이언트', business_no: null, phone: null, email: null, address: null, website: null, memo: null }) as Client)

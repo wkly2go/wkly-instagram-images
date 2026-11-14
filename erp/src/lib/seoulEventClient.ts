@@ -7,6 +7,7 @@ export interface SeoulEventSnapshot {
   scanned: number
   limited: boolean
   sourceKind?: 'portal' | 'sheet'
+  archived?: boolean
 }
 
 const INVALID_RESPONSE = '서울시 행사 응답을 확인하지 못했습니다. 다시 불러오거나 CSV 파일을 이용해 주세요.'
@@ -37,6 +38,7 @@ export function parseSeoulEventSnapshot(raw: unknown): SeoulEventSnapshot {
     total: data.total as number, scanned: data.scanned as number,
     limited: data.limited || (data.scanned as number) < (data.total as number),
     sourceKind: data.sourceKind === 'portal' ? 'portal' : 'sheet',
+    archived: data.archived === true,
   }
 }
 

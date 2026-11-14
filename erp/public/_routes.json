@@ -1,5 +1,5 @@
 {
   "version": 1,
-  "include": ["/api/seoul-events"],
+  "include": ["/api/seoul-events", "/api/prospect-events"],
   "exclude": []
 }

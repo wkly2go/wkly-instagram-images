@@ -55,7 +55,7 @@ export function SeoulEventDiscovery({ onEvent }: { onEvent: (event: SeoulEvent) 
       if (serial !== request.current.serial || controller.signal.aborted) return
       setEvents(next.events)
       setSnapshot(next)
-      setArchived(false)
+      setArchived(next.archived === true)
       setFileName('')
     } catch (cause) {
       if (serial !== request.current.serial || controller.signal.aborted) return
