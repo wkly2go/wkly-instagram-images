@@ -969,11 +969,11 @@ function ProjectSearch({ value, onChange }: { value: string; onChange: (v: strin
   )
 }
 
-export function ProjectForm({ project, clients, division, onClose, onSaved }: { project: Project | null; clients: Client[]; /** 새로 만들 때 구분 (그룹에서 바로 만들기) */ division?: Division; onClose: () => void; onSaved: (id: string) => void }) {
+export function ProjectForm({ project, clients, division, initialClientId, onClose, onSaved }: { initialClientId?: string | null; project: Project | null; clients: Client[]; /** 새로 만들 때 구분 (그룹에서 바로 만들기) */ division?: Division; onClose: () => void; onSaved: (id: string) => void }) {
   const { api, me, profiles, toast } = useApp()
   const { busy, run } = useAction()
   const syncFolder = useProjectFolderSync()
-  const [f, setF] = useState<Partial<Project>>(() => project ?? { name: '', division: division ?? 'AR', category: '팝업', status: '기획', owner_id: me.id, client_id: null, start_date: null, end_date: null, location: null, description: null })
+  const [f, setF] = useState<Partial<Project>>(() => project ?? { name: '', division: division ?? 'AR', category: '팝업', status: '기획', owner_id: me.id, client_id: initialClientId ?? null, start_date: null, end_date: null, location: null, description: null })
   const set = (p: Partial<Project>) => setF(prev => ({ ...prev, ...p }))
   const submit = async () => {
     let saved: Project | null = null

@@ -1,19 +1,17 @@
-import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useApp, useAsync } from '../lib/app'
-import { friendlyError } from '../lib/api'
 import { todayKey } from '../lib/date'
 import { Link, useRouter, withQuery } from '../lib/router'
-import { registerDraftNavigation } from '../lib/navigationGuard'
-import { afterSalesDraftConfirmed, closeSalesDraft, readSalesView, salesViewUrl } from '../lib/salesNavigation'
-import { SALES_COMPANIES, SALES_SOURCES, SALES_STAGES, canEditSales, newSalesDraft, validateSales, validateSalesProject, type SalesActivity, type SalesDraft, type SalesFilter, type SalesOpportunity } from '../lib/sales'
-import { isSalesActivityUnconfirmed, normalizeSalesActivityBody, type SalesActivityRequest } from '../lib/salesActivityRecovery'
-import { validateGrowth, type GrowthItem } from '../lib/growth'
-import { emptySalesPlan, readSalesPlan, reviewSalesQueue, SALES_PLAN_LIMITS, seedSalesPlanFromCandidate, validateSalesPlan, writeSalesPlan } from '../lib/salesPlan'
-import { Button, Field, Modal } from '../components/ui'
+import { SalesPanel, useDraftGuard, ContactSalesPlan, SalesEditor } from '../components/SalesEditor'
+import { readSalesView, salesViewUrl } from '../lib/salesNavigation'
+import { SALES_COMPANIES, SALES_SOURCES, SALES_STAGES, canEditSales, newSalesDraft, type SalesDraft, type SalesFilter, type SalesOpportunity } from '../lib/sales'
+import { SalesActivities } from '../components/SalesActivities'
+import { type GrowthItem } from '../lib/growth'
+import { emptySalesPlan, readSalesPlan, reviewSalesQueue, writeSalesPlan } from '../lib/salesPlan'
+import { Button, Field } from '../components/ui'
 import { SalesOrigins } from '../components/SalesOrigins'
 import { SalesPlaybook } from '../components/SalesPlaybook'
-import { SalesPlanOutput, SalesPlanSheet } from '../components/SalesPlanSheet'
-import { ProspectingPlanner } from '../components/ProspectingPlanner'
+import { SalesPlanOutput } from '../components/SalesPlanSheet'
 import { Shell } from '../components/Shell'
 import { GrowthWorkspace } from '../components/GrowthWorkspace'
 import { SeoulPopulationCompare } from '../components/SeoulPopulationCompare'
@@ -186,48 +184,17 @@ function SalesDetail({ id, candidate, onClose, onCandidateUsed, onChanged }: {
 }) {
   const { api, me, profileName } = useApp()
   const [editing, setEditing] = useState(Boolean(candidate))
-  const [body, setBody] = useState('')
-  const [kind, setKind] = useState<'메모' | '전화' | '메일' | '미팅'>('메모')
-  const [error, setError] = useState('')
-  const [busy, setBusy] = useState(false)
-  const lock = useRef(false)
-  const request = useRef({ id: crypto.randomUUID(), signature: '' })
-  const [pending, setPending] = useState<SalesActivityRequest | null>(null)
+  const [activity, setActivity] = useState({ dirty: false, busy: false })
+  const activityChanged = useCallback((dirty: boolean, busy: boolean) => setActivity({ dirty, busy }), [])
   const state = useAsync<SalesOpportunity | null>(() => api.getSales(id), [id], null)
-  const activities = useAsync<SalesActivity[]>(() => api.listSalesActivities(id), [id], [])
-  const guard = useDraftGuard(!!body.trim(), busy)
-  const close = () => { if (!lock.current) guard.close(pending ? '활동 저장 결과를 아직 확인하지 못했습니다. 닫으면 요청 정보가 사라지므로 다시 입력하기 전에 최근 이력을 확인해야 합니다. 닫을까요?' : '저장하지 않은 활동 내용이 있습니다. 닫을까요?', onClose) }
+  const guard = useDraftGuard(activity.dirty, activity.busy)
+  const close = () => guard.close('저장하지 않은 활동 내용이 있습니다. 닫을까요?', onClose)
   const row = state.data
   if (editing && row && canEditSales(row, me)) return <SalesEditor inline initial={row} candidate={candidate}
     onClose={() => { onCandidateUsed(); setEditing(false) }}
-    onSaved={() => { onCandidateUsed(); setEditing(false); state.reload(); activities.reload(); onChanged() }} />
+    onSaved={() => { onCandidateUsed(); setEditing(false); state.reload(); onChanged() }} />
   const savedPlan = row && readSalesPlan(row.description)
-  const confirmed = () => {
-    setBody(''); setPending(null); setError(''); request.current = { id: crypto.randomUUID(), signature: '' }; activities.reload()
-  }
-  const add = async () => {
-    if (lock.current) return
-    const signature = JSON.stringify([kind, normalizeSalesActivityBody(body), me.id])
-    if (request.current.signature !== signature) request.current = { id: crypto.randomUUID(), signature }
-    const submitted = pending ?? { id: request.current.id, opportunityId: id, kind, body, actorId: me.id }
-    lock.current = true; setBusy(true); setError('')
-    try {
-      await api.addSalesActivity(submitted.id, submitted.opportunityId, submitted.kind, submitted.body, submitted.actorId)
-      confirmed()
-    } catch (e) {
-      if (isSalesActivityUnconfirmed(e)) setPending(submitted)
-      setError(friendlyError(e))
-    } finally { lock.current = false; setBusy(false) }
-  }
-  const check = async () => {
-    if (lock.current || !pending) return
-    lock.current = true; setBusy(true); setError('')
-    try {
-      if (await api.checkSalesActivity(pending.id, pending.opportunityId, pending.kind, pending.body, pending.actorId)) confirmed()
-      else setError('아직 같은 활동을 확인하지 못했습니다. 원래 요청이 처리 중일 수 있으므로 내용을 유지하고 상태 확인 또는 같은 내용 재시도를 이용해 주세요.')
-    } catch (e) { setError(friendlyError(e)) } finally { lock.current = false; setBusy(false) }
-  }
-  return <SalesPanel inline title={row?.title ?? '영업 기회'} onClose={close} actions={<><Button kind="ghost" disabled={busy} onClick={close}>닫기</Button>{row && canEditSales(row, me) && <Button disabled={busy || !!body.trim()} onClick={() => setEditing(true)}>영업 정보 수정</Button>}</>}>
+  return <SalesPanel inline title={row?.title ?? '영업 기회'} onClose={close} actions={<><Button kind="ghost" disabled={activity.busy} onClick={close}>닫기</Button>{row && canEditSales(row, me) && <Button disabled={activity.busy || activity.dirty} onClick={() => setEditing(true)}>영업 정보 수정</Button>}</>}>
     {state.loading && <p role="status">상세 정보를 불러오는 중…</p>}
     {state.error && <div role="alert" className="sales-error">{state.error}<Button kind="outline" onClick={state.reload}>다시 확인</Button></div>}
     {row && <div className="sales-detail">
@@ -237,256 +204,7 @@ function SalesDetail({ id, candidate, onClose, onCandidateUsed, onChanged }: {
       {savedPlan?.notes && <section><h3 className="t-sub">요청 내용</h3><p className="sales-copy">{savedPlan.notes}</p></section>}
       <details className="sales-options"><summary>출처와 단계 안내</summary><SalesOrigins id={row.id} /><SalesPlaybook draft={row} /></details>
       {row.result_note && <section><h3 className="t-sub">결과·사유</h3><p className="sales-copy">{row.result_note}</p></section>}
-      {canEditSales(row, me) && <section><h3 className="t-sub">활동 기록</h3><Field label="활동 종류"><select className="select" value={kind} disabled={busy || !!pending} onChange={e => setKind(e.target.value as typeof kind)}>{['메모', '전화', '메일', '미팅'].map(k => <option key={k}>{k}</option>)}</select></Field><Field label="활동 내용"><textarea className="textarea" rows={3} maxLength={4000} disabled={busy || !!pending} value={body} onChange={e => setBody(e.target.value)} placeholder="연락 결과와 다음에 확인할 내용을 적어 주세요." /></Field>{pending && <p role="status" className="sales-notice">저장 여부가 확인될 때까지 원래 활동 내용과 요청 ID를 유지합니다. 같은 내용 재시도는 중복 활동을 만들지 않습니다.</p>}<div className="row wrap"><Button disabled={busy || !body.trim()} onClick={add}>{busy ? '확인 중…' : pending ? '동일 내용으로 재시도' : '활동 저장'}</Button>{pending && <Button kind="outline" disabled={busy} onClick={check}>저장 상태 확인</Button>}</div>{error && <p role="alert" className="sales-error">{error}</p>}</section>}
-      <section><h3 className="t-sub">최근 이력 · 최대 50건</h3>{activities.loading && <p role="status">활동 이력을 불러오는 중…</p>}{activities.error && <div role="alert" className="sales-error">{activities.error}<Button kind="outline" disabled={activities.loading || busy} onClick={activities.reload}>활동 이력 다시 확인</Button></div>}{activities.data.map(a => <article className="sales-activity" key={a.id}><strong>{a.kind}</strong> · {profileName(a.created_by)} <time>{new Date(a.created_at).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })}</time><p className="sales-copy">{a.body}</p></article>)}{!activities.loading && !activities.error && !activities.data.length && <p>등록된 활동이 없습니다.</p>}</section>
+      <SalesActivities id={row.id} editable={canEditSales(row, me)} onDraftChange={activityChanged} />
     </div>}
-  </SalesPanel>
-}
-
-function SalesPanel({ inline, title, onClose, actions, children }: {
-  inline?: boolean; title: string; onClose: () => void; actions: ReactNode; children: ReactNode
-}) {
-  const titleId = useId()
-  const panel = useRef<HTMLElement>(null)
-  useEffect(() => {
-    if (inline && panel.current && !panel.current.contains(document.activeElement)) panel.current.focus()
-  }, [inline])
-  if (!inline) return <Modal title={title} onClose={onClose} wide actions={actions}>{children}</Modal>
-  return <section className="sales-work-panel" ref={panel} tabIndex={-1} aria-labelledby={titleId}>
-    <header className="sales-work-panel-header"><h2 className="t-sub" id={titleId}>{title}</h2><div className="row wrap">{actions}</div></header>
-    {children}
-  </section>
-}
-
-function useDraftGuard(dirty: boolean, busy: boolean) {
-  const state = useRef({ dirty, busy })
-  state.current = { dirty, busy }
-  useEffect(() => registerDraftNavigation(window, () => state.current, () => window.confirm('저장하지 않은 내용이 있습니다. 이동할까요?')), [])
-  return {
-    close: (message: string, action: () => void) => closeSalesDraft(state, () => window.confirm(message), action),
-    afterSaved: (action: () => void) => afterSalesDraftConfirmed(state, action),
-  }
-}
-
-type ContactPlanActions = { close: () => void; refresh: (row: GrowthItem) => void; editCandidate: () => void }
-
-function ContactSalesPlan({ candidate, actions }: { candidate: GrowthItem; actions: ContactPlanActions }) {
-  const { api, me, profileName } = useApp()
-  // Keep the current editor mounted as the candidate is confirmed or linked.
-  const initialSalesId = useRef(candidate.linked_sales_id)
-  const salesId = initialSalesId.current
-  const state = useAsync(() => salesId ? api.getSales(salesId) : Promise.resolve(null), [salesId], null)
-  const title = `영업 계획 · ${candidate.title}`
-  const row = state.data
-  const editableCandidate = me.active && (me.role === 'admin' || candidate.owner_id === me.id)
-  const seed = useMemo<SalesDraft>(() => ({
-    ...newSalesDraft(candidate.owner_id),
-    title: candidate.title,
-    division: candidate.document.division,
-    source: '기타',
-    source_url: candidate.document.source_url,
-    description: writeSalesPlan(candidate.document.note, { ...emptySalesPlan(), ...seedSalesPlanFromCandidate(candidate) }),
-  }), [candidate])
-  if (state.loading) return <section className="sales-work-panel" aria-label={title}><p role="status">영업 계획을 불러오는 중…</p></section>
-  if (state.error) return <SalesPanel inline title={title} onClose={actions.close} actions={<Button kind="ghost" onClick={actions.close}>닫기</Button>}>
-    <p role="alert" className="sales-error">{state.error}</p><Button kind="outline" onClick={state.reload}>다시 확인</Button>
-  </SalesPanel>
-  if ((row && !canEditSales(row, me)) || (!row && !editableCandidate)) {
-    const draft = row ?? seed
-    return <SalesPanel inline title={title} onClose={actions.close} actions={<><Button kind="outline" onClick={actions.editCandidate}>후보 정보</Button><Button kind="ghost" onClick={actions.close}>닫기</Button></>}>
-      <p className="sales-notice">읽기 전용 · 담당자 또는 관리자가 계획을 작성할 수 있습니다.</p>
-      <SalesPlanOutput draft={draft} ownerName={profileName(draft.owner_id)} />
-    </SalesPanel>
-  }
-  return <SalesEditor inline title={title} initial={row} seed={seed} candidate={row ? candidate : undefined}
-    contact={{ candidate, actions, editableCandidate }} onClose={actions.close} />
-}
-
-function SalesEditor({ initial, seed, candidate, onClose, onSaved, discovery = false, inline, title, contact }: {
-  seed?: SalesDraft; candidate?: GrowthItem; discovery?: boolean; inline?: boolean; title?: string
-  contact?: { candidate: GrowthItem; actions: ContactPlanActions; editableCandidate: boolean }
-  initial: SalesOpportunity | null; onClose: () => void; onSaved?: (id: string) => void
-}) {
-  const { api, me, profiles, profileName } = useApp()
-  const baseline = useRef<SalesDraft>(seed ?? newSalesDraft(me.id))
-  const [draft, setDraft] = useState<SalesDraft>(() => {
-    if (!initial) return baseline.current
-    const { id: _id, revision: _revision, created_by: _cb, updated_by: _ub, created_at: _ca, updated_at: _ua, ...d } = initial
-    baseline.current = d
-    if (!candidate) return d
-    const { notes, plan } = readSalesPlan(d.description)
-    const additions = seedSalesPlanFromCandidate(candidate)
-    const defaults = emptySalesPlan()
-    for (const key of Object.keys(additions) as (keyof typeof additions)[]) {
-      if (plan[key] !== defaults[key]) delete additions[key]
-    }
-    return { ...d, description: writeSalesPlan(notes, { ...plan, ...additions }) }
-  })
-  const original = useRef(JSON.stringify(baseline.current))
-  const previousSeed = useRef(seed)
-  const id = useRef(initial?.id ?? crypto.randomUUID())
-  const revision = useRef(initial?.revision ?? 0)
-  const linkedSalesId = useRef(initial?.id ?? null)
-  const [notice, setNotice] = useState('')
-  const [error, setError] = useState('')
-  const [busy, setBusy] = useState(false)
-  const lock = useRef(false)
-  const [prospectPending, setProspectPending] = useState(false)
-  const [prospectApplied, setProspectApplied] = useState(false)
-  useEffect(() => {
-    const before = previousSeed.current
-    previousSeed.current = seed
-    if (!contact || linkedSalesId.current || !before || !seed || before === seed) return
-    // Candidate metadata can change while its info dialog is open. Refresh only fields the user hasn't changed.
-    const previous = readSalesPlan(before.description)
-    const next = readSalesPlan(seed.description)
-    original.current = JSON.stringify(seed)
-    setDraft(current => {
-      const updated = readSalesPlan(current.description)
-      const keys = ['target', 'contact'] as const
-      for (const key of keys) {
-        if (updated.plan[key] === previous.plan[key]) updated.plan[key] = next.plan[key]
-      }
-      return {
-        ...current,
-        title: current.title === before.title ? seed.title : current.title,
-        source_url: current.source_url === before.source_url ? seed.source_url : current.source_url,
-        owner_id: current.owner_id === before.owner_id ? seed.owner_id : current.owner_id,
-        division: current.division === before.division && !current.project_id ? seed.division : current.division,
-        description: writeSalesPlan(updated.notes === previous.notes ? next.notes : updated.notes, updated.plan),
-      }
-    })
-  }, [contact, seed])
-  const dirty = JSON.stringify(draft) !== original.current || prospectPending
-  const guard = useDraftGuard(dirty, busy)
-  const set = (patch: Partial<SalesDraft>) => { setNotice(''); setDraft(d => ({ ...d, ...patch })) }
-  const refs = useAsync(async () => {
-    const [clients, contacts, projects] = await Promise.all([api.listClients(), api.listContacts(), api.listProjects()])
-    return { clients, contacts, projects }
-  }, [], { clients: [], contacts: [], projects: [] })
-  const projectIssue = validateSalesProject(draft, refs.data.projects)
-  const eligibleProjects = refs.data.projects.filter(p => p.division === draft.division && p.client_id === draft.client_id)
-  const close = () => { if (!lock.current) guard.close('저장하지 않은 변경이 있습니다. 닫을까요?', onClose) }
-  const confirmCandidate = async () => {
-    if (!contact?.editableCandidate || lock.current || contact.candidate.status !== '검토') return
-    const { id, revision, kind, title, owner_id, document, campaign_id } = contact.candidate
-    const confirmed = { kind, title, owner_id, status: '확인', document, campaign_id }
-    const invalid = validateGrowth(confirmed)
-    if (invalid) { setError(`${invalid} 후보 정보에서 확인해 주세요.`); return }
-    lock.current = true; setBusy(true); setError(''); setNotice('')
-    try {
-      contact.actions.refresh(await api.saveGrowth(id, confirmed, revision))
-      setNotice('영업 대상으로 확인했습니다. 계획을 저장하면 파이프라인에도 등록됩니다.')
-    } catch (e) { setError(friendlyError(e)) }
-    finally { lock.current = false; setBusy(false) }
-  }
-  const canSaveContact = !contact || Boolean(linkedSalesId.current) || (contact.editableCandidate && contact.candidate.status === '확인')
-  const save = async () => {
-    if (lock.current || !canSaveContact) return
-    if (refs.loading || refs.error) { setError('연결 자료를 다시 확인한 뒤 저장해 주세요.'); return }
-    if (prospectPending) { setError('발굴 계획을 영업 정보에 먼저 적용해 주세요.'); return }
-    const invalid = validateSalesPlan(readSalesPlan(draft.description).plan) ?? validateSales(draft) ?? projectIssue
-    if (invalid) { setError(invalid); return }
-    lock.current = true; setBusy(true); setError(''); setNotice('')
-    let saved = false
-    try {
-      if (contact && !initial && revision.current === 0) {
-        const source = contact.candidate
-        if (!linkedSalesId.current) linkedSalesId.current = await api.linkGrowthSales(source.id, source.revision)
-        const linked = await api.getSales(linkedSalesId.current)
-        if (linked.revision !== 1 || !canEditSales(linked, me)) {
-          throw new Error('연결된 계획에 다른 작업의 변경이 있습니다. 작성 내용을 복사한 뒤 후보를 다시 열어 최신 계획을 확인해 주세요.')
-        }
-        id.current = linked.id
-        revision.current = linked.revision
-      }
-      const row = await api.saveSales(id.current, draft, revision.current)
-      revision.current = row.revision
-      original.current = JSON.stringify(draft)
-      saved = true
-      if (contact) {
-        setNotice('영업 계획을 저장했습니다.')
-        if (contact.candidate.linked_sales_id !== row.id) {
-          try {
-            contact.actions.refresh(await api.getGrowth(contact.candidate.id))
-          } catch {
-            setNotice('영업 계획을 저장했습니다. 후보를 다시 열면 연결 상태를 확인할 수 있습니다.')
-          }
-        }
-      } else if (onSaved) guard.afterSaved(() => onSaved(row.id))
-    } catch (e) {
-      const detail = friendlyError(e)
-      setError(saved ? '저장은 완료했습니다. 화면을 다시 열어 결과를 확인해 주세요.'
-        : contact && !initial && linkedSalesId.current ? `영업은 연결됐습니다. 작성한 계획은 화면에 유지됩니다. ${detail}` : detail)
-    } finally { lock.current = false; setBusy(false) }
-  }
-  const { notes, plan } = readSalesPlan(draft.description)
-  const changeSource = (source: SalesDraft['source']) => {
-    if ((source === '나라장터') !== (draft.source === '나라장터') && plan.decisionDate) {
-      if (!window.confirm('유입 경로를 바꾸면 기존 선정일 또는 제출 마감일을 비웁니다. 변경할까요?')) return
-      set({ source, description: writeSalesPlan(notes, { ...plan, decisionDate: '' }) })
-      return
-    }
-    set({ source })
-  }
-  return <SalesPanel inline={inline} title={title ?? (revision.current ? '영업 정보 수정' : '새 영업 기회')} onClose={close} actions={<>
-    {contact && <Button kind="outline" disabled={busy} onClick={contact.actions.editCandidate}>후보 정보</Button>}
-    <Button kind="ghost" disabled={busy} onClick={close}>{contact ? '닫기' : '취소'}</Button>
-    {contact?.editableCandidate && !linkedSalesId.current && contact.candidate.status === '검토' && <Button kind="outline" disabled={busy} onClick={confirmCandidate}>영업 대상 확인</Button>}
-    <Button disabled={busy || prospectPending || refs.loading || !!refs.error || !canSaveContact} onClick={save}>{busy ? (contact ? '처리 중…' : '저장 중…') : '저장'}</Button>
-  </>}>
-    {error && <p role="alert" className="sales-error">{error}</p>}
-    {notice && <p role="status" className="sales-notice">{notice}</p>}
-    {contact && !canSaveContact && <p className="t-small">{contact.candidate.status === '제외' ? '제외된 후보입니다. 후보 정보를 확인해 주세요.' : '계획은 바로 작성·출력할 수 있습니다. 저장하려면 영업 대상을 확인해 주세요.'}</p>}
-    {discovery && !initial && <ProspectingPlanner owner={draft.owner_id} disabled={busy} onPending={setProspectPending} onApply={(seed, prospect) => {
-      if (JSON.stringify(draft) !== original.current && !window.confirm('입력한 제목·회사·출처·다음 행동·메모를 발굴 계획으로 바꿀까요? 회사가 바뀌면 거래처·담당자·프로젝트 연결은 해제합니다.')) return false
-      const description = writeSalesPlan(seed.description, {
-        ...emptySalesPlan(),
-        target: prospect.target.slice(0, SALES_PLAN_LIMITS.target),
-        scope: (prospect.agencyScope ?? '').slice(0, SALES_PLAN_LIMITS.scope),
-        demand: prospect.need.slice(0, SALES_PLAN_LIMITS.demand),
-        contact: prospect.contact.slice(0, SALES_PLAN_LIMITS.contact),
-        targetDate: prospect.start,
-        decisionDate: prospect.agencyDecision ?? '',
-        budget: (prospect.agencyBudget ?? '').slice(0, SALES_PLAN_LIMITS.budget),
-        evidence: prospect.evidence.slice(0, SALES_PLAN_LIMITS.evidence),
-      })
-      setDraft(d => ({ ...d, title: seed.title, division: seed.division, source: seed.source, source_url: seed.source_url, next_date: seed.next_date, next_action: seed.next_action, description, ...(d.division !== seed.division ? { client_id: null, contact_id: null, project_id: null } : {}) }))
-      setProspectApplied(true)
-      setError('')
-      return true
-    }} />}
-    {prospectPending && <p role="status" className="sales-notice">발굴 계획의 변경을 적용하면 저장할 수 있습니다. 닫으면 미저장 계획은 사라집니다.</p>}
-    {refs.error && <div role="alert" className="sales-error">{refs.error}<Button kind="outline" disabled={busy || refs.loading} onClick={refs.reload}>연결 자료 다시 확인</Button></div>}
-    <fieldset disabled={busy} className="sales-fieldset form-grid sales-editor-basics">
-      <Field label="영업 건 이름 *" className="full"><input className="input" autoFocus={!inline && !discovery} maxLength={160} value={draft.title} onChange={e => set({ title: e.target.value })} /></Field>
-      <Field label="진행 단계"><select className="select" value={draft.stage} onChange={e => set({ stage: e.target.value as SalesDraft['stage'], project_id: e.target.value === '수주' ? draft.project_id : null })}>{SALES_STAGES.map(s => <option key={s}>{s}</option>)}</select></Field>
-      <Field label="유입 경로"><select className="select" value={draft.source} onChange={e => changeSource(e.target.value as SalesDraft['source'])}>{SALES_SOURCES.map(s => <option key={s}>{s}</option>)}</select></Field>
-
-      <Field label="출처 주소" className="full"><input className="input" type="url" maxLength={2000} value={draft.source_url} onChange={e => set({ source_url: e.target.value })} placeholder="https://" /></Field>
-    </fieldset>
-    {(!discovery || prospectApplied) && <SalesPlanSheet draft={draft} onChange={set} disabled={busy || prospectPending} ownerName={profileName(draft.owner_id)} />}
-    <fieldset disabled={busy} className="sales-fieldset form-grid sales-editor-basics">
-      <Field label="다음 연락일"><input className="input" type="date" value={draft.next_date ?? ''} onChange={e => set({ next_date: e.target.value || null })} /></Field>
-      <Field label="다음 행동" className="full"><input className="input" maxLength={500} value={draft.next_action} onChange={e => set({ next_action: e.target.value })} placeholder="예: 공간 후보와 견적 전달" /></Field>
-    </fieldset>
-    <details className="sales-options" open={['수주', '실주', '보류'].includes(draft.stage) || undefined}>
-      <summary>회사·담당자·금액·결과</summary>
-      <fieldset disabled={busy} className="sales-fieldset form-grid">
-        <Field label="수행 회사"><select className="select" value={draft.division} onChange={e => set({ division: e.target.value as SalesDraft['division'], project_id: null })}>{Object.entries(SALES_COMPANIES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></Field>
-        <Field label="담당자"><select className="select" value={draft.owner_id} disabled={me.role !== 'admin'} onChange={e => set({ owner_id: e.target.value })}>{profiles.filter(p => p.active && !p.is_agent).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></Field>
-        <Field label="거래처"><select className="select" value={draft.client_id ?? ''} onChange={e => set({ client_id: e.target.value || null, contact_id: null, project_id: null })}><option value="">아직 미연결</option>{refs.data.clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></Field>
-        <Field label="거래처 담당자"><select className="select" value={draft.contact_id ?? ''} disabled={!draft.client_id} onChange={e => set({ contact_id: e.target.value || null })}><option value="">미연결</option>{refs.data.contacts.filter(c => c.client_id === draft.client_id).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></Field>
-        <Field label="예상 금액 (원 · 미확인은 빈칸)"><input className="input" type="number" min={0} max={Number.MAX_SAFE_INTEGER} step={1} value={draft.expected_amount ?? ''} onChange={e => set({ expected_amount: e.target.value === '' ? null : Number(e.target.value) })} /></Field>
-        <Field label="요청 내용·메모" className="full"><textarea className="textarea" rows={3} maxLength={10000 - (draft.description.length - notes.length)} value={notes} onChange={e => set({ description: writeSalesPlan(e.target.value, plan) })} /></Field>
-        <Field label="결과·사유 (수주·실주·보류 필수)" className="full"><textarea className="textarea" rows={2} maxLength={2000} value={draft.result_note} onChange={e => set({ result_note: e.target.value })} /></Field>
-        {draft.stage === '수주' && <div className="full"><Field label="수주 프로젝트 연결"><select className="select" value={draft.project_id ?? ''} disabled={refs.loading} onChange={e => set({ project_id: e.target.value || null })}><option value="">아직 미연결</option>{draft.project_id && !eligibleProjects.some(p => p.id === draft.project_id) && <option value={draft.project_id}>기존 선택 · 회사·거래처 확인 필요</option>}{eligibleProjects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></Field><span className="t-cap">{SALES_COMPANIES[draft.division]} · {refs.data.clients.find(c => c.id === draft.client_id)?.name ?? '거래처 미연결'}와 같은 프로젝트를 연결합니다. 새 창에서 프로젝트를 만든 후 목록을 새로고침하고 선택·저장하세요. 영업 입력 내용은 이 창에 유지됩니다.</span><div className="row wrap">{busy ? <span className="btn btn-outline" aria-disabled="true">새 프로젝트 만들기</span> : <a className="btn btn-outline" href="/projects?new=1" target="_blank" rel="noopener noreferrer" onClick={e => { if (lock.current) e.preventDefault() }}>새 프로젝트 만들기</a>}<Button kind="outline" disabled={busy || refs.loading} onClick={() => { if (!lock.current) refs.reload() }}>{refs.loading ? '프로젝트 목록 확인 중…' : '프로젝트 목록 새로고침'}</Button></div>{!refs.loading && projectIssue && <span role="alert" className="sales-error">{projectIssue}</span>}</div>}
-      </fieldset>
-    </details>
-    <details className="sales-options">
-      <summary>출처와 단계 안내</summary>
-      {initial && <SalesOrigins id={initial.id} />}
-      <SalesPlaybook draft={draft} onApply={set} disabled={busy} />
-    </details>
   </SalesPanel>
 }

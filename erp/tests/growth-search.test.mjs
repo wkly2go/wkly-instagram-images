@@ -44,7 +44,7 @@ function predicates(filter) {
   return parts
 }
 
-test('contact search keeps summary-only paging, kind/status filters and searches sender identifiers', async () => {
+test('contact search includes card details with paging, kind/status filters and searches sender identifiers', async () => {
   const rows = Array.from({ length: 31 }, (_, i) => ({ id: String(i), title: '담당자 ' + i }))
   const f = fixture(rows)
   const result = await f.api.listGrowth({ kind: 'contact', page: 2, search: '  Brand@Example.COM  ', status: '제외' })
@@ -58,10 +58,10 @@ test('contact search keeps summary-only paging, kind/status filters and searches
   assert.equal(q.get('offset'), '60')
   assert.equal(q.get('limit'), '31')
   assert.equal(q.get('order'), 'updated_at.desc,id.asc')
-  assert.equal(q.get('select'), 'id,kind,title,owner_id,status,campaign_id,linked_sales_id,revision,created_at,updated_at,created_by,review_source:document->>source,review_segment:document->>segment')
+  assert.equal(q.get('select'), 'id,kind,title,owner_id,status,campaign_id,linked_sales_id,revision,created_at,updated_at,created_by,document,review_source:document->>source,review_segment:document->>segment')
   // Identifier fields may be searched on the server without downloading them.
   for (const field of ['email', 'instagram', 'brand', 'name', 'note', 'evidence', 'original', 'versions']) assert.ok(!q.get('select').includes('document->>' + field))
-  assert.ok(!q.get('select').split(',').includes('document'))
+  assert.ok(q.get('select').split(',').includes('document'))
   const parts = predicates(q.get('or').slice(1, -1))
   assert.deepEqual(parts.map(p => p.field), ['title', 'document->>email', 'document->>instagram', 'document->>brand', 'document->>name'])
   assert.ok(parts.every(p => p.pattern === 'Brand@Example\\.COM'))
@@ -156,7 +156,7 @@ test('demo search uses the same fields and literal substring semantics, preservi
   for (const term of ['brand+TAG', 'brand_kr', '서울 브랜드', '김정연', '김담당']) {
     const r = await api.listGrowth({ kind: 'contact', page: 0, search: term, status: '제외' })
     assert.deepEqual(r.items.map(x => x.id), ['a'])
-    assert.equal('document' in r.items[0], false)
+    assert.deepEqual(r.items[0].document, items[0].document)
   }
   assert.equal((await api.listGrowth({ kind: 'contact', page: 0, search: 'brand', status: '확인' })).items.length, 0)
   assert.equal((await api.listGrowth({ kind: 'tender', page: 0, search: 'r26', status: '' })).items[0].id, 'b')
