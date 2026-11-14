@@ -1,7 +1,8 @@
-import { useMemo, useRef, useState, type ChangeEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
 import { todayKey } from '../lib/date'
 import { safeWebUrl } from '../lib/growth'
 import { parseSeoulEvents, readSeoulCsv, SEOUL_EVENT_DATASET, type SeoulEvent } from '../lib/seoulSales'
+import { fetchSeoulEvents, type SeoulEventSnapshot } from '../lib/seoulEventClient'
 import { Button, Field } from './ui'
 
 const MAX_FILE_BYTES = 15 * 1024 * 1024
@@ -29,6 +30,8 @@ function eventStatus(event: SeoulEvent, today: string): EventStatus {
 export function SeoulEventDiscovery({ onEvent }: { onEvent: (event: SeoulEvent) => void }) {
   const [events, setEvents] = useState<SeoulEvent[]>([])
   const [fileName, setFileName] = useState('')
+  const [snapshot, setSnapshot] = useState<SeoulEventSnapshot | null>(null)
+  const [loading, setLoading] = useState(false)
   const [reading, setReading] = useState(false)
   const [error, setError] = useState('')
   const [keyword, setKeyword] = useState('')
@@ -36,10 +39,44 @@ export function SeoulEventDiscovery({ onEvent }: { onEvent: (event: SeoulEvent) 
   const [filter, setFilter] = useState<StatusFilter>('active')
   const [page, setPage] = useState(1)
   const readingRef = useRef(false)
+  const request = useRef<{ serial: number; controller: AbortController | null }>({ serial: 0, controller: null })
   const today = todayKey()
 
-  const districts = useMemo(() => [...new Set(events.map(event => event.district).filter(Boolean))]
-    .sort((a, b) => a.localeCompare(b, 'ko')), [events])
+  async function loadLatest() {
+    if (readingRef.current || request.current.controller) return
+    const controller = new AbortController()
+    const serial = ++request.current.serial
+    request.current.controller = controller
+    setLoading(true)
+    setError('')
+    try {
+      const next = await fetchSeoulEvents(controller.signal)
+      if (serial !== request.current.serial || controller.signal.aborted) return
+      setEvents(next.events)
+      setSnapshot(next)
+      setFileName('')
+    } catch (cause) {
+      if (serial !== request.current.serial || controller.signal.aborted) return
+      setError(cause instanceof Error ? cause.message : '서울시 행사를 불러오지 못했습니다. CSV 파일을 이용해 주세요.')
+    } finally {
+      if (serial === request.current.serial) {
+        request.current.controller = null
+        setLoading(false)
+      }
+    }
+  }
+
+  useEffect(() => {
+    void loadLatest()
+    return () => {
+      request.current.serial++
+      request.current.controller?.abort()
+      request.current.controller = null
+    }
+  }, [])
+
+  const districts = useMemo(() => [...new Set([...events.map(event => event.district), district].filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, 'ko')), [events, district])
 
   const results = useMemo(() => {
     const terms = keyword.toLocaleLowerCase('ko').trim().split(/\s+/).filter(Boolean)
@@ -74,39 +111,54 @@ export function SeoulEventDiscovery({ onEvent }: { onEvent: (event: SeoulEvent) 
     }
 
     readingRef.current = true
+    request.current.controller?.abort()
+    request.current.controller = null
+    const serial = ++request.current.serial
+    setLoading(false)
     setReading(true)
     setError('')
     try {
       const imported = parseSeoulEvents(readSeoulCsv(await picked.arrayBuffer()))
+      if (serial !== request.current.serial) return
       if (!imported.length) throw new Error('읽을 수 있는 행사 정보가 없습니다.')
       setEvents(imported)
       setFileName(picked.name)
-      setDistrict('')
-      setKeyword('')
-      setFilter('active')
-      setPage(1)
+      setSnapshot(null)
     } catch (cause) {
+      if (serial !== request.current.serial) return
       setError(cause instanceof Error ? cause.message : '파일을 읽지 못했습니다.')
     } finally {
-      readingRef.current = false
-      setReading(false)
+      if (serial === request.current.serial) {
+        readingRef.current = false
+        setReading(false)
+      }
     }
   }
 
   return <section className="sales-pipeline" aria-label="서울시 문화행사 발굴">
     <h3 className="t-sub">문화행사에서 협업 후보 찾기</h3>
     <p className="sales-notice">행사 일정과 주최기관을 보고 연계 팝업 또는 다음 회차를 검토하세요. 참가·협업 모집 여부, 예산, 미발주 범위는 주최기관 원문이나 문의로 확인합니다.</p>
-    <div className="sales-filters">
+    <div className="row wrap">
+      <Button kind="outline" disabled={loading || reading} onClick={() => {
+        if (fileName && !window.confirm('불러온 CSV 목록을 서울시 최신 조회 결과로 바꿀까요? 작성 중인 영업 정보와 검색 조건은 유지됩니다.')) return
+        void loadLatest()
+      }}>최신 행사 다시 불러오기</Button>
+      <a className="btn btn-outline" href={SEOUL_EVENT_DATASET} target="_blank" rel="noreferrer">서울시 원본 데이터</a>
+    </div>
+    <p className="t-small">서울시 공개 목록 최대 1,000건에서 예정·진행 중인 행사를 최대 200건 표시합니다. 조회 결과는 최대 30분간 재사용하며, 검색은 불러온 행사에 적용됩니다.</p>
+    {loading && <p role="status">서울시 행사를 불러오는 중입니다.{events.length > 0 && ' 기존 목록과 검색 조건은 유지됩니다.'}</p>}
+    <details className="sales-options">
+      <summary>CSV로 불러오기</summary>
       <Field label="서울시 문화행사 CSV">
         <input type="file" className="input" accept=".csv,text/csv" disabled={reading} onChange={loadFile} />
       </Field>
-      <a className="btn btn-outline" href={SEOUL_EVENT_DATASET} target="_blank" rel="noreferrer">서울시 원본 데이터</a>
-    </div>
-    <p className="t-small">원본 데이터의 Sheet 탭에서 내려받기(CSV)를 선택한 뒤 파일을 불러오세요.</p>
+      <p className="t-small">자동 조회가 어렵거나 종료 행사가 필요하면 원본 데이터에서 내려받은 CSV를 선택하세요.</p>
+    </details>
     {reading && <p role="status">행사 파일을 읽는 중입니다.</p>}
     {error && <p role="alert" className="sales-error">{error}</p>}
-    {fileName && <>
-      <p className="t-small">불러온 파일 {fileName} · 행사 {events.length.toLocaleString('ko-KR')}건</p>
+    {(fileName || snapshot) && <>
+      <p className="t-small">{fileName ? `불러온 파일 ${fileName}` : '서울시 API 조회'} · 행사 {events.length.toLocaleString('ko-KR')}건</p>
+      {snapshot && <p className="t-small">조회 시각 {new Date(snapshot.fetchedAt).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })} (한국시간) · 원본 {snapshot.total.toLocaleString('ko-KR')}건 중 {snapshot.scanned.toLocaleString('ko-KR')}건 확인{snapshot.limited ? ' · 일부 범위만 조회되어 전체 행사가 아닙니다.' : ''} 조회 시각은 개별 행사 정보의 수정 시각과 다릅니다.</p>}
       <fieldset className="sales-filters sales-fieldset" disabled={reading}>
         <Field label="행사·주최기관 검색">
           <input className="input" value={keyword} maxLength={120} placeholder="예: 전시, 축제, 성동구" onChange={e => { setKeyword(e.target.value); setPage(1) }} />
@@ -129,7 +181,7 @@ export function SeoulEventDiscovery({ onEvent }: { onEvent: (event: SeoulEvent) 
         </Field>
       </fieldset>
       <section className="sales-list" aria-label="문화행사 검색 결과">
-        <p role="status">조건에 맞는 행사 {results.length.toLocaleString('ko-KR')}건</p>
+        <p role="status">불러온 목록에서 조건에 맞는 행사 {results.length.toLocaleString('ko-KR')}건 · 한 페이지 {PAGE_SIZE}건</p>
         {!visible.length && <p className="sales-empty">조건에 맞는 행사가 없습니다. 전체 일정 상태를 선택하거나 검색어를 지워 보세요.</p>}
         {visible.map(({ event, status }, index) => {
           const url = event.url && safeWebUrl(event.url) ? event.url : ''

@@ -100,22 +100,34 @@ test('a saved sales plan reopens with its assessment and read-only output for an
     assert.equal(plan.queryByRole('button', { name: /권장 행동.*적용/ }), null)
     await click(plan.getByRole('button', { name: '계획 복사', exact: true }))
     assert.equal(await navigator.clipboard.readText(), preview.value)
-    window.open = () => null
+    const salesUrl = location.href
+    let openCalls = 0
+    window.open = () => { openCalls++; return null }
+    window.print = () => { throw new Error('Print unavailable') }
     await click(plan.getByRole('button', { name: '인쇄·PDF 저장', exact: true }))
     assert.equal(document.activeElement, preview)
     assert.equal(preview.selectionStart, 0)
     assert.equal(preview.selectionEnd, preview.value.length)
+    assert.equal(document.body.querySelector(':scope > pre.sales-plan-print'), null)
+    assert.ok(!document.body.classList.contains('sales-plan-printing'))
 
-    const printDom = new JSDOM('<html><head></head><body></body></html>')
-    try {
-      let printCalls = 0
-      printDom.window.focus = () => {}
-      printDom.window.print = () => { printCalls++ }
-      window.open = () => printDom.window
-      await click(plan.getByRole('button', { name: '인쇄·PDF 저장', exact: true }))
-      assert.equal(printCalls, 1)
-      assert.equal(printDom.window.document.querySelector('pre').textContent, preview.value)
-    } finally { printDom.window.close() }
+    let printCalls = 0
+    let printedText
+    let printingClass
+    window.print = () => {
+      printCalls++
+      printedText = document.body.querySelector(':scope > pre.sales-plan-print')?.textContent
+      printingClass = document.body.classList.contains('sales-plan-printing')
+      window.dispatchEvent(new Event('afterprint'))
+    }
+    await click(plan.getByRole('button', { name: '인쇄·PDF 저장', exact: true }))
+    assert.equal(printCalls, 1)
+    assert.equal(openCalls, 0)
+    assert.equal(printingClass, true)
+    assert.equal(printedText, preview.value)
+    assert.equal(location.href, salesUrl)
+    assert.equal(document.body.querySelector(':scope > pre.sales-plan-print'), null)
+    assert.ok(!document.body.classList.contains('sales-plan-printing'))
 
     await click(detail.getByRole('button', { name: '닫기', exact: true }))
     assert.equal(document.activeElement, screen.getByRole('button', { name: '+ 영업 기회', exact: true }))

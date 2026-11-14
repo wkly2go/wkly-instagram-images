@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { useApp, useAsync } from '../lib/app'
 import { friendlyError } from '../lib/api'
 import { Link } from '../lib/router'
@@ -14,12 +14,18 @@ import { CHANNELS, GROWTH_LABELS, GROWTH_STATUSES, koreaDateTimeInput, appendGro
 import './GrowthWorkspace.css'
 
 type PlanCandidate = (candidate: GrowthItem, salesId: string) => void
+type RenderContactPlan = (candidate: GrowthItem, actions: {
+  close: () => void
+  refresh: (row: GrowthItem) => void
+  editCandidate: () => void
+}) => ReactNode
 const REVIEW_ORDER = { ready: 0, verify: 1, linked: 2, closed: 3, expired: 4, blocked: 5 }
 
-export function GrowthWorkspace({ kind, embedded = false, onPlanCandidate }: {
+export function GrowthWorkspace({ kind, embedded = false, onPlanCandidate, renderContactPlan }: {
   kind: GrowthKind
   embedded?: boolean
   onPlanCandidate?: PlanCandidate
+  renderContactPlan?: RenderContactPlan
 }) {
   const { api, me, profileName } = useApp()
   const [search, setSearch] = useState(''), [query, setQuery] = useState(''), [page, setPage] = useState(0), [status, setStatus] = useState('')
@@ -28,12 +34,34 @@ export function GrowthWorkspace({ kind, embedded = false, onPlanCandidate }: {
   const [tenderSearching, setTenderSearching] = useState(false), [seed, setSeed] = useState<GrowthDraft | null>(null)
   const [notice, setNotice] = useState(''), [busy, setBusy] = useState(false)
   const [channel, setChannel] = useState(0)
-  const openPanel=(target:'new'|'import'|'tender-search'|'research-import'|string)=>{if((target==='research-import'&&researchImporting)||(target==='new'&&adding)||(target==='import'&&importing)||(target==='tender-search'&&tenderSearching)||(target===selected&&!adding&&!importing&&!tenderSearching&&!researchImporting))return;if(!requestViewChange(`growth:${kind}:${target}`))return;setSelected(['new','import','tender-search','research-import'].includes(target)?null:target);setAdding(target==='new');setImporting(target==='import');setTenderSearching(target==='tender-search');setResearchImporting(target==='research-import');setSeed(null);setChannel(0)}
+  const contact = kind === 'contact'
+  const inlineContact = contact && embedded ? renderContactPlan : undefined
+  const searchInput = useRef<HTMLInputElement>(null)
+  const openTrigger = useRef<HTMLButtonElement | null>(null)
+  const openPanel = (target: string) => {
+    if ((target === 'research-import' && researchImporting) || (target === 'new' && adding) || (target === 'import' && importing) || (target === 'tender-search' && tenderSearching) || target === selected) return false
+    if (!requestViewChange(`growth:${kind}:${target}`)) return false
+    const special = ['new', 'import', 'tender-search', 'research-import'].includes(target)
+    setSelected(special ? null : target)
+    if (special) openTrigger.current = null
+    setAdding(target === 'new')
+    setImporting(target === 'import')
+    setTenderSearching(target === 'tender-search')
+    setResearchImporting(target === 'research-import')
+    setSeed(null)
+    setChannel(0)
+    return true
+  }
+  const closeContactPlan = () => {
+    setSelected(null)
+    const trigger = openTrigger.current
+    if (trigger?.isConnected) trigger.focus()
+    else searchInput.current?.focus()
+  }
   const chooseTender=(draft:GrowthDraft)=>{if(!requestViewChange('growth:tender:prefill'))return false;setSelected(null);setImporting(false);setTenderSearching(false);setResearchImporting(false);setSeed(draft);setAdding(true);return true}
   useEffect(() => { const t=setTimeout(()=>{setQuery(search);setPage(0)},350);return ()=>clearTimeout(t) },[search])
   const list=useAsync(()=>api.listGrowth({kind,page,search:query,status}),[kind,page,query,status],{items:[],hasMore:false})
   const backfill=async()=>{if(busy)return;setBusy(true);try{const n=await api.backfillMailLeads();setNotice(`과거 메일 ${n}건 확인 · 새 발신자는 검토함에 저장됩니다.`);list.reload()}catch(e){setNotice(friendlyError(e))}finally{setBusy(false)}}
-  const contact = kind === 'contact'
   const Heading = embedded ? 'h2' : 'h1'
   const orderedRows = kind === 'content' ? list.data.items : [...list.data.items].sort((a, b) => {
     const first = a.sales_review, second = b.sales_review
@@ -56,7 +84,10 @@ export function GrowthWorkspace({ kind, embedded = false, onPlanCandidate }: {
     {contact && api.mode === 'demo' && <p className="t-cap growth-demo">체험 모드 · 이 브라우저에만 저장됩니다.</p>}
     {kind==='tender'&&<div className="row wrap"><Button kind="outline" onClick={()=>openPanel('research-import')}>발굴 보고서 가져오기</Button>{!embedded&&<Link className="btn btn-outline" to="/sales">수주 파이프라인</Link>}<span className="t-cap">조사한 출처·확인일·제안 이유를 검토 후 저장합니다.</span></div>}
     {kind==='tender'&&<div className="row wrap"><Button kind="outline" onClick={()=>openPanel('tender-search')}>나라장터 공식 공고 조회</Button><span className="t-cap">조회 후보를 검토한 뒤 등록 · 예약 자동 수집은 미지원</span></div>}
-    <div className="growth-filters"><Field label="검색"><input className="input" value={search} onChange={e=>setSearch(e.target.value)} placeholder={kind==='contact'?'제목·이메일·인스타·브랜드·담당자':kind==='tender'?'제목·공고번호·발주처':'찾을 자료 이름'} /></Field><Field label="상태"><select className="select" value={status} onChange={e=>{setStatus(e.target.value);setPage(0)}}><option value="">전체</option>{GROWTH_STATUSES[kind].map(s=><option key={s}>{s}</option>)}</select></Field></div>
+    <div className={inlineContact && selected ? 'growth-contact-desk is-open' : 'growth-contact-desk'}>
+      <div className="growth-contact-layout">
+        <div className="growth-contact-queue">
+    <div className="growth-filters"><Field label="검색"><input ref={searchInput} className="input" value={search} onChange={e=>setSearch(e.target.value)} placeholder={kind==='contact'?'제목·이메일·인스타·브랜드·담당자':kind==='tender'?'제목·공고번호·발주처':'찾을 자료 이름'} /></Field><Field label="상태"><select className="select" value={status} onChange={e=>{setStatus(e.target.value);setPage(0)}}><option value="">전체</option>{GROWTH_STATUSES[kind].map(s=><option key={s}>{s}</option>)}</select></Field></div>
     {list.error&&<p role="alert">{list.error} <Button kind="outline" onClick={list.reload}>다시 확인</Button></p>}
     {list.loading?<p role="status">자료를 불러오는 중…</p>:!list.error&&<>
       <div className="growth-list">
@@ -66,7 +97,11 @@ export function GrowthWorkspace({ kind, embedded = false, onPlanCandidate }: {
             timeZone: 'Asia/Seoul', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit',
           })
           const badgeColor = !review || review.bucket === 'ready' || review.bucket === 'linked' ? 'green' : review.bucket === 'verify' ? 'outline' : 'growth-status-excluded'
-          return <button type="button" key={row.id} className={`growth-row${review ? ' growth-review-row' : ''}`} onClick={() => openPanel(row.id)}>
+          return <button type="button" key={row.id} className={`growth-row${review ? ' growth-review-row' : ''}`}
+            aria-current={inlineContact && selected === row.id ? 'true' : undefined}
+            onClick={event => {
+              if (openPanel(row.id) && inlineContact) openTrigger.current = event.currentTarget
+            }}>
             <span><strong>{row.title}</strong><small>{profileName(row.owner_id)} · {deadline ? `마감 ${deadline}` : new Date(row.updated_at).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' })}{review && ` · ${row.status}`}</small></span>
             <span className={`badge ${badgeColor}`}>{review?.label ?? row.status}</span>
             <span>{review?.nextAction ?? (row.linked_sales_id ? '영업 연결됨' : row.campaign_id ? '광고 연결됨' : contact ? '후보 검토 →' : '상세 보기 →')}</span>
@@ -93,8 +128,12 @@ export function GrowthWorkspace({ kind, embedded = false, onPlanCandidate }: {
         {notice&&<p role="status" className="growth-notice">{notice}</p>}
       </div>
     </details>}
+        </div>
+        {inlineContact && selected && <InlineContactPlan key={selected} id={selected} render={inlineContact} onClose={closeContactPlan} onChanged={list.reload} />}
+      </div>
+    </div>
     {adding&&<GrowthEditor kind={kind} initial={null} seed={seed??undefined} channel={channel} onChannelChange={setChannel} onClose={()=>{setAdding(false);setSeed(null)}} onSaved={r=>{setAdding(false);setSeed(null);setSelected(r.id);list.reload()}}/>}
-    {selected&&<GrowthDetail key={selected} id={selected} channel={channel} onChannelChange={setChannel} onClose={()=>setSelected(null)} onChanged={list.reload} onPlanCandidate={onPlanCandidate}/>}
+    {selected&&!inlineContact&&<GrowthDetail key={selected} id={selected} channel={channel} onChannelChange={setChannel} onClose={()=>setSelected(null)} onChanged={list.reload} onPlanCandidate={onPlanCandidate}/>}
     {importing&&<ContactImport onClose={()=>setImporting(false)} onSaved={list.reload}/>}
     {researchImporting&&kind!=='content'&&<DiscoveryIntake kind={kind} onClose={()=>setResearchImporting(false)} onChoose={chooseTender} onSaved={list.reload}/>}
     {tenderSearching&&<TenderSearch onClose={()=>setTenderSearching(false)} onChoose={chooseTender}/>}
@@ -103,6 +142,51 @@ export function GrowthWorkspace({ kind, embedded = false, onPlanCandidate }: {
 
 interface ChannelSelection { channel: number; onChannelChange: (channel: number) => void }
 
+function InlineContactPlan({ id, render, onClose, onChanged }: {
+  id: string
+  render: RenderContactPlan
+  onClose: () => void
+  onChanged: () => void
+}) {
+  const { api } = useApp()
+  const state = useAsync(() => api.getGrowth(id), [id], null)
+  const [editing, setEditing] = useState(false)
+  const panel = useRef<HTMLDivElement>(null)
+  const editTrigger = useRef<HTMLElement | null>(null)
+  useEffect(() => {
+    if (!panel.current?.contains(document.activeElement)) panel.current?.focus()
+  }, [])
+  const refresh = (row: GrowthItem) => {
+    if (row.id !== id) return
+    state.setData(row)
+    onChanged()
+  }
+  const row = state.data
+  const editCandidate = () => {
+    editTrigger.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    setEditing(true)
+  }
+  const closeCandidate = () => {
+    setEditing(false)
+    requestAnimationFrame(() => {
+      if (editTrigger.current?.isConnected) editTrigger.current.focus({ preventScroll: true })
+    })
+  }
+  return <div className="growth-contact-plan" ref={panel} tabIndex={-1}>
+    {row && !state.error ? <div {...(editing ? { inert: '' } : {})}>
+      {render(row, { close: onClose, refresh, editCandidate })}
+    </div> : <section className="growth-contact-plan-message" aria-label="민간 영업 후보 계획">
+        {state.loading ? <p role="status">후보 정보를 불러오는 중…</p> : <p role="alert">{state.error ?? '후보 정보를 찾지 못했습니다.'}</p>}
+        <div className="row wrap">
+          <Button kind="outline" onClick={onClose}>닫기</Button>
+          {!state.loading && <Button kind="outline" onClick={state.reload}>다시 확인</Button>}
+        </div>
+      </section>}
+    {row && editing && <GrowthEditor key={row.revision} kind="contact" initial={row} channel={0} onChannelChange={() => undefined}
+      onSaved={refresh} onClose={closeCandidate} onPlanCandidate={closeCandidate} contactPlanOpen />}
+  </div>
+}
+
 function GrowthDetail({id,channel,onChannelChange,onClose,onChanged,onPlanCandidate}:{id:string;onClose:()=>void;onChanged:()=>void;onPlanCandidate?:PlanCandidate}&ChannelSelection){
   const {api}=useApp(),state=useAsync(()=>api.getGrowth(id),[id],null)
   if(state.loading)return <Modal title="자료 열기" onClose={onClose}><p>불러오는 중…</p></Modal>
@@ -110,7 +194,7 @@ function GrowthDetail({id,channel,onChannelChange,onClose,onChanged,onPlanCandid
   return <GrowthEditor key={state.data.revision} kind={state.data.kind} initial={state.data} channel={channel} onChannelChange={onChannelChange} onClose={onClose} onSaved={row=>{state.setData(row);onChanged()}} onPlanCandidate={onPlanCandidate}/>
 }
 
-function GrowthEditor({kind,initial,seed,channel,onChannelChange,onClose,onSaved,onPlanCandidate}:{kind:GrowthKind;initial:GrowthItem|null;seed?:GrowthDraft;onClose:()=>void;onSaved:(row:GrowthItem)=>void;onPlanCandidate?:PlanCandidate}&ChannelSelection){
+function GrowthEditor({kind,initial,seed,channel,onChannelChange,onClose,onSaved,onPlanCandidate,contactPlanOpen=false}:{kind:GrowthKind;initial:GrowthItem|null;seed?:GrowthDraft;onClose:()=>void;onSaved:(row:GrowthItem)=>void;onPlanCandidate?:PlanCandidate;contactPlanOpen?:boolean}&ChannelSelection){
   const {api,me,profiles}=useApp()
   const channelId=useId()
   const [draft,setDraft]=useState<GrowthDraft>(()=>initial?{kind:initial.kind,title:initial.title,owner_id:initial.owner_id,status:initial.status,document:structuredClone(initial.document),campaign_id:initial.campaign_id}:seed?structuredClone(seed):newGrowth(kind,me.id))
@@ -155,7 +239,7 @@ function GrowthEditor({kind,initial,seed,channel,onChannelChange,onClose,onSaved
   }
   const salesAction = initial && kind !== 'content' && (confirmedSalesId
     ? onPlanCandidate ? <Button kind="outline" disabled={working || dirty} onClick={openPlan}>영업 계획 열기</Button> : <Link to={`/sales?id=${confirmedSalesId}`} className="btn btn-outline">연결 영업 기회 보기</Link>
-    : editable && <Button kind="outline" disabled={working || dirty || (kind === 'contact' && initial.status !== '확인')} onClick={link}>영업 기회로 연결</Button>)
+    : editable && !contactPlanOpen && <Button kind="outline" disabled={working || dirty || (kind === 'contact' && initial.status !== '확인')} onClick={link}>영업 기회로 연결</Button>)
 
   return <Modal title={initial?draft.title:`새 ${GROWTH_LABELS[kind]}`} onClose={close} wide actions={<><Button kind="ghost" onClick={close} disabled={working}>닫기</Button>{onPlanCandidate && salesAction}{editable&&<Button onClick={save} disabled={working||linkNeedsRefresh}>{busy?'처리 중…':'저장'}</Button>}</>}>
     {error&&<p role="alert" className="growth-error">{error}</p>}
