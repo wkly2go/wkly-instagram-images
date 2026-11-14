@@ -31,6 +31,7 @@ export function SeoulEventDiscovery({ onEvent }: { onEvent: (event: SeoulEvent) 
   const [events, setEvents] = useState<SeoulEvent[]>([])
   const [fileName, setFileName] = useState('')
   const [snapshot, setSnapshot] = useState<SeoulEventSnapshot | null>(null)
+  const [archived, setArchived] = useState(false)
   const [loading, setLoading] = useState(false)
   const [reading, setReading] = useState(false)
   const [error, setError] = useState('')
@@ -54,8 +55,23 @@ export function SeoulEventDiscovery({ onEvent }: { onEvent: (event: SeoulEvent) 
       if (serial !== request.current.serial || controller.signal.aborted) return
       setEvents(next.events)
       setSnapshot(next)
+      setArchived(false)
       setFileName('')
     } catch (cause) {
+      if (serial !== request.current.serial || controller.signal.aborted) return
+      if (!events.length && !fileName) {
+        try {
+          const fallback = await fetchSeoulEvents(controller.signal, true)
+          if (serial !== request.current.serial || controller.signal.aborted) return
+          const current = fallback.events.filter(event => event.end >= today)
+          if (current.length) {
+            setEvents(current)
+            setSnapshot(fallback)
+            setArchived(true)
+            return
+          }
+        } catch { /* If the backup is unavailable, retain the original retrieval guidance. */ }
+      }
       if (serial !== request.current.serial || controller.signal.aborted) return
       setError(cause instanceof Error ? cause.message : '서울시 행사를 불러오지 못했습니다. CSV 파일을 이용해 주세요.')
     } finally {
@@ -124,6 +140,7 @@ export function SeoulEventDiscovery({ onEvent }: { onEvent: (event: SeoulEvent) 
       setEvents(imported)
       setFileName(picked.name)
       setSnapshot(null)
+      setArchived(false)
     } catch (cause) {
       if (serial !== request.current.serial) return
       setError(cause instanceof Error ? cause.message : '파일을 읽지 못했습니다.')
@@ -145,7 +162,7 @@ export function SeoulEventDiscovery({ onEvent }: { onEvent: (event: SeoulEvent) 
       }}>최신 행사 다시 불러오기</Button>
       <a className="btn btn-outline" href={SEOUL_EVENT_DATASET} target="_blank" rel="noreferrer">서울시 원본 데이터</a>
     </div>
-    <p className="t-small">서울시 공개 목록 최대 1,000건에서 예정·진행 중인 행사를 최대 200건 표시합니다. 조회 결과는 최대 30분간 재사용하며, 검색은 불러온 행사에 적용됩니다.</p>
+    <p className="t-small">서울시 공개 목록에서 예정·진행 중인 행사를 불러옵니다. 조회 결과는 최대 30분간 재사용하며, 검색은 불러온 행사에 적용됩니다.</p>
     {loading && <p role="status">서울시 행사를 불러오는 중입니다.{events.length > 0 && ' 기존 목록과 검색 조건은 유지됩니다.'}</p>}
     <details className="sales-options">
       <summary>CSV로 불러오기</summary>
@@ -157,8 +174,11 @@ export function SeoulEventDiscovery({ onEvent }: { onEvent: (event: SeoulEvent) 
     {reading && <p role="status">행사 파일을 읽는 중입니다.</p>}
     {error && <p role="alert" className="sales-error">{error}</p>}
     {(fileName || snapshot) && <>
-      <p className="t-small">{fileName ? `불러온 파일 ${fileName}` : '서울시 API 조회'} · 행사 {events.length.toLocaleString('ko-KR')}건</p>
-      {snapshot && <p className="t-small">조회 시각 {new Date(snapshot.fetchedAt).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })} (한국시간) · 원본 {snapshot.total.toLocaleString('ko-KR')}건 중 {snapshot.scanned.toLocaleString('ko-KR')}건 확인{snapshot.limited ? ' · 일부 범위만 조회되어 전체 행사가 아닙니다.' : ''} 조회 시각은 개별 행사 정보의 수정 시각과 다릅니다.</p>}
+      <p className="t-small">{fileName ? `불러온 파일 ${fileName}` : archived ? '이전에 확보한 서울시 목록' : '서울시 API 조회'} · 행사 {events.length.toLocaleString('ko-KR')}건</p>
+      {archived && <p role="status" className="sales-notice">최신 조회가 지연되어 아래 조회 시각에 확보한 목록을 표시합니다.</p>}
+      {snapshot && <p className="t-small">조회 시각 {new Date(snapshot.fetchedAt).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })} (한국시간) · {snapshot.sourceKind === 'portal'
+        ? `서울문화포털 향후 90일 범위에서 ${snapshot.scanned.toLocaleString('ko-KR')}건 확인`
+        : `원본 ${snapshot.total.toLocaleString('ko-KR')}건 중 ${snapshot.scanned.toLocaleString('ko-KR')}건 확인`}{snapshot.limited ? ' · 일부 범위만 조회되어 전체 행사가 아닙니다.' : ''}</p>}
       <fieldset className="sales-filters sales-fieldset" disabled={reading}>
         <Field label="행사·주최기관 검색">
           <input className="input" value={keyword} maxLength={120} placeholder="예: 전시, 축제, 성동구" onChange={e => { setKeyword(e.target.value); setPage(1) }} />

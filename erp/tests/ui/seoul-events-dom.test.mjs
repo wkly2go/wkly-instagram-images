@@ -44,7 +44,7 @@ afterEach(async () => {
 after(async () => { await server.close(); dom.window.close() })
 async function mount() {
   globalThis.fetch = (url, init) => {
-    assert.equal(url, '/api/seoul-events', 'no external network is permitted')
+    assert.ok(['/api/seoul-events', '/data/seoul-events.json'].includes(url), 'no external network is permitted')
     calls.push({ url, init })
     return new Promise(resolve => pending.push(resolve))
   }
@@ -110,4 +110,16 @@ test('unmount aborts automatic fetch and ignores a server response arriving afte
   await respond(snapshot())
   assert.equal(document.getElementById('root').textContent, '')
   assert.equal(choice.length, 0)
+})
+
+
+test('a failed first lookup automatically shows the dated snapshot without claiming a live response', async () => {
+  await mount()
+  await respond({ error: 'upstream failed' }, 502)
+  assert.equal(calls[1].url, '/data/seoul-events.json')
+  await respond(snapshot())
+  assert.ok(screen.getByText('테스트 축제'))
+  assert.ok(screen.getByText(/이전에 확보한 서울시 목록/))
+  assert.ok(screen.getByText(/^조회 시각/))
+  assert.equal(screen.queryByText(/서울시 API 조회/), null)
 })

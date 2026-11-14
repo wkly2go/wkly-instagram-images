@@ -6,6 +6,7 @@ export interface SeoulEventSnapshot {
   total: number
   scanned: number
   limited: boolean
+  sourceKind?: 'portal' | 'sheet'
 }
 
 const INVALID_RESPONSE = '서울시 행사 응답을 확인하지 못했습니다. 다시 불러오거나 CSV 파일을 이용해 주세요.'
@@ -35,12 +36,14 @@ export function parseSeoulEventSnapshot(raw: unknown): SeoulEventSnapshot {
     events, fetchedAt: data.fetchedAt,
     total: data.total as number, scanned: data.scanned as number,
     limited: data.limited || (data.scanned as number) < (data.total as number),
+    sourceKind: data.sourceKind === 'portal' ? 'portal' : 'sheet',
   }
 }
 
 /** Never place an upstream API key or arbitrary fetch URL in the browser. */
-export async function fetchSeoulEvents(signal: AbortSignal): Promise<SeoulEventSnapshot> {
-  const response = await fetch('/api/seoul-events', { signal, headers: { Accept: 'application/json' }, credentials: 'same-origin' })
+export async function fetchSeoulEvents(signal: AbortSignal, archived = false): Promise<SeoulEventSnapshot> {
+  const path = archived ? '/data/seoul-events.json' : '/api/seoul-events'
+  const response = await fetch(path, { signal, headers: { Accept: 'application/json' }, credentials: 'same-origin' })
   if (!response.ok) throw new Error('서울시 행사를 자동으로 불러오지 못했습니다. 잠시 후 다시 시도하거나 CSV 파일을 이용해 주세요.')
   let data: unknown
   try { data = await response.json() }

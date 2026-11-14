@@ -3,11 +3,13 @@ import { parseSeoulEvents, SEOUL_EVENT_DATASET, type SeoulEvent } from './seoulS
 // Official OA-23041 public Sheet endpoint, inspected from its own sheetView.do page.
 // No client-controlled URL, SQL filter, credential, cookie, or authorization is forwarded.
 export const SEOUL_SHEET_URL = 'https://data.seoul.go.kr/dataList/dataView.do?infId=OA-23041&srvType=S&serviceKind=1&pageNo=1&onepagerow=1000&ssUserId=SAMPLE_VIEW&strWhere=&strOrderby=DATE%20DESC'
+export const SEOUL_PORTAL_URL = 'https://culture.seoul.go.kr/culture/culture/cultureEvent/jsonList.json'
+export const SEOUL_PORTAL_SOURCE = 'https://culture.seoul.go.kr/culture/culture/cultureEvent/list.do?menuNo=200008'
 export const SEOUL_EVENTS_CACHE_SECONDS = 1800
 const MAX_SOURCE_BYTES = 3 * 1024 * 1024
 const MAX_RESPONSE_BYTES = 100000
 const MAX_EVENTS = 200
-export interface SeoulEventsResponse { events: SeoulEvent[]; fetchedAt: string; total: number; scanned: number; limited: boolean; sourceUrl: string }
+export interface SeoulEventsResponse { events: SeoulEvent[]; fetchedAt: string; total: number; scanned: number; limited: boolean; sourceUrl: string; sourceKind?: 'portal' | 'sheet' }
 
 /** This public Sheet uses unquoted identifier keys and trailing commas, not valid JSON.
  * Only those two lexical extensions are accepted. Strings are copied verbatim, never executed.
@@ -37,7 +39,7 @@ export function normalizeSeoulSheet(text: string, fetchedAt: string): SeoulEvent
   // This is public event discovery; event publication is not evidence of a procurement need.
   const upcoming = parsed.filter(event => event.start && event.end && event.end >= today)
     .sort((a, b) => a.start.localeCompare(b.start) || a.id.localeCompare(b.id))
-  const result: SeoulEventsResponse = { events: [], fetchedAt: new Date(stamp).toISOString(), total, scanned: list.length, limited: total > list.length, sourceUrl: SEOUL_EVENT_DATASET }
+  const result: SeoulEventsResponse = { events: [], fetchedAt: new Date(stamp).toISOString(), total, scanned: list.length, limited: total > list.length, sourceUrl: SEOUL_EVENT_DATASET, sourceKind: 'sheet' }
   const encoder = new TextEncoder()
   let encodedBytes = encoder.encode(JSON.stringify(result)).byteLength
   for (const event of upcoming) {
@@ -69,12 +71,54 @@ async function limitedBody(response: Response): Promise<string> {
   return new TextDecoder('utf-8', { fatal: true }).decode(bytes)
 }
 
+/** Official portal list AJAX, discovered in its public list.do page. It exposes ten
+ * rows per page and no total; three explicit pages are a bounded discovery sample. */
+export function normalizeSeoulPortal(pages: string[], fetchedAt: string): SeoulEventsResponse {
+  const stamp = Date.parse(fetchedAt)
+  if (!Number.isFinite(stamp) || pages.length !== 3) throw new Error('문화포털 조회 범위를 확인하지 못했습니다.')
+  const today = new Date(stamp + 9 * 3600000).toISOString().slice(0, 10)
+  const until = new Date(stamp + 9 * 3600000 + 90 * 86400000).toISOString().slice(0, 10)
+  const rows: Record<string, unknown>[] = []
+  for (const page of pages) {
+    const data = JSON.parse(page) as { resultList?: unknown }
+    if (!data || !Array.isArray(data.resultList) || data.resultList.length > 10 || data.resultList.some(row => !row || typeof row !== 'object' || Array.isArray(row))) throw new Error('문화포털 목록 형식이 변경되었습니다.')
+    rows.push(...data.resultList as Record<string, unknown>[])
+  }
+  const text = (row: Record<string, unknown>, key: string) => typeof row[key] === 'string' ? row[key] as string : ''
+  const grid = [['TITLE', 'GUNAME', 'CODENAME', 'ORG_NAME', 'PLACE', 'STRTDATE', 'END_DATE', 'ORG_LINK'], ...rows.map(row => {
+    const cultcode = String(row.cultcode ?? '')
+    if (!/^\d{1,12}$/.test(cultcode) || !text(row, 'title').trim()) throw new Error('문화포털 행사 식별자를 확인하지 못했습니다.')
+    return [text(row, 'title'), text(row, 'gcodeCdNm'), text(row, 'subjcodeNm'), text(row, 'orgcodeCdNm'), text(row, 'facName'), text(row, 'strtdate'), text(row, 'endDate'), `https://culture.seoul.go.kr/culture/culture/cultureEvent/view.do?cultcode=${cultcode}&menuNo=200008`]
+  })]
+  const events = rows.length ? parseSeoulEvents(grid).filter(event => event.start && event.end && event.end >= today && event.start <= until).sort((a, b) => a.start.localeCompare(b.start) || a.id.localeCompare(b.id)) : []
+  return { events, fetchedAt: new Date(stamp).toISOString(), total: rows.length, scanned: rows.length, limited: true, sourceKind: 'portal', sourceUrl: SEOUL_PORTAL_SOURCE }
+}
+
 export async function fetchSeoulEvents(fetcher: typeof fetch = fetch, now = () => new Date(), timeoutMs = 15000): Promise<SeoulEventsResponse> {
   const controller = new AbortController(), timer = setTimeout(() => controller.abort(), timeoutMs)
-  try {
-    const response = await fetcher(SEOUL_SHEET_URL, { method: 'GET', redirect: 'error', credentials: 'omit', signal: controller.signal, headers: { Accept: 'application/json,text/plain,*/*' } })
+  const stamp = now().toISOString()
+  const requestOptions: RequestInit = { method: 'GET', redirect: 'error', credentials: 'omit', signal: controller.signal, headers: { Accept: 'application/json,text/plain,*/*' } }
+  const read = async (url: string) => {
+    const response = await fetcher(url, requestOptions)
     if (!response.ok) throw new Error('서울시 공개 목록이 정상 응답하지 않았습니다.')
-    return normalizeSeoulSheet(await limitedBody(response), now().toISOString())
+    return limitedBody(response)
+  }
+  try {
+    try {
+      const date = new Date(Date.parse(stamp) + 9 * 3600000)
+      const start = date.toISOString().slice(0, 10).replaceAll('-', '.')
+      const end = new Date(date.getTime() + 90 * 86400000).toISOString().slice(0, 10).replaceAll('-', '.')
+      const pages = await Promise.all([1, 2, 3].map(page => {
+        const url = new URL(SEOUL_PORTAL_URL)
+        url.search = new URLSearchParams({ pageIndex: String(page), menuNo: '200008', sdate: start, edate: end, isSearched: 'Y' }).toString()
+        return read(url.href)
+      }))
+      return normalizeSeoulPortal(pages, stamp)
+    } catch (error) {
+      if (controller.signal.aborted) throw error
+      // One alternate official public source; never retry or forward client inputs.
+      return normalizeSeoulSheet(await read(SEOUL_SHEET_URL), stamp)
+    }
   } finally { clearTimeout(timer) }
 }
 
