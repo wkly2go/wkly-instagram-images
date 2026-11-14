@@ -16,32 +16,32 @@ type SalesPlanOutputProps = Pick<SalesPlanSheetProps, 'draft' | 'ownerName'>
 
 const scopes = ['공간 섭외', '팝업 기획', '설계·시공', '현장 운영', '콘텐츠·홍보']
 
-/** Use text nodes for all draft values, including URLs and copied source material. */
-function printPlan(text: string): boolean {
-  const tab = window.open('', '_blank', 'width=820,height=900')
-  if (!tab) return false
-  tab.opener = null
-  const doc = tab.document
-  doc.title = '영업 실행 계획'
-  doc.documentElement.lang = 'ko'
-  const stylesheet = doc.createElement('style')
-  stylesheet.textContent = `
-    @page { size: A4; margin: 14mm; }
-    body { color: #161616; font: 13px/1.55 system-ui, sans-serif; max-width: 180mm; margin: 18px auto; }
-    pre { font: inherit; white-space: pre-wrap; overflow-wrap: anywhere; }
-    @media print { body { margin: 0; } button { display: none; } }
-  `
-  doc.head.append(stylesheet)
-  const print = doc.createElement('button')
-  print.type = 'button'
-  print.textContent = '인쇄·PDF 저장'
-  print.addEventListener('click', () => tab.print())
-  const documentBody = doc.createElement('pre')
-  documentBody.textContent = text
-  doc.body.replaceChildren(print, documentBody)
-  tab.focus()
-  tab.print()
-  return true
+/** Keep the report in the current document and print only its text. */
+function printPlan(text: string): () => void {
+  const { body } = document
+  if (body.classList.contains('sales-plan-printing')) throw new Error('Print already in progress')
+  const report = document.createElement('pre')
+  report.className = 'sales-plan-print'
+  report.lang = 'ko'
+  report.textContent = text
+
+  const cleanup = () => {
+    window.removeEventListener('afterprint', cleanup)
+    if (report.parentNode !== body) return
+    report.remove()
+    body.classList.remove('sales-plan-printing')
+  }
+
+  body.append(report)
+  body.classList.add('sales-plan-printing')
+  window.addEventListener('afterprint', cleanup, { once: true })
+  try {
+    window.print()
+  } catch (error) {
+    cleanup()
+    throw error
+  }
+  return cleanup
 }
 
 export function SalesPlanSheet({ draft, onChange, disabled, ownerName }: SalesPlanSheetProps) {
@@ -118,6 +118,7 @@ function SalesPlanReview({ draft, ownerName, onChange, disabled, previewOpen }: 
   const [copyFallback, setCopyFallback] = useState(false)
   const [showPreview, setShowPreview] = useState(Boolean(previewOpen))
   const previewInput = useRef<HTMLTextAreaElement | null>(null)
+  const cleanupPrint = useRef<() => void>()
   const { plan } = readSalesPlan(draft.description)
   const today = todayKey()
   const error = validateSalesPlan(plan)
@@ -134,6 +135,8 @@ function SalesPlanReview({ draft, ownerName, onChange, disabled, previewOpen }: 
     }
   }, [copyFallback, showPreview])
 
+  useEffect(() => () => cleanupPrint.current?.(), [])
+
   async function copy() {
     try {
       await navigator.clipboard.writeText(report)
@@ -148,11 +151,13 @@ function SalesPlanReview({ draft, ownerName, onChange, disabled, previewOpen }: 
 
   function printReport() {
     try {
-      if (printPlan(report)) return
+      cleanupPrint.current?.()
+      cleanupPrint.current = printPlan(report)
+      return
     } catch { /* The preview remains available when printing is unavailable. */ }
     setShowPreview(true)
     setCopyFallback(true)
-    setMessage('인쇄를 시작하지 못했습니다. 선택한 계획을 복사하거나 브라우저의 팝업 설정을 확인해 주세요.')
+    setMessage('인쇄를 시작하지 못했습니다. 선택한 계획을 복사해 주세요.')
   }
 
   return <div className="sales-plan-review">

@@ -46,3 +46,23 @@
   .sales-plan-sheet .btn { min-height: 44px; }
   .sales-plan-preview summary { min-height: 44px; align-content: center; }
 }
+
+.sales-plan-print { display: none; }
+@media print {
+  html:has(> body.sales-plan-printing), body.sales-plan-printing {
+    height: auto;
+    overflow: visible;
+    background: #fff;
+  }
+  body.sales-plan-printing > :not(.sales-plan-print) { display: none !important; }
+  body.sales-plan-printing > .sales-plan-print {
+    display: block;
+    visibility: visible !important;
+    margin: 0;
+    padding: 0 6mm;
+    color: #161616;
+    font: 11pt/1.55 system-ui, sans-serif;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+}
