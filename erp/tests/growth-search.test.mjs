@@ -58,7 +58,10 @@ test('contact search keeps summary-only paging, kind/status filters and searches
   assert.equal(q.get('offset'), '60')
   assert.equal(q.get('limit'), '31')
   assert.equal(q.get('order'), 'updated_at.desc,id.asc')
-  assert.equal(q.get('select'), 'id,kind,title,owner_id,status,campaign_id,linked_sales_id,revision,created_at,updated_at,created_by')
+  assert.equal(q.get('select'), 'id,kind,title,owner_id,status,campaign_id,linked_sales_id,revision,created_at,updated_at,created_by,review_source:document->>source,review_segment:document->>segment')
+  // Identifier fields may be searched on the server without downloading them.
+  for (const field of ['email', 'instagram', 'brand', 'name', 'note', 'evidence', 'original', 'versions']) assert.ok(!q.get('select').includes('document->>' + field))
+  assert.ok(!q.get('select').split(',').includes('document'))
   const parts = predicates(q.get('or').slice(1, -1))
   assert.deepEqual(parts.map(p => p.field), ['title', 'document->>email', 'document->>instagram', 'document->>brand', 'document->>name'])
   assert.ok(parts.every(p => p.pattern === 'Brand@Example\\.COM'))
@@ -71,6 +74,30 @@ test('tender search includes notice number and agency; content retains title sea
   assert.deepEqual(predicates(f.calls[0].url.searchParams.get('or').slice(1, -1)).map(p => p.field), ['title', 'document->>number', 'document->>agency'])
   assert.deepEqual(predicates(f.calls[1].url.searchParams.get('or').slice(1, -1)).map(p => p.field), ['title'])
   assert.ok(f.calls.every(call => !call.url.searchParams.has('status')))
+  const base = 'id,kind,title,owner_id,status,campaign_id,linked_sales_id,revision,created_at,updated_at,created_by'
+  assert.equal(f.calls[0].url.searchParams.get('select'), base + ',review_deadline:document->>deadline,review_qualification:document->>qualification')
+  assert.equal(f.calls[1].url.searchParams.get('select'), base)
+})
+
+test('PostgreSQL review projections extract only the selected JSON scalars and preserve missing values', async () => {
+  await db.exec('truncate search_items')
+  await db.query('insert into search_items values(1,$1,$2),(2,$3,$4)', ['테스트', JSON.stringify({ source: '받은 메일', segment: '미분류', deadline: '2026-11-20T18:00:00+09:00', qualification: '추가 확인', email: 'private@example.test', note: 'private evidence', evidence: 'private proof' }), '미확인', '{}'])
+  const f = fixture()
+  for (const kind of ['contact', 'tender']) {
+    await f.api.listGrowth({ kind, page: 0, search: '', status: '' })
+    const selected = f.calls.at(-1).url.searchParams.get('select').split(',').filter(field => field.startsWith('review_'))
+    const projections = selected.map(field => {
+      const match = /^(review_(?:source|segment|deadline|qualification)):document->>(source|segment|deadline|qualification)$/.exec(field)
+      assert.ok(match, 'Only the fixed allowlisted JSON projection is translated to SQL')
+      assert.equal(match[1], 'review_' + match[2])
+      return `document->>'${match[2]}' as ${match[1]}`
+    })
+    assert.equal(projections.length, 2)
+    const result = await db.query('select id,' + projections.join(',') + ' from search_items order by id')
+    assert.deepEqual(result.rows[0], kind === 'contact' ? { id: 1, review_source: '받은 메일', review_segment: '미분류' } : { id: 1, review_deadline: '2026-11-20T18:00:00+09:00', review_qualification: '추가 확인' })
+    assert.deepEqual(Object.values(result.rows[1]).slice(1), [null, null])
+    assert.ok(!JSON.stringify(result.rows).includes('private'))
+  }
 })
 
 test('empty search leaves the original list query unfiltered', async () => {

@@ -1,0 +1,48 @@
+.sales-plan-sheet {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+}
+.sales-plan-sheet h3, .sales-plan-sheet h4, .sales-plan-sheet p { margin: 0; }
+.sales-plan-sheet h3 { margin-bottom: 12px; }
+.sales-plan-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 315px), 1fr));
+  gap: 14px;
+  align-items: start;
+}
+.sales-plan-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr));
+  min-width: 0;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.sales-plan-fields .full { grid-column: 1 / -1; }
+.sales-plan-fields .label, .sales-plan-fields .label > :is(input, select, textarea) { min-width: 0; }
+.sales-plan-scopes .btn[aria-pressed='true'] {
+  background: var(--blue-tint, #edf6ef);
+  border-color: currentColor;
+  font-weight: 700;
+}
+.sales-plan-review {
+  display: grid;
+  min-width: 0;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  background: var(--blue-tint, #edf6ef);
+  overflow-wrap: anywhere;
+}
+.sales-plan-review ul { margin: 0; padding-inline-start: 1.3em; }
+.sales-plan-review li + li { margin-top: 5px; }
+.sales-plan-next { display: grid; justify-items: start; gap: 6px; }
+.sales-plan-preview summary { cursor: pointer; font-weight: 600; }
+.sales-plan-preview .textarea { margin-top: 8px; }
+@media (pointer: coarse) {
+  .sales-plan-sheet .btn { min-height: 44px; }
+  .sales-plan-preview summary { min-height: 44px; align-content: center; }
+}

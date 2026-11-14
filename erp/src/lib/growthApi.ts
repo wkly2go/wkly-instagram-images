@@ -4,8 +4,15 @@ import type { Profile } from './types'
 import { validateGrowth, type GrowthApi, type GrowthItem, type GrowthSummary, type AiState } from './growth'
 import { newSalesDraft, type SalesApi } from './sales'
 import { growthSearchFilter, matchesGrowthSearch } from './growthSearch'
+import { reviewSalesCandidate } from './salesCandidateReview'
 import { readTenderSearchResult, validateTenderQuery } from './tenderSearch'
-const summary = ({ document: _d, ...row }: GrowthItem): GrowthSummary => row
+const summary = ({ document, ...row }: GrowthItem): GrowthSummary => ({ ...row, ...(row.kind === 'content' ? {} : { sales_review: reviewSalesCandidate({ ...row, source: document.source, segment: document.segment, deadline: document.deadline, qualification: document.qualification }) }) })
+const summaryColumns = 'id,kind,title,owner_id,status,campaign_id,linked_sales_id,revision,created_at,updated_at,created_by'
+type ReviewSummaryRow = GrowthSummary & { review_source?: unknown; review_segment?: unknown; review_deadline?: unknown; review_qualification?: unknown }
+function reviewedSummary(item: ReviewSummaryRow): GrowthSummary {
+  const { review_source, review_segment, review_deadline, review_qualification, ...row } = item
+  return { ...row, ...(row.kind === 'content' ? {} : { sales_review: reviewSalesCandidate({ ...row, source: review_source, segment: review_segment, deadline: review_deadline, qualification: review_qualification }) }) }
+}
 function fail(e: { message: string; code?: string } | null, status?: number) {
   if (!e) return
   const message = ['42P01','42883','PGRST202','PGRST205'].includes(e.code ?? '') ? '이 기능의 공용 저장소·서버가 아직 적용되지 않았습니다. 관리자에게 적용 상태를 확인해 주세요.'
@@ -34,12 +41,13 @@ export function createSupabaseGrowthApi(sb: SupabaseClient): GrowthApi {
       return readTenderSearchResult(data)
     },
     async listGrowth(f) {
-      let q=sb.from('growth_items').select('id,kind,title,owner_id,status,campaign_id,linked_sales_id,revision,created_at,updated_at,created_by').eq('kind',f.kind).order('updated_at',{ascending:false}).order('id')
+      const reviewColumns = f.kind === 'contact' ? ',review_source:document->>source,review_segment:document->>segment' : f.kind === 'tender' ? ',review_deadline:document->>deadline,review_qualification:document->>qualification' : ''
+      let q=sb.from('growth_items').select(summaryColumns + reviewColumns).eq('kind',f.kind).order('updated_at',{ascending:false}).order('id')
       const search=growthSearchFilter(f.kind,f.search)
       if(search)q=q.or(search)
       if(f.status)q=q.eq('status',f.status)
       const from=Math.max(0,f.page)*30, r=await q.range(from,from+30); fail(r.error)
-      return {items:(r.data??[]).slice(0,30) as GrowthSummary[],hasMore:(r.data?.length??0)>30}
+      return {items:((r.data??[]) as unknown as ReviewSummaryRow[]).slice(0,30).map(reviewedSummary),hasMore:(r.data?.length??0)>30}
     },
     async getGrowth(id){const r=await sb.from('growth_items').select('*').eq('id',id).single().retry(false);fail(r.error,r.status);return r.data as GrowthItem},
     async saveGrowth(id,draft,revision){const submitted=structuredClone(draft),e=validateGrowth(submitted);if(e)throw new ApiError(e);const r=await sb.rpc('growth_save',{p_id:id,p_document:submitted,p_expected_revision:revision}).retry(false);fail(r.error,r.status);return r.data as GrowthItem},

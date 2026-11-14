@@ -46,3 +46,32 @@
 .sales-origin { border: 1px solid var(--line); padding: 16px; margin: 12px 0; overflow-wrap: anywhere; }
 .sales-origin h4 { margin: 0 0 6px; }
 .sales-origin details { margin-top: 12px; }
+
+.sales-help-link { color: var(--green, #0b6333); text-underline-offset: .2em; }
+.sales-header > .sales-heading { margin: 0; }
+.sales-desk { display: grid; gap: 16px; align-items: start; min-width: 0; }
+.sales-desk-active { grid-template-columns: minmax(0, 2.6fr) minmax(245px, 1fr); }
+.sales-queue { display: grid; gap: 12px; min-width: 0; }
+.sales-search { display: flex; align-items: end; flex-wrap: wrap; gap: 8px 14px; }
+.sales-search > .label { flex: 1 1 150px; min-width: 0; }
+.sales-search > .row { min-height: 38px; }
+.sales-work-filters > .btn { min-height: 38px; }
+.sales-options { padding: 10px 12px; border: 1px solid var(--line, #ddd); background: var(--paper, #fff); min-width: 0; }
+.sales-options summary { color: #164c2d; font-weight: 650; cursor: pointer; }
+.sales-options[open] > summary { margin-bottom: 12px; }
+.sales-desk-active .sales-item { grid-template-columns: minmax(0, 1fr) auto; gap: 8px; padding: 12px; }
+.sales-item[aria-current="true"] { background: #edf6ef; box-shadow: inset 3px 0 #0b6333; }
+.sales-work-panel { min-width: 0; display: grid; gap: 14px; padding: 16px; border: 1px solid var(--line, #ddd); background: var(--paper, #fff); scroll-margin-top: 80px; }
+.sales-work-panel:focus { outline: 2px solid #0b6333; outline-offset: -2px; }
+.sales-work-panel-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 12px; padding-bottom: 10px; border-bottom: 1px solid var(--line, #ddd); }
+.sales-work-panel-header h2 { margin: 0; overflow-wrap: anywhere; }
+.sales-editor-basics .label { min-width: 0; }
+.sales-work-panel .sales-plan-sheet { margin-bottom: 0; }
+@container (max-width: 1060px) {
+  .sales-desk-active { grid-template-columns: minmax(0, 1fr); }
+}
+@container (max-width: 540px) {
+  .sales-work-panel { padding: 12px; }
+  .sales-work-panel .sales-fieldset { grid-template-columns: minmax(0, 1fr); }
+  .sales-work-panel .sales-list { width: 100%; }
+}

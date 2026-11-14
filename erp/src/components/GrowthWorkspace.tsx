@@ -10,10 +10,17 @@ import { AiAssist } from './GrowthAi'
 import { InstagramContacts } from './InstagramContacts'
 import { TenderSearch } from './TenderSearch'
 import { DiscoveryIntake } from './DiscoveryIntake'
-import { CHANNELS, GROWTH_LABELS, GROWTH_STATUSES, koreaDateTimeInput, appendGrowthNote, changeChannel, patchGrowthDocument, contactCandidates, newGrowth, validateGrowth, type GrowthDraft, type GrowthItem, type GrowthKind, type GrowthDocument, type ChannelDraft } from '../lib/growth'
+import { CHANNELS, GROWTH_LABELS, GROWTH_STATUSES, koreaDateTimeInput, appendGrowthNote, changeChannel, patchGrowthDocument, contactCandidates, newGrowth, safeWebUrl, validateGrowth, type GrowthDraft, type GrowthItem, type GrowthKind, type GrowthDocument, type ChannelDraft } from '../lib/growth'
 import './GrowthWorkspace.css'
 
-export function GrowthWorkspace({ kind }: { kind: GrowthKind }) {
+type PlanCandidate = (candidate: GrowthItem, salesId: string) => void
+const REVIEW_ORDER = { ready: 0, verify: 1, linked: 2, closed: 3, expired: 4, blocked: 5 }
+
+export function GrowthWorkspace({ kind, embedded = false, onPlanCandidate }: {
+  kind: GrowthKind
+  embedded?: boolean
+  onPlanCandidate?: PlanCandidate
+}) {
   const { api, me, profileName } = useApp()
   const [search, setSearch] = useState(''), [query, setQuery] = useState(''), [page, setPage] = useState(0), [status, setStatus] = useState('')
   const [selected, setSelected] = useState<string | null>(null), [adding, setAdding] = useState(false), [importing, setImporting] = useState(false)
@@ -26,18 +33,68 @@ export function GrowthWorkspace({ kind }: { kind: GrowthKind }) {
   useEffect(() => { const t=setTimeout(()=>{setQuery(search);setPage(0)},350);return ()=>clearTimeout(t) },[search])
   const list=useAsync(()=>api.listGrowth({kind,page,search:query,status}),[kind,page,query,status],{items:[],hasMore:false})
   const backfill=async()=>{if(busy)return;setBusy(true);try{const n=await api.backfillMailLeads();setNotice(`과거 메일 ${n}건 확인 · 새 발신자는 검토함에 저장됩니다.`);list.reload()}catch(e){setNotice(friendlyError(e))}finally{setBusy(false)}}
-  return <div className="growth-workspace">
-    <header className="growth-heading"><div><h1>{GROWTH_LABELS[kind]}</h1><p>{kind==='tender'?'공고 확인부터 참가 조건 검토, 영업 연결까지.':kind==='content'?'원본 하나에서 채널별 글을 만들고 광고 준비와 연결합니다.':'모은 담당자 정보를 확인하고 영업 기회로 연결합니다.'}</p></div><div className="row wrap"><a href={`/manual/growth.html#${kind}`} className="btn btn-outline" target="_blank" rel="noreferrer">화면 사용설명</a><Button onClick={()=>openPanel('new')}>+ {kind==='tender'?'공고 등록':kind==='content'?'콘텐츠 만들기':'연락처 등록'}</Button></div></header>
-    <p className="growth-notice">{api.mode==='demo'?'체험 모드 · 이 브라우저에만 저장됩니다. ':''}{kind==='tender'?'공고 원문과 참가 자격을 확인해 주세요. 실제 투찰은 담당자가 진행합니다.':kind==='content'?'발행 상태는 실제 게시 결과를 기록합니다. 매체 자동 게시 기능은 아직 구현·계정 권한 확인·운영 검증이 필요합니다.':'메일 동기화 후 신규 발신자가 자동으로 쌓입니다. 연락처 수집은 발송 동의나 영업 대상 확정을 의미하지 않습니다.'}</p>
-    {kind!=='content'&&<div className="row wrap"><Button kind="outline" onClick={()=>openPanel('research-import')}>발굴 보고서 가져오기</Button><Link className="btn btn-outline" to="/sales">수주 파이프라인</Link><span className="t-cap">조사한 출처·확인일·제안 이유를 검토 후 저장합니다. 이 버튼은 AI 조사나 유료 호출을 실행하지 않습니다.</span></div>}
+  const contact = kind === 'contact'
+  const Heading = embedded ? 'h2' : 'h1'
+  const orderedRows = kind === 'content' ? list.data.items : [...list.data.items].sort((a, b) => {
+    const first = a.sales_review, second = b.sales_review
+    const order = REVIEW_ORDER[first?.bucket ?? 'verify'] - REVIEW_ORDER[second?.bucket ?? 'verify']
+    if (order || first?.bucket !== 'ready' || !first.deadline || !second?.deadline) return order
+    return first.deadline.localeCompare(second.deadline)
+  })
+  return <div className={`growth-workspace${contact ? ' growth-contact-workspace' : ''}`}>
+    <header className="growth-heading">
+      <div>
+        <Heading>{contact && embedded ? '민간 영업 후보' : GROWTH_LABELS[kind]}</Heading>
+        {!contact && <p>{kind === 'tender' ? '공고 확인부터 참가 조건 검토, 영업 연결까지.' : '원본 하나에서 채널별 글을 만들고 광고 준비와 연결합니다.'}</p>}
+      </div>
+      <div className="row wrap">
+        <a href={`/manual/growth.html#${kind}`} className="btn btn-outline" target="_blank" rel="noreferrer">화면 사용설명</a>
+        <Button onClick={()=>openPanel('new')}>+ {kind==='tender'?'공고 등록':kind==='content'?'콘텐츠 만들기':'연락처 등록'}</Button>
+      </div>
+    </header>
+    {!contact && <p className="growth-notice">{api.mode==='demo'?'체험 모드 · 이 브라우저에만 저장됩니다. ':''}{kind==='tender'?'공고 원문과 참가 자격을 확인해 주세요. 실제 투찰은 담당자가 진행합니다.':'발행 상태는 실제 게시 결과를 기록합니다. 매체 자동 게시 기능은 아직 구현·계정 권한 확인·운영 검증이 필요합니다.'}</p>}
+    {contact && api.mode === 'demo' && <p className="t-cap growth-demo">체험 모드 · 이 브라우저에만 저장됩니다.</p>}
+    {kind==='tender'&&<div className="row wrap"><Button kind="outline" onClick={()=>openPanel('research-import')}>발굴 보고서 가져오기</Button>{!embedded&&<Link className="btn btn-outline" to="/sales">수주 파이프라인</Link>}<span className="t-cap">조사한 출처·확인일·제안 이유를 검토 후 저장합니다.</span></div>}
     {kind==='tender'&&<div className="row wrap"><Button kind="outline" onClick={()=>openPanel('tender-search')}>나라장터 공식 공고 조회</Button><span className="t-cap">조회 후보를 검토한 뒤 등록 · 예약 자동 수집은 미지원</span></div>}
-    {kind==='contact'&&<div className="row wrap"><Button kind="outline" onClick={()=>openPanel('import')}>메일·인스타 자료에서 추출</Button>{me.role==='admin'&&<Button kind="outline" disabled={busy||api.mode==='demo'} onClick={backfill}>{busy?'가져오는 중…':'기존 메일 500건 확인'}</Button>}<span className="t-cap">인스타 자동 수집 연결 전 · 내보낸 자료를 가져올 수 있습니다.</span></div>}
     <div className="growth-filters"><Field label="검색"><input className="input" value={search} onChange={e=>setSearch(e.target.value)} placeholder={kind==='contact'?'제목·이메일·인스타·브랜드·담당자':kind==='tender'?'제목·공고번호·발주처':'찾을 자료 이름'} /></Field><Field label="상태"><select className="select" value={status} onChange={e=>{setStatus(e.target.value);setPage(0)}}><option value="">전체</option>{GROWTH_STATUSES[kind].map(s=><option key={s}>{s}</option>)}</select></Field></div>
-    {kind==='contact'&&me.role==='admin'&&<InstagramContacts onChanged={list.reload}/>}
-    {notice&&<p role="status" className="growth-notice">{notice}</p>}{list.error&&<p role="alert">{list.error} <Button kind="outline" onClick={list.reload}>다시 확인</Button></p>}
-    {list.loading?<p role="status">자료를 불러오는 중…</p>:!list.error&&<><div className="growth-list">{list.data.items.map(r=><button type="button" key={r.id} className="growth-row" onClick={()=>openPanel(r.id)}><span><strong>{r.title}</strong><small>{profileName(r.owner_id)} · {new Date(r.updated_at).toLocaleDateString('ko-KR',{timeZone:'Asia/Seoul'})}</small></span><span className="badge green">{r.status}</span><span>{r.linked_sales_id?'영업 연결됨':r.campaign_id?'광고 연결됨':'상세 보기 →'}</span></button>)}{!list.data.items.length&&<div className="growth-empty"><strong>등록된 자료가 없습니다.</strong><p>위의 등록 버튼으로 시작해 주세요. 사용설명에서 연습 순서를 볼 수 있습니다.</p></div>}</div><div className="row wrap"><Button kind="outline" disabled={!page} onClick={()=>setPage(p=>p-1)}>이전</Button><span>{page+1}페이지 · {list.data.items.length}건</span><Button kind="outline" disabled={!list.data.hasMore} onClick={()=>setPage(p=>p+1)}>다음</Button></div></>}
+    {list.error&&<p role="alert">{list.error} <Button kind="outline" onClick={list.reload}>다시 확인</Button></p>}
+    {list.loading?<p role="status">자료를 불러오는 중…</p>:!list.error&&<>
+      <div className="growth-list">
+        {orderedRows.map(row => {
+          const review = row.sales_review
+          const deadline = review?.deadline && new Date(review.deadline).toLocaleString('ko-KR', {
+            timeZone: 'Asia/Seoul', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit',
+          })
+          const badgeColor = !review || review.bucket === 'ready' || review.bucket === 'linked' ? 'green' : review.bucket === 'verify' ? 'outline' : 'growth-status-excluded'
+          return <button type="button" key={row.id} className={`growth-row${review ? ' growth-review-row' : ''}`} onClick={() => openPanel(row.id)}>
+            <span><strong>{row.title}</strong><small>{profileName(row.owner_id)} · {deadline ? `마감 ${deadline}` : new Date(row.updated_at).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' })}{review && ` · ${row.status}`}</small></span>
+            <span className={`badge ${badgeColor}`}>{review?.label ?? row.status}</span>
+            <span>{review?.nextAction ?? (row.linked_sales_id ? '영업 연결됨' : row.campaign_id ? '광고 연결됨' : contact ? '후보 검토 →' : '상세 보기 →')}</span>
+          </button>
+        })}
+        {!list.data.items.length&&<div className="growth-empty">
+          <strong>{query || status ? '조건에 맞는 자료가 없습니다.' : contact ? '등록된 후보가 없습니다.' : '등록된 자료가 없습니다.'}</strong>
+          <p>{query || status ? '검색어나 상태 필터를 변경해 주세요.' : contact ? '연락처를 직접 등록하거나 자료를 가져올 수 있습니다.' : '위의 등록 버튼으로 시작해 주세요. 사용설명에서 연습 순서를 볼 수 있습니다.'}</p>
+        </div>}
+      </div>
+      {(!contact || page > 0 || list.data.hasMore) && <div className="row wrap"><Button kind="outline" disabled={!page} onClick={()=>setPage(p=>p-1)}>이전</Button><span>{page+1}페이지 · {list.data.items.length}건</span><Button kind="outline" disabled={!list.data.hasMore} onClick={()=>setPage(p=>p+1)}>다음</Button></div>}
+    </>}
+    {contact && <details className="growth-intake">
+      <summary>가져오기·수집 설정</summary>
+      <div className="growth-intake-body">
+        <p className="t-cap">메일에서 수집하거나 직접 가져온 후보의 출처와 연락 맥락을 확인한 뒤 영업으로 연결합니다. 처음 연락하기 전에 담당자와 연락 경로를 확인해 주세요.</p>
+        <div className="row wrap">
+          <Button kind="outline" onClick={()=>openPanel('research-import')}>발굴 보고서 가져오기</Button>
+          <Button kind="outline" onClick={()=>openPanel('import')}>메일·인스타 자료에서 추출</Button>
+          {me.role==='admin'&&<Button kind="outline" disabled={busy||api.mode==='demo'} onClick={backfill}>{busy?'가져오는 중…':'기존 메일 500건 확인'}</Button>}
+          {!embedded&&<Link className="btn btn-outline" to="/sales">수주 파이프라인</Link>}
+        </div>
+        {me.role==='admin'&&<InstagramContacts onChanged={list.reload}/>}
+        {notice&&<p role="status" className="growth-notice">{notice}</p>}
+      </div>
+    </details>}
     {adding&&<GrowthEditor kind={kind} initial={null} seed={seed??undefined} channel={channel} onChannelChange={setChannel} onClose={()=>{setAdding(false);setSeed(null)}} onSaved={r=>{setAdding(false);setSeed(null);setSelected(r.id);list.reload()}}/>}
-    {selected&&<GrowthDetail key={selected} id={selected} channel={channel} onChannelChange={setChannel} onClose={()=>setSelected(null)} onChanged={list.reload}/>}
+    {selected&&<GrowthDetail key={selected} id={selected} channel={channel} onChannelChange={setChannel} onClose={()=>setSelected(null)} onChanged={list.reload} onPlanCandidate={onPlanCandidate}/>}
     {importing&&<ContactImport onClose={()=>setImporting(false)} onSaved={list.reload}/>}
     {researchImporting&&kind!=='content'&&<DiscoveryIntake kind={kind} onClose={()=>setResearchImporting(false)} onChoose={chooseTender} onSaved={list.reload}/>}
     {tenderSearching&&<TenderSearch onClose={()=>setTenderSearching(false)} onChoose={chooseTender}/>}
@@ -46,14 +103,14 @@ export function GrowthWorkspace({ kind }: { kind: GrowthKind }) {
 
 interface ChannelSelection { channel: number; onChannelChange: (channel: number) => void }
 
-function GrowthDetail({id,channel,onChannelChange,onClose,onChanged}:{id:string;onClose:()=>void;onChanged:()=>void}&ChannelSelection){
+function GrowthDetail({id,channel,onChannelChange,onClose,onChanged,onPlanCandidate}:{id:string;onClose:()=>void;onChanged:()=>void;onPlanCandidate?:PlanCandidate}&ChannelSelection){
   const {api}=useApp(),state=useAsync(()=>api.getGrowth(id),[id],null)
   if(state.loading)return <Modal title="자료 열기" onClose={onClose}><p>불러오는 중…</p></Modal>
   if(!state.data||state.error)return <Modal title="자료 열기" onClose={onClose}><p role="alert">{state.error??'자료가 없습니다.'}</p><Button onClick={state.reload}>다시 확인</Button></Modal>
-  return <GrowthEditor key={state.data.revision} kind={state.data.kind} initial={state.data} channel={channel} onChannelChange={onChannelChange} onClose={onClose} onSaved={row=>{state.setData(row);onChanged()}}/>
+  return <GrowthEditor key={state.data.revision} kind={state.data.kind} initial={state.data} channel={channel} onChannelChange={onChannelChange} onClose={onClose} onSaved={row=>{state.setData(row);onChanged()}} onPlanCandidate={onPlanCandidate}/>
 }
 
-function GrowthEditor({kind,initial,seed,channel,onChannelChange,onClose,onSaved}:{kind:GrowthKind;initial:GrowthItem|null;seed?:GrowthDraft;onClose:()=>void;onSaved:(row:GrowthItem)=>void}&ChannelSelection){
+function GrowthEditor({kind,initial,seed,channel,onChannelChange,onClose,onSaved,onPlanCandidate}:{kind:GrowthKind;initial:GrowthItem|null;seed?:GrowthDraft;onClose:()=>void;onSaved:(row:GrowthItem)=>void;onPlanCandidate?:PlanCandidate}&ChannelSelection){
   const {api,me,profiles}=useApp()
   const channelId=useId()
   const [draft,setDraft]=useState<GrowthDraft>(()=>initial?{kind:initial.kind,title:initial.title,owner_id:initial.owner_id,status:initial.status,document:structuredClone(initial.document),campaign_id:initial.campaign_id}:seed?structuredClone(seed):newGrowth(kind,me.id))
@@ -61,7 +118,7 @@ function GrowthEditor({kind,initial,seed,channel,onChannelChange,onClose,onSaved
   const [confirmedSalesId,setConfirmedSalesId]=useState<string|null>(initial?.linked_sales_id??null),[linkNeedsRefresh,setLinkNeedsRefresh]=useState(false)
   const working=busy||aiBusy
   const lock=useRef(false),id=useRef(initial?.id??crypto.randomUUID()),original=useRef(JSON.stringify(seed?newGrowth(kind,me.id):draft))
-  const dirty=original.current!==JSON.stringify(draft)||aiDirty,editable=me.role==='admin'||draft.owner_id===me.id
+  const dirty=original.current!==JSON.stringify(draft)||aiDirty,editable=me.active&&(me.role==='admin'||draft.owner_id===me.id)
   const campaigns=useAsync(()=>kind==='content'?api.listMarketingCampaigns():Promise.resolve([]),[kind],[])
   const patch=(p:Partial<GrowthDraft>)=>setDraft(d=>({...d,...p})),doc=(p:Partial<GrowthDocument>)=>patch({document:patchGrowthDocument(draft.document,p)})
   const x=draft.document,v=x.versions?.[channel]
@@ -76,8 +133,12 @@ function GrowthEditor({kind,initial,seed,channel,onChannelChange,onClose,onSaved
     catch(e){setError(`영업 연결은 완료됐습니다. 상세 갱신을 다시 확인해 주세요. ${friendlyError(e)}`)}
     finally{lock.current=false;setBusy(false)}
   }
+  const openPlan = () => {
+    if (!initial || !confirmedSalesId || dirty || lock.current || aiBusy) return
+    onPlanCandidate?.(initial, confirmedSalesId)
+  }
   const link=async()=>{
-    if(!initial||dirty||lock.current||aiBusy||confirmedSalesId)return
+    if(!initial||!editable||dirty||lock.current||aiBusy||confirmedSalesId||(kind==='contact'&&initial.status!=='확인'))return
     lock.current=true;setBusy(true);setError('')
     let linked=false
     try{
@@ -92,8 +153,13 @@ function GrowthEditor({kind,initial,seed,channel,onChannelChange,onClose,onSaved
     const value=String(x[key]??'')
     return <Field label={label} className={opts.area?'full':''}>{opts.area?<textarea className="textarea" rows={4} maxLength={opts.max??10000} value={value} onChange={e=>doc({[key]:e.target.value})}/>:<input className="input" type={opts.type??'text'} maxLength={opts.max??200} value={opts.type==='datetime-local'?koreaDateTimeInput(value):value} onChange={e=>doc({[key]:opts.type==='datetime-local'&&e.target.value?e.target.value+':00+09:00':e.target.value})}/>}</Field>
   }
-  return <Modal title={initial?draft.title:`새 ${GROWTH_LABELS[kind]}`} onClose={close} wide actions={<><Button kind="ghost" onClick={close} disabled={working}>닫기</Button>{editable&&<Button onClick={save} disabled={working||linkNeedsRefresh}>{busy?'처리 중…':'저장'}</Button>}</>}>
+  const salesAction = initial && kind !== 'content' && (confirmedSalesId
+    ? onPlanCandidate ? <Button kind="outline" disabled={working || dirty} onClick={openPlan}>영업 계획 열기</Button> : <Link to={`/sales?id=${confirmedSalesId}`} className="btn btn-outline">연결 영업 기회 보기</Link>
+    : editable && <Button kind="outline" disabled={working || dirty || (kind === 'contact' && initial.status !== '확인')} onClick={link}>영업 기회로 연결</Button>)
+
+  return <Modal title={initial?draft.title:`새 ${GROWTH_LABELS[kind]}`} onClose={close} wide actions={<><Button kind="ghost" onClick={close} disabled={working}>닫기</Button>{onPlanCandidate && salesAction}{editable&&<Button onClick={save} disabled={working||linkNeedsRefresh}>{busy?'처리 중…':'저장'}</Button>}</>}>
     {error&&<p role="alert" className="growth-error">{error}</p>}
+    {kind === 'contact' && <ContactReview draft={draft} linked={!!confirmedSalesId} editable={editable} />}
     <fieldset className="growth-fieldset form-grid" disabled={working||!editable||linkNeedsRefresh}>
       <Field label="제목 *" className="full"><input className="input" maxLength={160} value={draft.title} onChange={e=>patch({title:e.target.value})}/></Field>
       <Field label="수행 회사"><select className="select" value={x.division} onChange={e=>patch({campaign_id:null,document:patchGrowthDocument(x,{division:e.target.value as 'TW'|'AR'})})}><option value="TW">더위클리</option><option value="AR">아트리어</option></select></Field>
@@ -122,9 +188,41 @@ function GrowthEditor({kind,initial,seed,channel,onChannelChange,onClose,onSaved
       {input(kind==='contact'?'연락 맥락·확인할 사항':'메모·체크리스트','note',{area:true})}
     </fieldset>
     {kind==='tender'&&<aside className="growth-notice"><strong>입찰 전 확인</strong><p>공고 원문·정정 여부, 업종·지역·실적·직접생산 자격, 수행 인력과 원가를 확인하세요. 검색 결과만으로 참가 가능을 확정하지 않습니다.</p><p>가격입찰·방문 제안서·참가 등록·질의 마감이 다를 수 있습니다. 위 마감 시각에는 가장 이른 필수 마감을 넣고, 검토 근거에 각 마감과 제출 방식을 따로 기록하세요.</p><p>영업 연결은 ‘발굴’ 단계이며 입찰 제출이나 수주 확정이 아닙니다. 공고 금액은 계약 매출로 자동 반영하지 않습니다. 메모의 조사 당시 정보는 마감·금액을 편집해도 자동 갱신되지 않습니다. 연결 전에 메모도 최신 원문과 대조하고, 연결 후 영업 상세에 다음 행동과 연락일을 지정하세요.</p></aside>}
-    {initial&&<div className="row wrap growth-links">{confirmedSalesId?<Link to={`/sales?id=${confirmedSalesId}`} className="btn btn-outline">연결 영업 기회 보기</Link>:kind!=='content'&&editable&&<Button kind="outline" disabled={working||dirty} onClick={link}>영업 기회로 연결</Button>}{draft.campaign_id&&<Link to={`/ads?tab=studio&id=${draft.campaign_id}`} className="btn btn-outline">연결 광고 캠페인</Link>}{linkNeedsRefresh&&<Button kind="outline" disabled={working} onClick={refreshLinked}>연결 자료 다시 확인</Button>}<small>저장 버전 {initial.revision}{dirty?' · 저장 후 연결 가능':''}</small></div>}
+    {initial&&<div className="row wrap growth-links">
+      {!onPlanCandidate && salesAction}
+      {draft.campaign_id&&<Link to={`/ads?tab=studio&id=${draft.campaign_id}`} className="btn btn-outline">연결 광고 캠페인</Link>}
+      {linkNeedsRefresh&&<Button kind="outline" disabled={working} onClick={refreshLinked}>연결 자료 다시 확인</Button>}
+      <small>저장 버전 {initial.revision}{dirty?' · 저장 후 연결 가능':''}</small>
+    </div>}
     {editable&&<AiAssist disabled={busy||linkNeedsRefresh} onBusyChange={setAiBusy} onDraftChange={setAiDirty} resultScope={v?.channel??kind} task={kind==='contact'?'classify':'write'} context={kind==='content'?`${v?.channel}\n원본: ${x.original}`:JSON.stringify(x)} onResult={text=>kind==='content'?channelPatch({body:text}):doc({note:appendGrowthNote(x.note,text)})}/>}
   </Modal>
+}
+
+function ContactReview({ draft, linked, editable }: { draft: GrowthDraft; linked: boolean; editable: boolean }) {
+  const { brand, source, source_url, email, segment } = draft.document
+  const sourceUrl = source_url?.trim()
+  const checks: string[] = []
+  if (!brand?.trim()) checks.push('브랜드나 소속을 확인해 주세요.')
+  if (!sourceUrl) checks.push('공식 채널, 행사 공지 또는 대화 원문을 출처로 남겨 주세요.')
+  if (!segment || segment === '미분류') checks.push('고객군을 지정하면 필요한 제안을 정하기 쉽습니다.')
+  if (segment === '팝업·공간') checks.push('행사 일정·장소와 필요한 기획·시공·운영 범위를 확인해 주세요.')
+  if (/^(?:no[-_.]?reply|do[-_.]?not[-_.]?reply|notifications?|mailer-daemon|postmaster)(?:[+_.-][^@]*)?@/i.test(email?.trim() ?? '')) {
+    checks.push('자동 알림에 쓰이는 주소 형식입니다. 담당자나 공식 문의 채널을 확인해 주세요.')
+  } else if (source === '받은 메일') {
+    checks.push('메일 발신 이력에서 제안과 관련된 대화나 일정이 있었는지 확인해 주세요.')
+  }
+  const next = linked ? '연결한 영업 계획에서 제안과 다음 행동을 정할 수 있습니다.'
+    : !editable ? '후보 수정과 영업 연결은 담당자 또는 관리자가 할 수 있습니다.'
+    : draft.status === '확인' ? '확인 상태로 저장한 뒤 영업 기회로 연결할 수 있습니다.'
+    : draft.status === '제외' ? '현재 제외 상태입니다.' : '확인한 후보는 관리 상태를 ‘확인’으로 저장하면 영업 기회로 연결할 수 있습니다.'
+  return <aside className="growth-contact-review" aria-label="발굴 근거 점검">
+    <div className="row wrap">
+      <strong>발굴 근거 점검</strong>
+      {sourceUrl && safeWebUrl(sourceUrl) && <a href={sourceUrl} target="_blank" rel="noreferrer">근거 원문 열기</a>}
+    </div>
+    {checks.length > 0 && <ul>{checks.map(check => <li key={check}>{check}</li>)}</ul>}
+    <p>{next}</p>
+  </aside>
 }
 
 function ContactImport({onClose,onSaved}:{onClose:()=>void;onSaved:()=>void}){
