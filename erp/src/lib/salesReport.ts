@@ -5,14 +5,18 @@ export const ENTITY_KINDS = ['회사','사람','영업 기회','미분류'] as c
 export const ASSESSMENTS = ['우선 검토','확인 필요','보류','제외'] as const
 export type EntityKind = typeof ENTITY_KINDS[number]
 export type Assessment = typeof ASSESSMENTS[number]
+export const PROSPECT_ROLES = ['미확인','발주처','협력사','소개·제휴'] as const
+export type ProspectRole = typeof PROSPECT_ROLES[number]
+export interface ProspectVerification {role:ProspectRole;need:string;scope:string;evidence:string;status:'확인'|'추가 확인'|'보류'|'제외';verified_at?:string;verified_by?:string}
 export interface SalesProspect {
  id:string; source:string; name:string; entity_kind:EntityKind; organization:string; contact:string; source_url:string; evidence:string;
  source_updated_at:string|null; collected_at:string; created_at:string; linked_sales_id:string|null; client_id:string|null; contact_id:string|null;
  assessment:Assessment; score:number; reasons:string; next_action:string; blocked:boolean; end_date:string|null;
  reviewed_kind:EntityKind|null; reviewed_assessment:Assessment|null; review_note:string; revision:number;
+ verification?:ProspectVerification; verification_current?:boolean;
 }
 export interface CollectionSource {source:string;status:string;count:number;source_at:string|null;note:string;started_at:string;finished_at:string|null}
-export interface ReportAction {id:string;name:string;organization:string;assessment:string;score:number;next_action:string;source:string;source_url:string}
+export interface ReportAction {id:string;name:string;organization:string;assessment:string;score:number;next_action:string;source:string;source_url:string;evidence?:string;verification?:ProspectVerification;verification_current?:boolean}
 export interface SalesReport {
  prospects:SalesProspect[]; total:number; counts:{total:number;companies:number;people:number;new:number;priority:number}; due:number;
  briefing:null|{report_date:string;title:string;summary:string;direction:string;actions:ReportAction[];source_status:CollectionSource[];created_at:string};
@@ -28,6 +32,8 @@ export interface SalesReportApi {
  getSalesReport(filter:ReportFilter):Promise<SalesReport>;
  collectSalesReport():Promise<void>;
  reviewSalesProspect(id:string,revision:number,kind:EntityKind,assessment:Assessment,note:string):Promise<void>;
+ getSalesProspect(id:string):Promise<SalesProspect>;
+ verifySalesProspect(id:string,revision:number,verification:ProspectVerification,kind:EntityKind):Promise<SalesProspect>;
  startSalesProspect(id:string):Promise<string>;
 }
 function fail(error:{code?:string;message:string}|null){if(error)throw new ApiError(['PGRST202','42883','42P01'].includes(error.code??'')?'영업 보고 서버를 준비하고 있습니다. 기존 영업 업무는 아래에서 계속 사용할 수 있습니다.':error.message)}
@@ -36,6 +42,8 @@ export function createSupabaseSalesReportApi(sb:SupabaseClient):SalesReportApi{r
  async getSalesReport(f){const r=await sb.rpc('sales_report',{p_search:f.search,p_kind:f.kind,p_assessment:f.assessment,p_page:f.page});fail(r.error);return r.data as SalesReport},
  async collectSalesReport(){const r=await sb.rpc('sales_collect_now');fail(r.error)},
  async reviewSalesProspect(id,revision,kind,assessment,note){const r=await sb.rpc('sales_prospect_review',{p_id:id,p_revision:revision,p_kind:kind,p_assessment:assessment,p_note:note});fail(r.error)},
+ async getSalesProspect(id){const r=await sb.rpc('sales_prospect_get',{p_id:id});fail(r.error);return r.data as SalesProspect},
+ async verifySalesProspect(id,revision,v,kind){const r=await sb.rpc('sales_prospect_verify',{p_id:id,p_revision:revision,p_role:v.role,p_need:v.need,p_scope:v.scope,p_evidence:v.evidence,p_status:v.status,p_kind:kind});fail(r.error);return r.data as SalesProspect},
  async startSalesProspect(id){const r=await sb.rpc('sales_prospect_start',{p_id:id});fail(r.error);return r.data as string},
 }}
 export function createDemoSalesReportApi():SalesReportApi{return {
@@ -43,5 +51,7 @@ export function createDemoSalesReportApi():SalesReportApi{return {
  async getSalesReport(){return structuredClone(EMPTY_REPORT)},
  async collectSalesReport(){throw new ApiError('체험 모드에서는 실제 자동 수집을 실행하지 않습니다.')},
  async reviewSalesProspect(){throw new ApiError('운영 계정에서 분류를 저장해 주세요.')},
+ async getSalesProspect(){throw new ApiError('운영 계정에서 원문을 확인해 주세요.')},
+ async verifySalesProspect(){throw new ApiError('운영 계정에서 검증을 저장해 주세요.')},
  async startSalesProspect(){throw new ApiError('운영 계정에서 영업을 시작해 주세요.')},
 }}

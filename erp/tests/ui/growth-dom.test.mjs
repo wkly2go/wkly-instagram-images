@@ -52,7 +52,7 @@ before(async () => {
   ;({ MeetingRecorder } = await server.ssrLoadModule('/src/components/MeetingRecorder.tsx'))
   ;({ MeetingStartUncertainError } = await server.ssrLoadModule('/src/lib/meetingProgress.ts'))
   assert.equal(api.mode, 'demo')
-  originals = { listTasks:api.listTasks, saveTask:api.saveTask, getSalesReport: api.getSalesReport, reviewSalesProspect:api.reviewSalesProspect, startSalesProspect:api.startSalesProspect, getGrowth: api.getGrowth, linkGrowthSales: api.linkGrowthSales, getSales: api.getSales, listSalesActivities: api.listSalesActivities, addSalesActivity: api.addSalesActivity, checkSalesActivity: api.checkSalesActivity, listProjects: api.listProjects, listSalesOrigins: api.listSalesOrigins, instagramContacts: api.instagramContacts, getAiState: api.getAiState, runGrowthAi: api.runGrowthAi, configureAi: api.configureAi, reconcileAi: api.reconcileAi, mode: api.mode, listAgentJobs: api.listAgentJobs, saveSales: api.saveSales, saveGrowth: api.saveGrowth, startMeetingMinutes: api.startMeetingMinutes, getMeetingRecording: api.getMeetingRecording, searchTenders: api.searchTenders }
+  originals = { getSalesProspect:api.getSalesProspect,verifySalesProspect:api.verifySalesProspect,listTasks:api.listTasks, saveTask:api.saveTask, getSalesReport: api.getSalesReport, reviewSalesProspect:api.reviewSalesProspect, startSalesProspect:api.startSalesProspect, getGrowth: api.getGrowth, linkGrowthSales: api.linkGrowthSales, getSales: api.getSales, listSalesActivities: api.listSalesActivities, addSalesActivity: api.addSalesActivity, checkSalesActivity: api.checkSalesActivity, listProjects: api.listProjects, listSalesOrigins: api.listSalesOrigins, instagramContacts: api.instagramContacts, getAiState: api.getAiState, runGrowthAi: api.runGrowthAi, configureAi: api.configureAi, reconcileAi: api.reconcileAi, mode: api.mode, listAgentJobs: api.listAgentJobs, saveSales: api.saveSales, saveGrowth: api.saveGrowth, startMeetingMinutes: api.startMeetingMinutes, getMeetingRecording: api.getMeetingRecording, searchTenders: api.searchTenders }
 })
 afterEach(async () => {
   if (root) await act(async () => root.unmount())
@@ -1428,9 +1428,11 @@ test('standalone contact desk shows details, edits metadata and records activity
   const row = { ...draft, id: crypto.randomUUID(), revision: 1, linked_sales_id: null, created_by: owner, created_at: '2026-11-14T00:00:00Z', updated_at: '2026-11-14T00:00:00Z' }
   const s = await mount('admin', 'leads', { seedItems: [row] }, '/leads?campaign=keep')
   const url = location.href
-  const card = s.getByRole('button', { name: /^한 화면 업무 후보/ })
-  for (const text of ['contact@example.test', '시연 브랜드', '연말 팝업 운영 문의', 'https://example.test/event']) assert.ok(card.textContent.includes(text))
-  await click(card)
+  const list = within(s.getByRole('table', { name: '민간 영업 후보 목록' }))
+  const rowElement = list.getByRole('row', { name: /한 화면 업무 후보/ })
+  for (const text of ['contact@example.test', '시연 브랜드', '연말 팝업 운영 문의']) assert.ok(rowElement.textContent.includes(text))
+  await click(list.getByRole('button', { name: /^한 화면 업무 후보/ }))
+  assert.ok(panel('후보 상세 정보').getByText('https://example.test/event'))
   let plan = panel('영업 계획 · 한 화면 업무 후보')
   await click(plan.getByRole('button', { name: '후보 정보', exact: true }))
   assert.ok(!s.queryByRole('dialog', { name: '한 화면 업무 후보', exact: true }))
@@ -1460,21 +1462,48 @@ test('standalone contact desk shows details, edits metadata and records activity
 })
 
 
-test('sales report explains source failures and saves evidence-based company/person classification in place', async () => {
+test('sales report lists evidence, guards drafts and requires verification before pipeline creation', async () => {
   const { EMPTY_REPORT } = await server.ssrLoadModule('/src/lib/salesReport.ts')
-  const p={id:crypto.randomUUID(),name:'분류할 담당자',entity_kind:'미분류',organization:'공식 브랜드',contact:'person@example.test',source:'민간 영업 후보',source_url:'https://example.test',evidence:'팝업 운영 문의',source_updated_at:'2026-11-14T00:00:00Z',collected_at:'2026-11-14T00:00:00Z',created_at:'2026-11-14T00:00:00Z',linked_sales_id:null,assessment:'확인 필요',score:65,reasons:'소속과 권한 확인 필요',next_action:'담당 부서 확인',blocked:false,reviewed_kind:null,reviewed_assessment:null,review_note:'',revision:1}
+  let p={id:crypto.randomUUID(),name:'분류할 담당자',entity_kind:'미분류',organization:'공식 브랜드',contact:'person@example.test',source:'민간 영업 후보',source_url:'https://example.test',evidence:'팝업 운영 문의',source_updated_at:'2026-11-14T00:00:00Z',collected_at:'2026-11-14T00:00:00Z',created_at:'2026-11-14T00:00:00Z',linked_sales_id:null,assessment:'확인 필요',score:65,reasons:'소속과 권한 확인 필요',next_action:'담당 부서 확인',blocked:false,reviewed_kind:null,reviewed_assessment:null,review_note:'',revision:1,verification_current:false}
   api.getSalesReport=async()=>({...structuredClone(EMPTY_REPORT),prospects:[p],total:1,counts:{total:1,companies:0,people:0,new:1,priority:0},sources:[{source:'서울시 문화행사',status:'실패',count:0,source_at:null,note:'공식 API 승인 확인 필요'}]})
-  let submitted
-  api.reviewSalesProspect=async(...args)=>{submitted=args;Object.assign(p,{reviewed_kind:args[2],reviewed_assessment:args[3],review_note:args[4],revision:2})}
+  api.getSalesProspect=async()=>structuredClone(p)
+  let submitted,started=0
+  api.verifySalesProspect=async(...args)=>{submitted=args;p={...p,verification:{...args[2],verified_at:'2026-11-14T01:00:00Z'},reviewed_kind:args[3],verification_current:args[2].status==='확인',revision:2};return structuredClone(p)}
+  api.startSalesProspect=async()=>{started++;return p.id}
   const s=await mount('admin'),url=location.href
   assert.ok(s.getByRole('heading',{name:'오늘의 영업 보고'}));assert.ok(s.getByText('공식 API 승인 확인 필요'))
-  const region=within(s.getByRole('region',{name:'영업처 · 분류할 담당자'}))
-  await click(region.getByRole('button',{name:'분류 수정'}))
+  const list=within(s.getByRole('table',{name:'신규 영업처 목록'}));assert.ok(list.getByText('팝업 운영 문의'))
+  await click(list.getByRole('button',{name:'내용 검증'}))
+  let region=panel('내용 검증 · 분류할 담당자')
+  assert.equal(region.getByRole('button',{name:'검증한 내용으로 영업 시작'}).disabled,true)
+  assert.equal(region.getByRole('link',{name:'원문 열기 ↗'}).getAttribute('href'),'https://example.test')
   await act(async()=>user.selectOptions(region.getByLabelText('회사·사람 구분'),'사람'))
-  await type(region.getByLabelText('판단 근거'),'공식 담당자 소개에서 소속 확인')
-  await click(region.getByRole('button',{name:'분류 저장'}))
-  assert.equal(submitted[2],'사람');assert.equal(submitted[1],1);assert.equal(location.href,url)
-  assert.ok(region.getByText('사람',{exact:true}));assert.ok(region.getByText(/담당 검토: 공식 담당자 소개/))
+  await type(region.getByLabelText('실제 요청·수요'),'12월 팝업 운영 견적 요청')
+  await click(list.getByRole('button',{name:'내용 검증'}))
+  assert.equal(region.getByLabelText('실제 요청·수요').value,'12월 팝업 운영 견적 요청')
+  await act(async()=>user.selectOptions(region.getByLabelText('상대의 역할'),'발주처'))
+  await type(region.getByLabelText('우리가 맡을 업무 범위'),'팝업 현장 운영')
+  await type(region.getByLabelText('검증 근거·확인일'),'11월 14일 공식 담당자 회신에서 미발주 운영 확인')
+  await act(async()=>user.selectOptions(region.getByLabelText('검증 결과'),'확인'))
+  assert.equal(started,0)
+  await click(region.getByRole('button',{name:'검증 결과 저장'}))
+  region=panel('내용 검증 · 분류할 담당자')
+  assert.equal(submitted[3],'사람');assert.equal(submitted[1],1);assert.equal(submitted[2].scope,'팝업 현장 운영');assert.equal(location.href,url)
+  assert.equal(region.getByRole('button',{name:'검증한 내용으로 영업 시작'}).disabled,false)
+  const {newSalesDraft}=await server.ssrLoadModule('/src/lib/sales.ts')
+  await originals.saveSales(p.id,{...newSalesDraft('00000000-0000-4000-8000-000000000001'),title:'검증 완료 운영 견적'},0)
+  await click(region.getByRole('button',{name:'검증한 내용으로 영업 시작'}));assert.equal(started,1)
+  assert.ok(s.getByRole('region',{name:'영업 진행 내용'}));assert.equal(location.href,url)
+})
+
+test('member can inspect supplier evidence and methods without approving a shared prospect',async()=>{
+ const {EMPTY_REPORT}=await server.ssrLoadModule('/src/lib/salesReport.ts')
+ const p={id:crypto.randomUUID(),name:'패키지 파트너',entity_kind:'회사',organization:'패키지 파트너',source:'민간 영업 후보',contact:'partner@example.test',evidence:'패키지 제작 크루 참여 협업 제안',source_url:'https://example.test',assessment:'확인 필요',review_note:'',revision:1,blocked:false,verification_current:false}
+ api.getSalesReport=async()=>({...structuredClone(EMPTY_REPORT),prospects:[p],total:1});api.getSalesProspect=async()=>p
+ const s=await mount('member');await click(s.getByRole('button',{name:'내용 검증'}));const review=panel('내용 검증 · 패키지 파트너')
+ assert.ok(review.getAllByText(/공급·협력 제안 검토/).length>0);assert.equal(review.queryByRole('button',{name:'검증 결과 저장'}),null)
+ assert.equal(review.getByLabelText('상대의 역할').disabled,true);assert.equal(review.getByRole('button',{name:'검증한 내용으로 영업 시작'}).disabled,true)
+ assert.ok(review.getByText('직접 발주할 과업인가요, 공급·협력을 제안하시는 건가요?'))
 })
 
 

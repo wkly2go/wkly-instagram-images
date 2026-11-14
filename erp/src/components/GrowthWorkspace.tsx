@@ -11,6 +11,7 @@ import { InstagramContacts } from './InstagramContacts'
 import { TenderSearch } from './TenderSearch'
 import { DiscoveryIntake } from './DiscoveryIntake'
 import { CHANNELS, GROWTH_LABELS, GROWTH_STATUSES, koreaDateTimeInput, appendGrowthNote, changeChannel, patchGrowthDocument, contactCandidates, newGrowth, safeWebUrl, validateGrowth, type GrowthDraft, type GrowthItem, type GrowthKind, type GrowthDocument, type ChannelDraft } from '../lib/growth'
+import { methodInputFromGrowth, recommendSalesMethod } from '../lib/salesMethods'
 import './GrowthWorkspace.css'
 
 type PlanCandidate = (candidate: GrowthItem, salesId: string) => void
@@ -90,7 +91,10 @@ export function GrowthWorkspace({ kind, embedded = false, onPlanCandidate, rende
     <div className="growth-filters"><Field label="검색"><input ref={searchInput} className="input" value={search} onChange={e=>setSearch(e.target.value)} placeholder={kind==='contact'?'제목·이메일·인스타·브랜드·담당자':kind==='tender'?'제목·공고번호·발주처':'찾을 자료 이름'} /></Field><Field label="상태"><select className="select" value={status} onChange={e=>{setStatus(e.target.value);setPage(0)}}><option value="">전체</option>{GROWTH_STATUSES[kind].map(s=><option key={s}>{s}</option>)}</select></Field></div>
     {list.error&&<p role="alert">{list.error} <Button kind="outline" onClick={list.reload}>다시 확인</Button></p>}
     {list.loading?<p role="status">자료를 불러오는 중…</p>:!list.error&&<>
-      <div className="growth-list">
+      {contact ? <div className="growth-contact-list-scroll"><table className="growth-contact-list"><caption className="sr-only">민간 영업 후보 목록</caption><thead><tr><th scope="col">이름·회사</th><th scope="col">연락처</th><th scope="col">영업 내용 검토</th><th scope="col">원문 단서</th><th scope="col">검토 상태</th></tr></thead><tbody>{orderedRows.map(row=>{
+        const method=recommendSalesMethod(methodInputFromGrowth(row))
+        return <tr key={row.id} aria-selected={selected===row.id}><th scope="row"><button type="button" aria-expanded={inlineContact?selected===row.id:undefined} onClick={event=>{if(openPanel(row.id)&&inlineContact)openTrigger.current=event.currentTarget}}>{row.title}</button><small>{[row.document?.brand,row.document?.name].filter(v=>v&&v!==row.title).join(' · ')||'소속·역할 확인 필요'}</small><small>{profileName(row.owner_id)} · {new Date(row.updated_at).toLocaleDateString('ko-KR',{timeZone:'Asia/Seoul'})}</small></th><td>{row.document?.email||row.document?.instagram||'미등록'}</td><td>{method.title}<small>{method.nextAction}</small></td><td><span className="growth-contact-excerpt">{row.document?.note||'원문 기록 없음'}</span><small>{[row.document?.segment,row.document?.source].filter(Boolean).join(' · ')||'출처 확인 필요'}</small></td><td><strong>{row.sales_review?.label??row.status}</strong><small>{row.linked_sales_id?'영업 연결됨':row.status}</small></td></tr>
+      })}</tbody></table>{!orderedRows.length&&<p className="growth-empty">{query||status?'조건에 맞는 자료가 없습니다.':'등록된 후보가 없습니다.'}</p>}</div> : <div className="growth-list">
         {orderedRows.map(row => {
           const review = row.sales_review
           const deadline = review?.deadline && new Date(review.deadline).toLocaleString('ko-KR', {
@@ -106,21 +110,14 @@ export function GrowthWorkspace({ kind, embedded = false, onPlanCandidate, rende
             <span><strong>{row.title}</strong><small>{profileName(row.owner_id)} · {deadline ? `마감 ${deadline}` : new Date(row.updated_at).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' })}{review && ` · ${row.status}`}</small></span>
             <span className={`badge ${badgeColor}`}>{review?.label ?? row.status}</span>
             <span>{review?.nextAction ?? (row.linked_sales_id ? '영업 연결됨' : row.campaign_id ? '광고 연결됨' : contact ? '후보 검토 →' : '상세 보기 →')}</span>
-            {contact && row.document && <span className="growth-candidate-facts">
-              <span><b>브랜드·담당</b>{[row.document.brand, row.document.name].filter(Boolean).join(' · ') || '미등록'}</span>
-              <span><b>연락처</b>{[row.document.email, row.document.instagram].filter(Boolean).join(' · ') || '미등록'}</span>
-              <span><b>고객군·수집 경로</b>{[row.document.segment, row.document.source].filter(Boolean).join(' · ') || '미등록'}</span>
-              <span><b>연락 맥락·확인할 사항</b>{row.document.note || '미등록'}</span>
-              <span><b>출처</b>{row.document.source_url || '미등록'}</span>
-              <span className="growth-candidate-open">{selected === row.id ? '아래 작업 화면에서 작성 중' : '상세·계획 열기'}</span>
-            </span>}
+
           </button>
         })}
         {!list.data.items.length&&<div className="growth-empty">
           <strong>{query || status ? '조건에 맞는 자료가 없습니다.' : contact ? '등록된 후보가 없습니다.' : '등록된 자료가 없습니다.'}</strong>
           <p>{query || status ? '검색어나 상태 필터를 변경해 주세요.' : contact ? '연락처를 직접 등록하거나 자료를 가져올 수 있습니다.' : '위의 등록 버튼으로 시작해 주세요. 사용설명에서 연습 순서를 볼 수 있습니다.'}</p>
         </div>}
-      </div>
+      </div>}
       {(!contact || page > 0 || list.data.hasMore) && <div className="row wrap"><Button kind="outline" disabled={!page} onClick={()=>setPage(p=>p-1)}>이전</Button><span>{page+1}페이지 · {list.data.items.length}건</span><Button kind="outline" disabled={!list.data.hasMore} onClick={()=>setPage(p=>p+1)}>다음</Button></div>}
     </>}
     {contact && <details className="growth-intake">
