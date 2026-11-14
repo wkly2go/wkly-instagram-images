@@ -19,6 +19,13 @@ export const SALES_METHODS: SalesMethod[] = [
 const RESEARCH:SalesMethod={id:'research',title:'영업 내용 먼저 확인',target:'역할·수요 근거가 부족한 자료',intent:'이름과 연락처만으로는 어떤 수주인지 판단할 수 없음',buyer:'소속 회사와 사업 담당 역할부터 확인',channel:'기존 접촉 기록과 공식 홈페이지 확인',offer:'수요가 확인된 뒤 필요한 과업만 제안',questions:['어떤 회사와 역할의 연락처인가요?','실제 문의·발주 또는 협업 과업이 있나요?','원문에서 일정과 담당 부서를 확인할 수 있나요?'],steps:['출처와 연락 맥락을 읽는다.','발주처·협력사·단순 안내를 구분한다.','구체적인 과업을 확인한 뒤 영업 방법을 결정한다.'],proof:'소속·역할 및 구체적인 수요를 뒷받침하는 기록',nextAction:'원문에서 회사 역할과 실제 영업 과업 확인',objection:'자료가 안내·뉴스레터에 불과합니다.',response:'발주 수요로 분류하지 않고 관련 공식 사업 근거가 있는지 조사합니다.',exit:'구체적 수요·역할·근거를 확인한 뒤 영업 연결'}
 const STOP:SalesMethod={...RESEARCH,id:'hold',title:'연락 보류',intent:'제외·보류 사유를 먼저 검토해야 하는 대상',nextAction:'제외·보류 근거 확인',channel:'새 연락을 제안하지 않음',offer:'기존 기록의 제외·보류 사유 확인',steps:['수신 거부·종료·보류 사유를 확인한다.'],exit:'새로운 근거와 담당자 검토 없이는 영업 연결하지 않음'}
 export interface MethodInput {name:string;source?:string;evidence?:string;organization?:string;contact?:string;blocked?:boolean;assessment?:string;verifiedRole?:string}
+export function salesEvidenceLinks(p:{source:string;source_url?:string;evidence?:string}):{label:string;url:string}[]{
+ const links:{label:string;url:string}[]=[]
+ const thread=p.evidence?.match(/\bGmail thread ([a-f0-9]{16})\b/i)?.[1]
+ if(thread)links.push({label:'관련 메일 열기',url:`https://mail.google.com/mail/u/0/#all/${thread}`})
+ if(/^https?:\/\//i.test(p.source_url??''))links.push({label:p.source==='거래처'?'등록 홈페이지 열기':'등록 출처 열기',url:p.source_url!})
+ return links
+}
 export function recommendSalesMethod(p:MethodInput):SalesMethod {
  if(p.blocked||['제외','보류'].includes(p.assessment??''))return STOP
  const text=[p.name,p.organization,p.source,p.evidence].filter(Boolean).join(' ')

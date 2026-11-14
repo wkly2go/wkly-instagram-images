@@ -1,7 +1,7 @@
 import { useRef, useState, useEffect } from 'react'
 import { useApp } from '../lib/app'
 import { effectiveAssessment, effectiveKind, ENTITY_KINDS, type EntityKind, PROSPECT_ROLES, type ProspectRole, type ProspectVerification, type SalesProspect } from '../lib/salesReport'
-import { recommendSalesMethod } from '../lib/salesMethods'
+import { recommendSalesMethod, salesEvidenceLinks } from '../lib/salesMethods'
 import { SalesMethodAdvice } from './SalesMethodAdvice'
 import { useDraftGuard } from './SalesEditor'
 import { Button, Field } from './ui'
@@ -27,7 +27,7 @@ export function SalesProspectReview({prospect:p,onUpdated,onClose,onStart,openin
   <p><b>어떤 영업인가요?</b> {p.verification_current?`${p.verification?.role} · ${p.verification?.need}`:method.intent}</p>
   <p className="sales-report-note">{p.verification_current?'담당자가 확인한 수요와 범위입니다.':'아직 확인된 발주 건이 아닙니다. 아래 원문을 읽고 실제 수요와 역할을 검증하세요.'}</p>
   <dl className="sales-report-facts"><div><dt>회사·연락처</dt><dd>{p.organization||'소속 미확인'} · {p.contact||'연락처 미확인'}</dd></div><div><dt>자료 시각</dt><dd>{p.source_updated_at?new Date(p.source_updated_at).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'}):'원문 작성 시각 미확인'}</dd></div></dl>
-  <div className="sales-verification-source"><h3>판단에 사용한 원문 기록</h3><blockquote>{p.evidence||'저장된 원문 내용이 없습니다. 출처에서 확인한 뒤 근거를 남겨 주세요.'}</blockquote><p>{p.source}{/^https?:\/\//i.test(p.source_url)&&<> · <a href={p.source_url} target="_blank" rel="noopener noreferrer">원문 열기 ↗</a></>}</p><small>수집된 기록을 그대로 표시합니다. 제목·메모만 저장된 자료는 원문 전체와 대조해야 합니다.</small></div>
+  <div className="sales-verification-source"><h3>판단에 사용한 원문 기록</h3><blockquote>{p.evidence||'저장된 원문 내용이 없습니다. 출처에서 확인한 뒤 근거를 남겨 주세요.'}</blockquote><p>{p.source}{salesEvidenceLinks(p).map(link=><span key={link.url}> · <a href={link.url} target="_blank" rel="noopener noreferrer">{link.label} ↗</a></span>)}</p><small>수집된 기록을 그대로 표시합니다. 제목·메모만 저장된 자료는 원문 전체와 대조해야 합니다.</small></div>
   <p><b>자동 분류 근거</b> · {p.reasons}</p>
   {p.verification?.verified_at&&<p className="sales-report-note">마지막 검토: {profileName(p.verification.verified_by??'')} · {new Date(p.verification.verified_at).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'})} · {p.verification.status}{!p.verification_current&&p.verification.status==='확인'?' · 원본 또는 제외 상태가 달라져 재검증이 필요합니다.':''}</p>}
   <form className="sales-report-review sales-verification-form" onSubmit={e=>{e.preventDefault();void save()}}>

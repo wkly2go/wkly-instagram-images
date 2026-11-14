@@ -1476,7 +1476,7 @@ test('sales report lists evidence, guards drafts and requires verification befor
   await click(list.getByRole('button',{name:'내용 검증'}))
   let region=panel('내용 검증 · 분류할 담당자')
   assert.equal(region.getByRole('button',{name:'검증한 내용으로 영업 시작'}).disabled,true)
-  assert.equal(region.getByRole('link',{name:'원문 열기 ↗'}).getAttribute('href'),'https://example.test')
+  assert.equal(region.getByRole('link',{name:'등록 출처 열기 ↗'}).getAttribute('href'),'https://example.test')
   await act(async()=>user.selectOptions(region.getByLabelText('회사·사람 구분'),'사람'))
   await type(region.getByLabelText('실제 요청·수요'),'12월 팝업 운영 견적 요청')
   await click(list.getByRole('button',{name:'내용 검증'}))
