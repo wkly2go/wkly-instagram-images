@@ -13,17 +13,26 @@ import { SalesPlaybook } from '../components/SalesPlaybook'
 import { ProspectingPlanner } from '../components/ProspectingPlanner'
 import { Shell } from '../components/Shell'
 import { GrowthWorkspace } from '../components/GrowthWorkspace'
+import { SalesSourceLookup } from '../components/SalesSourceLookup'
 import './Sales.css'
 
 export default function Sales() {
   const { query, navigate } = useRouter()
-  const tab = query.has('id') || query.get('new') === '1' ? 'pipeline' : ['contacts', 'tenders'].includes(query.get('tab') ?? '') ? query.get('tab')! : 'pipeline'
-  const tabs = [['pipeline', '수주 파이프라인'], ['contacts', '민간 영업 후보'], ['tenders', '나라장터 공고']] as const
+  const [lookupDraft, setLookupDraft] = useState<SalesDraft | null>(null)
+  const tab = query.has('id') || query.get('new') === '1' ? 'pipeline' : ['contacts', 'tenders', 'lookup'].includes(query.get('tab') ?? '') ? query.get('tab')! : 'pipeline'
+  const tabs = [['pipeline', '수주 파이프라인'], ['contacts', '민간 영업 후보'], ['tenders', '나라장터 공고'], ['lookup', 'API 자료 조회']] as const
+  useEffect(() => { if (tab !== 'lookup') setLookupDraft(null) }, [tab])
   return <Shell active="sales"><div className="sales-page">
     <header className="sales-heading"><h1 className="t-title">영업 발굴·수주</h1><p>팝업스토어 대행이 필요한 브랜드를 발굴하고, 첫 연락부터 제안·계약까지 관리합니다.</p></header>
     <nav aria-label="영업 업무" className="sales-stages">{tabs.map(([key, label]) => <button type="button" key={key} className={`btn ${tab === key ? '' : 'btn-outline'}`} aria-current={tab === key ? 'page' : undefined} onClick={() => navigate(withQuery('/sales', query, { tab: key === 'pipeline' ? null : key, id: null, new: null, research: null }))}>{label}</button>)}</nav>
     <p className="sales-notice">브랜드의 오픈 계기와 미발주 범위 확인 → 담당자와 다음 연락일 지정 → 대행 제안·견적 → 계약·프로젝트 연결.</p>
-    {tab === 'pipeline' ? <SalesPipeline /> : <GrowthWorkspace key={tab} kind={tab === 'tenders' ? 'tender' : 'contact'} />}
+    {tab === 'pipeline' ? <SalesPipeline /> : tab === 'lookup' ? <>
+      <SalesSourceLookup onOpportunity={setLookupDraft} />
+      {lookupDraft && <SalesEditor initial={null} seed={lookupDraft} onClose={() => setLookupDraft(null)} onSaved={id => {
+        setLookupDraft(null)
+        navigate(withQuery('/sales', query, { tab: null, new: null, research: null, id }))
+      }} />}
+    </> : <GrowthWorkspace key={tab} kind={tab === 'tenders' ? 'tender' : 'contact'} />}
   </div></Shell>
 }
 
@@ -155,10 +164,10 @@ function useDraftGuard(dirty: boolean, busy: boolean) {
   }
 }
 
-function SalesEditor({ initial, onClose, onSaved, discovery = false }: { discovery?: boolean; initial: SalesOpportunity | null; onClose: () => void; onSaved: (id: string) => void }) {
+function SalesEditor({ initial, seed, onClose, onSaved, discovery = false }: { discovery?: boolean; initial: SalesOpportunity | null; seed?: SalesDraft; onClose: () => void; onSaved: (id: string) => void }) {
   const { api, me, profiles } = useApp()
   const [draft, setDraft] = useState<SalesDraft>(() => {
-    if (!initial) return newSalesDraft(me.id)
+    if (!initial) return seed ?? newSalesDraft(me.id)
     const { id: _id, revision: _revision, created_by: _cb, updated_by: _ub, created_at: _ca, updated_at: _ua, ...d } = initial
     return d
   })

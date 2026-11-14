@@ -13,8 +13,40 @@ function fail(e: { message: string; code?: string } | null, status?: number) {
   // Keep explicit database rejection separate from a lost transport response.
   throw Object.assign(new ApiError(message), { code: e.code, status, uncertain: !e.code && status !== undefined && [0,502,503,504].includes(status) })
 }
+async function invokeSalesLookup(sb: SupabaseClient, body: Record<string, unknown>) {
+  const { data, error } = await sb.functions.invoke('sales-api', { body })
+  if (error) {
+    let message = '영업 자료 조회 서버에 연결하지 못했습니다. 관리자에게 sales-api 배포 상태를 확인해 주세요.'
+    if (error.context instanceof Response) {
+      try {
+        const payload = await error.context.clone().json()
+        if (typeof payload?.error === 'string') message = payload.error.slice(0, 500)
+      } catch { /* Keep the connection guidance. */ }
+    }
+    throw new ApiError(message)
+  }
+  return data
+}
+
 export function createSupabaseGrowthApi(sb: SupabaseClient): GrowthApi {
   return {
+    async salesLookupStatus() {
+      const data = await invokeSalesLookup(sb, { action: 'status' })
+      if (!data?.configured || typeof data.configured !== 'object' || Array.isArray(data.configured)) {
+        throw new ApiError('API 설정 상태를 확인할 수 없습니다.')
+      }
+      return data.configured
+    },
+    async searchSalesSources(source, params) {
+      const data = await invokeSalesLookup(sb, { action: 'search', source, params })
+      if (data?.source !== source || !Array.isArray(data.rows) || data.rows.length > 50 ||
+          !data.rows.every((row: unknown) => typeof row === 'object' && row !== null && 'title' in row &&
+            typeof row.title === 'string' && 'facts' in row && Array.isArray(row.facts) &&
+            row.facts.every(fact => typeof fact?.label === 'string' && typeof fact?.value === 'string'))) {
+        throw new ApiError('조회 결과의 형식을 확인할 수 없습니다.')
+      }
+      return data
+    },
     async instagramContacts(action) {
       const {data,error}=await sb.functions.invoke('instagram-contacts',{body:{action}})
       if(error){let message='인스타그램 연락처 서버 연결·배포 상태를 확인해 주세요.';if(error.context instanceof Response){try{const body=await error.context.clone().json();if(typeof body?.error==='string')message=body.error.slice(0,500)}catch{}}throw new ApiError(message)}
@@ -66,6 +98,8 @@ export function createDemoGrowthApi(viewer:()=>Profile|undefined,sales:SalesApi)
   const key='wkly-growth-demo-v1', get=():GrowthItem[]=>JSON.parse(localStorage.getItem(key)??'[]')
   const user=()=>{const u=viewer();if(!u?.active)throw new ApiError('로그인이 필요합니다.');return u}
   return {
+    async salesLookupStatus() { user(); return {} },
+    async searchSalesSources() { user(); throw new ApiError('체험 모드에서는 외부 API를 호출하지 않습니다.') },
     async instagramContacts(action){user();if(action==='sync')throw new ApiError('체험 모드에서는 실제 인스타그램을 조회하지 않습니다.');return {configured:false,hasMore:false,lastSyncedAt:null,lastCompletedAt:null}},
     async searchTenders(){user();throw new ApiError('체험 모드에서는 실제 나라장터 공고를 조회하지 않습니다. 운영 계정의 서버 함수·공공데이터포털 API 설정 후 사용할 수 있습니다.')},
     async listGrowth(f){user();const a=get().filter(x=>x.kind===f.kind&&(!f.status||x.status===f.status)&&matchesGrowthSearch(x,f.search)).sort((a,b)=>b.updated_at.localeCompare(a.updated_at));return {items:a.slice(f.page*30,f.page*30+30).map(summary),hasMore:a.length>f.page*30+30}},
