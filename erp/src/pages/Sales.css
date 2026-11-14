@@ -75,3 +75,10 @@
   .sales-work-panel .sales-fieldset { grid-template-columns: minmax(0, 1fr); }
   .sales-work-panel .sales-list { width: 100%; }
 }
+
+.prospect-search-results { display: grid; gap: 12px; min-width: 0; }
+.prospect-search-group { border-top: 1px solid var(--line); padding-top: 8px; min-width: 0; }
+.prospect-search-group h5 { margin: 0 0 8px; font-size: var(--fs-sub, 15px); }
+.prospect-search-cards { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 245px), 1fr)); }
+.prospect-search-cards article { padding: 12px; border: 1px solid var(--line); background: var(--paper); overflow-wrap: anywhere; }
+.prospect-search-cards article p { margin: 5px 0 8px; }

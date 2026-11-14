@@ -3,6 +3,7 @@ import type { SalesApi } from './sales'
 import type { ApprovalSummary, ResearchSummary, ResearchBodyMatch } from './types'
 import type { MarketingCampaign, MarketingAsset } from './marketing'
 import type { NavigationCounts } from './navigationCounts'
+import type { ProspectingClientResult } from './prospectingClientSearch'
 import { UploadRecordResolutionError } from './uploadRecord'
 import type { AccessSource } from './desktop'
 import type { LedgerEntry, LedgerFile, LedgerRecurring, LedgerStatus, MaterialItem, MaterialMove, MaterialStockRow,
@@ -185,6 +186,7 @@ export interface Api extends SalesApi, GrowthApi {
 
   // 거래처
   listClients(): Promise<Client[]>
+  searchProspectingClients(query: string): Promise<ProspectingClientResult[]>
   saveClient(c: Draft<Client>): Promise<Client>
   deleteClient(id: string): Promise<void>
   /** clientId 없으면 전체 (거래처 검색용) */

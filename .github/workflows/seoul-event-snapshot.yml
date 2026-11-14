@@ -1,0 +1,49 @@
+name: Refresh public event snapshots
+
+on:
+  schedule:
+    # 01:30 KST, every day.
+    - cron: '30 16 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: seoul-event-snapshot
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: erp/.node-version
+      - name: Update only the public snapshot branch
+        shell: bash
+        run: |
+          git fetch --depth=1 origin refs/heads/data/seoul-events
+          git worktree add --detach "$RUNNER_TEMP/seoul-data" FETCH_HEAD
+          updated=0
+          for source in seoul coex; do
+            snapshot="$(mktemp "$RUNNER_TEMP/event-snapshot.XXXXXX")"
+            if node --experimental-strip-types erp/scripts/refresh-seoul-events.mjs "$source" > "$snapshot"; then
+              mv "$snapshot" "$RUNNER_TEMP/seoul-data/$source-events.json"
+              updated=$((updated + 1))
+            else
+              rm -f "$snapshot"
+              echo "::warning::Could not refresh $source. Its last successful snapshot is preserved."
+            fi
+          done
+          test "$updated" -gt 0
+          cd "$RUNNER_TEMP/seoul-data"
+          git add -- seoul-events.json
+          if [ -f coex-events.json ]; then git add -- coex-events.json; fi
+          if git diff --cached --quiet; then exit 0; fi
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'Refresh public Seoul event snapshot'
+          git push origin HEAD:refs/heads/data/seoul-events
