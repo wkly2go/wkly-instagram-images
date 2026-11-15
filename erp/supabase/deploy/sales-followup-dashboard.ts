@@ -20,7 +20,9 @@ var headers = {
 var json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers });
 function createGrowthAiHandler(deps) {
   const maxOutput = deps.maxOutputTokens ?? MAX_OUTPUT;
-  if (!Number.isSafeInteger(maxOutput) || maxOutput < 1 || maxOutput > 4096) throw new Error("invalid server output cap");
+  if (!Number.isSafeInteger(maxOutput) || maxOutput < 1 || maxOutput > 12e3) throw new Error("invalid server output cap");
+  const effort = deps.effort ?? "low";
+  if (!["low", "medium", "high"].includes(effort)) throw new Error("invalid server effort");
   return async (req) => {
     if (req.method === "OPTIONS") return new Response("ok", { headers });
     if (req.method !== "POST") return json({ error: "\uC9C0\uC6D0\uD558\uC9C0 \uC54A\uB294 \uC694\uCCAD\uC785\uB2C8\uB2E4." }, 405);
@@ -43,7 +45,7 @@ function createGrowthAiHandler(deps) {
       requestId = body.id;
       if (!deps.apiKey) return json({ error: "\uC11C\uBC84 API \uC5F0\uACB0\uC774 \uC544\uC9C1 \uC124\uC815\uB418\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4." }, 503);
       const inputTokens = new TextEncoder().encode(SYSTEM + body.prompt).byteLength + 1024;
-      const identity = [body.task, body.model, body.prompt, ...maxOutput === MAX_OUTPUT ? [] : [maxOutput]];
+      const identity = [body.task, body.model, body.prompt, ...maxOutput === MAX_OUTPUT ? [] : [maxOutput], ...effort === "low" ? [] : [effort]];
       const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify(identity)));
       const signature = Array.from(new Uint8Array(hash), (b) => b.toString(16).padStart(2, "0")).join("");
       const { data: reservation, error } = await deps.reserve({ p_id: body.id, p_user: user.id, p_task: body.task, p_signature: signature, p_model: body.model, p_input_tokens: inputTokens });
@@ -56,8 +58,8 @@ function createGrowthAiHandler(deps) {
       const response = await deps.fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: { "x-api-key": deps.apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-        body: JSON.stringify({ model: reservation.model_id, max_tokens: maxOutput, system: SYSTEM, messages: [{ role: "user", content: body.prompt }] }),
-        signal: AbortSignal.timeout(55e3)
+        body: JSON.stringify({ model: reservation.model_id, max_tokens: maxOutput, output_config: { effort }, system: SYSTEM, messages: [{ role: "user", content: body.prompt }] }),
+        signal: AbortSignal.timeout(maxOutput > 4096 ? 14e4 : 55e3)
       });
       if (!response.ok) throw new Error("provider request failed");
       const result = await response.json();
@@ -165,7 +167,7 @@ async function rpc(name, args) {
 Deno.serve(createFollowupHandler({
   claim: (id, token) => rpc("sales_followup_claim", { p_id: id, p_token: token }),
   async generate(job, prompt) {
-    const run = createGrowthAiHandler({ configured: true, apiKey: Deno.env.get("ANTHROPIC_API_KEY"), requireComplete: true, authenticate: async () => ({ id: job.actor }), reserve: async (args) => await sb.rpc("sales_followup_ai_reserve", args), finish: async (args) => await sb.rpc("growth_ai_finish", args), fetch });
+    const run = createGrowthAiHandler({ configured: true, apiKey: Deno.env.get("ANTHROPIC_API_KEY"), maxOutputTokens: 6e3, effort: "medium", requireComplete: true, authenticate: async () => ({ id: job.actor }), reserve: async (args) => await sb.rpc("sales_followup_ai_reserve", args), finish: async (args) => await sb.rpc("growth_ai_finish", args), fetch });
     return await (await run(new Request("https://internal.invalid/followup", { method: "POST", headers: { Authorization: "Bearer claimed-sales-followup-job" }, body: JSON.stringify({ id: job.id, task: "write", model: job.model, prompt }) }))).json();
   },
   finish: async (id, report, error) => {

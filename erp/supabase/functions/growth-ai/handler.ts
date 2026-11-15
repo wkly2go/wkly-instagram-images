@@ -7,6 +7,9 @@ export interface GrowthAiDependencies {
   apiKey?: string
   // Trusted server configuration; the matching reservation RPC must cover this cap.
   maxOutputTokens?: number
+  // Newer models reason before answering and that reasoning spends the same output cap.
+  // 'low' keeps short classification answers inside a small cap; planning uses a larger cap with more effort.
+  effort?: 'low' | 'medium' | 'high'
   requireComplete?: boolean
   authenticate: (authorization: string) => Promise<{ id: string } | null>
   reserve: (args: Record<string, unknown>) => Promise<{ data: Reservation | null; error: RpcError }>
@@ -23,7 +26,9 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
 
 export function createGrowthAiHandler(deps: GrowthAiDependencies) {
   const maxOutput = deps.maxOutputTokens ?? MAX_OUTPUT
-  if (!Number.isSafeInteger(maxOutput) || maxOutput < 1 || maxOutput > 4096) throw new Error('invalid server output cap')
+  if (!Number.isSafeInteger(maxOutput) || maxOutput < 1 || maxOutput > 12000) throw new Error('invalid server output cap')
+  const effort = deps.effort ?? 'low'
+  if (!['low', 'medium', 'high'].includes(effort)) throw new Error('invalid server effort')
   return async (req: Request): Promise<Response> => {
     if (req.method === 'OPTIONS') return new Response('ok', { headers })
     if (req.method !== 'POST') return json({ error: '지원하지 않는 요청입니다.' }, 405)
@@ -43,7 +48,7 @@ export function createGrowthAiHandler(deps: GrowthAiDependencies) {
       requestId = body.id
       if (!deps.apiKey) return json({ error: '서버 API 연결이 아직 설정되지 않았습니다.' }, 503)
       const inputTokens = new TextEncoder().encode(SYSTEM + body.prompt).byteLength + 1024
-      const identity = [body.task, body.model, body.prompt, ...(maxOutput === MAX_OUTPUT ? [] : [maxOutput])]
+      const identity = [body.task, body.model, body.prompt, ...(maxOutput === MAX_OUTPUT ? [] : [maxOutput]), ...(effort === 'low' ? [] : [effort])]
       const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify(identity)))
       const signature = Array.from(new Uint8Array(hash), b => b.toString(16).padStart(2, '0')).join('')
       const { data: reservation, error } = await deps.reserve({ p_id: body.id, p_user: user.id, p_task: body.task, p_signature: signature, p_model: body.model, p_input_tokens: inputTokens })
@@ -55,8 +60,8 @@ export function createGrowthAiHandler(deps: GrowthAiDependencies) {
       if (!reservation.model_id || !Number.isFinite(inputRate) || inputRate <= 0 || !Number.isFinite(outputRate) || outputRate <= 0) throw new Error('invalid reservation')
       const response = await deps.fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST', headers: { 'x-api-key': deps.apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-        body: JSON.stringify({ model: reservation.model_id, max_tokens: maxOutput, system: SYSTEM, messages: [{ role: 'user', content: body.prompt }] }),
-        signal: AbortSignal.timeout(55000),
+        body: JSON.stringify({ model: reservation.model_id, max_tokens: maxOutput, output_config: { effort }, system: SYSTEM, messages: [{ role: 'user', content: body.prompt }] }),
+        signal: AbortSignal.timeout(maxOutput > 4096 ? 140000 : 55000),
       })
       if (!response.ok) throw new Error('provider request failed')
       const result = await response.json()
