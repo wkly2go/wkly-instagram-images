@@ -139,3 +139,10 @@ test('G2B keeps the participation terms the provider states and builds bounded d
   assert.deepEqual(parseG2bNames(body(''), 'region'), [])
   assert.throws(() => parseG2bNames({ response: { header: { resultCode: '30' } } }, 'license'))
 })
+
+test('G2B keeps the enquiry officer the notice names and drops malformed parts',()=>{
+  const one=(extra:Record<string,string>)=>parseG2bResult(payload([row(extra)]),query()).items[0].officer
+  assert.deepEqual(one({ntceInsttOfclNm:' 홍 길동 ',ntceInsttOfclTelNo:'02-123-4567',ntceInsttOfclEmailAdrs:'Officer@Korea.kr'}),{name:'홍 길동',phone:'02-123-4567',email:'officer@korea.kr'})
+  assert.deepEqual(one({ntceInsttOfclNm:'<b>x</b>',ntceInsttOfclTelNo:'전화 없음',dminsttOfclEmailAdrs:'buyer@agency.go.kr'}),{email:'buyer@agency.go.kr'})
+  assert.equal(one({ntceInsttOfclEmailAdrs:'not an address'}),undefined)
+})

@@ -1,7 +1,7 @@
 // Website addresses are source candidates, never proof of identity or outreach permission.
 export interface HtmlNode {nodeName?:string;tagName?:string;value?:string;attrs?:{name:string;value:string}[];childNodes?:HtmlNode[]}
 export type HtmlParser=(html:string)=>HtmlNode
-export interface Page {status:number;contentType:string;text:string}
+export interface Page {status:number;contentType:string;text:string;/** Where a redirect points; reported for the caller to judge, never followed by the reader. */location?:string}
 export interface Candidate {email:string;url:string;excerpt:string;role:'partnership'|'general'|'non_sales';domain_match:boolean}
 export interface DiscoveryResult {status:'complete'|'partial'|'blocked'|'unavailable';pages:{url:string;status:'read'|'blocked'|'failed'}[];candidates:Candidate[];limited:boolean}
 export interface DiscoveryJob {company_id:string;company:string;website:string}

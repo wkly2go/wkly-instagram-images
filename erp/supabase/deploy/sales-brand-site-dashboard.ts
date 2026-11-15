@@ -27,6 +27,55 @@ function candidates(input, brand) {
   }
   return out;
 }
+function titled(input, brand) {
+  if (!Array.isArray(input)) return [];
+  const key = squash(brand), out = [];
+  for (const r of input) {
+    const site2 = origin(r?.url);
+    if (!site2 || out.includes(site2)) continue;
+    try {
+      if (new URL(String(r.url)).pathname !== "/") continue;
+    } catch {
+      continue;
+    }
+    if (key.length >= 2 && squash(String(r?.title ?? "")).startsWith(key)) out.push(site2);
+  }
+  return out;
+}
+function sameSite(next, base) {
+  try {
+    const a = new URL(next), b = new URL(base);
+    if (a.protocol !== "https:" || a.username || a.password || a.port) return false;
+    const x = a.hostname.toLowerCase().replace(/^www\./, ""), y = b.hostname.toLowerCase().replace(/^www\./, "");
+    return x === y || x.endsWith("." + y) || y.endsWith("." + x);
+  } catch {
+    return false;
+  }
+}
+async function readFollowing(read, start) {
+  let url = start;
+  for (let hop = 0; ; hop++) {
+    const page = await read(url);
+    if (page.status < 300 || page.status >= 400 || !page.location || hop === 3) return { page, url };
+    let next;
+    try {
+      next = new URL(page.location, url).href;
+    } catch {
+      return { page, url };
+    }
+    if (!sameSite(next, start) || next.length > 1e3) return { page, url };
+    url = next;
+  }
+}
+function addresses(body, host) {
+  const emails = [];
+  for (const m of body.matchAll(/[a-z0-9._%+-]{1,64}@[a-z0-9.-]{1,180}\.[a-z]{2,}/gi)) {
+    const e = m[0].toLowerCase();
+    if (!emails.includes(e) && !/\.(png|jpe?g|gif|svg|webp)$/.test(e) && !/^(example|your|name|email|test)@|@(example|sentry|wixpress)\./.test(e)) emails.push(e);
+    if (emails.length === 5) break;
+  }
+  return emails.filter((e) => e.endsWith("@" + host) || e.endsWith("." + host)).concat(emails.filter((e) => !(e.endsWith("@" + host) || e.endsWith("." + host)))).slice(0, 3);
+}
 var text = (html) => html.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi, " ").replace(/<[^>]*>/g, " ").replace(/&nbsp;|&#160;/g, " ").replace(/\s+/g, " ");
 var meta = (html, name) => {
   for (const m of html.matchAll(/<meta\b[^>]{0,400}>/gi)) {
@@ -35,28 +84,26 @@ var meta = (html, name) => {
   return "";
 };
 function inspect(html, site2, brand) {
-  const body = text(html), key = squash(brand), host = new URL(site2).hostname.replace(/^www\./, ""), emails = [];
+  const body = text(html), key = squash(brand), host = new URL(site2).hostname.replace(/^www\./, "");
   const identity = [html.match(/<title[^>]*>([^<]{0,200})/i)?.[1] ?? "", meta(html, "og:site_name"), meta(html, "og:title"), meta(html, "application-name"), ...[...body.matchAll(/(?:©|ⓒ|\(c\)|copyright)[^|]{0,80}/gi)].slice(0, 3).map((m) => m[0])].join(" ");
   const named = key.length >= 2 && (squash(identity).includes(key) || /^[a-z0-9]{3,}$/.test(key) && host.replace(/[^a-z0-9]/g, "").includes(key));
-  for (const m of body.matchAll(/[a-z0-9._%+-]{1,64}@[a-z0-9.-]{1,180}\.[a-z]{2,}/gi)) {
-    const e = m[0].toLowerCase();
-    if (!emails.includes(e) && !/\.(png|jpe?g|gif|svg|webp)$/.test(e) && !/^(example|your|name|email|test)@|@(example|sentry|wixpress)\./.test(e)) emails.push(e);
-    if (emails.length === 5) break;
-  }
   let contact_page = "";
+  const more = [];
   for (const m of html.matchAll(/<a\b[^>]*href\s*=\s*["']([^"'#]{1,500})["'][^>]*>([\s\S]{0,200}?)<\/a>/gi)) {
-    if (!/(제휴|입점|협업|비즈니스|파트너|문의|contact|partnership|business|b2b)/i.test(text(m[2]) + " " + m[1])) continue;
+    const label = text(m[2]) + " " + m[1], contact = /(제휴|입점|협업|비즈니스|파트너|문의|contact|partnership|business|b2b)/i.test(label);
+    if (!contact && !/(회사 ?소개|브랜드 ?소개|고객 ?센터|about|company|support|customer)/i.test(label)) continue;
     try {
       const u = new URL(m[1], site2);
-      if (u.protocol === "https:" && u.hostname.replace(/^www\./, "") === host && !u.username && !u.port) {
-        u.hash = "";
-        contact_page = u.href.slice(0, 500);
-        break;
-      }
+      if (u.protocol !== "https:" || u.hostname.replace(/^www\./, "") !== host || u.username || u.port) continue;
+      u.hash = "";
+      const href = u.href.slice(0, 500);
+      if (contact && !contact_page) contact_page = href;
+      if (!more.includes(href) && u.pathname !== "/") more.push(href);
     } catch {
     }
+    if (contact_page && more.length >= 4) break;
   }
-  return { named, contact_page, emails: emails.filter((e) => e.endsWith("@" + host) || e.endsWith("." + host)).concat(emails.filter((e) => !(e.endsWith("@" + host) || e.endsWith("." + host)))).slice(0, 3) };
+  return { named, contact_page, emails: addresses(body, host), more: [...contact_page ? [contact_page] : [], ...more.filter((u) => u !== contact_page)].slice(0, 2), thin: body.trim().length < 1500 };
 }
 var uuid = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
 function createBrandSiteHandler(d) {
@@ -99,17 +146,32 @@ function createBrandSiteHandler(d) {
               continue;
             }
             answered++;
-            for (const site2 of candidates(rows, job.brand)) {
+            const byTitle = titled(rows, job.brand);
+            for (const site2 of [.../* @__PURE__ */ new Set([...candidates(rows, job.brand), ...byTitle])].slice(0, 4)) {
               let page;
               try {
-                page = await d.read(site2);
+                page = (await readFollowing(d.read, site2)).page;
               } catch {
                 continue;
               }
               if (page.status !== 200 || !page.text) continue;
               const seen = inspect(page.text, site2, job.brand);
-              if (!seen.named) continue;
-              result = { status: "found", homepage: site2, contact_page: seen.contact_page, emails: seen.emails, note: `${provider.name} \uAC80\uC0C9 \u2192 \uBE0C\uB79C\uB4DC \uC774\uB984\uC774 \uC801\uD78C \uC790\uCCB4 \uC0AC\uC774\uD2B8 \uD655\uC778` + (seen.emails.length ? " \xB7 \uC0AC\uC774\uD2B8\uC5D0 \uACF5\uAC1C\uB41C \uC8FC\uC18C \uC788\uC74C" : "") };
+              const untitled = !(page.text.match(/<title[^>]*>([^<]{0,200})/i)?.[1] ?? "").trim();
+              const how = seen.named ? "\uBE0C\uB79C\uB4DC \uC774\uB984\uC73C\uB85C \uC18C\uAC1C\uB41C \uC790\uCCB4 \uC0AC\uC774\uD2B8 \uD655\uC778" : seen.thin && untitled && byTitle.includes(site2) ? "\uAC80\uC0C9 \uACB0\uACFC\uC758 \uC0AC\uC774\uD2B8 \uC81C\uBAA9\uC73C\uB85C \uC790\uCCB4 \uC0AC\uC774\uD2B8 \uD655\uC778" : "";
+              if (!how) continue;
+              const host = new URL(site2).hostname.replace(/^www\./, "");
+              let emails = seen.emails, contact_page = seen.contact_page;
+              for (const link of emails.length ? [] : seen.more) {
+                try {
+                  const next = (await readFollowing(d.read, link)).page;
+                  if (next.status === 200 && next.text) {
+                    emails = addresses(text(next.text), host);
+                    if (emails.length) break;
+                  }
+                } catch {
+                }
+              }
+              result = { status: "found", homepage: site2, contact_page, emails, note: `${provider.name} \uAC80\uC0C9 \u2192 ${how}` + (emails.length ? " \xB7 \uC0AC\uC774\uD2B8\uC5D0 \uACF5\uAC1C\uB41C \uC8FC\uC18C \uC788\uC74C" : "") };
               break search;
             }
           }
@@ -205,8 +267,8 @@ async function readPublicPageEdge(value, deps, guard = sourceUrl) {
   const url = guard(value);
   if (!url) throw new Error("Unsupported source");
   const signal = AbortSignal.timeout(1e4);
-  const addresses = await Promise.race([deps.resolve(url.hostname), new Promise((_, reject) => signal.addEventListener("abort", () => reject(new Error("DNS timeout")), { once: true }))]);
-  if (signal.aborted || !Array.isArray(addresses) || !addresses.length || addresses.length > 32 || !addresses.every(publicIPv4)) throw new Error("Non-public source");
+  const addresses2 = await Promise.race([deps.resolve(url.hostname), new Promise((_, reject) => signal.addEventListener("abort", () => reject(new Error("DNS timeout")), { once: true }))]);
+  if (signal.aborted || !Array.isArray(addresses2) || !addresses2.length || addresses2.length > 32 || !addresses2.every(publicIPv4)) throw new Error("Non-public source");
   let response;
   try {
     response = await deps.fetcher(url.href, { method: "GET", redirect: "manual", credentials: "omit", signal, headers: { "User-Agent": "WKLYSalesBot/1.0", "Accept": "text/html,text/plain", "Accept-Encoding": "identity" } });
@@ -223,7 +285,8 @@ async function readPublicPageEdge(value, deps, guard = sourceUrl) {
   }
   if (status !== 200) {
     await stop();
-    return { status, contentType: type, text: "" };
+    const location = status >= 300 && status < 400 ? (response.headers.get("location") ?? "").slice(0, 1e3) : "";
+    return { status, contentType: type, text: "", ...location ? { location } : {} };
   }
   const charset = type.match(/charset\s*=\s*"?([^;"\s]+)/i)?.[1]?.toLowerCase();
   if (charset && !["utf-8", "us-ascii"].includes(charset)) {
@@ -261,7 +324,7 @@ var net = { resolve: (hostname) => Deno.resolveDns(hostname, "A"), fetcher: fetc
 var site = (value) => {
   try {
     const u = new URL(value);
-    return u.protocol === "https:" && !u.username && !u.password && !u.port && u.pathname === "/" && !u.search ? u : null;
+    return u.protocol === "https:" && !u.username && !u.password && !u.port && value.length <= 1e3 ? u : null;
   } catch {
     return null;
   }

@@ -30,6 +30,37 @@ export function candidates(input:unknown,brand:string):string[]{
  }
  return out
 }
+/** Sites whose own front-page title, as the search engine shows it, begins with the brand's name. */
+export function titled(input:unknown,brand:string):string[]{
+ if(!Array.isArray(input))return []
+ const key=squash(brand),out:string[]=[]
+ for(const r of input as Record<string,unknown>[]){
+  const site=origin(r?.url);if(!site||out.includes(site))continue
+  try{if(new URL(String(r.url)).pathname!=='/')continue}catch{continue}
+  if(key.length>=2&&squash(String(r?.title??'')).startsWith(key))out.push(site)
+ }
+ return out
+}
+/** A redirect is followed only while it stays on the same site (the same host, with or without www, or its sub-site). */
+export function sameSite(next:string,base:string):boolean{
+ try{const a=new URL(next),b=new URL(base);if(a.protocol!=='https:'||a.username||a.password||a.port)return false
+  const x=a.hostname.toLowerCase().replace(/^www\./,''),y=b.hostname.toLowerCase().replace(/^www\./,'');return x===y||x.endsWith('.'+y)||y.endsWith('.'+x)}catch{return false}
+}
+export async function readFollowing(read:(url:string)=>Promise<Page>,start:string):Promise<{page:Page;url:string}>{
+ let url=start
+ for(let hop=0;;hop++){
+  const page=await read(url)
+  if(page.status<300||page.status>=400||!page.location||hop===3)return {page,url}
+  let next:string;try{next=new URL(page.location,url).href}catch{return {page,url}}
+  if(!sameSite(next,start)||next.length>1000)return {page,url}
+  url=next
+ }
+}
+function addresses(body:string,host:string):string[]{
+ const emails:string[]=[]
+ for(const m of body.matchAll(/[a-z0-9._%+-]{1,64}@[a-z0-9.-]{1,180}\.[a-z]{2,}/gi)){const e=m[0].toLowerCase();if(!emails.includes(e)&&!/\.(png|jpe?g|gif|svg|webp)$/.test(e)&&!/^(example|your|name|email|test)@|@(example|sentry|wixpress)\./.test(e))emails.push(e);if(emails.length===5)break}
+ return emails.filter(e=>e.endsWith('@'+host)||e.endsWith('.'+host)).concat(emails.filter(e=>!(e.endsWith('@'+host)||e.endsWith('.'+host)))).slice(0,3)
+}
 const text=(html:string)=>html.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi,' ').replace(/<[^>]*>/g,' ').replace(/&nbsp;|&#160;/g,' ').replace(/\s+/g,' ')
 const meta=(html:string,name:string)=>{for(const m of html.matchAll(/<meta\b[^>]{0,400}>/gi)){if(new RegExp(`(property|name)\\s*=\\s*["']${name}["']`,'i').test(m[0]))return m[0].match(/content\s*=\s*["']([^"']{0,200})["']/i)?.[1]??''}return ''}
 /**
@@ -37,17 +68,20 @@ const meta=(html:string,name:string)=>{for(const m of html.matchAll(/<meta\b[^>]
  * copyright line or (for a Latin name) the address. A page that merely mentions the brand, such as a
  * magazine article list, does not count. Addresses and the contact link come only from what the page shows.
  */
-export function inspect(html:string,site:string,brand:string):{named:boolean;contact_page:string;emails:string[]}{
- const body=text(html),key=squash(brand),host=new URL(site).hostname.replace(/^www\./,''),emails:string[]=[]
+export function inspect(html:string,site:string,brand:string):{named:boolean;contact_page:string;emails:string[];more:string[];thin:boolean}{
+ const body=text(html),key=squash(brand),host=new URL(site).hostname.replace(/^www\./,'')
  const identity=[html.match(/<title[^>]*>([^<]{0,200})/i)?.[1]??'',meta(html,'og:site_name'),meta(html,'og:title'),meta(html,'application-name'),...[...body.matchAll(/(?:©|ⓒ|\(c\)|copyright)[^|]{0,80}/gi)].slice(0,3).map(m=>m[0])].join(' ')
  const named=key.length>=2&&(squash(identity).includes(key)||(/^[a-z0-9]{3,}$/.test(key)&&host.replace(/[^a-z0-9]/g,'').includes(key)))
- for(const m of body.matchAll(/[a-z0-9._%+-]{1,64}@[a-z0-9.-]{1,180}\.[a-z]{2,}/gi)){const e=m[0].toLowerCase();if(!emails.includes(e)&&!/\.(png|jpe?g|gif|svg|webp)$/.test(e)&&!/^(example|your|name|email|test)@|@(example|sentry|wixpress)\./.test(e))emails.push(e);if(emails.length===5)break}
- let contact_page=''
+ let contact_page='';const more:string[]=[]
  for(const m of html.matchAll(/<a\b[^>]*href\s*=\s*["']([^"'#]{1,500})["'][^>]*>([\s\S]{0,200}?)<\/a>/gi)){
-  if(!/(제휴|입점|협업|비즈니스|파트너|문의|contact|partnership|business|b2b)/i.test(text(m[2])+' '+m[1]))continue
-  try{const u=new URL(m[1],site);if(u.protocol==='https:'&&u.hostname.replace(/^www\./,'')===host&&!u.username&&!u.port){u.hash='';contact_page=u.href.slice(0,500);break}}catch{/* not a link */}
+  const label=text(m[2])+' '+m[1],contact=/(제휴|입점|협업|비즈니스|파트너|문의|contact|partnership|business|b2b)/i.test(label)
+  if(!contact&&!/(회사 ?소개|브랜드 ?소개|고객 ?센터|about|company|support|customer)/i.test(label))continue
+  try{const u=new URL(m[1],site);if(u.protocol!=='https:'||u.hostname.replace(/^www\./,'')!==host||u.username||u.port)continue
+   u.hash='';const href=u.href.slice(0,500);if(contact&&!contact_page)contact_page=href;if(!more.includes(href)&&u.pathname!=='/')more.push(href)}catch{/* not a link */}
+  if(contact_page&&more.length>=4)break
  }
- return {named,contact_page,emails:emails.filter(e=>e.endsWith('@'+host)||e.endsWith('.'+host)).concat(emails.filter(e=>!(e.endsWith('@'+host)||e.endsWith('.'+host)))).slice(0,3)}
+ // Pages worth reading for a public address: the contact page first, then company or support pages.
+ return {named,contact_page,emails:addresses(body,host),more:[...(contact_page?[contact_page]:[]),...more.filter(u=>u!==contact_page)].slice(0,2),thin:body.trim().length<1500}
 }
 const uuid=/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i
 export function createBrandSiteHandler(d:BrandSiteDeps){return async(req:Request)=>{
@@ -67,11 +101,22 @@ export function createBrandSiteHandler(d:BrandSiteDeps){return async(req:Request
      let rows:SearchRow[]
      try{rows=await provider.search(job!.brand+' 공식 홈페이지')}catch(error){const reason=error instanceof Error?error.message:'';failure=`${provider.name} ${reason==='auth'?'검색 키 인증 실패':reason==='quota'?'검색 한도 도달':'검색 응답 실패'}`;continue}
      answered++
-     for(const site of candidates(rows,job!.brand)){
-      let page:Page;try{page=await d.read(site)}catch{continue}
+     const byTitle=titled(rows,job!.brand)
+     for(const site of [...new Set([...candidates(rows,job!.brand),...byTitle])].slice(0,4)){
+      let page:Page;try{page=(await readFollowing(d.read,site)).page}catch{continue}
       if(page.status!==200||!page.text)continue
-      const seen=inspect(page.text,site,job!.brand);if(!seen.named)continue
-      result={status:'found',homepage:site,contact_page:seen.contact_page,emails:seen.emails,note:`${provider.name} 검색 → 브랜드 이름이 적힌 자체 사이트 확인`+(seen.emails.length?' · 사이트에 공개된 주소 있음':'')};break search
+      const seen=inspect(page.text,site,job!.brand)
+      // A front page drawn by script shows neither text nor a title; then the title the search engine holds for it decides.
+      // A page with a title of its own that lacks the brand (a parked domain, another company) is never accepted this way.
+      const untitled=!(page.text.match(/<title[^>]*>([^<]{0,200})/i)?.[1]??'').trim()
+      const how=seen.named?'브랜드 이름으로 소개된 자체 사이트 확인':seen.thin&&untitled&&byTitle.includes(site)?'검색 결과의 사이트 제목으로 자체 사이트 확인':''
+      if(!how)continue
+      const host=new URL(site).hostname.replace(/^www\./,'');let emails=seen.emails,contact_page=seen.contact_page
+      // The front page often shows no address: read the contact, company or support page of the same site.
+      for(const link of emails.length?[]:seen.more){
+       try{const next=(await readFollowing(d.read,link)).page;if(next.status===200&&next.text){emails=addresses(text(next.text),host);if(emails.length)break}}catch{/* next page */}
+      }
+      result={status:'found',homepage:site,contact_page,emails,note:`${provider.name} 검색 → ${how}`+(emails.length?' · 사이트에 공개된 주소 있음':'')};break search
      }
     }
     if(result.status!=='found')result=answered?{status:'not_found',homepage:'',contact_page:'',emails:[],note:'검색 결과에서 브랜드 자체 사이트를 확인하지 못함'}:{...result,note:failure||result.note}

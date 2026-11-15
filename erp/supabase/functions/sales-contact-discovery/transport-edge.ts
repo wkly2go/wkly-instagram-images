@@ -17,7 +17,7 @@ export async function readPublicPageEdge(value:string,deps:EdgeNetworkDeps,guard
  const stop=async()=>{await response.body?.cancel().catch(()=>undefined)}
  if(Number(response.headers.get('content-length'))>524288){await stop();throw new Error('Unsupported response')}
  // Redirects are reported, never followed. No credentials, cookies or proxy are used.
- if(status!==200){await stop();return {status,contentType:type,text:''}}
+ if(status!==200){await stop();const location=status>=300&&status<400?(response.headers.get('location')??'').slice(0,1000):'';return {status,contentType:type,text:'',...(location?{location}:{})}}
  const charset=type.match(/charset\s*=\s*"?([^;"\s]+)/i)?.[1]?.toLowerCase()
  if(charset&&!['utf-8','us-ascii'].includes(charset)){await stop();throw new Error('Unsupported charset')}
  const reader=response.body?.getReader();if(!reader)return {status,contentType:type,text:''}

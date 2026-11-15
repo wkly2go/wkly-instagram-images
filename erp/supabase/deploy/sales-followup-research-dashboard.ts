@@ -227,7 +227,8 @@ async function readPublicPageEdge(value, deps, guard = sourceUrl) {
   }
   if (status !== 200) {
     await stop();
-    return { status, contentType: type, text: "" };
+    const location = status >= 300 && status < 400 ? (response.headers.get("location") ?? "").slice(0, 1e3) : "";
+    return { status, contentType: type, text: "", ...location ? { location } : {} };
   }
   const charset = type.match(/charset\s*=\s*"?([^;"\s]+)/i)?.[1]?.toLowerCase();
   if (charset && !["utf-8", "us-ascii"].includes(charset)) {
