@@ -15,6 +15,7 @@ import {
 import { SiteBody } from './Site'
 import { DesignPlan } from '../components/DesignPlan'
 import { DesignDrawings } from '../components/DesignDrawings'
+import { DesignSpec } from '../components/DesignSpec'
 import './Design.css'
 
 type Tab = 'projects' | 'cards' | 'prices' | 'vendors' | 'materials' | 'knowledge'
@@ -132,7 +133,7 @@ function ProjectHead({ project }: { project: DesignProject }) {
   )
 }
 
-type StepKey = 'survey' | 'model' | 'qty' | 'estimate' | 'drawings' | 'schedule'
+type StepKey = 'survey' | 'model' | 'qty' | 'estimate' | 'drawings' | 'spec' | 'schedule'
 type StepState = 'none' | 'doing' | 'review' | 'done' | 'stale'
 const STEP_STATE: Record<StepState, string> = { none: '시작 전', doing: '진행 중', review: '검토 대기', done: '완료', stale: '갱신 필요' }
 
@@ -143,12 +144,13 @@ const STEP_STATE: Record<StepState, string> = { none: '시작 전', doing: '진�
 function ProjectView({ project, base }: { project: DesignProject; base: DesignBase }) {
   const { api, me, version } = useApp()
   const { query, navigate } = useRouter()
-  const view = (['survey', 'model', 'qty', 'estimate', 'drawings', 'schedule'].includes(query.get('view') ?? '') ? query.get('view') : 'qty') as StepKey
+  const view = (['survey', 'model', 'qty', 'estimate', 'drawings', 'spec', 'schedule'].includes(query.get('view') ?? '') ? query.get('view') : 'qty') as StepKey
   const go = (k: StepKey) => navigate(withQuery('/design', query, { view: k === 'qty' ? null : k }))
   const { data: survey } = useAsync(() => api.listSurvey(project.id).catch(() => []), [project.id, version], [])
   const { data: rows } = useAsync(() => api.listPlacements(project.id, project.model_version), [project.id, project.model_version, version], [])
   const { data: estimates } = useAsync(() => api.listEstimates(project.id), [project.id, version], [] as Estimate[])
   const { data: tasks } = useAsync(() => api.listScheduleTasks(project.id), [project.id, version], [])
+  const { data: specs } = useAsync(() => api.listSpecItems(project.id), [project.id, version], [])
   const { data: pending } = useAsync(() => api.listDesignCards('pending', project.id), [project.id, version], [] as DesignCard[])
   const { data: decided } = useAsync(() => api.listDesignCards('done', project.id), [project.id, version], [] as DesignCard[])
   const est = estimates.find(e => e.variant === 'standard') ?? null
@@ -164,6 +166,7 @@ function ProjectView({ project, base }: { project: DesignProject; base: DesignBa
     qty: rows.length === 0 ? 'none' : est ? 'done' : 'doing',
     estimate: !est ? 'none' : stale ? 'stale' : confirmed ? 'done' : 'review',
     drawings: project.model_version > 0 ? 'doing' : 'none',
+    spec: specs.length === 0 ? 'none' : specs.every(i => i.status === 'confirmed' || i.status === 'dropped') ? 'done' : 'doing',
     schedule: tasks.length === 0 ? 'none' : tasks.every(t => t.done) ? 'done' : 'doing',
   }
   const steps: { key: StepKey; label: string; note: string }[] = [
@@ -172,6 +175,7 @@ function ProjectView({ project, base }: { project: DesignProject; base: DesignBa
     { key: 'qty', label: '수량표', note: rows.length ? `${rows.length}줄` : '' },
     { key: 'estimate', label: '견적', note: est ? `${est.revision}차` : '' },
     { key: 'drawings', label: '도면', note: '' },
+    { key: 'spec', label: '스펙북', note: specs.length ? `${specs.length}개` : '' },
     { key: 'schedule', label: '공정', note: tasks.length ? `${tasks.filter(t => t.done).length}/${tasks.length}` : '' },
   ]
   const next: { text: string; to: StepKey } | null =
@@ -211,6 +215,7 @@ function ProjectView({ project, base }: { project: DesignProject; base: DesignBa
           {view === 'qty' && <QuantityView project={project} base={base} />}
           {view === 'estimate' && <EstimateView project={project} base={base} />}
           {view === 'drawings' && <DesignDrawings project={project} base={base} />}
+          {view === 'spec' && <DesignSpec project={project} />}
           {view === 'schedule' && <ScheduleView project={project} base={base} />}
         </div>
         {view !== 'model' && view !== 'drawings' && <aside className="design-side" aria-label="확인할 것">

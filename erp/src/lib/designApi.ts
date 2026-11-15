@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { ApiError } from './api'
 import type { PlanGeometry } from './designPlan'
 import type {
-  CostLine, DesignApi, DesignCard, DesignDocument, DesignJob, PoLine, PurchaseOrder, DesignMaterial, DesignProject, DesignTrade, DesignVendor, Estimate, EstimateLine,
+  CostLine, DesignApi, SpecItem, DesignCard, DesignDocument, DesignJob, PoLine, PurchaseOrder, DesignMaterial, DesignProject, DesignTrade, DesignVendor, Estimate, EstimateLine,
   Knowledge, Placement, ScheduleTask, UnitCost, UnitPrice,
 } from './design'
 
@@ -122,6 +122,14 @@ export function createSupabaseDesignApi(sb: SupabaseClient): DesignApi {
     async applyDesignPlan(projectId, plan, lines) {
       fail((await sb.rpc('design_apply_plan', { p_project: projectId, p_geometry: plan, p_lines: lines }).retry(false)).error)
     },
+    async listSpecItems(projectId) {
+      const r = await sb.from('design_spec_items').select('id,project_id,book,code,name,spec,location,maker,material_id,qty,unit,product_url,note,status,sort').eq('project_id', projectId).order('book').order('sort').order('created_at')
+      fail(r.error)
+      return (r.data ?? []) as SpecItem[]
+    },
+    async addSpecItem(row) { fail((await sb.from('design_spec_items').insert({ ...row, sort: Math.floor(Date.now() / 1000) % 1000000 })).error) },
+    async updateSpecItem(id, patch) { fail((await sb.from('design_spec_items').update(patch).eq('id', id)).error) },
+    async deleteSpecItem(id) { fail((await sb.from('design_spec_items').delete().eq('id', id)).error) },
     async listCostLines(projectId) {
       const r = await sb.from('design_cost_lines').select('id,project_id,zone,item,qty,cost_price,vendor_name,note,source_doc,sort').eq('project_id', projectId).order('sort').order('created_at')
       fail(r.error)
@@ -220,7 +228,8 @@ export function createDemoDesignApi(): DesignApi {
     async listDesignJobs() { return [] },
     async listDesignDocuments() { return [] },
     async getDesignPlan() { return null },
-    saveDesignPlan: none, applyDesignPlan: none,
+    saveDesignPlan: none, applyDesignPlan: none, addSpecItem: none, updateSpecItem: none, deleteSpecItem: none,
+    async listSpecItems() { return [] },
     downloadDesignFile: none, replaceCostLines: none, addCostLine: none, updateCostLine: none, deleteCostLine: none,
     async listCostLines() { return [] },
     async listPurchaseOrders() { return [] },

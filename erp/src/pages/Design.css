@@ -129,3 +129,13 @@
 .design-draw-view { border: 1px solid var(--line); background: var(--paper); padding: 10px; }
 .design-sheet { display: block; width: 100%; height: auto; box-shadow: 0 1px 6px rgba(0, 0, 0, 0.14); font-family: 'Pretendard', 'Noto Sans KR', sans-serif; }
 @media (max-width: 900px) { .design-draw { grid-template-columns: minmax(0, 1fr); } .design-draw-list { max-height: 180px; } }
+
+/* spec book */
+.design-spec-group { display: flex; flex-direction: column; gap: 6px; }
+.design-spec-group h3 { margin: 4px 0 0; color: var(--blue); }
+.design-spec-cards { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; }
+.design-spec-cards li { display: flex; flex-direction: column; gap: 4px; padding: 10px; border: 1px solid var(--line); background: var(--white); min-width: 0; }
+.design-spec-cards li > b { color: var(--blue); overflow-wrap: anywhere; }
+.design-spec-code { font-family: var(--mono); margin-right: auto; }
+.design-status { background: none; border: 0; padding: 0; cursor: pointer; }
+.design-off { opacity: 0.45; }

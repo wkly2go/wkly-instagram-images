@@ -190,6 +190,11 @@ export interface PurchaseOrder { id: string; po_number: string; vendor_id: strin
 export interface PoLine { id: string; po_id: string; item: string; spec: string; unit: string; qty: number; cost_price: number | null; amount: number | null; received_qty: number }
 export const PO_STATUS: Record<string, string> = { draft: '초안', sent: '발송', accepted: '수락', partially_received: '일부 입고', received: '입고 완료', settled: '정산', cancelled: '취소' }
 
+export type SpecBook = 'materials' | 'lighting' | 'hardware' | 'sanitary' | 'appliance'
+export const SPEC_BOOKS: Record<SpecBook, string> = { materials: '마감재 (Materials)', lighting: '조명 (Lighting)', hardware: '하드웨어 (Hardware)', sanitary: '위생기구 (Sanitary Ware)', appliance: '가전 · 기타 (Appliance & etc)' }
+export const SPEC_STATUS = { review: '검토', selected: '선정', confirmed: '확정', dropped: '제외' } as const
+export interface SpecItem { id: string; project_id: string; book: SpecBook; code: string | null; name: string; spec: string | null; location: string | null; maker: string | null; material_id: string | null; qty: number | null; unit: string | null; product_url: string | null; note: string | null; status: keyof typeof SPEC_STATUS; sort: number }
+
 export interface DesignOverview { projects: number; prices: number; vendors: number; candidates: number; materials: number; knowledge: number; pending: number }
 
 export interface DesignApi {
@@ -217,6 +222,10 @@ export interface DesignApi {
   saveDesignPlan(projectId: string, plan: PlanGeometry): Promise<void>
   /** 평면의 수량을 수량표에 반영 (새 모델 버전) */
   applyDesignPlan(projectId: string, plan: PlanGeometry, lines: PlanLine[]): Promise<void>
+  listSpecItems(projectId: string): Promise<SpecItem[]>
+  addSpecItem(row: Omit<SpecItem, 'id' | 'sort'>): Promise<void>
+  updateSpecItem(id: string, patch: Partial<Pick<SpecItem, 'status' | 'location' | 'note' | 'code'>>): Promise<void>
+  deleteSpecItem(id: string): Promise<void>
   listCostLines(projectId: string): Promise<CostLine[]>
   /** 실행 내역을 통째로 바꾼다 (엑셀 다시 올리기) */
   replaceCostLines(projectId: string, rows: CostLineDraft[], sourceDoc: string): Promise<void>
