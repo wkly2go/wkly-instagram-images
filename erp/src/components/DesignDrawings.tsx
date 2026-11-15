@@ -3,9 +3,9 @@
 import { useMemo, useRef, useState } from 'react'
 import { Button, Empty } from './ui'
 import { useApp, useAsync } from '../lib/app'
-import type { DesignBase, DesignProject, Placement } from '../lib/design'
+import type { DesignBase, DesignProject, Placement, SpecItem } from '../lib/design'
 import { wallLength, type PlanGeometry, type PlanItem } from '../lib/designPlan'
-import { elevationItems, furnitureTypes, planBounds, planDxf, ROWS_PER_SHEET, sheetList, type SheetMeta } from '../lib/designDrawings'
+import { elevationItems, furnitureTypes, materialKind, openingSize, wallFaceArea, wallFinishRows, planBounds, planDxf, ROWS_PER_SHEET, sheetList, type SheetMeta } from '../lib/designDrawings'
 
 const W = 420, H = 297, M = 10, TB = 62 // paper, margin, title-block width (mm)
 const AREA = { x: M + 6, y: M + 6, w: W - M * 2 - TB - 12, h: H - M * 2 - 12 }
@@ -115,7 +115,7 @@ function Elevation({ g, wallId, scale, finishes }: { g: PlanGeometry; wallId: st
       <text x={x0 + (i.a + i.b) / 2 / scale} y={base - i.h / scale - 1.2} fontSize={2.2} textAnchor="middle">{i.name.slice(0, 12)} H{f(i.h)}</text>
     </g>)}
     {ops.map(o => {
-      const oh = (o.kind === 'door' ? Math.min(2100, g.height) : 1200) / scale, sill = (o.kind === 'door' ? 0 : 900) / scale
+      const oh = openingSize(o, g.height).h / scale, sill = openingSize(o, g.height).sill / scale
       return <g key={o.id}><rect x={x0 + (o.pos - o.width / 2) / scale} y={base - sill - oh} width={o.width / scale} height={oh} fill="#fff" stroke="#111" strokeWidth={0.3} />
         <text x={x0 + o.pos / scale} y={base - sill - oh / 2} fontSize={2.4} textAnchor="middle">{o.kind === 'door' ? '문' : '창'} {f(o.width)}</text></g>
     })}
@@ -123,12 +123,14 @@ function Elevation({ g, wallId, scale, finishes }: { g: PlanGeometry; wallId: st
     <Dim x1={x0} y1={base + (cuts.length > 2 ? 14 : 8)} x2={x0 + len / scale} y2={base + (cuts.length > 2 ? 14 : 8)} label={f(len)} />
     <Dim x1={x0 - 6} y1={y0} x2={x0 - 6} y2={base} label={`CH ${f(g.height)}`} />
     <text x={x0 - 9} y={base + 1} fontSize={2.2} textAnchor="end">FL ±0</text>
-    <text x={x0} y={y0 - 4} fontSize={2.6} fill="#555">{w.kind === 'new' ? '새 가벽' : '기존 벽'} · 두께 {w.t}{w.kind === 'new' ? ' · 단면은 가벽 단면 상세(ID) 참조' : ''}</text>
-    <g fontSize={2.5}>
-      <text x={AREA.x} y={AREA.y + AREA.h - 20} fontWeight={800}>마감 (수량표의 벽 · 도장 · 마감 항목 — 이 벽에 해당하는 것만 남기고 확인)</text>
-      {finishes.length ? finishes.slice(0, 4).map((t, i) => <text key={i} x={AREA.x} y={AREA.y + AREA.h - 15.5 + i * 4}>· {t.slice(0, 90)}</text>)
-        : <text x={AREA.x} y={AREA.y + AREA.h - 15.5} fill="#c00">수량표에 벽 마감 항목이 없습니다 — 실내재료마감표(I-004)를 채워 주세요.</text>}
-    </g>
+    <text x={x0} y={y0 - 4} fontSize={2.6} fill="#555">{w.kind === 'new' ? '새 가벽' : '기존 벽'} · 두께 {w.t}{w.kind === 'new' ? ' · 단면은 벽체 상세(ID-200) 참조' : ''}</text>
+    {w.finish?.trim() ? <g>
+      <text x={x0 + len / scale / 2} y={y0 + 6} fontSize={3} textAnchor="middle" fontWeight={800}>{w.finish.trim().slice(0, 40)}</text>
+      <text x={AREA.x} y={AREA.y + AREA.h - 14} fontSize={2.8} fontWeight={800}>마감: {w.finish.trim().slice(0, 70)} · 면적 {wallFaceArea(g, w).toLocaleString('ko-KR')}㎡ (개구부 제외 · 한 면)</text>
+    </g> : <g fontSize={2.5}>
+      <text x={AREA.x} y={AREA.y + AREA.h - 20} fontWeight={800} fill="#c00">이 벽의 마감이 정해지지 않았습니다 — '평면 · 3D'에서 벽을 골라 마감을 적어 주세요. 참고: 수량표의 벽 마감 항목</text>
+      {finishes.slice(0, 4).map((t, i) => <text key={i} x={AREA.x} y={AREA.y + AREA.h - 15.5 + i * 4}>· {t.slice(0, 90)}</text>)}
+    </g>}
     <g aria-label="키 플랜">
       <text x={kx} y={ky} fontSize={2.2} fill="#555">KEY PLAN</text>
       {g.walls.map(k => <line key={k.id} x1={kx + (k.x1 - b.minX) / ks} y1={ky + 3 + (k.y1 - b.minY) / ks} x2={kx + (k.x2 - b.minX) / ks} y2={ky + 3 + (k.y2 - b.minY) / ks} stroke={k.id === wallId ? '#111' : '#aaa'} strokeWidth={k.id === wallId ? 1.1 : 0.3} />)}
@@ -155,6 +157,22 @@ function WallDetail({ t, height, scale }: { t: number; height: number; scale: nu
   </g>
 }
 
+/** Door elevation at the learned ID-400 scale: leaf, frame and overall sizes. Leaf type and hardware are not in the data. */
+function DoorDetail({ width, height, scale }: { width: number; height: number; scale: number }) {
+  const dh = Math.min(2100, height), w = width / scale, h = dh / scale, fr = 40 / scale, x = AREA.x + (AREA.w - w) / 2, y = AREA.y + 40 + (AREA.h - 90 - h) / 2
+  return <g>
+    <rect x={x - fr} y={y - fr} width={w + fr * 2} height={h + fr} fill="#eee" stroke="#111" strokeWidth={0.3} />
+    <rect x={x} y={y} width={w} height={h} fill="#fff" stroke="#111" strokeWidth={0.45} />
+    <line x1={x} y1={y} x2={x + w} y2={y + h / 2} stroke="#999" strokeWidth={0.15} /><line x1={x + w} y1={y + h / 2} x2={x} y2={y + h} stroke="#999" strokeWidth={0.15} />
+    <circle cx={x + w - 70 / scale} cy={y + h - 1000 / scale} r={0.9} fill="#111" />
+    <line x1={x - 30} y1={y + h} x2={x + w + 30} y2={y + h} stroke="#111" strokeWidth={0.6} />
+    <Dim x1={x} y1={y + h + 8} x2={x + w} y2={y + h + 8} label={`W ${f(width)}`} /><Dim x1={x - 10} y1={y} x2={x - 10} y2={y + h} label={`H ${f(dh)}`} />
+    <text x={x + w + 14} y={y + 6} fontSize={2.8} fontWeight={800}>여닫이 문 · 개구부 W {f(width)} × H {f(dh)}</text>
+    <text x={x + w + 14} y={y + 12} fontSize={2.6}>문틀 40 (표준 값) · 손잡이 높이 FL+1,000</text>
+    <text x={AREA.x} y={AREA.y + AREA.h - 6} fontSize={2.6} fill="#c00">문 높이 2,100 은 기본값입니다. 문짝 종류 · 마감 · 철물(스펙북 하드웨어)은 자료에 없어 적지 않았습니다 — 확인해 적어 주세요.</text>
+  </g>
+}
+
 /** Three views (front · side · plan) of one furniture type with overall sizes. */
 function FurnDetail({ item, count, scale }: { item: PlanItem; count: number; scale: number }) {
   const w = item.w / scale, d = item.d / scale, h = item.h / scale, gap = 26, x = AREA.x + (AREA.w - (w + gap + d)) / 2, y = AREA.y + 30 + (AREA.h - 60 - (h + gap + d)) / 2
@@ -177,8 +195,11 @@ export function DesignDrawings({ project, base }: { project: DesignProject; base
   const { api, version, toast } = useApp()
   const { data: plan, loading } = useAsync(() => api.getDesignPlan(project.id), [project.id, version], null as PlanGeometry | null)
   const { data: rows } = useAsync(() => api.listPlacements(project.id, project.model_version), [project.id, project.model_version, version], [] as Placement[])
+  const { data: specs } = useAsync(() => api.listSpecItems(project.id), [project.id, version], [] as SpecItem[])
+  const legend = useMemo(() => specs.filter(x => x.book === 'materials' && x.status !== 'dropped'), [specs])
   const g = plan ?? { unit: 'mm' as const, height: 2700, walls: [], openings: [], items: [] }
-  const sheets = useMemo(() => sheetList(g, rows.length), [plan, rows.length]) // eslint-disable-line react-hooks/exhaustive-deps
+  const wallRows = useMemo(() => wallFinishRows(g), [plan]) // eslint-disable-line react-hooks/exhaustive-deps
+  const sheets = useMemo(() => sheetList(g, rows.length + wallRows.length, legend.length), [plan, rows.length, wallRows.length, legend.length]) // eslint-disable-line react-hooks/exhaustive-deps
   const [cur, setCur] = useState(0)
   const all = useRef<HTMLDivElement>(null)
   const tname = (c: string) => base.trades.find(t => t.code === c)?.name ?? c
@@ -191,10 +212,13 @@ export function DesignDrawings({ project, base }: { project: DesignProject; base
       {meta.kind === 'cover' && <g><text x={AREA.x + 8} y={110} fontSize={16} fontWeight={800}>{project.name}</text><text x={AREA.x + 8} y={126} fontSize={7}>INTERIOR DESIGN DRAWINGS</text>
         <text x={AREA.x + 8} y={150} fontSize={4} fill="#444">{[project.code, project.client_name, project.address].filter(Boolean).join(' · ')}</text><text x={AREA.x + 8} y={160} fontSize={4} fill="#444">{COMPANY} · {new Date().toISOString().slice(0, 10)}</text></g>}
       {meta.kind === 'list' && <Table head={['도면 번호', '도면 이름', '축척 (A3)', '비고']} widths={[40, 150, 40, 100]} rows={sheets.map(s => [s.no, s.title, s.scale, ''])} />}
-      {meta.kind === 'finish' && <Table head={['공종', '품목', '규격', '수량', '단위']} widths={[50, 100, 120, 35, 25]} page={meta.page} rows={rows.map(r => [tname(r.trade_code), r.item, r.spec, r.qty, r.unit])} />}
+      {meta.kind === 'legend' && (legend.length ? <Table head={['번호', '재료 종류', '제조사 - 제품(색)', '쓰는 위치']} widths={[30, 50, 150, 100]} page={meta.page} rows={legend.map(x => [x.code ?? '', materialKind(x.code) || '', [x.maker, x.name, x.spec].filter(Boolean).join(' - '), x.location ?? ''])} />
+        : <text x={AREA.x} y={AREA.y + 24} fontSize={3.2} fill="#c00">스펙북 '마감재'에 재료가 없습니다 — 스펙북 단계에서 재료 번호(PT-01 · TL-01 …)와 함께 넣으면 여기에 범례표가 만들어집니다.</text>)}
+      {meta.kind === 'finish' && <Table head={['공종', '품목', '규격', '수량', '단위']} widths={[50, 100, 120, 35, 25]} page={meta.page} rows={[...wallRows.map(r => ['벽 마감', r.label, r.finish, r.area, '㎡']), ...rows.map(r => [tname(r.trade_code), r.item, r.spec, r.qty, r.unit])]} />}
       {(meta.kind === 'plan' || meta.kind === 'ceiling' || meta.kind === 'furniture') && <PlanSheet g={g} mode={meta.kind} scale={sc} />}
       {meta.kind === 'elevation' && meta.wall && <Elevation g={g} wallId={meta.wall} scale={sc} finishes={finishes} />}
       {meta.kind === 'wallDetail' && meta.t && <WallDetail t={meta.t} height={g.height} scale={sc} />}
+      {meta.kind === 'doorDetail' && meta.width && <DoorDetail width={meta.width} height={g.height} scale={sc} />}
       {meta.kind === 'furnDetail' && (() => { const it = types.find(x => x.id === meta.item); return it ? <FurnDetail item={it} count={it.count} scale={sc} /> : null })()}
     </Frame>
   }
@@ -231,7 +255,7 @@ export function DesignDrawings({ project, base }: { project: DesignProject; base
         </ol>
         <div className="design-draw-view">{render(sheets[safe], safe)}</div>
       </div>
-      <p className="t-cap">도면 번호 · 표제란은 표본 도면 세트 기준(I-000 공통 · I-100 평면 시리즈 · 입면도 · ID 상세 · IF 가구 상세)입니다. 상세도는 치수에서 그린 기준도라 재질 · 내부 구조는 캐드에서 이 DXF를 열어 이어서 작업합니다(DWG 로 저장도 캐드에서). 'A3 PDF로 인쇄'는 인쇄 창에서 'PDF로 저장'을 고르세요.</p>
+      <p className="t-cap">도면 번호 · 표제란은 표본 도면 세트 기준(I-000 공통 · 재료마감범례표 · I-100 평면 시리즈 · 입면도 · ID-200 벽체 · ID-400 도어 · IF-700 가구 상세)입니다. 상세도는 치수에서 그린 기준도라 재질 · 내부 구조는 캐드에서 이 DXF를 열어 이어서 작업합니다(DWG 로 저장도 캐드에서). 'A3 PDF로 인쇄'는 인쇄 창에서 'PDF로 저장'을 고르세요.</p>
       <div ref={all} hidden>{sheets.map(render)}</div>
     </div>
   )
