@@ -5,6 +5,7 @@ import { Button, Empty } from './ui'
 import { useApp, useAsync } from '../lib/app'
 import type { DesignBase, DesignProject, Placement, SpecItem } from '../lib/design'
 import { wallLength, type PlanGeometry, type PlanItem } from '../lib/designPlan'
+import { wallType, type WallType } from '../lib/designWallTypes'
 import { elevationItems, furnitureTypes, materialKind, openingSize, wallFaceArea, wallFinishRows, planBounds, planDxf, ROWS_PER_SHEET, sheetList, type SheetMeta } from '../lib/designDrawings'
 
 const W = 420, H = 297, M = 10, TB = 62 // paper, margin, title-block width (mm)
@@ -123,7 +124,7 @@ function Elevation({ g, wallId, scale, finishes }: { g: PlanGeometry; wallId: st
     <Dim x1={x0} y1={base + (cuts.length > 2 ? 14 : 8)} x2={x0 + len / scale} y2={base + (cuts.length > 2 ? 14 : 8)} label={f(len)} />
     <Dim x1={x0 - 6} y1={y0} x2={x0 - 6} y2={base} label={`CH ${f(g.height)}`} />
     <text x={x0 - 9} y={base + 1} fontSize={2.2} textAnchor="end">FL ±0</text>
-    <text x={x0} y={y0 - 4} fontSize={2.6} fill="#555">{w.kind === 'new' ? '새 가벽' : '기존 벽'} · 두께 {w.t}{w.kind === 'new' ? ' · 단면은 벽체 상세(ID-200) 참조' : ''}</text>
+    <text x={x0} y={y0 - 4} fontSize={2.6} fill="#555">{w.kind === 'new' ? '새 가벽' : '기존 벽'} · 두께 {w.t}{w.type ? ` · 벽체 유형 ${w.type}` : ''}{w.kind === 'new' || w.type ? ' · 단면은 벽체 상세(ID-200) 참조' : ''}</text>
     {w.finish?.trim() ? <g>
       <text x={x0 + len / scale / 2} y={y0 + 6} fontSize={3} textAnchor="middle" fontWeight={800}>{w.finish.trim().slice(0, 40)}</text>
       <text x={AREA.x} y={AREA.y + AREA.h - 14} fontSize={2.8} fontWeight={800}>마감: {w.finish.trim().slice(0, 70)} · 면적 {wallFaceArea(g, w).toLocaleString('ko-KR')}㎡ (개구부 제외 · 한 면)</text>
@@ -154,6 +155,30 @@ function WallDetail({ t, height, scale }: { t: number; height: number; scale: nu
     <Dim x1={x - 16} y1={top} x2={x - 16} y2={bot} label={`CH ${f(height)} (중간 생략)`} />
     {note(top + 2.5, '상부 런너 — 천장틀 또는 슬래브에 고정')}{note(top + 26, '마감 보드 (양면) · 줄눈 퍼티 뒤 마감')}{note(mid + 14, '경량 스터드 또는 각재 @450 · 속 채움(흡음재)은 사양 확인')}{note(bot - 2.5, '하부 런너 — 바닥 고정 · 걸레받이 별도')}
     <text x={AREA.x} y={AREA.y + AREA.h - 6} fontSize={2.6} fill="#c00">표준 단면입니다. 보드 종류 · 겹수 · 스터드 규격은 자료에 없어 적지 않았습니다 — 발주 전에 사양을 확인해 적어 주세요.</text>
+  </g>
+}
+
+/** Wall type section from the learned catalogue (sample set ID-201~204): layer callouts on both faces and the label bar. */
+function WallTypeDetail({ t }: { t: WallType }) {
+  const tw = Math.min(Math.max((Number(t.thk) || 140) / 6, 8), 60), cx = AREA.x + AREA.w / 2, x = cx - tw / 2, top = AREA.y + 34, bot = AREA.y + AREA.h - 44, face = Math.max(tw * 0.14, 2.4), cy = top + 60
+  const side = (rows: string[], left: boolean) => rows.slice(0, 9).map((r, i) => <g key={i}>
+    <line x1={left ? x - 4 : x + tw + 4} y1={cy + i * 6} x2={left ? x + face / 2 : x + tw - face / 2} y2={cy} stroke="#888" strokeWidth={0.12} />
+    <text x={left ? x - 6 : x + tw + 6} y={cy + i * 6 + 1} fontSize={2.6} textAnchor={left ? 'end' : 'start'}>{r.slice(0, 52)}</text>
+  </g>)
+  return <g>
+    <rect x={x} y={top} width={face} height={bot - top} fill="#f1efe8" stroke="#111" strokeWidth={0.3} /><rect x={x + tw - face} y={top} width={face} height={bot - top} fill="#f1efe8" stroke="#111" strokeWidth={0.3} />
+    {tw - face * 2 > 3 && Array.from({ length: Math.floor((bot - top) / 9) }, (_, i) => <path key={i} d={`M${x + face + 0.6} ${top + 2 + i * 9} q${(tw - face * 2 - 1.2) / 2} 4.5 0 9`} fill="none" stroke="#bbb" strokeWidth={0.15} />)}
+    <Dim x1={x} y1={top - 6} x2={x + tw} y2={top - 6} label={t.thk && t.thk !== 'VAR' ? t.thk : 'VAR.'} />
+    {side(t.left, true)}{side(t.right, false)}
+    <g>
+      <rect x={AREA.x} y={bot + 8} width={AREA.w} height={14} fill="none" stroke="#111" strokeWidth={0.4} />
+      <line x1={AREA.x + 20} y1={bot + 8} x2={AREA.x + 20} y2={bot + 22} stroke="#111" strokeWidth={0.3} /><line x1={AREA.x + 20} y1={bot + 15} x2={AREA.x + AREA.w} y2={bot + 15} stroke="#111" strokeWidth={0.3} />
+      <text x={AREA.x + 10} y={bot + 17} fontSize={4.6} fontWeight={800} textAnchor="middle">{t.code}</text>
+      <text x={AREA.x + 23} y={bot + 13} fontSize={3} fontWeight={800}>{t.composition}</text>
+      <text x={AREA.x + 23} y={bot + 20} fontSize={3} fontWeight={800}>{t.name}{t.extent ? ` [${t.extent}]` : ''}</text>
+      <text x={AREA.x + AREA.w - 3} y={bot + 20} fontSize={3} fontWeight={800} textAnchor="end">THK={t.thk || '확인 필요'}</text>
+    </g>
+    <text x={AREA.x} y={AREA.y + AREA.h - 6} fontSize={2.6} fill="#555">표본 실시설계 도면의 벽체 유형을 그대로 옮긴 것입니다(재료 표기는 표본 원문). 단면 그림은 두께만 맞춘 약식이므로 현장 조건에 맞춰 확인합니다.</text>
   </g>
 }
 
@@ -217,6 +242,7 @@ export function DesignDrawings({ project, base }: { project: DesignProject; base
       {meta.kind === 'finish' && <Table head={['공종', '품목', '규격', '수량', '단위']} widths={[50, 100, 120, 35, 25]} page={meta.page} rows={[...wallRows.map(r => ['벽 마감', r.label, r.finish, r.area, '㎡']), ...rows.map(r => [tname(r.trade_code), r.item, r.spec, r.qty, r.unit])]} />}
       {(meta.kind === 'plan' || meta.kind === 'ceiling' || meta.kind === 'furniture') && <PlanSheet g={g} mode={meta.kind} scale={sc} />}
       {meta.kind === 'elevation' && meta.wall && <Elevation g={g} wallId={meta.wall} scale={sc} finishes={finishes} />}
+      {meta.kind === 'wallDetail' && meta.wallType && wallType(meta.wallType) && <WallTypeDetail t={wallType(meta.wallType)!} />}
       {meta.kind === 'wallDetail' && meta.t && <WallDetail t={meta.t} height={g.height} scale={sc} />}
       {meta.kind === 'doorDetail' && meta.width && <DoorDetail width={meta.width} height={g.height} scale={sc} />}
       {meta.kind === 'furnDetail' && (() => { const it = types.find(x => x.id === meta.item); return it ? <FurnDetail item={it} count={it.count} scale={sc} /> : null })()}

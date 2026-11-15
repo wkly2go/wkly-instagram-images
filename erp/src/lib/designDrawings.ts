@@ -1,11 +1,12 @@
 // Drawing set generated from the plan (mm). Follows the learned standard (knowledge: drawing_set / cad_standard):
 // A3 sheets, numbering I-000 general · I-1xx plan series · I-14x elevations, title block fields, scale picked from a standard list.
 // Pure data in / strings out so it can be tested without a browser.
+import { WALL_TYPES } from './designWallTypes.ts'
 import { wallLength, type PlanGeometry, type PlanItem, type PlanWall } from './designPlan.ts'
 
 export const SCALES = [10, 20, 30, 40, 50, 60, 100, 150, 200, 300, 500]
 export interface Bounds { minX: number; minY: number; maxX: number; maxY: number }
-export interface SheetMeta { no: string; title: string; scale: string; kind: 'cover' | 'list' | 'legend' | 'finish' | 'doorDetail' | 'plan' | 'ceiling' | 'furniture' | 'elevation' | 'wallDetail' | 'furnDetail'; wall?: string; /** table page (0-based) */ page?: number; /** wall thickness for a wall detail */ t?: number; /** PlanItem id for a furniture detail */ item?: string; /** door width for a door detail */ width?: number }
+export interface SheetMeta { no: string; title: string; scale: string; kind: 'cover' | 'list' | 'legend' | 'finish' | 'doorDetail' | 'plan' | 'ceiling' | 'furniture' | 'elevation' | 'wallDetail' | 'furnDetail'; wall?: string; /** table page (0-based) */ page?: number; /** wall thickness for a wall detail */ t?: number; /** wall type code (W10) for a wall detail drawn from the learned catalogue */ wallType?: string; /** PlanItem id for a furniture detail */ item?: string; /** door width for a door detail */ width?: number }
 /** Material number prefixes from the learned legend standard (knowledge: material_codes). */
 export const MATERIAL_PREFIX: Record<string, string> = { AC: '흡음·천장재', MT: '금속', AS: '인조대리석', PT: '도장', FB: '패브릭', SH: '필름', LE: '인조가죽', GL: '유리', ST: '석재', WC: '벽지', TL: '타일', WF: '원목마루', WP: '무늬목·패널', VS: '바닥재', ETC: '기타' }
 export const materialKind = (code: string | null | undefined) => MATERIAL_PREFIX[(code ?? '').toUpperCase().match(/^[A-Z]+/)?.[0] ?? ''] ?? ''
@@ -76,8 +77,10 @@ export function sheetList(g: PlanGeometry, finishRows = 0, legendRows = 0): Shee
   ]
   if (b) out.push({ no: 'I-102', title: '평면도', scale: s, kind: 'plan' }, { no: 'I-106', title: '천장도', scale: s, kind: 'ceiling' }, { no: 'I-109', title: '가구안내도', scale: s, kind: 'furniture' })
   walls.forEach((w, i) => out.push({ no: `I-${141 + i}`, title: `입면도 ${String.fromCharCode(65 + i)}`, scale: `1/${pickScale(wallLength(w), g.height, 300, 200)}`, kind: 'elevation', wall: w.id }))
-  ;[...new Set(g.walls.filter(w => w.kind === 'new').map(w => w.t))].sort((a, c) => a - c).slice(0, 6)
-    .forEach((t, i) => out.push({ no: `ID-${201 + i}`, title: `벽체 상세 T${t}`, scale: '1/6', kind: 'wallDetail', t }))
+  const typed = WALL_TYPES.filter(t => g.walls.some(w => w.type === t.code)).slice(0, 9)
+  typed.forEach((t, i) => out.push({ no: `ID-${201 + i}`, title: `벽체 상세 ${t.code}`, scale: '1/6', kind: 'wallDetail', wallType: t.code }))
+  ;[...new Set(g.walls.filter(w => w.kind === 'new' && !typed.some(t => t.code === w.type)).map(w => w.t))].sort((a, c) => a - c).slice(0, 9 - typed.length)
+    .forEach((t, i) => out.push({ no: `ID-${201 + typed.length + i}`, title: `벽체 상세 T${t}`, scale: '1/6', kind: 'wallDetail', t }))
   ;[...new Set(g.openings.filter(o => o.kind === 'door').map(o => o.width))].sort((a, c) => a - c).slice(0, 8)
     .forEach((width, i) => out.push({ no: `ID-${401 + i}`, title: `도어 상세 W${width}`, scale: '1/40', kind: 'doorDetail', width }))
   furnitureTypes(g).forEach((f, i) => out.push({ no: `IF-${701 + i}`, title: `가구 상세 ${f.name}`, scale: `1/${pickScale(f.w + f.d, f.h + f.d, 240, 160)}`, kind: 'furnDetail', item: f.id }))

@@ -47,3 +47,8 @@ test('wall finish rows use the elevation label and net face area', () => {
 })
 
 test('material kind comes from the code prefix', () => { assert.equal(materialKind('PT-01'), '도장'); assert.equal(materialKind('x'), '') })
+
+test('walls with a learned type get a typed detail sheet first', () => {
+  const s = sheetList({ ...g, walls: [...g.walls.map(w => (w.id === 'a' ? { ...w, type: 'W10' } : w)), { id: 'n', x1: 4000, y1: 0, x2: 4000, y2: 2000, t: 100, kind: 'new' as const }] })
+  assert.deepEqual(s.filter(x => x.kind === 'wallDetail').map(x => [x.no, x.title]), [['ID-201', '벽체 상세 W10'], ['ID-202', '벽체 상세 T100']])
+})
