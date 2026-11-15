@@ -197,83 +197,61 @@ function createResearchHandler(d) {
   };
 }
 
-// supabase/functions/sales-contact-discovery/transport.ts
-import { request } from "node:https";
-import { resolve4 } from "node:dns/promises";
-import { isIP } from "node:net";
+// supabase/functions/sales-contact-discovery/address.ts
 function publicIPv4(value) {
-  if (isIP(value) !== 4) return false;
+  if (!/^(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.){3}(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)$/.test(value)) return false;
   const [a, b, c] = value.split(".").map(Number);
   return !(a === 0 || a === 10 || a === 127 || a >= 224 || a === 100 && b >= 64 && b <= 127 || a === 169 && b === 254 || a === 172 && b >= 16 && b <= 31 || a === 192 && (b === 168 || b === 0 || b === 2 || b === 88 && c === 99) || a === 198 && (b === 18 || b === 19 || b === 51 && c === 100) || a === 203 && b === 0 && c === 113);
 }
-async function readPublicPage(value, deps = { resolve: resolve4, request }) {
-  const url = sourceUrl(value);
+
+// supabase/functions/sales-contact-discovery/transport-edge.ts
+async function readPublicPageEdge(value, deps, guard = sourceUrl) {
+  const url = guard(value);
   if (!url) throw new Error("Unsupported source");
   const signal = AbortSignal.timeout(1e4);
-  const addresses = await new Promise((resolve, reject) => {
-    const abort = () => reject(new Error("DNS timeout"));
-    signal.addEventListener("abort", abort, { once: true });
-    deps.resolve(url.hostname).then(resolve, reject).finally(() => signal.removeEventListener("abort", abort));
-  });
-  if (signal.aborted || !addresses.length || addresses.length > 32 || !addresses.every(publicIPv4)) throw new Error("Non-public source");
-  const pinned = addresses[0];
-  return new Promise((resolve, reject) => {
-    const req = deps.request(url, {
-      method: "GET",
-      agent: false,
-      servername: url.hostname,
-      rejectUnauthorized: true,
-      family: 4,
-      signal,
-      maxHeaderSize: 16384,
-      lookup: (_hostname, options, callback) => {
-        if (options.all) callback(null, [{ address: pinned, family: 4 }]);
-        else callback(null, pinned, 4);
-      },
-      headers: { "User-Agent": "WKLYSalesBot/1.0", "Accept": "text/html,text/plain", "Accept-Encoding": "identity" }
-    }, (res) => {
-      const type = String(res.headers["content-type"] ?? ""), encoding = res.headers["content-encoding"], status = res.statusCode ?? 0;
-      if (encoding && encoding !== "identity" || Number(res.headers["content-length"]) > 524288) {
-        res.destroy();
-        reject(new Error("Unsupported response"));
-        return;
-      }
-      if (status !== 200) {
-        res.destroy();
-        resolve({ status, contentType: type, text: "" });
-        return;
-      }
-      const charset = type.match(/charset\s*=\s*"?([^;"\s]+)/i)?.[1]?.toLowerCase();
-      if (charset && !["utf-8", "us-ascii"].includes(charset)) {
-        res.destroy();
-        reject(new Error("Unsupported charset"));
-        return;
-      }
-      let text = "", size = 0;
-      const decoder = new TextDecoder("utf-8", { fatal: true });
-      res.on("data", (chunk) => {
-        try {
-          size += chunk.byteLength;
-          if (size > 524288) throw new Error("Response limit");
-          text += decoder.decode(chunk, { stream: true });
-        } catch {
-          res.destroy();
-          reject(new Error("Unsupported body"));
-        }
-      });
-      res.on("end", () => {
-        try {
-          resolve({ status, contentType: type, text: text + decoder.decode() });
-        } catch {
-          reject(new Error("Unsupported body"));
-        }
-      });
-      res.on("error", () => reject(new Error("Source unavailable")));
-      res.on("aborted", () => reject(new Error("Source interrupted")));
-    });
-    req.on("error", () => reject(new Error("Source unavailable")));
-    req.end();
-  });
+  const addresses = await Promise.race([deps.resolve(url.hostname), new Promise((_, reject) => signal.addEventListener("abort", () => reject(new Error("DNS timeout")), { once: true }))]);
+  if (signal.aborted || !Array.isArray(addresses) || !addresses.length || addresses.length > 32 || !addresses.every(publicIPv4)) throw new Error("Non-public source");
+  let response;
+  try {
+    response = await deps.fetcher(url.href, { method: "GET", redirect: "manual", credentials: "omit", signal, headers: { "User-Agent": "WKLYSalesBot/1.0", "Accept": "text/html,text/plain", "Accept-Encoding": "identity" } });
+  } catch {
+    throw new Error("Source unavailable");
+  }
+  const type = response.headers.get("content-type") ?? "", status = response.status;
+  const stop = async () => {
+    await response.body?.cancel().catch(() => void 0);
+  };
+  if (Number(response.headers.get("content-length")) > 524288) {
+    await stop();
+    throw new Error("Unsupported response");
+  }
+  if (status !== 200) {
+    await stop();
+    return { status, contentType: type, text: "" };
+  }
+  const charset = type.match(/charset\s*=\s*"?([^;"\s]+)/i)?.[1]?.toLowerCase();
+  if (charset && !["utf-8", "us-ascii"].includes(charset)) {
+    await stop();
+    throw new Error("Unsupported charset");
+  }
+  const reader = response.body?.getReader();
+  if (!reader) return { status, contentType: type, text: "" };
+  let text = "", size = 0;
+  const decoder = new TextDecoder("utf-8", { fatal: true });
+  try {
+    for (; ; ) {
+      const part = await reader.read();
+      if (part.done) break;
+      size += part.value.byteLength;
+      if (size > 524288) throw new Error("limit");
+      text += decoder.decode(part.value, { stream: true });
+    }
+    text += decoder.decode();
+  } catch {
+    await reader.cancel().catch(() => void 0);
+    throw new Error("Unsupported body");
+  }
+  return { status, contentType: type, text };
 }
 
 // supabase/functions/sales-followup-research/index.ts
@@ -283,6 +261,7 @@ async function rpc(name, args) {
   if (r.error) throw new Error("Database operation failed");
   return r.data;
 }
+var net = { resolve: (hostname) => Deno.resolveDns(hostname, "A"), fetcher: fetch };
 Deno.serve(createResearchHandler({ claim: (id, token) => rpc("sales_followup_research_claim", { p_id: id, p_token: token }), finish: async (id, result) => {
   await rpc("sales_followup_research_finish", { p_id: id, p_result: result });
-}, read: readPublicPage, parse, background: (work) => EdgeRuntime.waitUntil(work) }));
+}, read: (url) => readPublicPageEdge(url, net), parse, background: (work) => EdgeRuntime.waitUntil(work) }));

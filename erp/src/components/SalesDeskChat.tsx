@@ -12,19 +12,20 @@ export function SalesDeskChat({api,agents,canSubmit,operational,plans}:{api:Sale
  const [instruction,setInstruction]=useState(''),[agent,setAgent]=useState(''),[action,setAction]=useState<SalesDeskAction>('보고서'),[busy,setBusy]=useState(false),[error,setError]=useState(''),[cursors,setCursors]=useState<(number|null)[]>([null])
  const before=cursors[cursors.length-1],state=useAsync(()=>api.listSalesDesk(before),[api,before],[])
  const request=useRef<{id:string;signature:string}|null>(null)
- const conversation=useRef<HTMLDivElement>(null),followLatest=useRef(true)
+ const conversation=useRef<HTMLDivElement>(null),followLatest=useRef(true),sent=useRef(false)
  const pending=state.data.some(m=>m.status==='처리 중')
  // Proposals appear only beside the latest conversation page, in the order things happened.
  const timeline=[...state.data.map(m=>({at:m.created_at,message:m,plan:null as SalesStrategy|null})),...(plans&&cursors.length===1?plans.items.map(p=>({at:p.created_at,message:null as SalesDeskMessage|null,plan:p})):[])].sort((a,b)=>a.at<b.at?-1:a.at>b.at?1:0)
  useDraftNavigation(!!instruction.trim(),busy)
- useEffect(()=>{if(!state.loading&&conversation.current&&followLatest.current)conversation.current.scrollTop=conversation.current.scrollHeight},[state.data,state.loading])
+ // After the user sends an instruction, bring the newest exchange into view once; never move the page on a plain reload.
+ useEffect(()=>{if(state.loading||!followLatest.current||!sent.current)return;sent.current=false;conversation.current?.lastElementChild?.scrollIntoView?.({block:'nearest'})},[state.data,state.loading])
  useEffect(()=>{if(!pending)return;const timer=window.setInterval(()=>{if(!document.hidden)state.reload()},6000);return()=>window.clearInterval(timer)},[pending,state.reload])
  const send=async()=>{
   if(busy||pending||!canSubmit||!operational||instruction.trim().length<2)return
   setBusy(true);setError('')
   const signature=JSON.stringify([agent,action,instruction.trim()])
   if(request.current?.signature!==signature)request.current={id:crypto.randomUUID(),signature}
-  try{await api.submitSalesDesk(request.current.id,agent||null,action,instruction.trim());request.current=null;followLatest.current=true;setInstruction('');setCursors([null]);state.reload()}
+  try{await api.submitSalesDesk(request.current.id,agent||null,action,instruction.trim());request.current=null;followLatest.current=true;sent.current=true;setInstruction('');setCursors([null]);state.reload()}
   catch(e){setError(e instanceof Error?e.message:'업무 지시를 저장하지 못했습니다.');state.reload()}
   finally{setBusy(false)}
  }
@@ -32,7 +33,7 @@ export function SalesDeskChat({api,agents,canSubmit,operational,plans}:{api:Sale
   <header><div><h2>AI 팀원과 영업 대화</h2><p>지시하면 AI가 자료를 찾아 보고하고, 기획안을 제안합니다. 대화 안에서 승인하거나 반려하면 다음 단계는 시스템이 이어서 처리합니다.</p></div><Button kind="outline" disabled={state.loading||busy} onClick={state.reload}>대화 새로고침</Button></header>
   {!operational&&<p role="status">체험 화면입니다. 실제 DB 조회·보고서 생성은 운영 계정에서 사용할 수 있습니다.</p>}
   {(error||state.error||plans?.error)&&<p role="alert">{error||state.error||plans?.error}</p>}
-  <div ref={conversation} className="sales-desk-conversation" aria-label="저장된 지시와 결과" aria-busy={state.loading} onScroll={e=>{const n=e.currentTarget;followLatest.current=n.scrollHeight-n.scrollTop-n.clientHeight<80}}>
+  <div ref={conversation} className="sales-desk-conversation" aria-label="저장된 지시와 결과" aria-busy={state.loading}>
    {state.loading?<p role="status">대화 기록을 불러오고 있습니다.</p>:!state.error&&!timeline.length?<p>아직 대화가 없습니다. 아래에 원하는 결과를 적어 주세요.</p>:!state.error&&timeline.map(item=>item.plan?<PlanProposal key={'plan:'+item.plan.id} row={item.plan} plans={plans!} canDecide={canSubmit&&operational}/>:(m=><article key={m.id} className="sales-desk-exchange"><div className="sales-desk-mine"><header><strong>내 지시 · {m.action}</strong><small>{time(m.created_at)}</small></header><p className="sales-desk-text">{m.instruction}</p></div><div className="sales-desk-answer"><strong>{m.agent_name} · {m.status}</strong>{m.status==='처리 중'?<p role="status">저장된 자료를 바탕으로 보고서를 작성하고 있습니다.</p>:<p className="sales-desk-text">{m.reply}</p>}{m.report&&<DeskReportView message={m}/>}{m.report&&plans&&canSubmit&&<p className="sales-desk-actions"><Button kind="outline" disabled={plans.busy} onClick={()=>plans.onPlan(`대화 지시: ${m.instruction} · 보고서: ${m.report!.title} · 제안: ${m.report!.recommendations.slice(0,2).join(' / ')}`.slice(0,600))}>이 내용으로 기획안 만들기</Button></p>}<details><summary>조회한 DB 자료와 수집 상태 · {m.snapshot.sources.length}건</summary><p>{m.snapshot.scope} · 일치 {m.snapshot.matched_total}건 · {time(m.snapshot.at)}</p>{m.snapshot.sources.length?<ul>{m.snapshot.sources.map(s=><li key={s.id}><strong>{s.name}</strong> · {s.entity_kind} · {s.organization||'소속 미확인'}<small>{s.source} · {s.source_updated_at?time(s.source_updated_at):'자료 시각 미확인'}</small><p className="sales-desk-text">{s.evidence}</p>{/^https?:\/\//i.test(s.source_url)&&<a href={s.source_url} target="_blank" rel="noopener noreferrer">등록 출처 열기 ↗</a>}</li>)}</ul>:<p>조건에 맞는 저장 자료가 없습니다. 새로운 고객 수요가 확인됐다는 의미가 아닙니다.</p>}<h4>출처별 최근 수집 상태</h4>{m.snapshot.coverage.map(s=><p key={s.source}>{s.source} · {s.status}<br/>{s.note}</p>)}<h4>전체 영업 진행 단계</h4><p>{m.snapshot.pipeline.map(p=>`${p.stage} ${p.count}건`).join(' · ')||'등록된 진행 영업 없음'}</p>{m.snapshot.execution&&<><h4>외부 연락 준비 현황</h4><p>{m.snapshot.execution.scope} · 검증 대기 {m.snapshot.execution.needs_verification}건 · 재검토 {m.snapshot.execution.recheck}건 · 보류 {m.snapshot.execution.held}건</p><p>{m.snapshot.execution.note}</p></>}</details></div></article>)(item.message!))}
   </div>
   <nav aria-label="영업 대화 페이지"><Button kind="outline" disabled={state.loading||state.data.length<30} onClick={()=>setCursors(v=>[...v,state.data[0].sequence])}>이전 대화</Button><span>{cursors.length===1?'최근 대화':`${cursors.length}페이지`}</span><Button kind="outline" disabled={state.loading||cursors.length===1} onClick={()=>setCursors(v=>v.slice(0,-1))}>최근 대화로</Button></nav>
@@ -56,7 +57,7 @@ function PlanProposal({row,plans,canDecide}:{row:SalesStrategy;plans:DeskPlans;c
  const waiting=row.status==='승인 대기',ready=!row.preparation_before_approval||row.preparation_status==='완료'
  return <article className="sales-desk-exchange sales-desk-plan" aria-label={`기획안 제안 · ${p?.title||'기획 중'}`}><div className="sales-desk-answer">
   <header><strong>영업 기획 AI · 기획안 제안</strong><small>{planState(row)} · {time(row.created_at)}</small></header>
-  {row.status==='기획 중'?<p role="status">자료를 읽고 기획안을 작성하고 있습니다.</p>:!p?<p className="sales-desk-text">{row.error||'기획안을 완성하지 못했습니다.'}</p>:<>
+  {row.status==='기획 중'?<p role="status">자료를 읽고 기획안을 작성하고 있습니다.</p>:!p?<p className="sales-desk-text">기획안을 완성하지 못했습니다. 아래에서 다시 지시하거나 ‘AI 새 영업안 기획’으로 새 안을 받을 수 있습니다.</p>:<>
    <h3>{p.title}</h3>
    <dl><div><dt>대상</dt><dd>{p.customer}</dd></div><div><dt>제안</dt><dd>{p.offer}</dd></div><div><dt>지금 하는 이유</dt><dd>{p.why_now}</dd></div></dl>
   </>}
