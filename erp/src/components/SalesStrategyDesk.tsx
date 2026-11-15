@@ -32,8 +32,8 @@ export function SalesStrategyDesk(){
   }finally{state.reload()}
  })
  return <article className="sales-strategy-desk" aria-label="AI 영업 기획실">
-  <header><div><p className="sales-strategy-eyebrow">AI SALES PLANNING</p><h1>AI 영업 기획실</h1><p>새로운 고객군과 상품·영업 방법을 기획하고, 대표님이 승인한 안을 실행 업무로 연결합니다.</p></div><div className="sales-strategy-schedule"><strong>{state.loading?'설정 확인 중':state.error?'자동 기획 상태 확인 필요':state.data.automatic?'자동 기획 켜짐':'자동 기획 꺼짐'}</strong><span>08:00 자료 취합 · 08:45~08:55 새 기획 · 09:00 보고</span><small>하루 자동 기획 최대 3건 · 수동 포함 최대 6건 · 기존 AI 사용 한도 내 실행</small></div></header>
-  <ol className="sales-strategy-howto" aria-label="사용 방법"><li><strong>① 아침에 열기</strong><span>AI가 밤사이 모은 소식으로 기획안을 올려 둡니다.</span></li><li><strong>② 승인 또는 반려</strong><span>카드의 승인·반려만 누릅니다. 반려 사유는 다음 기획에 반영됩니다.</span></li><li><strong>③ 필요할 때만 지시</strong><span>궁금한 것은 아래 버튼이나 입력 칸으로 물어봅니다.</span></li></ol>
+  <header><div><p className="sales-strategy-eyebrow">AI SALES PLANNING</p><h1>AI 영업 기획실</h1><p>새로운 고객군과 상품·영업 방법을 기획하고, 대표님이 승인한 안을 실행 업무로 연결합니다.</p></div><div className="sales-strategy-schedule"><strong>{state.loading?'설정 확인 중':state.error?'자동 기획 상태 확인 필요':state.data.automatic?'자동 기획 켜짐':'자동 기획 꺼짐'}</strong><span>24시간 운영 · 뉴스 수집 3시간마다 · 새 기획 4시간마다 · 09:00 보고</span><small>하루 자동 기획 최대 6건 · 수동 포함 최대 12건 · 기존 AI 사용 한도 내 실행</small></div></header>
+  <ol className="sales-strategy-howto" aria-label="사용 방법"><li><strong>① 편할 때 열기</strong><span>AI가 24시간 소식을 모아 4시간마다 기획안을 올려 둡니다.</span></li><li><strong>② 승인 또는 반려</strong><span>카드의 승인·반려만 누릅니다. 반려 사유는 다음 기획에 반영됩니다.</span></li><li><strong>③ 필요할 때만 지시</strong><span>궁금한 것은 아래 버튼이나 입력 칸으로 물어봅니다.</span></li></ol>
   {api.mode!=='demo'&&!events.loading&&!events.error&&events.data.brand_total>0&&<p className="sales-strategy-note" role="status"><strong>행사 참가 브랜드 자동 조사</strong> · {events.error?'현황을 불러오지 못했습니다(운영 반영 전일 수 있습니다).':eventBrandSummary(events.data)}</p>}
   {me.role==='admin'&&<SalesMethodProposals api={api} canDecide={api.mode!=='demo'}/>}
   {me.role==='admin'&&<SalesBidQualifications api={api} canEdit={api.mode!=='demo'}/>}
