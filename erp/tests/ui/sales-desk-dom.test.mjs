@@ -7,7 +7,7 @@ import { createServer } from 'vite'
 const require = createRequire(import.meta.url)
 const { JSDOM } = require('jsdom')
 
-test('a saved sales plan reopens with its assessment and read-only output for another team member', async () => {
+test('the administrator saves and reopens a sales plan; team members see only the planning desk', async () => {
   const dom = new JSDOM('<main id="test-root"></main>', { url: 'http://localhost/sales?new=1', pretendToBeVisual: true })
   for (const key of ['window', 'document', 'navigator', 'location', 'localStorage', 'sessionStorage', 'Element', 'HTMLElement', 'HTMLInputElement', 'HTMLTextAreaElement', 'MutationObserver', 'Node', 'NodeFilter', 'EventTarget', 'Event', 'CustomEvent', 'MouseEvent', 'KeyboardEvent', 'StorageEvent', 'PopStateEvent', 'getComputedStyle']) {
     const value = key === 'getComputedStyle' ? dom.window.getComputedStyle.bind(dom.window) : dom.window[key]
@@ -97,55 +97,12 @@ test('a saved sales plan reopens with its assessment and read-only output for an
 
     await act(async () => root.unmount())
     root = createRoot(mountNode)
+    // 2026-11-15: team members see only the planning desk and the chat. Saved Sales data is an administrator check view,
+    // so the former read-only member view of a saved plan is no longer reachable.
     await render('haneul@thewklyn.com', '00000000-0000-4000-8000-000000000002')
-    const detail = within(screen.getByRole('region', { name: '수주 실행 검증', exact: true }))
-    const plan = within(detail.getByRole('region', { name: '실행 계획', exact: true }))
-    const preview = plan.getByLabelText('영업 실행 계획')
-    assert.equal(preview.readOnly, true)
-    assert.equal(preview.closest('details').open, true)
-    assert.match(preview.value, /수행 범위 · 설계·시공/)
-    assert.ok(preview.value.includes(decision))
-    assert.equal(detail.queryByRole('button', { name: '영업 정보 수정' }), null)
-    assert.equal(plan.queryByRole('button', { name: /권장 행동.*적용/ }), null)
-    await click(plan.getByRole('button', { name: '계획 복사', exact: true }))
-    assert.equal(await navigator.clipboard.readText(), preview.value)
-    const salesUrl = location.href
-    let openCalls = 0
-    window.open = () => { openCalls++; return null }
-    window.print = () => { throw new Error('Print unavailable') }
-    await click(plan.getByRole('button', { name: '인쇄·PDF 저장', exact: true }))
-    assert.equal(document.activeElement, preview)
-    assert.equal(preview.selectionStart, 0)
-    assert.equal(preview.selectionEnd, preview.value.length)
-    assert.equal(document.body.querySelector(':scope > pre.sales-plan-print'), null)
-    assert.ok(!document.body.classList.contains('sales-plan-printing'))
-
-    let printCalls = 0
-    let printedText
-    let printingClass
-    window.print = () => {
-      printCalls++
-      printedText = document.body.querySelector(':scope > pre.sales-plan-print')?.textContent
-      printingClass = document.body.classList.contains('sales-plan-printing')
-      window.dispatchEvent(new Event('afterprint'))
-    }
-    await click(plan.getByRole('button', { name: '인쇄·PDF 저장', exact: true }))
-    assert.equal(printCalls, 1)
-    assert.equal(openCalls, 0)
-    assert.equal(printingClass, true)
-    assert.equal(printedText, preview.value)
-    assert.equal(location.href, salesUrl)
-    assert.equal(document.body.querySelector(':scope > pre.sales-plan-print'), null)
-    assert.ok(!document.body.classList.contains('sales-plan-printing'))
-
-    await click(detail.getByRole('button', { name: '닫기', exact: true }))
-    assert.equal(document.activeElement, screen.getByRole('button', { name: '+ 영업 기회', exact: true }))
-    const row = screen.getByRole('button', { name: /수주 실행 검증/ })
-    await click(row)
-    const reopened = screen.getByRole('region', { name: '수주 실행 검증', exact: true })
-    assert.equal(document.activeElement, reopened)
-    await click(within(reopened).getByRole('button', { name: '닫기', exact: true }))
-    assert.equal(document.activeElement, row)
+    assert.ok(screen.getByRole('article', { name: 'AI 영업 기획실' }))
+    assert.equal(screen.queryByRole('region', { name: '수주 실행 검증', exact: true }), null)
+    assert.equal(document.querySelector('.sales-db-browser'), null)
   } finally {
     await act(async () => root.unmount())
     await server.close()

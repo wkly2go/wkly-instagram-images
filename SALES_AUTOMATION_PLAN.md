@@ -204,3 +204,13 @@ Migration 20261115090114_sales_followup_research.sql and worker sales-followup-r
 Validation: 104 focused local checks pass (database/grants/atomic release rollback, research and follow-up workers, reused crawler/network behavior, report DOM and progress). Strict worker type-check and frontend build pass. Fixtures only; no live sites or paid AI calls were used. Latest compared main 16bea874db474ba0b01559a1e591aae04b8e40ac and published design 8db6d00960236d867efa7c94f39da283004da3cc have no new migration-number collision; existing 0079/0080 and protected design/menu/shared package files remain untouched. Recheck unpublished work and current refs before any coordinated release.
 
 Overall stays 15/48 (31%, 69% remaining). This is a bounded known-site research connection, not broad discovery or complete automation. Missing-domain acquisition, purpose verification, the next exact-material approval/send package, eligible Instagram messaging and live end-to-end operation remain outstanding. Human work remains approval/rejection only; gaps are system-owned.
+
+## 2026-11-15 인수 · 행사 참가 브랜드 자동 조사 (Claude)
+
+대표 지시(2026-11-15): 개발을 Claude가 이어받는다. 나라장터 · 민간 페스티벌 · 행사 소식을 시스템이 조사해 **그 행사에 참여하는 브랜드**를 영업 대상으로 만든다. 자료 수집과 기획은 AI가 하고 사람은 실행 전 승인과 보고만 받는다. 필요하면 사람이 AI 봇과 협의한다. 화면은 기획 페이지와 대화만 사람 팀원에게 보이고 저장 DB 는 관리자 점검용이다. 영업 메일은 대표가 승인한 실행 묶음 범위에서 자동 발송을 허용한다(CLAUDE.md 대화 규칙 예외).
+
+- 15번째 미적용 migration `20261115090115_sales_event_brands.sql` + worker `sales-event-brands`: 행사형 대상(`sales_prospects` 의 '영업 기회' · HTTPS 공식 페이지 · 종료 전 · 제외 아님)의 공식 페이지를 기존 제한 리더(robots 우선 · 같은 출처 최대 3쪽 · 리다이렉트/폼/쿼리 없음)로 읽어, **참가 · 후원 제목 아래 목록에 적힌 이름만** 브랜드로 기록한다. 문장 · 연락처 · 메뉴 낱말은 버린다. 결과는 `sales_prospects`(source `event_participant` · entity_kind '회사' · 출처 주소 · 인용 문구 · 행사 연결)로 들어가 기존 검토 · 기획 흐름을 탄다. 기존 거래처 연결은 정규화한 이름이 정확히 한 곳과 같을 때만.
+- 한도: 10분마다 최대 3건 시작 · 행사당 24시간 2회 · 하루 60건 · 성공 결과 7일 재사용 · 3분 일회용 임대. 목록을 공개하지 않은 행사는 `no_list` 로 남기고 추정하지 않는다.
+- 화면: 기획실에 조사 현황 한 줄(건수만). `/sales` 의 저장 DB 접이식 영역과 개발 진행 표는 관리자에게만 보인다. `public.sales_event_brands_overview()` 는 로그인한 팀원 읽기 전용(기획 · 대화 근거용).
+- 검증: 처리기 5개 · DB 5개 신규 검사, 영업 전체 343개 통과, 화면 DOM 검사 갱신(팀원에게 저장 DB 미노출). 실제 사이트 읽기 · 운영 DB · 처리기 배포는 하지 않았다.
+- 아직 없는 것: 민간 행사 소식 자체의 자동 발견(지금은 서울시 문화행사 · 나라장터로 들어온 행사만 대상), 브랜드 공식 사이트 찾기, 대화형 기획 협의(여러 차례 대화 → 방향 확정), 발송 · 회신 실연결.

@@ -70,11 +70,12 @@ export default function Sales() {
     })
   }
   return <Shell active="sales"><div className={`sales-page${wide?' sales-wide':''}`}>
-    <SalesDevelopmentProgress />
+    {me.role==='admin'&&<SalesDevelopmentProgress />}
     <div className="sales-page-tools"><Button kind="outline" aria-expanded={!wide} onClick={()=>{setWide(!wide);if(wide)showPanel()}}>{wide?'일정 펼치기':'본문 넓게 보기'}</Button></div>
     <SalesStrategyDesk />
-    <details className="sales-db-browser" open={showDatabase} onToggle={e=>setDbOpen(e.currentTarget.open)}>
-    <summary>저장된 영업 DB · 자료와 진행 기록 보기</summary>
+    {/* 2026-11-15 대표 지시: 사람 팀원에게는 기획 화면과 대화만 보이고, 저장 DB 는 관리자 점검용으로만 둔다. */}
+    {me.role==='admin'&&<details className="sales-db-browser" open={showDatabase} onToggle={e=>setDbOpen(e.currentTarget.open)}>
+    <summary>저장된 영업 DB · 자료와 진행 기록 보기 (관리자 점검용)</summary>
     {showDatabase&&<>
     <SalesReport />
     <header className="sales-heading"><h2 className="t-title">진행 중인 영업</h2><p>발굴 → 접촉 → 미팅 → 제안 → 협상 → 수주 순서로 진행 상태와 다음 행동을 기록합니다.</p></header>
@@ -93,7 +94,7 @@ export default function Sales() {
       navigate(withQuery('/sales', query, { tab: null, new: null, research: null, id }))
     }} />}
     </>}
-    </details>
+    </details>}
   </div></Shell>
 }
 

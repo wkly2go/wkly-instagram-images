@@ -9,6 +9,7 @@ export function createSupabaseSalesStrategyApi(sb: SupabaseClient): SalesStrateg
   async listSalesDesk(before){const r=await sb.rpc('sales_desk_list',{p_before:before});fail(r.error);if(!Array.isArray(r.data))throw new ApiError('영업 대화 기록을 확인하지 못했습니다.');return r.data},
   async submitSalesDesk(id,agent,action,instruction){const r=await sb.rpc('sales_desk_submit',{p_id:id,p_agent:agent,p_action:action,p_instruction:instruction}).retry(false);fail(r.error);return r.data},
   async listSalesStrategies(page) { const r=await sb.rpc('sales_strategies',{p_page:page});fail(r.error);return r.data },
+  async getSalesEventBrands() { const r=await sb.rpc('sales_event_brands_overview');fail(r.error);return r.data },
   async requestSalesStrategy(id,feedback) { const r=await sb.rpc('sales_strategy_request',{p_id:id,p_feedback:feedback}).retry(false);fail(r.error);return r.data },
   async decideSalesStrategy(id,revision,decision,feedback) { const r=await sb.rpc('sales_strategy_decide',{p_id:id,p_revision:revision,p_decision:decision,p_feedback:feedback}).retry(false);fail(r.error) },
   async listStrategyTasks(id) { const r=await sb.from('sales_strategy_tasks').select('*').eq('strategy_id',id).order('ordinal');fail(r.error);return r.data??[] },
@@ -18,5 +19,5 @@ export function createSupabaseSalesStrategyApi(sb: SupabaseClient): SalesStrateg
 export function createDemoSalesStrategyApi(): SalesStrategyApi { const unavailable=async()=>{throw new ApiError('운영 계정에서 AI 영업 기획과 승인을 사용할 수 있습니다.')};return {
   getSalesExecution:async()=>null,decideSalesExecution:unavailable,
   listSalesDesk:async()=>[],submitSalesDesk:unavailable,
-  async listSalesStrategies(){return {items:[],total:0,automatic:false}},requestSalesStrategy:unavailable,decideSalesStrategy:unavailable,listStrategyTasks:async()=>[],updateStrategyTask:unavailable,setSalesStrategyAutomatic:unavailable,
+  async listSalesStrategies(){return {items:[],total:0,automatic:false}},requestSalesStrategy:unavailable,getSalesEventBrands:async()=>({scope:'',brand_total:0,events:[]}),decideSalesStrategy:unavailable,listStrategyTasks:async()=>[],updateStrategyTask:unavailable,setSalesStrategyAutomatic:unavailable,
 } }

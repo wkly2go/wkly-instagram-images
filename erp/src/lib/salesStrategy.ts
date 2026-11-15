@@ -21,6 +21,8 @@ export interface SalesStrategyApi extends SalesExecutionApi {
   submitSalesDesk(id:string,agent:string|null,action:import('./salesDesk').SalesDeskAction,instruction:string):Promise<string>;
   listSalesStrategies(page: number): Promise<{items: SalesStrategy[]; total: number; automatic: boolean}>;
   requestSalesStrategy(id: string, feedback: string): Promise<string>;
+  /** 행사 → 참가 브랜드 자동 조사 현황 (건수만 화면에 쓰고 목록은 AI 기획 · 대화의 근거로 쓴다) */
+  getSalesEventBrands(): Promise<SalesEventBrands>;
   decideSalesStrategy(id: string, revision: number, decision: '승인' | '수정 요청' | '보류', feedback: string): Promise<void>;
   listStrategyTasks(id: string): Promise<StrategyTask[]>;
   updateStrategyTask(id: string, revision: number, status: StrategyTask['status'], result: string): Promise<void>;
@@ -77,4 +79,12 @@ export function parseStrategyPlan(text: string, sources: StrategySource[]): Stra
   if (!Array.isArray(p.steps) || p.steps.length < 3 || p.steps.length > 5 || p.steps.some(s=>!s || typeof s.action !== 'string' || !s.action.trim() || s.action.length > 300 || typeof s.output !== 'string' || !s.output.trim() || s.output.length > 1000 || !Number.isInteger(s.day) || s.day < 0 || s.day > 30)) throw new Error('실행 순서를 확인해 주세요.')
   if (Object.keys(p).some(key=>![...fields,'evidence_ids','questions','metrics','steps'].includes(key))) throw new Error('지원하지 않는 기획안 항목입니다.')
   return p
+}
+
+export interface SalesEventBrands { scope: string; brand_total: number; events: { id: string; title: string; state: 'no_page' | 'waiting' | 'reading' | 'retry' | 'complete' | 'partial' | 'blocked' | 'unavailable' | 'no_list'; note: string; brands: { id: string; name: string; role: 'participant' | 'sponsor' | null; known_client: boolean }[] }[] }
+/** One status line for the planning page: counts only, no raw data. */
+export function eventBrandSummary(o: SalesEventBrands): string {
+  const found = o.events.filter(e => e.brands.length).length, hidden = o.events.filter(e => e.state === 'no_list').length, waiting = o.events.filter(e => ['waiting', 'reading', 'retry'].includes(e.state)).length, none = o.events.filter(e => e.state === 'no_page').length
+  if (!o.events.length) return '조사할 행사가 아직 없습니다. 08시 자료 취합 뒤 자동으로 시작합니다.'
+  return [`행사 ${o.events.length}건 조사`, `참가 · 후원 브랜드 ${o.brand_total}곳 확보 (${found}건의 행사)`, hidden ? `목록 미공개 ${hidden}건` : '', waiting ? `조사 대기 ${waiting}건` : '', none ? `공식 페이지 미확보 ${none}건` : ''].filter(Boolean).join(' · ')
 }
