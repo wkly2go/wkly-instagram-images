@@ -44,7 +44,7 @@ export const TABS: { key: TabKey; label: string; path: string; admin?: boolean; 
   { key: 'drive', label: '드라이브', path: '/drive' },
   { key: 'team', label: '업무·근태', path: '/team' },
   // 현장 실측: 사진 위 치수 · 도면 배치 · 체크리스트 (2026-11-04)
-  { key: 'site', label: '현장', path: '/site' },
+  { key: 'site', label: '현장 실측', path: '/site', keywords: ['현장', '실측', '치수', '체크리스트'] },
   // 설계·견적: 인테리어 디자인 자동화 통합 (2026-11-15)
   { key: 'design', label: '설계 프로젝트', path: '/design', keywords: ['설계', '견적', '수량표', '공정표', '스케치업', '인테리어 자동화'] },
   { key: 'designOrders', label: '실행·발주', path: '/design-orders', admin: true, keywords: ['실행 내역', '발주서', '손익', '실행가'] },
@@ -91,11 +91,11 @@ const ICONS: Record<TabKey, LucideIcon> = {
   admin: Settings,
 }
 const MAIN_TABS: TabKey[] = ['home', 'approvals', 'chat', 'projects', 'site']
-const SHORT: Partial<Record<TabKey, string>> = { approvals: '보고서' }
+const SHORT: Partial<Record<TabKey, string>> = { approvals: '보고서', site: '현장' }
 const NAV_GROUPS: { label: string; tabs: TabKey[] }[] = [
-  { label: '업무', tabs: ['home', 'reportTemplates', 'approvals', 'projects', 'site'] },
+  { label: '업무', tabs: ['home', 'reportTemplates', 'approvals', 'projects'] },
   // 설계·견적 (인테리어 디자인 자동화) — 별도 묶음으로 세분화 (대표 지시 2026-11-15)
-  { label: '설계·견적', tabs: ['design', 'designOrders', 'designCards', 'designPrices', 'designVendors', 'designMaterials', 'designLearn'] },
+  { label: '설계·견적', tabs: ['site', 'design', 'designOrders', 'designCards', 'designPrices', 'designVendors', 'designMaterials', 'designLearn'] },
   { label: '협업·자료', tabs: ['chat', 'drive', 'team'] },
   { label: '운영', tabs: ['sales', 'leads', 'agents', 'ads'] },
   { label: '관리자 전용', tabs: ['ledger', 'admin'] },

@@ -12,6 +12,7 @@ import {
   CARD_LABELS, DOC_LABELS, PO_STATUS, SPACE_LABELS, STAGE_LABELS, VARIANT_LABELS,
   type DesignBase, type DesignCard, type DesignProject, type Estimate, type EstimateRules, type Knowledge, type SpaceType,
 } from '../lib/design'
+import { SiteBody } from './Site'
 import './Design.css'
 
 type Tab = 'projects' | 'cards' | 'prices' | 'vendors' | 'materials' | 'knowledge'
@@ -129,12 +130,13 @@ function ProjectHead({ project }: { project: DesignProject }) {
 
 function ProjectView({ project, base }: { project: DesignProject; base: DesignBase }) {
   const { query, navigate } = useRouter()
-  const view = (['qty', 'estimate', 'schedule'].includes(query.get('view') ?? '') ? query.get('view') : 'qty') as 'qty' | 'estimate' | 'schedule'
+  const view = (['survey', 'qty', 'estimate', 'schedule'].includes(query.get('view') ?? '') ? query.get('view') : 'qty') as 'survey' | 'qty' | 'estimate' | 'schedule'
   return (
     <>
       <ProjectHead project={project} />
       <ViewTabs label="프로젝트 작업" active={view} onPick={k => navigate(withQuery('/design', query, { view: k === 'qty' ? null : k }))}
-        items={[{ key: 'qty', label: '수량표' }, { key: 'estimate', label: '견적' }, { key: 'schedule', label: '공정' }]} />
+        items={[{ key: 'survey', label: '현장 실측' }, { key: 'qty', label: '수량표' }, { key: 'estimate', label: '견적' }, { key: 'schedule', label: '공정' }]} />
+      {view === 'survey' && <SiteBody projectId={project.id} />}
       {view === 'qty' && <QuantityView project={project} base={base} />}
       {view === 'estimate' && <EstimateView project={project} base={base} />}
       {view === 'schedule' && <ScheduleView project={project} base={base} />}
