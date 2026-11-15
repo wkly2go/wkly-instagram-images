@@ -33,8 +33,11 @@ PR에는 기준 main SHA, 수정 파일, 새/변경 DB 객체, migration 번호�
 
 영업 대화 변경은 Sales 화면·영업 API·sales-desk 함수에 한정한다. 상대 변경의 App/Shell/api/demoApi/supabaseApi 및 design 파일과 겹치지 않는다. 대화는 기존 ai_agents 설정을 읽지만 수정하지 않는다. 새 객체는 public.sales_desk_messages, private.sales_desk_jobs 및 sales_desk_* 함수다. design 스키마 참조/수정은 없다.
 
-**사용자가 Claude 배포 중이라고 확인했으므로 main 병합·운영 SQL·서버 배포는 보류한다.** 0131·0132·0133 모두 운영 미적용이다. 대화창의 수집 요청과 기존 일일 취합이 새 나라장터 수집 작업을 등록하도록 개발했으며 로컬 DB/처리기 검증까지 완료했다. 실제 API 키·활용 승인·운영 실행은 확인 전이다.
+**사용자가 Claude 배포 중이라고 확인했으므로 main 병합·운영 SQL·서버 배포는 보류한다.** 0131·0132·0133·0134 모두 운영 미적용이다. 대화창의 수집 요청과 기존 일일 취합이 새 나라장터 수집 작업을 등록하도록 개발했으며 로컬 DB/처리기 검증까지 완료했다. 실제 API 키·활용 승인·운영 실행은 확인 전이다.
 
 나라장터 추가 범위는 private.sales_g2b_jobs/pages/items, sales_g2b_* 함수, sales_collection_runs의 내부 취합 완료 트리거, 1분 만료 감시 cron, 새 sales-g2b Edge Function이다. sales_prospects·sales_source_history에 공식 공고를 저장한다. 공유 메뉴·패키지·설계 파일은 변경하지 않는다. 0133은 sales-g2b 서버와 키가 준비된 뒤 적용하고, JWT 검증을 유지한다. 실패/일부 수집은 성공 0건과 구분한다.
 
 현재 main의 기존 번호 중복: `0079_festival_links.sql`/`0079_field_survey.sql`, `0080_field_survey_realtime.sql`/`0080_project_room_closed.sql`. 기존 파일은 변경하지 않았다. 검사기는 기준 ref에 이미 있는 중복을 경고하고, 새 중복을 만들면 실패한다. 같은 파일명 아래 내용 충돌과 SQL 객체 충돌은 별도 검토한다.
+
+
+추가 영업 변경: **0134_sales_preapproval.sql**은 새 기획의 승인 전 자료 준비, 읽기 전용 회사/담당자/연락처 연결 스냅샷, 기획 결정 스냅샷, 시스템 소유 업무를 추가한다. public.sales_strategies와 sales_strategy_tasks 및 영업 기획 함수만 수정한다. sales-planner 배포 파일과 SalesStrategyDesk/SalesStrategy 타입·프롬프트를 변경한다. 공통 메뉴/라우터/패키지 또는 design은 건드리지 않는다. 실제 발송은 활성화하지 않으며 후속 조사 처리기는 별도 단계다. 최신 공개 설계 c974f94 기준 0131~0134 새 번호 충돌 없음. 사용자 배포 보류는 해제되지 않았다.

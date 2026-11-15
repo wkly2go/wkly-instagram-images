@@ -22,9 +22,9 @@ test('planning context stays bounded after many long prior proposals',()=>{
  const prompt=strategyPrompt({...job,sources:Array.from({length:10},(_,i)=>({...sources[0],id:crypto.randomUUID(),name:'긴 회사와 행사명'.repeat(20),evidence:'긴 자료'.repeat(500)})),recent:Array.from({length:8},()=>({title:'기존 기획'.repeat(40),category:'분류'.repeat(30)}))})
  assert.ok(prompt.length<=6000);assert.ok(prompt.includes('입력 자료(JSON)'))
 })
-test('approved plans automatically produce preparation drafts with explicit external-action checks',async()=>{
+test('plans produce pre-decision preparation with system-owned data work',async()=>{
  const pack={research:'저장 기록 대조. 실제 참여 여부는 미확인.',proposal:'공동 체험 동선 제안 초안',contact_draft:'담당 부서에 제안 검토 의향을 확인합니다.',checks:['실제 수신자와 행사 일정 확인']},outputs:unknown[][]=[]
- const worker=createSalesPlanner({claim:async()=>({...job,phase:'prepare',plan}),generate:async(j,prompt)=>{assert.equal(j.phase,'prepare');assert.match(prompt,/승인된 영업 기획/);return {status:'completed',text:JSON.stringify(pack)}},finish:async(...args)=>{outputs.push(args)}})
+ const worker=createSalesPlanner({claim:async()=>({...job,phase:'prepare',plan}),generate:async(j,prompt)=>{assert.equal(j.phase,'prepare');assert.match(prompt,/대표 결정 전에/);assert.match(prompt,/사람에게 조사나 수동 작성 업무를 넘기지 마라/);return {status:'completed',text:JSON.stringify(pack)}},finish:async(...args)=>{outputs.push(args)}})
  await worker(new Request('https://example.test',{method:'POST',body:JSON.stringify({id,token})}));assert.deepEqual(outputs,[[id,pack,'','prepare']])
 })
 test('planner saves a validated proposal and never sends outreach or marks tasks complete',async()=>{
