@@ -15,6 +15,8 @@ before(async()=>{
  create table sales_prospects(id uuid primary key default gen_random_uuid(),source text,name text,assessment text default '확인 필요',score integer default 60,reasons text default '',next_action text default '원래 조치',event_data jsonb default '{}',reviewed_assessment text,revision integer default 1,end_date date);`)
  await db.exec(await readFile(new URL('../supabase/migrations/20261115090120_sales_license_scope.sql',import.meta.url),'utf8'))
  await db.exec(await readFile(new URL('../supabase/migrations/20261115090127_sales_bid_eligibility.sql',import.meta.url),'utf8'))
+ await db.exec(`create role service_role;create table sales_collection_runs2(id int);alter table private.sales_g2b_jobs add column claimed boolean default false;`)
+ await db.exec(await readFile(new URL('../supabase/migrations/20261115090128_sales_bid_lookup_reuse.sql',import.meta.url),'utf8'))
 })
 const event='기타자유업(행사대행업)/9901'
 test('unlimited notices can be joined; unknown licences and regions wait for confirmation',async()=>{
@@ -57,4 +59,16 @@ test('only the administrator sets qualifications, and saved notices are judged a
  await db.query("select public.sales_bid_qualification_set('업종',$1,'보유')",[event])
  const back=await row('행사대행업 제한');assert.equal(back.assessment,'확인 필요');assert.equal(back.next_action,'공고 원문 검토');assert.equal(back.e.verdict,'참여 가능')
  assert.equal((await row('건설 면허 용역')).assessment,'제외')
+})
+test('a notice collected again without a lookup keeps its stored limits, and the collector is told what is known',async()=>{
+ await db.exec("alter table sales_prospects add column if not exists collected_at timestamptz default now()")
+ await db.query("insert into sales_prospects(source,name,event_data) values('나라장터 공식 API','다시 수집',$1)",[JSON.stringify({category:'service',number:'R1',round:'000',terms:{industry_limited:true,region_limited:false,licenses:['실내건축공사업/0037']}})])
+ await db.query("insert into sales_prospects(source,name,event_data) values('나라장터 공식 API','조회 못 함',$1)",[JSON.stringify({category:'service',number:'R2',round:'000',terms:{industry_limited:true,region_limited:false}})])
+ await db.query("update sales_prospects set event_data=$1 where name='다시 수집'",[JSON.stringify({category:'service',number:'R1',round:'000',terms:{industry_limited:true,region_limited:false,contract:'일반경쟁'}})])
+ const again=await one("select event_data->'terms' t,assessment from sales_prospects where name='다시 수집'")
+ assert.deepEqual(again.t.licenses,['실내건축공사업/0037']);assert.equal(again.t.contract,'일반경쟁');assert.equal(again.assessment,'제외')
+ const run=(await one("insert into sales_collection_runs(source,status) values('나라장터 용역 · 행사','수집 중') returning id")).id
+ const token=(await one(`insert into private.sales_g2b_jobs(run_id,category,keyword,start_date,end_date) values('${run}','service','행사',current_date-6,current_date) returning token`)).token
+ const job=(await one(`select public.sales_g2b_claim('${run}','${token}') j`)).j
+ assert.deepEqual(job.known,['R1:000']);assert.equal(job.keyword,'행사')
 })

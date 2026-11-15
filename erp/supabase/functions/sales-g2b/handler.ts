@@ -1,6 +1,6 @@
 import {g2bDetailUrl,g2bRequestUrl,parseG2bNames,parseG2bResult,validateG2bQuery,type G2bQuery,type G2bCandidate} from '../g2b-search/handler.ts'
 
-export interface G2bJob {category:G2bQuery['category'];keyword:string;startDate:string;endDate:string}
+export interface G2bJob {category:G2bQuery['category'];keyword:string;startDate:string;endDate:string;/** notices whose limits are already stored (number:round) */known?:string[]}
 export interface G2bWorkerDeps {
  key?:string;fetcher:typeof fetch;now?:()=>number;
  claim:(id:string,token:string)=>Promise<G2bJob|null>;
@@ -26,16 +26,18 @@ export function createG2bWorker(d:G2bWorkerDeps){return async(req:Request)=>{
  if(!job)return new Response('Unauthorized or already claimed',{status:403})
  const work=async()=>{
  let stage='서버 설정',savedPages=0,omitted=0,total:number|null=null
- // Licence and region limits need one extra lookup each. A run looks up at most 12 limited notices;
+ // Licence and region limits need one extra lookup each. A run looks up at most 30 limited notices and skips
+ // the ones the database already knows;
  // a notice whose lookup fails keeps its flag without names, and the database marks it for confirmation.
  let lookups=0
+ const known=new Set(Array.isArray(job!.known)?job!.known.filter(v=>typeof v==='string').slice(0,600):[])
  const names=async(kind:'license'|'region',item:G2bCandidate)=>{
   try{const response=await d.fetcher(g2bDetailUrl(kind,item.number,item.round,d.key!.trim()),{method:'GET',redirect:'error',signal:AbortSignal.timeout(8000),headers:{Accept:'application/json'}});if(!response.ok)return undefined;return parseG2bNames(JSON.parse(await bodyText(response.body,256*1024)),kind)}
   catch{return undefined}
  }
  const withLimits=async(item:G2bCandidate):Promise<G2bCandidate>=>{
   const terms=item.terms
-  if(!terms||(!terms.industry_limited&&!terms.region_limited)||lookups>=12||now()-started>70000)return item
+  if(!terms||(!terms.industry_limited&&!terms.region_limited)||known.has(item.number+':'+item.round)||lookups>=30||now()-started>70000)return item
   lookups++
   const [licenses,regions]=await Promise.all([terms.industry_limited?names('license',item):undefined,terms.region_limited?names('region',item):undefined])
   return {...item,terms:{...terms,...(licenses?{licenses}:{}),...(regions?{regions}:{})}}
@@ -46,7 +48,7 @@ export function createG2bWorker(d:G2bWorkerDeps){return async(req:Request)=>{
   for(let page=1;page<=20;page++){
    stage='제공기관 조회'
    if(now()-started>100000)throw new Error('time limit')
-   const query=validateG2bQuery({...job,page})
+   const query=validateG2bQuery({category:job!.category,keyword:job!.keyword,startDate:job!.startDate,endDate:job!.endDate,page})
    const response=await d.fetcher(g2bRequestUrl(query,d.key.trim()),{method:'GET',redirect:'error',signal:AbortSignal.timeout(12000),headers:{Accept:'application/json'}})
    if(!response.ok)throw new Error('upstream')
    stage='응답 검증'
