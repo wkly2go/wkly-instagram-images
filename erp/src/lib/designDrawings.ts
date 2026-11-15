@@ -1,12 +1,12 @@
 // Drawing set generated from the plan (mm). Follows the learned standard (knowledge: drawing_set / cad_standard):
 // A3 sheets, numbering I-000 general · I-1xx plan series · I-14x elevations, title block fields, scale picked from a standard list.
 // Pure data in / strings out so it can be tested without a browser.
-import { WALL_TYPES } from './designWallTypes.ts'
+import { BASE_TYPES, FLOOR_TYPES, WALL_TYPES } from './designWallTypes.ts'
 import { wallLength, type PlanGeometry, type PlanItem, type PlanWall } from './designPlan.ts'
 
 export const SCALES = [10, 20, 30, 40, 50, 60, 100, 150, 200, 300, 500]
 export interface Bounds { minX: number; minY: number; maxX: number; maxY: number }
-export interface SheetMeta { no: string; title: string; scale: string; kind: 'cover' | 'list' | 'legend' | 'finish' | 'doorDetail' | 'plan' | 'ceiling' | 'furniture' | 'elevation' | 'wallDetail' | 'furnDetail'; wall?: string; /** table page (0-based) */ page?: number; /** wall thickness for a wall detail */ t?: number; /** wall type code (W10) for a wall detail drawn from the learned catalogue */ wallType?: string; /** PlanItem id for a furniture detail */ item?: string; /** door width for a door detail */ width?: number }
+export interface SheetMeta { no: string; title: string; scale: string; kind: 'cover' | 'list' | 'legend' | 'schedule' | 'finish' | 'floorDetail' | 'baseDetail' | 'doorDetail' | 'plan' | 'ceiling' | 'furniture' | 'elevation' | 'wallDetail' | 'furnDetail'; wall?: string; /** table page (0-based) */ page?: number; /** wall thickness for a wall detail */ t?: number; /** type code (W10 · F3 · B1) for a detail drawn from the learned catalogue */ wallType?: string; /** PlanItem id for a furniture detail */ item?: string; /** door width for a door detail */ width?: number }
 /** Material number prefixes from the learned legend standard (knowledge: material_codes). */
 export const MATERIAL_PREFIX: Record<string, string> = { AC: '흡음·천장재', MT: '금속', AS: '인조대리석', PT: '도장', FB: '패브릭', SH: '필름', LE: '인조가죽', GL: '유리', ST: '석재', WC: '벽지', TL: '타일', WF: '원목마루', WP: '무늬목·패널', VS: '바닥재', ETC: '기타' }
 export const materialKind = (code: string | null | undefined) => MATERIAL_PREFIX[(code ?? '').toUpperCase().match(/^[A-Z]+/)?.[0] ?? ''] ?? ''
@@ -68,16 +68,20 @@ export function sheetList(g: PlanGeometry, finishRows = 0, legendRows = 0): Shee
   const b = planBounds(g)
   const s = b ? `1/${pickScale(b.maxX - b.minX, b.maxY - b.minY, 300, 215)}` : 'NONE'
   const walls = elevWalls(g)
+  const rooms = g.rooms ?? [], roomPages = rooms.length ? 1 : 0, used = (k: 'floor' | 'base' | 'wall') => new Set(rooms.map(r => r[k].detail).filter(Boolean))
   const pages = Math.min(Math.max(1, Math.ceil(finishRows / ROWS_PER_SHEET)), 20), lpages = Math.min(Math.max(1, Math.ceil(legendRows / ROWS_PER_SHEET)), 2)
   const out: SheetMeta[] = [
     { no: 'I-000', title: '표지', scale: 'NONE', kind: 'cover' },
     { no: 'I-002', title: '도면 목록표', scale: 'NONE', kind: 'list' },
     ...Array.from({ length: lpages }, (_, i): SheetMeta => ({ no: `I-00${6 + i}`, title: `재료마감범례표${lpages > 1 ? `-${i + 1}` : ''}`, scale: 'NONE', kind: 'legend', page: i })),
-    ...Array.from({ length: pages }, (_, i): SheetMeta => ({ no: `I-${String(8 + i).padStart(3, '0')}`, title: `실내재료마감표${pages > 1 ? `-${i + 1}` : ''}`, scale: 'NONE', kind: 'finish', page: i })),
+    ...(rooms.length ? [{ no: 'I-008', title: '실내재료마감표', scale: 'NONE', kind: 'schedule' } as SheetMeta] : []),
+    ...Array.from({ length: pages }, (_, i): SheetMeta => ({ no: `I-${String(8 + roomPages + i).padStart(3, '0')}`, title: `${rooms.length ? '마감 수량표' : '실내재료마감표'}${pages > 1 ? `-${i + 1}` : ''}`, scale: 'NONE', kind: 'finish', page: i })),
   ]
   if (b) out.push({ no: 'I-102', title: '평면도', scale: s, kind: 'plan' }, { no: 'I-106', title: '천장도', scale: s, kind: 'ceiling' }, { no: 'I-109', title: '가구안내도', scale: s, kind: 'furniture' })
   walls.forEach((w, i) => out.push({ no: `I-${141 + i}`, title: `입면도 ${String.fromCharCode(65 + i)}`, scale: `1/${pickScale(wallLength(w), g.height, 300, 200)}`, kind: 'elevation', wall: w.id }))
-  const typed = WALL_TYPES.filter(t => g.walls.some(w => w.type === t.code)).slice(0, 9)
+  FLOOR_TYPES.filter(t => used('floor').has(t.code)).slice(0, 3).forEach((t, i) => out.push({ no: `ID-${101 + i}`, title: `바닥 상세 ${t.code}`, scale: '1/6', kind: 'floorDetail', wallType: t.code }))
+  BASE_TYPES.filter(t => used('base').has(t.code)).slice(0, 2).forEach((t, i) => out.push({ no: `ID-${104 + i}`, title: `걸레받이 상세 ${t.code}`, scale: '1/6', kind: 'baseDetail', wallType: t.code }))
+  const typed = WALL_TYPES.filter(t => g.walls.some(w => w.type === t.code) || used('wall').has(t.code)).slice(0, 9)
   typed.forEach((t, i) => out.push({ no: `ID-${201 + i}`, title: `벽체 상세 ${t.code}`, scale: '1/6', kind: 'wallDetail', wallType: t.code }))
   ;[...new Set(g.walls.filter(w => w.kind === 'new' && !typed.some(t => t.code === w.type)).map(w => w.t))].sort((a, c) => a - c).slice(0, 9 - typed.length)
     .forEach((t, i) => out.push({ no: `ID-${201 + typed.length + i}`, title: `벽체 상세 T${t}`, scale: '1/6', kind: 'wallDetail', t }))

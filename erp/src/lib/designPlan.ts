@@ -11,7 +11,11 @@ export interface PlanItem {
   measure: 'count' | 'area' | 'length'
   section: string | null
 }
-export interface PlanGeometry { unit: 'mm'; height: number; walls: PlanWall[]; openings: PlanOpening[]; items: PlanItem[] }
+/** One part of a room's finish: material number (PT-01) and, where it applies, the detail type (F/B/W). */
+export interface RoomPart { mat?: string; detail?: string }
+/** A room row of the finish schedule (sample set I-008: 실번호 · 실명 · 바닥 · 걸레받이 · 벽 · 천장). */
+export interface PlanRoom { id: string; no: string; name: string; floor: RoomPart; base: RoomPart; wall: RoomPart; ceiling: RoomPart; /** 천장 높이 mm */ ch?: number }
+export interface PlanGeometry { unit: 'mm'; height: number; walls: PlanWall[]; openings: PlanOpening[]; items: PlanItem[]; rooms?: PlanRoom[] }
 export const EMPTY_PLAN: PlanGeometry = { unit: 'mm', height: 2700, walls: [], openings: [], items: [] }
 
 export interface PlanLine { trade: string; item: string; spec: string; unit: string; qty: number; section: string | null; count: number }

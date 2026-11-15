@@ -52,3 +52,9 @@ test('walls with a learned type get a typed detail sheet first', () => {
   const s = sheetList({ ...g, walls: [...g.walls.map(w => (w.id === 'a' ? { ...w, type: 'W10' } : w)), { id: 'n', x1: 4000, y1: 0, x2: 4000, y2: 2000, t: 100, kind: 'new' as const }] })
   assert.deepEqual(s.filter(x => x.kind === 'wallDetail').map(x => [x.no, x.title]), [['ID-201', '벽체 상세 W10'], ['ID-202', '벽체 상세 T100']])
 })
+
+test('rooms add the room finish schedule and the floor / baseboard / wall details they use', () => {
+  const part = {}, rooms = [{ id: 'r', no: '101', name: '로비', floor: { mat: 'TL-01', detail: 'F1' }, base: { mat: 'MT-04', detail: 'B1' }, wall: { mat: 'PT-01', detail: 'W10' }, ceiling: part }]
+  const s = sheetList({ ...g, rooms })
+  assert.deepEqual(s.filter(x => /schedule|finish|Detail/.test(x.kind) && x.kind !== 'furnDetail' && x.kind !== 'doorDetail').map(x => `${x.no} ${x.title}`), ['I-008 실내재료마감표', 'I-009 마감 수량표', 'ID-101 바닥 상세 F1', 'ID-104 걸레받이 상세 B1', 'ID-201 벽체 상세 W10'])
+})

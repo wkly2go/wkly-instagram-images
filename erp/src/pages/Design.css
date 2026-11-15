@@ -143,3 +143,7 @@
 /* proposal */
 .design-slide { display: block; width: 100%; height: auto; box-shadow: 0 1px 6px rgba(0, 0, 0, 0.14); }
 .design-figs { display: flex; flex-direction: column; gap: 6px; }
+.design-rooms td { padding: 4px; }
+.design-rooms .input { width: 100%; min-width: 92px; }
+.design-rooms .input.xs { min-width: 60px; }
+.design-rooms select.input { min-width: 150px; }

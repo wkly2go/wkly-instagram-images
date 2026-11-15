@@ -33,3 +33,31 @@ export const WALL_TYPES: WallType[] = [
   { "code": "W29", "composition": "CON.+PAINT w/TILE", "name": "일반 건식벽체", "extent": "FLOOR TO CEILING", "thk": "70", "left": [ "건축공사" ], "right": [ "THK.24X30 WOOD LUMBER", "THK.9.5mm G.B. 2PLY", "APP.PAINT FIN.", "APP' THK. 1.5MM METAL FIN.", "THK.24X30 WOOD LUMBER", "THK.9.5mm G.B. 2PLY", "BOND", "APP. THK10mm TILE FIN." ] },
   { "code": "W30", "composition": "WOOD PANEL+WOOD PANEL [MIRROR]", "name": "일반 건식벽체", "extent": "FLOOR TO CEILING", "thk": "260", "left": [ "BOND", "THK12mm CRC BOAR 1PLY.", "BOND", "APP. THK12mm", "WOOD PANEL FIN." ], "right": [ "BOND", "THK12mm CRC BOAR 1PLY.", "BOND", "APP. THK12mm WOOD PANEL FIN.", "건축공사" ] } ]
 export const wallType = (code?: string | null) => WALL_TYPES.find(w => w.code === code)
+
+// Floor transition details (ID-101~103) and baseboard details (ID-104~105) from the same sample set.
+// A floor type is the section where two finishes meet: left/right start with the sample room name, then the layers top-down.
+export interface FloorType { code: string; composition: string; thk: string; left: string[]; right: string[] }
+export const FLOOR_TYPES: FloorType[] = [
+  { "code": "F1", "composition": "MARBLE TILE", "thk": "100", "left": [ "B1 방풍실", "THK12mm APP.대리석 복합타일 FIN.", "붙임몰탈" ], "right": [] },
+  { "code": "F2", "composition": "MARBLE TILE+METAL+MARBLE TILE", "thk": "", "left": [ "B1 방풍실", "THK12mm APP.대리석 복합타일 FIN.", "붙임몰탈" ], "right": [ "B1 HALL", "30X60 STEEL PIPE [건축공사]", "THK5mm METAL SHEET" ] },
+  { "code": "F3", "composition": "MARBLE TILE+METAL+LIGHTING FIXTURE+MARBLE TILE", "thk": "100", "left": [ "B1 방풍실", "THK12mm APP.대리석 복합타일 FIN.", "붙임몰탈" ], "right": [ "THK5MM APP' MILKY ACRYLIC FIN.", "THK3.2mm WHITE METAL PLATE", "30X30 STEEL PIPE [인테리어공사]" ] },
+  { "code": "F4", "composition": "LVT TILE+PEBBLE+METAL+GRAVEL", "thk": "", "left": [ "1F 보드룸", "APP. LVT TILE FIN.", "BONDING", "방수턱 [건축공사]", "고름몰탈" ], "right": [ "1F 휴게라운지", "APP. PEBBLE FIN.", "APP.GRAVEL FIN.", "고름몰탈", "THK5mm METAL SHEET" ] },
+  { "code": "F5", "composition": "GRAVEL+METAL+MARBLE", "thk": "50", "left": [ "1F 휴게라운지", "APP.GRAVEL FIN.", "고름몰탈" ], "right": [ "APP.MARBLE FIN.", "30X30 STEEL PIPE [건축공사]", "THK5mm METAL SHEET" ] },
+  { "code": "F6", "composition": "GRAVEL+METAL+PEBBLE", "thk": "", "left": [ "APP.GRAVEL FIN.", "LED LIGHT COVE" ], "right": [ "1F 실내정원", "30X30 STEEL PIPE [인테리어공사]", "THK3.2mm WHITE METAL PLATE", "APP. PEBBLE FIN.", "붙임몰탈", "도막 방수 T:5mm", "10mm 고름몰탈/액체방수", "30X30 STEEL PIPE [인테리어공사]" ] },
+  { "code": "F7", "composition": "LVT TILE+RESTROOM FLOOR DETAIL", "thk": "50", "left": [ "1F 복도", "APP. LVT TILE FIN.", "THK5mm METAL PLATE", "BONDING", "고름몰탈" ], "right": [ "1F 남여화장실", "THK10mm APP.TILE FIN.", "붙임몰탈", "30X30 STEEL PIPE [인테리어공사]", "보호몰탈", "APP.TILE FIN.", "지정방수", "지정방수", "방수턱 [건축공사]" ] },
+  { "code": "F8", "composition": "WOOD FLOORING+METAL+LVT TILE", "thk": "100", "left": [ "3F 회장님실", "APP.WOOD FLOORING FIN.", "THK.3mm BONDING", "붙임몰탈" ], "right": [ "3F 복도", "THK5mm METAL PLATE", "30X30 STEEL PIPE [인테리어공사]", "APP. LVT TILE FIN.", "BONDING", "고름몰탈" ] },
+  { "code": "F9", "composition": "TILE+STONE+TILE", "thk": "50/30", "left": [ "3F 회장님실 파우더", "THK10mm APP.TILE FIN.", "붙임몰탈" ], "right": [ "3F 회장님실 샤워실", "THK12mm ARTIFICIAL MARBLE", "THK10mm APP.TILE FIN.", "붙임몰탈", "보호몰탈", "지정방수" ] },
+  { "code": "F10", "composition": "SHOWER ROOM", "thk": "30", "left": [ "3F 회장님실 샤워실", "THK10mm APP.TILE FIN.", "붙임몰탈", "보호몰탈", "지정방수" ], "right": [ "25X200 TRENCH COVER", "배수관", "THK10mm APP.TILE FIN.", "붙임몰탈", "보호몰탈", "지정방수" ] },
+  { "code": "F11", "composition": "OA FLOOR+METAL+LVT TILE", "thk": "50/150", "left": [ "3F 전산실", "APP. LVT TILE FIN.", "BONDING", "OA FLOOR" ], "right": [ "3F 휴게라운지", "THK1.5mm GRAY METAL", "APP. LVT TILE FIN.", "BONDING", "고름몰탈" ] },
+  { "code": "F12", "composition": "[STAGE] LVT TILE+METAL+LVT TILE", "thk": "", "left": [ "4F 세미나실 무대", "APP. LVT TILE FIN.", "BONDING", "THK.9mm PLYWOOD 2PLY.", "30X30 STEEL PIPE" ], "right": [ "4F 세미나실", "THK1.5mm GRAY METAL", "APP. LVT TILE FIN.", "BONDING", "고름몰탈" ] } ]
+/** thk is the baseboard height where the sample states one. */
+export interface BaseType { code: string; name: string; thk: string; layers: string[] }
+export const BASE_TYPES: BaseType[] = [
+  { "code": "B1", "name": "히든걸레받이", "thk": "50", "layers": [ "걸레받이 : 지정 히든걸레받이 마감 (락소 - M100)", "APP. LVT TILE FIN." ] },
+  { "code": "B2", "name": "지정 금속 걸레받이[디퓨저타입]", "thk": "106", "layers": [ "디퓨저 통풍구", "걸레받이 : APP' THK. 1.5MM METAL FIN.", "THK12mm APP.대리석 복합타일 FIN.", "붙임몰탈" ] },
+  { "code": "B3", "name": "지정 금속 걸레받이[회의실]", "thk": "", "layers": [ "걸레받이 : APP' THK. 1.5MM METAL FIN.", "APP. LVT TILE FIN." ] },
+  { "code": "B4", "name": "지정 금속 걸레받이[ELEV. HALL]", "thk": "30", "layers": [ "걸레받이 : APP' THK. 9MM METAL FIN.", "APP. LVT TILE FIN." ] },
+  { "code": "B5", "name": "지정 금속 걸레받이[은경 벽체 공통사항]", "thk": "150", "layers": [ "걸레받이 : APP' THK. 1.5MM METAL FIN.", "APP. LVT TILE FIN." ] },
+  { "code": "B6", "name": "MDF 위 인테리어 필름", "thk": "", "layers": [ "걸레받이 : THK.9mm WOOD PANEL FIN.", "APP. LVT TILE FIN." ] },
+  { "code": "B7", "name": "지정 히든 걸레받이[대리석/타일/남여화장실벽체]", "thk": "50", "layers": [ "걸레받이 : APP' THK. 1.5MM METAL FIN.", "APP. LVT TILE FIN." ] },
+  { "code": "B8", "name": "지정 금속 걸레받이[연회장]", "thk": "150", "layers": [ "걸레받이 : APP' THK. 1.5MM METAL FIN.", "APP. LVT TILE FIN." ] } ]
