@@ -14,6 +14,8 @@ export function SalesDevelopmentProgress(){
     <p><strong>최근 저장된 개발 상태</strong> · <time dateTime={checkpoint.updatedAt}>{new Date(checkpoint.updatedAt).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'})}</time> (한국 시간)</p>
     <p>실시간 작업 감시가 아닙니다. 새 개발 기록이 배포되면 화면을 다시 열어 확인합니다. 아래 비율은 소요 시간 예측이 아닌 완료 기준 체크리스트입니다.</p>
     <p>현재 목표 {checkpoint.targetPercent}% · 최소 {target.required}/{progress.total}개 기준 완료({target.minimumPercent}%)가 필요합니다. 목표 달성을 위해 완료 비율을 임의로 올리지 않습니다.</p>
+    <p><strong>이번 작업에서 연결한 기능</strong></p><ul>{checkpoint.currentBatch.completed.map(item=><li key={item}>{item}</li>)}</ul>
+    <p><strong>완전 자동화를 위해 남은 연결</strong></p><ul>{checkpoint.currentBatch.remaining.map(item=><li key={item}>{item}</li>)}</ul>
     <p><strong>현재 대기 사유:</strong> {checkpoint.blocker}</p>
     <p><strong>다음 개발:</strong> {checkpoint.next}</p>
     <p>{checkpoint.milestones.length}개 기능 × 4개 기준 = {progress.total}개 중 {progress.completed}개 완료 · 각 기준 동일 가중치 · 소수점 버림</p>

@@ -40,7 +40,7 @@ before(async()=>{
  await db.exec(`alter table profiles add column name text default '시험 팀원';create table ai_agents(profile_id uuid primary key,role text,instructions text);`)
  await db.exec(await sql('0115_growth_ai_budget.sql'))
  await db.exec(await sql('0122_sales_strategy.sql'));await db.exec(await sql('0123_sales_strategy_gateway.sql'));await db.exec(await sql('0124_sales_strategy_output.sql'))
- const releaseNames=['sales_evidence_history','sales_desk','sales_g2b_collection','sales_preapproval','sales_execution_packages','sales_dispatch_queue','sales_readiness','sales_contact_evidence','sales_mail_evidence','sales_contact_discovery','sales_reply_crm']
+ const releaseNames=['sales_evidence_history','sales_desk','sales_g2b_collection','sales_preapproval','sales_execution_packages','sales_dispatch_queue','sales_readiness','sales_contact_evidence','sales_mail_evidence','sales_contact_discovery','sales_reply_crm','sales_crm_pipeline','sales_followup_preparation']
  const sections=await Promise.all(releaseNames.map(async(name,i)=>(await sql(`202611150901${String(i+1).padStart(2,'0')}_${name}.sql`)).replace(/^begin;\s*$/gmi,'').replace(/^commit;\s*$/gmi,'')))
  const release=salesReleaseSQL(sections)
  // Failure at the end must leave every migration unapplied, including scheduled jobs.
@@ -549,7 +549,7 @@ test('matched replies create an idempotent visible CRM history without inventing
  const crm=(await execution(f.j.id)).crm;assert.equal(crm.threads.length,1);assert.equal(crm.threads[0].stage,'회신 확인');assert.equal(crm.threads[0].reply_count,1);assert.match(crm.threads[0].next_action,/수주 확정 아님/)
  await db.exec('select private.sales_reply_tick()');assert.equal((await db.query('select count(*) n from private.sales_crm_replies')).rows[0].n,1)
  await assert.rejects(finishReply(f.replyJob.id,'changed'),/Reply lease expired/)
- assert.equal((await db.query('select count(*) n from sales_opportunities')).rows[0].n,0)
+ assert.equal((await db.query('select count(*) n from sales_opportunities')).rows[0].n,1)
 })
 test('stop expressions suppress the exact recipient and block future approved versions without editing contact DB',async()=>{
  const f=await replyFixture();await finishReply(f.replyJob.id,'메일 보내지 마세요. 수신 거부합니다.')
@@ -605,4 +605,102 @@ test('reply index scan ignores different addresses, old messages, drafts and unr
  await db.exec("insert into mail_index(id,thread_id,from_addr,to_addr,sent_at,labels) values('ab01','ee55','nothuman@example.com','sender@example.com',now(),'{}'),('ab02','ee55','human@example.com','else@example.com',now(),'{}'),('ab03','ee55','human@example.com','sender@example.com',now()-interval '1 hour','{}'),('ab04','ff66','human@example.com','sender@example.com',now(),'{}'),('ab05','ee55','human@example.com','sender@example.com',now(),array['DRAFT'])")
  const input=(await db.query('select private.sales_reply_input($1) r',[f.job.id])).rows[0].r
  assert.deepEqual(input.messages.map(m=>m.id),['bb22'])
+})
+
+test('reviewed CRM mapping automatically creates a contact-stage pipeline with no invented budget',async()=>{
+ const f=await replyFixture(),row=(await db.query('select * from sales_opportunities')).rows[0]
+ assert.equal(row.id,f.job.id);assert.equal(row.stage,'접촉');assert.equal(row.expected_amount,null);assert.equal(row.division,'TW');assert.equal(row.client_id,client);assert.equal(row.contact_id,person)
+ assert.equal(f.p.payload.pipeline['human@example.com'].mode,'new')
+ await db.query('select private.sales_crm_pipeline_sync($1)',[f.job.id]);await db.query('select private.sales_crm_pipeline_sync($1)',[f.job.id])
+ assert.equal((await db.query('select count(*) n from sales_activities')).rows[0].n,1)
+ await finishReply(f.replyJob.id,'자료를 검토하겠습니다.')
+ assert.equal((await db.query('select count(*) n from sales_activities')).rows[0].n,2)
+ assert.equal((await execution(f.j.id)).crm.threads[0].opportunity_id,row.id)
+ assert.equal((await db.query('select stage from sales_opportunities')).rows[0].stage,'접촉')
+})
+test('contact stop holds only an untouched automatic opportunity and writes an immutable revision',async()=>{
+ const f=await replyFixture();await finishReply(f.replyJob.id,'수신 거부합니다.')
+ const row=(await db.query('select * from sales_opportunities')).rows[0]
+ assert.equal(row.stage,'보류');assert.equal(row.next_date,null);assert.equal(row.revision,2)
+ assert.equal((await db.query('select count(*) n from sales_revisions')).rows[0].n,2)
+ await db.query('select private.sales_crm_pipeline_sync($1)',[f.job.id]);assert.equal((await db.query('select revision from sales_opportunities')).rows[0].revision,2)
+})
+test('manual pipeline revisions and terminal stages survive automatic stop processing',async()=>{
+ const f=await replyFixture();await db.exec("update sales_opportunities set stage='수주',result_note='별도 계약 확인',next_action='납품 일정 협의',revision=revision+1")
+ await finishReply(f.replyJob.id,'Please unsubscribe me.')
+ const row=(await db.query('select * from sales_opportunities')).rows[0];assert.equal(row.stage,'수주');assert.equal(row.result_note,'별도 계약 확인');assert.equal(row.next_action,'납품 일정 협의')
+ assert.equal((await execution(f.j.id)).crm.threads[0].stage,'연락 중단')
+})
+test('pipeline activity retains the historical approving actor after the execution version becomes stale',async()=>{
+ const f=await replyFixture();await db.query("update sales_execution_packages set status='재검토',approved_by=null,approved_at=null where id=$1",[f.p.id])
+ await finishReply(f.replyJob.id,'문의 내용을 검토했습니다.')
+ assert.equal((await db.query('select count(*) n from sales_activities')).rows[0].n,2)
+ assert.ok((await db.query('select created_by from sales_activities')).rows.every(r=>r.created_by===admin))
+})
+test('ambiguous existing pipeline links block review rather than choosing an arbitrary opportunity',async()=>{
+ const f=await prepared('담당자')
+ const a=randomUUID(),b=randomUUID(),companyProspect=(await db.query("select id from sales_prospects where source='거래처' limit 1")).rows[0].id
+ for(const id of [a,b])await db.query("insert into sales_opportunities(id,title,division,owner_id,stage,source,created_by,updated_by,client_id,contact_id) values($1,'기존 영업','TW',$2,'접촉','직접 발굴',$2,$2,$3,$4)",[id,admin,client,person])
+ await db.query("update clients set email='human@example.com' where id=$1",[client]);await db.query("update sales_prospects set linked_sales_id=$1 where source='담당자'",[a]);await db.query('update sales_prospects set linked_sales_id=$1 where id=$2',[b,companyProspect])
+ await db.query("update sales_strategies set plan=jsonb_set(plan,'{evidence_ids}',(plan->'evidence_ids')||to_jsonb($2::text)) where id=$1",[f.id,companyProspect])
+ const material=(await db.query('select private.sales_execution_material($1) r',[f.id])).rows[0].r
+ assert.ok(material.blockers.some(b=>b.includes('여러 영업 건')))
+})
+
+const followupPlan={summary:'추가 제안 요청 확인 · 범위 미확인',action:'prepare_reply',evidence:[{quote:'제안서를 보내주세요.',meaning:'회신 원문에 요청 표현 존재 · 발신 진위와 수신 자격은 별도 검증'}],next_action:'시스템이 제안 범위를 대조하여 승인용 실행안을 준비',missing:['세부 일정 미확인'],draft:{subject:'제안 범위 확인',body:'검토 가능한 제안 자료를 준비 중입니다.'}}
+async function followupFixture(){const f=await replyFixture();await finishReply(f.replyJob.id,'제안서를 보내주세요. 일정은 미정입니다.');await db.exec('select private.sales_followup_tick()');const followup=(await db.query('select * from private.sales_followup_jobs')).rows[0];assert.ok(followup);const claimed=(await asUser(admin,()=>call('sales_followup_claim',[followup.id,followup.token]),'service_role')).rows[0].r;assert.ok(claimed);return {...f,followup,claimed}}
+const finishFollowup=(id,plan=followupPlan,error='')=>asUser(admin,()=>call('sales_followup_finish',[id,plan===null?null:JSON.stringify(plan),error]),'service_role')
+test('reply to CRM to a system-prepared follow-up requires no human data operation',async()=>{
+ const f=await followupFixture();assert.match(f.claimed.input.reply.text,/제안서를/);assert.equal(f.claimed.input.pipeline.stage,'접촉')
+ await finishFollowup(f.followup.id);await finishFollowup(f.followup.id)
+ const thread=(await execution(f.j.id)).crm.threads[0];assert.equal(thread.followup.state,'done');assert.equal(thread.followup.plan.action,'prepare_reply');assert.equal(thread.pipeline_stage,'접촉')
+ assert.equal((await db.query("select count(*) n from sales_activities where kind='메모'")).rows[0].n,1)
+ assert.equal((await db.query("select count(*) n from private.sales_dispatch_jobs where state='queued'")).rows[0].n,0)
+ await db.exec('select private.sales_followup_tick()');assert.equal((await db.query('select count(*) n from private.sales_followup_jobs')).rows[0].n,1)
+})
+test('unprovided quotations and unclaimed AI budget reservations fail before saving drafts',async()=>{
+ const f=await followupFixture();await assert.rejects(finishFollowup(f.followup.id,{...followupPlan,evidence:[{quote:'예산 1억원 확정',meaning:'invented'}]}),/Unverified reply quotation/)
+ await assert.rejects(asUser(admin,()=>call('sales_followup_ai_reserve',[randomUUID(),admin,'write','sig','standard',500]),'service_role'),/Follow-up claim required/)
+ await assert.rejects(asUser(admin,()=>call('sales_followup_finish',[f.followup.id,JSON.stringify(followupPlan),''])),e=>e.code==='42501')
+ assert.equal((await db.query('select plan from private.sales_followup_jobs')).rows[0].plan,null)
+})
+test('new reply or manual pipeline revision invalidates in-flight and completed follow-up versions',async()=>{
+ const f=await followupFixture();await finishFollowup(f.followup.id);await db.exec("update sales_opportunities set revision=revision+1,next_action='대표가 정한 별도 후속 조건'")
+ const visible=(await execution(f.j.id)).crm.threads[0].followup;assert.equal(visible.state,'stale');assert.equal(visible.plan,null)
+ await db.exec('select private.sales_followup_tick()');const next=(await db.query("select * from private.sales_followup_jobs where state='queued'")).rows[0];assert.ok(next)
+ await asUser(admin,()=>call('sales_followup_claim',[next.id,next.token]),'service_role')
+ await db.query("insert into private.sales_crm_replies(dispatch_id,message_id,text,signal,received_at) values($1,'cc33','계획이 바뀌었습니다.','reply',now()+interval '1 second')",[f.job.id])
+ await finishFollowup(next.id);assert.equal((await db.query('select state from private.sales_followup_jobs where id=$1',[next.id])).rows[0].state,'stale')
+})
+test('stop contacts never receive follow-up drafts and closing a pipeline discards pending generation',async()=>{
+ const f=await followupFixture();await db.query("insert into private.sales_contact_suppressions(recipient,dispatch_id,message_id,reason) values('human@example.com',$1,'bb22','stop')",[f.job.id]);await finishFollowup(f.followup.id)
+ assert.equal((await db.query('select state from private.sales_followup_jobs')).rows[0].state,'stale');assert.equal((await execution(f.j.id)).crm.threads[0].followup.plan,null)
+ await db.exec('select private.sales_followup_tick()');assert.equal((await db.query('select count(*) n from private.sales_followup_jobs')).rows[0].n,1)
+})
+test('budget exhaustion prevents new work; failed identical input is never paid for again automatically',async()=>{
+ const f=await followupFixture();await finishFollowup(f.followup.id,null,'제공사 처리 결과 확인 필요')
+ await db.exec('select private.sales_followup_tick()');assert.equal((await db.query('select count(*) n from private.sales_followup_jobs')).rows[0].n,1)
+ await db.exec("update sales_opportunities set revision=revision+1;update growth_ai_budgets set enabled=false;select private.sales_followup_tick()")
+ assert.equal((await db.query('select count(*) n from private.sales_followup_jobs')).rows[0].n,1)
+})
+
+test('pipeline write failures never erase provider acceptance and recover without a second send',async()=>{
+ const f=await dispatchFixture(),lease=await dispatchClaim(f.job.id)
+ await db.exec("create function reject_pipeline_fixture() returns trigger language plpgsql as $$begin raise exception 'fixture unavailable';end$$;create trigger fixture_pipeline_error before insert on sales_opportunities for each row execute function reject_pipeline_fixture()")
+ await dispatchFinish(f.job.id,lease.token,'accepted','aa11')
+ assert.equal((await db.query('select state from private.sales_dispatch_jobs')).rows[0].state,'accepted')
+ let c=(await db.query('select * from private.sales_crm_threads')).rows[0];assert.equal(c.opportunity_id,null);assert.equal(c.pipeline_failures,1)
+ await db.exec("drop trigger fixture_pipeline_error on sales_opportunities;update private.sales_crm_threads set pipeline_last_failure=now()-interval '16 minutes';select private.sales_reply_tick()")
+ c=(await db.query('select * from private.sales_crm_threads')).rows[0];assert.equal(c.opportunity_id,f.job.id);assert.equal(c.pipeline_failures,0)
+ assert.equal((await db.query("select count(*) n from private.sales_dispatch_events where state='accepted'")).rows[0].n,1)
+})
+
+test('existing exact pipeline linkage preserves its division, amount, owner and human next action',async()=>{
+ const f=await connectedFixture(),existing=randomUUID()
+ await db.query("insert into sales_opportunities(id,title,division,client_id,contact_id,owner_id,stage,source,expected_amount,next_action,created_by,updated_by) values($1,'별도 계약 제안','AR',$2,$3,$4,'제안','소개',1500000,'기존 협의 일정 보존',$4,$4)",[existing,client,person,admin])
+ await db.query("update sales_prospects set linked_sales_id=$1 where source='담당자'",[existing]);await db.query('select private.sales_execution_refresh($1)',[f.j.id])
+ const p=await execution(f.j.id);assert.equal(p.payload.pipeline['human@example.com'].division,'AR');assert.equal(p.payload.pipeline['human@example.com'].opportunity_id,existing)
+ await decision(p);const job=(await db.query('select * from private.sales_dispatch_jobs where package_id=$1',[p.id])).rows[0],lease=await dispatchClaim(job.id);await dispatchFinish(job.id,lease.token,'accepted','aa11')
+ const rows=(await db.query('select * from sales_opportunities')).rows;assert.equal(rows.length,1);assert.equal(rows[0].stage,'제안');assert.equal(rows[0].division,'AR');assert.equal(rows[0].expected_amount,'1500000');assert.equal(rows[0].next_action,'기존 협의 일정 보존')
+ assert.equal((await execution(f.j.id)).crm.threads[0].opportunity_id,existing)
 })

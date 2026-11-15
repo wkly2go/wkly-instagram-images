@@ -1,5 +1,6 @@
+import type {FollowupPlan} from './salesFollowup'
 export interface SalesCrmReport {
- scope:string;threads:{dispatch_id:string;recipient:string;stage:string;next_action:string;read_note:string;last_reply_at:string|null;created_at:string;checked_at:string|null;reply_count:number;replies:{message_id:string;signal:'reply'|'stop'|'limited';text:string;received_at:string}[]}[];
+ scope:string;threads:{dispatch_id:string;followup?:{id:string|null;state:'waiting'|'queued'|'claimed'|'done'|'failed'|'stale';plan:FollowupPlan|null;error:string|null;created_at:string|null;note:string};opportunity_id?:string|null;pipeline_note?:string;pipeline_stage?:string|null;recipient:string;stage:string;next_action:string;read_note:string;last_reply_at:string|null;created_at:string;checked_at:string|null;reply_count:number;replies:{message_id:string;signal:'reply'|'stop'|'limited';text:string;received_at:string}[]}[];
 }
 export interface SalesContactDiscovery {
  total:number;scope:string;companies:{id:string;company:string;website:string|null;state:string;checked_at:string|null;attempts:number;note:string;limited:boolean;pages:{url:string;status:string}[];candidates:{email:string;url:string;excerpt:string;role:'partnership'|'general'|'non_sales';domain_match:boolean;excluded:boolean;outreach_authorized:false}[]}[];
@@ -15,7 +16,7 @@ export interface SalesContactEvidence {
 export interface SalesExecutionPackage {
  id:string;version:number;fingerprint:string;current:boolean;can_approve:boolean;
  status:'준비 중'|'승인 대기'|'승인'|'재검토'|'보류';created_at:string;checked_at:string;blockers:string[];
- payload:{title:string;transport_enabled:boolean;sender:string|null;research:string;contact_evidence?:SalesContactEvidence;contact_evidence_prepared?:boolean;
+ payload:{pipeline?:Record<string,{mode:'new'|'existing';division:'TW'|'AR';opportunity_id:string|null}>;title:string;transport_enabled:boolean;sender:string|null;research:string;contact_evidence?:SalesContactEvidence;contact_evidence_prepared?:boolean;
   messages:{channel:'email';recipient:string;company:string;person:string|null;source_ids:string[];subject:string;body:string}[];
   attachments:{name:string;mime:string;content:string}[];
   schedule:{at:string;expires_at:string;timezone:string;per_recipient_limit:number;followups:string};checks:string[]};

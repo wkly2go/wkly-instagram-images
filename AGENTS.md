@@ -43,3 +43,18 @@
 ## Working language — latest user instruction, 2026-11-15
 
 Use English for development communication and progress updates. Ask necessary approval questions in Korean. Preserve the existing Korean product interface unless the user requests a translation.
+
+
+## Approval-only human role — explicit user correction, 2026-11-15
+
+- Human teammates only approve or reject system-prepared, verified execution packages. Do not use human research, contact lookup, raw-source review, spreadsheet cleanup, field mapping, drafting, reply classification or CRM updates as a required fallback.
+- The system owns research, collection, cleansing, target/company/person linking, planning, proposal/message preparation, validation, approval routing, authorized delivery, reply handling, pipeline updates, follow-up and reporting.
+- An AI recommendation or a task row saying “research next” is not implemented execution. Connect it to an actual bounded system worker and persist the result before claiming automation completion.
+- Missing evidence triggers automated re-collection/research/verification. Errors trigger bounded recovery with visible reasons. When recovery is impossible, preserve records and report the blocking dependency plus a prepared alternative; do not hand data-processing work to a person.
+- Approval must cover the exact recipients, purpose/evidence, message, attachments, schedule and follow-up conditions. Changed material requires a fresh approval. An internal planning decision must never be presented as authorization to send.
+- Full completion requires an end-to-end run from target acquisition to follow-up/reporting with approval/rejection as the only recurring human action. Independent implementation/local validation does not establish deployment or operational completion.
+- The existing Claude production hold and protected ownership boundaries still apply. Do not activate real sending to meet a percentage target.
+
+## Latest response language — 2026-11-15
+
+The user subsequently asked for Korean answers (한글로 답해). Use Korean for user-facing explanations and progress updates. Code identifiers and technical artifacts may remain English.
