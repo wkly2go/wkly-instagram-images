@@ -63,3 +63,8 @@ test('drafts are written as customer-ready text and wording problems are listed 
  const flagged=parseStrategyPreparation(JSON.stringify({research:'근거',proposal:'OOO 브랜드 제안',contact_draft:good,checks:['1','2','3','4','5','6']}))
  assert.equal(flagged.checks.length,6);assert.equal(flagged.checks[0],'문안 점검 필요: 제안서에 자리 표시가 남아 있음');assert.equal(flagged.proposal,'OOO 브랜드 제안')
 })
+
+test('the Google customer list uses the required headers, one contact per line',async()=>{
+ const {googleAudienceCsv}=await import('../src/lib/salesStrategy.ts')
+ assert.equal(googleAudienceCsv([{email:'a@b.kr',phone:'+821012345678',segment:'거래처'},{email:'c@d.kr',phone:'',segment:'문의'}]),'Email,Phone,Country\r\na@b.kr,+821012345678,KR\r\nc@d.kr,,KR\r\n')
+})
