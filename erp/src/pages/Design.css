@@ -1,0 +1,55 @@
+/* 설계·견적 (2026-11-15) — 밝은 기본, 사각 모서리 · 토큰만 사용 */
+.design-page { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.design-head { display: flex; flex-direction: column; gap: 2px; }
+.design-split { display: grid; grid-template-columns: minmax(200px, 260px) minmax(0, 1fr); gap: 16px; align-items: start; }
+.design-list { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.design-item { display: flex; flex-direction: column; gap: 2px; text-align: left; padding: 8px 10px; background: var(--white); border: 1px solid var(--line); border-left: 3px solid transparent; color: inherit; font: inherit; cursor: pointer; min-width: 0; }
+.design-item b { color: var(--blue); font-size: var(--fs-body); overflow-wrap: anywhere; }
+.design-item:hover { background: var(--paper); }
+.design-item.on { border-left-color: var(--pink); background: var(--paper); }
+.design-main { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.design-form { display: flex; flex-direction: column; gap: 8px; padding: 10px; border: 1px solid var(--line); background: var(--paper); }
+.design-form .row > * { flex: 1; }
+.design-proj-head { display: flex; flex-wrap: wrap; gap: 8px 24px; justify-content: space-between; align-items: flex-end; }
+.design-facts { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: var(--fs-sm); color: var(--blue); font-weight: 700; }
+.design-facts i { font-style: normal; font-weight: 400; color: var(--gray); margin-right: 5px; font-size: var(--fs-cap); }
+.design-block { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.design-add { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px; background: var(--paper); border: 1px solid var(--line); }
+.design-add > .input, .design-add > .select { flex: 1 1 120px; min-width: 0; }
+.design-add > .design-qty { flex: 0 1 84px; }
+.table .design-qty { width: 76px; text-align: right; }
+.design-filter { flex: 0 1 200px; min-width: 0; }
+.design-gap { flex: 1; }
+.design-right { margin-left: auto; }
+.design-totals { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; margin: 0; }
+.design-totals > div { padding: 8px 10px; border: 1px solid var(--line); border-top: 3px solid var(--line); background: var(--white); min-width: 0; }
+.design-totals dt { font-size: var(--fs-cap); color: var(--gray); }
+.design-totals dd { margin: 0; font: 700 var(--fs-sub)/1.4 var(--mono); color: var(--blue); overflow-wrap: anywhere; }
+.design-totals .total { border-top-color: var(--blue); background: var(--paper); }
+.design-totals .total dd { font-size: var(--fs-title); }
+.design-warns { margin: 0; padding: 8px 10px 8px 26px; border: 1px solid var(--line); background: var(--paper); font-size: var(--fs-sm); color: var(--gray); }
+.design-warns .red, .design-warn { color: var(--red); }
+.design-warn { margin: 0; font-size: var(--fs-sm); }
+.table tr.design-sub td { background: var(--paper); font-weight: 700; color: var(--blue); }
+.design-cards { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.design-cards > li { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border: 1px solid var(--line); background: var(--white); }
+.design-cards p { margin: 0; overflow-wrap: anywhere; }
+.design-cards .input { flex: 1 1 200px; min-width: 0; }
+.design-gantt { display: flex; flex-direction: column; gap: 4px; }
+.design-gantt-scale { display: flex; justify-content: space-between; padding-left: 190px; padding-right: 150px; }
+.design-gantt-row { display: grid; grid-template-columns: 180px minmax(60px, 1fr) 84px auto; gap: 10px; align-items: center; }
+.design-gantt-name { display: flex; gap: 6px; align-items: center; font-size: var(--fs-sm); color: var(--blue); font-weight: 700; min-width: 0; }
+.design-gantt-name span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.design-gantt-track { position: relative; height: 16px; background: var(--paper); border: 1px solid var(--line); }
+.design-gantt-track i { position: absolute; top: 0; bottom: 0; background: var(--blue); min-width: 4px; }
+.design-gantt-row.done .design-gantt-track i { background: var(--green); }
+.design-gantt-row.done .design-gantt-name span { text-decoration: line-through; color: var(--gray); }
+.design-know { border: 1px solid var(--line); background: var(--white); padding: 8px 12px; }
+.design-know summary { cursor: pointer; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.design-know pre { margin: 8px 0 0; font: var(--fs-sm)/1.6 var(--mono); color: var(--gray); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 360px; overflow: auto; }
+@media (max-width: 760px) {
+  .design-split { grid-template-columns: minmax(0, 1fr); }
+  .design-gantt-scale { padding: 0; }
+  .design-gantt-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .design-gantt-track { grid-column: 1 / -1; order: 3; }
+}

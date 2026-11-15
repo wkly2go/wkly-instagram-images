@@ -1,0 +1,445 @@
+// 설계·견적 — 인테리어 디자인 자동화 (2026-11-15 통합 1차): 프로젝트별 수량표 → 견적 → 공정, 검토함, 단가 · 협력사 · 자재 · 학습 자료
+// 금액 계산은 작업 처리기(견적 엔진)만 한다. 실행 단가 · 발주는 관리자에게만 보인다 (DB 정책 0125).
+import { useEffect, useMemo, useState } from 'react'
+import { Shell } from '../components/Shell'
+import { Badge, Button, Empty, Field, SectionHead, ViewTabs } from '../components/ui'
+import { useAction, useApp, useAsync } from '../lib/app'
+import { won } from '../lib/date'
+import { useRouter, withQuery } from '../lib/router'
+import {
+  CARD_LABELS, SPACE_LABELS, STAGE_LABELS, VARIANT_LABELS,
+  type DesignBase, type DesignCard, type DesignProject, type Estimate, type Knowledge, type SpaceType,
+} from '../lib/design'
+import './Design.css'
+
+type Tab = 'projects' | 'cards' | 'prices' | 'vendors' | 'materials' | 'knowledge'
+const TABS: Tab[] = ['projects', 'cards', 'prices', 'vendors', 'materials', 'knowledge']
+const EMPTY_BASE: DesignBase = { trades: [], units: [] }
+const num = (v: string | number | null | undefined) => (v == null || v === '' ? 0 : Number(v))
+
+export default function Design() {
+  const { api, version } = useApp()
+  const { query, navigate } = useRouter()
+  const tab = (TABS.includes(query.get('tab') as Tab) ? query.get('tab') : 'projects') as Tab
+  const { data: ov } = useAsync(() => api.getDesignOverview(), [version], null)
+  const { data: base } = useAsync(() => api.getDesignBase(), [], EMPTY_BASE)
+  const go = (k: Tab) => navigate(withQuery('/design', query, { tab: k === 'projects' ? null : k }))
+  return (
+    <Shell active="design">
+      <div className="design-page">
+        <header className="design-head">
+          <h1 className="t-title">설계·견적</h1>
+          <p className="t-cap">수량표에서 견적 · 공정 · 발주까지 한 자료로 이어집니다. 금액은 승인된 단가로만 계산합니다.</p>
+        </header>
+        <ViewTabs label="설계·견적 화면" active={tab} onPick={go} items={[
+          { key: 'projects', label: '프로젝트', count: ov?.projects },
+          { key: 'cards', label: '검토함', count: ov?.pending },
+          { key: 'prices', label: '단가', count: ov?.prices },
+          { key: 'vendors', label: '협력사', count: ov ? ov.vendors + ov.candidates : undefined },
+          { key: 'materials', label: '자재', count: ov?.materials },
+          { key: 'knowledge', label: '학습 자료', count: ov?.knowledge },
+        ]} />
+        {tab === 'projects' && <ProjectsTab base={base} />}
+        {tab === 'cards' && <CardsTab />}
+        {tab === 'prices' && <PricesTab base={base} />}
+        {tab === 'vendors' && <VendorsTab base={base} />}
+        {tab === 'materials' && <MaterialsTab />}
+        {tab === 'knowledge' && <KnowledgeTab />}
+      </div>
+    </Shell>
+  )
+}
+
+// ─────────────────────────────── 프로젝트
+function ProjectsTab({ base }: { base: DesignBase }) {
+  const { api, version } = useApp()
+  const { query, navigate } = useRouter()
+  const { data: projects, loading } = useAsync(() => api.listDesignProjects(), [version], [] as DesignProject[])
+  const [starting, setStarting] = useState(false)
+  const selected = projects.find(p => p.id === query.get('id')) ?? projects[0] ?? null
+  return (
+    <div className="design-split">
+      <aside className="design-list" aria-label="설계 프로젝트">
+        <SectionHead title="설계 중인 프로젝트" count={projects.length} right={<Button size="sm" kind="outline" onClick={() => setStarting(v => !v)}>{starting ? '닫기' : '설계 시작'}</Button>} />
+        {starting && <StartDesign onDone={id => { setStarting(false); navigate(withQuery('/design', query, { id })) }} />}
+        {projects.length === 0 && !loading && <Empty>아직 설계를 시작한 프로젝트가 없습니다. '설계 시작'에서 인트라넷 프로젝트를 고르세요.</Empty>}
+        {projects.map(p => (
+          <button type="button" key={p.id} className={`design-item${selected?.id === p.id ? ' on' : ''}`} aria-current={selected?.id === p.id ? 'true' : undefined}
+            onClick={() => navigate(withQuery('/design', query, { id: p.id, view: null }))}>
+            <b>{p.name}</b>
+            <span className="t-cap">{[p.code, SPACE_LABELS[p.space_type], STAGE_LABELS[p.stage]].filter(Boolean).join(' · ')}</span>
+          </button>
+        ))}
+      </aside>
+      <section className="design-main">{selected ? <ProjectView key={selected.id} project={selected} base={base} /> : <Empty>왼쪽에서 프로젝트를 고르세요.</Empty>}</section>
+    </div>
+  )
+}
+
+function StartDesign({ onDone }: { onDone: (id: string) => void }) {
+  const { api } = useApp()
+  const { run, busy } = useAction()
+  const { data: candidates } = useAsync(() => api.listDesignCandidates(), [], [])
+  const [pid, setPid] = useState('')
+  const [space, setSpace] = useState<SpaceType>('popup')
+  const [area, setArea] = useState('')
+  return (
+    <form className="design-form" onSubmit={e => { e.preventDefault(); if (pid) run(() => api.startDesign(pid, space, area ? Number(area) : null), '설계를 시작했습니다').then(ok => ok && onDone(pid)) }}>
+      <Field label="인트라넷 프로젝트 (아트리어)">
+        <select className="select" value={pid} onChange={e => setPid(e.target.value)} required>
+          <option value="">고르세요</option>
+          {candidates.map(c => <option key={c.id} value={c.id}>{[c.code, c.name].filter(Boolean).join(' ')}</option>)}
+        </select>
+      </Field>
+      <div className="row">
+        <Field label="공간 종류">
+          <select className="select" value={space} onChange={e => setSpace(e.target.value as SpaceType)}>
+            {(Object.keys(SPACE_LABELS) as SpaceType[]).map(k => <option key={k} value={k}>{SPACE_LABELS[k]}</option>)}
+          </select>
+        </Field>
+        <Field label="면적 (㎡)"><input className="input" inputMode="decimal" value={area} onChange={e => setArea(e.target.value.replace(/[^\d.]/g, ''))} placeholder="예: 82.5" /></Field>
+      </div>
+      <Button type="submit" disabled={busy || !pid}>이 프로젝트로 설계 시작</Button>
+      <p className="t-cap">프로젝트 이름 · 거래처 · 기간은 '프로젝트' 메뉴의 내용을 그대로 씁니다.</p>
+    </form>
+  )
+}
+
+function ProjectView({ project, base }: { project: DesignProject; base: DesignBase }) {
+  const { query, navigate } = useRouter()
+  const view = (['qty', 'estimate', 'schedule'].includes(query.get('view') ?? '') ? query.get('view') : 'qty') as 'qty' | 'estimate' | 'schedule'
+  return (
+    <>
+      <div className="design-proj-head">
+        <div>
+          <h2 className="t-title">{project.name}</h2>
+          <p className="t-cap">{[project.code, project.client_name, project.address].filter(Boolean).join(' · ')}</p>
+        </div>
+        <div className="design-facts">
+          <span><i>공간</i>{SPACE_LABELS[project.space_type]}</span>
+          <span><i>면적</i>{project.area_m2 != null ? `${project.area_m2}㎡ (${(project.area_m2 / 3.3058).toFixed(1)}평)` : '미입력'}</span>
+          <span><i>착공</i>{project.start_date ?? '미정'}</span>
+          <span><i>단계</i>{STAGE_LABELS[project.stage]}</span>
+          <span><i>모델</i>{project.model_version}번째</span>
+        </div>
+      </div>
+      <ViewTabs label="프로젝트 작업" active={view} onPick={k => navigate(withQuery('/design', query, { view: k === 'qty' ? null : k }))}
+        items={[{ key: 'qty', label: '수량표' }, { key: 'estimate', label: '견적' }, { key: 'schedule', label: '공정' }]} />
+      {view === 'qty' && <QuantityView project={project} base={base} />}
+      {view === 'estimate' && <EstimateView project={project} base={base} />}
+      {view === 'schedule' && <ScheduleView project={project} base={base} />}
+    </>
+  )
+}
+
+function tradeName(base: DesignBase, code: string | null) {
+  return base.trades.find(t => t.code === code)?.name ?? code ?? ''
+}
+
+function QuantityView({ project, base }: { project: DesignProject; base: DesignBase }) {
+  const { api, version } = useApp()
+  const { run, busy } = useAction()
+  const { data: rows } = useAsync(() => api.listPlacements(project.id, project.model_version), [project.id, project.model_version, version], [])
+  const [draft, setDraft] = useState({ trade_code: '', item: '', spec: '', unit: '', qty: '', location: '' })
+  const set = (k: keyof typeof draft, v: string) => setDraft(d => ({ ...d, [k]: v }))
+  const groups = useMemo(() => base.trades.map(t => ({ trade: t, rows: rows.filter(r => r.trade_code === t.code) })).filter(g => g.rows.length), [base, rows])
+  const add = (e: React.FormEvent) => {
+    e.preventDefault()
+    const qty = Number(draft.qty)
+    if (!draft.trade_code || !draft.item.trim() || !draft.unit || !(qty > 0)) return
+    run(() => api.addPlacement({ project_id: project.id, model_version: project.model_version, trade_code: draft.trade_code, item: draft.item.trim(), spec: draft.spec.trim(), unit: draft.unit, qty, location: draft.location.trim() || null }), '수량을 넣었습니다')
+      .then(ok => ok && setDraft(d => ({ ...d, item: '', spec: '', qty: '', location: '' })))
+  }
+  return (
+    <div className="design-block">
+      <SectionHead title="수량표" count={rows.length} right={<Button size="sm" disabled={busy || rows.length === 0} onClick={() => run(() => api.requestDesignJob(project.id, 'estimate.build'), '견적 계산을 요청했습니다. 잠시 뒤 견적 탭에 나옵니다')}>이 수량으로 견적 계산</Button>} />
+      <p className="t-cap">'모델'은 스케치업에서 보낸 수량, '직접'은 여기서 넣은 수량입니다. 스케치업에서 다시 보내면 모델 수량만 바뀌고 직접 넣은 수량은 그대로 남습니다.</p>
+      {rows.length === 0 ? <Empty>아직 수량이 없습니다. 스케치업에서 '수량 보내기'를 하거나 아래에서 직접 넣으세요.</Empty> : (
+        <div className="table-wrap"><table className="table">
+          <thead><tr><th>공종</th><th>품목</th><th>규격</th><th className="num">수량</th><th>단위</th><th>위치</th><th>출처</th><th /></tr></thead>
+          <tbody>{groups.flatMap(g => g.rows.map((r, i) => (
+            <tr key={r.id}>
+              <td className="nowrap strong">{i === 0 ? g.trade.name : ''}</td>
+              <td>{r.item}</td><td className="max">{r.spec}</td>
+              <td className="num">{r.source === 'manual'
+                ? <input className="input xs design-qty" defaultValue={r.qty} inputMode="decimal" aria-label={`${r.item} 수량`}
+                    onBlur={e => { const v = Number(e.target.value); if (v >= 0 && v !== r.qty) run(() => api.updatePlacementQty(r.id, v)) }} />
+                : r.qty.toLocaleString('ko-KR')}</td>
+              <td>{r.unit}</td><td>{r.location}</td>
+              <td><Badge tone={r.source === 'model' ? 'paper' : 'yellow'}>{r.source === 'model' ? '모델' : '직접'}</Badge></td>
+              <td>{r.source === 'manual' && <Button size="sm" kind="ghost" disabled={busy} onClick={() => run(() => api.deletePlacement(r.id))} aria-label={`${r.item} 지우기`}>지우기</Button>}</td>
+            </tr>)))}</tbody>
+        </table></div>
+      )}
+      <form className="design-add" onSubmit={add} aria-label="수량 직접 넣기">
+        <select className="select" value={draft.trade_code} onChange={e => set('trade_code', e.target.value)} aria-label="공종" required>
+          <option value="">공종</option>{base.trades.map(t => <option key={t.code} value={t.code}>{t.name}</option>)}
+        </select>
+        <input className="input" value={draft.item} onChange={e => set('item', e.target.value)} placeholder="품목" aria-label="품목" required />
+        <input className="input" value={draft.spec} onChange={e => set('spec', e.target.value)} placeholder="규격" aria-label="규격" />
+        <input className="input design-qty" value={draft.qty} onChange={e => set('qty', e.target.value.replace(/[^\d.]/g, ''))} placeholder="수량" aria-label="수량" inputMode="decimal" required />
+        <select className="select" value={draft.unit} onChange={e => set('unit', e.target.value)} aria-label="단위" required>
+          <option value="">단위</option>{base.units.map(u => <option key={u}>{u}</option>)}
+        </select>
+        <input className="input" value={draft.location} onChange={e => set('location', e.target.value)} placeholder="위치 (선택)" aria-label="위치" />
+        <Button type="submit" kind="outline" disabled={busy}>넣기</Button>
+      </form>
+    </div>
+  )
+}
+
+function EstimateView({ project, base }: { project: DesignProject; base: DesignBase }) {
+  const { api, me, version } = useApp()
+  const { run, busy } = useAction()
+  const { data: estimates, reload } = useAsync(() => api.listEstimates(project.id), [project.id, version], [] as Estimate[])
+  const { data: jobs, reload: reloadJobs } = useAsync(() => api.listDesignJobs(project.id), [project.id, version], [])
+  const { data: cards } = useAsync(() => api.listDesignCards('done', project.id), [project.id, version], [] as DesignCard[])
+  const working = jobs.some(j => j.status === 'queued' || j.status === 'running')
+  // 계산 중이면 5초마다 다시 확인 (끝나면 멈춤)
+  useEffect(() => {
+    if (!working) return
+    const t = window.setInterval(() => { reloadJobs(); reload() }, 5000)
+    return () => window.clearInterval(t)
+  }, [working, reload, reloadJobs])
+  const revisions = [...new Set(estimates.map(e => e.revision))]
+  const [rev, setRev] = useState<number | null>(null)
+  const [variant, setVariant] = useState<'economy' | 'standard' | 'premium'>('standard')
+  const revision = rev ?? revisions[0] ?? null
+  const est = estimates.find(e => e.revision === revision && e.variant === variant) ?? estimates.find(e => e.revision === revision) ?? null
+  const { data: lines } = useAsync(() => (est ? api.listEstimateLines(est.id) : Promise.resolve([])), [est?.id], [])
+  const failed = jobs[0]?.status === 'failed' ? jobs[0] : null
+  const confirmed = est ? cards.some(c => c.kind === 'estimate' && c.ref_id === est.id && c.status === 'approved') : false
+  const groups = base.trades.map(t => ({ trade: t, rows: lines.filter(l => l.trade_code === t.code) })).filter(g => g.rows.length)
+  const missing = lines.filter(l => l.unit_price == null).length
+  return (
+    <div className="design-block">
+      <SectionHead title="견적" count={revisions.length ? `${revisions.length}차` : undefined} right={
+        <span className="row">
+          {working && <Badge tone="yellow">계산 중</Badge>}
+          <Button size="sm" disabled={busy || working} onClick={() => run(() => api.requestDesignJob(project.id, 'estimate.build'), '견적 계산을 요청했습니다')}>견적 다시 계산</Button>
+          {me.role === 'admin' && <Button size="sm" kind="outline" disabled={busy || !confirmed} title={confirmed ? '' : '견적을 검토함에서 확정하면 만들 수 있습니다'} onClick={() => run(() => api.requestDesignJob(project.id, 'po.build'), '발주서 초안을 요청했습니다')}>발주서 초안 만들기</Button>}
+        </span>} />
+      {failed && <p className="design-warn" role="alert">마지막 계산이 실패했습니다: {failed.error}</p>}
+      {!est ? <Empty>{working ? '견적을 계산하고 있습니다…' : "아직 견적이 없습니다. 수량표에서 '이 수량으로 견적 계산'을 누르세요."}</Empty> : <>
+        <div className="row wrap design-est-pick">
+          {revisions.map(r => <button type="button" key={r} className={`chip${r === revision ? ' active' : ''}`} onClick={() => setRev(r)}>{r}차</button>)}
+          <span className="design-gap" />
+          {(['economy', 'standard', 'premium'] as const).filter(v => estimates.some(e => e.revision === revision && e.variant === v)).map(v => (
+            <button type="button" key={v} className={`chip${v === est.variant ? ' active' : ''}`} onClick={() => setVariant(v)}>{VARIANT_LABELS[v]}</button>))}
+          {confirmed ? <Badge tone="blue">확정</Badge> : <Badge>검토 전 초안</Badge>}
+        </div>
+        <dl className="design-totals">
+          <div><dt>직접 공사비</dt><dd>{won(num(est.totals.direct))}</dd></div>
+          <div><dt>공과잡비</dt><dd>{won(num(est.totals.overhead))}</dd></div>
+          <div><dt>기업이윤</dt><dd>{won(num(est.totals.profit))}</dd></div>
+          <div><dt>공급가액</dt><dd>{won(num(est.totals.supply))}</dd></div>
+          <div><dt>부가세</dt><dd>{won(num(est.totals.vat))}</dd></div>
+          <div className="total"><dt>합계</dt><dd>{won(num(est.totals.total))}</dd></div>
+        </dl>
+        {(missing > 0 || est.warnings.length > 0) && <ul className="design-warns">
+          {missing > 0 && <li className="red">단가가 없는 항목 {missing}개는 금액에서 빠졌습니다. '단가' 탭에서 승인된 판매 단가를 넣은 뒤 다시 계산하세요.</li>}
+          {est.warnings.filter(w => w.level !== 'info').map((w, i) => <li key={i} className={w.level === 'error' ? 'red' : ''}>{w.message}</li>)}
+        </ul>}
+        <div className="table-wrap"><table className="table">
+          <thead><tr><th>공종</th><th>품목</th><th>규격</th><th className="num">수량</th><th>단위</th><th className="num">단가</th><th className="num">금액</th></tr></thead>
+          <tbody>{groups.flatMap(g => [
+            ...g.rows.map((l, i) => (
+              <tr key={l.id}><td className="nowrap strong">{i === 0 ? g.trade.name : ''}</td><td>{l.item}</td><td className="max">{l.spec}</td>
+                <td className="num">{l.qty.toLocaleString('ko-KR')}</td><td>{l.unit}</td>
+                <td className={`num${l.unit_price == null ? ' red' : ''}`}>{l.unit_price == null ? '단가 없음' : l.unit_price.toLocaleString('ko-KR')}</td>
+                <td className="num">{l.amount == null ? '' : l.amount.toLocaleString('ko-KR')}</td></tr>)),
+            <tr key={`${g.trade.code}-sum`} className="design-sub"><td colSpan={6}>{g.trade.name} 소계</td><td className="num">{g.rows.reduce((s, l) => s + (l.amount ?? 0), 0).toLocaleString('ko-KR')}</td></tr>,
+          ])}</tbody>
+        </table></div>
+      </>}
+    </div>
+  )
+}
+
+function ScheduleView({ project, base }: { project: DesignProject; base: DesignBase }) {
+  const { api, version } = useApp()
+  const { run, busy } = useAction()
+  const { data: tasks } = useAsync(() => api.listScheduleTasks(project.id), [project.id, version], [])
+  const [d, setD] = useState({ name: '', trade_code: '', start_date: project.start_date ?? '', end_date: project.start_date ?? '' })
+  const min = tasks.reduce((m, t) => (t.start_date < m ? t.start_date : m), tasks[0]?.start_date ?? '')
+  const max = tasks.reduce((m, t) => (t.end_date > m ? t.end_date : m), tasks[0]?.end_date ?? '')
+  const day = (s: string) => Math.round(new Date(`${s}T00:00:00`).getTime() / 86400000)
+  const span = tasks.length ? day(max) - day(min) + 1 : 1
+  const add = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!d.name.trim() || !d.start_date || !d.end_date || d.end_date < d.start_date) return
+    run(() => api.addScheduleTask({ project_id: project.id, name: d.name.trim(), trade_code: d.trade_code || null, start_date: d.start_date, end_date: d.end_date, done: false }), '공정을 넣었습니다')
+      .then(ok => ok && setD(v => ({ ...v, name: '', start_date: v.end_date })))
+  }
+  return (
+    <div className="design-block">
+      <SectionHead title="공정표" count={tasks.length} />
+      {tasks.length === 0 ? <Empty>아직 공정이 없습니다. 아래에서 공정을 넣으세요.</Empty> : (
+        <div className="design-gantt" role="table" aria-label="공정표">
+          <div className="design-gantt-scale t-cap"><span>{min}</span><span>{max} · {span}일</span></div>
+          {tasks.map(t => (
+            <div className={`design-gantt-row${t.done ? ' done' : ''}`} role="row" key={t.id}>
+              <label className="design-gantt-name"><input type="checkbox" checked={t.done} disabled={busy} onChange={() => run(() => api.updateScheduleTask(t.id, { done: !t.done }))} /> <span>{t.name}</span></label>
+              <div className="design-gantt-track"><i style={{ left: `${((day(t.start_date) - day(min)) / span) * 100}%`, width: `${((day(t.end_date) - day(t.start_date) + 1) / span) * 100}%` }} title={`${t.start_date} ~ ${t.end_date}`} /></div>
+              <span className="t-cap design-gantt-date">{t.start_date.slice(5)} ~ {t.end_date.slice(5)}</span>
+              <Button size="sm" kind="ghost" disabled={busy} onClick={() => run(() => api.deleteScheduleTask(t.id))} aria-label={`${t.name} 지우기`}>지우기</Button>
+            </div>))}
+        </div>
+      )}
+      <form className="design-add" onSubmit={add} aria-label="공정 넣기">
+        <input className="input" value={d.name} onChange={e => setD({ ...d, name: e.target.value })} placeholder="공정 이름" aria-label="공정 이름" required />
+        <select className="select" value={d.trade_code} onChange={e => setD({ ...d, trade_code: e.target.value })} aria-label="공종">
+          <option value="">공종 (선택)</option>{base.trades.map(t => <option key={t.code} value={t.code}>{t.name}</option>)}
+        </select>
+        <input className="input" type="date" value={d.start_date} onChange={e => setD({ ...d, start_date: e.target.value, end_date: d.end_date < e.target.value ? e.target.value : d.end_date })} aria-label="시작일" required />
+        <input className="input" type="date" value={d.end_date} min={d.start_date} onChange={e => setD({ ...d, end_date: e.target.value })} aria-label="종료일" required />
+        <Button type="submit" kind="outline" disabled={busy}>넣기</Button>
+      </form>
+    </div>
+  )
+}
+
+// ─────────────────────────────── 검토함
+function CardsTab() {
+  const { api, me, version } = useApp()
+  const { run, busy } = useAction()
+  const [mode, setMode] = useState<'pending' | 'done'>('pending')
+  const { data: cards } = useAsync(() => api.listDesignCards(mode), [mode, version], [] as DesignCard[])
+  const [comment, setComment] = useState<Record<string, string>>({})
+  const admin = me.role === 'admin'
+  const summary = (c: DesignCard) => {
+    const p = c.payload as { vendor?: string; file?: string; rows?: { ok?: boolean }[]; totals?: Record<string, { total?: string }> }
+    if (p.rows) return `${p.vendor ? `${p.vendor} · ` : ''}${p.file ?? ''} · 가져올 항목 ${p.rows.filter(r => r.ok).length}개`
+    if (p.totals?.standard?.total) return `기본안 합계 ${won(num(p.totals.standard.total))}`
+    return ''
+  }
+  return (
+    <div className="design-block">
+      <div className="row"><button type="button" className={`chip${mode === 'pending' ? ' active' : ''}`} onClick={() => setMode('pending')}>검토 대기</button>
+        <button type="button" className={`chip${mode === 'done' ? ' active' : ''}`} onClick={() => setMode('done')}>처리한 것</button></div>
+      <p className="t-cap">자동으로 만든 것(가져온 단가 · 견적 초안 · 발주서 초안)은 여기서 확인한 뒤에만 쓰입니다. {admin ? '' : '결정은 관리자가 합니다.'}</p>
+      {cards.length === 0 ? <Empty>{mode === 'pending' ? '검토할 것이 없습니다.' : '처리한 기록이 없습니다.'}</Empty> : (
+        <ul className="design-cards">{cards.map(c => (
+          <li key={c.id}>
+            <div className="row wrap"><Badge tone="paper">{CARD_LABELS[c.kind] ?? c.kind}</Badge><b>{c.title}</b>
+              {c.status !== 'pending' && <Badge tone={c.status === 'approved' ? 'blue' : 'red'}>{c.status === 'approved' ? '승인' : '반려'}</Badge>}
+              <span className="t-cap design-right">{c.requested_at.slice(0, 10)}</span></div>
+            <p className="t-cap">{summary(c)}{c.comment ? ` · 메모: ${c.comment}` : ''}</p>
+            {admin && c.status === 'pending' && <div className="row wrap">
+              <input className="input" placeholder="메모 (선택)" aria-label={`${c.title} 메모`} value={comment[c.id] ?? ''} onChange={e => setComment({ ...comment, [c.id]: e.target.value })} />
+              <Button size="sm" disabled={busy} onClick={() => run(() => api.decideDesignCard(c.id, true, comment[c.id] ?? ''), '승인했습니다')}>승인</Button>
+              <Button size="sm" kind="outline" disabled={busy} onClick={() => run(() => api.decideDesignCard(c.id, false, comment[c.id] ?? ''), '반려했습니다')}>반려</Button>
+            </div>}
+          </li>))}</ul>
+      )}
+    </div>
+  )
+}
+
+// ─────────────────────────────── 단가
+function PricesTab({ base }: { base: DesignBase }) {
+  const { api, me, version } = useApp()
+  const admin = me.role === 'admin'
+  const [kind, setKind] = useState<'sell' | 'cost'>('sell')
+  const [search, setSearch] = useState('')
+  const [q, setQ] = useState('')
+  const [trade, setTrade] = useState('')
+  useEffect(() => { const t = window.setTimeout(() => setQ(search), 350); return () => window.clearTimeout(t) }, [search])
+  const { data: prices } = useAsync(() => (kind === 'sell' ? api.listUnitPrices(q, trade || null) : Promise.resolve([])), [kind, q, trade, version], [])
+  const { data: costs } = useAsync(() => (kind === 'cost' && admin ? api.listUnitCosts(q, trade || null) : Promise.resolve([])), [kind, q, trade, version, admin], [])
+  const { data: vendors } = useAsync(() => (kind === 'cost' && admin ? api.listDesignVendors() : Promise.resolve([])), [kind, admin], [])
+  const vname = (id: string | null) => vendors.find(v => v.id === id)?.name ?? ''
+  const count = kind === 'sell' ? prices.length : costs.length
+  return (
+    <div className="design-block">
+      <div className="row wrap">
+        <button type="button" className={`chip${kind === 'sell' ? ' active' : ''}`} onClick={() => setKind('sell')}>판매 단가 (견적용)</button>
+        {admin && <button type="button" className={`chip${kind === 'cost' ? ' active' : ''}`} onClick={() => setKind('cost')}>실행 단가 (발주용 · 관리자만)</button>}
+        <span className="design-gap" />
+        <select className="select design-filter" value={trade} onChange={e => setTrade(e.target.value)} aria-label="공종으로 거르기">
+          <option value="">모든 공종</option>{base.trades.map(t => <option key={t.code} value={t.code}>{t.name}</option>)}
+        </select>
+        <input className="input design-filter" type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder="품목 · 규격 찾기" aria-label="품목 · 규격 찾기" />
+      </div>
+      <p className="t-cap">{count >= 400 ? '400건까지만 보입니다. 공종이나 낱말로 좁혀 보세요.' : `${count}건`} · 견적에는 '승인'된 단가 중 가장 최근 것만 쓰입니다.</p>
+      {count === 0 ? <Empty>맞는 단가가 없습니다.</Empty> : (
+        <div className="table-wrap"><table className="table">
+          <thead><tr><th>공종</th><th>품목</th><th>규격</th><th>단위</th>{kind === 'sell' && <th>안</th>}<th className="num">{kind === 'sell' ? '판매 단가' : '실행 단가'}</th>{kind === 'cost' && <th>협력사</th>}<th>기준일</th><th>출처</th><th>상태</th></tr></thead>
+          <tbody>{kind === 'sell'
+            ? prices.map(p => <tr key={p.id}><td className="nowrap">{tradeName(base, p.trade_code)}</td><td>{p.item}</td><td className="max">{p.spec}</td><td>{p.unit}</td><td>{VARIANT_LABELS[p.variant]}</td><td className="num">{p.sell_price.toLocaleString('ko-KR')}</td><td className="nowrap">{p.effective_date}</td><td className="max t-cap">{p.source_doc}</td><td>{p.approved ? <Badge tone="blue">승인</Badge> : <Badge>대기</Badge>}</td></tr>)
+            : costs.map(p => <tr key={p.id}><td className="nowrap">{tradeName(base, p.trade_code)}</td><td>{p.item}</td><td className="max">{p.spec}</td><td>{p.unit}</td><td className="num">{p.cost_price.toLocaleString('ko-KR')}</td><td>{vname(p.vendor_id)}</td><td className="nowrap">{p.effective_date}</td><td className="max t-cap">{p.source_doc}</td><td>{p.approved ? <Badge tone="blue">승인</Badge> : <Badge>대기</Badge>}</td></tr>)}</tbody>
+        </table></div>
+      )}
+    </div>
+  )
+}
+
+// ─────────────────────────────── 협력사 · 자재 · 학습 자료
+function VendorsTab({ base }: { base: DesignBase }) {
+  const { api, version } = useApp()
+  const [status, setStatus] = useState<'partner' | 'candidate'>('partner')
+  const { data: all } = useAsync(() => api.listDesignVendors(), [version], [])
+  const rows = all.filter(v => v.status === status)
+  return (
+    <div className="design-block">
+      <div className="row wrap">
+        <button type="button" className={`chip${status === 'partner' ? ' active' : ''}`} onClick={() => setStatus('partner')}>거래 협력사 {all.filter(v => v.status === 'partner').length}</button>
+        <button type="button" className={`chip${status === 'candidate' ? ' active' : ''}`} onClick={() => setStatus('candidate')}>후보 (나라장터 · 검색) {all.filter(v => v.status === 'candidate').length}</button>
+      </div>
+      <p className="t-cap">발주서 자동 배정에는 '거래 협력사'만 씁니다. '거래처 연결'은 인트라넷 거래처 메뉴에 같은 이름이 있는 곳입니다.</p>
+      {rows.length === 0 ? <Empty>협력사가 없습니다.</Empty> : (
+        <div className="table-wrap"><table className="table">
+          <thead><tr><th>이름</th><th>담당 공종</th><th>지역</th><th>담당자</th><th>연락처</th><th>{status === 'partner' ? '거래처 연결' : '찾은 곳'}</th></tr></thead>
+          <tbody>{rows.map(v => <tr key={v.id}><td className="strong">{v.name}</td><td>{v.trades.map(t => tradeName(base, t)).join(', ')}</td><td>{v.region}</td><td>{v.contact_name}</td><td className="nowrap">{v.phone}</td>
+            <td className="t-cap max">{status === 'partner' ? (v.client_id ? <Badge tone="blue">연결됨</Badge> : <Badge>미연결</Badge>) : v.source_note}</td></tr>)}</tbody>
+        </table></div>
+      )}
+    </div>
+  )
+}
+
+function MaterialsTab() {
+  const { api, version } = useApp()
+  const [search, setSearch] = useState('')
+  const [q, setQ] = useState('')
+  useEffect(() => { const t = window.setTimeout(() => setQ(search), 350); return () => window.clearTimeout(t) }, [search])
+  const { data: rows } = useAsync(() => api.listDesignMaterials(q), [q, version], [])
+  return (
+    <div className="design-block">
+      <div className="row"><input className="input design-filter" type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder="자재 이름 · 분류 · 코드 찾기" aria-label="자재 찾기" /><span className="t-cap">{rows.length}건</span></div>
+      {rows.length === 0 ? <Empty>맞는 자재가 없습니다.</Empty> : (
+        <div className="table-wrap"><table className="table">
+          <thead><tr><th>코드</th><th>분류</th><th>이름</th><th>규격</th><th>단위</th><th>메모</th></tr></thead>
+          <tbody>{rows.map(m => <tr key={m.id}><td className="nowrap strong">{m.color_code}</td><td className="nowrap">{m.category}</td>
+            <td>{m.product_url ? <a href={m.product_url} target="_blank" rel="noreferrer">{m.name}</a> : m.name}</td><td className="max">{m.spec}</td><td>{m.unit}</td><td className="max t-cap">{m.notes}</td></tr>)}</tbody>
+        </table></div>
+      )}
+    </div>
+  )
+}
+
+const KIND_LABELS: Record<string, string> = {
+  drawing_set: '도면 세트 구성', cad_standard: '캐드 작성 기준', general_notes: '일반 사항', material_codes: '자재 코드 체계', design_report: '설계 보고서 구성',
+  render_scenes: '렌더 장면 구성', spec_book: '스펙북 구성', cost_sheet: '원가계산서 양식', special_specs: '특기 시방',
+}
+function outline(body: unknown, depth = 0): string[] {
+  if (body == null) return []
+  if (Array.isArray(body)) return body.slice(0, 40).flatMap(x => (typeof x === 'object' && x ? outline(x, depth + 1) : [`${'  '.repeat(depth)}· ${String(x)}`]))
+  if (typeof body === 'object') return Object.entries(body as Record<string, unknown>).flatMap(([k, v]) =>
+    typeof v === 'object' && v ? [`${'  '.repeat(depth)}${k}`, ...outline(v, depth + 1)] : [`${'  '.repeat(depth)}${k}: ${String(v)}`])
+  return [`${'  '.repeat(depth)}${String(body)}`]
+}
+function KnowledgeTab() {
+  const { api, version } = useApp()
+  const { data: rows } = useAsync(() => api.listKnowledge(), [version], [] as Knowledge[])
+  return (
+    <div className="design-block">
+      <p className="t-cap">표본 자료에서 뽑아 둔 구성 · 기준입니다. 도면 세트 · 스펙북 · 설계 보고서 · 제안서를 만들 때 본보기로 씁니다. 금액은 여기에 없습니다.</p>
+      {rows.length === 0 ? <Empty>학습 자료가 없습니다.</Empty> : rows.map(k => (
+        <details className="design-know" key={k.id}>
+          <summary><Badge tone="paper">{KIND_LABELS[k.kind] ?? k.kind}</Badge> <b>{k.title}</b> <span className="t-cap">{[k.project_code, k.source].filter(Boolean).join(' · ')}</span></summary>
+          <pre>{outline(k.body).slice(0, 200).join('\n')}</pre>
+        </details>))}
+    </div>
+  )
+}

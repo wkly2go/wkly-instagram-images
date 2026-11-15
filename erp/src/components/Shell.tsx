@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useId, useLayoutEffe
 import { useMyAgents } from './AgentDesk'
 import { MobileAppBar, TopAppButton } from './InstallCard'
 import { useTheme } from '../lib/theme'
-import { Ruler, BookOpen, Bookmark, Bot, ListTodo, Plus, Search, Briefcase, HardDrive, ChevronDown, ChevronLeft, ChevronRight, CircleHelp, PanelLeftClose, PanelLeftOpen, ClipboardCheck, FolderKanban, Home, Library, Megaphone, MessageCircle, MoreHorizontal, Settings, Users, Landmark, type LucideIcon } from 'lucide-react'
+import { PencilRuler, Ruler, BookOpen, Bookmark, Bot, ListTodo, Plus, Search, Briefcase, HardDrive, ChevronDown, ChevronLeft, ChevronRight, CircleHelp, PanelLeftClose, PanelLeftOpen, ClipboardCheck, FolderKanban, Home, Library, Megaphone, MessageCircle, MoreHorizontal, Settings, Users, Landmark, type LucideIcon } from 'lucide-react'
 import { accessSource, isDesktopApp } from '../lib/desktop'
 import { useAttendance } from '../lib/attendance'
 import { AssignTaskModal } from './AssignTask'
@@ -32,7 +32,7 @@ import { DockTodo } from './DockTodo'
 import type { ChatRoomSummary } from '../lib/types'
 import './ShellUsability.css'
 
-export type TabKey = 'tenders' | 'leads' | 'sales' | 'home' | 'reportTemplates' | 'approvals' | 'chat' | 'work' | 'projects' | 'clients' | 'library' | 'drive' | 'team' | 'site' | 'agents' | 'ads' | 'ledger' | 'admin'
+export type TabKey = 'design' | 'tenders' | 'leads' | 'sales' | 'home' | 'reportTemplates' | 'approvals' | 'chat' | 'work' | 'projects' | 'clients' | 'library' | 'drive' | 'team' | 'site' | 'agents' | 'ads' | 'ledger' | 'admin'
 
 export const TABS: { key: TabKey; label: string; path: string; admin?: boolean; keywords?: string[] }[] = [
   { key: 'home', label: '홈', path: '/' },
@@ -45,6 +45,8 @@ export const TABS: { key: TabKey; label: string; path: string; admin?: boolean; 
   { key: 'team', label: '업무·근태', path: '/team' },
   // 현장 실측: 사진 위 치수 · 도면 배치 · 체크리스트 (2026-11-04)
   { key: 'site', label: '현장', path: '/site' },
+  // 설계·견적: 인테리어 디자인 자동화 통합 (2026-11-15)
+  { key: 'design', label: '설계·견적', path: '/design', keywords: ['수량표', '견적', '단가', '공정표', '도면', '스펙북', '발주', '스케치업', '협력사'] },
   { key: 'agents', label: 'AI 팀·비용', path: '/agents', keywords: ['AI팀', 'AI 팀', 'AI 사용', '사용량', '비용', '예산', 'API', '에이전트'] },
   // 광고는 팀원 모두에게 공개 (대표 지시 2026-11-06)
   { key: 'ads', label: '광고·콘텐츠', path: '/ads', keywords: ['인스타그램', 'Instagram', 'Meta', '블로그', '유튜브', '캠페인', '소재', '마케팅', 'SEO'] },
@@ -70,6 +72,7 @@ const ICONS: Record<TabKey, LucideIcon> = {
   drive: HardDrive,
   team: Users,
   site: Ruler,
+  design: PencilRuler,
   agents: Bot,
   ads: Megaphone,
   ledger: Landmark,
@@ -78,7 +81,7 @@ const ICONS: Record<TabKey, LucideIcon> = {
 const MAIN_TABS: TabKey[] = ['home', 'approvals', 'chat', 'projects', 'site']
 const SHORT: Partial<Record<TabKey, string>> = { approvals: '보고서' }
 const NAV_GROUPS: { label: string; tabs: TabKey[] }[] = [
-  { label: '업무', tabs: ['home', 'reportTemplates', 'approvals', 'projects', 'site'] },
+  { label: '업무', tabs: ['home', 'reportTemplates', 'approvals', 'projects', 'site', 'design'] },
   { label: '협업·자료', tabs: ['chat', 'drive', 'team'] },
   { label: '운영', tabs: ['sales', 'leads', 'agents', 'ads'] },
   { label: '관리자 전용', tabs: ['ledger', 'admin'] },
