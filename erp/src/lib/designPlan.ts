@@ -84,6 +84,7 @@ export function planQuantities(g: PlanGeometry, wallTrade = 'T03'): PlanLine[] {
   for (const r of g.rooms ?? []) {
     const line = (mat: string | undefined, item: string, unit: string, qty: number | undefined) => { if (mat?.trim() && qty && qty > 0) add({ trade: finishTrade(mat), item, spec: mat.trim(), unit, qty, section: null }) }
     line(r.floor.mat, '바닥 마감', 'm2', r.area); line(r.ceiling.mat, '천장 마감', 'm2', r.area); line(r.base.mat, '걸레받이', 'm', r.perimeter)
+    for (const [code, n] of Object.entries(r.lights ?? {})) if (n > 0) add({ trade: 'T11', item: '조명 기구', spec: code, unit: 'EA', qty: n, section: null })
   }
   for (const it of g.items) {
     if (!it.name.trim() || !it.trade_code || !it.unit) continue
@@ -91,4 +92,12 @@ export function planQuantities(g: PlanGeometry, wallTrade = 'T03'): PlanLine[] {
     add({ trade: it.trade_code, item: it.name.trim(), spec: it.spec.trim() || `W${it.w} D${it.d} H${it.h}`, unit: it.unit, qty, section: it.section })
   }
   return [...out.values()]
+}
+
+/** Lighting counts are edited in the spec book, everything else in the plan editor. Each side keeps the other's part
+ *  when it saves: take `lights` from `from` (the latest saved plan) into the rooms of `into`. */
+export function keepLights(into: PlanGeometry, from: PlanGeometry | null): PlanGeometry {
+  if (!into.rooms?.length || !from?.rooms?.length) return into
+  const saved = new Map(from.rooms.map(r => [r.id, r.lights]))
+  return { ...into, rooms: into.rooms.map(r => (saved.get(r.id) ? { ...r, lights: saved.get(r.id) } : r)) }
 }

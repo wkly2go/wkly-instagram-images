@@ -22,7 +22,8 @@ export function DesignSpec({ project }: { project: DesignProject }) {
   const { data: images } = useAsync(() => api.listSpecImages(project.id), [project.id, version], {} as Record<string, string>)
   const { data: plan } = useAsync(() => api.getDesignPlan(project.id), [project.id, version], null as PlanGeometry | null)
   const rooms = plan?.rooms ?? [], lightCodes = [...new Set(items.filter(i => i.book === 'lighting' && i.status !== 'dropped' && i.code).map(i => i.code!))]
-  const setLight = (roomId: string, code: string, n: number) => plan && run(() => api.saveDesignPlan(project.id, { ...plan, rooms: rooms.map(r => (r.id === roomId ? { ...r, lights: { ...r.lights, [code]: n } } : r)) }))
+  // Save onto the latest plan, not the copy loaded with this screen, so plan edits made meanwhile are kept.
+  const setLight = (roomId: string, code: string, n: number) => run(async () => { const p = await api.getDesignPlan(project.id); if (!p?.rooms) throw new Error('평면이 없습니다. 평면 · 3D 에서 실을 먼저 추가해 주세요'); await api.saveDesignPlan(project.id, { ...p, rooms: p.rooms.map(r => (r.id === roomId ? { ...r, lights: { ...r.lights, [code]: n } } : r)) }) })
   const total = (code: string) => rooms.reduce((a, r) => a + (r.lights?.[code] ?? 0), 0)
   const pick = (i: SpecItem, file: File | undefined) => file && run(async () => {
     const blob = await makeImagePreview(file)
@@ -108,7 +109,7 @@ export function DesignSpec({ project }: { project: DesignProject }) {
         </section>
       ))}
       {lightCodes.length > 0 && <section className="design-spec-group" aria-label="조명 수량표">
-        <h3 className="t-bodyb">조명 수량표 <span className="t-cap">실 × 조명 기호 (표본 스펙북 '총계' 양식)</span></h3>
+        <h3 className="t-bodyb">조명 수량표 <span className="t-cap">실 × 조명 기호 (표본 스펙북 '총계' 양식) · 여기 수량은 '평면 · 3D'의 수량에 조명 기구로 들어갑니다</span></h3>
         {rooms.length === 0 ? <Empty>'평면 · 3D' 단계의 '실별 마감'에서 실을 추가하면 여기에서 실마다 조명 수량을 적을 수 있습니다.</Empty> : (
           <div className="table-wrap"><table className="table design-rooms">
             <thead><tr><th>실번호</th><th>실명</th>{lightCodes.map(c => <th key={c} className="num">{c}</th>)}<th className="num">소계</th></tr></thead>

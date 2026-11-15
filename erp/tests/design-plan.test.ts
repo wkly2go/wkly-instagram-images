@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { floorArea, planQuantities, snapPoint, type PlanGeometry, type PlanWall, finishTrade } from '../src/lib/designPlan.ts'
+import { floorArea, planQuantities, snapPoint, type PlanGeometry, type PlanWall, finishTrade, keepLights } from '../src/lib/designPlan.ts'
 
 const wall = (id: string, x1: number, y1: number, x2: number, y2: number, kind: 'existing' | 'new' = 'existing'): PlanWall => ({ id, x1, y1, x2, y2, t: 100, kind })
 const room = [wall('a', 0, 0, 6000, 0), wall('b', 6000, 0, 6000, 4000), wall('c', 6000, 4000, 0, 4000), wall('d', 0, 4000, 0, 0)]
@@ -36,4 +36,11 @@ test('a wall finish becomes a quantity line with the trade from the material pre
 test('room finishes become floor, ceiling and baseboard lines', () => {
   const l = planQuantities({ unit: 'mm', height: 2500, items: [], openings: [], walls: [], rooms: [{ id: 'r', no: '101', name: '홀', floor: { mat: 'TL-01' }, base: { mat: 'MT-04' }, wall: {}, ceiling: { mat: 'PT-01' }, area: 33.5, perimeter: 24 }, { id: 's', no: '102', name: '창고', floor: { mat: 'TL-01' }, base: {}, wall: {}, ceiling: {}, area: 6.5 }] })
   assert.deepEqual(l.map(x => [x.trade, x.item, x.spec, x.qty, x.unit]), [['T08', '바닥 마감', 'TL-01', 40, 'm2'], ['T06', '천장 마감', 'PT-01', 33.5, 'm2'], ['T04', '걸레받이', 'MT-04', 24, 'm']])
+})
+
+test('lighting counts become quantity lines and survive a plan save from a stale editor', () => {
+  const room = { id: 'r', no: '101', name: '홀', floor: {}, base: {}, wall: {}, ceiling: {} }, base = { unit: 'mm' as const, height: 2500, items: [], openings: [], walls: [] }
+  const saved = { ...base, rooms: [{ ...room, lights: { 'DL-01': 12, 'DL-02': 0 } }] }
+  assert.deepEqual(planQuantities(saved).map(x => [x.trade, x.item, x.spec, x.qty, x.unit]), [['T11', '조명 기구', 'DL-01', 12, 'EA']])
+  assert.deepEqual(keepLights({ ...base, rooms: [{ ...room, name: '로비' }] }, saved).rooms, [{ ...room, name: '로비', lights: { 'DL-01': 12, 'DL-02': 0 } }])
 })
