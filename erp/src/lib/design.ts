@@ -48,7 +48,7 @@ export interface Placement {
 export type PlacementDraft = Pick<Placement, 'project_id' | 'model_version' | 'trade_code' | 'item' | 'spec' | 'unit' | 'qty' | 'location'>
 
 export interface EstimateTotals { direct: string; overhead: string; profit: string; subtotal: string; adjustment: string; supply: string; vat: string; total: string }
-export interface EstimateWarning { code: string; level: 'error' | 'warn' | 'info'; message: string; trade_code: string | null }
+export interface EstimateWarning { code: string; level: 'error' | 'warning' | 'warn' | 'info'; message: string; trade_code: string | null }
 export interface Estimate {
   id: string
   project_id: string
