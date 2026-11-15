@@ -5,6 +5,8 @@ import type {SalesStrategy,SalesStrategyApi} from '../lib/salesStrategy'
 import type {SalesDeskAction,SalesDeskMessage} from '../lib/salesDesk'
 import {Button,Field} from './ui'
 import './SalesDeskChat.css'
+/** One-tap instructions for the most common questions. */
+const QUICK=['이번 주 새로 확인된 팝업·매장 오픈 브랜드와 접근 방법','참여 가능한 나라장터 용역 공고 정리','승인 대기 중인 기획안 요약과 우선순위']
 const time=(v:string)=>new Date(v).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'})
 /** Plans join the conversation as proposals the administrator approves or rejects in place. */
 export interface DeskPlans {items:SalesStrategy[];busy:boolean;error:string;onApprove:(row:SalesStrategy)=>void;onReject:(row:SalesStrategy,reason:string,replan:boolean)=>void;onOpen:(row:SalesStrategy)=>void;onPlan:(direction:string)=>void;execution?:(row:SalesStrategy)=>ReactNode}
@@ -12,20 +14,22 @@ export function SalesDeskChat({api,agents,canSubmit,operational,plans}:{api:Sale
  const [instruction,setInstruction]=useState(''),[agent,setAgent]=useState(''),[action,setAction]=useState<SalesDeskAction>('보고서'),[busy,setBusy]=useState(false),[error,setError]=useState(''),[cursors,setCursors]=useState<(number|null)[]>([null])
  const before=cursors[cursors.length-1],state=useAsync(()=>api.listSalesDesk(before),[api,before],[])
  const request=useRef<{id:string;signature:string}|null>(null)
+ const waiting=plans?.items.filter(p=>p.status==='승인 대기')??[],running=plans?.items.filter(p=>p.status==='승인').length??0
  const conversation=useRef<HTMLDivElement>(null),followLatest=useRef(true),sent=useRef(false)
  const pending=state.data.some(m=>m.status==='처리 중')
  // Proposals appear only beside the latest conversation page, in the order things happened.
- const timeline=[...state.data.map(m=>({at:m.created_at,message:m,plan:null as SalesStrategy|null})),...(plans&&cursors.length===1?plans.items.map(p=>({at:p.created_at,message:null as SalesDeskMessage|null,plan:p})):[])].sort((a,b)=>a.at<b.at?-1:a.at>b.at?1:0)
+ const timeline=[...state.data.map(m=>({at:m.created_at,message:m,plan:null as SalesStrategy|null})),...(plans&&cursors.length===1?plans.items.filter(p=>p.status!=='생성 실패').map(p=>({at:p.created_at,message:null as SalesDeskMessage|null,plan:p})):[])].sort((a,b)=>a.at<b.at?-1:a.at>b.at?1:0)
  useDraftNavigation(!!instruction.trim(),busy)
  // After the user sends an instruction, bring the newest exchange into view once; never move the page on a plain reload.
  useEffect(()=>{if(state.loading||!followLatest.current||!sent.current)return;sent.current=false;conversation.current?.lastElementChild?.scrollIntoView?.({block:'nearest'})},[state.data,state.loading])
  useEffect(()=>{if(!pending)return;const timer=window.setInterval(()=>{if(!document.hidden)state.reload()},6000);return()=>window.clearInterval(timer)},[pending,state.reload])
- const send=async()=>{
-  if(busy||pending||!canSubmit||!operational||instruction.trim().length<2)return
+ const send=async(preset?:string)=>{
+  const text=(preset??instruction).trim()
+  if(busy||pending||!canSubmit||!operational||text.length<2)return
   setBusy(true);setError('')
-  const signature=JSON.stringify([agent,action,instruction.trim()])
+  const signature=JSON.stringify([agent,preset?'보고서':action,text])
   if(request.current?.signature!==signature)request.current={id:crypto.randomUUID(),signature}
-  try{await api.submitSalesDesk(request.current.id,agent||null,action,instruction.trim());request.current=null;followLatest.current=true;sent.current=true;setInstruction('');setCursors([null]);state.reload()}
+  try{await api.submitSalesDesk(request.current.id,agent||null,preset?'보고서':action,text);request.current=null;followLatest.current=true;sent.current=true;setInstruction('');setCursors([null]);state.reload()}
   catch(e){setError(e instanceof Error?e.message:'업무 지시를 저장하지 못했습니다.');state.reload()}
   finally{setBusy(false)}
  }
@@ -33,14 +37,18 @@ export function SalesDeskChat({api,agents,canSubmit,operational,plans}:{api:Sale
   <header><div><h2>AI 팀원과 영업 대화</h2><p>지시하면 AI가 자료를 찾아 보고하고, 기획안을 제안합니다. 대화 안에서 승인하거나 반려하면 다음 단계는 시스템이 이어서 처리합니다.</p></div><Button kind="outline" disabled={state.loading||busy} onClick={state.reload}>대화 새로고침</Button></header>
   {!operational&&<p role="status">체험 화면입니다. 실제 DB 조회·보고서 생성은 운영 계정에서 사용할 수 있습니다.</p>}
   {(error||state.error||plans?.error)&&<p role="alert">{error||state.error||plans?.error}</p>}
+  {plans&&(waiting.length>0||running>0)&&<p className="sales-desk-summary" role="status"><strong>승인 대기 {waiting.length}건</strong> · 실행 준비·진행 {running}건{waiting.length>0&&<Button kind="outline" onClick={()=>document.getElementById('sales-plan-'+waiting[0].id)?.scrollIntoView?.({block:'center'})}>승인할 기획안 보기</Button>}</p>}
   <div ref={conversation} className="sales-desk-conversation" aria-label="저장된 지시와 결과" aria-busy={state.loading}>
    {state.loading?<p role="status">대화 기록을 불러오고 있습니다.</p>:!state.error&&!timeline.length?<p>아직 대화가 없습니다. 아래에 원하는 결과를 적어 주세요.</p>:!state.error&&timeline.map(item=>item.plan?<PlanProposal key={'plan:'+item.plan.id} row={item.plan} plans={plans!} canDecide={canSubmit&&operational}/>:(m=><article key={m.id} className="sales-desk-exchange"><div className="sales-desk-mine"><header><strong>내 지시 · {m.action}</strong><small>{time(m.created_at)}</small></header><p className="sales-desk-text">{m.instruction}</p></div><div className="sales-desk-answer"><strong>{m.agent_name} · {m.status}</strong>{m.status==='처리 중'?<p role="status">저장된 자료를 바탕으로 보고서를 작성하고 있습니다.</p>:<p className="sales-desk-text">{m.reply}</p>}{m.report&&<DeskReportView message={m}/>}{m.report&&plans&&canSubmit&&<p className="sales-desk-actions"><Button kind="outline" disabled={plans.busy} onClick={()=>plans.onPlan(`대화 지시: ${m.instruction} · 보고서: ${m.report!.title} · 제안: ${m.report!.recommendations.slice(0,2).join(' / ')}`.slice(0,600))}>이 내용으로 기획안 만들기</Button></p>}<details><summary>조회한 DB 자료와 수집 상태 · {m.snapshot.sources.length}건</summary><p>{m.snapshot.scope} · 일치 {m.snapshot.matched_total}건 · {time(m.snapshot.at)}</p>{m.snapshot.sources.length?<ul>{m.snapshot.sources.map(s=><li key={s.id}><strong>{s.name}</strong> · {s.entity_kind} · {s.organization||'소속 미확인'}<small>{s.source} · {s.source_updated_at?time(s.source_updated_at):'자료 시각 미확인'}</small><p className="sales-desk-text">{s.evidence}</p>{/^https?:\/\//i.test(s.source_url)&&<a href={s.source_url} target="_blank" rel="noopener noreferrer">등록 출처 열기 ↗</a>}</li>)}</ul>:<p>조건에 맞는 저장 자료가 없습니다. 새로운 고객 수요가 확인됐다는 의미가 아닙니다.</p>}<h4>출처별 최근 수집 상태</h4>{m.snapshot.coverage.map(s=><p key={s.source}>{s.source} · {s.status}<br/>{s.note}</p>)}<h4>전체 영업 진행 단계</h4><p>{m.snapshot.pipeline.map(p=>`${p.stage} ${p.count}건`).join(' · ')||'등록된 진행 영업 없음'}</p>{m.snapshot.execution&&<><h4>외부 연락 준비 현황</h4><p>{m.snapshot.execution.scope} · 검증 대기 {m.snapshot.execution.needs_verification}건 · 재검토 {m.snapshot.execution.recheck}건 · 보류 {m.snapshot.execution.held}건</p><p>{m.snapshot.execution.note}</p></>}</details></div></article>)(item.message!))}
   </div>
   <nav aria-label="영업 대화 페이지"><Button kind="outline" disabled={state.loading||state.data.length<30} onClick={()=>setCursors(v=>[...v,state.data[0].sequence])}>이전 대화</Button><span>{cursors.length===1?'최근 대화':`${cursors.length}페이지`}</span><Button kind="outline" disabled={state.loading||cursors.length===1} onClick={()=>setCursors(v=>v.slice(0,-1))}>최근 대화로</Button></nav>
   <form onSubmit={e=>{e.preventDefault();void send()}}><fieldset disabled={busy||!canSubmit||!operational}>
+   <div className="sales-desk-chips" aria-label="자주 쓰는 지시">{QUICK.map(q=><Button key={q} kind="outline" disabled={pending} onClick={()=>void send(q)}>{q}</Button>)}{plans&&<Button kind="outline" disabled={plans.busy} onClick={()=>plans.onPlan('')}>새 기획안 받기</Button>}</div>
+   <Field label="AI 팀원에게 지시할 내용"><textarea className="textarea" maxLength={1200} value={instruction} onChange={e=>setInstruction(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){e.preventDefault();void send()}}} placeholder="예: 이번 주 팝업 관련 자료를 분석하고 우선 영업 대상과 접근 방법을 보고서로 만들어 줘."/></Field>
+   <details className="sales-desk-more"><summary>담당 AI 팀원 · 업무 종류 바꾸기</summary>
    <div className="sales-desk-options"><Field label="지시할 AI 팀원"><select className="select" value={agent} onChange={e=>setAgent(e.target.value)}><option value="">영업 기획 AI</option>{agents.map(a=><option value={a.id} key={a.id}>{a.name}</option>)}</select></Field><Field label="요청할 업무"><select className="select" value={action} onChange={e=>setAction(e.target.value as SalesDeskAction)}><option value="보고서">분석 보고서 작성</option><option value="조회">저장 자료 불러오기</option><option value="수집">자료 취합 요청</option></select></Field></div>
-   <Field label="AI 팀원에게 지시할 내용"><textarea className="textarea" maxLength={1200} value={instruction} onChange={e=>setInstruction(e.target.value)} placeholder="예: 이번 주 팝업 관련 자료를 분석하고 우선 영업 대상과 접근 방법을 보고서로 만들어 줘."/></Field>
-   <div className="sales-desk-send"><small>{instruction.length}/1,200자 · 자료 조회는 저장 DB 기준이며 보고서는 AI 사용 한도 내에서 작성합니다.</small><Button type="submit" disabled={pending||instruction.trim().length<2}>{busy?'지시 저장 중…':'업무 지시 보내기'}</Button></div>
+   </details>
+   <div className="sales-desk-send"><small>{instruction.length}/1,200자 · Ctrl+Enter로 보내기 · 보고서는 AI 사용 한도 안에서 작성합니다.</small><Button type="submit" disabled={pending||instruction.trim().length<2}>{busy?'지시 저장 중…':'업무 지시 보내기'}</Button></div>
   </fieldset></form>
   {!canSubmit&&<p>업무 지시는 관리자 계정에서 사용할 수 있습니다.</p>}
  </section>
@@ -55,7 +63,7 @@ const planState=(row:SalesStrategy)=>row.status==='승인 대기'&&row.preparati
 function PlanProposal({row,plans,canDecide}:{row:SalesStrategy;plans:DeskPlans;canDecide:boolean}){
  const [rejecting,setRejecting]=useState(false),[reason,setReason]=useState(''),p=row.plan
  const waiting=row.status==='승인 대기',ready=!row.preparation_before_approval||row.preparation_status==='완료'
- return <article className="sales-desk-exchange sales-desk-plan" aria-label={`기획안 제안 · ${p?.title||'기획 중'}`}><div className="sales-desk-answer">
+ return <article id={'sales-plan-'+row.id} className="sales-desk-exchange sales-desk-plan" aria-label={`기획안 제안 · ${p?.title||'기획 중'}`}><div className="sales-desk-answer">
   <header><strong>영업 기획 AI · 기획안 제안</strong><small>{planState(row)} · {time(row.created_at)}</small></header>
   {row.status==='기획 중'?<p role="status">자료를 읽고 기획안을 작성하고 있습니다.</p>:!p?<p className="sales-desk-text">기획안을 완성하지 못했습니다. 아래에서 다시 지시하거나 ‘AI 새 영업안 기획’으로 새 안을 받을 수 있습니다.</p>:<>
    <h3>{p.title}</h3>

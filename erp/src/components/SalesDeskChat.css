@@ -23,3 +23,6 @@
 /* The conversation scrolls with the page: a second scroll area inside it trapped the mouse wheel. */
 .sales-desk-conversation,.sales-desk-chat .sales-desk-conversation{max-height:none;overflow:visible;overscroll-behavior:auto}
 @media(max-width:700px){.sales-desk-conversation{max-height:none}}
+.sales-desk-summary{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:16px 0 0;padding:10px 14px;background:#fdf1f5;border:1px solid #f1c7d6}
+.sales-desk-chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}.sales-desk-chips .btn,.sales-desk-chips button{white-space:normal;text-align:left}
+.sales-desk-more{margin:8px 0 0}.sales-desk-more>summary{cursor:pointer;color:#4d5a50;font-size:13px}.sales-desk-more .sales-desk-options{margin-top:10px}
