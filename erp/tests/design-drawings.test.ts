@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { elevationItems, furnitureTypes, pickScale, planDxf, sheetList } from '../src/lib/designDrawings.ts'
+import { materialKind, wallFaceArea, wallFinishRows, elevationItems, furnitureTypes, pickScale, planDxf, sheetList } from '../src/lib/designDrawings.ts'
 import type { PlanGeometry } from '../src/lib/designPlan.ts'
 
 const g: PlanGeometry = { unit: 'mm', height: 2700, openings: [{ id: 'o', wall: 'a', pos: 1500, width: 900, kind: 'door' }],
@@ -14,22 +14,22 @@ test('scale comes from the standard list and fits the paper', () => {
 
 test('sheet list follows the learned numbering: general, plan series, one elevation per wall', () => {
   const s = sheetList(g)
-  assert.deepEqual(s.map(x => x.no), ['I-000', 'I-002', 'I-004', 'I-102', 'I-106', 'I-109', 'I-141', 'I-142', 'I-143', 'I-144', 'IF-301'])
+  assert.deepEqual(s.map(x => x.no), ['I-000', 'I-002', 'I-006', 'I-008', 'I-102', 'I-106', 'I-109', 'I-141', 'I-142', 'I-143', 'I-144', 'ID-401', 'IF-701'])
   assert.equal(s.find(x => x.no === 'I-102')!.scale, '1/30')
-  assert.equal(sheetList({ ...g, walls: [], items: [] }).length, 3)
+  assert.equal(sheetList({ ...g, walls: [], openings: [], items: [] }).length, 4)
 })
 
 test('DXF has layers and entities in mm', () => {
   const d = planDxf(g)
   assert.ok(d.startsWith('0\nSECTION') && d.endsWith('0\nEOF\n'))
   for (const l of ['A-WALL', 'A-DOOR', 'I-FURN']) assert.ok(d.includes(`8\n${l}\n`), l)
-  assert.equal((d.match(/0\nLINE\n/g) ?? []).length, 4 * 4 + 1 + 4)
+  assert.equal((d.match(/0\nLINE\n/g) ?? []).length, 4 * 4 + 1 + 4 + 4 * 4 + 4 + 3 * 4)
 })
 
 test('finish table splits every 36 rows; new walls and furniture types get detail sheets', () => {
   const s = sheetList({ ...g, walls: [...g.walls, { id: 'n', x1: 4000, y1: 0, x2: 4000, y2: 2000, t: 100, kind: 'new' }], items: [...g.items, { ...g.items[0], id: 'j', x: 3000 }] }, 80)
-  assert.deepEqual(s.filter(x => x.kind === 'finish').map(x => x.no), ['I-004', 'I-005', 'I-006'])
-  assert.equal(s.find(x => x.kind === 'wallDetail')!.title, '가벽 단면 상세 T100')
+  assert.deepEqual(s.filter(x => x.kind === 'finish').map(x => x.no), ['I-008', 'I-009', 'I-010'])
+  assert.equal(s.find(x => x.kind === 'wallDetail')!.title, '벽체 상세 T100')
   assert.equal(s.filter(x => x.kind === 'furnDetail').length, 1)
   assert.equal(furnitureTypes({ ...g, items: [...g.items, { ...g.items[0], id: 'j' }] })[0].count, 2)
 })
@@ -39,3 +39,11 @@ test('elevation picks up items standing against the wall', () => {
   const e = elevationItems({ ...g, items: [...g.items, near] }, g.walls[0])
   assert.deepEqual(e.map(x => [x.id, x.a, x.b, x.h]), [['k', 2000, 3200, 900]])
 })
+
+test('wall finish rows use the elevation label and net face area', () => {
+  const walls = g.walls.map(w => (w.id === 'a' ? { ...w, finish: '수성 페인트 백색' } : w))
+  assert.equal(wallFaceArea(g, g.walls[0]), 19.71)
+  assert.deepEqual(wallFinishRows({ ...g, walls }), [{ label: '입면 A', finish: '수성 페인트 백색', area: 19.71 }])
+})
+
+test('material kind comes from the code prefix', () => { assert.equal(materialKind('PT-01'), '도장'); assert.equal(materialKind('x'), '') })

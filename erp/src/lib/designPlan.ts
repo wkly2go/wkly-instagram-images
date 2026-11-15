@@ -2,7 +2,7 @@
 // 레퍼런스: Coohom · 아키스케치(평면을 그리면 바로 3D) · Houzz Pro(물량 → 견적)
 // 여기서 만드는 것은 수량(개수 · 면적 · 길이)뿐이다. 금액은 견적 엔진(작업 처리기)만 계산한다.
 
-export interface PlanWall { id: string; x1: number; y1: number; x2: number; y2: number; /** 두께 mm */ t: number; /** existing: 기존 벽(수량 없음) · new: 새로 세우는 가벽(수량에 들어감) */ kind: 'existing' | 'new' }
+export interface PlanWall { id: string; x1: number; y1: number; x2: number; y2: number; /** 두께 mm */ t: number; /** existing: 기존 벽(수량 없음) · new: 새로 세우는 가벽(수량에 들어감) */ kind: 'existing' | 'new'; /** 이 벽의 마감 (입면도 · 마감표에 적힘) */ finish?: string }
 export interface PlanOpening { id: string; wall: string; /** 벽 시작점에서 중심까지 mm */ pos: number; width: number; kind: 'door' | 'window' }
 export interface PlanItem {
   id: string; x: number; y: number; w: number; d: number; h: number; rot: 0 | 90

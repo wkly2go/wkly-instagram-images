@@ -4,7 +4,7 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { Button, Empty } from './ui'
 import { useAction, useApp, useAsync } from '../lib/app'
-import type { DesignBase, DesignProject } from '../lib/design'
+import type { DesignBase, DesignProject, SpecItem } from '../lib/design'
 import { EMPTY_PLAN, floorArea, planQuantities, snapPoint, wallLength, type PlanGeometry, type PlanItem, type PlanWall } from '../lib/designPlan'
 
 const Plan3D = lazy(() => import('./DesignPlan3D'))
@@ -23,6 +23,7 @@ const uid = () => Math.random().toString(36).slice(2, 10)
 export function DesignPlan({ project, base }: { project: DesignProject; base: DesignBase }) {
   const { api, version } = useApp()
   const { run, busy } = useAction()
+  const { data: specs } = useAsync(() => api.listSpecItems(project.id), [project.id, version], [] as SpecItem[])
   const { data: saved, loading } = useAsync(() => api.getDesignPlan(project.id), [project.id, version], null as PlanGeometry | null)
   const [plan, setPlan] = useState<PlanGeometry>(EMPTY_PLAN)
   const [dirty, setDirty] = useState(false)
@@ -166,6 +167,9 @@ export function DesignPlan({ project, base }: { project: DesignProject; base: De
             <b className="design-plan-sel">{selWall.kind === 'new' ? '새 가벽' : '기존 벽'} · {Math.round(wallLength(selWall)).toLocaleString('ko-KR')}mm</b>
             <label className="design-plan-h">두께 <input className="input xs" inputMode="numeric" value={selWall.t} onChange={e => change({ ...plan, walls: plan.walls.map(w => (w.id === sel ? { ...w, t: Number(e.target.value.replace(/\D/g, '')) || 0 } : w)) })} /></label>
             <Button size="sm" kind="outline" onClick={() => change({ ...plan, walls: plan.walls.map(w => (w.id === sel ? { ...w, kind: w.kind === 'new' ? 'existing' : 'new' } : w)) })}>{selWall.kind === 'new' ? '기존 벽으로' : '새 가벽으로'}</Button>
+            <label className="design-plan-h">마감 <input className="input" list="design-wall-finishes" placeholder="예: PT-01 수성 페인트 백색" title="스펙북 마감재에 넣은 재료 번호를 고르거나 직접 적습니다" value={selWall.finish ?? ''} onChange={e => change({ ...plan, walls: plan.walls.map(w => (w.id === sel ? { ...w, finish: e.target.value } : w)) })} /></label>
+            <datalist id="design-wall-finishes">{[...new Set([...specs.filter(x => x.book === 'materials' && x.status !== 'dropped').map(x => [x.code, x.name].filter(Boolean).join(' ')), ...plan.walls.map(w => w.finish?.trim())].filter(Boolean))].map(v => <option key={v} value={v} />)}</datalist>
+            {selWall.finish?.trim() && <Button size="sm" kind="ghost" title="마감이 비어 있는 벽에만 같은 마감을 넣습니다" onClick={() => change({ ...plan, walls: plan.walls.map(w => (w.finish?.trim() ? w : { ...w, finish: selWall.finish })) })}>빈 벽에 같은 마감</Button>}
           </>}
           {selOpen && <>
             <b className="design-plan-sel">{selOpen.kind === 'door' ? '문' : '창'}</b>
