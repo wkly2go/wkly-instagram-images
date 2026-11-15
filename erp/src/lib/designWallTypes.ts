@@ -61,3 +61,14 @@ export const BASE_TYPES: BaseType[] = [
   { "code": "B6", "name": "MDF 위 인테리어 필름", "thk": "", "layers": [ "걸레받이 : THK.9mm WOOD PANEL FIN.", "APP. LVT TILE FIN." ] },
   { "code": "B7", "name": "지정 히든 걸레받이[대리석/타일/남여화장실벽체]", "thk": "50", "layers": [ "걸레받이 : APP' THK. 1.5MM METAL FIN.", "APP. LVT TILE FIN." ] },
   { "code": "B8", "name": "지정 금속 걸레받이[연회장]", "thk": "150", "layers": [ "걸레받이 : APP' THK. 1.5MM METAL FIN.", "APP. LVT TILE FIN." ] } ]
+
+// Ceiling types. The sample ceiling details (ID-301~306, 1/25) are drawn per room and carry no type codes, so these codes are ours:
+// each one is built only from the members and finishes written on those sample sheets.
+export interface CeilingType { code: string; name: string; layers: string[]; cove?: boolean }
+export const CEILING_TYPES: CeilingType[] = [
+  { code: 'C1', name: '평천장 (석고보드 + 도장)', layers: ["30*30 STL' PIPE", 'THK. 9.5mm GYB. BOARD 2PLY.', 'APP. PAINT FIN.'] },
+  { code: 'C2', name: '간접 조명 단차 천장', layers: ["30*30 STL' PIPE", "20*20 STL' PIPE", 'THK. 9.5mm GYB. BOARD 2PLY.', 'APP. PAINT FIN.', 'INDIRECT LIGHTING (LED BAR)'], cove: true },
+  { code: 'C3', name: '금속판 천장', layers: ["30*30 STL' PIPE", "APP' METAL PLATE FIN."] },
+  { code: 'C4', name: '흡음 루버 천장', layers: ["30*30 STL' PIPE", "APP' ACOUSTIC LOUVER FIN."] },
+  { code: 'C5', name: '바리솔 천장', layers: ["30*30 STL' PIPE", 'LED BAR', "APP' BARRISOL FIN."] },
+]

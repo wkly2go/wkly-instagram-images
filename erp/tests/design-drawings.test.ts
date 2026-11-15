@@ -63,3 +63,8 @@ test('doors of the same size, kind and finish share one door-list entry', () => 
   const o = g.openings[0], d = doorGroups({ ...g, openings: [{ ...o, to: '창고' }, { ...o, id: 'p', to: '사무실' }, { ...o, id: 'q', width: 800, height: 2000 }] })
   assert.deepEqual(d.map(x => [x.no, x.width, x.height, x.count, x.to.join('/')]), [['D-01', 800, 2000, 1, ''], ['D-02', 900, 2100, 2, '창고/사무실']])
 })
+
+test('a room ceiling type adds a ceiling detail sheet after the wall details', () => {
+  const rooms = [{ id: 'r', no: '101', name: '홀', floor: {}, base: {}, wall: { detail: 'W10' }, ceiling: { detail: 'C2' }, ch: 2700 }]
+  assert.deepEqual(sheetList({ ...g, rooms }).filter(x => /^ID-[23]/.test(x.no)).map(x => `${x.no} ${x.title}`), ['ID-201 벽체 상세 W10', 'ID-301 천장 상세 C2'])
+})
