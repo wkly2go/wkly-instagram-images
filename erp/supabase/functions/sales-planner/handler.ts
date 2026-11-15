@@ -1,6 +1,6 @@
 import { parseStrategyPlan, strategyPrompt, preparationPrompt, parseStrategyPreparation, type StrategyPreparation, type StrategySource, type StrategyPlan } from '../../../src/lib/salesStrategy.ts'
 import type {SalesContactEvidence} from '../../../src/lib/salesExecution.ts'
-export interface PlanningJob {contact_evidence?:SalesContactEvidence;id: string; phase?: 'plan' | 'prepare'; plan?: StrategyPlan; model: 'fast' | 'standard' | 'deep'; actor: string; today: string; sources: StrategySource[]; recent: {title: string; category: string}[]; feedback: string}
+export interface PlanningJob {contact_evidence?:SalesContactEvidence;id: string; phase?: 'plan' | 'prepare'; plan?: StrategyPlan; model: 'fast' | 'standard' | 'deep'; actor: string; today: string; sources: StrategySource[]; recent: {title: string; category: string}[]; feedback: string; learning?: import('../../../src/lib/salesCompany.ts').MethodLearning[]}
 export interface PlannerDependencies {
   claim: (id: string, token: string) => Promise<PlanningJob | null>;
   generate: (job: PlanningJob, prompt: string) => Promise<{status?: string; text?: string; error?: string}>;
