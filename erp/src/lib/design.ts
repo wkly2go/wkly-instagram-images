@@ -232,7 +232,10 @@ export interface DesignApi {
   saveProposalSection(projectId: string, key: string, patch: Pick<ProposalSection, 'body' | 'figures' | 'status'>): Promise<void>
   listSpecItems(projectId: string): Promise<SpecItem[]>
   addSpecItem(row: Omit<SpecItem, 'id' | 'sort'>): Promise<void>
-  updateSpecItem(id: string, patch: Partial<Pick<SpecItem, 'status' | 'location' | 'note' | 'code'>>): Promise<void>
+  updateSpecItem(id: string, patch: Partial<Omit<SpecItem, 'id' | 'project_id'>>): Promise<void>
+  /** 스펙 품목의 샘플 사진(작은 미리보기 data URL) — 품목 id 별 */
+  listSpecImages(projectId: string): Promise<Record<string, string>>
+  setSpecImage(projectId: string, itemId: string, data: string | null): Promise<void>
   deleteSpecItem(id: string): Promise<void>
   listCostLines(projectId: string): Promise<CostLine[]>
   /** 실행 내역을 통째로 바꾼다 (엑셀 다시 올리기) */

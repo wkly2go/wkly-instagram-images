@@ -4,6 +4,8 @@ import { useMemo, useRef, useState } from 'react'
 import { Badge, Button, Empty } from './ui'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { SPEC_BOOKS, SPEC_STATUS, type DesignMaterial, type DesignProject, type SpecBook, type SpecItem } from '../lib/design'
+import type { PlanGeometry } from '../lib/designPlan'
+import { makeImagePreview } from '../lib/imagePreview'
 
 export function DesignSpec({ project }: { project: DesignProject }) {
   const { api, version, toast } = useApp()
@@ -17,6 +19,17 @@ export function DesignSpec({ project }: { project: DesignProject }) {
   const [d, setD] = useState({ code: '', name: '', spec: '', location: '', maker: '' })
   const sheet = useRef<HTMLDivElement>(null)
   const [open, setOpen] = useState<string | null>(null)
+  const { data: images } = useAsync(() => api.listSpecImages(project.id), [project.id, version], {} as Record<string, string>)
+  const { data: plan } = useAsync(() => api.getDesignPlan(project.id), [project.id, version], null as PlanGeometry | null)
+  const rooms = plan?.rooms ?? [], lightCodes = [...new Set(items.filter(i => i.book === 'lighting' && i.status !== 'dropped' && i.code).map(i => i.code!))]
+  const setLight = (roomId: string, code: string, n: number) => plan && run(() => api.saveDesignPlan(project.id, { ...plan, rooms: rooms.map(r => (r.id === roomId ? { ...r, lights: { ...r.lights, [code]: n } } : r)) }))
+  const total = (code: string) => rooms.reduce((a, r) => a + (r.lights?.[code] ?? 0), 0)
+  const pick = (i: SpecItem, file: File | undefined) => file && run(async () => {
+    const blob = await makeImagePreview(file)
+    if (!blob) throw new Error('사진을 읽지 못했습니다. JPG · PNG 파일로 다시 올려 주세요')
+    const data = await new Promise<string>((ok, no) => { const fr = new FileReader(); fr.onload = () => ok(String(fr.result)); fr.onerror = () => no(fr.error); fr.readAsDataURL(blob) })
+    await api.setSpecImage(project.id, i.id, data)
+  }, '샘플 사진을 넣었습니다')
   const DETAIL = [['finish', 'FINISH (마감 · 색)'], ['size', 'SIZE (크기)'], ['maker', 'MANUFAC. / ORIGIN (제조사 · 원산지)'], ['distributor', 'DISTRIBUTOR (납품 업체)'], ['contact', 'CONNECT NO. (담당 · 연락처)'], ['delivery', 'DELIVERY (납기)'], ['stock', 'STOCK (재고 · 수량)'], ['note', '비고']] as const
   const live = items.filter(i => i.status !== 'dropped')
   const groups = useMemo(() => {
@@ -78,7 +91,13 @@ export function DesignSpec({ project }: { project: DesignProject }) {
                 <td>{i.maker}</td>
                 <td><button type="button" className="design-status" disabled={busy} title="눌러서 다음 상태로" onClick={() => run(() => api.updateSpecItem(i.id, { status: next[i.status] }))}><Badge tone={tone(i.status)}>{SPEC_STATUS[i.status]}</Badge></button></td>
                 <td className="nowrap">{i.status !== 'dropped' && <Button size="sm" kind="ghost" disabled={busy} onClick={() => run(() => api.updateSpecItem(i.id, { status: 'dropped' }))}>제외</Button>}<Button size="sm" kind="ghost" aria-expanded={open === i.id} onClick={() => setOpen(open === i.id ? null : i.id)}>상세</Button><Button size="sm" kind="ghost" disabled={busy} onClick={() => run(() => api.deleteSpecItem(i.id))} aria-label={`${i.name} 지우기`}>지우기</Button></td>
-              </tr>).flatMap((tr, n) => { const i = rows[n]; return open === i.id ? [tr, <tr key={`${i.id}-d`}><td colSpan={7}><div className="design-add">{DETAIL.map(([k, label]) => <label key={k} className="design-spec-f"><span className="t-cap">{label}</span><input className="input" defaultValue={i[k] ?? ''} onBlur={e => { const v = e.target.value.trim() || null; if (v !== (i[k] ?? null)) run(() => api.updateSpecItem(i.id, { [k]: v })) }} /></label>)}</div></td></tr>] : [tr] })}</tbody>
+              </tr>).flatMap((tr, n) => { const i = rows[n]; return open === i.id ? [tr, <tr key={`${i.id}-d`}><td colSpan={7}><div className="design-add">{DETAIL.map(([k, label]) => <label key={k} className="design-spec-f"><span className="t-cap">{label}</span><input className="input" defaultValue={i[k] ?? ''} onBlur={e => { const v = e.target.value.trim() || null; if (v !== (i[k] ?? null)) run(() => api.updateSpecItem(i.id, { [k]: v })) }} /></label>)}
+                  <div className="design-spec-f"><span className="t-cap">SAMPLE / IMAGE (샘플 사진 · 작게 줄여 보관)</span><div className="row">
+                    {images[i.id] && <img className="design-spec-img" src={images[i.id]} alt={`${i.name} 샘플`} />}
+                    <input type="file" accept="image/*" aria-label={`${i.name} 샘플 사진`} disabled={busy} onChange={e => { pick(i, e.target.files?.[0]); e.target.value = '' }} />
+                    {images[i.id] && <Button size="sm" kind="ghost" disabled={busy} onClick={() => run(() => api.setSpecImage(project.id, i.id, null))}>사진 지우기</Button>}
+                  </div></div>
+                </div></td></tr>] : [tr] })}</tbody>
             </table></div>
           ) : (
             <ul className="design-spec-cards">{rows.map(i => <li key={i.id} className={i.status === 'dropped' ? 'design-off' : ''}>
@@ -88,6 +107,18 @@ export function DesignSpec({ project }: { project: DesignProject }) {
           )}
         </section>
       ))}
+      {lightCodes.length > 0 && <section className="design-spec-group" aria-label="조명 수량표">
+        <h3 className="t-bodyb">조명 수량표 <span className="t-cap">실 × 조명 기호 (표본 스펙북 '총계' 양식)</span></h3>
+        {rooms.length === 0 ? <Empty>'평면 · 3D' 단계의 '실별 마감'에서 실을 추가하면 여기에서 실마다 조명 수량을 적을 수 있습니다.</Empty> : (
+          <div className="table-wrap"><table className="table design-rooms">
+            <thead><tr><th>실번호</th><th>실명</th>{lightCodes.map(c => <th key={c} className="num">{c}</th>)}<th className="num">소계</th></tr></thead>
+            <tbody>{rooms.map(r => <tr key={r.id}><td className="nowrap">{r.no}</td><td className="strong">{r.name}</td>
+              {lightCodes.map(c => <td key={c}><input className="input xs" inputMode="numeric" defaultValue={r.lights?.[c] || ''} aria-label={`${r.name} ${c} 수량`} disabled={busy} onBlur={e => { const n = Number(e.target.value.replace(/\D/g, '')) || 0; if (n !== (r.lights?.[c] ?? 0)) setLight(r.id, c, n) }} /></td>)}
+              <td className="num strong">{lightCodes.reduce((a, c) => a + (r.lights?.[c] ?? 0), 0)}</td></tr>)}
+              <tr><td /><td className="strong">합계</td>{lightCodes.map(c => <td key={c} className="num strong">{total(c)}</td>)}<td className="num strong">{lightCodes.reduce((a, c) => a + total(c), 0)}</td></tr>
+            </tbody>
+          </table></div>)}
+      </section>}
       <p className="t-cap">상태는 검토 → 선정 → 확정 순서입니다(눌러서 바꿈). '제외'한 항목은 인쇄 · 내보내기에서 빠집니다. 금액은 스펙북에 넣지 않습니다. '상세'에서 마감 · 크기 · 납품 업체 · 납기 등을 적으면 인쇄할 때 표본 스펙북처럼 CODE LIST 와 품목별 SPEC 카드로 나옵니다.</p>
       <div ref={sheet} hidden>
         <h1>{project.name} — SPEC BOOK</h1><p>{[project.code, project.client_name, new Date().toISOString().slice(0, 10)].filter(Boolean).join(' · ')} · 주식회사 아트리어디자인스튜디오</p>
@@ -95,9 +126,14 @@ export function DesignSpec({ project }: { project: DesignProject }) {
           <h2>{SPEC_BOOKS[k]} — CODE LIST</h2>
           <table><thead><tr><th>CODE</th><th>ITEM</th><th>DISTRIBUTOR</th><th>CONNECT NO.</th><th>REMARKS_SIZE / COLOR</th><th>STOCK</th><th>AREA</th><th>상태</th></tr></thead>
             <tbody>{rows.map(i => <tr key={i.id}><td><b>{i.code}</b></td><td>{i.name}</td><td>{i.distributor ?? i.maker}</td><td>{i.contact}</td><td>{[i.size ?? i.spec, i.finish].filter(Boolean).join(' / ')}</td><td>{i.stock ?? (i.qty != null ? `${i.qty}${i.unit ?? ''}` : '')}</td><td>{i.location}</td><td>{SPEC_STATUS[i.status]}</td></tr>)}</tbody></table>
+          {k === 'lighting' && rooms.length > 0 && lightCodes.some(c => total(c) > 0) && <><h2>조명 수량표</h2>
+            <table><thead><tr><th>실번호</th><th>실명</th>{lightCodes.map(c => <th key={c}>{c}</th>)}<th>조명수량 소계</th></tr></thead>
+              <tbody>{rooms.map(r => <tr key={r.id}><td>{r.no}</td><td>{r.name}</td>{lightCodes.map(c => <td key={c}>{r.lights?.[c] || ''}</td>)}<td><b>{lightCodes.reduce((a, c) => a + (r.lights?.[c] ?? 0), 0)}</b></td></tr>)}
+                <tr><td /><td><b>합계</b></td>{lightCodes.map(c => <td key={c}><b>{total(c)}</b></td>)}<td><b>{lightCodes.reduce((a, c) => a + total(c), 0)}</b></td></tr></tbody></table></>}
           <h2>{SPEC_BOOKS[k]} — SPEC</h2>
           <div className="cards">{rows.map(i => <table key={i.id} className="card"><tbody>
             <tr><th colSpan={2} className="code">{i.code ?? '—'}</th></tr>
+            {images[i.id] && <tr><td className="l">SAMPLE / IMAGE</td><td><img src={images[i.id]} alt="" style={{ maxWidth: '60mm', maxHeight: '40mm' }} /></td></tr>}
             {([['AREA', i.location], ['ITEM', [i.name, i.spec].filter(Boolean).join(' · ')], ['FINISH', i.finish], ['SIZE', i.size], ['MANUFAC. / ORIGIN', i.maker], ['DISTRIBUTOR', i.distributor], ['CONNECT NO.', i.contact], ['DELIVERY', i.delivery], ['STOCK', i.stock], ['REMARKS', i.note]] as const).map(([l, v]) => <tr key={l}><td className="l">{l}</td><td>{v || '-'}</td></tr>)}
           </tbody></table>)}</div>
         </div> })}
