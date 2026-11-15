@@ -1,0 +1,60 @@
+# 영업 자동화 개발 규칙
+
+사용자 지시 2026-11-15. 인트라넷 영업 자동화의 설계, 구현, 화면, 검증, 운영 절차에 적용한다.
+
+## 개발 진행 방식 — 사용자 추가 지시 2026-11-15
+
+- **지속 진행은 상시 규칙이다.** 사용자 추가 지시 ‘멈추지마 이건 규칙이야 저장해’에 따라, 승인된 범위의 구현·검증·수정·개발 PR 기록을 이어가고 매 단계마다 계속할지 묻지 않는다. 필수 승인·사용자 결정 또는 독립 해결이 불가능한 실제 장애가 있을 때만 해당 작업을 멈춘다. 턴 종료 후에도 실행 중이라고 주장하지 않고 실제 실행 상태를 보고한다.
+- 승인이나 필수 사용자 결정이 필요한 단계 외에는 독립 개발·수정·검증·개발 PR 기록을 계속 진행한다. 이미 승인된 작업에 반복 확인을 요청하지 않는다.
+- 실제 승인 요청 전에는 구현·검증과 검토 가능한 결과 준비를 마친다. 진행 보고는 완료한 변경, 확인한 증거, 남은 한계를 구분한다.
+- 명시된 운영 배포 보류와 공동 작업 경계는 유지한다. 일반적인 ‘계속 진행’ 지시를 기존 운영 보류 해제로 해석하지 않는다.
+
+## 공동 개발 소유권 — 사용자 확정 2026-11-15
+
+- `claude/design-integration` 브랜치, DB `design` 스키마, **설계·견적 메뉴 관련 파일은 Claude 전담**이다. 이 작업에서는 수정·삭제·정리·리팩터링·브랜치 이동/삭제·운영 DB 변경을 하지 않는다. 아직 원격에 보이지 않아도 이 보호 규칙은 적용한다.
+- ChatGPT/Codex는 **Sales·Growth 화면과 그 관련 테이블**을 담당한다. 앞서 제안된 Claude의 영업 화면 담당 분담은 적용하지 않는다.
+- 각자 별도 브랜치와 작업 폴더를 사용한다. 같은 Mac의 다른 작업 폴더, 진행 중 변경, 브라우저 편집 화면을 덮어쓰지 않는다. 상대 작업을 정리하기 위한 reset/clean/stash/force push를 하지 않는다.
+- 공통 메뉴·라우터·타입·스타일·패키지 파일은 공유 경계다. 필요한 최소 변경만 별도 PR로 명시하고 상대 작업과 대조한다. 설계·견적 메뉴 연결을 제거하거나 이름·경로를 임의로 바꾸지 않는다.
+- main 병합 직전에 최신 main과 두 PR의 DB 변경 파일 번호를 비교한다. `erp/scripts/check-migration-numbers.mjs --base-ref origin/main`을 실행하고, 아직 main에 없는 상대 변경도 공개된 작업 브랜치 기준으로 추가 확인한다. 원격에 없는 상대 변경은 확인 완료로 표시하지 않는다.
+- 번호가 겹치면 **자신의 미적용 migration** 번호만 조정한다. 운영에 이미 적용한 파일이나 상대 작업 파일은 번호/내용을 바꾸지 않는다. 번호 배정 전 상대의 예약 번호를 확인한다.
+- DB 스키마·함수·정책의 이름 충돌과 공통 파일의 동작 충돌도 검토한다. Git의 자동 병합 성공만으로 통합 검증 완료로 판단하지 않는다.
+- main 병합/운영 SQL/서버 배포는 동시에 실행하지 않는다. 배포 차례와 대상 커밋·migration 목록을 인수인계한 뒤 한 작업자가 실행하고 결과를 기록한다.
+
+현재 담당 범위와 인수인계는 [DEVELOPMENT_COORDINATION.md](DEVELOPMENT_COORDINATION.md)를 함께 확인한다.
+
+## 사람 팀원에게 데이터 실무를 넘기지 않는다
+
+- 사람 팀원은 DB 데이터나 원자료(raw data)를 직접 가공하거나 검색하는 업무를 담당하지 않는다.
+- 자료 검색·수집·추출·정제·형식 변환·분류·중복 제거·회사/사람 연결·출처 대조·DB 입력/갱신은 시스템 책임이다.
+- 사람에게 엑셀 정리, 후보 명단 작성, 연락처 찾기, 원문 검색, 필드 매핑, 복사·붙여넣기, DB 직접 수정 등을 요구해야 정상 작동하는 기능은 미완성이다.
+- 사람의 기본 역할은 완성된 실행안 승인, 사업 방향/범위 결정, 예외 판단이다. 승인 화면에 대상 명단·근거 요약·제안 자료·문안·첨부·일정·후속 조건을 시스템이 준비한다.
+- 필수 정보가 부족하면 시스템이 추가 출처 조사·재수집·재검증을 수행한다. 해결되지 않으면 원인과 실행 가능한 대안을 요약해 보류한다. 사람에게 자료 검색이나 가공을 대신 수행하도록 떠넘기지 않는다.
+- 사람의 예외 판단에는 필요한 사실·근거·선택지·권고안을 포함한다. 원자료 열람은 선택적인 감사 기능이며 정상 업무의 필수 단계로 만들지 않는다.
+- 최초 계정 연결·권한 동의 및 사업상 승인과 데이터 실무를 구분한다. 접근 불가·권한 부족은 정직하게 표시하고 데이터 확보 또는 검증이 완료됐다고 주장하지 않는다.
+- 계약 조건·구매 의향·예산 등 확인할 수 없는 사실을 자동화 편의를 위해 추정하여 확정하지 않는다. 확인 가능한 사실과 가설을 분리한다.
+
+## 완료 판정
+
+- 사람 팀원이 원자료 검색·정제·DB 가공 없이 승인과 예외 판단만으로 정상 흐름을 운영할 수 있어야 한다.
+- 실제 또는 통합 시험에서 수집 → 검증 → 실행안 준비 → 승인 → 허용된 발송 → 회신/CRM → 보고까지 사람의 데이터 작업 없이 연결되는지 확인한다.
+- 자동 처리 불가 건은 사유와 다음 자동 처리 계획이 있는 보류 상태로 보고한다. 수동 가공 대기열을 만들어 자동화 완료로 표시하지 않는다.
+- 구현·테스트·운영 배포·실제 외부 실행 확인을 구분하여 보고한다.
+
+## Working language — latest user instruction, 2026-11-15
+
+Use English for development communication and progress updates. Ask necessary approval questions in Korean. Preserve the existing Korean product interface unless the user requests a translation.
+
+
+## Approval-only human role — explicit user correction, 2026-11-15
+
+- Human teammates only approve or reject system-prepared, verified execution packages. Do not use human research, contact lookup, raw-source review, spreadsheet cleanup, field mapping, drafting, reply classification or CRM updates as a required fallback.
+- The system owns research, collection, cleansing, target/company/person linking, planning, proposal/message preparation, validation, approval routing, authorized delivery, reply handling, pipeline updates, follow-up and reporting.
+- An AI recommendation or a task row saying “research next” is not implemented execution. Connect it to an actual bounded system worker and persist the result before claiming automation completion.
+- Missing evidence triggers automated re-collection/research/verification. Errors trigger bounded recovery with visible reasons. When recovery is impossible, preserve records and report the blocking dependency plus a prepared alternative; do not hand data-processing work to a person.
+- Approval must cover the exact recipients, purpose/evidence, message, attachments, schedule and follow-up conditions. Changed material requires a fresh approval. An internal planning decision must never be presented as authorization to send.
+- Full completion requires an end-to-end run from target acquisition to follow-up/reporting with approval/rejection as the only recurring human action. Independent implementation/local validation does not establish deployment or operational completion.
+- The existing Claude production hold and protected ownership boundaries still apply. Do not activate real sending to meet a percentage target.
+
+## Latest response language — 2026-11-15
+
+The user subsequently asked for Korean answers (한글로 답해). Use Korean for user-facing explanations and progress updates. Code identifiers and technical artifacts may remain English.
