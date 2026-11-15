@@ -14,7 +14,7 @@ export interface PlanItem {
 /** One part of a room's finish: material number (PT-01) and, where it applies, the detail type (F/B/W). */
 export interface RoomPart { mat?: string; detail?: string }
 /** A room row of the finish schedule (sample set I-008: 실번호 · 실명 · 바닥 · 걸레받이 · 벽 · 천장). */
-export interface PlanRoom { id: string; no: string; name: string; floor: RoomPart; base: RoomPart; wall: RoomPart; ceiling: RoomPart; /** 천장 높이 mm */ ch?: number; /** 바닥 면적 ㎡ (바닥 · 천장 수량) */ area?: number; /** 걸레받이 길이 m */ perimeter?: number }
+export interface PlanRoom { id: string; no: string; name: string; floor: RoomPart; base: RoomPart; wall: RoomPart; ceiling: RoomPart; /** 천장 높이 mm */ ch?: number; /** 바닥 면적 ㎡ (바닥 · 천장 수량) */ area?: number; /** 걸레받이 길이 m */ perimeter?: number; /** 조명 수량표: 조명 기호(DL-01) → 수량 */ lights?: Record<string, number> }
 export interface PlanGeometry { unit: 'mm'; height: number; walls: PlanWall[]; openings: PlanOpening[]; items: PlanItem[]; rooms?: PlanRoom[] }
 export const EMPTY_PLAN: PlanGeometry = { unit: 'mm', height: 2700, walls: [], openings: [], items: [] }
 

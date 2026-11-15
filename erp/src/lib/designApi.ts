@@ -145,6 +145,14 @@ export function createSupabaseDesignApi(sb: SupabaseClient): DesignApi {
     async addSpecItem(row) { fail((await sb.from('design_spec_items').insert({ ...row, sort: Math.floor(Date.now() / 1000) % 1000000 })).error) },
     async updateSpecItem(id, patch) { fail((await sb.from('design_spec_items').update(patch).eq('id', id)).error) },
     async deleteSpecItem(id) { fail((await sb.from('design_spec_items').delete().eq('id', id)).error) },
+    async listSpecImages(projectId) {
+      const r = await sb.from('design_spec_images').select('item_id,data').eq('project_id', projectId)
+      fail(r.error)
+      return Object.fromEntries((r.data ?? []).map(x => [x.item_id as string, x.data as string]))
+    },
+    async setSpecImage(projectId, itemId, data) {
+      fail(data ? (await sb.from('design_spec_images').upsert({ item_id: itemId, project_id: projectId, data })).error : (await sb.from('design_spec_images').delete().eq('item_id', itemId)).error)
+    },
     async listCostLines(projectId) {
       const r = await sb.from('design_cost_lines').select('id,project_id,zone,item,qty,cost_price,vendor_name,note,source_doc,sort').eq('project_id', projectId).order('sort').order('created_at')
       fail(r.error)
@@ -243,7 +251,8 @@ export function createDemoDesignApi(): DesignApi {
     async listDesignJobs() { return [] },
     async listDesignDocuments() { return [] },
     async getDesignPlan() { return null },
-    saveDesignPlan: none, applyDesignPlan: none, addSpecItem: none, updateSpecItem: none, deleteSpecItem: none,
+    saveDesignPlan: none, applyDesignPlan: none, addSpecItem: none, updateSpecItem: none, deleteSpecItem: none, setSpecImage: none,
+    async listSpecImages() { return {} },
     async listSpecItems() { return [] },
     async getProposalTemplate() { return [] },
     async listProposalSections() { return [] },

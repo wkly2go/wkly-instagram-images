@@ -149,3 +149,5 @@
 .design-rooms select.input { min-width: 150px; }
 .design-spec-f { display: flex; flex-direction: column; gap: 2px; flex: 1 1 200px; min-width: 0; }
 .design-spec-group .table td:nth-child(2) { min-width: 140px; }
+.design-spec-img { width: 96px; height: 72px; object-fit: cover; border: 1px solid var(--line); }
+.design-rooms .input.xs { max-width: 96px; }
