@@ -13,6 +13,7 @@ const won = (v: string | undefined) => (v ? `${Number(v).toLocaleString('ko-KR')
 export function DesignDelivery({ project, base }: { project: DesignProject; base: DesignBase }) {
   const { api, version, toast } = useApp()
   const { query, navigate } = useRouter()
+  const { data: renders } = useAsync(() => api.listRenders(project.id), [project.id, version], [])
   const { data: plan } = useAsync(() => api.getDesignPlan(project.id), [project.id, version], null as PlanGeometry | null)
   const { data: docs } = useAsync(() => api.listDesignDocuments(project.id), [project.id, version], [])
   const { data: specs } = useAsync(() => api.listSpecItems(project.id), [project.id, version], [])
@@ -60,6 +61,7 @@ export function DesignDelivery({ project, base }: { project: DesignProject; base
           <tr><th>면적</th><td>{project.area_m2 != null ? `${project.area_m2}㎡` : area != null ? `${area}㎡ (평면에서 계산 · 확인 필요)` : <span className="miss">미입력</span>}</td></tr>
           <tr><th>기간</th><td>{[project.start_date, project.end_date].filter(Boolean).join(' ~ ')}</td></tr>
         </tbody></table>
+        {renders.some(r => r.status === 'final' && r.data) && <><h2>투시도</h2><div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4mm' }}>{renders.filter(r => r.status === 'final' && r.data).map(r => <figure key={r.id} style={{ margin: 0, breakInside: 'avoid' }}><img src={r.data!} alt="" style={{ width: '100%' }} /><figcaption>{r.no} {r.title}</figcaption></figure>)}</div></>}
         <h2>2. 기획 · 디자인 방향</h2>
         {tpl.filter(t => props.find(p => p.section_key === t.key && p.status !== 'blank' && p.body?.trim())).map(t => <div key={t.key}><p><b>{t.title}</b></p><p>{props.find(p => p.section_key === t.key)!.body}</p></div>)}
         {!props.some(p => p.body?.trim()) && <p className="miss">제안서 본문이 아직 없습니다.</p>}

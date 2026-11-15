@@ -192,7 +192,9 @@ export const PO_STATUS: Record<string, string> = { draft: '초안', sent: '발�
 
 export interface ProposalTemplateSection { key: string; title: string; required?: boolean; sources?: string[]; order?: number }
 export interface ProposalFigure { label: string; value: string; unit?: string; source: string; as_of?: string }
-export interface ProposalSection { id: string; project_id: string; section_key: string; body: string | null; figures: ProposalFigure[]; status: 'draft' | 'checked' | 'blank'; updated_at: string }
+/** 인용한 인사이트 (예: 더위클리 홈페이지 인사이트) */
+export interface ProposalQuote { text: string; source: string; url?: string }
+export interface ProposalSection { id: string; project_id: string; section_key: string; body: string | null; figures: ProposalFigure[]; quotes?: ProposalQuote[]; status: 'draft' | 'checked' | 'blank'; updated_at: string }
 
 /** 투시도 · 렌더 장면. data 는 작은 미리보기, 원본은 original_url(드라이브 등) */
 export interface DesignRender { id: string; project_id: string; no: string; title: string; data: string | null; original_url: string | null; status: 'draft' | 'final'; note: string | null; sort: number }
@@ -232,7 +234,7 @@ export interface DesignApi {
   /** Template for the space type; falls back to any active template. */
   getProposalTemplate(spaceType: SpaceType): Promise<ProposalTemplateSection[]>
   listProposalSections(projectId: string): Promise<ProposalSection[]>
-  saveProposalSection(projectId: string, key: string, patch: Pick<ProposalSection, 'body' | 'figures' | 'status'>): Promise<void>
+  saveProposalSection(projectId: string, key: string, patch: Pick<ProposalSection, 'body' | 'figures' | 'status' | 'quotes'>): Promise<void>
   listSpecItems(projectId: string): Promise<SpecItem[]>
   addSpecItem(row: Omit<SpecItem, 'id' | 'sort'>): Promise<void>
   updateSpecItem(id: string, patch: Partial<Omit<SpecItem, 'id' | 'project_id'>>): Promise<void>
