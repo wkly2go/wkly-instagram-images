@@ -6,7 +6,7 @@ import {PGlite} from '@electric-sql/pglite'
 const db=new PGlite(),admin=randomUUID(),member=randomUUID(),sourceId=randomUUID()
 const sql=name=>readFile(new URL(`../supabase/migrations/${name}`,import.meta.url),'utf8')
 before(async()=>{
- await db.exec(`create role authenticated;create role anon;create role service_role;create schema auth;create schema private;create schema net;create schema cron;
+ await db.exec(`create role authenticated;create role anon;create role service_role;create schema auth;create schema private;create schema net;create schema cron;create schema vault;create table vault.decrypted_secrets(name text,decrypted_secret text);insert into vault.decrypted_secrets values('WKLY_EDGE_ANON_KEY','existing-public-anon-jwt');
  create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
  create table profiles(id uuid primary key,role text,active boolean,is_agent boolean default false);
  insert into profiles values('${admin}','admin',true,false),('${member}','member',true,false);
@@ -19,9 +19,9 @@ before(async()=>{
  create table sales_collection_runs(source text,status text,source_at timestamptz,note text,started_at timestamptz);
  create table notices(user_id uuid,title text);create function notify(u uuid,k text,t text,b text,l text) returns void language sql as $$insert into public.notices values(u,t)$$;
  create table cron.job(jobname text primary key,schedule text,command text);create function cron.schedule(n text,s text,c text) returns bigint language plpgsql as $$begin insert into cron.job values(n,s,c);return 1;end$$;
- create table net.requests(id bigserial primary key,url text,body jsonb);create function net.http_post(url text,headers jsonb,body jsonb,timeout_milliseconds int) returns bigint language sql as $$insert into net.requests(url,body) values(url,body) returning id$$;
+ create table net.requests(id bigserial primary key,url text,headers jsonb,body jsonb);create function net.http_post(url text,headers jsonb,body jsonb,timeout_milliseconds int) returns bigint language sql as $$insert into net.requests(url,headers,body) values(url,headers,body) returning id$$;
  grant usage on schema public,auth to authenticated,anon,service_role;`)
- await db.exec(await sql('0115_growth_ai_budget.sql'));await db.exec(await sql('0122_sales_strategy.sql'))
+ await db.exec(await sql('0115_growth_ai_budget.sql'));await db.exec(await sql('0122_sales_strategy.sql'));await db.exec(await sql('0123_sales_strategy_gateway.sql'))
  await db.query("insert into sales_prospects values($1,'상권 제휴 자료','리서치','source','공동 판촉 협업','https://example.test',now(),70,false,null,'확인 필요',null,'business@example.test')",[sourceId])
  await db.exec("insert into growth_ai_models values('standard','작성','claude-test',3,15,true);insert into growth_ai_budgets(id,starts_at,ends_at,limit_usd,enabled) values(gen_random_uuid(),now()-interval '1 day',now()+interval '1 day',1,true)")
 })
@@ -88,4 +88,27 @@ test('scheduled planning has three daily slots, obeys its toggle and marks stall
  await asUser(admin,()=>call('sales_strategy_automatic',[false]));await db.query('select private.sales_strategy_schedule()');assert.equal((await db.query('select count(*) n from sales_strategies')).rows[0].n,1)
  assert.equal((await db.query("select schedule from cron.job where jobname='wkly_sales_strategy_prepare'")).rows[0].schedule,'45,50,55 23 * * *')
  assert.equal((await db.query('select count(*) n from net.requests')).rows[0].n,1)
+})
+
+test('planning and approved preparation authenticate at the gateway and retain one-time job tokens',async()=>{
+ const id=await ready();await asUser(admin,()=>call('sales_strategy_decide',[id,2,'승인','']))
+ const requests=(await db.query('select headers,body from net.requests order by id')).rows
+ assert.equal(requests.length,2)
+ for(const row of requests){
+  assert.equal(row.headers.Authorization,'Bearer existing-public-anon-jwt')
+  assert.equal(row.headers.apikey,'existing-public-anon-jwt')
+  assert.equal(row.headers['Content-Type'],'application/json')
+  assert.match(row.body.token,/^[0-9a-f-]{36}$/i)
+  assert.notEqual(row.body.token,'existing-public-anon-jwt')
+ }
+ assert.notEqual(requests[0].body.id,requests[1].body.id)
+ assert.notEqual(requests[0].body.token,requests[1].body.token)
+ await assert.rejects(asUser(admin,()=>call('private.sales_strategy_post',[randomUUID(),randomUUID()])),e=>e.code==='42501')
+})
+
+test('missing gateway configuration fails before enqueueing an unauthenticated request',async()=>{
+ await db.exec('delete from vault.decrypted_secrets')
+ await assert.rejects(request(),/서버 호출 인증 설정/)
+ assert.equal((await db.query('select count(*) n from net.requests')).rows[0].n,0)
+ assert.equal((await db.query('select count(*) n from sales_strategies')).rows[0].n,0)
 })
