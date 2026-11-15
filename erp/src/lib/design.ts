@@ -40,7 +40,14 @@ export interface EstimateRules {
   total_rounding_unit?: string
   /** '보통 필요한 공종' 경고 끄기 (목공 없는 렌탈형 등) */
   skip_required_trades?: boolean
+  /** 제출용 견적서에 찍는 글 (제목 · 장소 · 일정 · 범위 · 참고 사항 · 대금지불조건) */
+  doc?: EstimateDoc
 }
+export interface EstimateDoc { title?: string; place?: string; schedule?: string; scope?: string; notes?: string[]; payment?: string[] }
+
+/** 산출물 파일 기록 (맥에서 만들고 프로젝트 드라이브 폴더에 사본) */
+export interface DesignDocument { id: string; kind: string; version: number; file_path: string; drive_path: string | null; created_at: string }
+export const DOC_LABELS: Record<string, string> = { estimate_deck: '제출용 견적서 (16:9 PDF)', estimate_pdf: '내역 견적서 (PDF)', estimate_xlsx: '견적서 (엑셀)', po_pdf: '발주서 (PDF)' }
 export interface DesignCandidate { id: string; code: string | null; name: string; status: string }
 export interface DesignTrade { code: string; name: string; group_name: string; sort: number }
 export interface DesignBase { trades: DesignTrade[]; units: string[] }
@@ -57,8 +64,11 @@ export interface Placement {
   location: string | null
   source: 'model' | 'manual'
   sort: number
+  /** 견적 구분 (예: 렌탈 · 설치·철거). 제출용 견적서에서 A·B·C 로 묶인다 */
+  section: string | null
+  note: string | null
 }
-export type PlacementDraft = Pick<Placement, 'project_id' | 'model_version' | 'trade_code' | 'item' | 'spec' | 'unit' | 'qty' | 'location'>
+export type PlacementDraft = Pick<Placement, 'project_id' | 'model_version' | 'trade_code' | 'item' | 'spec' | 'unit' | 'qty' | 'location' | 'section' | 'note'>
 
 export interface EstimateTotals { fee?: string; fee_mode?: 'overhead_profit' | 'agency_fee'; direct: string; overhead: string; profit: string; subtotal: string; adjustment: string; supply: string; vat: string; total: string }
 export interface EstimateWarning { code: string; level: 'error' | 'warning' | 'warn' | 'info'; message: string; trade_code: string | null }
@@ -84,6 +94,8 @@ export interface EstimateLine {
   amount: number | null
   source: 'model' | 'manual'
   sort: number
+  section: string | null
+  note: string | null
 }
 
 export interface ScheduleTask {
@@ -170,6 +182,13 @@ export const CARD_LABELS: Record<string, string> = {
   estimate: '견적 확정', po_send: '발주 발송 준비', price_extract: '판매 단가 가져오기', cost_extract: '실행 단가 가져오기',
 }
 
+/** 실행 내역 한 줄 (관리자만) — 업체별 발주서와 손익의 바탕 */
+export interface CostLine { id: string; project_id: string; zone: string | null; item: string; qty: number; cost_price: number | null; vendor_name: string | null; note: string | null; source_doc: string | null; sort: number }
+export type CostLineDraft = Omit<CostLine, 'id' | 'sort' | 'source_doc'>
+export interface PurchaseOrder { id: string; po_number: string; vendor_id: string; status: string; issue_date: string | null; due_date: string | null; total: number; payment_terms: string | null }
+export interface PoLine { id: string; po_id: string; item: string; spec: string; unit: string; qty: number; cost_price: number | null; amount: number | null; received_qty: number }
+export const PO_STATUS: Record<string, string> = { draft: '초안', sent: '발송', accepted: '수락', partially_received: '일부 입고', received: '입고 완료', settled: '정산', cancelled: '취소' }
+
 export interface DesignOverview { projects: number; prices: number; vendors: number; candidates: number; materials: number; knowledge: number; pending: number }
 
 export interface DesignApi {
@@ -189,6 +208,18 @@ export interface DesignApi {
   /** 견적 계산 · 발주서 만들기 요청 (작업 처리기가 계산) */
   requestDesignJob(projectId: string, kind: 'estimate.build' | 'po.build'): Promise<void>
   listDesignJobs(projectId: string): Promise<DesignJob[]>
+  listDesignDocuments(projectId: string): Promise<DesignDocument[]>
+  /** 보관된 산출물 파일 내려받기 (발주서는 관리자만) */
+  downloadDesignFile(documentId: string): Promise<{ name: string; blob: Blob }>
+  listCostLines(projectId: string): Promise<CostLine[]>
+  /** 실행 내역을 통째로 바꾼다 (엑셀 다시 올리기) */
+  replaceCostLines(projectId: string, rows: CostLineDraft[], sourceDoc: string): Promise<void>
+  addCostLine(row: CostLineDraft): Promise<void>
+  updateCostLine(id: string, patch: Partial<Pick<CostLine, 'qty' | 'cost_price' | 'vendor_name'>>): Promise<void>
+  deleteCostLine(id: string): Promise<void>
+  listPurchaseOrders(projectId: string): Promise<PurchaseOrder[]>
+  listPoLines(poIds: string[]): Promise<PoLine[]>
+  updatePlacement(id: string, patch: { section?: string | null; note?: string | null }): Promise<void>
   listScheduleTasks(projectId: string): Promise<ScheduleTask[]>
   addScheduleTask(row: ScheduleDraft): Promise<void>
   updateScheduleTask(id: string, patch: Partial<ScheduleDraft>): Promise<void>

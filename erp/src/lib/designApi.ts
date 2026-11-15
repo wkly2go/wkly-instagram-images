@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { ApiError } from './api'
 import type {
-  DesignApi, DesignCard, DesignJob, DesignMaterial, DesignProject, DesignTrade, DesignVendor, Estimate, EstimateLine,
+  CostLine, DesignApi, DesignCard, DesignDocument, DesignJob, PoLine, PurchaseOrder, DesignMaterial, DesignProject, DesignTrade, DesignVendor, Estimate, EstimateLine,
   Knowledge, Placement, ScheduleTask, UnitCost, UnitPrice,
 } from './design'
 
@@ -59,7 +59,7 @@ export function createSupabaseDesignApi(sb: SupabaseClient): DesignApi {
       fail((await sb.from('design_projects').update(patch).eq('id', projectId)).error)
     },
     async listPlacements(projectId, modelVersion) {
-      const r = await sb.from('design_placements').select('id,project_id,model_version,trade_code,item,spec,unit,qty,location,source,sort')
+      const r = await sb.from('design_placements').select('id,project_id,model_version,trade_code,item,spec,unit,qty,location,source,sort,section,note')
         .eq('project_id', projectId).eq('model_version', modelVersion).order('sort').order('created_at')
       fail(r.error)
       return (r.data ?? []) as Placement[]
@@ -80,7 +80,7 @@ export function createSupabaseDesignApi(sb: SupabaseClient): DesignApi {
       return (r.data ?? []) as Estimate[]
     },
     async listEstimateLines(estimateId) {
-      const r = await sb.from('design_estimate_lines').select('id,estimate_id,trade_code,item,spec,unit,qty,unit_price,amount,source,sort')
+      const r = await sb.from('design_estimate_lines').select('id,estimate_id,trade_code,item,spec,unit,qty,unit_price,amount,source,sort,section,note')
         .eq('estimate_id', estimateId).order('sort')
       fail(r.error)
       return (r.data ?? []) as EstimateLine[]
@@ -94,6 +94,47 @@ export function createSupabaseDesignApi(sb: SupabaseClient): DesignApi {
       fail(r.error)
       return (r.data ?? []) as DesignJob[]
     },
+    async listDesignDocuments(projectId) {
+      const r = await sb.from('design_documents').select('id,kind,version,file_path,drive_path,created_at').eq('project_id', projectId).order('version', { ascending: false }).order('kind').limit(60)
+      fail(r.error)
+      return (r.data ?? []) as DesignDocument[]
+    },
+    async downloadDesignFile(documentId) {
+      const r = await sb.rpc('design_file', { p_document: documentId })
+      fail(r.error)
+      const f = (r.data ?? [])[0] as { name: string; mime: string; base64: string } | undefined
+      if (!f) throw new ApiError('보관된 파일이 없습니다. 견적을 다시 계산하면 새로 만들어집니다.')
+      const bin = atob(f.base64.replace(/\s/g, ''))
+      const bytes = new Uint8Array(bin.length)
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
+      return { name: f.name, blob: new Blob([bytes], { type: f.mime }) }
+    },
+    async listCostLines(projectId) {
+      const r = await sb.from('design_cost_lines').select('id,project_id,zone,item,qty,cost_price,vendor_name,note,source_doc,sort').eq('project_id', projectId).order('sort').order('created_at')
+      fail(r.error)
+      return (r.data ?? []) as CostLine[]
+    },
+    async replaceCostLines(projectId, rows, sourceDoc) {
+      fail((await sb.from('design_cost_lines').delete().eq('project_id', projectId)).error)
+      for (let i = 0; i < rows.length; i += 200) {
+        fail((await sb.from('design_cost_lines').insert(rows.slice(i, i + 200).map((x, k) => ({ ...x, project_id: projectId, source_doc: sourceDoc, sort: i + k + 1 })))).error)
+      }
+    },
+    async addCostLine(row) { fail((await sb.from('design_cost_lines').insert({ ...row, sort: 900000 + Math.floor(Date.now() / 1000) % 90000 })).error) },
+    async updateCostLine(id, patch) { fail((await sb.from('design_cost_lines').update(patch).eq('id', id)).error) },
+    async deleteCostLine(id) { fail((await sb.from('design_cost_lines').delete().eq('id', id)).error) },
+    async listPurchaseOrders(projectId) {
+      const r = await sb.from('design_purchase_orders').select('id,po_number,vendor_id,status,issue_date,due_date,total,payment_terms').eq('project_id', projectId).order('po_number')
+      fail(r.error)
+      return (r.data ?? []) as PurchaseOrder[]
+    },
+    async listPoLines(poIds) {
+      if (!poIds.length) return []
+      const r = await sb.from('design_po_lines').select('id,po_id,item,spec,unit,qty,cost_price,amount,received_qty').in('po_id', poIds)
+      fail(r.error)
+      return (r.data ?? []) as PoLine[]
+    },
+    async updatePlacement(id, patch) { fail((await sb.from('design_placements').update(patch).eq('id', id)).error) },
     async listScheduleTasks(projectId) {
       const r = await sb.from('design_schedule_tasks').select('id,project_id,trade_code,name,start_date,end_date,done').eq('project_id', projectId).order('start_date')
       fail(r.error)
@@ -164,6 +205,12 @@ export function createDemoDesignApi(): DesignApi {
     async listEstimateLines() { return [] },
     requestDesignJob: none,
     async listDesignJobs() { return [] },
+    async listDesignDocuments() { return [] },
+    downloadDesignFile: none, replaceCostLines: none, addCostLine: none, updateCostLine: none, deleteCostLine: none,
+    async listCostLines() { return [] },
+    async listPurchaseOrders() { return [] },
+    async listPoLines() { return [] },
+    updatePlacement: none,
     async listScheduleTasks() { return [] },
     addScheduleTask: none, updateScheduleTask: none, deleteScheduleTask: none,
     async listUnitPrices() { return [] },

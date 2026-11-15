@@ -59,3 +59,9 @@
 .design-rules-body { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: flex-end; padding-top: 8px; }
 .design-rules-body .label { flex: 0 1 190px; }
 .design-check { display: flex; gap: 6px; align-items: center; color: var(--gray); }
+
+.table .design-sec { width: 96px; }
+.design-doc-body { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 8px 12px; padding-top: 8px; align-items: end; }
+.design-files { list-style: none; margin: 0; padding: 8px 10px; border: 1px solid var(--line); background: var(--paper); display: flex; flex-direction: column; gap: 3px; font-size: var(--fs-sm); }
+.design-files b { color: var(--blue); }
+.design-files .t-cap { overflow-wrap: anywhere; }
