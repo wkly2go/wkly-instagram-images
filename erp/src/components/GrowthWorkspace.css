@@ -172,3 +172,6 @@
   .growth-candidate-detail dl { grid-template-columns: 1fr; gap: 4px; }
   .growth-candidate-detail dd { margin-bottom: 10px; }
 }
+.growth-contact-kind{display:inline-block;margin-top:4px;padding:1px 6px;border:1px solid #cfdbd1;background:#f3f6f0;color:#31503b;font-size:12px}
+.growth-contact-kind[data-kind='서비스 알림']{border-color:#e6c9c9;background:#fbf1f1;color:#8a2f2f}
+.growth-contact-kind[data-kind='미분류']{border-color:#e3d9b8;background:#fbf7e8;color:#6b5a16}
