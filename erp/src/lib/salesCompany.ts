@@ -18,4 +18,5 @@ export const SALES_PLAYBOOK:readonly SalesMethod[]=[
  {name:'매거진 취재 연계',signal:'더위클리 매거진이 다룰 만한 팝업·브랜드',offer:'취재·콘텐츠로 관계를 만든 뒤 다음 팝업·행사 기획·대행 제안',first:'취재 요청으로 담당자와 접점을 만든다'},
 ]
 export interface MethodLearning {category:string;approved:number;rejected:number;reasons:string[]}
-export const playbookText=()=>SALES_PLAYBOOK.map((m,i)=>`${i+1}. ${m.name} | 신호: ${m.signal} | 제안: ${m.offer} | 첫 접근: ${m.first}`).join('\n')
+/** The database playbook is used when the job carries one; the built-in list is the fallback. */
+export const playbookText=(methods:readonly SalesMethod[]=SALES_PLAYBOOK)=>(methods.length?methods:SALES_PLAYBOOK).slice(0,16).map((m,i)=>`${i+1}. ${m.name} | 신호: ${m.signal} | 제안: ${m.offer} | 첫 접근: ${m.first}`).join('\n')

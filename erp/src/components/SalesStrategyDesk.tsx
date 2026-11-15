@@ -8,6 +8,7 @@ import {Button,Field} from './ui'
 import './SalesStrategyDesk.css'
 import {SalesExecutionReview} from './SalesExecutionReview'
 import {SalesDeskChat} from './SalesDeskChat'
+import {SalesMethodProposals} from './SalesMethodProposals'
 
 const time=(value:string)=>new Date(value).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'})
 export function SalesStrategyDesk(){
@@ -32,6 +33,7 @@ export function SalesStrategyDesk(){
   <header><div><p className="sales-strategy-eyebrow">AI SALES PLANNING</p><h1>AI 영업 기획실</h1><p>새로운 고객군과 상품·영업 방법을 기획하고, 대표님이 승인한 안을 실행 업무로 연결합니다.</p></div><div className="sales-strategy-schedule"><strong>{state.loading?'설정 확인 중':state.error?'자동 기획 상태 확인 필요':state.data.automatic?'자동 기획 켜짐':'자동 기획 꺼짐'}</strong><span>08:00 자료 취합 · 08:45~08:55 새 기획 · 09:00 보고</span><small>하루 자동 기획 최대 3건 · 수동 포함 최대 6건 · 기존 AI 사용 한도 내 실행</small></div></header>
   <ol className="sales-strategy-howto" aria-label="사용 방법"><li><strong>① 아침에 열기</strong><span>AI가 밤사이 모은 소식으로 기획안을 올려 둡니다.</span></li><li><strong>② 승인 또는 반려</strong><span>카드의 승인·반려만 누릅니다. 반려 사유는 다음 기획에 반영됩니다.</span></li><li><strong>③ 필요할 때만 지시</strong><span>궁금한 것은 아래 버튼이나 입력 칸으로 물어봅니다.</span></li></ol>
   {api.mode!=='demo'&&!events.loading&&!events.error&&events.data.brand_total>0&&<p className="sales-strategy-note" role="status"><strong>행사 참가 브랜드 자동 조사</strong> · {events.error?'현황을 불러오지 못했습니다(운영 반영 전일 수 있습니다).':eventBrandSummary(events.data)}</p>}
+  {me.role==='admin'&&<SalesMethodProposals api={api} canDecide={api.mode!=='demo'}/>}
   <SalesDeskChat api={api} agents={profiles.filter(p=>p.is_agent&&p.active).map(p=>({id:p.id,name:p.name}))} canSubmit={me.role==='admin'} operational={api.mode!=='demo'} plans={{items:page===0&&!state.error?state.data.items:[],busy:busy||state.loading,error,onApprove:approve,onReject:reject,onOpen:inspect,onPlan:direction=>generate(direction),execution:row=><SalesExecutionReview api={api} strategyId={row.id} revision={row.revision} canDecide={me.role==='admin'&&api.mode!=='demo'}/>}}/>
   <div className="sales-strategy-toolbar"><p>기획안 전체 목록입니다. 대화에서 승인·반려한 결과가 여기에도 기록됩니다.</p><div className="row wrap"><Button kind="outline" disabled={busy||state.loading} onClick={state.reload}>기획안 새로고침</Button>{state.data.items.some(r=>['수정 요청','보류'].includes(r.status))&&<Button kind="ghost" onClick={()=>setShowRejected(v=>!v)}>{showRejected?'반려한 안 숨기기':'반려한 안도 보기'}</Button>}{me.role==='admin'&&<><Button disabled={busy||pending||api.mode==='demo'} onClick={()=>generate()}>AI 새 영업안 기획</Button><Button kind="ghost" disabled={busy||state.loading||!!state.error||api.mode==='demo'} onClick={()=>void run(async()=>{await api.setSalesStrategyAutomatic(!state.data.automatic);state.reload()})}>{state.data.automatic?'자동 기획 끄기':'자동 기획 켜기'}</Button></>}</div></div>
   <p className="sales-strategy-note">AI가 제안한 수요·효과는 검증할 가설입니다. AI가 근거·대상 DB·제안 자료를 준비하고, 대표님은 준비된 기획을 검토합니다. 자료 검색·가공은 시스템 업무입니다. 외부 발송·게시·예약·견적 확정·계약은 실행하지 않습니다.</p>
