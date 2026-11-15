@@ -138,7 +138,7 @@ export function createSupabaseDesignApi(sb: SupabaseClient): DesignApi {
       fail((await sb.from('design_proposal_sections').upsert({ project_id: projectId, section_key: key, ...patch, updated_at: new Date().toISOString() }, { onConflict: 'project_id,section_key' })).error)
     },
     async listSpecItems(projectId) {
-      const r = await sb.from('design_spec_items').select('id,project_id,book,code,name,spec,location,maker,material_id,qty,unit,product_url,note,status,sort').eq('project_id', projectId).order('book').order('sort').order('created_at')
+      const r = await sb.from('design_spec_items').select('id,project_id,book,code,name,spec,location,maker,material_id,qty,unit,product_url,note,status,sort,finish,size,distributor,contact,delivery,stock').eq('project_id', projectId).order('book').order('sort').order('created_at')
       fail(r.error)
       return (r.data ?? []) as SpecItem[]
     },

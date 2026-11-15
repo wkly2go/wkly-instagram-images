@@ -197,7 +197,7 @@ export interface ProposalSection { id: string; project_id: string; section_key: 
 export type SpecBook = 'materials' | 'lighting' | 'hardware' | 'sanitary' | 'appliance'
 export const SPEC_BOOKS: Record<SpecBook, string> = { materials: '마감재 (Materials)', lighting: '조명 (Lighting)', hardware: '하드웨어 (Hardware)', sanitary: '위생기구 (Sanitary Ware)', appliance: '가전 · 기타 (Appliance & etc)' }
 export const SPEC_STATUS = { review: '검토', selected: '선정', confirmed: '확정', dropped: '제외' } as const
-export interface SpecItem { id: string; project_id: string; book: SpecBook; code: string | null; name: string; spec: string | null; location: string | null; maker: string | null; material_id: string | null; qty: number | null; unit: string | null; product_url: string | null; note: string | null; status: keyof typeof SPEC_STATUS; sort: number }
+export interface SpecItem { id: string; project_id: string; book: SpecBook; code: string | null; name: string; spec: string | null; location: string | null; maker: string | null; material_id: string | null; qty: number | null; unit: string | null; product_url: string | null; note: string | null; status: keyof typeof SPEC_STATUS; sort: number; /** 표본 스펙북 카드 항목 */ finish?: string | null; size?: string | null; distributor?: string | null; contact?: string | null; delivery?: string | null; stock?: string | null }
 
 export interface DesignOverview { projects: number; prices: number; vendors: number; candidates: number; materials: number; knowledge: number; pending: number }
 
