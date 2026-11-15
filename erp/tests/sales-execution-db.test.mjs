@@ -40,7 +40,7 @@ before(async()=>{
  await db.exec(`alter table profiles add column name text default '시험 팀원';create table ai_agents(profile_id uuid primary key,role text,instructions text);`)
  await db.exec(await sql('0115_growth_ai_budget.sql'))
  await db.exec(await sql('0122_sales_strategy.sql'));await db.exec(await sql('0123_sales_strategy_gateway.sql'));await db.exec(await sql('0124_sales_strategy_output.sql'))
- const releaseNames=['sales_evidence_history','sales_desk','sales_g2b_collection','sales_preapproval','sales_execution_packages','sales_dispatch_queue','sales_readiness','sales_contact_evidence','sales_mail_evidence','sales_contact_discovery','sales_reply_crm','sales_crm_pipeline','sales_followup_preparation']
+ const releaseNames=['sales_evidence_history','sales_desk','sales_g2b_collection','sales_preapproval','sales_execution_packages','sales_dispatch_queue','sales_readiness','sales_contact_evidence','sales_mail_evidence','sales_contact_discovery','sales_reply_crm','sales_crm_pipeline','sales_followup_preparation','sales_followup_research']
  const sections=await Promise.all(releaseNames.map(async(name,i)=>(await sql(`202611150901${String(i+1).padStart(2,'0')}_${name}.sql`)).replace(/^begin;\s*$/gmi,'').replace(/^commit;\s*$/gmi,'')))
  const release=salesReleaseSQL(sections)
  // Failure at the end must leave every migration unapplied, including scheduled jobs.
@@ -703,4 +703,82 @@ test('existing exact pipeline linkage preserves its division, amount, owner and 
  await decision(p);const job=(await db.query('select * from private.sales_dispatch_jobs where package_id=$1',[p.id])).rows[0],lease=await dispatchClaim(job.id);await dispatchFinish(job.id,lease.token,'accepted','aa11')
  const rows=(await db.query('select * from sales_opportunities')).rows;assert.equal(rows.length,1);assert.equal(rows[0].stage,'제안');assert.equal(rows[0].division,'AR');assert.equal(rows[0].expected_amount,'1500000');assert.equal(rows[0].next_action,'기존 협의 일정 보존')
  assert.equal((await execution(f.j.id)).crm.threads[0].opportunity_id,existing)
+})
+
+const researchResult={status:'complete',limited:false,pages:[{url:'https://example.com/services',status:'read',excerpt:'행사 현장 운영과 안전 관리를 제공합니다. 공개 페이지에는 개별 고객 예산이 없습니다.'}]}
+async function researchFixture(){const f=await followupFixture();await finishFollowup(f.followup.id,{...followupPlan,action:'research',draft:null,missing:['행사 운영 범위']});await db.exec('select private.sales_followup_research_tick()');const researchJob=(await db.query('select * from private.sales_followup_research_jobs')).rows[0];assert.ok(researchJob);const researchClaim=(await asUser(admin,()=>call('sales_followup_research_claim',[researchJob.id,researchJob.token]),'service_role')).rows[0].r;assert.ok(researchClaim);return {...f,researchJob,researchClaim}}
+const finishResearch=(id,result=researchResult)=>asUser(admin,()=>call('sales_followup_research_finish',[id,JSON.stringify(result)]),'service_role')
+test('research recommendation starts a website job and collected evidence automatically starts a new follow-up draft',async()=>{
+ const f=await researchFixture();assert.equal(f.researchClaim.website,'https://example.com');assert.deepEqual(f.researchClaim.questions,['행사 운영 범위'])
+ await finishResearch(f.researchJob.id);await finishResearch(f.researchJob.id)
+ const queued=(await db.query("select * from private.sales_followup_jobs where state='queued'")).rows;assert.equal(queued.length,1);assert.match(queued[0].input.research.pages[0].excerpt,/안전 관리/)
+ const job=(await asUser(admin,()=>call('sales_followup_claim',[queued[0].id,queued[0].token]),'service_role')).rows[0].r;assert.ok(job.input.research)
+ await finishFollowup(queued[0].id,{...followupPlan,research_evidence:[{url:'https://example.com/services',quote:'행사 현장 운영과 안전 관리를 제공합니다.'}]})
+ const thread=(await execution(f.j.id)).crm.threads[0];assert.equal(thread.followup.state,'done');assert.equal(thread.followup.plan.research_evidence.length,1);assert.equal(thread.research.pages.length,1)
+ await db.exec('select private.sales_followup_research_tick();select private.sales_followup_tick()')
+ assert.equal((await db.query('select count(*) n from private.sales_followup_research_jobs')).rows[0].n,1);assert.equal((await db.query('select count(*) n from private.sales_followup_jobs')).rows[0].n,2)
+ assert.equal((await db.query("select count(*) n from private.sales_dispatch_jobs where state='queued'")).rows[0].n,0)
+})
+test('research only accepts bounded same-origin sources and source-owned text; no fake complete result',async()=>{
+ const f=await researchFixture()
+ for(const result of [{...researchResult,pages:[{...researchResult.pages[0],url:'https://evil.com/services'}]},{...researchResult,pages:[researchResult.pages[0],researchResult.pages[0]]},{...researchResult,pages:[{...researchResult.pages[0],status:'failed'}]},{...researchResult,pages:[]},{...researchResult,pages:[{...researchResult.pages[0],excerpt:'x'.repeat(1201)}]}])await assert.rejects(finishResearch(f.researchJob.id,result),/Invalid|Inconsistent/)
+ await assert.rejects(asUser(admin,()=>call('sales_followup_research_finish',[f.researchJob.id,JSON.stringify(researchResult)])),e=>e.code==='42501')
+ assert.equal((await db.query('select result from private.sales_followup_research_jobs')).rows[0].result,null)
+})
+test('changed site discards in-flight research and never injects stale facts',async()=>{
+ const f=await researchFixture();await db.query("update clients set website='https://changed.com' where id=$1",[client]);await finishResearch(f.researchJob.id)
+ assert.equal((await db.query('select state from private.sales_followup_research_jobs')).rows[0].state,'expired')
+ assert.equal((await db.query('select private.sales_followup_input($1) r',[f.job.id])).rows[0].r.research,undefined)
+ assert.equal((await execution(f.j.id)).crm.threads[0].research.pages.length,0)
+})
+test('unavailable research retries at fifteen-minute spacing twice per rolling day without paid AI churn',async()=>{
+ const f=await researchFixture();const failure={status:'unavailable',limited:false,pages:[]};await finishResearch(f.researchJob.id,failure);await db.exec('select private.sales_followup_research_tick()')
+ assert.equal((await db.query('select count(*) n from private.sales_followup_research_jobs')).rows[0].n,1)
+ await db.exec("update private.sales_followup_research_jobs set created_at=now()-interval '16 minutes';select private.sales_followup_research_tick()")
+ const next=(await db.query("select * from private.sales_followup_research_jobs where state='queued'")).rows[0];assert.ok(next)
+ await asUser(admin,()=>call('sales_followup_research_claim',[next.id,next.token]),'service_role');await finishResearch(next.id,failure)
+ await db.exec("update private.sales_followup_research_jobs set created_at=created_at-interval '16 minutes';select private.sales_followup_research_tick()")
+ assert.equal((await db.query('select count(*) n from private.sales_followup_research_jobs')).rows[0].n,2);assert.equal((await db.query('select count(*) n from private.sales_followup_jobs')).rows[0].n,1)
+})
+test('missing websites never become human search tasks or arbitrary URL jobs',async()=>{
+ const f=await followupFixture();await finishFollowup(f.followup.id,{...followupPlan,action:'research',draft:null});await db.query("update clients set website='' where id=$1",[client]);await db.exec('select private.sales_followup_research_tick()')
+ assert.equal((await db.query('select count(*) n from private.sales_followup_research_jobs')).rows[0].n,0);assert.match((await execution(f.j.id)).crm.threads[0].research.note,/사람에게 검색 업무를 넘기지/)
+})
+test('research citations must occur in the frozen retrieved page; fake URLs cannot authorize a draft',async()=>{
+ const f=await researchFixture();await finishResearch(f.researchJob.id)
+ const next=(await db.query("select * from private.sales_followup_jobs where state='queued'")).rows[0];await asUser(admin,()=>call('sales_followup_claim',[next.id,next.token]),'service_role')
+ await assert.rejects(finishFollowup(next.id,{...followupPlan,research_evidence:[{url:'https://example.com/services',quote:'예산 확정'}]}),/Unverified research quotation/)
+ await assert.rejects(finishFollowup(next.id,{...followupPlan,research_evidence:[{url:'https://evil.com/',quote:'행사'}]}),/Unverified research quotation/)
+ assert.equal((await db.query('select plan from private.sales_followup_jobs where id=$1',[next.id])).rows[0].plan,null)
+})
+
+
+test('collected research survives downstream preparation errors and the existing scheduler recovers',async()=>{
+ const f=await researchFixture()
+ await db.exec("create function reject_followup_fixture() returns trigger language plpgsql as $$begin raise exception 'fixture preparation unavailable';end$$;create trigger fixture_followup_error before insert on private.sales_followup_jobs for each row execute function reject_followup_fixture()")
+ await finishResearch(f.researchJob.id)
+ assert.equal((await db.query('select state from private.sales_followup_research_jobs')).rows[0].state,'done')
+ assert.equal((await db.query('select count(*) n from private.sales_followup_jobs')).rows[0].n,1)
+ await db.exec('drop trigger fixture_followup_error on private.sales_followup_jobs;select private.sales_followup_tick()')
+ assert.equal((await db.query('select count(*) n from private.sales_followup_jobs')).rows[0].n,2)
+})
+
+
+test('contact suppression revokes pending research and later claims cannot retrieve a company site',async()=>{
+ const f=await researchFixture()
+ await db.query("insert into private.sales_contact_suppressions(recipient,dispatch_id,message_id,reason) values('human@example.com',$1,'bb22','stop')",[f.job.id])
+ await finishResearch(f.researchJob.id)
+ assert.equal((await db.query('select state from private.sales_followup_research_jobs')).rows[0].state,'expired')
+ assert.equal((await execution(f.j.id)).crm.threads[0].research.pages.length,0)
+ await db.exec('select private.sales_followup_research_tick()')
+ assert.equal((await db.query('select count(*) n from private.sales_followup_research_jobs')).rows[0].n,1)
+})
+test('identical cached research keeps AI input stable and ownership changes hide previous excerpts',async()=>{
+ const f=await researchFixture();await finishResearch(f.researchJob.id)
+ const before=(await db.query('select private.sales_followup_input($1) r',[f.job.id])).rows[0].r
+ await db.exec("update private.sales_followup_research_jobs set finished_at=now()+interval '1 second'")
+ assert.deepEqual((await db.query('select private.sales_followup_input($1) r',[f.job.id])).rows[0].r,before)
+ await db.query("update clients set name='다른 회사' where id=$1",[client])
+ assert.equal((await execution(f.j.id)).crm.threads[0].research.pages.length,0)
+ assert.equal((await db.query('select private.sales_followup_input($1) r',[f.job.id])).rows[0].r.research,undefined)
 })

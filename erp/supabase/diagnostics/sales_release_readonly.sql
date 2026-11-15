@@ -5,7 +5,7 @@ select 'table' kind,n.name object,
  to_regclass(n.name) is not null present,
  case when c.oid is not null then c.relrowsecurity else null end rls,
  case when c.oid is not null then has_table_privilege('authenticated',c.oid,'INSERT,UPDATE,DELETE') else null end member_can_write
-from (values ('public.sales_source_history'),('public.sales_desk_messages'),('public.sales_execution_packages'),('public.sales_execution_events'),('private.sales_dispatch_jobs'),('private.sales_sender_readiness'),('private.sales_mail_evidence_jobs'),('private.sales_contact_discovery_jobs'),('private.sales_crm_threads'),('private.sales_reply_jobs'),('private.sales_contact_suppressions'),('private.sales_crm_pipeline_events'),('private.sales_followup_jobs')) n(name)
+from (values ('public.sales_source_history'),('public.sales_desk_messages'),('public.sales_execution_packages'),('public.sales_execution_events'),('private.sales_dispatch_jobs'),('private.sales_sender_readiness'),('private.sales_mail_evidence_jobs'),('private.sales_contact_discovery_jobs'),('private.sales_crm_threads'),('private.sales_reply_jobs'),('private.sales_contact_suppressions'),('private.sales_crm_pipeline_events'),('private.sales_followup_jobs'),('private.sales_followup_research_jobs')) n(name)
 left join pg_catalog.pg_class c on c.oid=to_regclass(n.name)
 order by n.name;
 
@@ -21,7 +21,7 @@ from (values
  ('public.sales_sender_check_begin()'),('public.sales_sender_check_finish(uuid,jsonb)'),
  ('public.sales_mail_evidence_claim(uuid,uuid)'),('public.sales_mail_evidence_finish(uuid,jsonb)'),
  ('public.sales_contact_discovery_claim(uuid,uuid)'),('public.sales_contact_discovery_finish(uuid,jsonb)'),
- ('public.sales_followup_claim(uuid,uuid)'),('public.sales_followup_finish(uuid,jsonb,text)'),('public.sales_followup_ai_reserve(uuid,uuid,text,text,text,integer)'),
+ ('public.sales_followup_research_claim(uuid,uuid)'),('public.sales_followup_research_finish(uuid,jsonb)'),('public.sales_followup_claim(uuid,uuid)'),('public.sales_followup_finish(uuid,jsonb,text)'),('public.sales_followup_ai_reserve(uuid,uuid,text,text,text,integer)'),
  ('public.sales_reply_claim(uuid,uuid)'),('public.sales_reply_finish(uuid,jsonb)'),
  ('private.sales_execution_material(uuid)'),('private.sales_execution_material_before_contact_evidence(uuid)'),
  ('private.sales_strategy_targets(uuid)'),('private.sales_execution_summary()'),('private.sales_strategy_brief()')

@@ -3,11 +3,11 @@ export const developmentGates = ['구현', '로컬 검증', '운영 배포', '�
 export type DevelopmentMilestone = {name:string; gates:readonly [boolean,boolean,boolean,boolean]; evidence:string}
 export const salesDevelopmentCheckpoint = {
   targetPercent: 40,
-  updatedAt: '2026-11-15T06:46:45Z',
-  status: 'CRM 연결·후속안 준비 검증 · 운영 보류',
-  currentBatch: {completed:['접수·회신을 기존 CRM 파이프라인과 활동 이력에 자동 연결','CRM 오류 시 원문 보존·횟수 제한 자동 복구','회신 인용 검증을 거친 AI 후속안 초안 자동 준비'],remaining:['부족한 근거에 대한 자동 추가 조사 실행','후속 실행안 검증·승인·전송 연결','실제 계정의 승인 외 수작업 없는 전체 흐름 검증']},
+  updatedAt: '2026-11-15T07:21:41Z',
+  status: '공개 근거 자동 조사·후속안 재작성 검증 · 운영 보류',
+  currentBatch: {completed:['접수·회신을 기존 CRM 파이프라인과 활동 이력에 자동 연결','CRM 오류 시 원문 보존·횟수 제한 자동 복구','회신 인용 검증을 거친 AI 후속안 초안 자동 준비','저장 회사 사이트 자동 조사→근거 저장→후속안 재작성 연결'],remaining:['미등록 회사 사이트 발굴·요청 목적 검증','후속 실행안 검증·승인·전송 연결','실제 계정의 승인 외 수작업 없는 전체 흐름 검증']},
   blocker: 'Claude 배포와 겹치지 않도록 운영 반영 보류. 이번 영업 DB·서버 변경은 운영 미적용입니다.',
-  next: '수신 목적 검증·후속 실행안·CRM 파이프라인 연결 개발 → 배포 차례 확정 후 운영 검증',
+  next: '수신 목적 검증·후속 실행안 승인·전송 연결 개발 → 배포 차례 확정 후 운영 검증',
   source: 'https://github.com/wkly2go/wkly-instagram-images/pull/399',
   milestones: [
     {name:'다양한 영업 기획 자동 생성',gates:[true,true,true,false],evidence:'기존 기획 운영 반영 기록: PR #397. 실제 계정 전체 흐름 재검증 필요.'},
@@ -19,7 +19,7 @@ export const salesDevelopmentCheckpoint = {
     {name:'검토 자료·실행안 버전·승인 보호',gates:[true,true,false,false],evidence:'사전 준비·실행안·연락 근거 DB 검증 통과. 저장 이력·메일 원문 자동 확보와 변경 시 재준비 1회 구현. 진위·요청 의사 판정 미완료. 발송 연결 전 승인은 차단.'},
     {name:'승인 후 이메일 발송·중복 발송 방지',gates:[false,false,false,false],evidence:'승인 대기열·중복 방지·발신 계정 권한 진단·대상별 누락 점검 구현/검증. Gmail 전송 어댑터 로컬 검증 추가. 수신 목적별 근거와 운영 전송 연결은 미완료.'},
     {name:'허용된 Instagram DM 발송',gates:[false,false,false,false],evidence:'계정 연결·대화 자격·발송 처리·실제 전달 검증 필요.'},
-    {name:'회신·수신 거부·CRM 자동 갱신',gates:[false,false,false,false],evidence:'제공사 접수→동일 대화 회신→중단 감지·차단→CRM 기록·브리핑 로컬 구현/검증. 기존 파이프라인 자동 연결·후속안 초안 준비 검증 추가. 추가 조사 실행과 후속 발송 승인 연결은 미완성.'},
+    {name:'회신·수신 거부·CRM 자동 갱신',gates:[false,false,false,false],evidence:'제공사 접수→동일 대화 회신→중단 감지·차단→CRM 기록·브리핑 로컬 구현/검증. 기존 파이프라인 자동 연결·후속안 초안 준비 검증 추가. 저장 회사 사이트 추가 조사·재작성 연결 검증. 넓은 출처 발굴과 후속 발송 승인 연결은 미완성.'},
     {name:'08시 수집·09시 실행 현황 보고',gates:[true,true,false,false],evidence:'실행안 준비와 발송을 구분한 집계 검증 통과. 새 집계의 운영 반영·정시 실행 검증 대기.'},
     {name:'전체 흐름·장애 복구·3일 연속 운영',gates:[false,false,false,false],evidence:'수집→검증→승인→발송→회신→보고 통합 운영 검증 전.'},
   ] satisfies DevelopmentMilestone[],

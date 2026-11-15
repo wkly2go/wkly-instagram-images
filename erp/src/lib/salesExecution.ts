@@ -1,6 +1,9 @@
 import type {FollowupPlan} from './salesFollowup'
+export interface SalesResearchReport {
+ state:string;attempts:number;checked_at:string|null;note:string;pages:{url:string;status:'read'|'blocked'|'failed';excerpt:string}[];
+}
 export interface SalesCrmReport {
- scope:string;threads:{dispatch_id:string;followup?:{id:string|null;state:'waiting'|'queued'|'claimed'|'done'|'failed'|'stale';plan:FollowupPlan|null;error:string|null;created_at:string|null;note:string};opportunity_id?:string|null;pipeline_note?:string;pipeline_stage?:string|null;recipient:string;stage:string;next_action:string;read_note:string;last_reply_at:string|null;created_at:string;checked_at:string|null;reply_count:number;replies:{message_id:string;signal:'reply'|'stop'|'limited';text:string;received_at:string}[]}[];
+ scope:string;threads:{dispatch_id:string;research?:SalesResearchReport;followup?:{id:string|null;state:'waiting'|'queued'|'claimed'|'done'|'failed'|'stale';plan:FollowupPlan|null;error:string|null;created_at:string|null;note:string};opportunity_id?:string|null;pipeline_note?:string;pipeline_stage?:string|null;recipient:string;stage:string;next_action:string;read_note:string;last_reply_at:string|null;created_at:string;checked_at:string|null;reply_count:number;replies:{message_id:string;signal:'reply'|'stop'|'limited';text:string;received_at:string}[]}[];
 }
 export interface SalesContactDiscovery {
  total:number;scope:string;companies:{id:string;company:string;website:string|null;state:string;checked_at:string|null;attempts:number;note:string;limited:boolean;pages:{url:string;status:string}[];candidates:{email:string;url:string;excerpt:string;role:'partnership'|'general'|'non_sales';domain_match:boolean;excluded:boolean;outreach_authorized:false}[]}[];

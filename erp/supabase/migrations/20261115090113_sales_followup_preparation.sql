@@ -1,6 +1,7 @@
 -- System-prepared, evidence-quoted follow-up drafts. No send authorization or transport.
 begin;
 create table private.sales_followup_jobs(
+ sequence bigint generated always as identity unique,
  id uuid primary key default gen_random_uuid(),token uuid not null default gen_random_uuid(),dispatch_id uuid not null references private.sales_crm_threads(dispatch_id),
  actor uuid not null references public.profiles(id),input jsonb not null,input_hash text not null,
  state text not null default 'queued' check(state in ('queued','claimed','done','failed','stale')),
@@ -101,7 +102,7 @@ begin
  result:=public.sales_execution_get_before_followup(p_id);if result is null then return null;end if;
  select coalesce(jsonb_agg(t||jsonb_build_object('followup',jsonb_build_object('id',j.id,'state',case when j.id is not null and j.input is distinct from private.sales_followup_input(c.dispatch_id) then 'stale' else coalesce(j.state,'waiting') end,'plan',case when j.input is not distinct from private.sales_followup_input(c.dispatch_id) then j.plan else null end,'error',j.error,'created_at',j.created_at,'note','후속안은 검토용 초안입니다. 자동 조사 실행·외부 발송 승인 연결은 준비 중이며 사람이 자료를 가공할 필요가 없습니다.')) order by n),'[]') into rows
  from jsonb_array_elements(result->'crm'->'threads') with ordinality x(t,n) join private.sales_crm_threads c on c.dispatch_id=(t->>'dispatch_id')::uuid
- left join lateral(select * from private.sales_followup_jobs where dispatch_id=c.dispatch_id order by created_at desc,id desc limit 1) j on true;
+ left join lateral(select * from private.sales_followup_jobs where dispatch_id=c.dispatch_id order by created_at desc,sequence desc limit 1) j on true;
  return jsonb_set(result,'{crm,threads}',rows);
 end $$;
 revoke all on function private.sales_followup_input(uuid),private.sales_followup_tick(),public.sales_execution_get_before_followup(uuid) from public,anon,authenticated,service_role;

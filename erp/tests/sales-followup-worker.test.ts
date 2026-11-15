@@ -26,3 +26,11 @@ test('persistence failure is reported without exposing errors or regenerating',a
  let calls=0;const handler=createFollowupHandler({claim:async()=>job,generate:async()=>{calls++;return{status:'completed',text:JSON.stringify(plan)}},finish:async()=>{throw new Error('secret')}})
  const response=await handler(request());assert.equal(response.status,503);assert.deepEqual(await response.json(),{recorded:false});assert.equal(calls,1)
 })
+
+test('enriched prompts stay bounded, retain untrusted-source rules and reject invented website quotations',()=>{
+ const input={...job.input,research:{scope:'공개 자료 일부',pages:[{url:'https://company.com/services',excerpt:'행사 운영 서비스를 제공합니다.'}]}}
+ const enriched={...plan,research_evidence:[{url:input.research.pages[0].url,quote:'행사 운영 서비스'}]}
+ assert.deepEqual(parseFollowupPlan(JSON.stringify(enriched),input),enriched)
+ assert.throws(()=>parseFollowupPlan(JSON.stringify({...enriched,research_evidence:[{url:'https://wrong.com',quote:'행사'}]}),input))
+ const prompt=followupPrompt({...job,input:{...input,research:{...input.research,pages:Array(3).fill({url:'https://company.com/'+ 'x'.repeat(1400),excerpt:'x'.repeat(1200)})}}});assert.ok(prompt.length<=6000);assert.match(prompt,/해결되지 않은 missing은 지우지/)
+})
