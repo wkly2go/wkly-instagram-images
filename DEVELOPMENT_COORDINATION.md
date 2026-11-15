@@ -43,3 +43,9 @@ PR에는 기준 main SHA, 수정 파일, 새/변경 DB 객체, migration 번호�
 최신 확인 main: `4b2a31d080ef0957262ee84512e62df0404f6e1e`. 공개된 설계 브랜치 기준 새 번호 중복은 없으며 병합 직전에 다시 확인한다. 기존 main의 0079/0080 중복은 변경하지 않는다. 미공개 상대 작업은 확인 완료로 표시하지 않는다.
 
 **사용자가 Claude 배포 중이라고 확인했으므로 main 병합·운영 SQL·서버 배포를 보류한다. 위 5개 영업 migration은 모두 운영 미적용이다.** 실제 API 키/권한 및 운영 계정 수집→보고→실행안은 확인 전이다. sales-desk/sales-g2b/sales-planner 서버도 이 개발 버전의 운영 적용이 필요하다.
+
+## Dispatch queue handoff — 2026-11-15
+
+Add `20261115090106_sales_dispatch_queue.sql` after the five existing Sales timestamp migrations. All six remain UNAPPLIED. The fifth unapplied migration additionally fixes reviewed-window drift across midnight. The sixth adds only Sales private queue/audit objects, service-only claim/result functions, an expiry watchdog, and sanitized read history. No send transport or HTTP worker entry point is deployed or enabled. The internal worker core is local/tested only.
+
+Latest read-only comparison: main `4b2a31d080ef0957262ee84512e62df0404f6e1e`, design `66073967fa3003be08116ddb26d957bc55e0043f`, design migrations through 0133. No new number collision; recheck before merge. No design/menu/shared Shell/package edits. The explicit production hold is unchanged.

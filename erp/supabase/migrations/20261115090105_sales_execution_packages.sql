@@ -21,7 +21,7 @@ create index sales_execution_events_package on public.sales_execution_events(pac
 alter table public.sales_strategies add column execution_checked_at timestamptz;
 
 create function private.sales_execution_material(p_id uuid) returns jsonb language plpgsql stable set search_path='' as $$
-declare s public.sales_strategies; targets jsonb; sources jsonb; messages jsonb; blockers jsonb:='[]'; payload jsonb; local_day date; scheduled timestamptz;
+declare s public.sales_strategies; targets jsonb; sources jsonb; messages jsonb; blockers jsonb:='[]'; payload jsonb; local_day date; scheduled timestamptz; previous_schedule jsonb;
 begin
  select * into s from public.sales_strategies where id=p_id;
  if s.id is null or not s.preparation_before_approval or s.preparation_status<>'완료' or s.preparation is null then return null;end if;
@@ -38,6 +38,9 @@ begin
  local_day:=(now() at time zone 'Asia/Seoul')::date+1;
  while extract(isodow from local_day)>5 loop local_day:=local_day+1;end loop;
  scheduled:=(local_day+time '10:00') at time zone 'Asia/Seoul';
+ -- Keep the reviewed window across midnight. Expired windows need a fresh version/approval.
+ select p.payload->'schedule' into previous_schedule from public.sales_execution_packages p where p.strategy_id=p_id order by p.version desc limit 1;
+ if (previous_schedule->>'expires_at')::timestamptz>now() then scheduled:=(previous_schedule->>'at')::timestamptz;end if;
  select coalesce(jsonb_agg(jsonb_build_object('channel','email','recipient',email,'company',company,'person',person,'source_ids',ids,
   'subject',regexp_replace(left(s.plan->>'title',160),'[[:cntrl:]]',' ','g'),'body',s.preparation->>'contact_draft') order by email),'[]') into messages from (
    select t->>'email' email,min(t->>'company') company,min(nullif(t->>'person','')) person,jsonb_agg(t->>'source_id' order by t->>'source_id') ids

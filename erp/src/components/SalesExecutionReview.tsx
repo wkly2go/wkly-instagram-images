@@ -4,6 +4,7 @@ import type {SalesExecutionApi} from '../lib/salesExecution'
 import {Button} from './ui'
 
 const time=(v:string)=>new Date(v).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'})
+const dispatchLabels={queued:'발송 대기',claimed:'처리 중',accepted:'제공사 접수',rejected:'미접수',unknown:'결과 확인 필요',cancelled:'취소',expired:'일정 만료'}
 export function SalesExecutionReview({api,strategyId,revision,canDecide}:{api:SalesExecutionApi;strategyId:string;revision:number;canDecide:boolean}){
  const state=useAsync(()=>api.getSalesExecution(strategyId),[strategyId,revision],null)
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),p=state.data
@@ -32,6 +33,11 @@ export function SalesExecutionReview({api,strategyId,revision,canDecide}:{api:Sa
    {p.payload.attachments.map(file=><details key={file.name}><summary>제안 자료 · {file.name}</summary><p className="sales-strategy-message">{file.content}</p><Button kind="outline" onClick={()=>download(file)}>제안 자료 저장</Button><p>이 실행안에 저장된 원문입니다. 실제 메일 첨부·전송은 아직 실행하지 않았습니다.</p></details>)}
    {canDecide&&<div className="row wrap"><Button disabled={busy||!p.can_approve} onClick={()=>void decide('승인')}>이 버전의 외부 연락 승인</Button><Button kind="outline" disabled={busy||!p.current||p.status==='보류'} onClick={()=>void decide('보류')}>실행안 보류</Button></div>}
    {!p.payload.transport_enabled&&<p className="sales-strategy-note">발송 연결과 검증이 완료되기 전에는 외부 연락 승인이 열리지 않습니다.</p>}
+   <details><summary>발송 대기열·처리 기록{p.dispatch?` · ${p.dispatch.jobs.length}건`:''}</summary>
+    <p>{p.dispatch?.note||'대기열 상태를 제공하는 서버 버전의 운영 반영을 기다리고 있습니다.'}</p>
+    {!!p.dispatch?.jobs.length?<div className="sales-strategy-scroll"><table><caption>이 기획의 최근 처리 기록 최대 100건 · 제공사 접수는 수신함 도착·열람 확인이 아닙니다.</caption><thead><tr><th>수신 대상</th><th>처리 상태</th><th>검증·처리 사유</th></tr></thead><tbody>{p.dispatch.jobs.map(job=><tr key={job.id}><td>{job.recipient}<small>{job.package_id===p.id?'현재 실행안':'이전 실행안'}</small></td><td>{dispatchLabels[job.state]}<small>{job.finished_at?time(job.finished_at):time(job.scheduled_at)}</small></td><td>{job.reason}</td></tr>)}</tbody></table></div>:<p>등록된 처리 기록이 없습니다. 준비된 문안은 발송 실적에 포함하지 않습니다.</p>}
+    <p>결과가 불명확한 건은 자동 재발송하지 않고 시스템이 제공사 결과를 대조해야 합니다.</p>
+   </details>
    <details><summary>실행안 준비·변경 기록</summary><ol>{p.events.map(e=><li key={e.id}><strong>{e.kind}</strong> · {time(e.created_at)}<p>{e.note}</p></li>)}</ol></details>
   </>}
  </section>

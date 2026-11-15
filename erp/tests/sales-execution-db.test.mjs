@@ -43,6 +43,7 @@ before(async()=>{
  await db.exec(await sql('20261115090103_sales_g2b_collection.sql'))
  await db.exec(await sql('20261115090104_sales_preapproval.sql'))
  await db.exec(await sql('20261115090105_sales_execution_packages.sql'))
+ await db.exec(await sql('20261115090106_sales_dispatch_queue.sql'))
  await db.exec("insert into growth_ai_models values('standard','작성','test-model',3,15,true);insert into growth_ai_budgets(id,starts_at,ends_at,limit_usd,enabled) values(gen_random_uuid(),now()-interval '1 day',now()+interval '1 day',1,true);insert into vault.decrypted_secrets values('WKLY_EDGE_ANON_KEY','test-gateway');grant usage on schema public,auth to service_role;")
 })
 after(()=>db.close())
@@ -134,7 +135,8 @@ test('the scheduled refresh discovers changes and keeps old source documents int
 })
 test('changed sources clear any previous approval metadata and append an audit event',async()=>{
  const j=await prepared(),p=await execution(j.id)
- // Simulate a future connected delivery adapter's approved record; no provider is called.
+ // Isolate legacy refresh invalidation from dispatch authorization; no provider is called.
+ await db.exec('alter table sales_execution_packages disable trigger sales_dispatch_enqueue')
  await db.query("update sales_execution_packages set status='승인',approved_by=$2,approved_at=now() where id=$1",[p.id,admin])
  await db.query("update clients set email='revised@example.com' where id=$1",[client])
  await db.query('select private.sales_execution_refresh($1)',[j.id])
@@ -157,4 +159,107 @@ test('daily notifications distinguish unfinished preparation from review-ready p
  await claim(j.prep);await asUser(admin,()=>call('sales_strategy_prepared',[j.prep,JSON.stringify(pack),'']),'service_role')
  await db.exec('delete from notices;select private.sales_strategy_brief()');body=(await db.query('select body from notices')).rows[0].body
  assert.match(body,/검토 대기 1건/);assert.match(body,/검증 대기 1건/);assert.match(body,/발송·회신 기록은 미연결/)
+})
+
+// Test-only material adapter. Production remains transport-disabled.
+async function connectedFixture(){
+ await db.exec(`alter function private.sales_execution_material(uuid) rename to execution_test_original;
+ create function private.sales_execution_material(p_id uuid) returns jsonb language plpgsql stable set search_path='' as $$
+ declare m jsonb; payload jsonb; proofs jsonb; blockers jsonb;
+ begin
+ m:=private.execution_test_original(p_id);if m is null then return null;end if;
+ select coalesce(jsonb_object_agg(value->>'recipient',jsonb_build_object('status','verified','evidence','test-only permitted contact record','purpose','test proposal','valid_until',now()+interval '2 hours')),'{}') into proofs from jsonb_array_elements(m->'payload'->'messages');
+ payload:=(m->'payload')||jsonb_build_object('sender','sender@example.com','transport_enabled',true,'recipient_verification',proofs,'schedule',jsonb_build_object('at',now()-interval '1 minute','expires_at',now()+interval '1 hour','per_recipient_limit',1));
+ select coalesce(jsonb_agg(value),'[]') into blockers from jsonb_array_elements_text(m->'blockers') where value not in ('발신 계정·이메일 발송 권한과 전송 처리가 아직 연결되지 않았습니다.','시스템의 수신 자격·문안·제안 범위 검증이 완료되지 않았습니다.');
+ return jsonb_build_object('payload',payload,'blockers',blockers,'fingerprint',encode(sha256(convert_to(jsonb_build_array(payload,blockers)::text,'UTF8')),'hex'));
+ end $$;`)
+ const j=await prepared('담당자'),p=await execution(j.id)
+ return {j,p}
+}
+async function dispatchFixture(){const {j,p}=await connectedFixture();await decision(p);const job=(await db.query('select * from private.sales_dispatch_jobs where package_id=$1',[p.id])).rows[0];return {j,p,job}}
+const dispatchClaim=id=>asUser(admin,()=>call('sales_dispatch_claim',[id]),'service_role').then(r=>r.rows[0].r)
+const dispatchFinish=(id,token,outcome,receipt=null)=>asUser(admin,()=>call('sales_dispatch_finish',[id,token,outcome,receipt]),'service_role')
+
+test('preparation and transport-blocked approval never queue a message',async()=>{
+ const j=await prepared(),p=await execution(j.id);await assert.rejects(decision(p),/발송 조건/)
+ assert.equal((await db.query('select count(*) n from private.sales_dispatch_jobs')).rows[0].n,0)
+ assert.equal(p.dispatch.connected,false);assert.deepEqual(p.dispatch.jobs,[])
+})
+test('exact approved package queues once and does not expose worker credentials',async()=>{
+ const {j,p,job}=await dispatchFixture();await decision(p)
+ assert.equal(job.recipient,'human@example.com');assert.equal(job.fingerprint,p.fingerprint);assert.deepEqual(job.message,p.payload.messages[0])
+ assert.equal((await db.query('select count(*) n from private.sales_dispatch_jobs')).rows[0].n,1)
+ await assert.rejects(asUser(admin,()=>call('sales_dispatch_claim',[job.id])),e=>e.code==='42501')
+ await assert.rejects(asUser(admin,()=>db.query('select * from private.sales_dispatch_jobs')),e=>e.code==='42501')
+ const visible=(await execution(j.id)).dispatch.jobs[0];assert.equal(visible.state,'queued');assert.equal('claim_token' in visible,false)
+})
+test('single-use claim, receipt validation and idempotent completion prevent duplicate processing',async()=>{
+ const {job}=await dispatchFixture(),lease=await dispatchClaim(job.id)
+ assert.ok(lease.token);assert.equal(lease.sender,'sender@example.com');assert.equal(await dispatchClaim(job.id),null)
+ await assert.rejects(dispatchFinish(job.id,randomUUID(),'accepted','receipt'),e=>e.code==='42501')
+ await assert.rejects(dispatchFinish(job.id,lease.token,'accepted',''),/접수 식별자/)
+ await dispatchFinish(job.id,lease.token,'accepted','receipt-1');await dispatchFinish(job.id,lease.token,'accepted','receipt-1')
+ await assert.rejects(dispatchFinish(job.id,lease.token,'rejected'),e=>e.code==='PT409')
+ const row=(await db.query('select * from private.sales_dispatch_jobs where id=$1',[job.id])).rows[0]
+ assert.equal(row.state,'accepted');assert.match(row.reason,/수신함 도착·열람 확인 아님/)
+ assert.equal((await db.query("select count(*) n from private.sales_dispatch_events where job_id=$1 and state='accepted'",[job.id])).rows[0].n,1)
+})
+test('a hold invalidates dispatch before a worker can claim it',async()=>{
+ const {p,job}=await dispatchFixture();await decision(p,'보류');assert.equal(await dispatchClaim(job.id),null)
+ assert.equal((await db.query('select state from private.sales_dispatch_jobs where id=$1',[job.id])).rows[0].state,'cancelled')
+})
+test('opt-out after approval is rechecked before releasing message material',async()=>{
+ const {job}=await dispatchFixture();await db.query("insert into brand_contacts(id,email,opt_out) values($1,' HUMAN@example.com ',true)",[randomUUID()])
+ assert.equal(await dispatchClaim(job.id),null)
+ assert.equal((await db.query('select state from private.sales_dispatch_jobs where id=$1',[job.id])).rows[0].state,'cancelled')
+})
+test('future and expired jobs cannot be claimed',async()=>{
+ const {job}=await dispatchFixture()
+ await db.query("update private.sales_dispatch_jobs set scheduled_at=now()+interval '10 minutes' where id=$1",[job.id]);assert.equal(await dispatchClaim(job.id),null)
+ await db.query("update private.sales_dispatch_jobs set scheduled_at=now()-interval '2 hours',expires_at=now()-interval '1 hour' where id=$1",[job.id]);await db.exec('select private.sales_dispatch_watchdog()')
+ assert.equal(await dispatchClaim(job.id),null)
+ assert.equal((await db.query('select state from private.sales_dispatch_jobs where id=$1',[job.id])).rows[0].state,'expired')
+})
+test('lost response blocks retries and new versions until a late provider receipt reconciles it',async()=>{
+ const {j,job}=await dispatchFixture(),lease=await dispatchClaim(job.id)
+ await db.query("update private.sales_dispatch_jobs set claimed_at=now()-interval '6 minutes' where id=$1",[job.id]);await db.exec('select private.sales_dispatch_watchdog()')
+ assert.equal(await dispatchClaim(job.id),null)
+ assert.equal((await db.query('select state from private.sales_dispatch_jobs where id=$1',[job.id])).rows[0].state,'unknown')
+ await db.query("update sales_strategies set preparation=jsonb_set(preparation,'{proposal}','\"updated test proposal\"') where id=$1",[j.id]);await db.query('select private.sales_execution_refresh($1)',[j.id])
+ await assert.rejects(decision(await execution(j.id)),/중복 실행/)
+ await dispatchFinish(job.id,lease.token,'accepted','late-receipt')
+ assert.equal((await db.query('select state from private.sales_dispatch_jobs where id=$1',[job.id])).rows[0].state,'accepted')
+})
+test('missing eligibility evidence rolls back approval and its audit event',async()=>{
+ const {j,p}=await connectedFixture()
+ await db.exec(`alter function private.sales_execution_material(uuid) rename to execution_test_connected;
+ create function private.sales_execution_material(p_id uuid) returns jsonb language sql stable as $$select jsonb_set(private.execution_test_connected(p_id),'{payload,recipient_verification}','{}')$$`)
+ await db.query("update sales_execution_packages set payload=jsonb_set(payload,'{recipient_verification}','{}') where id=$1",[p.id])
+ await assert.rejects(decision(p),/수신 자격/)
+ assert.equal((await execution(j.id)).status,'승인 대기')
+ assert.equal((await db.query("select count(*) n from sales_execution_events where package_id=$1 and kind='승인'",[p.id])).rows[0].n,0)
+})
+test('approval window remains stable across report refreshes instead of moving to tomorrow',async()=>{
+ const j=await prepared(),p=await execution(j.id)
+ await db.query("update sales_execution_packages set payload=jsonb_set(payload,'{schedule}',jsonb_build_object('at',now()-interval '1 hour','expires_at',now()+interval '3 hours','timezone','Asia/Seoul','per_recipient_limit',1,'followups','없음 · 회신 시 재접촉 중단')) where id=$1",[p.id])
+ const stored=(await db.query("select payload->'schedule' s from sales_execution_packages where id=$1",[p.id])).rows[0].s
+ const material=(await db.query("select private.sales_execution_material($1)->'payload'->'schedule' s",[j.id])).rows[0].s
+ assert.deepEqual(material,stored)
+})
+test('changed queued versions are cancelled atomically before the new version can be approved',async()=>{
+ const {j,job}=await dispatchFixture()
+ await db.query("update sales_strategies set preparation=jsonb_set(preparation,'{proposal}','\"changed proposal\"') where id=$1",[j.id]);await db.query('select private.sales_execution_refresh($1)',[j.id])
+ assert.equal((await db.query('select state from private.sales_dispatch_jobs where id=$1',[job.id])).rows[0].state,'cancelled')
+ await decision(await execution(j.id))
+ assert.equal((await db.query("select count(*) n from private.sales_dispatch_jobs where state='queued'")).rows[0].n,1)
+})
+test('expired jobs are rechecked even without the watchdog',async()=>{
+ const {job}=await dispatchFixture()
+ await db.query("update private.sales_dispatch_jobs set scheduled_at=now()-interval '2 hours',expires_at=now()-interval '1 hour' where id=$1",[job.id]);assert.equal(await dispatchClaim(job.id),null)
+ assert.equal((await db.query('select state from private.sales_dispatch_jobs where id=$1',[job.id])).rows[0].state,'expired')
+})
+test('revoked administrator access prevents a previously approved queued send',async()=>{
+ const {job}=await dispatchFixture();await db.query('update profiles set active=false where id=$1',[admin])
+ assert.equal(await dispatchClaim(job.id),null)
+ assert.equal((await db.query('select state from private.sales_dispatch_jobs where id=$1',[job.id])).rows[0].state,'cancelled')
 })

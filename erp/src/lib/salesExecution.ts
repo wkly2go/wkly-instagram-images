@@ -6,6 +6,7 @@ export interface SalesExecutionPackage {
   attachments:{name:string;mime:string;content:string}[];
   schedule:{at:string;expires_at:string;timezone:string;per_recipient_limit:number;followups:string};checks:string[]};
  events:{id:number;kind:string;note:string;created_at:string}[];
+ dispatch?:{connected:boolean;note:string;jobs:{id:string;package_id:string;recipient:string;state:'queued'|'claimed'|'accepted'|'rejected'|'unknown'|'cancelled'|'expired';reason:string;scheduled_at:string;finished_at:string|null;created_at:string}[]};
 }
 export interface SalesExecutionApi {
  getSalesExecution(strategyId:string):Promise<SalesExecutionPackage|null>;

@@ -40,8 +40,9 @@ test('execution review blocks unready approval, shows exact material and refresh
    assert.equal(screen.getByRole('button',{name:'이 버전의 외부 연락 승인'}).disabled,true)
    assert.ok(screen.getByText('company@example.com'));assert.ok(screen.getByText('확인된 검토 문안'));assert.ok(screen.getByText('정확한 제안 자료'))
    assert.match(screen.getByText(/제안 시각/).textContent,/제안 시각/)
-   row={...row,status:'승인 대기',can_approve:true}
+   row={...row,status:'승인 대기',can_approve:true,dispatch:{connected:false,note:'실제 발송 처리기 미연결',jobs:[{id:'job',package_id:'packet',recipient:'company@example.com',state:'unknown',reason:'결과 불명 · 자동 재발송 중단',scheduled_at:'2026-11-16T01:00:00Z',finished_at:null,created_at:'2026-11-15T01:00:00Z'}]}}
    await act(async()=>fireEvent.click(screen.getByRole('button',{name:'실행안 새로고침'})))
+   assert.ok(screen.getByText('결과 확인 필요'));assert.ok(screen.getByText('결과 불명 · 자동 재발송 중단'))
    await act(async()=>fireEvent.click(screen.getByRole('button',{name:'이 버전의 외부 연락 승인'})))
    assert.deepEqual(decisions,[['packet',1,'hash-one','승인']]);assert.ok(screen.getByText('자료가 변경되었습니다.'))
    assert.equal(screen.getByRole('button',{name:'이 버전의 외부 연락 승인'}).disabled,true)
