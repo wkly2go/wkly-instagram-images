@@ -48,6 +48,7 @@ before(async()=>{
  await db.exec(await sql('20261115090107_sales_readiness.sql'))
  await db.exec(await sql('20261115090108_sales_contact_evidence.sql'))
  await db.exec(await sql('20261115090109_sales_mail_evidence.sql'))
+ await db.exec(await sql('20261115090110_sales_contact_discovery.sql'))
  await db.exec("insert into growth_ai_models values('standard','작성','test-model',3,15,true);insert into growth_ai_budgets(id,starts_at,ends_at,limit_usd,enabled) values(gen_random_uuid(),now()-interval '1 day',now()+interval '1 day',1,true);insert into vault.decrypted_secrets values('WKLY_EDGE_ANON_KEY','test-gateway');grant usage on schema public,auth to service_role;")
 })
 after(()=>db.close())
@@ -469,4 +470,44 @@ test('mail retrieval selects at most five messages and starts at most three new 
  for(let i=0;i<4;i++)await prepared('담당자')
  await db.exec('select private.sales_mail_evidence_tick()');let jobs=(await db.query('select * from private.sales_mail_evidence_jobs')).rows
  assert.equal(jobs.length,3);assert.ok(jobs.every(j=>j.messages.length===5));await db.exec('select private.sales_mail_evidence_tick()');jobs=(await db.query('select * from private.sales_mail_evidence_jobs')).rows;assert.equal(jobs.length,4)
+})
+
+async function discoveryFixture(){const j=await prepared('담당자');await db.exec('select private.sales_contact_discovery_tick()');const job=(await db.query('select * from private.sales_contact_discovery_jobs where company_id=$1',[client])).rows[0];return {j,job}}
+const discoveryClaim=job=>asUser(admin,()=>call('sales_contact_discovery_claim',[job.id,job.token]),'service_role').then(r=>r.rows[0].r)
+const discoveryFinish=(job,result)=>asUser(admin,()=>call('sales_contact_discovery_finish',[job.id,JSON.stringify(result)]),'service_role')
+const discoveryResult={status:'complete',pages:[{url:'https://example.com/contact',status:'read'}],candidates:[{email:'biz@example.com',url:'https://example.com/contact',excerpt:'사업 제휴 biz@example.com',role:'partnership',domain_match:true}],limited:false}
+test('website discovery is one-use and deduplicates the same company across plans',async()=>{
+ const {job}=await discoveryFixture();assert.ok(job);await prepared('거래처');await db.exec('select private.sales_contact_discovery_tick()');assert.equal((await db.query('select count(*) n from private.sales_contact_discovery_jobs')).rows[0].n,1)
+ await assert.rejects(asUser(admin,()=>call('sales_contact_discovery_claim',[job.id,job.token])),e=>e.code==='42501');assert.equal((await discoveryClaim(job)).company_id,client);assert.equal(await discoveryClaim(job),null)
+ await assert.rejects(asUser(admin,()=>db.exec('select * from private.sales_contact_discovery_jobs')),e=>e.code==='42501')
+})
+test('website candidates preserve sources without overwriting shared contacts or granting permission',async()=>{
+ const {j,job}=await discoveryFixture();await discoveryClaim(job);await discoveryFinish(job,discoveryResult)
+ const p=await execution(j.id),company=p.contact_discovery.companies[0],candidate=company.candidates[0]
+ assert.equal(candidate.email,'biz@example.com');assert.equal(candidate.outreach_authorized,false);assert.equal(candidate.excluded,false);assert.equal(company.attempts,1)
+ assert.equal((await db.query('select email from clients where id=$1',[client])).rows[0].email,'team@example.com');assert.equal((await db.query('select email from contacts where id=$1',[person])).rows[0].email,'human@example.com');assert.equal(p.payload.messages[0].recipient,'human@example.com')
+ await db.query("insert into brand_contacts(id,email,opt_out) values($1,' BIZ@example.com ',true)",[randomUUID()]);assert.equal((await execution(j.id)).contact_discovery.companies[0].candidates[0].excluded,true)
+ await db.exec("update private.sales_contact_discovery_jobs set created_at=now()-interval '16 minutes';select private.sales_contact_discovery_tick()");assert.equal((await db.query('select count(*) n from private.sales_contact_discovery_jobs')).rows[0].n,1)
+})
+test('changing website or withdrawing active targets invalidates pending and stored discoveries',async()=>{
+ const {j,job}=await discoveryFixture();await discoveryClaim(job);await db.query("update clients set website='https://other.com' where id=$1",[client]);await discoveryFinish(job,discoveryResult)
+ assert.equal((await db.query('select state,result from private.sales_contact_discovery_jobs where id=$1',[job.id])).rows[0].state,'expired');assert.equal((await execution(j.id)).contact_discovery.companies[0].candidates.length,0)
+ await db.exec("update private.sales_contact_discovery_jobs set created_at=now()-interval '16 minutes';select private.sales_contact_discovery_tick()");const next=(await db.query("select * from private.sales_contact_discovery_jobs where state='queued'")).rows[0]
+ await db.query("insert into brand_contacts(id,email,opt_out) values($1,'human@example.com',true)",[randomUUID()]);assert.equal(await discoveryClaim(next),null)
+})
+test('discovery rejects off-site sources, duplicate candidates, excess bounds and false completion',async()=>{
+ const {job}=await discoveryFixture();await discoveryClaim(job)
+ for(const result of [{...discoveryResult,secret:'no'},{...discoveryResult,pages:[{url:'https://example.com.evil.com/contact',status:'read'}]},{...discoveryResult,candidates:[...discoveryResult.candidates,...discoveryResult.candidates]},{...discoveryResult,candidates:[{...discoveryResult.candidates[0],domain_match:false}]},{...discoveryResult,pages:[]},{...discoveryResult,limited:true}])await assert.rejects(discoveryFinish(job,result),/Invalid|Inconsistent/)
+ await discoveryFinish(job,discoveryResult);await assert.rejects(discoveryFinish(job,discoveryResult),e=>e.code==='PT409')
+})
+test('failed website discovery retries twice per rolling day and expired claims cannot finish',async()=>{
+ const {j,job}=await discoveryFixture();await discoveryClaim(job);await discoveryFinish(job,{status:'unavailable',pages:[],candidates:[],limited:false})
+ await db.exec('select private.sales_contact_discovery_tick()');assert.equal((await db.query('select count(*) n from private.sales_contact_discovery_jobs')).rows[0].n,1)
+ await db.exec("update private.sales_contact_discovery_jobs set created_at=now()-interval '16 minutes';select private.sales_contact_discovery_tick()");const next=(await db.query("select * from private.sales_contact_discovery_jobs where state='queued'")).rows[0];assert.ok(await discoveryClaim(next))
+ await db.query("update private.sales_contact_discovery_jobs set created_at=now()-interval '4 minutes' where id=$1",[next.id]);assert.equal((await execution(j.id)).contact_discovery.companies[0].state,'expired');await assert.rejects(discoveryFinish(next,discoveryResult),e=>e.code==='PT409')
+ await db.exec("update private.sales_contact_discovery_jobs set created_at=created_at-interval '16 minutes';select private.sales_contact_discovery_tick()");assert.equal((await db.query('select count(*) n from private.sales_contact_discovery_jobs')).rows[0].n,2)
+})
+test('missing company websites are reported as system research gaps instead of human data tasks',async()=>{
+ await db.query("update clients set website=null where id=$1",[client]);const j=await prepared('담당자');await db.exec('select private.sales_contact_discovery_tick()');assert.equal((await db.query('select count(*) n from private.sales_contact_discovery_jobs')).rows[0].n,0)
+ const p=await execution(j.id);assert.match(p.contact_discovery.companies[0].note,/시스템의 회사 도메인 추가 조사/);assert.equal(p.contact_discovery.companies[0].website,null)
 })
