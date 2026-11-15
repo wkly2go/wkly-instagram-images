@@ -71,6 +71,22 @@ var participantWords = /참가\s*(업체|기업|브랜드|사|팀|셀러|작가)
 var sponsorWords = /후원|협찬|파트너|sponsors?|partners?/i;
 var noise = /^(더\s*보기|바로\s*가기|자세히|목록|이전|다음|닫기|신청|예매|문의|홈|home|menu|more|top|로그인|회원가입|공지|전체|검색|share|공유|이미지|image|logo|로고|banner|배너|thumbnail|사진)$/i;
 var headings = /* @__PURE__ */ new Set(["h1", "h2", "h3", "h4", "h5", "h6", "dt", "caption", "summary", "legend"]);
+function eventUrl(value, base) {
+  try {
+    if (typeof value !== "string" || value.length > 1500 || /[\u0000-\u0020\\]/.test(value)) return null;
+    const raw = value.split("#")[0].split("?").slice(1).join("?");
+    if (raw && !/^[A-Za-z0-9_=&%.+-]{1,255}$/.test(raw)) return null;
+    const u = new URL(value, base), query = u.search;
+    u.search = "";
+    const safe = sourceUrl(u.href);
+    if (!safe) return null;
+    if (query && !/^\?[A-Za-z0-9_=&%.+-]{1,255}$/.test(query)) return null;
+    safe.search = query;
+    return safe;
+  } catch {
+    return null;
+  }
+}
 var brandKey = (name) => name.normalize("NFKC").toLowerCase().replace(/\(주\)|㈜|주식회사|\s|[.,·'"()\[\]]/g, "");
 function brandName(raw) {
   const name = raw.replace(/\s+/g, " ").trim().replace(/\s*(로고|logo)$/i, "").trim();
@@ -118,11 +134,11 @@ function extractBrands(html, url, parse2) {
     return text.slice(0, 1e5);
   };
   walk(root);
-  const paths = links.filter((l) => participantWords.test(l.label) || sponsorWords.test(l.label)).map((l) => sourceUrl(l.href, url)).filter((u) => !!u && u.origin === new URL(url).origin).map((u) => u.href);
+  const paths = links.filter((l) => participantWords.test(l.label) || sponsorWords.test(l.label)).map((l) => eventUrl(l.href, url)).filter((u) => !!u && u.origin === new URL(url).origin).map((u) => u.href);
   return { brands, links: [...new Set(paths)].filter((p) => p !== url).slice(0, 20), limited: limited || paths.length > 20 };
 }
 async function research(job, read, parse2) {
-  const result = { status: "unavailable", pages: [], brands: [], limited: false }, seed = sourceUrl(job.url);
+  const result = { status: "unavailable", pages: [], brands: [], limited: false }, seed = eventUrl(job.url);
   if (!seed) {
     result.status = "blocked";
     return result;
@@ -212,8 +228,8 @@ function publicIPv4(value) {
   const [a, b, c] = value.split(".").map(Number);
   return !(a === 0 || a === 10 || a === 127 || a >= 224 || a === 100 && b >= 64 && b <= 127 || a === 169 && b === 254 || a === 172 && b >= 16 && b <= 31 || a === 192 && (b === 168 || b === 0 || b === 2 || b === 88 && c === 99) || a === 198 && (b === 18 || b === 19 || b === 51 && c === 100) || a === 203 && b === 0 && c === 113);
 }
-async function readPublicPage(value, deps = { resolve: resolve4, request }) {
-  const url = sourceUrl(value);
+async function readPublicPage(value, deps = { resolve: resolve4, request }, guard = sourceUrl) {
+  const url = guard(value);
   if (!url) throw new Error("Unsupported source");
   const signal = AbortSignal.timeout(1e4);
   const addresses = await new Promise((resolve, reject) => {
@@ -291,4 +307,4 @@ async function rpc(name, args) {
 }
 Deno.serve(createEventBrandsHandler({ claim: (id, token) => rpc("sales_event_brands_claim", { p_id: id, p_token: token }), finish: async (id, result) => {
   await rpc("sales_event_brands_finish", { p_id: id, p_result: result });
-}, read: readPublicPage, parse, background: (work) => EdgeRuntime.waitUntil(work) }));
+}, read: (url) => readPublicPage(url, void 0, eventUrl), parse, background: (work) => EdgeRuntime.waitUntil(work) }));

@@ -9,8 +9,8 @@ export function publicIPv4(value:string):boolean{
 }
 export interface NetworkDeps {resolve:(hostname:string)=>Promise<string[]>;request:typeof request}
 /** Pins the validated public IP at the actual socket lookup; never re-resolves via fetch. */
-export async function readPublicPage(value:string,deps:NetworkDeps={resolve:resolve4,request}):Promise<Page>{
- const url=sourceUrl(value);if(!url)throw new Error('Unsupported source')
+export async function readPublicPage(value:string,deps:NetworkDeps={resolve:resolve4,request},guard:(value:string)=>URL|null=sourceUrl):Promise<Page>{
+ const url=guard(value);if(!url)throw new Error('Unsupported source')
  const signal=AbortSignal.timeout(10000)
  const addresses=await new Promise<string[]>((resolve,reject)=>{const abort=()=>reject(new Error('DNS timeout'));signal.addEventListener('abort',abort,{once:true});deps.resolve(url.hostname).then(resolve,reject).finally(()=>signal.removeEventListener('abort',abort))})
  if(signal.aborted||!addresses.length||addresses.length>32||!addresses.every(publicIPv4))throw new Error('Non-public source')

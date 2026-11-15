@@ -54,7 +54,7 @@ test('trusted planner output cap changes the request signature but cannot be ove
   assert.notEqual(normal.calls.reserve[0].p_signature, planner.calls.reserve[0].p_signature)
   assert.equal((await planner.handler(request({ ...data, maxOutputTokens: 99999 }))).status, 400)
   assert.equal(planner.calls.fetch.length, 1)
-  assert.throws(() => setup({ maxOutputTokens: 4097 }), /output cap/)
+  assert.throws(() => setup({ maxOutputTokens: 12001 }), /output cap/)
 })
 test('incomplete structured output settles known usage once, reports failure and never retries', async () => {
   for (const stop_reason of ['max_tokens', 'model_context_window_exceeded', 'refusal', undefined]) {
@@ -98,4 +98,11 @@ test('settlement outage preserves request identity and attempts uncertainty reco
   assert.equal((await handler(request(data))).status, 400)
   assert.equal(calls.fetch.length, 1); assert.equal(finished.length, 2)
   assert.equal(finished[1].p_id, data.id); assert.equal(finished[1].p_uncertain, true)
+})
+test('reasoning effort is a trusted server setting sent with every request', async () => {
+  const data = body(), normal = setup(), planner = setup({ maxOutputTokens: 12000, effort: 'medium' })
+  await normal.handler(request(data)); await planner.handler(request(data))
+  assert.deepEqual(JSON.parse(String(normal.calls.fetch[0].body)).output_config, { effort: 'low' })
+  const sent = JSON.parse(String(planner.calls.fetch[0].body)); assert.deepEqual(sent.output_config, { effort: 'medium' }); assert.equal(sent.max_tokens, 12000)
+  assert.throws(() => setup({ effort: 'max' as 'high' }), /effort/)
 })
