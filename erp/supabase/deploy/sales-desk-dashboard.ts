@@ -148,7 +148,7 @@ async function rpc(name, args) {
 Deno.serve(createSalesDeskWorker({
   claim: (id, token) => rpc("sales_desk_claim", { p_id: id, p_token: token }),
   async generate(job, prompt) {
-    const run = createGrowthAiHandler({ configured: true, apiKey: Deno.env.get("ANTHROPIC_API_KEY"), requireComplete: true, authenticate: async () => ({ id: job.actor }), reserve: async (args) => await sb.rpc("sales_desk_ai_reserve", args), finish: async (args) => await sb.rpc("growth_ai_finish", args), fetch });
+    const run = createGrowthAiHandler({ configured: true, apiKey: Deno.env.get("ANTHROPIC_API_KEY"), maxOutputTokens: 4096, requireComplete: true, authenticate: async () => ({ id: job.actor }), reserve: async (args) => await sb.rpc("sales_desk_ai_reserve", args), finish: async (args) => await sb.rpc("growth_ai_finish", args), fetch });
     return await (await run(new Request("https://internal.invalid/desk", { method: "POST", headers: { Authorization: "Bearer claimed-sales-desk-job" }, body: JSON.stringify({ id: job.id, task: "write", model: job.model, prompt }) }))).json();
   },
   finish: async (id, report, error) => {
