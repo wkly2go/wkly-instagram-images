@@ -8,6 +8,17 @@ const participantWords=/참가\s*(업체|기업|브랜드|사|팀|셀러|작가)
 const sponsorWords=/후원|협찬|파트너|sponsors?|partners?/i
 const noise=/^(더\s*보기|바로\s*가기|자세히|목록|이전|다음|닫기|신청|예매|문의|홈|home|menu|more|top|로그인|회원가입|공지|전체|검색|share|공유|이미지|image|logo|로고|banner|배너|thumbnail|사진)$/i
 const headings=new Set(['h1','h2','h3','h4','h5','h6','dt','caption','summary','legend'])
+/** Event pages are often addressed by an id in the query string, so a short plain query is allowed here.
+ *  Everything else keeps the shared rules: HTTPS, public host name, no credentials, port or fragment. */
+export function eventUrl(value:string,base?:string):URL|null{
+ try{if(typeof value!=='string'||value.length>1500||/[\u0000-\u0020\\]/.test(value))return null
+  const raw=value.split('#')[0].split('?').slice(1).join('?');if(raw&&!/^[A-Za-z0-9_=&%.+-]{1,255}$/.test(raw))return null
+  const u=new URL(value,base),query=u.search;u.search=''
+  const safe=sourceUrl(u.href);if(!safe)return null
+  if(query&&!/^\?[A-Za-z0-9_=&%.+-]{1,255}$/.test(query))return null
+  safe.search=query;return safe
+ }catch{return null}
+}
 export const brandKey=(name:string)=>name.normalize('NFKC').toLowerCase().replace(/\(주\)|㈜|주식회사|\s|[.,·'"()\[\]]/g,'')
 /** A brand name is a short label: not a sentence, address, date, price or navigation word. */
 export function brandName(raw:string):string|null{
@@ -44,11 +55,11 @@ export function extractBrands(html:string,url:string,parse:HtmlParser){
   return text.slice(0,100000)
  }
  walk(root)
- const paths=links.filter(l=>participantWords.test(l.label)||sponsorWords.test(l.label)).map(l=>sourceUrl(l.href,url)).filter((u):u is URL=>!!u&&u.origin===new URL(url).origin).map(u=>u.href)
+ const paths=links.filter(l=>participantWords.test(l.label)||sponsorWords.test(l.label)).map(l=>eventUrl(l.href,url)).filter((u):u is URL=>!!u&&u.origin===new URL(url).origin).map(u=>u.href)
  return {brands,links:[...new Set(paths)].filter(p=>p!==url).slice(0,20),limited:limited||paths.length>20}
 }
 export async function research(job:EventJob,read:(url:string)=>Promise<Page>,parse:HtmlParser):Promise<EventResult>{
- const result:EventResult={status:'unavailable',pages:[],brands:[],limited:false},seed=sourceUrl(job.url)
+ const result:EventResult={status:'unavailable',pages:[],brands:[],limited:false},seed=eventUrl(job.url)
  if(!seed){result.status='blocked';return result}
  let robots=''
  try{const r=await read(seed.origin+'/robots.txt');if(r.status===200&&/^text\/plain\b/i.test(r.contentType))robots=r.text;else if(![404,410].includes(r.status)){result.status=r.status>=500||r.status===429?'unavailable':'blocked';return result}}catch{return result}

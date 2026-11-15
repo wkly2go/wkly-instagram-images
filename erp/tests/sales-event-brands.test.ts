@@ -1,7 +1,7 @@
 import {test} from 'node:test'
 import assert from 'node:assert/strict'
 import {parse} from 'parse5'
-import {brandName,brandKey,extractBrands,research,createEventBrandsHandler} from '../supabase/functions/sales-event-brands/handler.ts'
+import {eventUrl,brandName,brandKey,extractBrands,research,createEventBrandsHandler} from '../supabase/functions/sales-event-brands/handler.ts'
 const url='https://festival.example.com/2026/',job={event_id:'e',title:'시험 페스티벌',url}
 const html=`<nav><ul><li>홈</li><li>예매</li></ul></nav><h1>시험 페스티벌</h1><p>참가 브랜드가 많습니다.</p>
 <h2>참가 브랜드</h2><ul><li>모노 커피</li><li><a href="https://mono.example">MONO COFFEE</a></li><li>(주)바른식탁</li><li>더 보기</li><li>행사는 10시에 시작합니다.</li><li>02-123-4567</li></ul>
@@ -49,4 +49,15 @@ test('planning page status line shows counts only',()=>{
  assert.equal(eventBrandSummary({scope:'',brand_total:0,events:[]}),'조사할 행사가 아직 없습니다. 08시 자료 취합 뒤 자동으로 시작합니다.')
  const ev=(state:string,n=0)=>({id:state+n,title:'t',state:state as never,note:'',brands:Array.from({length:n},(_,i)=>({id:String(i),name:'b'+i,role:'participant' as const,known_client:false}))})
  assert.equal(eventBrandSummary({scope:'',brand_total:5,events:[ev('complete',3),ev('partial',2),ev('no_list'),ev('waiting'),ev('no_page')]}),'행사 5건 조사 · 참가 · 후원 브랜드 5곳 확보 (2건의 행사) · 목록 미공개 1건 · 조사 대기 1건 · 공식 페이지 미확보 1건')
+})
+
+test('event pages may carry a short plain query; everything else keeps the shared URL rules',()=>{
+ assert.equal(eventUrl('https://culture.seoul.go.kr/culture/view.do?cultcode=136671&menuNo=20')?.href,'https://culture.seoul.go.kr/culture/view.do?cultcode=136671&menuNo=20')
+ assert.equal(eventUrl('/exhibitions/a/?cy=2026&cm=11','https://www.coex.co.kr/event/')?.href,'https://www.coex.co.kr/exhibitions/a/?cy=2026&cm=11')
+ for(const bad of ['http://a.example.com/?x=1','https://a.co.kr/?next=https://evil.com','https://a.co.kr/?q=<script>','https://user:p@a.co.kr/?x=1','https://127.0.0.1/?x=1','https://a.co.kr:8443/?x=1','https://a.co.kr/?'+'a'.repeat(301),'https://a.local/?x=1'])assert.equal(eventUrl(bad),null,bad)
+})
+test('research follows participant links that carry a query',async()=>{
+ const calls:string[]=[],start='https://hall.example.com/view.do?id=7'
+ const r=await research({event_id:'e',title:'t',url:start},async u=>{calls.push(u);return u.endsWith('robots.txt')?{status:404,contentType:'',text:''}:u.includes('list.do')?{status:200,contentType:'text/html',text:'<h3>참가업체</h3><ul><li>모노 커피</li></ul>'}:{status:200,contentType:'text/html',text:'<a href="/list.do?id=7&tab=2">참가업체 목록</a>'}},parse)
+ assert.deepEqual(calls,['https://hall.example.com/robots.txt',start,'https://hall.example.com/list.do?id=7&tab=2']);assert.equal(r.status,'complete');assert.equal(r.brands[0].url,'https://hall.example.com/list.do?id=7&tab=2')
 })
