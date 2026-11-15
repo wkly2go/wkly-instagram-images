@@ -2,6 +2,7 @@ import {useEffect,useRef,useState} from 'react'
 import {useAsync} from '../lib/app'
 import type {SalesExecutionApi} from '../lib/salesExecution'
 import {Button} from './ui'
+import {SalesContactEvidence} from './SalesContactEvidence'
 
 const time=(v:string)=>new Date(v).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'})
 const dispatchLabels={queued:'발송 대기',claimed:'처리 중',accepted:'제공사 접수',rejected:'미접수',unknown:'결과 확인 필요',cancelled:'취소',expired:'일정 만료'}
@@ -39,6 +40,7 @@ export function SalesExecutionReview({api,strategyId,revision,canDecide}:{api:Sa
   {p&&<>
    {!p.current&&<p role="alert">근거·대상·내용·일정이 변경되었습니다. 아래는 이전 저장본이며 시스템이 새 버전을 준비합니다.</p>}
    {!!p.blockers.length&&<div role="status"><strong>시스템이 해결할 준비 항목</strong><ul>{p.blockers.map((b,i)=><li key={i}>{b}</li>)}</ul></div>}
+   {p.payload.contact_evidence&&<SalesContactEvidence report={p.payload.contact_evidence} prepared={p.payload.contact_evidence_prepared===true}/>}
    <p><b>발신 계정</b> · {p.payload.sender||'연결·권한 검증 전'}</p>
    {p.readiness&&<section aria-label="발신·수신 준비 점검">
     <h4>발신·수신 준비 점검</h4><p>{p.readiness.scope}</p>

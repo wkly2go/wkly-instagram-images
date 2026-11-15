@@ -18,6 +18,7 @@ before(async()=>{
  create table growth_items(id uuid primary key,kind text,title text,document jsonb,status text,updated_at timestamptz,linked_sales_id uuid);
  create table brand_contacts(id uuid primary key,contact_name text,brand_name text,email text,phone text,source_note text,memo text,source_url text,updated_at timestamptz,client_id uuid,opt_out boolean);
  create table research_items(id uuid primary key,title text,status text,brand_name text,summary text,body text,source_url text,updated_at timestamptz,client_id uuid);
+ create table mail_index(id text primary key,thread_id text not null,from_addr text,to_addr text,subject text,snippet text,sent_at timestamptz,synced_at timestamptz default now(),labels text[] default '{}');
  create table notices(user_id uuid,title text);
  create function notify(u uuid,k text,t text,b text,l text) returns void language sql as $$insert into public.notices values(u,t)$$;
  create function growth_safe_url(v text) returns boolean language sql immutable as $$select v='' or v ~ '^https?://[^ @]+$'$$;
@@ -45,6 +46,7 @@ before(async()=>{
  await db.exec(await sql('20261115090105_sales_execution_packages.sql'))
  await db.exec(await sql('20261115090106_sales_dispatch_queue.sql'))
  await db.exec(await sql('20261115090107_sales_readiness.sql'))
+ await db.exec(await sql('20261115090108_sales_contact_evidence.sql'))
  await db.exec("insert into growth_ai_models values('standard','작성','test-model',3,15,true);insert into growth_ai_budgets(id,starts_at,ends_at,limit_usd,enabled) values(gen_random_uuid(),now()-interval '1 day',now()+interval '1 day',1,true);insert into vault.decrypted_secrets values('WKLY_EDGE_ANON_KEY','test-gateway');grant usage on schema public,auth to service_role;")
 })
 after(()=>db.close())
@@ -310,4 +312,91 @@ test('one mailbox linked to different companies is flagged automatically',async(
  const other=randomUUID();await db.query("insert into clients(id,name,email) values($1,'다른 회사','human@example.com')",[other]);await db.query('update sales_prospects set client_id=$1 where id=$2',[other,company])
  await db.query("update sales_strategies set plan=jsonb_set(plan,'{evidence_ids}',(plan->'evidence_ids')||to_jsonb($2::text)) where id=$1",[j.id,company])
  const p=await execution(j.id);assert.equal(p.readiness.recipients.length,2);assert.ok(p.readiness.recipients.every(r=>r.code==='ambiguous_company'))
+})
+
+const mail=async(id,from='human@example.com',to='sender@example.com',age='1 day',labels=[])=>db.query("insert into mail_index(id,thread_id,from_addr,to_addr,subject,snippet,sent_at,labels) values($1,$2,$3,$4,'팝업 운영 문의','시험 자료: 범위와 일정 확인 요청',now()-$5::interval,$6)",[id,'thread-'+id,from,to,age,labels])
+test('contact evidence uses exact normalized addresses and excludes drafts, spam, trash, old and future mail',async()=>{
+ await mail('exact',' HUMAN@example.com ');await mail('suffix','otherhuman@example.com');await mail('multi','other@example.com','human@example.com, other@example.com')
+ await mail('old',undefined,undefined,'181 days');await mail('future',undefined,undefined,'-1 day');await mail('spam',undefined,undefined,'1 day',['SPAM']);await mail('trash',undefined,undefined,'1 day',['TRASH']);await mail('draft',undefined,undefined,'1 day',['DRAFT'])
+ const j=await prepared('담당자'),report=(await execution(j.id)).payload.contact_evidence
+ assert.equal(report.contacts.length,1);assert.equal(report.contacts[0].mail.length,1);assert.equal(report.contacts[0].mail[0].id,'exact')
+ assert.equal(report.contacts[0].outreach_authorized,false);assert.match(report.contacts[0].assessment,/검증 전/);assert.ok(report.contacts[0].sources[0].signature)
+})
+test('evidence is bounded, deduplicates contacts and reports its scope honestly',async()=>{
+ for(let i=0;i<7;i++)await mail('mail-'+i,undefined,undefined,`${i+1} days`)
+ const j=await prepared('담당자'),company=(await db.query("select id from sales_prospects where source='거래처' limit 1")).rows[0].id
+ await db.query("update clients set email='human@example.com' where id=$1",[client]);await db.query("update sales_strategies set plan=jsonb_set(plan,'{evidence_ids}',(plan->'evidence_ids')||to_jsonb($2::text)) where id=$1",[j.id,company]);await db.query('select private.sales_execution_refresh($1)',[j.id])
+ const report=(await execution(j.id)).payload.contact_evidence
+ assert.equal(report.contacts.length,1);assert.equal(report.contacts[0].sources.length,2);assert.equal(report.contacts[0].sampled_matches,7);assert.equal(report.contacts[0].mail.length,5)
+ assert.equal(report.contacts[0].mail[0].id,'mail-0');assert.equal(report.mail_truncated,false);assert.match(report.scope,/CC\/BCC/)
+})
+test('new relevant mail invalidates approved material; unrelated mail does not churn versions',async()=>{
+ const {j,p,job}=await dispatchFixture();await mail('unrelated','different@example.com','else@example.com')
+ assert.equal((await execution(j.id)).current,true)
+ await mail('relevant');assert.equal((await execution(j.id)).current,false);assert.equal(await dispatchClaim(job.id),null)
+ await db.query('select private.sales_execution_refresh($1)',[j.id]);const next=await execution(j.id)
+ assert.equal(next.version,p.version+1);assert.equal(next.payload.contact_evidence.contacts[0].mail[0].id,'relevant')
+ const old=(await db.query('select payload from sales_execution_packages where id=$1',[p.id])).rows[0].payload
+ assert.equal(old.contact_evidence.contacts[0].mail.length,0)
+})
+test('changed or withdrawn source messages invalidate the old saved excerpts without deleting them',async()=>{
+ await mail('evidence');const j=await prepared('담당자'),p=await execution(j.id)
+ await db.exec("update mail_index set snippet='수정된 요청 범위' where id='evidence'");assert.equal((await execution(j.id)).current,false)
+ await db.query('select private.sales_execution_refresh($1)',[j.id]);let next=await execution(j.id);assert.equal(next.payload.contact_evidence.contacts[0].mail[0].excerpt,'수정된 요청 범위')
+ await db.exec("update mail_index set labels=array['TRASH'] where id='evidence'");assert.equal((await execution(j.id)).current,false)
+ await db.query('select private.sales_execution_refresh($1)',[j.id]);next=await execution(j.id);assert.equal(next.payload.contact_evidence.contacts[0].mail.length,0)
+ assert.match((await db.query('select payload from sales_execution_packages where id=$1',[p.id])).rows[0].payload.contact_evidence.contacts[0].mail[0].excerpt,/시험 자료/)
+})
+test('excluded recipients remain excluded despite matching contact history',async()=>{
+ await mail('past');const j=await prepared('담당자');await db.query("insert into brand_contacts(id,email,opt_out) values($1,'human@example.com',true)",[randomUUID()])
+ await db.query('select private.sales_execution_refresh($1)',[j.id]);const report=(await execution(j.id)).payload.contact_evidence
+ assert.equal(report.contacts[0].excluded,true);assert.equal(report.contacts[0].mail.length,1);assert.equal(report.contacts[0].outreach_authorized,false);assert.match(report.contacts[0].assessment,/발송 중단/)
+})
+test('matching scan cap is explicit and clients cannot invoke the private evidence collector',async()=>{
+ await db.exec("insert into mail_index(id,thread_id,from_addr,to_addr,subject,snippet,sent_at) select 'bulk-'||n,'thread-'||n,'human@example.com','sender@example.com','fixture','fixture',now()-n*interval '1 minute' from generate_series(1,1002) n")
+ const j=await prepared('담당자'),report=(await execution(j.id)).payload.contact_evidence
+ assert.equal(report.mail_truncated,true);assert.equal(report.contacts[0].sampled_matches,1000);assert.equal(report.contacts[0].mail.length,5)
+ await assert.rejects(asUser(admin,()=>call('private.sales_contact_evidence',[j.id])),e=>e.code==='42501')
+})
+test('contact report cap is explicit without silently presenting a partial target list as complete',async()=>{
+ const j=await prepared()
+ await db.exec(`create or replace function private.sales_strategy_targets(p_id uuid) returns jsonb language sql stable as $$select jsonb_agg(jsonb_build_object('source_id',gen_random_uuid(),'email','contact-'||n||'@example.com','company','시험 회사','person','','status','저장 연락처 연결')) from generate_series(1,52) n$$`)
+ const report=(await db.query('select private.sales_contact_evidence($1) r',[j.id])).rows[0].r
+ assert.equal(report.contact_total,52);assert.equal(report.contacts.length,50);assert.equal(report.contacts_truncated,true)
+})
+test('preparation worker receives saved contact evidence and rejects stale output with one bounded automatic retry',async()=>{
+ await mail('first');const j=await planned('담당자'),job=await claim(j.prep)
+ assert.equal(job.contact_evidence.contacts[0].mail[0].id,'first')
+ await mail('second',undefined,undefined,'1 hour')
+ await asUser(admin,()=>call('sales_strategy_prepared',[j.prep,JSON.stringify(pack),'']),'service_role')
+ let state=await strategy(j.id);assert.equal(state.preparation_status,'준비 중');assert.equal(state.preparation,null)
+ const next=(await db.query('select * from private.sales_strategy_preparations where strategy_id=$1',[j.id])).rows[0]
+ assert.notEqual(next.id,j.prep);assert.equal(next.evidence_retries,1);assert.equal(next.claimed,false)
+ await asUser(admin,()=>call('sales_strategy_prepared',[j.prep,JSON.stringify(pack),'']),'service_role');assert.equal((await strategy(j.id)).preparation_status,'준비 중')
+ const retry=await claim(next.id);assert.equal(retry.contact_evidence.contacts[0].mail[0].id,'second')
+ await mail('third',undefined,undefined,'1 minute')
+ await asUser(admin,()=>call('sales_strategy_prepared',[next.id,JSON.stringify(pack),'']),'service_role')
+ state=await strategy(j.id);assert.equal(state.preparation_status,'확인 필요');assert.equal(state.preparation,null)
+ assert.equal((await db.query('select evidence_retries from private.sales_strategy_preparations where strategy_id=$1',[j.id])).rows[0].evidence_retries,1)
+})
+test('new mail after completion triggers one automatic rewrite and cancels old queued work',async()=>{
+ const {j,p,job}=await dispatchFixture();await mail('late-evidence',undefined,undefined,'1 minute')
+ await db.exec('select private.sales_contact_evidence_tick()')
+ assert.equal((await strategy(j.id)).preparation_status,'준비 중')
+ assert.equal((await db.query('select state from private.sales_dispatch_jobs where id=$1',[job.id])).rows[0].state,'cancelled')
+ assert.equal((await db.query('select approved_at from sales_execution_packages where id=$1',[p.id])).rows[0].approved_at,null)
+ const retry=(await db.query('select * from private.sales_strategy_preparations where strategy_id=$1',[j.id])).rows[0]
+ const fresh=await claim(retry.id);assert.equal(fresh.contact_evidence.contacts[0].mail[0].id,'late-evidence')
+ await asUser(admin,()=>call('sales_strategy_prepared',[retry.id,JSON.stringify({...pack,proposal:'최신 근거를 반영한 제안'}),'']),'service_role')
+ assert.equal((await execution(j.id)).payload.contact_evidence_prepared,true)
+ await mail('later-evidence',undefined,undefined,'30 seconds');await db.exec('select private.sales_contact_evidence_tick()')
+ assert.equal((await strategy(j.id)).preparation_status,'확인 필요')
+ assert.equal((await db.query('select evidence_retries from private.sales_strategy_preparations where strategy_id=$1',[j.id])).rows[0].evidence_retries,1)
+})
+test('automatic evidence refresh preserves a deliberate execution hold',async()=>{
+ const j=await prepared('담당자'),p=await execution(j.id);await decision(p,'보류');await mail('new-held-evidence')
+ await db.exec('select private.sales_contact_evidence_tick()')
+ const retry=(await db.query('select id from private.sales_strategy_preparations where strategy_id=$1',[j.id])).rows[0]
+ await claim(retry.id);await asUser(admin,()=>call('sales_strategy_prepared',[retry.id,JSON.stringify(pack),'']),'service_role')
+ assert.equal((await execution(j.id)).status,'보류');assert.equal((await execution(j.id)).can_approve,false)
 })
