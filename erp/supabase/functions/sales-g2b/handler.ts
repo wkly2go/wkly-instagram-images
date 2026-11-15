@@ -1,4 +1,4 @@
-import {g2bRequestUrl,parseG2bResult,validateG2bQuery,type G2bQuery,type G2bCandidate} from '../g2b-search/handler.ts'
+import {g2bDetailUrl,g2bRequestUrl,parseG2bNames,parseG2bResult,validateG2bQuery,type G2bQuery,type G2bCandidate} from '../g2b-search/handler.ts'
 
 export interface G2bJob {category:G2bQuery['category'];keyword:string;startDate:string;endDate:string}
 export interface G2bWorkerDeps {
@@ -26,6 +26,20 @@ export function createG2bWorker(d:G2bWorkerDeps){return async(req:Request)=>{
  if(!job)return new Response('Unauthorized or already claimed',{status:403})
  const work=async()=>{
  let stage='서버 설정',savedPages=0,omitted=0,total:number|null=null
+ // Licence and region limits need one extra lookup each. A run looks up at most 12 limited notices;
+ // a notice whose lookup fails keeps its flag without names, and the database marks it for confirmation.
+ let lookups=0
+ const names=async(kind:'license'|'region',item:G2bCandidate)=>{
+  try{const response=await d.fetcher(g2bDetailUrl(kind,item.number,item.round,d.key!.trim()),{method:'GET',redirect:'error',signal:AbortSignal.timeout(8000),headers:{Accept:'application/json'}});if(!response.ok)return undefined;return parseG2bNames(JSON.parse(await bodyText(response.body,256*1024)),kind)}
+  catch{return undefined}
+ }
+ const withLimits=async(item:G2bCandidate):Promise<G2bCandidate>=>{
+  const terms=item.terms
+  if(!terms||(!terms.industry_limited&&!terms.region_limited)||lookups>=12||now()-started>70000)return item
+  lookups++
+  const [licenses,regions]=await Promise.all([terms.industry_limited?names('license',item):undefined,terms.region_limited?names('region',item):undefined])
+  return {...item,terms:{...terms,...(licenses?{licenses}:{}),...(regions?{regions}:{})}}
+ }
  const now=d.now??Date.now,started=now(),stamp=new Date(started).toISOString()
  try{
   if(!d.key?.trim())throw new Error('missing key')
@@ -40,7 +54,8 @@ export function createG2bWorker(d:G2bWorkerDeps){return async(req:Request)=>{
    // Changing totals invalidate the page traversal; retain saved pages but do not claim complete coverage.
    if(total!==null&&total!==result.total)throw new Error('changing total')
    total=result.total;omitted+=result.omitted
-   const rows=result.items.map(item=>({...item,warnings:[...(!item.deadline?['마감 시각 자동 추가 검증 대상']:[]),...(item.amount===null?['추정가격 자동 추가 검증 대상']:[]),...(!item.source_url?['공고번호로 공식 원문 자동 추가 탐색 대상']:[])]}))
+   stage='참가 조건 조회';const detailed:G2bCandidate[]=[];for(const item of result.items)detailed.push(await withLimits(item))
+   const rows=detailed.map(item=>({...item,warnings:[...(!item.deadline?['마감 시각 자동 추가 검증 대상']:[]),...(item.amount===null?['추정가격 자동 추가 검증 대상']:[]),...(!item.source_url?['공고번호로 공식 원문 자동 추가 탐색 대상']:[])]}))
    stage='자료 저장';await d.page(id,page,rows,result.total,result.omitted,stamp);savedPages++
    if(!result.hasMore){
     const partial=result.limited||omitted>0

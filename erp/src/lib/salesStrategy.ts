@@ -31,7 +31,11 @@ export interface SalesStrategyApi extends SalesExecutionApi {
   /** 주 1회 AI 검토가 올린 영업 방법 변경 제안 (승인 대기만) */
   listSalesMethodProposals(): Promise<SalesMethodProposal[]>;
   decideSalesMethodProposal(id: string, decision: '승인' | '반려'): Promise<void>;
+  /** 입찰 참가 자격 (관리자만): 공고에 나온 업종과 본사 소재지 */
+  listBidQualifications(): Promise<BidQualification[]>;
+  setBidQualification(kind: BidQualification['kind'], name: string, status: BidQualification['status']): Promise<void>;
 }
+export interface BidQualification {kind: '업종' | '지역'; name: string; status: '보유' | '미보유' | '확인 필요'}
 export interface SalesMethodProposal {id: string; action: '추가' | '수정' | '중지'; name: string; signal: string; offer: string; first_step: string; reason: string; created_at: string}
 
 /** The planner picks one method from the company playbook and builds the plan from named evidence. */

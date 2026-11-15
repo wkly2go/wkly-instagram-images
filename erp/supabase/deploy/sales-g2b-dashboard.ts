@@ -75,7 +75,30 @@ function candidate(value) {
   if (!deadline) warnings.push("\uB9C8\uAC10 \uC2DC\uAC01\uC744 \uC6D0\uBB38\uC5D0\uC11C \uD655\uC778\uD574 \uC8FC\uC138\uC694.");
   if (amount === null) warnings.push("\uCD94\uC815\uAC00\uACA9\uC744 \uC6D0\uBB38\uC5D0\uC11C \uD655\uC778\uD574 \uC8FC\uC138\uC694.");
   if (!source_url) warnings.push("\uC6D0\uBB38 \uB9C1\uD06C\uB97C \uACF5\uACE0\uBC88\uD638\uB85C \uD655\uC778\uD574 \uC8FC\uC138\uC694.");
-  return { title, number, round, agency, deadline, amount, source_url, notice_date: koreaDateTime(row.bidNtceDt), warnings };
+  const short = (v) => text(v).slice(0, 80);
+  const terms = {
+    contract: short(row.cntrctCnclsMthdNm),
+    award: short(row.sucsfbidMthdNm),
+    classification: short(row.pubPrcrmntClsfcNm),
+    joint: short(row.cmmnSpldmdMethdNm),
+    industry_limited: text(row.indstrytyLmtYn) === "Y",
+    region_limited: !!text(row.rgnLmtBidLocplcJdgmBssNm) || text(row.rgnLmtBidLocplcJdgmBssCd) === "Y"
+  };
+  return { title, number, round, agency, deadline, amount, source_url, notice_date: koreaDateTime(row.bidNtceDt), warnings, terms };
+}
+var detail = { license: ["getBidPblancListInfoLicenseLimit02", "lcnsLmtNm"], region: ["getBidPblancListInfoPrtcptPsblRgn02", "prtcptPsblRgnNm"] };
+function g2bDetailUrl(kind, number, round, serviceKey) {
+  if (!/^[A-Za-z0-9_-]{1,60}$/.test(number) || !/^[A-Za-z0-9_-]{1,10}$/.test(round)) throw new Error("Invalid notice");
+  const url = new URL(detail[kind][0], G2B_BASE);
+  url.search = new URLSearchParams({ serviceKey, type: "json", inqryDiv: "2", bidNtceNo: number, bidNtceOrd: round, pageNo: "1", numOfRows: "20" }).toString();
+  return url;
+}
+function parseG2bNames(value, kind) {
+  const envelope = object(object(value)?.response), header = object(envelope?.header), body = object(envelope?.body);
+  if (!header || !["00", "0"].includes(String(header.resultCode)) || !body) throw new Error("Unexpected detail response");
+  const raw = body.items, list = Array.isArray(raw) ? raw : Array.isArray(object(raw)?.item) ? object(raw).item : [];
+  const names = list.map((row) => text(object(row)?.[detail[kind][1]]).replace(/\s+/g, " ")).filter((name) => name.length >= 2 && name.length <= 80 && !/[<>{}\\]/.test(name));
+  return [...new Set(names)].slice(0, 12);
 }
 var UpstreamError = class extends Error {
   status;
@@ -160,6 +183,23 @@ function createG2bWorker(d) {
     if (!job) return new Response("Unauthorized or already claimed", { status: 403 });
     const work = async () => {
       let stage = "\uC11C\uBC84 \uC124\uC815", savedPages = 0, omitted = 0, total = null;
+      let lookups = 0;
+      const names = async (kind, item) => {
+        try {
+          const response = await d.fetcher(g2bDetailUrl(kind, item.number, item.round, d.key.trim()), { method: "GET", redirect: "error", signal: AbortSignal.timeout(8e3), headers: { Accept: "application/json" } });
+          if (!response.ok) return void 0;
+          return parseG2bNames(JSON.parse(await bodyText(response.body, 256 * 1024)), kind);
+        } catch {
+          return void 0;
+        }
+      };
+      const withLimits = async (item) => {
+        const terms = item.terms;
+        if (!terms || !terms.industry_limited && !terms.region_limited || lookups >= 12 || now() - started > 7e4) return item;
+        lookups++;
+        const [licenses, regions] = await Promise.all([terms.industry_limited ? names("license", item) : void 0, terms.region_limited ? names("region", item) : void 0]);
+        return { ...item, terms: { ...terms, ...licenses ? { licenses } : {}, ...regions ? { regions } : {} } };
+      };
       const now = d.now ?? Date.now, started = now(), stamp = new Date(started).toISOString();
       try {
         if (!d.key?.trim()) throw new Error("missing key");
@@ -174,7 +214,10 @@ function createG2bWorker(d) {
           if (total !== null && total !== result.total) throw new Error("changing total");
           total = result.total;
           omitted += result.omitted;
-          const rows = result.items.map((item) => ({ ...item, warnings: [...!item.deadline ? ["\uB9C8\uAC10 \uC2DC\uAC01 \uC790\uB3D9 \uCD94\uAC00 \uAC80\uC99D \uB300\uC0C1"] : [], ...item.amount === null ? ["\uCD94\uC815\uAC00\uACA9 \uC790\uB3D9 \uCD94\uAC00 \uAC80\uC99D \uB300\uC0C1"] : [], ...!item.source_url ? ["\uACF5\uACE0\uBC88\uD638\uB85C \uACF5\uC2DD \uC6D0\uBB38 \uC790\uB3D9 \uCD94\uAC00 \uD0D0\uC0C9 \uB300\uC0C1"] : []] }));
+          stage = "\uCC38\uAC00 \uC870\uAC74 \uC870\uD68C";
+          const detailed = [];
+          for (const item of result.items) detailed.push(await withLimits(item));
+          const rows = detailed.map((item) => ({ ...item, warnings: [...!item.deadline ? ["\uB9C8\uAC10 \uC2DC\uAC01 \uC790\uB3D9 \uCD94\uAC00 \uAC80\uC99D \uB300\uC0C1"] : [], ...item.amount === null ? ["\uCD94\uC815\uAC00\uACA9 \uC790\uB3D9 \uCD94\uAC00 \uAC80\uC99D \uB300\uC0C1"] : [], ...!item.source_url ? ["\uACF5\uACE0\uBC88\uD638\uB85C \uACF5\uC2DD \uC6D0\uBB38 \uC790\uB3D9 \uCD94\uAC00 \uD0D0\uC0C9 \uB300\uC0C1"] : []] }));
           stage = "\uC790\uB8CC \uC800\uC7A5";
           await d.page(id, page, rows, result.total, result.omitted, stamp);
           savedPages++;
