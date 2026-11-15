@@ -6,7 +6,7 @@ async function rpc(name:string,args:Record<string,unknown>){const r=await sb.rpc
 Deno.serve(createSalesPlanner({
  claim:(id,token)=>rpc('sales_strategy_claim',{p_id:id,p_token:token}),
  async generate(job,prompt){
-  const generate=createGrowthAiHandler({configured:true,apiKey:Deno.env.get('ANTHROPIC_API_KEY'),authenticate:async()=>({id:job.actor}),reserve:async args=>await sb.rpc('growth_ai_reserve',args),finish:async args=>await sb.rpc('growth_ai_finish',args),fetch})
+  const generate=createGrowthAiHandler({configured:true,apiKey:Deno.env.get('ANTHROPIC_API_KEY'),maxOutputTokens:4096,requireComplete:true,authenticate:async()=>({id:job.actor}),reserve:async args=>await sb.rpc('sales_strategy_ai_reserve',args),finish:async args=>await sb.rpc('growth_ai_finish',args),fetch})
   const response=await generate(new Request('https://internal.invalid/plan',{method:'POST',headers:{Authorization:'Bearer claimed-planning-job'},body:JSON.stringify({id:job.id,task:'write',model:job.model,prompt})}))
   return await response.json()
  },

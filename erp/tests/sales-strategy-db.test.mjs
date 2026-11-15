@@ -21,7 +21,7 @@ before(async()=>{
  create table cron.job(jobname text primary key,schedule text,command text);create function cron.schedule(n text,s text,c text) returns bigint language plpgsql as $$begin insert into cron.job values(n,s,c);return 1;end$$;
  create table net.requests(id bigserial primary key,url text,headers jsonb,body jsonb);create function net.http_post(url text,headers jsonb,body jsonb,timeout_milliseconds int) returns bigint language sql as $$insert into net.requests(url,headers,body) values(url,headers,body) returning id$$;
  grant usage on schema public,auth to authenticated,anon,service_role;`)
- await db.exec(await sql('0115_growth_ai_budget.sql'));await db.exec(await sql('0122_sales_strategy.sql'));await db.exec(await sql('0123_sales_strategy_gateway.sql'))
+ await db.exec(await sql('0115_growth_ai_budget.sql'));await db.exec(await sql('0122_sales_strategy.sql'));await db.exec(await sql('0123_sales_strategy_gateway.sql'));await db.exec(await sql('0124_sales_strategy_output.sql'))
  await db.query("insert into sales_prospects values($1,'상권 제휴 자료','리서치','source','공동 판촉 협업','https://example.test',now(),70,false,null,'확인 필요',null,'business@example.test')",[sourceId])
  await db.exec("insert into growth_ai_models values('standard','작성','claude-test',3,15,true);insert into growth_ai_budgets(id,starts_at,ends_at,limit_usd,enabled) values(gen_random_uuid(),now()-interval '1 day',now()+interval '1 day',1,true)")
 })
@@ -111,4 +111,39 @@ test('missing gateway configuration fails before enqueueing an unauthenticated r
  await assert.rejects(request(),/서버 호출 인증 설정/)
  assert.equal((await db.query('select count(*) n from net.requests')).rows[0].n,0)
  assert.equal((await db.query('select count(*) n from sales_strategies')).rows[0].n,0)
+})
+
+const reservePlan=(id,actor=admin)=>asUser(actor,()=>call('sales_strategy_ai_reserve',[id,actor,'write','a'.repeat(64),'standard',1000]),'service_role')
+test('planner reserves the full 4096 token cap and replay never reserves or charges twice',async()=>{
+ const id=await request();await claim(id)
+ assert.equal((await reservePlan(id)).rows[0].r.execute,true)
+ const expected=(1000*3+4096*15)/1e6
+ assert.equal(Number((await db.query('select reserved_usd from growth_ai_usage where id=$1',[id])).rows[0].reserved_usd),expected)
+ assert.equal(Number((await db.query('select reserved_usd from growth_ai_budgets')).rows[0].reserved_usd),expected)
+ assert.equal((await reservePlan(id)).rows[0].r.execute,false)
+ await asUser(admin,()=>call('growth_ai_finish',[id,.01,'{}',false]),'service_role')
+ assert.equal((await reservePlan(id)).rows[0].r.execute,false)
+ const budget=(await db.query('select reserved_usd,spent_usd from growth_ai_budgets')).rows[0]
+ assert.equal(Number(budget.reserved_usd),0);assert.equal(Number(budget.spent_usd),.01)
+})
+test('planner top-up is atomic when the remaining budget or per-request limit is insufficient',async()=>{
+ const id=await request();await claim(id)
+ // General 1600-token reservation fits, but the required 4096-token one does not.
+ await db.exec('update growth_ai_budgets set limit_usd=.04')
+ await assert.rejects(reservePlan(id),/한도/)
+ assert.equal((await db.query('select count(*) n from growth_ai_usage')).rows[0].n,0)
+ assert.equal(Number((await db.query('select reserved_usd from growth_ai_budgets')).rows[0].reserved_usd),0)
+ await db.exec('update growth_ai_budgets set limit_usd=100;update growth_ai_models set output_rate=300')
+ await assert.rejects(reservePlan(id),/요청당 비용/)
+ assert.equal((await db.query('select count(*) n from growth_ai_usage')).rows[0].n,0)
+})
+test('planner reservation requires a claimed server job and its original human actor',async()=>{
+ const id=await request()
+ await assert.rejects(reservePlan(id),e=>e.code==='42501');await claim(id)
+ await assert.rejects(reservePlan(id,member),e=>e.code==='42501')
+ await assert.rejects(asUser(admin,()=>call('sales_strategy_ai_reserve',[id,admin,'write','a'.repeat(64),'standard',1000])),e=>e.code==='42501')
+ await asUser(admin,()=>call('sales_strategy_finish',[id,null,'fixture failure']),'service_role')
+ const approved=await ready();await asUser(admin,()=>call('sales_strategy_decide',[approved,2,'승인','']))
+ const prep=(await db.query('select id from private.sales_strategy_preparations where strategy_id=$1',[approved])).rows[0].id
+ await claim(prep);assert.equal((await reservePlan(prep)).rows[0].r.execute,true)
 })

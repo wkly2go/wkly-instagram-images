@@ -47,6 +47,30 @@ test('successful request uses reserved model and rates, token cap, and settles a
   const sent = JSON.parse(String(calls.fetch[0].body)); assert.equal(sent.model, 'configured-model'); assert.equal(sent.max_tokens, 1600); assert.equal(sent.tools, undefined)
   assert.deepEqual(calls.finish, [{ p_id: data.id, p_actual: .0004, p_output: '검수할 초안', p_uncertain: false }])
 })
+test('trusted planner output cap changes the request signature but cannot be overridden by the client', async () => {
+  const data = body(), normal = setup(), planner = setup({ maxOutputTokens: 4096 })
+  await normal.handler(request(data)); await planner.handler(request(data))
+  assert.equal(JSON.parse(String(planner.calls.fetch[0].body)).max_tokens, 4096)
+  assert.notEqual(normal.calls.reserve[0].p_signature, planner.calls.reserve[0].p_signature)
+  assert.equal((await planner.handler(request({ ...data, maxOutputTokens: 99999 }))).status, 400)
+  assert.equal(planner.calls.fetch.length, 1)
+  assert.throws(() => setup({ maxOutputTokens: 4097 }), /output cap/)
+})
+test('incomplete structured output settles known usage once, reports failure and never retries', async () => {
+  for (const stop_reason of ['max_tokens', 'model_context_window_exceeded', 'refusal', undefined]) {
+    let fetched = 0
+    const { handler, calls } = setup({ requireComplete: true, maxOutputTokens: 4096, fetch: async () => {
+      fetched++
+      return Response.json({ stop_reason, content: [{ type: 'text', text: '{"title":"partial' }], usage: { input_tokens: 100, output_tokens: 20 } })
+    } })
+    const response = await handler(request()), result = await response.json()
+    assert.equal(response.status, 422); assert.match(result.error, /끝까지/); assert.equal(result.status, undefined)
+    assert.equal(result.cost, .0004); assert.equal(fetched, 1); assert.equal(calls.finish.length, 1)
+    assert.equal(calls.finish[0].p_uncertain, false)
+  }
+  const { handler } = setup({ requireComplete: true, fetch: async () => Response.json({ stop_reason: 'end_turn', content: [{ type: 'text', text: '{}' }], usage: { input_tokens: 1, output_tokens: 1 } }) })
+  assert.equal((await (await handler(request())).json()).status, 'completed')
+})
 test('completed and uncertain request IDs return stored status without another provider call', async () => {
   for (const status of ['completed', 'running', 'unknown', 'reconciled']) {
     const { handler, calls } = setup({ reserve: async () => ({ data: { execute: false, status, text: status === 'completed' ? '기존 결과' : '', cost: .01 }, error: null }) })
