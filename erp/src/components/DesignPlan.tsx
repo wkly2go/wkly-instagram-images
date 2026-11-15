@@ -99,6 +99,7 @@ export function DesignPlan({ project, base }: { project: DesignProject; base: De
   const area = useMemo(() => floorArea(plan.walls.filter(w => w.kind === 'existing')), [plan.walls])
   const rooms = plan.rooms ?? []
   const selItem = plan.items.find(i => i.id === sel), selWall = plan.walls.find(w => w.id === sel), selOpen = plan.openings.find(o => o.id === sel)
+  const patchOpen = (p: Partial<PlanGeometry['openings'][number]>) => change({ ...plan, openings: plan.openings.map(o => (o.id === sel ? { ...o, ...p } : o)) })
   const patchItem = (p: Partial<PlanItem>) => change({ ...plan, items: plan.items.map(i => (i.id === sel ? { ...i, ...p } : i)) })
   const tname = (c: string) => base.trades.find(t => t.code === c)?.name ?? c
   const stroke = Math.max(view.w / 600, 8)
@@ -179,6 +180,14 @@ export function DesignPlan({ project, base }: { project: DesignProject; base: De
           {selOpen && <>
             <b className="design-plan-sel">{selOpen.kind === 'door' ? '문' : '창'}</b>
             <label className="design-plan-h">폭 <input className="input xs" inputMode="numeric" value={selOpen.width} onChange={e => change({ ...plan, openings: plan.openings.map(o => (o.id === sel ? { ...o, width: Number(e.target.value.replace(/\D/g, '')) || 0 } : o)) })} /></label>
+            {selOpen.kind === 'door' && <>
+              <label className="design-plan-h">높이 <input className="input xs" inputMode="numeric" placeholder="2100" value={selOpen.height ?? ''} onChange={e => patchOpen({ height: Number(e.target.value.replace(/\D/g, '')) || undefined })} /></label>
+              <label className="design-plan-h">위치 <input className="input" placeholder="들어가는 실 (예: 창고)" value={selOpen.to ?? ''} onChange={e => patchOpen({ to: e.target.value })} /></label>
+              <label className="design-plan-h">종류 <input className="input" list="design-door-kinds" placeholder="여닫이 도어" value={selOpen.type ?? ''} onChange={e => patchOpen({ type: e.target.value })} /></label>
+              <datalist id="design-door-kinds">{['여닫이 도어', '히든 여닫이 도어', '양개 여닫이 도어', '미닫이 도어', '유리 도어'].map(v => <option key={v} value={v} />)}</datalist>
+              <label className="design-plan-h">문 마감 <input className="input" list="design-mat-codes" placeholder="WD-01" value={selOpen.finish ?? ''} onChange={e => patchOpen({ finish: e.target.value })} /></label>
+              <label className="design-plan-h">프레임 마감 <input className="input" list="design-mat-codes" placeholder="MT-01" value={selOpen.frame ?? ''} onChange={e => patchOpen({ frame: e.target.value })} /></label>
+            </>}
           </>}
           <Button size="sm" kind="ghost" onClick={() => sel && remove(sel)}>지우기</Button>
         </div>

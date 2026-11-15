@@ -49,7 +49,7 @@ export function elevationItems(g: PlanGeometry, w: PlanWall, reach = 300): { id:
 }
 
 const elevWalls = (g: PlanGeometry) => g.walls.filter(w => w.kind === 'existing' || w.kind === 'new').sort((a, c) => wallLength(c) - wallLength(a)).slice(0, 12)
-export const openingSize = (o: { kind: 'door' | 'window' }, height: number) => (o.kind === 'door' ? { h: Math.min(2100, height), sill: 0 } : { h: Math.min(1200, height), sill: 900 })
+export const openingSize = (o: { kind: 'door' | 'window'; height?: number }, height: number) => (o.kind === 'door' ? { h: Math.min(o.height || 2100, height), sill: 0 } : { h: Math.min(1200, height), sill: 900 })
 
 /** Wall face area (㎡) minus its openings — one face, at ceiling height. */
 export function wallFaceArea(g: PlanGeometry, w: PlanWall): number {
@@ -61,6 +61,19 @@ export function wallFaceArea(g: PlanGeometry, w: PlanWall): number {
 export function wallFinishRows(g: PlanGeometry): { label: string; finish: string; area: number }[] {
   return elevWalls(g).flatMap((w, i) => (w.finish?.trim() ? [{ label: `입면 ${String.fromCharCode(65 + i)}`, finish: w.finish.trim(), area: wallFaceArea(g, w) }] : []))
 }
+
+export interface DoorGroup { no: string; width: number; height: number; type: string; finish: string; frame: string; to: string[]; count: number }
+/** Doors grouped like the sample door list (ID-400): same size, kind and finishes share one entry with a SET count. */
+export function doorGroups(g: PlanGeometry): DoorGroup[] {
+  const m = new Map<string, DoorGroup>()
+  for (const o of g.openings.filter(x => x.kind === 'door')) {
+    const d = { width: o.width, height: openingSize(o, g.height).h, type: o.type?.trim() || '여닫이 도어', finish: o.finish?.trim() ?? '', frame: o.frame?.trim() ?? '' }
+    const k = Object.values(d).join('|'), hit = m.get(k)
+    if (hit) { hit.count += 1; if (o.to?.trim() && !hit.to.includes(o.to.trim())) hit.to.push(o.to.trim()) } else m.set(k, { ...d, no: '', to: o.to?.trim() ? [o.to.trim()] : [], count: 1 })
+  }
+  return [...m.values()].sort((a, c) => a.width - c.width || a.height - c.height).map((d, i) => ({ ...d, no: `D-${String(i + 1).padStart(2, '0')}` }))
+}
+export const DOORS_PER_SHEET = 4
 
 /** Sheet list for a project: general sheets numbered like the sample set (list I-002 · material legend I-006~ · finish table I-008~, tables split every ROWS_PER_SHEET rows), plan series,
  *  one elevation per wall (longest first, max 12), then details: wall types ID-200 (1/6) · doors ID-400 (1/40) · furniture IF-700. */
@@ -85,8 +98,7 @@ export function sheetList(g: PlanGeometry, finishRows = 0, legendRows = 0): Shee
   typed.forEach((t, i) => out.push({ no: `ID-${201 + i}`, title: `벽체 상세 ${t.code}`, scale: '1/6', kind: 'wallDetail', wallType: t.code }))
   ;[...new Set(g.walls.filter(w => w.kind === 'new' && !typed.some(t => t.code === w.type)).map(w => w.t))].sort((a, c) => a - c).slice(0, 9 - typed.length)
     .forEach((t, i) => out.push({ no: `ID-${201 + typed.length + i}`, title: `벽체 상세 T${t}`, scale: '1/6', kind: 'wallDetail', t }))
-  ;[...new Set(g.openings.filter(o => o.kind === 'door').map(o => o.width))].sort((a, c) => a - c).slice(0, 8)
-    .forEach((width, i) => out.push({ no: `ID-${401 + i}`, title: `도어 상세 W${width}`, scale: '1/40', kind: 'doorDetail', width }))
+  Array.from({ length: Math.min(Math.ceil(doorGroups(g).length / DOORS_PER_SHEET), 10) }, (_, i) => out.push({ no: `ID-${401 + i}`, title: `도어 리스트-${i + 1}`, scale: '1/40', kind: 'doorDetail', page: i }))
   furnitureTypes(g).forEach((f, i) => out.push({ no: `IF-${701 + i}`, title: `가구 상세 ${f.name}`, scale: `1/${pickScale(f.w + f.d, f.h + f.d, 240, 160)}`, kind: 'furnDetail', item: f.id }))
   return out
 }

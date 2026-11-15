@@ -3,7 +3,7 @@
 // 여기서 만드는 것은 수량(개수 · 면적 · 길이)뿐이다. 금액은 견적 엔진(작업 처리기)만 계산한다.
 
 export interface PlanWall { id: string; x1: number; y1: number; x2: number; y2: number; /** 두께 mm */ t: number; /** existing: 기존 벽(수량 없음) · new: 새로 세우는 가벽(수량에 들어감) */ kind: 'existing' | 'new'; /** 이 벽의 마감 (입면도 · 마감표에 적힘) */ finish?: string; /** 벽체 유형 기호 (W1~W30 · 벽체 상세도에 쓰임) */ type?: string }
-export interface PlanOpening { id: string; wall: string; /** 벽 시작점에서 중심까지 mm */ pos: number; width: number; kind: 'door' | 'window' }
+export interface PlanOpening { id: string; wall: string; /** 벽 시작점에서 중심까지 mm */ pos: number; width: number; kind: 'door' | 'window'; /** 문 높이 mm (없으면 2100) */ height?: number; /** 도어 리스트: 어느 실로 들어가는 문인지 */ to?: string; /** 도어 리스트: 종류 (여닫이 도어 · 히든 여닫이 도어 …) */ type?: string; /** 문짝 마감 (재료 번호) */ finish?: string; /** 프레임 마감 (재료 번호) */ frame?: string }
 export interface PlanItem {
   id: string; x: number; y: number; w: number; d: number; h: number; rot: 0 | 90
   name: string; trade_code: string; spec: string; unit: string
@@ -57,7 +57,11 @@ export function floorArea(walls: PlanWall[]): number | null {
   return round3(Math.abs(s) / 2 / 1e6)
 }
 
-/** 평면 → 수량 줄. 새 가벽은 길이 × 높이에서 문 · 창 면적을 뺀 ㎡, 부품은 같은 것끼리 더한다 */
+const FINISH_TRADE: Record<string, string> = { PT: 'T06', SH: 'T07', WC: 'T07', TL: 'T08', ST: 'T08', AS: 'T08', MT: 'T04', GL: 'T05', WP: 'T03', AC: 'T03', FB: 'T03', LE: 'T03', VS: 'T09', WF: 'T09' }
+/** 마감 글의 재료 번호 앞 글자(PT-01 → PT)로 공종을 고른다. 번호가 없으면 기타(T99) — 수량표에서 고친다 */
+export const finishTrade = (finish: string) => FINISH_TRADE[finish.trim().toUpperCase().match(/^[A-Z]{2,3}(?=[-\s]?\d)/)?.[0] ?? ''] ?? 'T99'
+
+/** 평면 → 수량 줄. 마감이 정해진 벽은 한 면의 마감 면적(㎡)도 넣는다. 새 가벽은 길이 × 높이에서 문 · 창 면적을 뺀 ㎡, 부품은 같은 것끼리 더한다 */
 export function planQuantities(g: PlanGeometry, wallTrade = 'T03'): PlanLine[] {
   const out = new Map<string, PlanLine>()
   const add = (l: Omit<PlanLine, 'count'>) => {
@@ -66,9 +70,15 @@ export function planQuantities(g: PlanGeometry, wallTrade = 'T03'): PlanLine[] {
     if (cur) { cur.qty = round3(cur.qty + l.qty); cur.count++ } else out.set(k, { ...l, qty: round3(l.qty), count: 1 })
   }
   for (const w of g.walls.filter(x => x.kind === 'new')) {
-    const holes = g.openings.filter(o => o.wall === w.id).reduce((s, o) => s + o.width * (o.kind === 'door' ? Math.min(2100, g.height) : 1200), 0)
+    const holes = g.openings.filter(o => o.wall === w.id).reduce((s, o) => s + o.width * (o.kind === 'door' ? Math.min(o.height || 2100, g.height) : 1200), 0)
     const m2 = (wallLength(w) * g.height - holes) / 1e6
     if (m2 > 0) add({ trade: wallTrade, item: '가벽 설치', spec: `H${g.height} · T${w.t}`, unit: 'm2', qty: m2, section: null })
+  }
+  // Wall finish: one face of each wall that has a finish set, net of openings. Trade comes from the material number prefix.
+  for (const w of g.walls.filter(x => x.finish?.trim())) {
+    const holes = g.openings.filter(o => o.wall === w.id).reduce((s, o) => s + o.width * (o.kind === 'door' ? Math.min(o.height || 2100, g.height) : 1200), 0)
+    const m2 = (wallLength(w) * g.height - holes) / 1e6
+    if (m2 > 0) add({ trade: finishTrade(w.finish!), item: '벽 마감', spec: w.finish!.trim(), unit: 'm2', qty: m2, section: null })
   }
   for (const it of g.items) {
     if (!it.name.trim() || !it.trade_code || !it.unit) continue

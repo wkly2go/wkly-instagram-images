@@ -6,7 +6,7 @@ import { useApp, useAsync } from '../lib/app'
 import type { DesignBase, DesignProject, Placement, SpecItem } from '../lib/design'
 import { wallLength, type PlanGeometry, type PlanItem, type PlanRoom } from '../lib/designPlan'
 import { BASE_TYPES, FLOOR_TYPES, wallType, type BaseType, type FloorType, type WallType } from '../lib/designWallTypes'
-import { elevationItems, furnitureTypes, materialKind, openingSize, wallFaceArea, wallFinishRows, planBounds, planDxf, ROWS_PER_SHEET, sheetList, type SheetMeta } from '../lib/designDrawings'
+import { DOORS_PER_SHEET, doorGroups, elevationItems, furnitureTypes, materialKind, type DoorGroup, openingSize, wallFaceArea, wallFinishRows, planBounds, planDxf, ROWS_PER_SHEET, sheetList, type SheetMeta } from '../lib/designDrawings'
 
 const W = 420, H = 297, M = 10, TB = 62 // paper, margin, title-block width (mm)
 const AREA = { x: M + 6, y: M + 6, w: W - M * 2 - TB - 12, h: H - M * 2 - 12 }
@@ -245,19 +245,27 @@ function Schedule({ rooms, matName }: { rooms: PlanRoom[]; matName: (code?: stri
   </g>
 }
 
-/** Door elevation at the learned ID-400 scale: leaf, frame and overall sizes. Leaf type and hardware are not in the data. */
-function DoorDetail({ width, height, scale }: { width: number; height: number; scale: number }) {
-  const dh = Math.min(2100, height), w = width / scale, h = dh / scale, fr = 40 / scale, x = AREA.x + (AREA.w - w) / 2, y = AREA.y + 40 + (AREA.h - 90 - h) / 2
+/** Door list in the sample layout (ID-400, 1/40): each entry is an elevation with frame, plus 위치 · 종류 · SIZE · 마감 · 수량. */
+function DoorList({ doors, scale }: { doors: DoorGroup[]; scale: number }) {
+  const cw = AREA.w / DOORS_PER_SHEET, base = AREA.y + 130
   return <g>
-    <rect x={x - fr} y={y - fr} width={w + fr * 2} height={h + fr} fill="#eee" stroke="#111" strokeWidth={0.3} />
-    <rect x={x} y={y} width={w} height={h} fill="#fff" stroke="#111" strokeWidth={0.45} />
-    <line x1={x} y1={y} x2={x + w} y2={y + h / 2} stroke="#999" strokeWidth={0.15} /><line x1={x + w} y1={y + h / 2} x2={x} y2={y + h} stroke="#999" strokeWidth={0.15} />
-    <circle cx={x + w - 70 / scale} cy={y + h - 1000 / scale} r={0.9} fill="#111" />
-    <line x1={x - 30} y1={y + h} x2={x + w + 30} y2={y + h} stroke="#111" strokeWidth={0.6} />
-    <Dim x1={x} y1={y + h + 8} x2={x + w} y2={y + h + 8} label={`W ${f(width)}`} /><Dim x1={x - 10} y1={y} x2={x - 10} y2={y + h} label={`H ${f(dh)}`} />
-    <text x={x + w + 14} y={y + 6} fontSize={2.8} fontWeight={800}>여닫이 문 · 개구부 W {f(width)} × H {f(dh)}</text>
-    <text x={x + w + 14} y={y + 12} fontSize={2.6}>문틀 40 (표준 값) · 손잡이 높이 FL+1,000</text>
-    <text x={AREA.x} y={AREA.y + AREA.h - 6} fontSize={2.6} fill="#c00">문 높이 2,100 은 기본값입니다. 문짝 종류 · 마감 · 철물(스펙북 하드웨어)은 자료에 없어 적지 않았습니다 — 확인해 적어 주세요.</text>
+    {doors.map((d, i) => {
+      const cx = AREA.x + cw * i, w = d.width / scale, h = d.height / scale, fr = 2, x = cx + (cw - w) / 2, lw = Math.max(d.width - 53, 0), lh = Math.max(d.height - 26, 0)
+      const rows: [string, string][] = [['위치', d.to.length ? `DOOR TO ${d.to.join(', ')}` : '확인 필요'], ['종류', d.type], ['SIZE 프레임', `${f(d.width)} X ${f(d.height)}`], ['SIZE 도어', `${f(lw)} X ${f(lh)}`], ['도어 마감', d.finish || '확인 필요'], ['프레임 마감', d.frame || '확인 필요'], ['수량', `${d.count} SET`]]
+      return <g key={d.no}>
+        {i > 0 && <line x1={cx} y1={AREA.y + 16} x2={cx} y2={AREA.y + AREA.h - 14} stroke="#111" strokeWidth={0.2} />}
+        <text x={cx + 4} y={AREA.y + 24} fontSize={4.2} fontWeight={800}>{d.no}</text>
+        <rect x={x - fr} y={base - h - fr} width={w + fr * 2} height={h + fr} fill="#e9e9e9" stroke="#111" strokeWidth={0.3} /><rect x={x} y={base - h} width={w} height={h} fill="#fff" stroke="#111" strokeWidth={0.4} />
+        <line x1={x} y1={base - h} x2={x + w} y2={base - h / 2} stroke="#999" strokeWidth={0.15} /><line x1={x + w} y1={base - h / 2} x2={x} y2={base} stroke="#999" strokeWidth={0.15} />
+        <circle cx={x + w - 2} cy={base - 1000 / scale} r={0.8} fill="#111" /><line x1={cx + 6} y1={base} x2={cx + cw - 6} y2={base} stroke="#111" strokeWidth={0.6} />
+        <Dim x1={x} y1={base + 7} x2={x + w} y2={base + 7} label={f(d.width)} /><Dim x1={x - 8} y1={base - h} x2={x - 8} y2={base} label={f(d.height)} />
+        {rows.map(([k, v], r) => <g key={k} fontSize={2.6}>
+          <line x1={cx + 4} y1={base + 16 + r * 6.4} x2={cx + cw - 4} y2={base + 16 + r * 6.4} stroke="#111" strokeWidth={0.12} />
+          <text x={cx + 5} y={base + 20.5 + r * 6.4} fill="#555">{k}</text><text x={cx + 27} y={base + 20.5 + r * 6.4} fontWeight={800} fill={v === '확인 필요' ? '#c00' : '#111'}>{v.slice(0, 26)}</text>
+        </g>)}
+      </g>
+    })}
+    <text x={AREA.x} y={AREA.y + AREA.h - 6} fontSize={2.6} fill="#555">도어 크기는 프레임 − 53 × − 26 (표본 도어 리스트의 값)으로 계산했습니다. 문 높이를 적지 않은 문은 2,100 입니다. 빨간 칸은 '평면 · 3D'에서 문을 골라 적어 주세요.</text>
   </g>
 }
 
@@ -310,7 +318,7 @@ export function DesignDrawings({ project, base }: { project: DesignProject; base
       {meta.kind === 'elevation' && meta.wall && <Elevation g={g} wallId={meta.wall} scale={sc} finishes={finishes} />}
       {meta.kind === 'wallDetail' && meta.wallType && wallType(meta.wallType) && <WallTypeDetail t={wallType(meta.wallType)!} />}
       {meta.kind === 'wallDetail' && meta.t && <WallDetail t={meta.t} height={g.height} scale={sc} />}
-      {meta.kind === 'doorDetail' && meta.width && <DoorDetail width={meta.width} height={g.height} scale={sc} />}
+      {meta.kind === 'doorDetail' && <DoorList doors={doorGroups(g).slice((meta.page ?? 0) * DOORS_PER_SHEET, ((meta.page ?? 0) + 1) * DOORS_PER_SHEET)} scale={sc} />}
       {meta.kind === 'furnDetail' && (() => { const it = types.find(x => x.id === meta.item); return it ? <FurnDetail item={it} count={it.count} scale={sc} /> : null })()}
     </Frame>
   }
