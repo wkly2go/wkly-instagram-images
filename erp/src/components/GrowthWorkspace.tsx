@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import {contactKind} from '../lib/contactKind'
 import { useApp, useAsync } from '../lib/app'
 import { friendlyError } from '../lib/api'
 import { Link } from '../lib/router'
@@ -92,8 +93,8 @@ export function GrowthWorkspace({ kind, embedded = false, onPlanCandidate, rende
     {list.error&&<p role="alert">{list.error} <Button kind="outline" onClick={list.reload}>다시 확인</Button></p>}
     {list.loading?<p role="status">자료를 불러오는 중…</p>:!list.error&&<>
       {contact ? <div className="growth-contact-list-scroll"><table className="growth-contact-list"><caption className="sr-only">민간 영업 후보 목록</caption><thead><tr><th scope="col">이름·회사</th><th scope="col">연락처</th><th scope="col">영업 내용 검토</th><th scope="col">원문 단서</th><th scope="col">검토 상태</th></tr></thead><tbody>{orderedRows.map(row=>{
-        const method=recommendSalesMethod(methodInputFromGrowth(row))
-        return <tr key={row.id} aria-selected={selected===row.id}><th scope="row"><button type="button" aria-expanded={inlineContact?selected===row.id:undefined} onClick={event=>{if(openPanel(row.id)&&inlineContact)openTrigger.current=event.currentTarget}}>{row.title}</button><small>{[row.document?.brand,row.document?.name].filter(v=>v&&v!==row.title).join(' · ')||'소속·역할 확인 필요'}</small><small>{profileName(row.owner_id)} · {new Date(row.updated_at).toLocaleDateString('ko-KR',{timeZone:'Asia/Seoul'})}</small></th><td>{row.document?.email||row.document?.instagram||'미등록'}</td><td>{method.title}<small>{method.nextAction}</small></td><td><span className="growth-contact-excerpt">{row.document?.note||'원문 기록 없음'}</span><small>{[row.document?.segment,row.document?.source].filter(Boolean).join(' · ')||'출처 확인 필요'}</small></td><td><strong>{row.sales_review?.label??row.status}</strong><small>{row.linked_sales_id?'영업 연결됨':row.status}</small></td></tr>
+        const method=recommendSalesMethod(methodInputFromGrowth(row)),kind=contactKind({title:row.title,...row.document})
+        return <tr key={row.id} aria-selected={selected===row.id}><th scope="row"><button type="button" aria-expanded={inlineContact?selected===row.id:undefined} onClick={event=>{if(openPanel(row.id)&&inlineContact)openTrigger.current=event.currentTarget}}>{row.title}</button><small>{[row.document?.brand,row.document?.name].filter(v=>v&&v!==row.title).join(' · ')||'소속·역할 확인 필요'}</small><small>{profileName(row.owner_id)} · {new Date(row.updated_at).toLocaleDateString('ko-KR',{timeZone:'Asia/Seoul'})}</small></th><td>{row.document?.email||row.document?.instagram||'미등록'}<small className="growth-contact-kind" data-kind={kind}>{kind==='미분류'?'사람·회사 구분 필요':kind}</small></td><td>{method.title}<small>{method.nextAction}</small></td><td><span className="growth-contact-excerpt">{row.document?.note||'원문 기록 없음'}</span><small>{[row.document?.segment,row.document?.source].filter(Boolean).join(' · ')||'출처 확인 필요'}</small></td><td><strong>{row.sales_review?.label??row.status}</strong><small>{row.linked_sales_id?'영업 연결됨':row.status}</small></td></tr>
       })}</tbody></table>{!orderedRows.length&&<p className="growth-empty">{query||status?'조건에 맞는 자료가 없습니다.':'등록된 후보가 없습니다.'}</p>}</div> : <div className="growth-list">
         {orderedRows.map(row => {
           const review = row.sales_review
