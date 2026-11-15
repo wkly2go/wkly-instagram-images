@@ -1,4 +1,4 @@
-import {COMPANY_LIMITS} from './salesCompany'
+import {COMPANY_LIMITS} from './salesCompany.ts'
 export type SalesDeskAction='조회'|'보고서'|'수집'
 export interface DeskSource {id:string;name:string;source:string;evidence:string;source_url:string;source_updated_at:string|null;organization:string;entity_kind:string}
 export interface DeskSnapshot {execution?:{crm?:{scope:string;accepted:number;replied:number;stopped:number};scope:string;total:number;review_ready:number;needs_verification:number;recheck:number;held:number;approved:number;sent:number|null;delivery_connected:boolean;last_checked_at:string|null;note:string};at:string;scope:string;matched_total:number;sources:DeskSource[];coverage:{source:string;status:string;note:string}[];pipeline:{stage:string;count:number}[]}

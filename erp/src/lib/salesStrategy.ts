@@ -1,4 +1,4 @@
-import {COMPANY_LIMITS} from './salesCompany'
+import {COMPANY_LIMITS} from './salesCompany.ts'
 import type {SalesExecutionApi,SalesContactEvidence} from './salesExecution'
 export interface StrategySource { id: string; name: string; source: string; evidence: string; source_url: string; source_updated_at: string | null }
 export interface StrategyStep { action: string; output: string; day: number }
