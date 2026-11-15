@@ -1,12 +1,8 @@
 import {request} from 'node:https'
 import {resolve4} from 'node:dns/promises'
-import {isIP} from 'node:net'
 import {sourceUrl,type Page} from './handler.ts'
-export function publicIPv4(value:string):boolean{
- if(isIP(value)!==4)return false
- const [a,b,c]=value.split('.').map(Number)
- return !(a===0||a===10||a===127||a>=224||a===100&&b>=64&&b<=127||a===169&&b===254||a===172&&b>=16&&b<=31||a===192&&(b===168||b===0||b===2||b===88&&c===99)||a===198&&(b===18||b===19||b===51&&c===100)||a===203&&b===0&&c===113)
-}
+export {publicIPv4} from './address.ts'
+import {publicIPv4} from './address.ts'
 export interface NetworkDeps {resolve:(hostname:string)=>Promise<string[]>;request:typeof request}
 /** Pins the validated public IP at the actual socket lookup; never re-resolves via fetch. */
 export async function readPublicPage(value:string,deps:NetworkDeps={resolve:resolve4,request},guard:(value:string)=>URL|null=sourceUrl):Promise<Page>{
