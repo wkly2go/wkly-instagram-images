@@ -1,3 +1,4 @@
+import type {SalesExecutionApi} from './salesExecution'
 export interface StrategySource { id: string; name: string; source: string; evidence: string; source_url: string; source_updated_at: string | null }
 export interface StrategyStep { action: string; output: string; day: number }
 export interface StrategyPreparation {research: string; proposal: string; contact_draft: string; checks: string[]}
@@ -15,7 +16,7 @@ export interface SalesStrategy {
   preparation_status?: '미요청' | '준비 중' | '완료' | '확인 필요'; preparation?: StrategyPreparation | null; preparation_error?: string;
 }
 export interface StrategyTask { id: string; strategy_id: string; ordinal: number; owner_id: string|null; executor?:'legacy'|'system'; title: string; output: string; due_date: string; status: '대기' | '진행' | '완료'; result: string; revision: number }
-export interface SalesStrategyApi {
+export interface SalesStrategyApi extends SalesExecutionApi {
   listSalesDesk(before:number|null):Promise<import('./salesDesk').SalesDeskMessage[]>;
   submitSalesDesk(id:string,agent:string|null,action:import('./salesDesk').SalesDeskAction,instruction:string):Promise<string>;
   listSalesStrategies(page: number): Promise<{items: SalesStrategy[]; total: number; automatic: boolean}>;

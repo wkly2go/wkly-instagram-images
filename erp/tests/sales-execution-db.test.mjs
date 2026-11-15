@@ -1,0 +1,144 @@
+import {before,beforeEach,afterEach,after,test} from 'node:test'
+import assert from 'node:assert/strict'
+import {readFile} from 'node:fs/promises'
+import {randomUUID} from 'node:crypto'
+import {PGlite} from '@electric-sql/pglite'
+const db=new PGlite(), admin=randomUUID(), member=randomUUID(), client=randomUUID(), person=randomUUID()
+const sql=name=>readFile(new URL(`../supabase/migrations/${name}`,import.meta.url),'utf8')
+before(async()=>{
+ await db.exec(`create role authenticated;create role anon;create role service_role;create schema vault;create table vault.decrypted_secrets(name text,decrypted_secret text);create schema auth;create schema private;create schema net;create schema cron;
+ create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
+ create table profiles(id uuid primary key,role text,active boolean,is_agent boolean default false);
+ insert into profiles values('${admin}','admin',true,false),('${member}','member',true,false);
+ create function is_active_member() returns boolean language sql security definer stable as $$select exists(select 1 from public.profiles where id=auth.uid() and active)$$;
+ create function is_admin() returns boolean language sql security definer stable as $$select exists(select 1 from public.profiles where id=auth.uid() and active and role='admin')$$;
+ create table clients(id uuid primary key,name text,category text,memo text,email text,phone text,website text,updated_at timestamptz);
+ create table contacts(id uuid primary key,client_id uuid references clients(id),name text,title text,phone text,email text,memo text,created_at timestamptz);
+ create table projects(id uuid primary key,client_id uuid,division text);
+ create table growth_items(id uuid primary key,kind text,title text,document jsonb,status text,updated_at timestamptz,linked_sales_id uuid);
+ create table brand_contacts(id uuid primary key,contact_name text,brand_name text,email text,phone text,source_note text,memo text,source_url text,updated_at timestamptz,client_id uuid,opt_out boolean);
+ create table research_items(id uuid primary key,title text,status text,brand_name text,summary text,body text,source_url text,updated_at timestamptz,client_id uuid);
+ create table notices(user_id uuid,title text);
+ create function notify(u uuid,k text,t text,b text,l text) returns void language sql as $$insert into public.notices values(u,t)$$;
+ create function growth_safe_url(v text) returns boolean language sql immutable as $$select v='' or v ~ '^https?://[^ @]+$'$$;
+ create table cron.job(jobname text primary key,schedule text,active boolean);
+ create function cron.schedule(n text,s text,c text) returns bigint language plpgsql as $$begin insert into cron.job values(n,s,true);return 1;end$$;
+ create table net.requests(id bigserial primary key,url text);
+ create function net.http_post(url text,headers jsonb,body jsonb,timeout_milliseconds int) returns bigint language sql as $$insert into net.requests(url) values(url) returning id$$;
+ create table net._http_response(id bigint,status_code integer,content text,error_msg text,timed_out boolean);
+ create function net.http_get(url text,timeout_milliseconds int) returns bigint language sql as $$insert into net.requests(url) values(url) returning id$$;
+ grant usage on schema public,auth to authenticated,anon;`)
+ await db.exec(await sql('0113_sales_pipeline.sql'))
+ await db.exec(await sql('0119_sales_briefing.sql'))
+ await db.exec(await sql('0120_sales_verification.sql'))
+ await db.exec(await sql('0121_sales_verification_fast_path.sql'))
+ await db.query('insert into clients values($1,$2,$3,$4,$5,$6,$7,now())',[client,'테스트 브랜드','클라이언트','팝업 전시 기획','team@example.com','02-000-0000','https://example.com'])
+ await db.query('insert into contacts values($1,$2,$3,$4,$5,$6,$7,now())',[person,client,'동명 담당자','마케팅 팀장','','human@example.com','팝업 문의'])
+ await db.query('select private.sales_collect_internal()')
+ await db.exec(await sql('20261115090101_sales_evidence_history.sql'))
+ await db.exec(`alter table profiles add column name text default '시험 팀원';create table ai_agents(profile_id uuid primary key,role text,instructions text);`)
+ await db.exec(await sql('0115_growth_ai_budget.sql'))
+ await db.exec(await sql('0122_sales_strategy.sql'));await db.exec(await sql('0123_sales_strategy_gateway.sql'));await db.exec(await sql('0124_sales_strategy_output.sql'))
+ await db.exec(await sql('20261115090102_sales_desk.sql'))
+ await db.exec(await sql('20261115090103_sales_g2b_collection.sql'))
+ await db.exec(await sql('20261115090104_sales_preapproval.sql'))
+ await db.exec(await sql('20261115090105_sales_execution_packages.sql'))
+ await db.exec("insert into growth_ai_models values('standard','작성','test-model',3,15,true);insert into growth_ai_budgets(id,starts_at,ends_at,limit_usd,enabled) values(gen_random_uuid(),now()-interval '1 day',now()+interval '1 day',1,true);insert into vault.decrypted_secrets values('WKLY_EDGE_ANON_KEY','test-gateway');grant usage on schema public,auth to service_role;")
+})
+after(()=>db.close())
+beforeEach(()=>db.exec('begin'));afterEach(()=>db.exec('rollback'))
+async function asUser(id,fn,role='authenticated'){await db.exec('savepoint actor');await db.query("select set_config('request.jwt.claim.sub',$1,false)",[id??'']);await db.exec(`set role ${role}`);try{return await fn()}catch(e){await db.exec('rollback to actor');throw e}finally{await db.exec('reset role;release actor')}}
+const call=(name,args=[])=>db.query(`select ${name}(${args.map((_,i)=>'$'+(i+1)).join(',')}) r`,args)
+const strategy=id=>db.query('select * from sales_strategies where id=$1',[id]).then(r=>r.rows[0])
+async function claim(id){const j=(await db.query('select token from private.sales_strategy_jobs where id=$1 union all select token from private.sales_strategy_preparations where id=$1',[id])).rows[0];return(await asUser(admin,()=>call('sales_strategy_claim',[id,j.token]),'service_role')).rows[0].r}
+const pack={research:'저장 근거에서 확인한 사실과 미확인 항목',proposal:'팝업 운영 제안 초안',contact_draft:'담당 범위를 확인하는 연락 초안',checks:['수신 자격과 실제 수요 자동 검증 대상']}
+async function planned(source='거래처'){
+ const id=randomUUID();await asUser(admin,()=>call('sales_strategy_request',[id,'다양한 영업 방법']))
+ const job=await claim(id),sid=job.sources.find(s=>s.source===source).id
+ const plan={title:'브랜드 체험 프로그램',category:'공동 체험',customer:'기존 연결 기업',opportunity:'팝업 운영 가설',offer:'행사 운영',why_now:'저장 문의 단서',approach:'담당 역할 확인',effect:'의향 확인 가설',resources:'범위 산정 필요',stop_rule:'수요 없으면 중단',first_message:'운영 제안 초안',evidence_ids:[sid],questions:['구체 범위 확인'],metrics:['회신 건수'],steps:[{action:'공식 자료 조사',output:'근거 목록',day:0},{action:'제안 준비',output:'제안 초안',day:1},{action:'대상 검증',output:'수신 자격 검증',day:2}]}
+ await asUser(admin,()=>call('sales_strategy_finish',[id,JSON.stringify(plan),'']),'service_role')
+ const prep=(await db.query('select id from private.sales_strategy_preparations where strategy_id=$1',[id])).rows[0].id
+ return {id,prep,plan}
+}
+async function prepared(source='거래처'){const j=await planned(source);await claim(j.prep);await asUser(admin,()=>call('sales_strategy_prepared',[j.prep,JSON.stringify(pack),'']),'service_role');return j}
+const decide=(j,revision,decision='승인',feedback='')=>asUser(admin,()=>call('sales_strategy_decide',[j.id,revision,decision,feedback]))
+const execution=id=>asUser(admin,()=>call('sales_execution_get',[id])).then(r=>r.rows[0].r)
+const decision=(p,kind='승인')=>asUser(admin,()=>call('sales_execution_decide',[p.id,p.version,p.fingerprint,kind]))
+test('preparation automatically creates exact recipient, text, proposal and Korean business-hour material without sending',async()=>{
+ const j=await prepared('담당자'),p=await execution(j.id)
+ assert.equal(p.version,1);assert.equal(p.status,'준비 중');assert.equal(p.can_approve,false);assert.equal(p.fingerprint.length,64)
+ assert.equal(p.payload.messages[0].recipient,'human@example.com');assert.equal(p.payload.messages[0].body,pack.contact_draft)
+ assert.equal(p.payload.attachments[0].content,pack.proposal);assert.equal(p.payload.sender,null);assert.equal(p.payload.transport_enabled,false)
+ const scheduled=new Date(p.payload.schedule.at),kst=new Date(scheduled.getTime()+9*3600000)
+ assert.equal(kst.getUTCHours(),10);assert.ok(kst.getUTCDay()>=1&&kst.getUTCDay()<=5);assert.equal(p.payload.schedule.per_recipient_limit,1)
+ assert.equal((await db.query('select count(*) n from net.requests')).rows[0].n,2)
+ await assert.rejects(decision(p),/発送|발송 조건/)
+})
+test('unchanged refresh preserves the exact version and audit count',async()=>{
+ const j=await prepared(),before=await execution(j.id)
+ for(let i=0;i<3;i++)await db.query('select private.sales_execution_refresh($1)',[j.id])
+ const after=await execution(j.id);assert.equal(after.id,before.id);assert.equal(after.events.length,1)
+})
+test('changed recipient invalidates the old view immediately and stores a new immutable version',async()=>{
+ const j=await prepared('담당자'),old=await execution(j.id)
+ await db.query("update contacts set email='new@example.com' where id=$1",[person])
+ const stale=await execution(j.id);assert.equal(stale.current,false);assert.equal(stale.status,'재검토');assert.equal(stale.can_approve,false)
+ await assert.rejects(decision(old),e=>e.code==='PT409')
+ await db.query('select private.sales_execution_refresh($1)',[j.id]);const latest=await execution(j.id)
+ assert.equal(latest.version,2);assert.equal(latest.payload.messages[0].recipient,'new@example.com')
+ const preserved=(await db.query('select payload,status from sales_execution_packages where id=$1',[old.id])).rows[0]
+ assert.equal(preserved.payload.messages[0].recipient,'human@example.com');assert.equal(preserved.status,'재검토')
+ await assert.rejects(decision(old,'보류'),e=>e.code==='PT409')
+})
+test('new opt-outs remove recipients and keep a visible system blocker',async()=>{
+ const j=await prepared('담당자'),old=await execution(j.id)
+ await db.query("insert into brand_contacts(id,email,opt_out) values($1,' HUMAN@example.com ',true)",[randomUUID()])
+ assert.equal((await execution(j.id)).current,false)
+ await db.query('select private.sales_execution_refresh($1)',[j.id]);const p=await execution(j.id)
+ assert.equal(p.payload.messages.length,0);assert.ok(p.blockers.some(b=>b.includes('수신 거부')));await assert.rejects(decision(p),/발송 조건/)
+ assert.notEqual(p.fingerprint,old.fingerprint)
+})
+test('same recipient is deduplicated across evidence and different companies block delivery',async()=>{
+ await db.query("update contacts set email='team@example.com' where id=$1",[person]);const j=await prepared('담당자')
+ const company=(await db.query("select id from sales_prospects where source='거래처' limit 1")).rows[0].id
+ await db.query("update sales_strategies set plan=jsonb_set(plan,'{evidence_ids}',(plan->'evidence_ids')||to_jsonb($2::text)) where id=$1",[j.id,company])
+ await db.query('select private.sales_execution_refresh($1)',[j.id]);const p=await execution(j.id)
+ assert.equal(p.payload.messages.length,1);assert.equal(p.payload.messages[0].source_ids.length,2)
+ const other=randomUUID();await db.query("insert into clients(id,name,email) values($1,'다른 회사','team@example.com')",[other])
+ await db.query('update sales_prospects set client_id=$1,contact_id=null where id=$2',[other,company])
+ await db.query('select private.sales_execution_refresh($1)',[j.id]);assert.ok((await execution(j.id)).blockers.some(b=>b.includes('여러 회사')))
+})
+test('body, attachment and scheduling changes require a new version instead of reusing a decision',async()=>{
+ const j=await prepared(),p=await execution(j.id);await decision(p,'보류');await decision(p,'보류')
+ assert.equal((await execution(j.id)).events.filter(e=>e.kind==='보류').length,1)
+ await db.query("update sales_strategies set preparation=jsonb_set(preparation,'{proposal}','\"수정 제안\"') where id=$1",[j.id])
+ assert.equal((await execution(j.id)).current,false);await assert.rejects(decision(p),e=>e.code==='PT409')
+ await db.query('select private.sales_execution_refresh($1)',[j.id]);const next=await execution(j.id)
+ assert.equal(next.version,2);assert.equal(next.status,'보류');assert.equal(next.payload.attachments[0].content,'수정 제안')
+})
+test('anonymous users and members cannot decide, and clients cannot change content or audit events',async()=>{
+ const j=await prepared(),p=await execution(j.id)
+ await assert.rejects(asUser(null,()=>call('sales_execution_get',[j.id]),'anon'),e=>e.code==='42501')
+ assert.ok((await asUser(member,()=>call('sales_execution_get',[j.id]))).rows[0].r)
+ await assert.rejects(asUser(member,()=>call('sales_execution_decide',[p.id,p.version,p.fingerprint,'보류'])),e=>e.code==='42501')
+ await assert.rejects(asUser(admin,()=>db.exec("update sales_execution_packages set status='승인'")),e=>e.code==='42501')
+ await assert.rejects(asUser(admin,()=>db.exec('delete from sales_execution_events')),e=>e.code==='42501')
+})
+test('the scheduled refresh discovers changes and keeps old source documents intact',async()=>{
+ const j=await prepared(),old=await execution(j.id)
+ await db.query("update sales_prospects set evidence='수정된 문의' where id=(select (plan->'evidence_ids'->>0)::uuid from sales_strategies where id=$1)",[j.id])
+ await db.exec('select private.sales_execution_schedule()');const p=await execution(j.id)
+ assert.equal(p.version,2);assert.notEqual(p.fingerprint,old.fingerprint)
+ assert.equal((await db.query('select count(*) n from sales_execution_packages')).rows[0].n,2)
+ assert.equal(p.current,true);assert.equal(p.can_approve,false)
+})
+test('changed sources clear any previous approval metadata and append an audit event',async()=>{
+ const j=await prepared(),p=await execution(j.id)
+ // Simulate a future connected delivery adapter's approved record; no provider is called.
+ await db.query("update sales_execution_packages set status='승인',approved_by=$2,approved_at=now() where id=$1",[p.id,admin])
+ await db.query("update clients set email='revised@example.com' where id=$1",[client])
+ await db.query('select private.sales_execution_refresh($1)',[j.id])
+ const old=(await db.query('select status,approved_at,approved_by from sales_execution_packages where id=$1',[p.id])).rows[0]
+ assert.equal(old.status,'재검토');assert.equal(old.approved_at,null);assert.equal(old.approved_by,null)
+ assert.ok((await execution(j.id)).events.some(e=>e.kind==='재검토'))
+})

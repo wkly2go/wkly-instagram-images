@@ -35,7 +35,7 @@ before(async()=>{
  await db.query('insert into clients values($1,$2,$3,$4,$5,$6,$7,now())',[client,'테스트 브랜드','클라이언트','팝업 전시 기획','team@example.com','02-000-0000','https://example.com'])
  await db.query('insert into contacts values($1,$2,$3,$4,$5,$6,$7,now())',[person,client,'동명 담당자','마케팅 팀장','','human@example.com','팝업 문의'])
  await db.query('select private.sales_collect_internal()')
- await db.exec(await sql('0131_sales_evidence_history.sql'))
+ await db.exec(await sql('20261115090101_sales_evidence_history.sql'))
 })
 after(()=>db.close())
 async function asUser(id,fn,role='authenticated'){await db.query("select set_config('request.jwt.claim.sub',$1,false)",[id??'']);await db.exec(`set role ${role}`);try{return await fn()}finally{await db.exec('reset role')}}
