@@ -53,3 +53,9 @@
   .design-gantt-row { grid-template-columns: minmax(0, 1fr) auto; }
   .design-gantt-track { grid-column: 1 / -1; order: 3; }
 }
+
+.design-rules { border: 1px solid var(--line); background: var(--white); padding: 6px 10px; font-size: var(--fs-sm); }
+.design-rules summary { cursor: pointer; color: var(--blue); font-weight: 700; }
+.design-rules-body { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: flex-end; padding-top: 8px; }
+.design-rules-body .label { flex: 0 1 190px; }
+.design-check { display: flex; gap: 6px; align-items: center; color: var(--gray); }

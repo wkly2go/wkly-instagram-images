@@ -8,7 +8,7 @@ import { won } from '../lib/date'
 import { useRouter, withQuery } from '../lib/router'
 import {
   CARD_LABELS, SPACE_LABELS, STAGE_LABELS, VARIANT_LABELS,
-  type DesignBase, type DesignCard, type DesignProject, type Estimate, type Knowledge, type SpaceType,
+  type DesignBase, type DesignCard, type DesignProject, type Estimate, type EstimateRules, type Knowledge, type SpaceType,
 } from '../lib/design'
 import './Design.css'
 
@@ -219,6 +219,7 @@ function EstimateView({ project, base }: { project: DesignProject; base: DesignB
           <Button size="sm" disabled={busy || working} onClick={() => run(() => api.requestDesignJob(project.id, 'estimate.build'), '견적 계산을 요청했습니다')}>견적 다시 계산</Button>
           {me.role === 'admin' && <Button size="sm" kind="outline" disabled={busy || !confirmed} title={confirmed ? '' : '견적을 검토함에서 확정하면 만들 수 있습니다'} onClick={() => run(() => api.requestDesignJob(project.id, 'po.build'), '발주서 초안을 요청했습니다')}>발주서 초안 만들기</Button>}
         </span>} />
+      <RulesForm project={project} />
       {failed && <p className="design-warn" role="alert">마지막 계산이 실패했습니다: {failed.error}</p>}
       {!est ? <Empty>{working ? '견적을 계산하고 있습니다…' : "아직 견적이 없습니다. 수량표에서 '이 수량으로 견적 계산'을 누르세요."}</Empty> : <>
         <div className="row wrap design-est-pick">
@@ -230,8 +231,11 @@ function EstimateView({ project, base }: { project: DesignProject; base: DesignB
         </div>
         <dl className="design-totals">
           <div><dt>직접 공사비</dt><dd>{won(num(est.totals.direct))}</dd></div>
-          <div><dt>공과잡비</dt><dd>{won(num(est.totals.overhead))}</dd></div>
-          <div><dt>기업이윤</dt><dd>{won(num(est.totals.profit))}</dd></div>
+          {est.totals.fee_mode === 'agency_fee'
+            ? <div><dt>대행 수수료</dt><dd>{won(num(est.totals.fee))}</dd></div>
+            : <><div><dt>공과잡비</dt><dd>{won(num(est.totals.overhead))}</dd></div>
+              <div><dt>기업이윤</dt><dd>{won(num(est.totals.profit))}</dd></div></>}
+          {num(est.totals.adjustment) !== 0 && <div><dt>단수 정리</dt><dd>{won(num(est.totals.adjustment))}</dd></div>}
           <div><dt>공급가액</dt><dd>{won(num(est.totals.supply))}</dd></div>
           <div><dt>부가세</dt><dd>{won(num(est.totals.vat))}</dd></div>
           <div className="total"><dt>합계</dt><dd>{won(num(est.totals.total))}</dd></div>
@@ -253,6 +257,57 @@ function EstimateView({ project, base }: { project: DesignProject; base: DesignB
         </table></div>
       </>}
     </div>
+  )
+}
+
+/** 합계 방식: 실제 견적서 두 가지 — 공사형(공과잡비 + 기업이윤) · 행사/렌탈형(대행 수수료 뒤 절삭) */
+function RulesForm({ project }: { project: DesignProject }) {
+  const { api } = useApp()
+  const { run, busy } = useAction()
+  const saved = project.estimate_rules ?? {}
+  const pct = (v?: string) => (v ? String(Math.round(Number(v) * 1000) / 10) : '')
+  const [mode, setMode] = useState<'' | 'overhead_profit' | 'agency_fee'>(saved.fee_mode ?? '')
+  const [fee, setFee] = useState(pct(saved.agency_fee_rate) || '10')
+  const [overhead, setOverhead] = useState(pct(saved.overhead_rate))
+  const [profit, setProfit] = useState(pct(saved.profit_rate))
+  const [unit, setUnit] = useState(saved.total_rounding_unit ?? '')
+  const [skip, setSkip] = useState(!!saved.skip_required_trades)
+  const rate = (v: string) => (v.trim() === '' ? undefined : String(Number(v) / 100))
+  const save = () => {
+    const rules: EstimateRules = {}
+    if (mode) rules.fee_mode = mode
+    if (mode === 'agency_fee') rules.agency_fee_rate = rate(fee) ?? '0.1'
+    if (mode === 'overhead_profit') { rules.overhead_rate = rate(overhead); rules.profit_rate = rate(profit) }
+    if (unit) rules.total_rounding_unit = unit
+    if (skip) rules.skip_required_trades = true
+    run(() => api.updateDesignProject(project.id, { estimate_rules: JSON.parse(JSON.stringify(rules)) }), "합계 방식을 저장했습니다. '견적 다시 계산'을 누르면 반영됩니다")
+  }
+  return (
+    <details className="design-rules">
+      <summary>합계 방식 · {saved.fee_mode === 'agency_fee' ? `대행 수수료 ${pct(saved.agency_fee_rate)}%` : saved.fee_mode === 'overhead_profit' ? '공과잡비 + 기업이윤' : '회사 공통 규칙'}{saved.total_rounding_unit ? ` · ${Number(saved.total_rounding_unit).toLocaleString('ko-KR')}원 미만 절삭` : ''}</summary>
+      <div className="design-rules-body">
+        <Field label="합계 방식">
+          <select className="select" value={mode} onChange={e => setMode(e.target.value as typeof mode)}>
+            <option value="">회사 공통 규칙 그대로</option>
+            <option value="overhead_profit">공과잡비 + 기업이윤 (공사형)</option>
+            <option value="agency_fee">대행 수수료 (행사 · 렌탈형)</option>
+          </select>
+        </Field>
+        {mode === 'agency_fee' && <Field label="수수료 (%)"><input className="input" inputMode="decimal" value={fee} onChange={e => setFee(e.target.value.replace(/[^\d.]/g, ''))} /></Field>}
+        {mode === 'overhead_profit' && <>
+          <Field label="공과잡비 (%)"><input className="input" inputMode="decimal" value={overhead} placeholder="공통값" onChange={e => setOverhead(e.target.value.replace(/[^\d.]/g, ''))} /></Field>
+          <Field label="기업이윤 (%)"><input className="input" inputMode="decimal" value={profit} placeholder="공통값" onChange={e => setProfit(e.target.value.replace(/[^\d.]/g, ''))} /></Field>
+        </>}
+        <Field label="공급가액 절삭">
+          <select className="select" value={unit} onChange={e => setUnit(e.target.value)}>
+            <option value="">공통값 (천 원 미만)</option>
+            <option value="10000">만 원 미만</option><option value="100000">십만 원 미만</option><option value="1000000">백만 원 미만</option>
+          </select>
+        </Field>
+        <label className="design-check"><input type="checkbox" checked={skip} onChange={e => setSkip(e.target.checked)} /> 공사 공종 누락 경고 끄기 (목공 없는 렌탈형)</label>
+        <Button size="sm" kind="outline" disabled={busy} onClick={save}>저장</Button>
+      </div>
+    </details>
   )
 }
 

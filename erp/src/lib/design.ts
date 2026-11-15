@@ -27,6 +27,19 @@ export interface DesignProject {
   model_version: number
   status: string
   drive_url: string | null
+  estimate_rules: EstimateRules
+}
+/** 프로젝트별 견적 규칙 (0128). 비우면 회사 공통 규칙 */
+export interface EstimateRules {
+  /** overhead_profit: 공과잡비 + 기업이윤 (공사형) · agency_fee: 대행 수수료 한 줄 (행사 · 렌탈형) */
+  fee_mode?: 'overhead_profit' | 'agency_fee'
+  agency_fee_rate?: string
+  overhead_rate?: string
+  profit_rate?: string
+  /** 공급가액 절삭 단위 (원) */
+  total_rounding_unit?: string
+  /** '보통 필요한 공종' 경고 끄기 (목공 없는 렌탈형 등) */
+  skip_required_trades?: boolean
 }
 export interface DesignCandidate { id: string; code: string | null; name: string; status: string }
 export interface DesignTrade { code: string; name: string; group_name: string; sort: number }
@@ -47,7 +60,7 @@ export interface Placement {
 }
 export type PlacementDraft = Pick<Placement, 'project_id' | 'model_version' | 'trade_code' | 'item' | 'spec' | 'unit' | 'qty' | 'location'>
 
-export interface EstimateTotals { direct: string; overhead: string; profit: string; subtotal: string; adjustment: string; supply: string; vat: string; total: string }
+export interface EstimateTotals { fee?: string; fee_mode?: 'overhead_profit' | 'agency_fee'; direct: string; overhead: string; profit: string; subtotal: string; adjustment: string; supply: string; vat: string; total: string }
 export interface EstimateWarning { code: string; level: 'error' | 'warning' | 'warn' | 'info'; message: string; trade_code: string | null }
 export interface Estimate {
   id: string
@@ -166,7 +179,7 @@ export interface DesignApi {
   /** 아직 설계를 시작하지 않은 아트리어(AR) 프로젝트 */
   listDesignCandidates(): Promise<DesignCandidate[]>
   startDesign(projectId: string, spaceType: SpaceType, areaM2: number | null): Promise<void>
-  updateDesignProject(projectId: string, patch: { space_type?: SpaceType; area_m2?: number | null; budget?: number | null; work_start?: string | null }): Promise<void>
+  updateDesignProject(projectId: string, patch: { space_type?: SpaceType; area_m2?: number | null; budget?: number | null; work_start?: string | null; estimate_rules?: EstimateRules }): Promise<void>
   listPlacements(projectId: string, modelVersion: number): Promise<Placement[]>
   addPlacement(row: PlacementDraft): Promise<void>
   updatePlacementQty(id: string, qty: number): Promise<void>
