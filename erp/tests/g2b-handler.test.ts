@@ -66,7 +66,7 @@ test('G2B uses the verified v02 operation and encodes the server key exactly onc
 })
 test('G2B maps identifiers without losing leading zeros, Korean deadline and integer estimated price', () => {
   const result = parseG2bResult(payload(), query())
-  assert.deepEqual(result.items, [{ title: '전시 기획 공고', number: 'R26TEST001', round: '000', agency: '검증 기관', deadline: '2026-11-20T17:00:00+09:00', amount: 12340000, source_url: 'https://www.g2b.go.kr/test?bid=R26TEST001', notice_date: '2026-11-12T09:00:00+09:00', warnings: [] }])
+  assert.deepEqual(result.items, [{ title: '전시 기획 공고', number: 'R26TEST001', round: '000', agency: '검증 기관', deadline: '2026-11-20T17:00:00+09:00', amount: 12340000, source_url: 'https://www.g2b.go.kr/test?bid=R26TEST001', notice_date: '2026-11-12T09:00:00+09:00', warnings: [], terms: { contract: '', award: '', classification: '', joint: '', industry_limited: false, region_limited: false } }])
   assert.equal(result.total, 1); assert.equal(result.hasMore, false); assert.equal(result.omitted, 0)
 })
 test('G2B handles supported empty result envelopes and bounded pagination without claiming full collection', () => {
@@ -124,4 +124,18 @@ test('G2B slows repeated per-user requests while allowing a later deliberate loo
   assert.equal((await handler(request())).status, 429); assert.equal(calls.length, 1)
   time += 2000
   assert.equal((await handler(request())).status, 200); assert.equal(calls.length, 2)
+})
+
+test('G2B keeps the participation terms the provider states and builds bounded detail lookups', async () => {
+  const { g2bDetailUrl, parseG2bNames } = await import('../supabase/functions/g2b-search/handler.ts')
+  const item = parseG2bResult(payload([row({ cntrctCnclsMthdNm: '제한경쟁', sucsfbidMthdNm: '협상에의한계약', pubPrcrmntClsfcNm: '기타행사기획및대행서비스', cmmnSpldmdMethdNm: '공동수급불허', indstrytyLmtYn: 'Y', rgnLmtBidLocplcJdgmBssNm: '본사소재지' })]), query()).items[0]
+  assert.deepEqual(item.terms, { contract: '제한경쟁', award: '협상에의한계약', classification: '기타행사기획및대행서비스', joint: '공동수급불허', industry_limited: true, region_limited: true })
+  const url = g2bDetailUrl('license', 'R26TEST001', '000', 'k/e+y')
+  assert.equal(url.pathname.endsWith('/getBidPblancListInfoLicenseLimit02'), true); assert.equal(url.searchParams.get('bidNtceNo'), 'R26TEST001'); assert.equal(url.searchParams.get('serviceKey'), 'k/e+y')
+  assert.throws(() => g2bDetailUrl('region', 'bad no', '000', 'k'))
+  const body = (items: unknown) => ({ response: { header: { resultCode: '00' }, body: { items, totalCount: 2 } } })
+  assert.deepEqual(parseG2bNames(body([{ lcnsLmtNm: ' 기타자유업(행사대행업)/9901 ' }, { lcnsLmtNm: '기타자유업(행사대행업)/9901' }, { lcnsLmtNm: '<b>' }, { lcnsLmtNm: '' }]), 'license'), ['기타자유업(행사대행업)/9901'])
+  assert.deepEqual(parseG2bNames(body({ item: [{ prtcptPsblRgnNm: '대구광역시' }] }), 'region'), ['대구광역시'])
+  assert.deepEqual(parseG2bNames(body(''), 'region'), [])
+  assert.throws(() => parseG2bNames({ response: { header: { resultCode: '30' } } }, 'license'))
 })

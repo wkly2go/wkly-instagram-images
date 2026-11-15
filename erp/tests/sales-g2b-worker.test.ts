@@ -54,3 +54,16 @@ test('background mode acknowledges the job while retaining the asynchronous resu
  const r=await s.handler(request());assert.equal(r.status,202);assert.equal(s.results.length,0);assert.ok(work)
  release();await work;assert.equal(s.results[0][1],'완료')
 })
+test('limited notices get their licence and region names; a failed lookup leaves the flag without names',async()=>{
+ const limited=(n:number,extra:Record<string,string>)=>({...row(n),...extra})
+ const names=(field:string,list:string[])=>Response.json({response:{header:{resultCode:'00'},body:{totalCount:list.length,items:list.map(v=>({[field]:v}))}}})
+ const s=setup({fetcher:async input=>{const u=new URL(String(input)),no=u.searchParams.get('bidNtceNo')
+  if(u.pathname.endsWith('LicenseLimit02'))return no==='R26TEST2'?new Response('x',{status:500}):names('lcnsLmtNm',['기타자유업(행사대행업)/9901'])
+  if(u.pathname.endsWith('PrtcptPsblRgn02'))return names('prtcptPsblRgnNm',['대구광역시'])
+  return response(1,3,[limited(0,{}),limited(1,{indstrytyLmtYn:'Y',rgnLmtBidLocplcJdgmBssNm:'본사소재지'}),limited(2,{indstrytyLmtYn:'Y'})])}})
+ assert.equal((await s.handler(request())).status,200)
+ const saved=s.pages[0][2]
+ assert.equal(saved[0].terms?.licenses,undefined);assert.equal(saved[0].terms?.industry_limited,false)
+ assert.deepEqual(saved[1].terms?.licenses,['기타자유업(행사대행업)/9901']);assert.deepEqual(saved[1].terms?.regions,['대구광역시'])
+ assert.equal(saved[2].terms?.industry_limited,true);assert.equal(saved[2].terms?.licenses,undefined)
+})
