@@ -90,6 +90,9 @@ export function DesignProposal({ project }: { project: DesignProject }) {
   const [quote, setQuote] = useState<ProposalQuote>({ text: '', ...WKLY })
   const { data: renders } = useAsync(() => api.listRenders(project.id), [project.id, version], [] as DesignRender[])
   const finals = renders.filter(r => r.status === 'final')
+  const [rq, setRq] = useState('')
+  const { data: research } = useAsync(() => (rq.trim().length >= 2 ? api.listResearch() : Promise.resolve([])), [rq.trim().length >= 2], [] as Awaited<ReturnType<typeof api.listResearch>>)
+  const hits = rq.trim().length >= 2 ? research.filter(r => `${r.title} ${r.summary ?? ''} ${r.tags.join(' ')}`.toLowerCase().includes(rq.trim().toLowerCase())).slice(0, 6) : []
   const quotes = quote.text.trim() ? [{ ...quote, text: quote.text.trim() }] : []
   useEffect(() => { setBody(sec?.body ?? ''); setFigs(sec?.figures ?? []); setQuote(sec?.quotes?.[0] ?? { text: '', ...WKLY }) }, [cur?.key, sec?.updated_at]) // eslint-disable-line react-hooks/exhaustive-deps
   const all = useRef<HTMLDivElement>(null)
@@ -143,6 +146,10 @@ export function DesignProposal({ project }: { project: DesignProject }) {
               <input className="input" value={quote.text} onChange={e => setQuote({ ...quote, text: e.target.value })} placeholder="인용할 문장 (없으면 비워 둠)" aria-label="인용 문장" />
               <input className="input" value={quote.source} onChange={e => setQuote({ ...quote, source: e.target.value })} placeholder="출처" aria-label="인용 출처" />
               <input className="input" type="url" value={quote.url ?? ''} onChange={e => setQuote({ ...quote, url: e.target.value })} placeholder="글 주소" aria-label="인용 글 주소" />
+            </div>
+            <div className="design-add">
+              <input className="input" type="search" value={rq} onChange={e => setRq(e.target.value)} placeholder="인트라넷 리서치 자료에서 찾아 인용 (2글자 이상)" aria-label="리서치 자료 찾기" />
+              {hits.map(r => <button type="button" key={r.id} className="chip" title={r.summary ?? ''} onClick={() => { setQuote({ text: (r.summary ?? r.title).split('\n')[0].slice(0, 108), source: r.source_name ?? '더위클리 리서치 자료', url: r.source_url ?? '' }); setRq('') }}>+ {r.title.slice(0, 28)}</button>)}
             </div>
           </div>
           <div className="row wrap">

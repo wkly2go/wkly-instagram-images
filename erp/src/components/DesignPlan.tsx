@@ -5,7 +5,7 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { Button, Empty } from './ui'
 import { useAction, useApp, useAsync } from '../lib/app'
 import type { DesignBase, DesignProject, SpecItem } from '../lib/design'
-import { BASE_TYPES, FLOOR_TYPES, WALL_TYPES } from '../lib/designWallTypes'
+import { BASE_TYPES, CEILING_TYPES, FLOOR_TYPES, WALL_TYPES } from '../lib/designWallTypes'
 import { EMPTY_PLAN, floorArea, keepLights, planQuantities, snapPoint, wallLength, type PlanGeometry, type PlanItem, type PlanWall } from '../lib/designPlan'
 
 const Plan3D = lazy(() => import('./DesignPlan3D'))
@@ -203,7 +203,7 @@ export function DesignPlan({ project, base }: { project: DesignProject; base: De
           <Button size="sm" kind="outline" onClick={() => change({ ...plan, rooms: [...rooms, { id: `r${Date.now().toString(36)}`, no: String(101 + rooms.length), name: '', floor: {}, base: {}, wall: {}, ceiling: {}, ch: plan.height }] })}>실 추가</Button>
         </div>
         {rooms.length > 0 && <div className="table-wrap"><table className="table design-rooms">
-          <thead><tr><th>실번호</th><th>실명</th><th>바닥 재료</th><th>상세</th><th>걸레받이 재료</th><th>상세</th><th>벽 재료</th><th>상세</th><th>천장 재료</th><th>C.H</th><th>면적 ㎡</th><th>걸레받이 m</th><th /></tr></thead>
+          <thead><tr><th>실번호</th><th>실명</th><th>바닥 재료</th><th>상세</th><th>걸레받이 재료</th><th>상세</th><th>벽 재료</th><th>상세</th><th>천장 재료</th><th>유형</th><th>C.H</th><th>면적 ㎡</th><th>걸레받이 m</th><th /></tr></thead>
           <tbody>{rooms.map(r => { const set = (p: Partial<typeof r>) => change({ ...plan, rooms: rooms.map(x => (x.id === r.id ? { ...x, ...p } : x)) }); return <tr key={r.id}>
             <td><input className="input xs" value={r.no} aria-label="실번호" onChange={e => set({ no: e.target.value })} /></td>
             <td><input className="input" value={r.name} aria-label="실명" placeholder="예: 로비" onChange={e => set({ name: e.target.value })} /></td>
@@ -211,7 +211,8 @@ export function DesignPlan({ project, base }: { project: DesignProject; base: De
               <td key={k}><input className="input" list="design-mat-codes" value={r[k].mat ?? ''} aria-label={`${k} 재료 번호`} placeholder="PT-01" onChange={e => set({ [k]: { ...r[k], mat: e.target.value } })} /></td>,
               <td key={`${k}d`}><select className="input" value={r[k].detail ?? ''} aria-label={`${k} 상세 유형`} onChange={e => set({ [k]: { ...r[k], detail: e.target.value || undefined } })}><option value="">-</option>
                 {(k === 'floor' ? FLOOR_TYPES.map(t => [t.code, t.composition]) : k === 'base' ? BASE_TYPES.map(t => [t.code, t.name]) : WALL_TYPES.map(t => [t.code, `${t.name} ${t.thk}`])).map(([c, n]) => <option key={c} value={c}>{c} {n.slice(0, 30)}</option>)}</select></td>])}
-            <td><input className="input" list="design-mat-codes" value={r.ceiling.mat ?? ''} aria-label="천장 재료 번호" placeholder="PT-01" onChange={e => set({ ceiling: { mat: e.target.value } })} /></td>
+            <td><input className="input" list="design-mat-codes" value={r.ceiling.mat ?? ''} aria-label="천장 재료 번호" placeholder="PT-01" onChange={e => set({ ceiling: { ...r.ceiling, mat: e.target.value } })} /></td>
+            <td><select className="input" value={r.ceiling.detail ?? ''} aria-label="천장 유형" onChange={e => set({ ceiling: { ...r.ceiling, detail: e.target.value || undefined } })}><option value="">-</option>{CEILING_TYPES.map(t => <option key={t.code} value={t.code}>{t.code} {t.name}</option>)}</select></td>
             <td><input className="input xs" inputMode="numeric" value={r.ch ?? ''} aria-label="천장 높이" onChange={e => set({ ch: Number(e.target.value.replace(/\D/g, '')) || undefined })} /></td>
             <td><input className="input xs" inputMode="decimal" defaultValue={r.area ?? ''} aria-label="면적" placeholder={rooms.length === 1 && area != null ? String(area) : ''} onBlur={e => set({ area: Number(e.target.value.replace(/[^\d.]/g, '')) || undefined })} /></td>
             <td><input className="input xs" inputMode="decimal" defaultValue={r.perimeter ?? ''} aria-label="걸레받이 길이" onBlur={e => set({ perimeter: Number(e.target.value.replace(/[^\d.]/g, '')) || undefined })} /></td>

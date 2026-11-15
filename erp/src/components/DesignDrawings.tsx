@@ -5,7 +5,7 @@ import { Button, Empty } from './ui'
 import { useApp, useAsync } from '../lib/app'
 import type { DesignBase, DesignProject, Placement, SpecItem } from '../lib/design'
 import { wallLength, type PlanGeometry, type PlanItem, type PlanRoom } from '../lib/designPlan'
-import { BASE_TYPES, FLOOR_TYPES, wallType, type BaseType, type FloorType, type WallType } from '../lib/designWallTypes'
+import { BASE_TYPES, CEILING_TYPES, FLOOR_TYPES, wallType, type BaseType, type CeilingType, type FloorType, type WallType } from '../lib/designWallTypes'
 import { DOORS_PER_SHEET, doorGroups, elevationItems, furnitureTypes, materialKind, type DoorGroup, openingSize, wallFaceArea, wallFinishRows, planBounds, planDxf, ROWS_PER_SHEET, sheetList, type SheetMeta } from '../lib/designDrawings'
 
 const W = 420, H = 297, M = 10, TB = 62 // paper, margin, title-block width (mm)
@@ -187,7 +187,7 @@ const Bar = ({ code, line1, line2, thk }: { code: string; line1: string; line2?:
   <line x1={AREA.x + 20} y1={y} x2={AREA.x + 20} y2={y + 14} stroke="#111" strokeWidth={0.3} />{line2 != null && <line x1={AREA.x + 20} y1={y + 7} x2={AREA.x + AREA.w} y2={y + 7} stroke="#111" strokeWidth={0.3} />}
   <text x={AREA.x + 10} y={y + 9} fontSize={4.6} fontWeight={800} textAnchor="middle">{code}</text>
   <text x={AREA.x + 23} y={y + (line2 != null ? 5 : 9)} fontSize={3} fontWeight={800}>{line1}</text>{line2 != null && <text x={AREA.x + 23} y={y + 12} fontSize={3} fontWeight={800}>{line2}</text>}
-  <text x={AREA.x + AREA.w - 3} y={y + 12} fontSize={3} fontWeight={800} textAnchor="end">THK={thk || '확인 필요'}</text>
+  {thk !== '' && <text x={AREA.x + AREA.w - 3} y={y + 12} fontSize={3} fontWeight={800} textAnchor="end">THK={thk}</text>}
 </g> }
 const SAMPLE_NOTE = '표본 실시설계 도면의 유형을 옮긴 것입니다(재료 표기는 표본 원문, 실 이름은 표본의 예). 그림은 약식이므로 현장 조건에 맞춰 확인합니다.'
 
@@ -224,6 +224,24 @@ function BaseDetail({ t }: { t: BaseType }) {
   </g>
 }
 
+/** Ceiling section at the sample scale (1/25): slab, hangers, frame and finish, with the ceiling heights of the rooms that use it. */
+function CeilDetail({ t, rooms }: { t: CeilingType; rooms: PlanRoom[] }) {
+  const x0 = AREA.x + 40, x1 = AREA.x + AREA.w - 40, slab = AREA.y + 40, cl = AREA.y + 96, step = t.cove ? 14 : 0, sx = x0 + (x1 - x0) * 0.62
+  return <g>
+    <rect x={x0} y={slab - 10} width={x1 - x0} height={10} fill="#ccc" stroke="#111" strokeWidth={0.3} /><text x={x0 + 2} y={slab - 3.5} fontSize={2.4}>슬래브</text>
+    {Array.from({ length: 7 }, (_, i) => x0 + 14 + i * ((x1 - x0 - 28) / 6)).map(hx => <g key={hx}><line x1={hx} y1={slab} x2={hx} y2={(hx > sx ? cl - step : cl) - 3} stroke="#111" strokeWidth={0.2} /><rect x={hx - 1.2} y={(hx > sx ? cl - step : cl) - 3} width={2.4} height={2.4} fill="#fff" stroke="#111" strokeWidth={0.25} /></g>)}
+    <rect x={x0} y={cl - 0.6} width={(t.cove ? sx : x1) - x0} height={1.6} fill="#f1efe8" stroke="#111" strokeWidth={0.3} />
+    {t.cove && <><rect x={sx + 8} y={cl - step - 0.6} width={x1 - sx - 8} height={1.6} fill="#f1efe8" stroke="#111" strokeWidth={0.3} /><rect x={sx} y={cl - step - 0.6} width={1.6} height={step + 1.6} fill="#f1efe8" stroke="#111" strokeWidth={0.3} />
+      <rect x={sx + 2.4} y={cl - 3} width={4} height={1.6} fill="#ffd54a" stroke="#111" strokeWidth={0.2} /><text x={sx + 10} y={cl + 6} fontSize={2.4}>간접 조명 (단차 {f(step * 25)})</text></>}
+    <line x1={x0 - 14} y1={cl + 60} x2={x1 + 14} y2={cl + 60} stroke="#111" strokeWidth={0.6} /><text x={x0 - 14} y={cl + 65} fontSize={2.4}>FL ±0 (높이 생략)</text>
+    <Dim x1={x0 - 8} y1={cl + 1} x2={x0 - 8} y2={cl + 60} label={rooms.length ? `C.H ${[...new Set(rooms.map(r => r.ch).filter(Boolean))].map(v => f(v!)).join(' / ') || '확인 필요'}` : 'C.H'} />
+    {t.layers.map((r, i) => <g key={i}><line x1={x0 + 60} y1={cl - 1} x2={x0 + 90} y2={cl + 16 + i * 6} stroke="#888" strokeWidth={0.12} /><text x={x0 + 92} y={cl + 17 + i * 6} fontSize={2.6}>{r}</text></g>)}
+    <text x={AREA.x} y={AREA.y + AREA.h - 46} fontSize={2.8}>쓰는 실: {rooms.map(r => `${r.no} ${r.name}${r.ceiling.mat ? ` (${r.ceiling.mat})` : ''}`).join(' · ').slice(0, 120) || '-'}</text>
+    <Bar code={t.code} line1={t.name} thk="" />
+    <text x={AREA.x} y={AREA.y + AREA.h - 6} fontSize={2.6} fill="#555">표본 천장 상세도(ID-301~306)에 나온 부재 · 마감 표기로 만든 기본 유형입니다(유형 기호는 자체 기호). 틀 간격 · 조명 · 설비는 실에 맞춰 캐드에서 이어 그립니다.</text>
+  </g>
+}
+
 /** Room finish schedule in the sample layout: one row per room, four parts each with 기호 · 마감재 · 상세. */
 function Schedule({ rooms, matName }: { rooms: PlanRoom[]; matName: (code?: string) => string }) {
   const x0 = AREA.x, y0 = AREA.y + 14, rh = 6.2, pw = (AREA.w - 52) / 4, parts = [['floor', '바 닥 (floor)'], ['base', '걸 레 받 이 (base)'], ['wall', '벽 (wall)'], ['ceiling', '천 장 (ceiling)']] as const
@@ -233,10 +251,10 @@ function Schedule({ rooms, matName }: { rooms: PlanRoom[]; matName: (code?: stri
     {parts.map(([k, label], i) => { const px = x0 + 52 + pw * i; return <g key={k}>
       <line x1={px} y1={y0} x2={px} y2={y0 + rh * (rooms.length + 2)} stroke="#111" strokeWidth={0.25} />
       <text x={px + pw / 2} y={y0 + 4.4} textAnchor="middle" fontWeight={800}>{label}</text>
-      <text x={px + 2} y={y0 + rh + 4.4} fontWeight={800}>기호</text><text x={px + 16} y={y0 + rh + 4.4} fontWeight={800}>마 감 재</text><text x={px + pw - 2} y={y0 + rh + 4.4} textAnchor="end" fontWeight={800}>{k === 'ceiling' ? 'C.H' : '상세'}</text>
+      <text x={px + 2} y={y0 + rh + 4.4} fontWeight={800}>기호</text><text x={px + 16} y={y0 + rh + 4.4} fontWeight={800}>마 감 재</text><text x={px + pw - 2} y={y0 + rh + 4.4} textAnchor="end" fontWeight={800}>{k === 'ceiling' ? '상세 · C.H' : '상세'}</text>
       {rooms.slice(0, 34).map((r, ri) => <g key={r.id}>
         <text x={px + 2} y={y0 + rh * (ri + 2) + 4.4}>{(r[k].mat ?? '').slice(0, 7)}</text><text x={px + 16} y={y0 + rh * (ri + 2) + 4.4}>{matName(r[k].mat).slice(0, Math.floor((pw - 30) / 2.2))}</text>
-        <text x={px + pw - 2} y={y0 + rh * (ri + 2) + 4.4} textAnchor="end" fontWeight={800}>{k === 'ceiling' ? (r.ch ? f(r.ch) : '') : r[k].detail ?? ''}</text>
+        <text x={px + pw - 2} y={y0 + rh * (ri + 2) + 4.4} textAnchor="end" fontWeight={800}>{k === 'ceiling' ? [r.ceiling.detail, r.ch ? f(r.ch) : ''].filter(Boolean).join(' · ') : r[k].detail ?? ''}</text>
       </g>)}
     </g> })}
     {rooms.slice(0, 34).map((r, ri) => <g key={r.id}><text x={x0 + 2} y={y0 + rh * (ri + 2) + 4.4}>{r.no.slice(0, 6)}</text><text x={x0 + 18} y={y0 + rh * (ri + 2) + 4.4} fontWeight={800}>{r.name.slice(0, 14)}</text>
@@ -313,6 +331,7 @@ export function DesignDrawings({ project, base }: { project: DesignProject; base
       {meta.kind === 'schedule' && <Schedule rooms={g.rooms ?? []} matName={c => { const x = legend.find(l => l.code && l.code.replace(/\s/g, '') === (c ?? '').replace(/\s/g, '')); return x ? [x.name, x.spec].filter(Boolean).join(' ') : '' }} />}
       {meta.kind === 'floorDetail' && FLOOR_TYPES.some(t => t.code === meta.wallType) && <FloorDetail t={FLOOR_TYPES.find(t => t.code === meta.wallType)!} />}
       {meta.kind === 'baseDetail' && BASE_TYPES.some(t => t.code === meta.wallType) && <BaseDetail t={BASE_TYPES.find(t => t.code === meta.wallType)!} />}
+      {meta.kind === 'ceilDetail' && CEILING_TYPES.some(t => t.code === meta.wallType) && <CeilDetail t={CEILING_TYPES.find(t => t.code === meta.wallType)!} rooms={(g.rooms ?? []).filter(r => r.ceiling.detail === meta.wallType)} />}
       {meta.kind === 'finish' && <Table head={['공종', '품목', '규격', '수량', '단위']} widths={[50, 100, 120, 35, 25]} page={meta.page} rows={[...wallRows.map(r => ['벽 마감', r.label, r.finish, r.area, '㎡']), ...rows.map(r => [tname(r.trade_code), r.item, r.spec, r.qty, r.unit])]} />}
       {(meta.kind === 'plan' || meta.kind === 'ceiling' || meta.kind === 'furniture') && <PlanSheet g={g} mode={meta.kind} scale={sc} />}
       {meta.kind === 'elevation' && meta.wall && <Elevation g={g} wallId={meta.wall} scale={sc} finishes={finishes} />}

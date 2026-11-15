@@ -41,4 +41,4 @@ public.design_request_job(uuid, text), public.design_file(uuid); drop owned by d
 - 스펙북: 상세 칸 6개(0134) · 샘플 사진(0135 `design.spec_images`) · 조명 수량표 · 인쇄는 CODE LIST + SPEC 카드.
 - 수량: 벽 마감 면적 · 실별 바닥/천장/걸레받이 · 조명 수량이 '이 평면의 수량'으로 들어감(공종은 재료 번호 앞 글자 `finishTrade`).
 - 학습 자료(design.knowledge) 추가: 벽체 유형 · 바닥/걸레받이 유형 · 마감표 양식 · 천장/도어/가구 상세 구성 · 스펙북 양식. 유형 목록 코드는 `src/lib/designWallTypes.ts`.
-- 미검증: 실제 로그인 화면에서 저장 · 인쇄, 캐드 DXF 열기, 피그마 SVG 가져오기. 없는 것: 천장 상세(ID-300), 스케치업 모델 버전, DWG 저장, 투시도 원본 큰 그림.
+- 미검증: 실제 로그인 화면에서 저장 · 인쇄, 캐드 DXF 열기, 피그마 SVG 가져오기. 추가(PR #413): 천장 유형 C1~C5(자체 기호 · 표본 부재 표기) → 천장 상세(ID-300), 제안서 인용을 인트라넷 리서치 자료에서 고르기. 없는 것: 스케치업 모델 버전, DWG 저장, 투시도 원본 큰 그림.

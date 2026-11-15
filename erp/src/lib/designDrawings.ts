@@ -1,12 +1,12 @@
 // Drawing set generated from the plan (mm). Follows the learned standard (knowledge: drawing_set / cad_standard):
 // A3 sheets, numbering I-000 general · I-1xx plan series · I-14x elevations, title block fields, scale picked from a standard list.
 // Pure data in / strings out so it can be tested without a browser.
-import { BASE_TYPES, FLOOR_TYPES, WALL_TYPES } from './designWallTypes.ts'
+import { BASE_TYPES, CEILING_TYPES, FLOOR_TYPES, WALL_TYPES } from './designWallTypes.ts'
 import { wallLength, type PlanGeometry, type PlanItem, type PlanWall } from './designPlan.ts'
 
 export const SCALES = [10, 20, 30, 40, 50, 60, 100, 150, 200, 300, 500]
 export interface Bounds { minX: number; minY: number; maxX: number; maxY: number }
-export interface SheetMeta { no: string; title: string; scale: string; kind: 'cover' | 'list' | 'legend' | 'schedule' | 'finish' | 'floorDetail' | 'baseDetail' | 'doorDetail' | 'plan' | 'ceiling' | 'furniture' | 'elevation' | 'wallDetail' | 'furnDetail'; wall?: string; /** table page (0-based) */ page?: number; /** wall thickness for a wall detail */ t?: number; /** type code (W10 · F3 · B1) for a detail drawn from the learned catalogue */ wallType?: string; /** PlanItem id for a furniture detail */ item?: string; /** door width for a door detail */ width?: number }
+export interface SheetMeta { no: string; title: string; scale: string; kind: 'cover' | 'list' | 'legend' | 'schedule' | 'finish' | 'floorDetail' | 'baseDetail' | 'ceilDetail' | 'doorDetail' | 'plan' | 'ceiling' | 'furniture' | 'elevation' | 'wallDetail' | 'furnDetail'; wall?: string; /** table page (0-based) */ page?: number; /** wall thickness for a wall detail */ t?: number; /** type code (W10 · F3 · B1) for a detail drawn from the learned catalogue */ wallType?: string; /** PlanItem id for a furniture detail */ item?: string; /** door width for a door detail */ width?: number }
 /** Material number prefixes from the learned legend standard (knowledge: material_codes). */
 export const MATERIAL_PREFIX: Record<string, string> = { AC: '흡음·천장재', MT: '금속', AS: '인조대리석', PT: '도장', FB: '패브릭', SH: '필름', LE: '인조가죽', GL: '유리', ST: '석재', WC: '벽지', TL: '타일', WF: '원목마루', WP: '무늬목·패널', VS: '바닥재', ETC: '기타' }
 export const materialKind = (code: string | null | undefined) => MATERIAL_PREFIX[(code ?? '').toUpperCase().match(/^[A-Z]+/)?.[0] ?? ''] ?? ''
@@ -81,7 +81,7 @@ export function sheetList(g: PlanGeometry, finishRows = 0, legendRows = 0): Shee
   const b = planBounds(g)
   const s = b ? `1/${pickScale(b.maxX - b.minX, b.maxY - b.minY, 300, 215)}` : 'NONE'
   const walls = elevWalls(g)
-  const rooms = g.rooms ?? [], roomPages = rooms.length ? 1 : 0, used = (k: 'floor' | 'base' | 'wall') => new Set(rooms.map(r => r[k].detail).filter(Boolean))
+  const rooms = g.rooms ?? [], roomPages = rooms.length ? 1 : 0, used = (k: 'floor' | 'base' | 'wall' | 'ceiling') => new Set(rooms.map(r => r[k].detail).filter(Boolean))
   const pages = Math.min(Math.max(1, Math.ceil(finishRows / ROWS_PER_SHEET)), 20), lpages = Math.min(Math.max(1, Math.ceil(legendRows / ROWS_PER_SHEET)), 2)
   const out: SheetMeta[] = [
     { no: 'I-000', title: '표지', scale: 'NONE', kind: 'cover' },
@@ -98,6 +98,7 @@ export function sheetList(g: PlanGeometry, finishRows = 0, legendRows = 0): Shee
   typed.forEach((t, i) => out.push({ no: `ID-${201 + i}`, title: `벽체 상세 ${t.code}`, scale: '1/6', kind: 'wallDetail', wallType: t.code }))
   ;[...new Set(g.walls.filter(w => w.kind === 'new' && !typed.some(t => t.code === w.type)).map(w => w.t))].sort((a, c) => a - c).slice(0, 9 - typed.length)
     .forEach((t, i) => out.push({ no: `ID-${201 + typed.length + i}`, title: `벽체 상세 T${t}`, scale: '1/6', kind: 'wallDetail', t }))
+  CEILING_TYPES.filter(t => used('ceiling').has(t.code)).slice(0, 6).forEach((t, i) => out.push({ no: `ID-${301 + i}`, title: `천장 상세 ${t.code}`, scale: '1/25', kind: 'ceilDetail', wallType: t.code }))
   Array.from({ length: Math.min(Math.ceil(doorGroups(g).length / DOORS_PER_SHEET), 10) }, (_, i) => out.push({ no: `ID-${401 + i}`, title: `도어 리스트-${i + 1}`, scale: '1/40', kind: 'doorDetail', page: i }))
   furnitureTypes(g).forEach((f, i) => out.push({ no: `IF-${701 + i}`, title: `가구 상세 ${f.name}`, scale: `1/${pickScale(f.w + f.d, f.h + f.d, 240, 160)}`, kind: 'furnDetail', item: f.id }))
   return out
