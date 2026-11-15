@@ -65,3 +65,39 @@
 .design-files { list-style: none; margin: 0; padding: 8px 10px; border: 1px solid var(--line); background: var(--paper); display: flex; flex-direction: column; gap: 3px; font-size: var(--fs-sm); }
 .design-files b { color: var(--blue); }
 .design-files .t-cap { overflow-wrap: anywhere; }
+
+/* 프로젝트 작업 화면: 단계 표시줄 · 오른쪽 확인 칸 · 자동 초안 표시 (레퍼런스 Houzz Pro · Programa) */
+.design-steps { display: flex; flex-wrap: wrap; gap: 0; border: 1px solid var(--line); background: var(--white); }
+.design-step { flex: 1 1 130px; display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: none; border: 0; border-right: 1px solid var(--line); border-bottom: 3px solid transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; min-width: 0; }
+.design-step:last-child { border-right: 0; }
+.design-step:hover { background: var(--paper); }
+.design-step.on { border-bottom-color: var(--pink); background: var(--paper); }
+.design-step .n { flex: none; width: 22px; height: 22px; display: grid; place-items: center; border: 1px solid var(--line); font: 700 var(--fs-cap)/1 var(--mono); color: var(--gray); background: var(--white); }
+.design-step .l { display: flex; flex-direction: column; min-width: 0; }
+.design-step .l b { color: var(--blue); font-size: var(--fs-body); white-space: nowrap; }
+.design-step .l small { font-size: var(--fs-cap); color: var(--gray); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.design-step.done .n { background: var(--blue); border-color: var(--blue); color: var(--white); }
+.design-step.doing .n { border-color: var(--blue); color: var(--blue); }
+.design-step.review .n { background: var(--yellow); border-color: var(--yellow); color: var(--blue); }
+.design-step.review .l small { color: var(--blue); font-weight: 700; }
+.design-step.stale .n { background: var(--red); border-color: var(--red); color: var(--white); }
+.design-step.stale .l small { color: var(--red); font-weight: 700; }
+.design-step.link .l b { color: var(--gray); }
+.design-work { display: grid; grid-template-columns: minmax(0, 1fr) 250px; gap: 16px; align-items: start; }
+.design-work-main { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.design-side { display: flex; flex-direction: column; gap: 10px; position: sticky; top: 8px; min-width: 0; }
+.design-side section { border: 1px solid var(--line); background: var(--white); padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+.design-side h3 { margin: 0; font-size: var(--fs-cap); color: var(--blue); letter-spacing: 0.02em; display: flex; gap: 6px; align-items: center; }
+.design-side p, .design-side li { margin: 0; font-size: var(--fs-sm); color: var(--gray); overflow-wrap: anywhere; }
+.design-side ul { margin: 0; padding-left: 16px; display: flex; flex-direction: column; gap: 4px; align-self: stretch; }
+.design-side-n { font: 700 var(--fs-cap)/1.4 var(--mono); padding: 0 6px; background: var(--paper); color: var(--gray); }
+.design-side-n.red { background: var(--red); color: var(--white); }
+/* 자동으로 만든 것(검토 전): 노란 띠 — 사람이 확인하면 사라진다 */
+.design-ai { box-shadow: inset 3px 0 0 var(--yellow); }
+.design-side li.design-ai { list-style: none; margin-left: -16px; padding-left: 8px; }
+.design-ai-tag { font-size: var(--fs-cap); font-weight: 700; color: var(--blue); background: var(--yellow); padding: 1px 7px; }
+@media (max-width: 1180px) { .design-work { grid-template-columns: minmax(0, 1fr); } .design-side { position: static; } }
+
+.design-pick { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; }
+.design-pick-select { display: flex; align-items: center; gap: 8px; flex: 1 1 320px; min-width: 0; font-size: var(--fs-cap); color: var(--gray); }
+.design-pick-select .select { flex: 1; min-width: 0; font-weight: 700; color: var(--blue); }

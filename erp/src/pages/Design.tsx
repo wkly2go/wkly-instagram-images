@@ -2,7 +2,7 @@
 // 금액 계산은 작업 처리기(견적 엔진)만 한다. 실행 단가 · 발주는 관리자에게만 보인다 (DB 정책 0125).
 import { useEffect, useMemo, useState } from 'react'
 import { Shell, type TabKey } from '../components/Shell'
-import { Badge, Button, Empty, Field, SectionHead, ViewTabs } from '../components/ui'
+import { Badge, Button, Empty, Field, SectionHead } from '../components/ui'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { won } from '../lib/date'
 import { useRouter, withQuery } from '../lib/router'
@@ -62,21 +62,23 @@ function ProjectsTab({ base, mode }: { base: DesignBase; mode: 'design' | 'order
   const { data: projects, loading } = useAsync(() => api.listDesignProjects(), [version], [] as DesignProject[])
   const [starting, setStarting] = useState(false)
   const selected = projects.find(p => p.id === query.get('id')) ?? projects[0] ?? null
+  // 프로젝트 고르기는 위쪽 한 줄 (작업 칸을 넓게 — 오른쪽 일정 칸과 함께 써도 표가 잘리지 않게)
   return (
-    <div className="design-split">
-      <aside className="design-list" aria-label="설계 프로젝트">
-        <SectionHead title="설계 중인 프로젝트" count={projects.length} right={mode === 'design' ? <Button size="sm" kind="outline" onClick={() => setStarting(v => !v)}>{starting ? '닫기' : '설계 시작'}</Button> : undefined} />
-        {starting && <StartDesign onDone={id => { setStarting(false); navigate(withQuery(path, query, { id })) }} />}
-        {projects.length === 0 && !loading && <Empty>아직 설계를 시작한 프로젝트가 없습니다. '설계 시작'에서 인트라넷 프로젝트를 고르세요.</Empty>}
-        {projects.map(p => (
-          <button type="button" key={p.id} className={`design-item${selected?.id === p.id ? ' on' : ''}`} aria-current={selected?.id === p.id ? 'true' : undefined}
-            onClick={() => navigate(withQuery(path, query, { id: p.id, view: null }))}>
-            <b>{p.name}</b>
-            <span className="t-cap">{[p.code, SPACE_LABELS[p.space_type], STAGE_LABELS[p.stage]].filter(Boolean).join(' · ')}</span>
-          </button>
-        ))}
-      </aside>
-      <section className="design-main">{selected ? (mode === 'orders' ? <><ProjectHead project={selected} /><CostView key={selected.id} project={selected} /></> : <ProjectView key={selected.id} project={selected} base={base} />) : <Empty>왼쪽에서 프로젝트를 고르세요.</Empty>}</section>
+    <div className="design-main">
+      <div className="design-pick">
+        <label className="design-pick-select">
+          <span>프로젝트</span>
+          <select className="select" value={selected?.id ?? ''} onChange={e => navigate(withQuery(path, query, { id: e.target.value, view: null }))} disabled={!projects.length}>
+            {projects.length === 0 && <option value="">설계를 시작한 프로젝트가 없습니다</option>}
+            {projects.map(p => <option key={p.id} value={p.id}>{[p.code, p.name].filter(Boolean).join(' ')} · {STAGE_LABELS[p.stage]}</option>)}
+          </select>
+        </label>
+        <span className="t-cap">설계 중 {projects.length}건</span>
+        {mode === 'design' && <Button size="sm" kind="outline" onClick={() => setStarting(v => !v)}>{starting ? '닫기' : '설계 시작'}</Button>}
+      </div>
+      {starting && <StartDesign onDone={id => { setStarting(false); navigate(withQuery(path, query, { id })) }} />}
+      {selected ? (mode === 'orders' ? <><ProjectHead project={selected} /><CostView key={selected.id} project={selected} /></> : <ProjectView key={selected.id} project={selected} base={base} />)
+        : !loading && <Empty>아직 설계를 시작한 프로젝트가 없습니다. '설계 시작'에서 인트라넷 프로젝트를 고르세요.</Empty>}
     </div>
   )
 }
@@ -128,18 +130,106 @@ function ProjectHead({ project }: { project: DesignProject }) {
   )
 }
 
+type StepKey = 'survey' | 'qty' | 'estimate' | 'schedule'
+type StepState = 'none' | 'doing' | 'review' | 'done' | 'stale'
+const STEP_STATE: Record<StepState, string> = { none: '시작 전', doing: '진행 중', review: '검토 대기', done: '완료', stale: '갱신 필요' }
+
+/**
+ * 프로젝트 작업 화면 (레퍼런스: Houzz Pro · Programa — 세부 개발계획 'UI·UX 리서치' 3 · 5 · 6장)
+ *  - 위: 단계 표시줄(단계마다 상태 · 앞 단계가 바뀌면 뒤 단계에 '갱신 필요')  - 가운데: 그 단계의 작업  - 오른쪽: 검토 대기 · 경고 · 다음 행동 · 근거
+ */
 function ProjectView({ project, base }: { project: DesignProject; base: DesignBase }) {
+  const { api, me, version } = useApp()
   const { query, navigate } = useRouter()
-  const view = (['survey', 'qty', 'estimate', 'schedule'].includes(query.get('view') ?? '') ? query.get('view') : 'qty') as 'survey' | 'qty' | 'estimate' | 'schedule'
+  const view = (['survey', 'qty', 'estimate', 'schedule'].includes(query.get('view') ?? '') ? query.get('view') : 'qty') as StepKey
+  const go = (k: StepKey) => navigate(withQuery('/design', query, { view: k === 'qty' ? null : k }))
+  const { data: survey } = useAsync(() => api.listSurvey(project.id).catch(() => []), [project.id, version], [])
+  const { data: rows } = useAsync(() => api.listPlacements(project.id, project.model_version), [project.id, project.model_version, version], [])
+  const { data: estimates } = useAsync(() => api.listEstimates(project.id), [project.id, version], [] as Estimate[])
+  const { data: tasks } = useAsync(() => api.listScheduleTasks(project.id), [project.id, version], [])
+  const { data: pending } = useAsync(() => api.listDesignCards('pending', project.id), [project.id, version], [] as DesignCard[])
+  const { data: decided } = useAsync(() => api.listDesignCards('done', project.id), [project.id, version], [] as DesignCard[])
+  const est = estimates.find(e => e.variant === 'standard') ?? null
+  const { data: lines } = useAsync(() => (est ? api.listEstimateLines(est.id) : Promise.resolve([])), [est?.id], [])
+  const confirmed = est ? decided.some(c => c.kind === 'estimate' && c.ref_id === est.id && c.status === 'approved') : false
+  const qtySum = rows.reduce((s, r) => s + r.qty, 0), lineSum = lines.reduce((s, l) => s + l.qty, 0)
+  const stale = !!est && lines.length > 0 && (est.model_version !== project.model_version || rows.length !== lines.length || Math.abs(qtySum - lineSum) > 0.0005)
+  const surveyDone = survey.filter(i => i.status === '확인' || i.status === '해당없음').length
+  const missing = lines.filter(l => l.unit_price == null).length
+  const state: Record<StepKey, StepState> = {
+    survey: survey.length === 0 ? 'none' : surveyDone === survey.length ? 'done' : 'doing',
+    qty: rows.length === 0 ? 'none' : est ? 'done' : 'doing',
+    estimate: !est ? 'none' : stale ? 'stale' : confirmed ? 'done' : 'review',
+    schedule: tasks.length === 0 ? 'none' : tasks.every(t => t.done) ? 'done' : 'doing',
+  }
+  const steps: { key: StepKey; label: string; note: string }[] = [
+    { key: 'survey', label: '현장 실측', note: survey.length ? `${surveyDone}/${survey.length}` : '' },
+    { key: 'qty', label: '수량표', note: rows.length ? `${rows.length}줄` : '' },
+    { key: 'estimate', label: '견적', note: est ? `${est.revision}차` : '' },
+    { key: 'schedule', label: '공정', note: tasks.length ? `${tasks.filter(t => t.done).length}/${tasks.length}` : '' },
+  ]
+  const next: { text: string; to: StepKey } | null =
+    rows.length === 0 ? { text: "수량을 넣으세요. 스케치업에서 '수량 보내기'를 하거나 수량표에서 직접 넣습니다.", to: 'qty' }
+    : !est ? { text: "수량표에서 '이 수량으로 견적 계산'을 누르세요.", to: 'qty' }
+    : stale ? { text: "수량이 견적과 다릅니다. 견적에서 '견적 다시 계산'을 누르세요.", to: 'estimate' }
+    : missing ? { text: `단가 없는 항목 ${missing}개에 판매 단가를 넣고 다시 계산하세요.`, to: 'estimate' }
+    : !confirmed ? { text: '견적 초안을 검토함에서 확인(확정)하세요.', to: 'estimate' }
+    : tasks.length === 0 ? { text: '공정을 넣으세요.', to: 'schedule' } : null
+  const warns = [
+    ...(stale ? ['수량표가 바뀌어 견적이 최신이 아닙니다.'] : []),
+    ...(missing ? [`단가가 없는 항목 ${missing}개는 금액에서 빠져 있습니다.`] : []),
+    ...(est?.warnings ?? []).filter(w => w.level !== 'info').map(w => w.message),
+    ...(project.area_m2 == null ? ['면적이 비어 있습니다. 평당 단가 점검을 하지 못합니다.'] : []),
+  ]
+  const rules = project.estimate_rules ?? {}
   return (
     <>
       <ProjectHead project={project} />
-      <ViewTabs label="프로젝트 작업" active={view} onPick={k => navigate(withQuery('/design', query, { view: k === 'qty' ? null : k }))}
-        items={[{ key: 'survey', label: '현장 실측' }, { key: 'qty', label: '수량표' }, { key: 'estimate', label: '견적' }, { key: 'schedule', label: '공정' }]} />
-      {view === 'survey' && <SiteBody projectId={project.id} />}
-      {view === 'qty' && <QuantityView project={project} base={base} />}
-      {view === 'estimate' && <EstimateView project={project} base={base} />}
-      {view === 'schedule' && <ScheduleView project={project} base={base} />}
+      <nav className="design-steps" aria-label="프로젝트 단계">
+        {steps.map((s, i) => (
+          <button type="button" key={s.key} className={`design-step ${state[s.key]}${view === s.key ? ' on' : ''}`} aria-current={view === s.key ? 'step' : undefined} onClick={() => go(s.key)}>
+            <span className="n">{i + 1}</span>
+            <span className="l"><b>{s.label}</b><small>{STEP_STATE[state[s.key]]}{s.note ? ` · ${s.note}` : ''}</small></span>
+          </button>
+        ))}
+        {me.role === 'admin' && (
+          <button type="button" className="design-step link" onClick={() => navigate(`/design-orders?id=${project.id}`)}>
+            <span className="n">{steps.length + 1}</span><span className="l"><b>실행 · 발주</b><small>관리자 화면으로</small></span>
+          </button>
+        )}
+      </nav>
+      <div className="design-work">
+        <div className="design-work-main">
+          {view === 'survey' && <SiteBody projectId={project.id} />}
+          {view === 'qty' && <QuantityView project={project} base={base} />}
+          {view === 'estimate' && <EstimateView project={project} base={base} />}
+          {view === 'schedule' && <ScheduleView project={project} base={base} />}
+        </div>
+        <aside className="design-side" aria-label="확인할 것">
+          <section>
+            <h3>다음 할 일</h3>
+            {next ? <><p>{next.text}</p>{next.to !== view && <Button size="sm" kind="outline" onClick={() => go(next.to)}>{steps.find(s => s.key === next.to)?.label}(으)로</Button>}</> : <p className="t-cap">지금 단계에서 급한 일은 없습니다.</p>}
+          </section>
+          <section>
+            <h3>검토 대기 <span className="design-side-n">{pending.length}</span></h3>
+            {pending.length === 0 ? <p className="t-cap">없습니다.</p> : <ul>{pending.slice(0, 5).map(c => <li key={c.id} className="design-ai"><b>{CARD_LABELS[c.kind] ?? c.kind}</b> {c.title}</li>)}</ul>}
+            {pending.length > 0 && <Button size="sm" kind="ghost" onClick={() => navigate('/design-cards')}>검토함 열기</Button>}
+          </section>
+          <section>
+            <h3>경고 <span className={`design-side-n${warns.length ? ' red' : ''}`}>{warns.length}</span></h3>
+            {warns.length === 0 ? <p className="t-cap">없습니다.</p> : <ul>{warns.map((w, i) => <li key={i}>{w}</li>)}</ul>}
+          </section>
+          <section>
+            <h3>근거</h3>
+            <ul className="t-cap">
+              <li>수량: 모델 {project.model_version}번째 · 모델 {rows.filter(r => r.source === 'model').length}줄 · 직접 {rows.filter(r => r.source === 'manual').length}줄</li>
+              {est && <li>견적: {est.revision}차 · {est.created_at.slice(0, 10)} 계산 · {confirmed ? '확정' : '자동 초안(검토 전)'}</li>}
+              <li>합계 방식: {rules.fee_mode === 'agency_fee' ? `대행 수수료 ${Math.round(Number(rules.agency_fee_rate ?? 0) * 1000) / 10}%` : rules.fee_mode === 'overhead_profit' ? '공과잡비 + 기업이윤' : '회사 공통 규칙'}</li>
+              <li>단가: 승인된 판매 단가 중 가장 최근 것</li>
+            </ul>
+          </section>
+        </aside>
+      </div>
     </>
   )
 }
@@ -236,7 +326,7 @@ function EstimateView({ project, base }: { project: DesignProject; base: DesignB
   const missing = lines.filter(l => l.unit_price == null).length
   return (
     <div className="design-block">
-      <SectionHead title="견적" count={revisions.length ? `${revisions.length}차` : undefined} right={
+      <SectionHead title="견적" count={revisions.length ? `${revisions[0]}차` : undefined} right={
         <span className="row">
           {working && <Badge tone="yellow">계산 중</Badge>}
           <Button size="sm" disabled={busy || working} onClick={() => run(() => api.requestDesignJob(project.id, 'estimate.build'), '견적 계산을 요청했습니다')}>견적 다시 계산</Button>
@@ -251,9 +341,9 @@ function EstimateView({ project, base }: { project: DesignProject; base: DesignB
           <span className="design-gap" />
           {(['economy', 'standard', 'premium'] as const).filter(v => estimates.some(e => e.revision === revision && e.variant === v)).map(v => (
             <button type="button" key={v} className={`chip${v === est.variant ? ' active' : ''}`} onClick={() => setVariant(v)}>{VARIANT_LABELS[v]}</button>))}
-          {confirmed ? <Badge tone="blue">확정</Badge> : <Badge>검토 전 초안</Badge>}
+          {confirmed ? <Badge tone="blue">확정</Badge> : <span className="design-ai-tag">자동 초안 · 검토 전</span>}
         </div>
-        <dl className="design-totals">
+        <dl className={`design-totals${confirmed ? '' : ' design-ai'}`}>
           <div><dt>직접 공사비</dt><dd>{won(num(est.totals.direct))}</dd></div>
           {est.totals.fee_mode === 'agency_fee'
             ? <div><dt>대행 수수료</dt><dd>{won(num(est.totals.fee))}</dd></div>
