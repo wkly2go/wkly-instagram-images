@@ -4,6 +4,7 @@
 //   - 기본: 내 할 일 · 진행 중 프로젝트 기간 · 내 휴가 · 내 외근/재택 · 내 개인 일정 / scope=team: 팀 전체 할 일 · 휴가 · 외근/재택
 //   - 개인 일정(personal_events · 0100)은 본인 '내 일정' 주소에만. 팀 주소에는 절대 넣지 않음 (2026-11-10)
 //   - 휴가 · 외근 · 재택은 승인된 것만 (전날 신청 · 승인 규칙)
+//   - 설계 공정표(설계·견적 › 공정)는 내 주소 · 팀 주소 모두에 '[공정] 프로젝트 · 공정 이름'으로 (2026-11-15)
 //   - 금액 정보는 넣지 않는다. 구글 캘린더는 몇 시간마다 이 주소를 다시 읽는다.
 // 배포: verify_jwt = false (구글 서버가 로그인 없이 읽어야 하므로 토큰으로만 확인)
 import { createClient } from 'npm:@supabase/supabase-js@2.45.4'
@@ -109,6 +110,16 @@ Deno.serve(async req => {
     if (!p.start_date && !p.end_date) continue
     const start = (p.start_date ?? p.end_date) as string
     ev.push(...vevent({ uid: `project-${p.id}`, start, end: p.end_date, title: `[프로젝트] ${p.name}`, desc: `상태: ${p.status}`, url: `${APP}/projects` }, stamp))
+  }
+  // 설계 공정표 (설계·견적 › 공정 · design.schedule_tasks · 0125) — 읽기에 실패해도 나머지 일정은 그대로 내보낸다. 금액 없음
+  try {
+    const { data: steps } = await sb.from('design_schedule_tasks').select('id, project_id, name, start_date, end_date, done').gte('end_date', since)
+    for (const s of steps ?? []) {
+      const pn = projName.get(s.project_id as string)
+      ev.push(...vevent({ uid: `design-${s.id}`, start: s.start_date as string, end: s.end_date as string, title: `${s.done ? '✓ ' : ''}[공정] ${pn ? pn + ' · ' : ''}${s.name}`, url: `${APP}/design?id=${s.project_id}&view=schedule`, done: !!s.done }, stamp))
+    }
+  } catch {
+    /* 설계 구역을 못 읽어도 달력은 나가야 한다 */
   }
   for (const l of leaves ?? []) {
     const who = nameOf.get(l.profile_id) ?? ''
