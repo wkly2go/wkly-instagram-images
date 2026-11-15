@@ -1,6 +1,6 @@
 import {test} from 'node:test'
 import assert from 'node:assert/strict'
-import {candidates,createBrandSiteHandler,inspect,kakaoSearch,naverSearch,type BrandSiteResult,type SearchRow} from '../supabase/functions/sales-brand-site/handler.ts'
+import {candidates,createBrandSiteHandler,googleSearch,inspect,kakaoSearch,naverSearch,type BrandSiteResult,type SearchRow} from '../supabase/functions/sales-brand-site/handler.ts'
 const id='11111111-1111-4111-8111-111111111111',token='22222222-2222-4222-8222-222222222222'
 const results:SearchRow[]=[{url:'https://www.instagram.com/paulnua',title:'폴뉴아 (@paulnua)',description:''},{url:'https://news.example-daily.com/a/1',title:'폴뉴아 오픈',description:''},{url:'https://shop.other.co.kr/',title:'여성의류 쇼핑몰',description:'무관'},{url:'https://www.paulnua.com/about?x=1',title:'<b>폴뉴아</b> 공식 온라인 스토어',description:'PAULNUA'},{url:'https://paulnua.com/',title:'폴뉴아',description:''},{url:'http://plain.paulnua.kr/',title:'폴뉴아',description:''}]
 const home='<html><head><title>폴뉴아 | PAULNUA</title><script>var a="x@y.com"</script></head><body><a href="/contact/partnership">제휴 문의</a><a href="https://other.com/contact">문의</a><p>제휴 partner@paulnua.com · 고객센터 help@cs-vendor.co.kr · logo@2x.png</p></body></html>'
@@ -41,4 +41,13 @@ test('search adapters call fixed hosts with header keys and map results',async()
  assert.deepEqual(await naverSearch('ni','ns',fetcher({items:[{link:'https://b.com/',title:'B',description:'d'}]})).search('q'),[{url:'https://b.com/',title:'B',description:'d'}])
  assert.match(seen[0].url,/^https:\/\/dapi\.kakao\.com\/v2\/search\/web\?/);assert.equal(seen[0].headers.Authorization,'KakaoAK kk');assert.match(seen[1].url,/^https:\/\/naverapihub\.apigw\.ntruss\.com\/search\/v1\/webkr\?/);assert.ok(!seen.some(s=>/kk|ns/.test(s.url.split('query=')[0])))
  await assert.rejects(kakaoSearch('kk',fetcher({},401)).search('q'),/auth/);await assert.rejects(naverSearch('a','b',fetcher({},429)).search('q'),/quota/);await assert.rejects(kakaoSearch('kk',fetcher({nope:1})).search('q'),/upstream/)
+})
+test('google adapter turns the answer and its cited sites into candidates only',async()=>{
+ let sent:{url?:string;init?:RequestInit}={}
+ const fetcher=(payload:unknown,status=200)=>(async(url:string,init:RequestInit)=>{sent={url,init};return new Response(JSON.stringify(payload),{status})}) as typeof fetch
+ const rows=await googleSearch('gk',fetcher({candidates:[{content:{parts:[{text:'공식 사이트는 https://www.paulnua.com/ 입니다.'}]},groundingMetadata:{groundingChunks:[{web:{uri:'https://vertexaisearch.cloud.google.com/grounding-api-redirect/x',title:'paulnua.com'}},{web:{uri:'https://x',title:'폴뉴아 - 나무위키'}}]}}]})).search('폴뉴아 공식 홈페이지')
+ assert.deepEqual(rows.map(r=>r.url),['https://www.paulnua.com/','https://paulnua.com/']);assert.deepEqual(candidates(rows,'폴뉴아'),['https://www.paulnua.com/','https://paulnua.com/'])
+ assert.equal(sent.url,'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent');assert.equal((sent.init?.headers as Record<string,string>)['x-goog-api-key'],'gk');assert.deepEqual(JSON.parse(String(sent.init?.body)).tools,[{google_search:{}}])
+ assert.deepEqual(await googleSearch('gk',fetcher({candidates:[{content:{parts:[{text:'없음'}]}}]})).search('q'),[])
+ await assert.rejects(googleSearch('gk',fetcher({error:{}},400)).search('q'),/auth/);await assert.rejects(googleSearch('gk',fetcher({},429)).search('q'),/quota/);await assert.rejects(googleSearch('gk',fetcher({})).search('q'),/upstream/)
 })

@@ -93,3 +93,22 @@ export const naverSearch=(id:string,secret:string,fetcher:typeof fetch):SearchPr
  const data=await json(await fetcher('https://naverapihub.apigw.ntruss.com/search/v1/webkr?display=10&query='+encodeURIComponent(query),options({'X-NCP-APIGW-API-KEY-ID':id,'X-NCP-APIGW-API-KEY':secret})))
  if(!Array.isArray(data?.items))throw new Error('upstream');return data.items.map((r:Record<string,unknown>)=>({url:clip(r.link),title:clip(r.title),description:clip(r.description)}))
 }})
+/**
+ * Google Search through the Gemini API's search grounding. The model's answer is never trusted as a fact:
+ * the addresses it names and the sites it cites are only candidates, checked by reading each page.
+ */
+export const googleSearch=(key:string,fetcher:typeof fetch,model='gemini-3.8-flash'):SearchProvider=>({name:'구글',search:async query=>{
+ const response=await fetcher('https://generativelanguage.googleapis.com/v1beta/models/'+model+':generateContent',{method:'POST',redirect:'error',signal:AbortSignal.timeout(25000),headers:{'Content-Type':'application/json','x-goog-api-key':key},
+  body:JSON.stringify({contents:[{parts:[{text:`${query} 주소를 구글 검색으로 찾아라. 브랜드가 직접 운영하는 사이트의 https 주소만 한 줄에 하나씩 최대 3개 적고, 확인되지 않으면 '없음'이라고만 답하라.`}]}],tools:[{google_search:{}}]})})
+ // Google reports a wrong or missing key as 400.
+ if(response.status===400){await response.body?.cancel().catch(()=>undefined);throw new Error('auth')}
+ const data=await json(response),candidate=data?.candidates?.[0]
+ if(!candidate||typeof candidate!=='object')throw new Error('upstream')
+ const answer=Array.isArray(candidate.content?.parts)?candidate.content.parts.map((p:{text?:unknown})=>typeof p?.text==='string'?p.text:'').join(' ').slice(0,2000):''
+ const rows:SearchRow[]=[]
+ for(const m of answer.matchAll(/https:\/\/[a-z0-9.-]+\.[a-z]{2,}[^\s)"'<>\]]*/gi))rows.push({url:m[0].slice(0,500),title:query,description:''})
+ const chunks=candidate.groundingMetadata?.groundingChunks
+ // Cited sources arrive as redirect links whose title is the site's domain.
+ if(Array.isArray(chunks))for(const c of chunks){const title=typeof c?.web?.title==='string'?c.web.title.trim().toLowerCase():'';if(/^[a-z0-9.-]+\.[a-z]{2,}$/.test(title))rows.push({url:'https://'+title+'/',title:query,description:''})}
+ return rows.slice(0,10)
+}})

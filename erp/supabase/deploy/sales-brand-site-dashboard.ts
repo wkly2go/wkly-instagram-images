@@ -148,6 +148,30 @@ var naverSearch = (id, secret, fetcher) => ({ name: "\uB124\uC774\uBC84", search
   if (!Array.isArray(data?.items)) throw new Error("upstream");
   return data.items.map((r) => ({ url: clip(r.link), title: clip(r.title), description: clip(r.description) }));
 } });
+var googleSearch = (key, fetcher, model = "gemini-3.8-flash") => ({ name: "\uAD6C\uAE00", search: async (query) => {
+  const response = await fetcher("https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent", {
+    method: "POST",
+    redirect: "error",
+    signal: AbortSignal.timeout(25e3),
+    headers: { "Content-Type": "application/json", "x-goog-api-key": key },
+    body: JSON.stringify({ contents: [{ parts: [{ text: `${query} \uC8FC\uC18C\uB97C \uAD6C\uAE00 \uAC80\uC0C9\uC73C\uB85C \uCC3E\uC544\uB77C. \uBE0C\uB79C\uB4DC\uAC00 \uC9C1\uC811 \uC6B4\uC601\uD558\uB294 \uC0AC\uC774\uD2B8\uC758 https \uC8FC\uC18C\uB9CC \uD55C \uC904\uC5D0 \uD558\uB098\uC529 \uCD5C\uB300 3\uAC1C \uC801\uACE0, \uD655\uC778\uB418\uC9C0 \uC54A\uC73C\uBA74 '\uC5C6\uC74C'\uC774\uB77C\uACE0\uB9CC \uB2F5\uD558\uB77C.` }] }], tools: [{ google_search: {} }] })
+  });
+  if (response.status === 400) {
+    await response.body?.cancel().catch(() => void 0);
+    throw new Error("auth");
+  }
+  const data = await json(response), candidate = data?.candidates?.[0];
+  if (!candidate || typeof candidate !== "object") throw new Error("upstream");
+  const answer = Array.isArray(candidate.content?.parts) ? candidate.content.parts.map((p) => typeof p?.text === "string" ? p.text : "").join(" ").slice(0, 2e3) : "";
+  const rows = [];
+  for (const m of answer.matchAll(/https:\/\/[a-z0-9.-]+\.[a-z]{2,}[^\s)"'<>\]]*/gi)) rows.push({ url: m[0].slice(0, 500), title: query, description: "" });
+  const chunks = candidate.groundingMetadata?.groundingChunks;
+  if (Array.isArray(chunks)) for (const c of chunks) {
+    const title = typeof c?.web?.title === "string" ? c.web.title.trim().toLowerCase() : "";
+    if (/^[a-z0-9.-]+\.[a-z]{2,}$/.test(title)) rows.push({ url: "https://" + title + "/", title: query, description: "" });
+  }
+  return rows.slice(0, 10);
+} });
 
 // supabase/functions/sales-contact-discovery/handler.ts
 function sourceUrl(value, base) {
@@ -237,10 +261,11 @@ var site = (value) => {
 };
 var env = (name) => (Deno.env.get(name) ?? "").trim();
 var providers = [];
-if (env("KAKAO_REST_API_KEY")) providers.push(kakaoSearch(env("KAKAO_REST_API_KEY"), fetch));
 var naverId = env("NAVER_SEARCH_CLIENT_ID") || env("NAVER_API_ID") || env("NAVER-API-ID");
 var naverSecret = env("NAVER_SEARCH_CLIENT_SECRET") || env("NAVER_API_SECRET");
 if (naverId && naverSecret) providers.push(naverSearch(naverId, naverSecret, fetch));
+if (env("KAKAO_REST_API_KEY")) providers.push(kakaoSearch(env("KAKAO_REST_API_KEY"), fetch));
+if (env("GEMINI_API_KEY")) providers.push(googleSearch(env("GEMINI_API_KEY"), fetch));
 Deno.serve(createBrandSiteHandler({
   providers,
   read: (url) => readPublicPageEdge(url, net, site),
