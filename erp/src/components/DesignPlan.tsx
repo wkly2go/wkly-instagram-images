@@ -6,7 +6,7 @@ import { Button, Empty } from './ui'
 import { useAction, useApp, useAsync } from '../lib/app'
 import type { DesignBase, DesignProject, SpecItem } from '../lib/design'
 import { BASE_TYPES, FLOOR_TYPES, WALL_TYPES } from '../lib/designWallTypes'
-import { EMPTY_PLAN, floorArea, planQuantities, snapPoint, wallLength, type PlanGeometry, type PlanItem, type PlanWall } from '../lib/designPlan'
+import { EMPTY_PLAN, floorArea, keepLights, planQuantities, snapPoint, wallLength, type PlanGeometry, type PlanItem, type PlanWall } from '../lib/designPlan'
 
 const Plan3D = lazy(() => import('./DesignPlan3D'))
 type Tool = 'select' | 'wall' | 'newwall' | 'door' | 'window' | 'item'
@@ -98,6 +98,8 @@ export function DesignPlan({ project, base }: { project: DesignProject; base: De
   const lines = useMemo(() => planQuantities(plan), [plan])
   const area = useMemo(() => floorArea(plan.walls.filter(w => w.kind === 'existing')), [plan.walls])
   const rooms = plan.rooms ?? []
+  // Lighting counts are edited in the spec book; pick up the latest ones so saving here does not wipe them.
+  const latest = async () => keepLights(plan, await api.getDesignPlan(project.id))
   const selItem = plan.items.find(i => i.id === sel), selWall = plan.walls.find(w => w.id === sel), selOpen = plan.openings.find(o => o.id === sel)
   const patchOpen = (p: Partial<PlanGeometry['openings'][number]>) => change({ ...plan, openings: plan.openings.map(o => (o.id === sel ? { ...o, ...p } : o)) })
   const patchItem = (p: Partial<PlanItem>) => change({ ...plan, items: plan.items.map(i => (i.id === sel ? { ...i, ...p } : i)) })
@@ -112,7 +114,7 @@ export function DesignPlan({ project, base }: { project: DesignProject; base: De
         <Button size="sm" kind="ghost" onClick={() => zoom(0.8)} aria-label="확대">＋</Button>
         <Button size="sm" kind="ghost" onClick={() => zoom(1.25)} aria-label="축소">－</Button>
         <label className="design-plan-h">천장 높이 <input className="input xs" inputMode="numeric" value={plan.height} onChange={e => change({ ...plan, height: Number(e.target.value.replace(/\D/g, '')) || 0 })} /> mm</label>
-        <Button size="sm" kind="outline" disabled={busy || !dirty} onClick={() => run(() => api.saveDesignPlan(project.id, plan), '평면을 저장했습니다').then(ok => ok && setDirty(false))}>{dirty ? '저장' : '저장됨'}</Button>
+        <Button size="sm" kind="outline" disabled={busy || !dirty} onClick={() => run(async () => { const p = await latest(); await api.saveDesignPlan(project.id, p); setPlan(p) }, '평면을 저장했습니다').then(ok => ok && setDirty(false))}>{dirty ? '저장' : '저장됨'}</Button>
       </div>
       <p className="t-cap">{TOOLS.find(t => t[0] === tool)?.[2]} · 격자 {GRID}mm · 치수는 mm{loading ? ' · 불러오는 중…' : ''}</p>
       <div className="design-plan-split">
@@ -224,7 +226,7 @@ export function DesignPlan({ project, base }: { project: DesignProject; base: De
           <b className="t-bodyb">이 평면의 수량</b>
           <span className="t-cap">{area != null ? `바닥 ${area}㎡ (${(area / 3.3058).toFixed(1)}평)` : '기존 벽이 닫힌 방이 되면 바닥 면적이 나옵니다'}</span>
           <span className="design-gap" />
-          <Button size="sm" disabled={busy || lines.length === 0} onClick={() => run(async () => { await api.saveDesignPlan(project.id, plan); await api.applyDesignPlan(project.id, plan, lines) }, '수량표에 반영했습니다. 새 모델 버전이 만들어졌습니다').then(ok => ok && setDirty(false))}>수량표에 반영</Button>
+          <Button size="sm" disabled={busy || lines.length === 0} onClick={() => run(async () => { const p = await latest(); await api.saveDesignPlan(project.id, p); await api.applyDesignPlan(project.id, p, planQuantities(p)); setPlan(p) }, '수량표에 반영했습니다. 새 모델 버전이 만들어졌습니다').then(ok => ok && setDirty(false))}>수량표에 반영</Button>
         </div>
         {lines.length === 0 ? <Empty>새 가벽이나 부품을 그리면 여기에 수량이 모입니다. 기존 벽은 수량에 들어가지 않습니다.</Empty> : (
           <div className="table-wrap"><table className="table">

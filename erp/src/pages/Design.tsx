@@ -14,6 +14,7 @@ import {
 } from '../lib/design'
 import { SiteBody } from './Site'
 import { DesignPlan } from '../components/DesignPlan'
+import { DesignRenders } from '../components/DesignRenders'
 import { DesignDrawings } from '../components/DesignDrawings'
 import { DesignSpec } from '../components/DesignSpec'
 import { DesignProposal } from '../components/DesignProposal'
@@ -219,7 +220,7 @@ function ProjectView({ project, base }: { project: DesignProject; base: DesignBa
         <div className="design-work-main">
           {view === 'survey' && <SiteBody projectId={project.id} />}
           {view === 'proposal' && <DesignProposal project={project} />}
-          {view === 'model' && <DesignPlan project={project} base={base} />}
+          {view === 'model' && <><DesignPlan project={project} base={base} /><DesignRenders project={project} /></>}
           {view === 'qty' && <QuantityView project={project} base={base} />}
           {view === 'estimate' && <EstimateView project={project} base={base} />}
           {view === 'drawings' && <DesignDrawings project={project} base={base} />}
