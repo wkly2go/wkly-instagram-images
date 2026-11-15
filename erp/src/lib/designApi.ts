@@ -130,7 +130,7 @@ export function createSupabaseDesignApi(sb: SupabaseClient): DesignApi {
       return [...(t ?? [])].sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
     },
     async listProposalSections(projectId) {
-      const r = await sb.from('design_proposal_sections').select('id,project_id,section_key,body,figures,status,updated_at').eq('project_id', projectId)
+      const r = await sb.from('design_proposal_sections').select('id,project_id,section_key,body,figures,quotes,status,updated_at').eq('project_id', projectId)
       fail(r.error)
       return (r.data ?? []) as ProposalSection[]
     },
