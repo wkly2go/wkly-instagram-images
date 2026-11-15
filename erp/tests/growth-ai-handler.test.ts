@@ -106,3 +106,10 @@ test('reasoning effort is a trusted server setting sent with every request', asy
   const sent = JSON.parse(String(planner.calls.fetch[0].body)); assert.deepEqual(sent.output_config, { effort: 'medium' }); assert.equal(sent.max_tokens, 12000)
   assert.throws(() => setup({ effort: 'max' as 'high' }), /effort/)
 })
+test('a longer request is accepted only where the server allows it', async () => {
+  const long = { ...body(), prompt: '가'.repeat(8000) }, normal = setup(), planner = setup({ maxPromptChars: 9000 })
+  assert.equal((await normal.handler(request(long))).status, 400); assert.equal(normal.calls.fetch.length, 0)
+  assert.equal((await planner.handler(request(long))).status, 200); assert.equal(planner.calls.fetch.length, 1)
+  assert.equal((await planner.handler(request({ ...body(), prompt: '가'.repeat(9001) }))).status, 400)
+  assert.throws(() => setup({ maxPromptChars: 9001 }), /prompt cap/)
+})

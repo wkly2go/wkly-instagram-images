@@ -10,6 +10,8 @@ export interface GrowthAiDependencies {
   // Newer models reason before answering and that reasoning spends the same output cap.
   // 'low' keeps short classification answers inside a small cap; planning uses a larger cap with more effort.
   effort?: 'low' | 'medium' | 'high'
+  // Trusted server setting for workers whose own instructions are long; clients cannot raise it.
+  maxPromptChars?: number
   requireComplete?: boolean
   authenticate: (authorization: string) => Promise<{ id: string } | null>
   reserve: (args: Record<string, unknown>) => Promise<{ data: Reservation | null; error: RpcError }>
@@ -28,6 +30,8 @@ export function createGrowthAiHandler(deps: GrowthAiDependencies) {
   const maxOutput = deps.maxOutputTokens ?? MAX_OUTPUT
   if (!Number.isSafeInteger(maxOutput) || maxOutput < 1 || maxOutput > 12000) throw new Error('invalid server output cap')
   const effort = deps.effort ?? 'low'
+  const maxPrompt = deps.maxPromptChars ?? 6000
+  if (!Number.isSafeInteger(maxPrompt) || maxPrompt < 1 || maxPrompt > 9000) throw new Error('invalid server prompt cap')
   if (!['low', 'medium', 'high'].includes(effort)) throw new Error('invalid server effort')
   return async (req: Request): Promise<Response> => {
     if (req.method === 'OPTIONS') return new Response('ok', { headers })
@@ -44,7 +48,7 @@ export function createGrowthAiHandler(deps: GrowthAiDependencies) {
       const raw = await req.text()
       if (raw.length > 30000) return json({ error: '요청이 너무 큽니다.' }, 400)
       const body = JSON.parse(raw)
-      validateRequest(body)
+      validateRequest(body, maxPrompt)
       requestId = body.id
       if (!deps.apiKey) return json({ error: '서버 API 연결이 아직 설정되지 않았습니다.' }, 503)
       const inputTokens = new TextEncoder().encode(SYSTEM + body.prompt).byteLength + 1024
