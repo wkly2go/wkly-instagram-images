@@ -194,6 +194,9 @@ export interface ProposalTemplateSection { key: string; title: string; required?
 export interface ProposalFigure { label: string; value: string; unit?: string; source: string; as_of?: string }
 export interface ProposalSection { id: string; project_id: string; section_key: string; body: string | null; figures: ProposalFigure[]; status: 'draft' | 'checked' | 'blank'; updated_at: string }
 
+/** 투시도 · 렌더 장면. data 는 작은 미리보기, 원본은 original_url(드라이브 등) */
+export interface DesignRender { id: string; project_id: string; no: string; title: string; data: string | null; original_url: string | null; status: 'draft' | 'final'; note: string | null; sort: number }
+
 export type SpecBook = 'materials' | 'lighting' | 'hardware' | 'sanitary' | 'appliance'
 export const SPEC_BOOKS: Record<SpecBook, string> = { materials: '마감재 (Materials)', lighting: '조명 (Lighting)', hardware: '하드웨어 (Hardware)', sanitary: '위생기구 (Sanitary Ware)', appliance: '가전 · 기타 (Appliance & etc)' }
 export const SPEC_STATUS = { review: '검토', selected: '선정', confirmed: '확정', dropped: '제외' } as const
@@ -234,6 +237,10 @@ export interface DesignApi {
   addSpecItem(row: Omit<SpecItem, 'id' | 'sort'>): Promise<void>
   updateSpecItem(id: string, patch: Partial<Omit<SpecItem, 'id' | 'project_id'>>): Promise<void>
   /** 스펙 품목의 샘플 사진(작은 미리보기 data URL) — 품목 id 별 */
+  listRenders(projectId: string): Promise<DesignRender[]>
+  addRender(row: Pick<DesignRender, 'project_id' | 'no' | 'title' | 'sort'>): Promise<void>
+  updateRender(id: string, patch: Partial<Omit<DesignRender, 'id' | 'project_id'>>): Promise<void>
+  deleteRender(id: string): Promise<void>
   listSpecImages(projectId: string): Promise<Record<string, string>>
   setSpecImage(projectId: string, itemId: string, data: string | null): Promise<void>
   deleteSpecItem(id: string): Promise<void>
