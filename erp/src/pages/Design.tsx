@@ -17,6 +17,7 @@ import { DesignPlan } from '../components/DesignPlan'
 import { DesignDrawings } from '../components/DesignDrawings'
 import { DesignSpec } from '../components/DesignSpec'
 import { DesignProposal } from '../components/DesignProposal'
+import { DesignDelivery } from '../components/DesignDelivery'
 import './Design.css'
 
 type Tab = 'projects' | 'cards' | 'prices' | 'vendors' | 'materials' | 'knowledge'
@@ -134,7 +135,7 @@ function ProjectHead({ project }: { project: DesignProject }) {
   )
 }
 
-type StepKey = 'survey' | 'proposal' | 'model' | 'qty' | 'estimate' | 'drawings' | 'spec' | 'schedule'
+type StepKey = 'survey' | 'proposal' | 'model' | 'qty' | 'estimate' | 'drawings' | 'spec' | 'schedule' | 'delivery'
 type StepState = 'none' | 'doing' | 'review' | 'done' | 'stale'
 const STEP_STATE: Record<StepState, string> = { none: '시작 전', doing: '진행 중', review: '검토 대기', done: '완료', stale: '갱신 필요' }
 
@@ -145,7 +146,7 @@ const STEP_STATE: Record<StepState, string> = { none: '시작 전', doing: '진�
 function ProjectView({ project, base }: { project: DesignProject; base: DesignBase }) {
   const { api, me, version } = useApp()
   const { query, navigate } = useRouter()
-  const view = (['survey', 'proposal', 'model', 'qty', 'estimate', 'drawings', 'spec', 'schedule'].includes(query.get('view') ?? '') ? query.get('view') : 'qty') as StepKey
+  const view = (['survey', 'proposal', 'model', 'qty', 'estimate', 'drawings', 'spec', 'schedule', 'delivery'].includes(query.get('view') ?? '') ? query.get('view') : 'qty') as StepKey
   const go = (k: StepKey) => navigate(withQuery('/design', query, { view: k === 'qty' ? null : k }))
   const { data: survey } = useAsync(() => api.listSurvey(project.id).catch(() => []), [project.id, version], [])
   const { data: rows } = useAsync(() => api.listPlacements(project.id, project.model_version), [project.id, project.model_version, version], [])
@@ -171,6 +172,7 @@ function ProjectView({ project, base }: { project: DesignProject; base: DesignBa
     drawings: project.model_version > 0 ? 'doing' : 'none',
     spec: specs.length === 0 ? 'none' : specs.every(i => i.status === 'confirmed' || i.status === 'dropped') ? 'done' : 'doing',
     schedule: tasks.length === 0 ? 'none' : tasks.every(t => t.done) ? 'done' : 'doing',
+    delivery: project.stage === 'done' ? 'done' : 'none',
   }
   const steps: { key: StepKey; label: string; note: string }[] = [
     { key: 'survey', label: '현장 실측', note: survey.length ? `${surveyDone}/${survey.length}` : '' },
@@ -181,6 +183,7 @@ function ProjectView({ project, base }: { project: DesignProject; base: DesignBa
     { key: 'drawings', label: '도면', note: '' },
     { key: 'spec', label: '스펙북', note: specs.length ? `${specs.length}개` : '' },
     { key: 'schedule', label: '공정', note: tasks.length ? `${tasks.filter(t => t.done).length}/${tasks.length}` : '' },
+    { key: 'delivery', label: '납품', note: '' },
   ]
   const next: { text: string; to: StepKey } | null =
     rows.length === 0 ? { text: "수량을 넣으세요. '평면 · 3D'에서 그려 반영하거나, 스케치업에서 '수량 보내기', 또는 수량표에서 직접 넣습니다.", to: 'model' }
@@ -212,7 +215,7 @@ function ProjectView({ project, base }: { project: DesignProject; base: DesignBa
           </button>
         )}
       </nav>
-      <div className={`design-work${['model', 'drawings', 'proposal', 'spec'].includes(view) ? ' wide' : ''}`}>
+      <div className={`design-work${['model', 'drawings', 'proposal', 'spec', 'delivery'].includes(view) ? ' wide' : ''}`}>
         <div className="design-work-main">
           {view === 'survey' && <SiteBody projectId={project.id} />}
           {view === 'proposal' && <DesignProposal project={project} />}
@@ -221,9 +224,10 @@ function ProjectView({ project, base }: { project: DesignProject; base: DesignBa
           {view === 'estimate' && <EstimateView project={project} base={base} />}
           {view === 'drawings' && <DesignDrawings project={project} base={base} />}
           {view === 'spec' && <DesignSpec project={project} />}
+          {view === 'delivery' && <DesignDelivery project={project} base={base} />}
           {view === 'schedule' && <ScheduleView project={project} base={base} />}
         </div>
-        {!['model', 'drawings', 'proposal', 'spec'].includes(view) && <aside className="design-side" aria-label="확인할 것">
+        {!['model', 'drawings', 'proposal', 'spec', 'delivery'].includes(view) && <aside className="design-side" aria-label="확인할 것">
           <section>
             <h3>다음 할 일</h3>
             {next ? <><p>{next.text}</p>{next.to !== view && <Button size="sm" kind="outline" onClick={() => go(next.to)}>{steps.find(s => s.key === next.to)?.label}(으)로</Button>}</> : <p className="t-cap">지금 단계에서 급한 일은 없습니다.</p>}
