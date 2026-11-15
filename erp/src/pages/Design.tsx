@@ -14,6 +14,7 @@ import {
 } from '../lib/design'
 import { SiteBody } from './Site'
 import { DesignPlan } from '../components/DesignPlan'
+import { DesignDrawings } from '../components/DesignDrawings'
 import './Design.css'
 
 type Tab = 'projects' | 'cards' | 'prices' | 'vendors' | 'materials' | 'knowledge'
@@ -131,7 +132,7 @@ function ProjectHead({ project }: { project: DesignProject }) {
   )
 }
 
-type StepKey = 'survey' | 'model' | 'qty' | 'estimate' | 'schedule'
+type StepKey = 'survey' | 'model' | 'qty' | 'estimate' | 'drawings' | 'schedule'
 type StepState = 'none' | 'doing' | 'review' | 'done' | 'stale'
 const STEP_STATE: Record<StepState, string> = { none: '시작 전', doing: '진행 중', review: '검토 대기', done: '완료', stale: '갱신 필요' }
 
@@ -142,7 +143,7 @@ const STEP_STATE: Record<StepState, string> = { none: '시작 전', doing: '진�
 function ProjectView({ project, base }: { project: DesignProject; base: DesignBase }) {
   const { api, me, version } = useApp()
   const { query, navigate } = useRouter()
-  const view = (['survey', 'model', 'qty', 'estimate', 'schedule'].includes(query.get('view') ?? '') ? query.get('view') : 'qty') as StepKey
+  const view = (['survey', 'model', 'qty', 'estimate', 'drawings', 'schedule'].includes(query.get('view') ?? '') ? query.get('view') : 'qty') as StepKey
   const go = (k: StepKey) => navigate(withQuery('/design', query, { view: k === 'qty' ? null : k }))
   const { data: survey } = useAsync(() => api.listSurvey(project.id).catch(() => []), [project.id, version], [])
   const { data: rows } = useAsync(() => api.listPlacements(project.id, project.model_version), [project.id, project.model_version, version], [])
@@ -162,6 +163,7 @@ function ProjectView({ project, base }: { project: DesignProject; base: DesignBa
     model: project.model_version > 0 ? 'done' : 'none',
     qty: rows.length === 0 ? 'none' : est ? 'done' : 'doing',
     estimate: !est ? 'none' : stale ? 'stale' : confirmed ? 'done' : 'review',
+    drawings: project.model_version > 0 ? 'doing' : 'none',
     schedule: tasks.length === 0 ? 'none' : tasks.every(t => t.done) ? 'done' : 'doing',
   }
   const steps: { key: StepKey; label: string; note: string }[] = [
@@ -169,6 +171,7 @@ function ProjectView({ project, base }: { project: DesignProject; base: DesignBa
     { key: 'model', label: '평면 · 3D', note: project.model_version > 0 ? `모델 ${project.model_version}번째` : '' },
     { key: 'qty', label: '수량표', note: rows.length ? `${rows.length}줄` : '' },
     { key: 'estimate', label: '견적', note: est ? `${est.revision}차` : '' },
+    { key: 'drawings', label: '도면', note: '' },
     { key: 'schedule', label: '공정', note: tasks.length ? `${tasks.filter(t => t.done).length}/${tasks.length}` : '' },
   ]
   const next: { text: string; to: StepKey } | null =
@@ -201,15 +204,16 @@ function ProjectView({ project, base }: { project: DesignProject; base: DesignBa
           </button>
         )}
       </nav>
-      <div className={`design-work${view === 'model' ? ' wide' : ''}`}>
+      <div className={`design-work${view === 'model' || view === 'drawings' ? ' wide' : ''}`}>
         <div className="design-work-main">
           {view === 'survey' && <SiteBody projectId={project.id} />}
           {view === 'model' && <DesignPlan project={project} base={base} />}
           {view === 'qty' && <QuantityView project={project} base={base} />}
           {view === 'estimate' && <EstimateView project={project} base={base} />}
+          {view === 'drawings' && <DesignDrawings project={project} base={base} />}
           {view === 'schedule' && <ScheduleView project={project} base={base} />}
         </div>
-        {view !== 'model' && <aside className="design-side" aria-label="확인할 것">
+        {view !== 'model' && view !== 'drawings' && <aside className="design-side" aria-label="확인할 것">
           <section>
             <h3>다음 할 일</h3>
             {next ? <><p>{next.text}</p>{next.to !== view && <Button size="sm" kind="outline" onClick={() => go(next.to)}>{steps.find(s => s.key === next.to)?.label}(으)로</Button>}</> : <p className="t-cap">지금 단계에서 급한 일은 없습니다.</p>}

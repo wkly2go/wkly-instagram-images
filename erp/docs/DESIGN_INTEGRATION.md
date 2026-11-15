@@ -18,6 +18,13 @@
 - 제출용 견적서(16:9): 표지 → 견적 개요(사업 개요 · 견적 구분 · 참고 사항 · 대금지불조건) → 구분별 내역 → 합계.
 - 실행 내역: 구역 | 품목 | 수량 | 단가 | 업체 | 비고 엑셀 → 업체별 발주서 초안. '구매 (쿠팡)' 등 직접 구매와 업체 빈 줄은 제외.
 
+## Project workspace (2026-11-15, references: Houzz Pro · Programa · Coohom — see the plan doc tab 'UI·UX 리서치')
+- `/design` = stage bar (현장 실측 → 평면·3D → 수량표 → 견적 → 도면 → 공정, + 실행·발주 for admin) with per-stage status and a right panel (next action · pending review · warnings · basis).
+- 평면·3D: `components/DesignPlan.tsx` (SVG plan editor) + `DesignPlan3D.tsx` (three.js, lazy) + `lib/designPlan.ts` (geometry, quantities; tests `tests/design-plan.test.ts`).
+  Saved in `design.spaces` (version 0 = working copy). RPC `design_apply_plan` (0132) creates a new model version like the SketchUp import.
+- 도면: `components/DesignDrawings.tsx` + `lib/designDrawings.ts` (sheet list per learned standard, scale pick, DXF R12; tests `tests/design-drawings.test.ts`). A3 print via browser, DXF download. Detail sheets (ID/IF) and DWG are still done in CAD.
+- Local screen check without mock data in the repo: keep an untracked fixture (`src/lib/_designFixture.ts`, git-excluded) and wrap `createDemoDesignApi()` temporarily.
+
 ## 되돌리기
 `drop schema design cascade; drop function public.design_po_lines_for_site(uuid), public.design_decide(uuid, boolean, text),
 public.design_request_job(uuid, text), public.design_file(uuid); drop owned by design_worker; drop role design_worker;`

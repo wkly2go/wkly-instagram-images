@@ -118,3 +118,14 @@
 @media (max-width: 900px) { .design-plan-split { grid-template-columns: minmax(0, 1fr); } .design-plan-3d { height: 280px; } }
 
 .design-work.wide { grid-template-columns: minmax(0, 1fr); }
+
+/* drawing set */
+.design-draw { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 10px; align-items: start; }
+.design-draw-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; border: 1px solid var(--line); background: var(--white); max-height: 70vh; overflow: auto; }
+.design-draw-list button { display: grid; grid-template-columns: 52px 1fr auto; gap: 6px; width: 100%; padding: 6px 8px; background: none; border: 0; border-bottom: 1px solid var(--line); border-left: 3px solid transparent; font: inherit; font-size: var(--fs-sm); color: var(--gray); text-align: left; cursor: pointer; }
+.design-draw-list button b { color: var(--blue); font-family: var(--mono); }
+.design-draw-list button small { font-size: var(--fs-cap); }
+.design-draw-list button.on { border-left-color: var(--pink); background: var(--paper); }
+.design-draw-view { border: 1px solid var(--line); background: var(--paper); padding: 10px; }
+.design-sheet { display: block; width: 100%; height: auto; box-shadow: 0 1px 6px rgba(0, 0, 0, 0.14); font-family: 'Pretendard', 'Noto Sans KR', sans-serif; }
+@media (max-width: 900px) { .design-draw { grid-template-columns: minmax(0, 1fr); } .design-draw-list { max-height: 180px; } }
