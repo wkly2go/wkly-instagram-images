@@ -67,3 +67,12 @@ test('limited notices get their licence and region names; a failed lookup leaves
  assert.deepEqual(saved[1].terms?.licenses,['기타자유업(행사대행업)/9901']);assert.deepEqual(saved[1].terms?.regions,['대구광역시'])
  assert.equal(saved[2].terms?.industry_limited,true);assert.equal(saved[2].terms?.licenses,undefined)
 })
+test('notices whose limits are already stored are not looked up again',async()=>{
+ const urls:string[]=[]
+ const s=setup({claim:async()=>({category:'service',keyword:'행사',startDate:'2026-11-06',endDate:'2026-11-12',known:['R26TEST0:000']}),fetcher:async input=>{const u=new URL(String(input));urls.push(u.pathname.split('/').pop()!+':'+(u.searchParams.get('bidNtceNo')??''))
+  if(u.pathname.endsWith('LicenseLimit02'))return Response.json({response:{header:{resultCode:'00'},body:{totalCount:1,items:[{lcnsLmtNm:'기타자유업(행사대행업)/9901'}]}}})
+  return response(1,2,[{...row(0),indstrytyLmtYn:'Y'},{...row(1),indstrytyLmtYn:'Y'}])}})
+ assert.equal((await s.handler(request())).status,200)
+ assert.deepEqual(urls.filter(u=>u.startsWith('getBidPblancListInfoLicenseLimit02')),['getBidPblancListInfoLicenseLimit02:R26TEST1'])
+ assert.equal(s.pages[0][2][0].terms?.licenses,undefined);assert.deepEqual(s.pages[0][2][1].terms?.licenses,['기타자유업(행사대행업)/9901'])
+})

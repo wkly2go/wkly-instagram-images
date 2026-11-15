@@ -184,6 +184,7 @@ function createG2bWorker(d) {
     const work = async () => {
       let stage = "\uC11C\uBC84 \uC124\uC815", savedPages = 0, omitted = 0, total = null;
       let lookups = 0;
+      const known = new Set(Array.isArray(job.known) ? job.known.filter((v) => typeof v === "string").slice(0, 600) : []);
       const names = async (kind, item) => {
         try {
           const response = await d.fetcher(g2bDetailUrl(kind, item.number, item.round, d.key.trim()), { method: "GET", redirect: "error", signal: AbortSignal.timeout(8e3), headers: { Accept: "application/json" } });
@@ -195,7 +196,7 @@ function createG2bWorker(d) {
       };
       const withLimits = async (item) => {
         const terms = item.terms;
-        if (!terms || !terms.industry_limited && !terms.region_limited || lookups >= 12 || now() - started > 7e4) return item;
+        if (!terms || !terms.industry_limited && !terms.region_limited || known.has(item.number + ":" + item.round) || lookups >= 30 || now() - started > 7e4) return item;
         lookups++;
         const [licenses, regions] = await Promise.all([terms.industry_limited ? names("license", item) : void 0, terms.region_limited ? names("region", item) : void 0]);
         return { ...item, terms: { ...terms, ...licenses ? { licenses } : {}, ...regions ? { regions } : {} } };
@@ -206,7 +207,7 @@ function createG2bWorker(d) {
         for (let page = 1; page <= 20; page++) {
           stage = "\uC81C\uACF5\uAE30\uAD00 \uC870\uD68C";
           if (now() - started > 1e5) throw new Error("time limit");
-          const query = validateG2bQuery({ ...job, page });
+          const query = validateG2bQuery({ category: job.category, keyword: job.keyword, startDate: job.startDate, endDate: job.endDate, page });
           const response = await d.fetcher(g2bRequestUrl(query, d.key.trim()), { method: "GET", redirect: "error", signal: AbortSignal.timeout(12e3), headers: { Accept: "application/json" } });
           if (!response.ok) throw new Error("upstream");
           stage = "\uC751\uB2F5 \uAC80\uC99D";

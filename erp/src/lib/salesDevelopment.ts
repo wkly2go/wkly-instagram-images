@@ -13,7 +13,7 @@ export const salesDevelopmentCheckpoint = {
     {name:'다양한 영업 기획 자동 생성',gates:[true,true,true,true],evidence:'운영에서 자동·수동 기획안이 생성되어 승인 대기 목록에 표시됨. 2026-11-15 상위 모델과 사고 여유 적용.'},
     {name:'출처 보존·중복 제거·변경 이력',gates:[true,true,true,true],evidence:'운영에서 영업 대상 2,000여 건의 출처 변경 이력이 누적되는 것을 확인.'},
     {name:'AI 업무 대화·근거 보고서',gates:[true,true,true,true],evidence:'운영 계정에서 지시 → 보고서 완료 확인. 답이 중간에 잘려 실패하던 문제 수정. 대화 안 승인·반려 화면 반영.'},
-    {name:'나라장터 공식 API 수집',gates:[true,true,true,true],evidence:'운영에서 공식 API 공고 저장 확인. 공사 입찰 수집 중단, 면허 필요 공고 자동 제외.'},
+    {name:'나라장터 공식 API 수집',gates:[true,true,true,true],evidence:'2026-11-16 운영 실행: 용역 검색어 8개 수집 완료, 공고 107건 저장, 참가 자격 판정(참여 가능 50 · 확인 필요 56 · 불가 1). 08시 자동 실행 경로는 다음 날 아침 확인 대상.'},
     {name:'행사 참여 기업·누락 연락처 자동 확보',gates:[true,true,true,true],evidence:'운영에서 뉴스 → 브랜드 등록 → 네이버·카카오 검색 → 자체 사이트와 공개 문의 창구 기록까지 확인(초기 8곳 중 5곳 사이트 확인). 서울시 행사 페이지 조사는 서버 응답이 없어 보류.'},
     {name:'기존 회사·사람 DB 연결',gates:[true,true,true,true],evidence:'운영 기획안의 대상이 기존 거래처·저장 연락처에 자동 연결된 것을 확인. 새 브랜드는 이름이 정확히 같은 거래처에만 연결.'},
     {name:'검토 자료·실행안 버전·승인 보호',gates:[true,true,true,true],evidence:'2026-11-16 운영 시험: 브랜드 근거 기획 → 검토 자료 준비 완료 → 실행 묶음 생성까지 자동으로 이어짐을 확인. 발송 전 차단 사유(연락처·발신 권한·수신 자격)가 묶음에 표시됨.'},
