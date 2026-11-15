@@ -101,3 +101,6 @@
 
 
 실행안 단계 검증: DB 9개 및 번호 변경에 영향을 받는 기존 DB/번호 검사 30개, 화면 DOM 2개 — 총 41개 통과. 프런트 빌드 및 기존 서버 번들 일치 확인 성공. Chrome 로컬 예시 화면에서 수신자·문안·제안서 열람과 승인 차단 표시 확인. 실제 발송 승인 성공/외부 전송 검증을 완료한 것은 아니다.
+
+### Execution reporting integration
+The 09:00 planning notification and saved chat snapshots now distinguish review-ready plans, preparation in progress, recovery needs, and latest execution-package states. Unconnected delivery totals are null, not zero or a prepared-package count. The report prompt explicitly preserves this distinction. Latest validation: 47 distinct related DB, worker, migration and UI tests passed across this development turn; production build and generated worker-source checks passed. Production SQL, server deployment and live delivery remain on hold.

@@ -142,3 +142,19 @@ test('changed sources clear any previous approval metadata and append an audit e
  assert.equal(old.status,'재검토');assert.equal(old.approved_at,null);assert.equal(old.approved_by,null)
  assert.ok((await execution(j.id)).events.some(e=>e.kind==='재검토'))
 })
+test('briefing counts only the latest package and leaves unconnected delivery totals unknown',async()=>{
+ const j=await prepared();await db.query("update clients set email='updated@example.com' where id=$1",[client]);await db.query('select private.sales_execution_refresh($1)',[j.id])
+ const summary=(await db.query('select private.sales_execution_summary() s')).rows[0].s
+ assert.equal(summary.total,1);assert.equal(summary.needs_verification,1);assert.equal(summary.sent,null);assert.equal(summary.delivery_connected,false)
+ const snapshot=(await db.query("select private.sales_desk_snapshot('영업 자료') s")).rows[0].s
+ assert.deepEqual(snapshot.execution,summary)
+})
+test('daily notifications distinguish unfinished preparation from review-ready plans and actual sends',async()=>{
+ await db.exec("alter table notices add column body text;create or replace function notify(u uuid,k text,t text,b text,l text) returns void language sql as $$insert into public.notices(user_id,title,body) values(u,t,b)$$")
+ const j=await planned();await db.exec('select private.sales_strategy_brief()')
+ let body=(await db.query('select body from notices')).rows[0].body
+ assert.match(body,/검토 대기 0건/);assert.match(body,/자동 준비 중 1건/)
+ await claim(j.prep);await asUser(admin,()=>call('sales_strategy_prepared',[j.prep,JSON.stringify(pack),'']),'service_role')
+ await db.exec('delete from notices;select private.sales_strategy_brief()');body=(await db.query('select body from notices')).rows[0].body
+ assert.match(body,/검토 대기 1건/);assert.match(body,/검증 대기 1건/);assert.match(body,/발송·회신 기록은 미연결/)
+})

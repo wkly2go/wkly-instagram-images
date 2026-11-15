@@ -38,3 +38,7 @@
 - 실제 또는 통합 시험에서 수집 → 검증 → 실행안 준비 → 승인 → 허용된 발송 → 회신/CRM → 보고까지 사람의 데이터 작업 없이 연결되는지 확인한다.
 - 자동 처리 불가 건은 사유와 다음 자동 처리 계획이 있는 보류 상태로 보고한다. 수동 가공 대기열을 만들어 자동화 완료로 표시하지 않는다.
 - 구현·테스트·운영 배포·실제 외부 실행 확인을 구분하여 보고한다.
+
+## Working language — latest user instruction, 2026-11-15
+
+Use English for development communication and progress updates. Ask necessary approval questions in Korean. Preserve the existing Korean product interface unless the user requests a translation.

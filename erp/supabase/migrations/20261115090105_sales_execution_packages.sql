@@ -109,5 +109,47 @@ revoke all on function private.sales_execution_material(uuid),private.sales_exec
 revoke all on function public.sales_execution_get(uuid),public.sales_execution_decide(uuid,integer,text,text) from public,anon;
 grant execute on function public.sales_execution_get(uuid),public.sales_execution_decide(uuid,integer,text,text) to authenticated;
 select cron.schedule('wkly_sales_execution_material','*/2 * * * *','select private.sales_execution_schedule()');
+create function private.sales_execution_summary() returns jsonb language sql stable set search_path='' as $$
+ with latest as (select distinct on(p.strategy_id) p.* from public.sales_execution_packages p join public.sales_strategies s on s.id=p.strategy_id where s.created_at>now()-interval '30 days' order by p.strategy_id,p.version desc),
+ states as (select case when status='보류' then '보류' when fingerprint is distinct from private.sales_execution_material(strategy_id)->>'fingerprint' then '재검토' else status end state,checked_at from latest)
+ select jsonb_build_object('scope','최근 30일 기획의 최신 실행안','total',count(*),'review_ready',count(*) filter(where state='승인 대기'),'needs_verification',count(*) filter(where state='준비 중'),'recheck',count(*) filter(where state='재검토'),'held',count(*) filter(where state='보류'),'approved',count(*) filter(where state='승인'),'sent',null,'delivery_connected',false,'last_checked_at',max(checked_at),'note','실제 발송·회신 기록은 아직 연결되지 않았습니다. 준비 건수를 발송 실적으로 집계하지 않습니다.') from states
+$$;
+revoke all on function private.sales_execution_summary() from public,anon,authenticated;
+
+create or replace function private.sales_desk_snapshot(p_instruction text) returns jsonb language plpgsql set search_path='' as $$
+declare terms text[]; since_at timestamptz; sources jsonb; matched integer;
+begin
+ if p_instruction ~ '이번[ ]?주' then since_at:=date_trunc('week',now() at time zone 'Asia/Seoul') at time zone 'Asia/Seoul'; end if;
+ select array_agg(distinct term) into terms from (
+  select case when char_length(t)>3 then regexp_replace(t,'(에서|으로|에게|까지|부터|관련|을|를|은|는|의|에)$','') else t end term
+  from regexp_split_to_table(lower(p_instruction),'[^a-z0-9가-힣]+') t
+ ) q where char_length(term)>=2 and term not in ('이번주','이번','신규','영업','자료','데이터','분석','분석해줘','분석해','조회','조회해줘','보고서','만들어','작성','작성해줘','알려줘','불러와','대상','추천','계획','기획','해줘','해주세요','정리','정리해줘','관련','이번에');
+ select count(*) into matched from public.sales_prospects p where not private.sales_prospect_blocked(p)
+ and (since_at is null or p.created_at>=since_at)
+ and (terms is null or exists(select 1 from unnest(terms) t where strpos(lower(p.name||' '||p.organization||' '||p.evidence),t)>0));
+ select coalesce(jsonb_agg(to_jsonb(x)),'[]') into sources from (
+  select id,name,source,organization,entity_kind,left(evidence,1000) evidence,source_url,source_updated_at from public.sales_prospects p
+  where not private.sales_prospect_blocked(p) and (since_at is null or p.created_at>=since_at)
+  and (terms is null or exists(select 1 from unnest(terms) t where strpos(lower(p.name||' '||p.organization||' '||p.evidence),t)>0))
+  order by source_updated_at desc nulls last,created_at desc,id limit 12
+ ) x;
+ return jsonb_build_object('at',now(),'scope',case when since_at is null then '저장 DB · 지시문 키워드 일치 · 최신 자료 최대 12건' else '이번 주 KST 최초 등록 자료 · 지시문 키워드 일치 · 최대 12건' end,
+  'matched_total',matched,'sources',sources,'execution',private.sales_execution_summary(),
+  'coverage',(select coalesce(jsonb_agg(to_jsonb(x)),'[]') from (select distinct on(source) source,status,left(note,250) note from public.sales_collection_runs order by source,started_at desc) x),
+  'pipeline',(select coalesce(jsonb_agg(to_jsonb(x)),'[]') from (select stage,count(*) count from public.sales_opportunities group by stage) x));
+end $$;
+create or replace function private.sales_strategy_brief() returns void language plpgsql security definer set search_path='' as $$
+declare actor record; ready integer; pending integer; failed integer; execution jsonb;
+begin
+ select count(*) filter(where status='승인 대기' and preparation_status='완료'),
+ count(*) filter(where status='기획 중' or (status='승인 대기' and preparation_status='준비 중')),
+ count(*) filter(where status='생성 실패' or (status='승인 대기' and preparation_status='확인 필요'))
+ into ready,pending,failed from public.sales_strategies where report_date=(now() at time zone 'Asia/Seoul')::date;
+ execution:=private.sales_execution_summary();
+ if ready+pending+failed=0 and (execution->>'total')::integer=0 then return;end if;
+ for actor in select id from public.profiles where active and role='admin' and not is_agent loop
+  perform public.notify(actor.id,'일일 보고','AI 영업 기획 브리핑',format('오늘 기획 검토 대기 %s건 · 자동 준비 중 %s건 · 복구 필요 %s건. 최근 30일 실행안: 검증 대기 %s건 · 재검토 %s건 · 보류 %s건. 실제 발송·회신 기록은 미연결이며 준비 건수를 발송 실적으로 집계하지 않습니다.',ready,pending,failed,execution->>'needs_verification',execution->>'recheck',execution->>'held'),'/sales');
+ end loop;
+end $$;
 notify pgrst,'reload schema';
 commit;
