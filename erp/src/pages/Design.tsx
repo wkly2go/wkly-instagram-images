@@ -693,12 +693,17 @@ function VendorsTab({ base }: { base: DesignBase }) {
   const { api, version } = useApp()
   const [status, setStatus] = useState<'partner' | 'candidate'>('partner')
   const { data: all } = useAsync(() => api.listDesignVendors(), [version], [])
-  const rows = all.filter(v => v.status === status)
+  const [find, setFind] = useState('')
+  const [trade, setTrade] = useState('')
+  const rows = all.filter(v => v.status === status && (!trade || v.trades.includes(trade)) && (!find.trim() || `${v.name} ${v.region ?? ''} ${v.contact_name ?? ''}`.toLowerCase().includes(find.trim().toLowerCase())))
   return (
     <div className="design-block">
       <div className="row wrap">
         <button type="button" className={`chip${status === 'partner' ? ' active' : ''}`} onClick={() => setStatus('partner')}>거래 협력사 {all.filter(v => v.status === 'partner').length}</button>
         <button type="button" className={`chip${status === 'candidate' ? ' active' : ''}`} onClick={() => setStatus('candidate')}>후보 (나라장터 · 검색) {all.filter(v => v.status === 'candidate').length}</button>
+        <input className="input design-filter" type="search" value={find} onChange={e => setFind(e.target.value)} placeholder="이름 · 지역 · 담당자 찾기" aria-label="협력사 찾기" />
+        <select className="select" value={trade} onChange={e => setTrade(e.target.value)} aria-label="공종으로 거르기"><option value="">모든 공종</option>{base.trades.map(t => <option key={t.code} value={t.code}>{t.name}</option>)}</select>
+        <span className="t-cap">{rows.length}곳</span>
       </div>
       <p className="t-cap">발주서 자동 배정에는 '거래 협력사'만 씁니다. '거래처 연결'은 인트라넷 거래처 메뉴에 같은 이름이 있는 곳입니다.</p>
       {rows.length === 0 ? <Empty>협력사가 없습니다.</Empty> : (
@@ -734,7 +739,7 @@ function MaterialsTab() {
 
 const KIND_LABELS: Record<string, string> = {
   drawing_set: '도면 세트 구성', cad_standard: '캐드 작성 기준', general_notes: '일반 사항', material_codes: '자재 코드 체계', design_report: '설계 보고서 구성',
-  render_scenes: '렌더 장면 구성', spec_book: '스펙북 구성', cost_sheet: '원가계산서 양식', special_specs: '특기 시방',
+  render_scenes: '렌더 장면 구성', spec_book: '스펙북 구성', cost_sheet: '원가계산서 양식', special_specs: '특기 시방', detail_types: '상세도 유형', finish_schedule: '마감표 양식',
 }
 function outline(body: unknown, depth = 0): string[] {
   if (body == null) return []
