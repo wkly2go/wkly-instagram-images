@@ -190,6 +190,10 @@ export interface PurchaseOrder { id: string; po_number: string; vendor_id: strin
 export interface PoLine { id: string; po_id: string; item: string; spec: string; unit: string; qty: number; cost_price: number | null; amount: number | null; received_qty: number }
 export const PO_STATUS: Record<string, string> = { draft: '초안', sent: '발송', accepted: '수락', partially_received: '일부 입고', received: '입고 완료', settled: '정산', cancelled: '취소' }
 
+export interface ProposalTemplateSection { key: string; title: string; required?: boolean; sources?: string[]; order?: number }
+export interface ProposalFigure { label: string; value: string; unit?: string; source: string; as_of?: string }
+export interface ProposalSection { id: string; project_id: string; section_key: string; body: string | null; figures: ProposalFigure[]; status: 'draft' | 'checked' | 'blank'; updated_at: string }
+
 export type SpecBook = 'materials' | 'lighting' | 'hardware' | 'sanitary' | 'appliance'
 export const SPEC_BOOKS: Record<SpecBook, string> = { materials: '마감재 (Materials)', lighting: '조명 (Lighting)', hardware: '하드웨어 (Hardware)', sanitary: '위생기구 (Sanitary Ware)', appliance: '가전 · 기타 (Appliance & etc)' }
 export const SPEC_STATUS = { review: '검토', selected: '선정', confirmed: '확정', dropped: '제외' } as const
@@ -222,6 +226,10 @@ export interface DesignApi {
   saveDesignPlan(projectId: string, plan: PlanGeometry): Promise<void>
   /** 평면의 수량을 수량표에 반영 (새 모델 버전) */
   applyDesignPlan(projectId: string, plan: PlanGeometry, lines: PlanLine[]): Promise<void>
+  /** Template for the space type; falls back to any active template. */
+  getProposalTemplate(spaceType: SpaceType): Promise<ProposalTemplateSection[]>
+  listProposalSections(projectId: string): Promise<ProposalSection[]>
+  saveProposalSection(projectId: string, key: string, patch: Pick<ProposalSection, 'body' | 'figures' | 'status'>): Promise<void>
   listSpecItems(projectId: string): Promise<SpecItem[]>
   addSpecItem(row: Omit<SpecItem, 'id' | 'sort'>): Promise<void>
   updateSpecItem(id: string, patch: Partial<Pick<SpecItem, 'status' | 'location' | 'note' | 'code'>>): Promise<void>

@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { ApiError } from './api'
 import type { PlanGeometry } from './designPlan'
 import type {
-  CostLine, DesignApi, SpecItem, DesignCard, DesignDocument, DesignJob, PoLine, PurchaseOrder, DesignMaterial, DesignProject, DesignTrade, DesignVendor, Estimate, EstimateLine,
+  CostLine, DesignApi, ProposalSection, ProposalTemplateSection, SpecItem, DesignCard, DesignDocument, DesignJob, PoLine, PurchaseOrder, DesignMaterial, DesignProject, DesignTrade, DesignVendor, Estimate, EstimateLine,
   Knowledge, Placement, ScheduleTask, UnitCost, UnitPrice,
 } from './design'
 
@@ -122,6 +122,21 @@ export function createSupabaseDesignApi(sb: SupabaseClient): DesignApi {
     async applyDesignPlan(projectId, plan, lines) {
       fail((await sb.rpc('design_apply_plan', { p_project: projectId, p_geometry: plan, p_lines: lines }).retry(false)).error)
     },
+    async getProposalTemplate(spaceType) {
+      const r = await sb.from('design_proposal_templates').select('space_type,version,sections').eq('active', true).order('version', { ascending: false })
+      fail(r.error)
+      const rows = r.data ?? []
+      const t = (rows.find(x => x.space_type === spaceType) ?? rows[0])?.sections as ProposalTemplateSection[] | undefined
+      return [...(t ?? [])].sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+    },
+    async listProposalSections(projectId) {
+      const r = await sb.from('design_proposal_sections').select('id,project_id,section_key,body,figures,status,updated_at').eq('project_id', projectId)
+      fail(r.error)
+      return (r.data ?? []) as ProposalSection[]
+    },
+    async saveProposalSection(projectId, key, patch) {
+      fail((await sb.from('design_proposal_sections').upsert({ project_id: projectId, section_key: key, ...patch, updated_at: new Date().toISOString() }, { onConflict: 'project_id,section_key' })).error)
+    },
     async listSpecItems(projectId) {
       const r = await sb.from('design_spec_items').select('id,project_id,book,code,name,spec,location,maker,material_id,qty,unit,product_url,note,status,sort').eq('project_id', projectId).order('book').order('sort').order('created_at')
       fail(r.error)
@@ -230,6 +245,9 @@ export function createDemoDesignApi(): DesignApi {
     async getDesignPlan() { return null },
     saveDesignPlan: none, applyDesignPlan: none, addSpecItem: none, updateSpecItem: none, deleteSpecItem: none,
     async listSpecItems() { return [] },
+    async getProposalTemplate() { return [] },
+    async listProposalSections() { return [] },
+    saveProposalSection: none,
     downloadDesignFile: none, replaceCostLines: none, addCostLine: none, updateCostLine: none, deleteCostLine: none,
     async listCostLines() { return [] },
     async listPurchaseOrders() { return [] },

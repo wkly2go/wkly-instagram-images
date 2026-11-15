@@ -139,3 +139,7 @@
 .design-spec-code { font-family: var(--mono); margin-right: auto; }
 .design-status { background: none; border: 0; padding: 0; cursor: pointer; }
 .design-off { opacity: 0.45; }
+
+/* proposal */
+.design-slide { display: block; width: 100%; height: auto; box-shadow: 0 1px 6px rgba(0, 0, 0, 0.14); }
+.design-figs { display: flex; flex-direction: column; gap: 6px; }
