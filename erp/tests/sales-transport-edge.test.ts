@@ -13,7 +13,7 @@ test('reads a public UTF-8 page without following redirects or sending credentia
  const got=await readPublicPageEdge(page,net)
  assert.deepEqual(got,{status:200,contentType:'text/html; charset=UTF-8',text:'<p>문의 hello@brand.example.com</p>'})
  assert.equal(calls.url,page);assert.equal(calls.init?.redirect,'manual');assert.equal(calls.init?.credentials,'omit')
- const moved=deps(()=>new Response(null,{status:302,headers:{location:'http://10.0.0.1/'}}));assert.deepEqual(await readPublicPageEdge(page,moved.net),{status:302,contentType:'',text:''})
+ const moved=deps(()=>new Response(null,{status:302,headers:{location:'http://10.0.0.1/'}}));assert.deepEqual(await readPublicPageEdge(page,moved.net),{status:302,contentType:'',text:'',location:'http://10.0.0.1/'});assert.equal(moved.calls?.length??1,1)
 })
 test('refuses private or unresolved hosts before any request, and unsupported sources',async()=>{
  for(const addresses of [['10.0.0.5'],['93.184.216.34','127.0.0.1'],[]]){const d=deps(()=>new Response('x'),addresses);await assert.rejects(readPublicPageEdge(page,d.net),/Non-public/);assert.equal(d.calls.url,undefined)}

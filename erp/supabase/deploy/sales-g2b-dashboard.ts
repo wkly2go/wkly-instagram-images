@@ -84,7 +84,13 @@ function candidate(value) {
     industry_limited: text(row.indstrytyLmtYn) === "Y",
     region_limited: !!text(row.rgnLmtBidLocplcJdgmBssNm) || text(row.rgnLmtBidLocplcJdgmBssCd) === "Y"
   };
-  return { title, number, round, agency, deadline, amount, source_url, notice_date: koreaDateTime(row.bidNtceDt), warnings, terms };
+  const name = text(row.ntceInsttOfclNm).replace(/\s+/g, " "), phone = text(row.ntceInsttOfclTelNo).replace(/[^0-9+()-]/g, ""), mail = (text(row.ntceInsttOfclEmailAdrs) || text(row.dminsttOfclEmailAdrs)).toLowerCase();
+  const officer = {
+    ...name.length >= 2 && name.length <= 40 && !/[<>{}\\@]/.test(name) ? { name } : {},
+    .../^[0-9+()-]{8,20}$/.test(phone) ? { phone } : {},
+    ...mail.length <= 254 && /^[a-z0-9._%+-]+@[a-z0-9]([a-z0-9.-]*[a-z0-9])?\.[a-z]{2,}$/.test(mail) ? { email: mail } : {}
+  };
+  return { title, number, round, agency, deadline, amount, source_url, notice_date: koreaDateTime(row.bidNtceDt), warnings, terms, ...Object.keys(officer).length ? { officer } : {} };
 }
 var detail = { license: ["getBidPblancListInfoLicenseLimit02", "lcnsLmtNm"], region: ["getBidPblancListInfoPrtcptPsblRgn02", "prtcptPsblRgnNm"] };
 function g2bDetailUrl(kind, number, round, serviceKey) {

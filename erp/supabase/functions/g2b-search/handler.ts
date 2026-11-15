@@ -11,6 +11,8 @@ export interface G2bCandidate {
   amount: number | null; source_url: string; notice_date: string; warnings: string[]
   /** Participation terms as the provider states them; licences and regions are filled by the collector. */
   terms?: G2bTerms
+  /** The officer the notice itself names for enquiries. Empty parts are omitted. */
+  officer?: { name?: string; phone?: string; email?: string }
 }
 export interface G2bTerms { contract: string; award: string; classification: string; joint: string; industry_limited: boolean; region_limited: boolean; licenses?: string[]; regions?: string[] }
 export interface G2bDependencies {
@@ -90,7 +92,10 @@ function candidate(value: unknown): G2bCandidate | null {
   const short = (v: unknown) => text(v).slice(0, 80)
   const terms: G2bTerms = { contract: short(row.cntrctCnclsMthdNm), award: short(row.sucsfbidMthdNm), classification: short(row.pubPrcrmntClsfcNm), joint: short(row.cmmnSpldmdMethdNm),
     industry_limited: text(row.indstrytyLmtYn) === 'Y', region_limited: !!text(row.rgnLmtBidLocplcJdgmBssNm) || text(row.rgnLmtBidLocplcJdgmBssCd) === 'Y' }
-  return { title, number, round, agency, deadline, amount, source_url, notice_date: koreaDateTime(row.bidNtceDt), warnings, terms }
+  const name = text(row.ntceInsttOfclNm).replace(/\s+/g, ' '), phone = text(row.ntceInsttOfclTelNo).replace(/[^0-9+()-]/g, ''), mail = (text(row.ntceInsttOfclEmailAdrs) || text(row.dminsttOfclEmailAdrs)).toLowerCase()
+  const officer = { ...(name.length >= 2 && name.length <= 40 && !/[<>{}\\@]/.test(name) ? { name } : {}), ...(/^[0-9+()-]{8,20}$/.test(phone) ? { phone } : {}),
+    ...(mail.length <= 254 && /^[a-z0-9._%+-]+@[a-z0-9]([a-z0-9.-]*[a-z0-9])?\.[a-z]{2,}$/.test(mail) ? { email: mail } : {}) }
+  return { title, number, round, agency, deadline, amount, source_url, notice_date: koreaDateTime(row.bidNtceDt), warnings, terms, ...(Object.keys(officer).length ? { officer } : {}) }
 }
 const detail = { license: ['getBidPblancListInfoLicenseLimit02', 'lcnsLmtNm'], region: ['getBidPblancListInfoPrtcptPsblRgn02', 'prtcptPsblRgnNm'] } as const
 /** Licence and region limits of one notice. The notice number comes from a collected row, never from a client. */

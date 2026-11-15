@@ -1,6 +1,6 @@
 import {test} from 'node:test'
 import assert from 'node:assert/strict'
-import {candidates,createBrandSiteHandler,googleSearch,inspect,kakaoSearch,naverSearch,type BrandSiteResult,type SearchRow} from '../supabase/functions/sales-brand-site/handler.ts'
+import {readFollowing,sameSite,titled,candidates,createBrandSiteHandler,googleSearch,inspect,kakaoSearch,naverSearch,type BrandSiteResult,type SearchRow} from '../supabase/functions/sales-brand-site/handler.ts'
 const id='11111111-1111-4111-8111-111111111111',token='22222222-2222-4222-8222-222222222222'
 const results:SearchRow[]=[{url:'https://www.instagram.com/paulnua',title:'폴뉴아 (@paulnua)',description:''},{url:'https://news.example-daily.com/a/1',title:'폴뉴아 오픈',description:''},{url:'https://shop.other.co.kr/',title:'여성의류 쇼핑몰',description:'무관'},{url:'https://www.paulnua.com/about?x=1',title:'<b>폴뉴아</b> 공식 온라인 스토어',description:'PAULNUA'},{url:'https://paulnua.com/',title:'폴뉴아',description:''},{url:'http://plain.paulnua.kr/',title:'폴뉴아',description:''}]
 const home='<html><head><title>폴뉴아 | PAULNUA</title><script>var a="x@y.com"</script></head><body><a href="/contact/partnership">제휴 문의</a><a href="https://other.com/contact">문의</a><p>제휴 partner@paulnua.com · 고객센터 help@cs-vendor.co.kr · logo@2x.png</p></body></html>'
@@ -15,7 +15,7 @@ test('candidates keep only own-site results that mention the brand',()=>{
  assert.deepEqual(candidates(results,'폴뉴아'),['https://www.paulnua.com/','https://paulnua.com/']);assert.throws(()=>candidates({},'x'))
 })
 test('inspect requires the brand on the page and takes only same-site contact links and shown addresses',()=>{
- assert.deepEqual(inspect(home,'https://www.paulnua.com/','폴뉴아'),{named:true,contact_page:'https://www.paulnua.com/contact/partnership',emails:['partner@paulnua.com','help@cs-vendor.co.kr']})
+ assert.deepEqual(inspect(home,'https://www.paulnua.com/','폴뉴아'),{named:true,contact_page:'https://www.paulnua.com/contact/partnership',emails:['partner@paulnua.com','help@cs-vendor.co.kr'],more:['https://www.paulnua.com/contact/partnership'],thin:true})
  assert.equal(inspect('<title>다른 회사</title><p>hello</p>','https://www.paulnua.com/','폴뉴아').named,false)
 })
 test('handler searches once and saves a verified site',async()=>{
@@ -59,4 +59,24 @@ test('a site counts as the brand\'s own only when it presents itself under that 
  assert.equal(inspect('<title>Official Store</title><body>welcome</body>','https://www.mlb-korea.com/','MLB').named,true)
  assert.equal(inspect('<title>Official Store</title><body>MLB 관련 소식</body>','https://www.sports-shop.com/','MLB').named,false)
  assert.deepEqual(candidates([{url:'https://money-magazine.co.kr/x',title:'컬리',description:''},{url:'https://thehyundaiblog.com/',title:'컬리',description:''},{url:'https://xn--hz2b150a43d.kr/',title:'컬리',description:''},{url:'https://www.kurly.com/main',title:'컬리 공식',description:''}],'컬리'),['https://www.kurly.com/'])
+})
+
+test('redirects are followed only inside the same site, at most three times',async()=>{
+ assert.equal(sameSite('https://www.hyundai.com/kr/','https://hyundai.com/'),true);assert.equal(sameSite('https://shop.brand.co.kr/x','https://www.brand.co.kr/'),true)
+ assert.equal(sameSite('https://evil.com/brand.co.kr','https://brand.co.kr/'),false);assert.equal(sameSite('http://brand.co.kr/','https://brand.co.kr/'),false);assert.equal(sameSite('https://notbrand.co.kr/','https://brand.co.kr/'),false)
+ const seen:string[]=[],pages:Record<string,{status:number;location?:string;text?:string}>={'https://a.com/':{status:302,location:'/ko'},'https://a.com/ko':{status:301,location:'https://www.a.com/ko/main'},'https://www.a.com/ko/main':{status:200,text:'ok'},'https://b.com/':{status:302,location:'https://other.com/'}}
+ const read=async(u:string)=>{seen.push(u);const p=pages[u];return {status:p.status,contentType:'text/html',text:p.text??'',...(p.location?{location:p.location}:{})}}
+ assert.equal((await readFollowing(read,'https://a.com/')).page.text,'ok');assert.deepEqual(seen,['https://a.com/','https://a.com/ko','https://www.a.com/ko/main'])
+ assert.equal((await readFollowing(read,'https://b.com/')).page.status,302)
+ let n=0;const loop=await readFollowing(async()=>{n++;return {status:302,contentType:'',text:'',location:'/again'+n}},'https://c.com/');assert.equal(loop.page.status,302);assert.equal(n,4)
+})
+test('a missing address is looked for on the contact page; a script-drawn front page is accepted by its search title only when it has no other title',async()=>{
+ const front='<title>폴뉴아</title><body><a href="/company">회사 소개</a><a href="/contact">제휴 문의</a>'+'<p>브랜드 이야기</p>'.repeat(200)+'</body>'
+ const withContact=setup({read:async(u:string)=>({status:200,contentType:'text/html',text:u.endsWith('/contact')?'<p>제휴 문의 biz@paulnua.com</p>':front})});await withContact.handler(post({id,token}))
+ assert.deepEqual([withContact.calls.done?.status,withContact.calls.done?.emails,withContact.calls.done?.contact_page],['found',['biz@paulnua.com'],'https://www.paulnua.com/contact'])
+ const rootRow=[{url:'https://www.paulnua.com/',title:'폴뉴아 ｜ PAULNUA Corp.',description:'폴뉴아'}]
+ assert.deepEqual(titled(rootRow,'폴뉴아'),['https://www.paulnua.com/']);assert.deepEqual(titled([{url:'https://www.paulnua.com/news/1',title:'폴뉴아 소식',description:''}],'폴뉴아'),[])
+ const shell=setup({read:async()=>({status:200,contentType:'text/html',text:'<html><body><div id="app"></div><script src="/a.js"></script></body></html>'})},async()=>rootRow);await shell.handler(post({id,token}))
+ assert.equal(shell.calls.done?.status,'found');assert.match(shell.calls.done!.note,/검색 결과의 사이트 제목으로/)
+ const parked=setup({read:async()=>({status:200,contentType:'text/html',text:'<title>도메인 임대 문의</title><body></body>'})},async()=>rootRow);await parked.handler(post({id,token}));assert.equal(parked.calls.done?.status,'not_found')
 })
