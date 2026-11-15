@@ -24,11 +24,21 @@ export interface SalesReport {
  sources:CollectionSource[];pipeline:{stage:string;count:number;amount:number}[];schedules:{name:string;active:boolean;schedule:string}[];
 }
 export interface ReportFilter {search:string;kind:string;assessment:string;page:number}
+export interface SalesDataReadiness {
+ counts:{total:number;companies:number;people:number;unclassified:number;content_verified:number;blocked:number;missing_source:number;missing_contact:number;linked_opportunities:number};
+ sending_enabled:boolean;sending_status:string;new_today:number;baseline:number;
+}
+export interface SalesSourceVersion {
+ id:number;prospect_id:string;version:number;origin:'baseline'|'collection';captured_at:string;last_collected_at:string;source_updated_at:string|null;
+ snapshot:{name:string;source:string;organization:string;entity_kind:string;contact:string;evidence:string;source_url:string;blocked:boolean;end_date:string|null};
+}
 export const EMPTY_REPORT:SalesReport={prospects:[],total:0,counts:{total:0,companies:0,people:0,new:0,priority:0},due:0,briefing:null,sources:[],pipeline:[],schedules:[]}
 export const effectiveAssessment=(p:SalesProspect):Assessment=>p.blocked?'제외':p.reviewed_assessment??p.assessment
 export const effectiveKind=(p:SalesProspect):EntityKind=>p.reviewed_kind??p.entity_kind
 export const sourceIsStale=(s:CollectionSource,now=Date.now())=>!s.source_at||!Number.isFinite(Date.parse(s.source_at))||now-Date.parse(s.source_at)>86400000
 export interface SalesReportApi {
+ getSalesDataReadiness():Promise<SalesDataReadiness>;
+ getSalesSourceVersions(id:string,before:number|null):Promise<SalesSourceVersion[]>;
  getSalesCompanyContext(clientId:string,pages:CompanyContextPages):Promise<SalesCompanyContext|null>;
  getCollectedSeoulEvents():Promise<SeoulEventSnapshot>;
  getSalesReport(filter:ReportFilter):Promise<SalesReport>;
@@ -40,6 +50,8 @@ export interface SalesReportApi {
 }
 function fail(error:{code?:string;message:string}|null){if(error)throw new ApiError(['PGRST202','42883','42P01'].includes(error.code??'')?'영업 보고 서버를 준비하고 있습니다. 기존 영업 업무는 아래에서 계속 사용할 수 있습니다.':error.message)}
 export function createSupabaseSalesReportApi(sb:SupabaseClient):SalesReportApi{return {
+ async getSalesDataReadiness(){const r=await sb.rpc('sales_automation_readiness');fail(r.error);if(!r.data)throw new ApiError('자료 준비 상태를 확인하지 못했습니다.');return r.data as SalesDataReadiness},
+ async getSalesSourceVersions(id,before){const r=await sb.rpc('sales_source_versions',{p_id:id,p_before:before});fail(r.error);if(!Array.isArray(r.data))throw new ApiError('출처 이력을 확인하지 못했습니다.');return r.data as SalesSourceVersion[]},
  getSalesCompanyContext:(clientId,pages)=>readSalesCompanyContext(sb,clientId,pages),
  async getCollectedSeoulEvents(){const r=await sb.rpc('sales_seoul_events');fail(r.error);return r.data as SeoulEventSnapshot},
  async getSalesReport(f){const r=await sb.rpc('sales_report',{p_search:f.search,p_kind:f.kind,p_assessment:f.assessment,p_page:f.page});fail(r.error);return r.data as SalesReport},
@@ -50,6 +62,8 @@ export function createSupabaseSalesReportApi(sb:SupabaseClient):SalesReportApi{r
  async startSalesProspect(id){const r=await sb.rpc('sales_prospect_start',{p_id:id});fail(r.error);return r.data as string},
 }}
 export function createDemoSalesReportApi():SalesReportApi{return {
+ async getSalesDataReadiness(){throw new ApiError('운영 계정에서 실제 자료 준비 상태를 확인할 수 있습니다.')},
+ async getSalesSourceVersions(){throw new ApiError('운영 계정에서 실제 출처 이력을 확인할 수 있습니다.')},
  async getSalesCompanyContext(){throw new ApiError('운영 계정에서 연결된 회사 자료를 확인해 주세요.')},
  async getCollectedSeoulEvents(){throw new ApiError('운영 계정에서 서울시 공식 API 자료를 확인해 주세요.')},
  async getSalesReport(){return structuredClone(EMPTY_REPORT)},

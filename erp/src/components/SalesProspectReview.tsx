@@ -4,6 +4,7 @@ import { effectiveAssessment, effectiveKind, ENTITY_KINDS, type EntityKind, PROS
 import { recommendSalesMethod, salesEvidenceLinks } from '../lib/salesMethods'
 import { SalesMethodAdvice } from './SalesMethodAdvice'
 import { SalesCompanyContext } from './SalesCompanyContext'
+import { SalesSourceHistory } from './SalesEvidence'
 import { useDraftGuard } from './SalesEditor'
 import { Button, Field } from './ui'
 
@@ -54,6 +55,7 @@ export function SalesProspectReview({prospect,onUpdated,onClose,onStart,opening}
    <Button kind="outline" disabled={busy||opening||dirty||(!p.linked_sales_id&&(!p.verification_current||['제외','보류'].includes(effectiveAssessment(p))))} onClick={onStart}>{p.linked_sales_id?'진행 내용 열기':'검증한 내용으로 영업 시작'}</Button></div>
    {!p.linked_sales_id&&!p.verification_current&&<p className="sales-report-note">역할·실제 수요·수행 범위·근거를 확인으로 저장하면 영업을 시작할 수 있습니다.</p>}
   </form>
+  <SalesSourceHistory key={p.id} api={api} id={p.id}/>
   <SalesMethodAdvice input={{...p,assessment:effectiveAssessment(p),verifiedRole:p.verification_current?p.verification?.role:undefined}}/>
  </section>
 }

@@ -6,6 +6,7 @@ import { Button, Field } from './ui'
 import { SalesEditor } from './SalesEditor'
 import { SALES_STAGES, type SalesOpportunity } from '../lib/sales'
 import { SalesProspectReview } from './SalesProspectReview'
+import { SalesDataStatus } from './SalesEvidence'
 import { recommendSalesMethod, SALES_METHODS } from '../lib/salesMethods'
 import { requestViewChange } from '../lib/navigationGuard'
 import './SalesReport.css'
@@ -84,5 +85,6 @@ export function SalesReport(){
    {!data.sources.length&&<p className="sales-report-empty">수집 이력이 아직 없습니다.</p>}
    <p className="sales-report-note">서울시 공식 API·코엑스 공개 목록과 인트라넷에 연결된 영업 자료를 취합합니다. 공개 목록의 제공 범위와 오류를 표시하며, 미연결 외부 자료는 포함하지 않습니다.</p>
   </section>
+  <SalesDataStatus api={api} revision={data}/>
  </article>
 }
