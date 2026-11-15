@@ -51,3 +51,12 @@ test('google adapter turns the answer and its cited sites into candidates only',
  assert.deepEqual(await googleSearch('gk',fetcher({candidates:[{content:{parts:[{text:'없음'}]}}]})).search('q'),[])
  await assert.rejects(googleSearch('gk',fetcher({error:{}},400)).search('q'),/auth/);await assert.rejects(googleSearch('gk',fetcher({},429)).search('q'),/quota/);await assert.rejects(googleSearch('gk',fetcher({})).search('q'),/upstream/)
 })
+test('a site counts as the brand\'s own only when it presents itself under that name',()=>{
+ const article='<title>머니 매거진</title><body><a href="/a/1">컬리, 뷰티페스타 체험존 운영</a><p>© 머니 매거진</p></body>'
+ assert.equal(inspect(article,'https://www.moneyweekly.co.kr/','컬리').named,false)
+ assert.equal(inspect('<title>쇼핑</title><meta property="og:site_name" content="컬리 - 마켓컬리"><body></body>','https://www.kurly.com/','컬리').named,true)
+ assert.equal(inspect('<title>Home</title><body><footer>Copyright © 2026 주식회사 폴뉴아. All rights reserved. | 이용약관</footer></body>','https://shop.example.co.kr/','폴뉴아').named,true)
+ assert.equal(inspect('<title>Official Store</title><body>welcome</body>','https://www.mlb-korea.com/','MLB').named,true)
+ assert.equal(inspect('<title>Official Store</title><body>MLB 관련 소식</body>','https://www.sports-shop.com/','MLB').named,false)
+ assert.deepEqual(candidates([{url:'https://money-magazine.co.kr/x',title:'컬리',description:''},{url:'https://thehyundaiblog.com/',title:'컬리',description:''},{url:'https://xn--hz2b150a43d.kr/',title:'컬리',description:''},{url:'https://www.kurly.com/main',title:'컬리 공식',description:''}],'컬리'),['https://www.kurly.com/'])
+})

@@ -13,7 +13,7 @@ export interface BrandSiteDeps {
  background?:(work:Promise<void>)=>void;
 }
 /** Marketplaces, social networks, portals, news and wikis are never a brand's own site. */
-const OTHER=/(^|\.)(instagram|facebook|youtube|x|twitter|tiktok|threads|linkedin|pinterest|naver|daum|kakao|tistory|google|coupang|11st|gmarket|auction|ssg|musinsa|29cm|oliveyoung|wikipedia|namu|wadiz|tumblbug|saramin|jobkorea|wanted|greetinghr|catch|blind|brunch|medium|notion|linktr|apple|amazon)\.[a-z.]+$|(news|press|times|daily|ilbo|sinmun|herald|biz|media|journal|tv)\b/i
+const OTHER=/(^|\.)(instagram|facebook|youtube|x|twitter|tiktok|threads|linkedin|pinterest|naver|daum|kakao|tistory|google|coupang|11st|gmarket|auction|ssg|musinsa|29cm|oliveyoung|wikipedia|namu|wadiz|tumblbug|saramin|jobkorea|wanted|greetinghr|catch|blind|brunch|medium|notion|linktr|apple|amazon)\.[a-z.]+$|(news|press|times|daily|ilbo|sinmun|herald|biz|media|journal|tv|magazine|blog|wiki|review)\b|(^|\.)xn--/i
 const squash=(v:string)=>v.toLowerCase().replace(/<[^>]*>/g,'').replace(/[\s·.,'"()\[\]㈜]|주식회사|\(주\)/g,'')
 function origin(value:unknown):string{
  if(typeof value!=='string'||value.length>1000)return ''
@@ -31,10 +31,16 @@ export function candidates(input:unknown,brand:string):string[]{
  return out
 }
 const text=(html:string)=>html.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi,' ').replace(/<[^>]*>/g,' ').replace(/&nbsp;|&#160;/g,' ').replace(/\s+/g,' ')
-/** The page must name the brand. Addresses and the contact link are taken only from what the page shows. */
+const meta=(html:string,name:string)=>{for(const m of html.matchAll(/<meta\b[^>]{0,400}>/gi)){if(new RegExp(`(property|name)\\s*=\\s*["']${name}["']`,'i').test(m[0]))return m[0].match(/content\s*=\s*["']([^"']{0,200})["']/i)?.[1]??''}return ''}
+/**
+ * The site must present itself as the brand's: its name stands in the page title, the site name, the
+ * copyright line or (for a Latin name) the address. A page that merely mentions the brand, such as a
+ * magazine article list, does not count. Addresses and the contact link come only from what the page shows.
+ */
 export function inspect(html:string,site:string,brand:string):{named:boolean;contact_page:string;emails:string[]}{
- const body=text(html),named=squash(body+' '+(html.match(/<title[^>]*>([^<]{0,200})/i)?.[1]??'')).includes(squash(brand))
- const host=new URL(site).hostname.replace(/^www\./,''),emails:string[]=[]
+ const body=text(html),key=squash(brand),host=new URL(site).hostname.replace(/^www\./,''),emails:string[]=[]
+ const identity=[html.match(/<title[^>]*>([^<]{0,200})/i)?.[1]??'',meta(html,'og:site_name'),meta(html,'og:title'),meta(html,'application-name'),...[...body.matchAll(/(?:©|ⓒ|\(c\)|copyright)[^|]{0,80}/gi)].slice(0,3).map(m=>m[0])].join(' ')
+ const named=key.length>=2&&(squash(identity).includes(key)||(/^[a-z0-9]{3,}$/.test(key)&&host.replace(/[^a-z0-9]/g,'').includes(key)))
  for(const m of body.matchAll(/[a-z0-9._%+-]{1,64}@[a-z0-9.-]{1,180}\.[a-z]{2,}/gi)){const e=m[0].toLowerCase();if(!emails.includes(e)&&!/\.(png|jpe?g|gif|svg|webp)$/.test(e)&&!/^(example|your|name|email|test)@|@(example|sentry|wixpress)\./.test(e))emails.push(e);if(emails.length===5)break}
  let contact_page=''
  for(const m of html.matchAll(/<a\b[^>]*href\s*=\s*["']([^"'#]{1,500})["'][^>]*>([\s\S]{0,200}?)<\/a>/gi)){

@@ -3,7 +3,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.117.3";
 
 // supabase/functions/sales-brand-site/handler.ts
-var OTHER = /(^|\.)(instagram|facebook|youtube|x|twitter|tiktok|threads|linkedin|pinterest|naver|daum|kakao|tistory|google|coupang|11st|gmarket|auction|ssg|musinsa|29cm|oliveyoung|wikipedia|namu|wadiz|tumblbug|saramin|jobkorea|wanted|greetinghr|catch|blind|brunch|medium|notion|linktr|apple|amazon)\.[a-z.]+$|(news|press|times|daily|ilbo|sinmun|herald|biz|media|journal|tv)\b/i;
+var OTHER = /(^|\.)(instagram|facebook|youtube|x|twitter|tiktok|threads|linkedin|pinterest|naver|daum|kakao|tistory|google|coupang|11st|gmarket|auction|ssg|musinsa|29cm|oliveyoung|wikipedia|namu|wadiz|tumblbug|saramin|jobkorea|wanted|greetinghr|catch|blind|brunch|medium|notion|linktr|apple|amazon)\.[a-z.]+$|(news|press|times|daily|ilbo|sinmun|herald|biz|media|journal|tv|magazine|blog|wiki|review)\b|(^|\.)xn--/i;
 var squash = (v) => v.toLowerCase().replace(/<[^>]*>/g, "").replace(/[\s·.,'"()\[\]㈜]|주식회사|\(주\)/g, "");
 function origin(value) {
   if (typeof value !== "string" || value.length > 1e3) return "";
@@ -28,9 +28,16 @@ function candidates(input, brand) {
   return out;
 }
 var text = (html) => html.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi, " ").replace(/<[^>]*>/g, " ").replace(/&nbsp;|&#160;/g, " ").replace(/\s+/g, " ");
+var meta = (html, name) => {
+  for (const m of html.matchAll(/<meta\b[^>]{0,400}>/gi)) {
+    if (new RegExp(`(property|name)\\s*=\\s*["']${name}["']`, "i").test(m[0])) return m[0].match(/content\s*=\s*["']([^"']{0,200})["']/i)?.[1] ?? "";
+  }
+  return "";
+};
 function inspect(html, site2, brand) {
-  const body = text(html), named = squash(body + " " + (html.match(/<title[^>]*>([^<]{0,200})/i)?.[1] ?? "")).includes(squash(brand));
-  const host = new URL(site2).hostname.replace(/^www\./, ""), emails = [];
+  const body = text(html), key = squash(brand), host = new URL(site2).hostname.replace(/^www\./, ""), emails = [];
+  const identity = [html.match(/<title[^>]*>([^<]{0,200})/i)?.[1] ?? "", meta(html, "og:site_name"), meta(html, "og:title"), meta(html, "application-name"), ...[...body.matchAll(/(?:©|ⓒ|\(c\)|copyright)[^|]{0,80}/gi)].slice(0, 3).map((m) => m[0])].join(" ");
+  const named = key.length >= 2 && (squash(identity).includes(key) || /^[a-z0-9]{3,}$/.test(key) && host.replace(/[^a-z0-9]/g, "").includes(key));
   for (const m of body.matchAll(/[a-z0-9._%+-]{1,64}@[a-z0-9.-]{1,180}\.[a-z]{2,}/gi)) {
     const e = m[0].toLowerCase();
     if (!emails.includes(e) && !/\.(png|jpe?g|gif|svg|webp)$/.test(e) && !/^(example|your|name|email|test)@|@(example|sentry|wixpress)\./.test(e)) emails.push(e);
