@@ -36,7 +36,11 @@ export interface SalesStrategyApi extends SalesExecutionApi {
   setBidQualification(kind: BidQualification['kind'], name: string, status: BidQualification['status']): Promise<void>;
   /** 광고 고객 목록 (관리자만): 직접 거래 · 연락한 상대의 메일과 전화 */
   getAdAudience(): Promise<AdAudienceRow[]>;
+  /** 승인된 영업 메일을 보낼 수 있는 수신자 범위 (관리자만) */
+  getRecipientScope(): Promise<RecipientScope>;
+  setRecipientScope(scope: RecipientScope): Promise<void>;
 }
+export type RecipientScope='미정'|'거래·문의'|'공개 창구 포함'
 export interface AdAudienceRow {email: string; phone: string; segment: string}
 /** Google Ads Customer Match upload: English headers, E.164 phones, ISO country. */
 export const googleAudienceCsv=(rows:AdAudienceRow[])=>['Email,Phone,Country',...rows.map(r=>`${r.email},${r.phone},KR`)].join('\r\n')+'\r\n'
