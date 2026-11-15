@@ -40,6 +40,7 @@ const Agents = lazy(() => import('./pages/Agents'))
 const Ads = lazy(() => import('./pages/Ads'))
 const Drive = lazy(() => import('./pages/Drive'))
 const Ledger = lazy(() => import('./pages/Ledger'))
+const Design = lazy(() => import('./pages/Design'))
 
 const PAGES: Record<string, React.ComponentType> = {
   '/': Home,
@@ -58,6 +59,13 @@ const PAGES: Record<string, React.ComponentType> = {
   '/drive': Drive,
   '/team': Team,
   '/site': Site,
+  '/design': Design,
+  '/design-orders': Design,
+  '/design-cards': Design,
+  '/design-prices': Design,
+  '/design-vendors': Design,
+  '/design-materials': Design,
+  '/design-learn': Design,
   '/admin': Admin,
   '/ledger': Ledger,
   '/agents': Agents,
