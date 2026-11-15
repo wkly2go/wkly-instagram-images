@@ -16,10 +16,9 @@ function origin(value) {
   }
 }
 function candidates(input, brand) {
-  const rows = input?.web?.results;
-  if (!Array.isArray(rows)) throw new Error("format");
+  if (!Array.isArray(input)) throw new Error("format");
   const key = squash(brand), out = [];
-  for (const r of rows) {
+  for (const r of input) {
     const site2 = origin(r?.url);
     if (!site2 || out.includes(site2)) continue;
     if (!squash(String(r?.title ?? "") + " " + String(r?.description ?? "")).includes(key)) continue;
@@ -77,21 +76,23 @@ function createBrandSiteHandler(d) {
     const work = async () => {
       let result = { status: "unavailable", homepage: "", contact_page: "", emails: [], note: "\uAC80\uC0C9 \uBBF8\uC644\uB8CC \xB7 \uB2E4\uC74C \uC608\uC57D\uC5D0\uC11C \uB2E4\uC2DC \uC2DC\uB3C4" };
       try {
-        const key = d.key?.trim();
-        if (!key) {
+        if (!d.providers.length) {
           result.note = "\uC6F9 \uAC80\uC0C9 \uD0A4 \uC124\uC815 \uD544\uC694";
         } else if (!/^[^\u0000-\u001f]{2,40}$/.test(job.brand)) {
           result = { ...result, status: "not_found", note: "\uBE0C\uB79C\uB4DC \uC774\uB984 \uD615\uC2DD \uD655\uC778 \uD544\uC694" };
         } else {
-          const response = await d.fetcher("https://api.search.brave.com/res/v1/web/search?q=" + encodeURIComponent(job.brand + " \uACF5\uC2DD \uD648\uD398\uC774\uC9C0") + "&count=10&country=KR&search_lang=ko", { method: "GET", redirect: "error", signal: AbortSignal.timeout(12e3), headers: { Accept: "application/json", "X-Subscription-Token": key } });
-          if (!response.ok) {
-            await response.body?.cancel().catch(() => void 0);
-            result.note = response.status === 401 || response.status === 403 ? "\uC6F9 \uAC80\uC0C9 \uD0A4 \uC778\uC99D \uC2E4\uD328" : response.status === 429 ? "\uC6F9 \uAC80\uC0C9 \uBB34\uB8CC \uD55C\uB3C4 \uB3C4\uB2EC \xB7 \uB2E4\uC74C \uB2EC \uB610\uB294 \uD55C\uB3C4 \uC870\uC815 \uD6C4 \uC7AC\uAC1C" : "\uC6F9 \uAC80\uC0C9 \uC751\uB2F5 \uC2E4\uD328";
-          } else {
-            const body = await response.text();
-            if (body.length > 2e6) throw new Error("size");
-            result = { status: "not_found", homepage: "", contact_page: "", emails: [], note: "\uAC80\uC0C9 \uACB0\uACFC\uC5D0\uC11C \uBE0C\uB79C\uB4DC \uC790\uCCB4 \uC0AC\uC774\uD2B8\uB97C \uD655\uC778\uD558\uC9C0 \uBABB\uD568" };
-            for (const site2 of candidates(JSON.parse(body), job.brand)) {
+          let answered = 0, failure = "";
+          search: for (const provider of d.providers) {
+            let rows;
+            try {
+              rows = await provider.search(job.brand + " \uACF5\uC2DD \uD648\uD398\uC774\uC9C0");
+            } catch (error) {
+              const reason = error instanceof Error ? error.message : "";
+              failure = `${provider.name} ${reason === "auth" ? "\uAC80\uC0C9 \uD0A4 \uC778\uC99D \uC2E4\uD328" : reason === "quota" ? "\uAC80\uC0C9 \uD55C\uB3C4 \uB3C4\uB2EC" : "\uAC80\uC0C9 \uC751\uB2F5 \uC2E4\uD328"}`;
+              continue;
+            }
+            answered++;
+            for (const site2 of candidates(rows, job.brand)) {
               let page;
               try {
                 page = await d.read(site2);
@@ -101,10 +102,11 @@ function createBrandSiteHandler(d) {
               if (page.status !== 200 || !page.text) continue;
               const seen = inspect(page.text, site2, job.brand);
               if (!seen.named) continue;
-              result = { status: "found", homepage: site2, contact_page: seen.contact_page, emails: seen.emails, note: "\uBE0C\uB79C\uB4DC \uC774\uB984\uC774 \uC801\uD78C \uC790\uCCB4 \uC0AC\uC774\uD2B8 \uD655\uC778" + (seen.emails.length ? " \xB7 \uC0AC\uC774\uD2B8\uC5D0 \uACF5\uAC1C\uB41C \uC8FC\uC18C \uC788\uC74C" : "") };
-              break;
+              result = { status: "found", homepage: site2, contact_page: seen.contact_page, emails: seen.emails, note: `${provider.name} \uAC80\uC0C9 \u2192 \uBE0C\uB79C\uB4DC \uC774\uB984\uC774 \uC801\uD78C \uC790\uCCB4 \uC0AC\uC774\uD2B8 \uD655\uC778` + (seen.emails.length ? " \xB7 \uC0AC\uC774\uD2B8\uC5D0 \uACF5\uAC1C\uB41C \uC8FC\uC18C \uC788\uC74C" : "") };
+              break search;
             }
           }
+          if (result.status !== "found") result = answered ? { status: "not_found", homepage: "", contact_page: "", emails: [], note: "\uAC80\uC0C9 \uACB0\uACFC\uC5D0\uC11C \uBE0C\uB79C\uB4DC \uC790\uCCB4 \uC0AC\uC774\uD2B8\uB97C \uD655\uC778\uD558\uC9C0 \uBABB\uD568" } : { ...result, note: failure || result.note };
         }
       } catch {
       }
@@ -125,6 +127,27 @@ function createBrandSiteHandler(d) {
     return Response.json({ recorded }, { status: recorded ? 200 : 503 });
   };
 }
+var clip = (v) => typeof v === "string" ? v.slice(0, 500) : "";
+async function json(response) {
+  if (!response.ok) {
+    await response.body?.cancel().catch(() => void 0);
+    throw new Error(response.status === 401 || response.status === 403 ? "auth" : response.status === 429 ? "quota" : "upstream");
+  }
+  const body = await response.text();
+  if (body.length > 2e6) throw new Error("upstream");
+  return JSON.parse(body);
+}
+var options = (headers) => ({ method: "GET", redirect: "error", signal: AbortSignal.timeout(1e4), headers: { Accept: "application/json", ...headers } });
+var kakaoSearch = (key, fetcher) => ({ name: "\uCE74\uCE74\uC624(\uB2E4\uC74C)", search: async (query) => {
+  const data = await json(await fetcher("https://dapi.kakao.com/v2/search/web?size=10&query=" + encodeURIComponent(query), options({ Authorization: "KakaoAK " + key })));
+  if (!Array.isArray(data?.documents)) throw new Error("upstream");
+  return data.documents.map((r) => ({ url: clip(r.url), title: clip(r.title), description: clip(r.contents) }));
+} });
+var naverSearch = (id, secret, fetcher) => ({ name: "\uB124\uC774\uBC84", search: async (query) => {
+  const data = await json(await fetcher("https://naverapihub.apigw.ntruss.com/search/v1/webkr?display=10&query=" + encodeURIComponent(query), options({ "X-NCP-APIGW-API-KEY-ID": id, "X-NCP-APIGW-API-KEY": secret })));
+  if (!Array.isArray(data?.items)) throw new Error("upstream");
+  return data.items.map((r) => ({ url: clip(r.link), title: clip(r.title), description: clip(r.description) }));
+} });
 
 // supabase/functions/sales-contact-discovery/handler.ts
 function sourceUrl(value, base) {
@@ -212,9 +235,14 @@ var site = (value) => {
     return null;
   }
 };
+var env = (name) => (Deno.env.get(name) ?? "").trim();
+var providers = [];
+if (env("KAKAO_REST_API_KEY")) providers.push(kakaoSearch(env("KAKAO_REST_API_KEY"), fetch));
+var naverId = env("NAVER_SEARCH_CLIENT_ID") || env("NAVER_API_ID") || env("NAVER-API-ID");
+var naverSecret = env("NAVER_SEARCH_CLIENT_SECRET") || env("NAVER_API_SECRET");
+if (naverId && naverSecret) providers.push(naverSearch(naverId, naverSecret, fetch));
 Deno.serve(createBrandSiteHandler({
-  key: Deno.env.get("BRAVE_SEARCH_API_KEY"),
-  fetcher: fetch,
+  providers,
   read: (url) => readPublicPageEdge(url, net, site),
   claim: (id, token) => rpc("sales_brand_site_claim", { p_id: id, p_token: token }),
   finish: async (id, result) => {

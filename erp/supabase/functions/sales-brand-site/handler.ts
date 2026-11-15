@@ -3,8 +3,11 @@
 import type {Page} from '../sales-contact-discovery/handler.ts'
 export interface BrandSiteJob {id:string;brand:string}
 export interface BrandSiteResult {status:'found'|'not_found'|'unavailable';homepage:string;contact_page:string;emails:string[];note:string}
+export interface SearchRow {url:string;title:string;description:string}
+export interface SearchProvider {name:string;search:(query:string)=>Promise<SearchRow[]>}
 export interface BrandSiteDeps {
- key?:string;fetcher:typeof fetch;read:(url:string)=>Promise<Page>;
+ /** Search engines tried in order until one yields the brand's own site. */
+ providers:SearchProvider[];read:(url:string)=>Promise<Page>;
  claim:(id:string,token:string)=>Promise<BrandSiteJob|null>;
  finish:(id:string,result:BrandSiteResult)=>Promise<void>;
  background?:(work:Promise<void>)=>void;
@@ -18,9 +21,9 @@ function origin(value:unknown):string{
 }
 /** Search results are candidates only; at most three distinct sites that mention the brand are tried. */
 export function candidates(input:unknown,brand:string):string[]{
- const rows=(input as {web?:{results?:unknown}})?.web?.results;if(!Array.isArray(rows))throw new Error('format')
+ if(!Array.isArray(input))throw new Error('format')
  const key=squash(brand),out:string[]=[]
- for(const r of rows as Record<string,unknown>[]){
+ for(const r of input as Record<string,unknown>[]){
   const site=origin(r?.url);if(!site||out.includes(site))continue
   if(!squash(String(r?.title??'')+' '+String(r?.description??'')).includes(key))continue
   out.push(site);if(out.length===3)break
@@ -50,22 +53,22 @@ export function createBrandSiteHandler(d:BrandSiteDeps){return async(req:Request
  const work=async()=>{
   let result:BrandSiteResult={status:'unavailable',homepage:'',contact_page:'',emails:[],note:'검색 미완료 · 다음 예약에서 다시 시도'}
   try{
-   const key=d.key?.trim();if(!key){result.note='웹 검색 키 설정 필요'}
+   if(!d.providers.length){result.note='웹 검색 키 설정 필요'}
    else if(!/^[^\u0000-\u001f]{2,40}$/.test(job!.brand)){result={...result,status:'not_found',note:'브랜드 이름 형식 확인 필요'}}
    else{
-    // Fixed official host; the key travels only in this header and is never logged or returned.
-    const response=await d.fetcher('https://api.search.brave.com/res/v1/web/search?q='+encodeURIComponent(job!.brand+' 공식 홈페이지')+'&count=10&country=KR&search_lang=ko',{method:'GET',redirect:'error',signal:AbortSignal.timeout(12000),headers:{Accept:'application/json','X-Subscription-Token':key}})
-    if(!response.ok){await response.body?.cancel().catch(()=>undefined);result.note=response.status===401||response.status===403?'웹 검색 키 인증 실패':response.status===429?'웹 검색 무료 한도 도달 · 다음 달 또는 한도 조정 후 재개':'웹 검색 응답 실패'}
-    else{
-     const body=await response.text();if(body.length>2000000)throw new Error('size')
-     result={status:'not_found',homepage:'',contact_page:'',emails:[],note:'검색 결과에서 브랜드 자체 사이트를 확인하지 못함'}
-     for(const site of candidates(JSON.parse(body),job!.brand)){
+    let answered=0,failure=''
+    search:for(const provider of d.providers){
+     let rows:SearchRow[]
+     try{rows=await provider.search(job!.brand+' 공식 홈페이지')}catch(error){const reason=error instanceof Error?error.message:'';failure=`${provider.name} ${reason==='auth'?'검색 키 인증 실패':reason==='quota'?'검색 한도 도달':'검색 응답 실패'}`;continue}
+     answered++
+     for(const site of candidates(rows,job!.brand)){
       let page:Page;try{page=await d.read(site)}catch{continue}
       if(page.status!==200||!page.text)continue
       const seen=inspect(page.text,site,job!.brand);if(!seen.named)continue
-      result={status:'found',homepage:site,contact_page:seen.contact_page,emails:seen.emails,note:'브랜드 이름이 적힌 자체 사이트 확인'+(seen.emails.length?' · 사이트에 공개된 주소 있음':'')};break
+      result={status:'found',homepage:site,contact_page:seen.contact_page,emails:seen.emails,note:`${provider.name} 검색 → 브랜드 이름이 적힌 자체 사이트 확인`+(seen.emails.length?' · 사이트에 공개된 주소 있음':'')};break search
      }
     }
+    if(result.status!=='found')result=answered?{status:'not_found',homepage:'',contact_page:'',emails:[],note:'검색 결과에서 브랜드 자체 사이트를 확인하지 못함'}:{...result,note:failure||result.note}
    }
   }catch{/* controlled note above */}
   for(let attempt=0;attempt<2;attempt++){try{await d.finish(id,result);return true}catch{/* retried once */}}
@@ -74,3 +77,19 @@ export function createBrandSiteHandler(d:BrandSiteDeps){return async(req:Request
  if(d.background){d.background(work().then(()=>undefined));return Response.json({accepted:true},{status:202})}
  const recorded=await work();return Response.json({recorded},{status:recorded?200:503})
 }}
+
+const clip=(v:unknown)=>typeof v==='string'?v.slice(0,500):''
+async function json(response:Response){
+ if(!response.ok){await response.body?.cancel().catch(()=>undefined);throw new Error(response.status===401||response.status===403?'auth':response.status===429?'quota':'upstream')}
+ const body=await response.text();if(body.length>2000000)throw new Error('upstream');return JSON.parse(body)
+}
+const options=(headers:Record<string,string>):RequestInit=>({method:'GET',redirect:'error',signal:AbortSignal.timeout(10000),headers:{Accept:'application/json',...headers}})
+/** Each provider calls one fixed official host; keys travel only in request headers and are never logged or returned. */
+export const kakaoSearch=(key:string,fetcher:typeof fetch):SearchProvider=>({name:'카카오(다음)',search:async query=>{
+ const data=await json(await fetcher('https://dapi.kakao.com/v2/search/web?size=10&query='+encodeURIComponent(query),options({Authorization:'KakaoAK '+key})))
+ if(!Array.isArray(data?.documents))throw new Error('upstream');return data.documents.map((r:Record<string,unknown>)=>({url:clip(r.url),title:clip(r.title),description:clip(r.contents)}))
+}})
+export const naverSearch=(id:string,secret:string,fetcher:typeof fetch):SearchProvider=>({name:'네이버',search:async query=>{
+ const data=await json(await fetcher('https://naverapihub.apigw.ntruss.com/search/v1/webkr?display=10&query='+encodeURIComponent(query),options({'X-NCP-APIGW-API-KEY-ID':id,'X-NCP-APIGW-API-KEY':secret})))
+ if(!Array.isArray(data?.items))throw new Error('upstream');return data.items.map((r:Record<string,unknown>)=>({url:clip(r.link),title:clip(r.title),description:clip(r.description)}))
+}})
