@@ -1,4 +1,5 @@
 import { SalesStrategyDesk } from '../components/SalesStrategyDesk'
+import { SalesDevelopmentProgress } from '../components/SalesDevelopmentProgress'
 import { showPanel } from '../components/WebSearch'
 import { SalesReport } from '../components/SalesReport'
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -69,6 +70,7 @@ export default function Sales() {
     })
   }
   return <Shell active="sales"><div className={`sales-page${wide?' sales-wide':''}`}>
+    <SalesDevelopmentProgress />
     <div className="sales-page-tools"><Button kind="outline" aria-expanded={!wide} onClick={()=>{setWide(!wide);if(wide)showPanel()}}>{wide?'일정 펼치기':'본문 넓게 보기'}</Button></div>
     <SalesStrategyDesk />
     <details className="sales-db-browser" open={showDatabase} onToggle={e=>setDbOpen(e.currentTarget.open)}>

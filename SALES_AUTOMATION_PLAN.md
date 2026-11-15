@@ -104,3 +104,11 @@
 
 ### Execution reporting integration
 The 09:00 planning notification and saved chat snapshots now distinguish review-ready plans, preparation in progress, recovery needs, and latest execution-package states. Unconnected delivery totals are null, not zero or a prepared-package count. The report prompt explicitly preserves this distinction. Latest validation: 47 distinct related DB, worker, migration and UI tests passed across this development turn; production build and generated worker-source checks passed. Production SQL, server deployment and live delivery remain on hold.
+
+## Persistent development checkpoint — 2026-11-15
+
+The Sales page now keeps a sticky progress strip above the AI room and saved DB. Its expandable list shows 12 capabilities with four equally weighted completion gates: implementation, local validation, production deployment, and live-flow verification. Current recorded evidence is 15/48 gates, rounded down to 31% complete / 69% remaining (7 implemented, 7 locally validated, 1 previously deployed, 0 live-flow verified). This is a checklist ratio, not a time estimate or a claim that 31% of production automation works.
+
+`erp/src/lib/salesDevelopment.ts` owns the dated checkpoint and evidence. Update it with every relevant development handoff; only advance gates after recording evidence, and revise the denominator if scope changes. It is versioned with the frontend, not live agent/worker telemetry. A newly published checkpoint requires reopening the page. The UI states this limitation and preserves the production hold. Pending delivery, DM, reply/opt-out CRM, enrichment and end-to-end recovery remain visibly incomplete.
+
+Validation: two progress calculation/evidence checks and the production build pass. Browser fixture verified sticky visibility after scrolling and an expandable in-page checklist. No new dependencies, DB migrations, shared Shell changes or design files. Production remains on hold.
