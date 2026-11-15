@@ -74,6 +74,8 @@ async function mount(role, kind = 'sales', props = {}, initialUrl) {
     React.createElement(AppProvider, { me, profiles, version: 0, bump() {}, toast() {}, openQuick() {} },
       (kind === 'ads' || kind === 'agents') ? React.createElement(React.Fragment, null, React.createElement(kind === 'agents' ? Agents : Ads), React.createElement(CommandPalette)) :
         React.createElement(kind === 'projects' ? Projects : kind === 'dock' ? DockTodo : kind === 'sales' ? Sales : kind === 'leads' ? Leads : kind === 'meeting' ? MeetingRecorder : GrowthWorkspace, kind === 'sales' ? {} : kind === 'meeting' ? props : { kind })))))
+  // 2026-11-15: the stored-data screens sit in an administrator-only section that starts closed.
+  if (kind === 'sales') { const toggle = within(document.body).queryByText('저장된 영업 DB · 자료와 진행 기록 보기 (관리자 점검용)'); if (toggle && !toggle.closest('details').open) await act(async () => user.click(toggle)) }
   return within(document.body)
 }
 async function click(element) { await act(async () => user.click(element)) }
@@ -250,7 +252,7 @@ test('failed content save and declined close keep channel drafts; opening a new 
   assert.equal(editor.getByLabelText('채널 본문').value, '')
 })
 
-for (const role of ['admin', 'member']) {
+for (const role of ['admin'] /* 2026-11-15: 팀원에게는 저장 DB 화면을 보이지 않는다 */) {
   test(`${role}: actual sales form keeps URL parameters and guards unsaved close`, async () => {
     const screen = await mount(role)
     await click(screen.getByRole('button', { name: '+ 영업 기회', exact: true }))
@@ -377,7 +379,7 @@ test('lost contact save response is recovered without a second create', async ()
   assert.equal(saves, 1)
 })
 
-test('member sees another owner’s sales detail without edit or activity controls', async () => {
+test('member sees another owner’s sales detail without edit or activity controls', {skip:'2026-11-15 대표 지시: 팀원에게는 저장 DB 화면을 보이지 않는다 (기획·대화만)'}, async () => {
   await mount('member')
   const { newSalesDraft } = await server.ssrLoadModule('/src/lib/sales.ts')
   await api.signIn('admin@thewklyn.com', '')
@@ -776,7 +778,7 @@ test('contact candidate writes, prints and saves its plan on the same page', asy
   assert.equal(links, 1)
 })
 
-test('another member can copy a linked candidate plan without editing it or navigating', async () => {
+test('another member can copy a linked candidate plan without editing it or navigating', {skip:'2026-11-15 대표 지시: 팀원에게는 저장 DB 화면을 보이지 않는다 (기획·대화만)'}, async () => {
   const { newGrowth } = await server.ssrLoadModule('/src/lib/growth.ts')
   const { newSalesDraft } = await server.ssrLoadModule('/src/lib/sales.ts')
   const { emptySalesPlan, writeSalesPlan } = await server.ssrLoadModule('/src/lib/salesPlan.ts')
@@ -867,7 +869,7 @@ test('campaign editor recovers an acknowledged stored write without a second sav
   } finally { Object.assign(api, previous) }
 })
 
-for(const role of ['admin','member']) test(role + ': research plan becomes a saved sales opportunity with source and next action', async () => {
+for(const role of ['admin']) test(role + ': research plan becomes a saved sales opportunity with source and next action', async () => {
  const screen=await mount(role)
  await click(screen.getByRole('button',{name:'신규 대상 발굴',exact:true}))
  assert.equal(query('campaign'),'retained');assert.equal(query('research'),'1')
@@ -1255,7 +1257,7 @@ test('research file is reviewed then linked once with provenance and no contract
  assert.ok(plan.getByText('TEST-ONLY / 000'));assert.ok(plan.getByText('추가 확인', { selector: 'dd' }))
 })
 test('pending research file read blocks tab navigation and closing',async()=>{
- const s=await mount('member','sales',{},'/sales?tab=tenders');await click(s.getByRole('button',{name:'발굴 보고서 가져오기'}));const imp=panel('발굴 결과 가져오기');let finish
+ const s=await mount('admin','sales',{},'/sales?tab=tenders');await click(s.getByRole('button',{name:'발굴 보고서 가져오기'}));const imp=panel('발굴 결과 가져오기');let finish
  const f=new window.File(['{}'],'candidate.json',{type:'application/json'});Object.defineProperty(f,'text',{value:()=>new Promise(resolve=>{finish=resolve})});await act(async()=>user.upload(imp.getByLabelText('발굴 보고서 파일'),f))
  window.confirm=()=>true;await click(within(s.getByRole('navigation',{name:'영업 업무'})).getByRole('button',{name:'수주 파이프라인'}));assert.equal(query('tab'),'tenders');assert.equal(closeButton(imp).disabled,true);await click(imp.getAllByRole('button',{name:'닫기',exact:true})[0]);assert.ok(panel('발굴 결과 가져오기'))
  await act(async()=>finish(JSON.stringify(discoveryTender())));assert.ok(imp.getByRole('button',{name:'이 후보 검토해 등록'}))
@@ -1341,7 +1343,7 @@ for(const kind of ['contact','tender']) test(kind+' research batch keeps unselec
 })
 
 test('research batch saving blocks tab changes and preserves remaining inputs',async()=>{
- const s=await mount('member','sales',{},'/sales?tab=tenders');await click(s.getByRole('button',{name:'발굴 보고서 가져오기'}));const imp=panel('발굴 결과 가져오기')
+ const s=await mount('admin','sales',{},'/sales?tab=tenders');await click(s.getByRole('button',{name:'발굴 보고서 가져오기'}));const imp=panel('발굴 결과 가져오기')
  const f=new window.File(['{}'],'batch.json',{type:'application/json'});Object.defineProperty(f,'text',{value:async()=>JSON.stringify(discoveryTender())});await act(async()=>user.upload(imp.getByLabelText('발굴 보고서 파일'),f));await click(imp.getByLabelText('1번 후보 저장 선택'))
  let finish;api.saveGrowth=(...args)=>new Promise(resolve=>{finish=async()=>resolve(await originals.saveGrowth(...args))})
  await click(imp.getByRole('button',{name:'선택한 후보 검토함에 저장'}));window.confirm=()=>true
@@ -1555,7 +1557,7 @@ test('saved review and linked company records stay readable in place without app
  assert.equal(location.href,url);assert.equal(starts,0);assert.equal(saves,0)
 })
 
-test('company record errors and changed research links never appear as empty or unrelated evidence', async()=>{
+test('company record errors and changed research links never appear as empty or unrelated evidence', {skip:'2026-11-15 대표 지시: 팀원에게는 저장 DB 화면을 보이지 않는다 (기획·대화만)'}, async()=>{
  const {EMPTY_REPORT}=await server.ssrLoadModule('/src/lib/salesReport.ts')
  const p={id:crypto.randomUUID(),client_id:crypto.randomUUID(),name:'회사 자료 점검',entity_kind:'회사',organization:'',source:'거래처',contact:'',evidence:'저장 기록',source_url:'',assessment:'확인 필요',revision:1,blocked:false,verification_current:false}
  api.getSalesReport=async()=>({...structuredClone(EMPTY_REPORT),prospects:[p],total:1});api.getSalesProspect=async()=>p
@@ -1591,7 +1593,7 @@ test('stale verification refresh preserves the draft and retries only after revi
  assert.equal(review.queryByRole('alert'),null);assert.equal(review.getByLabelText('실제 요청·수요').value,'공동 고객 건은 확인 필요')
 })
 
-test('member can inspect supplier evidence and methods without approving a shared prospect',async()=>{
+test('member can inspect supplier evidence and methods without approving a shared prospect', {skip:'2026-11-15 대표 지시: 팀원에게는 저장 DB 화면을 보이지 않는다 (기획·대화만)'},async()=>{
  const {EMPTY_REPORT}=await server.ssrLoadModule('/src/lib/salesReport.ts')
  const p={id:crypto.randomUUID(),name:'패키지 파트너',entity_kind:'회사',organization:'패키지 파트너',source:'민간 영업 후보',contact:'partner@example.test',evidence:'패키지 제작 크루 참여 협업 제안',source_url:'https://example.test',assessment:'확인 필요',review_note:'',revision:1,blocked:false,verification_current:false}
  api.getSalesReport=async()=>({...structuredClone(EMPTY_REPORT),prospects:[p],total:1});api.getSalesProspect=async()=>p
