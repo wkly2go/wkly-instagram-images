@@ -25,7 +25,7 @@ export function SalesDevelopmentProgress(){
      <ul>{developmentGates.map((gate,index)=><li key={gate} data-done={row.gates[index]}>{gate}: {row.gates[index]?'완료':'미완료'}</li>)}</ul>
      <p>{row.evidence}</p>
     </li>)}</ol>
-    <p><a href={checkpoint.source} target="_blank" rel="noreferrer">개발 변경 기록 PR #399</a> · 외부 이메일·DM 발송은 아직 실행되지 않습니다.</p>
+    <p><a href={checkpoint.source} target="_blank" rel="noreferrer">개발 변경 기록 PR #420</a> · 외부 이메일·DM 발송은 실행되지 않습니다(발송 꺼짐).</p>
    </div>
   </details>
  </aside>
