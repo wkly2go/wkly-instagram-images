@@ -47,6 +47,7 @@ before(async()=>{
  await db.exec(await sql('20261115090106_sales_dispatch_queue.sql'))
  await db.exec(await sql('20261115090107_sales_readiness.sql'))
  await db.exec(await sql('20261115090108_sales_contact_evidence.sql'))
+ await db.exec(await sql('20261115090109_sales_mail_evidence.sql'))
  await db.exec("insert into growth_ai_models values('standard','작성','test-model',3,15,true);insert into growth_ai_budgets(id,starts_at,ends_at,limit_usd,enabled) values(gen_random_uuid(),now()-interval '1 day',now()+interval '1 day',1,true);insert into vault.decrypted_secrets values('WKLY_EDGE_ANON_KEY','test-gateway');grant usage on schema public,auth to service_role;")
 })
 after(()=>db.close())
@@ -399,4 +400,73 @@ test('automatic evidence refresh preserves a deliberate execution hold',async()=
  const retry=(await db.query('select id from private.sales_strategy_preparations where strategy_id=$1',[j.id])).rows[0]
  await claim(retry.id);await asUser(admin,()=>call('sales_strategy_prepared',[retry.id,JSON.stringify(pack),'']),'service_role')
  assert.equal((await execution(j.id)).status,'보류');assert.equal((await execution(j.id)).can_approve,false)
+})
+
+async function mailReadFixture(){
+ await mail('abc123');await db.exec("update mail_index set thread_id='def456' where id='abc123';update private.sales_sender_readiness set code='read_only',email='sender@example.com',can_read=true,can_send=false,valid_until=now()+interval '15 minutes'")
+ const j=await prepared('담당자');await db.exec('select private.sales_mail_evidence_tick()')
+ const job=(await db.query('select * from private.sales_mail_evidence_jobs where strategy_id=$1',[j.id])).rows[0];return {j,job}
+}
+const mailReadClaim=job=>asUser(admin,()=>call('sales_mail_evidence_claim',[job.id,job.token]),'service_role').then(r=>r.rows[0].r)
+const mailReadFinish=(job,result)=>asUser(admin,()=>call('sales_mail_evidence_finish',[job.id,JSON.stringify(result)]),'service_role')
+const mailResult={status:'complete',messages:[{id:'abc123',status:'retrieved',text:'이번 달 팝업 행사 운영 범위와 견적을 요청합니다.',truncated:false,direction:'inbound'}]}
+test('mail evidence scheduler queues only exact eligible stored IDs and claims are single-use',async()=>{
+ const {j,job}=await mailReadFixture();assert.ok(job);assert.deepEqual(job.messages,[{id:'abc123',thread_id:'def456',emails:['human@example.com']}])
+ await db.exec('select private.sales_mail_evidence_tick()');assert.equal((await db.query('select count(*) n from private.sales_mail_evidence_jobs')).rows[0].n,1)
+ await assert.rejects(asUser(admin,()=>call('sales_mail_evidence_claim',[job.id,job.token])),e=>e.code==='42501')
+ assert.equal((await asUser(admin,()=>call('sales_mail_evidence_claim',[job.id,randomUUID()]),'service_role')).rows[0].r,null)
+ assert.equal((await mailReadClaim(job)).mailbox,'sender@example.com');assert.equal(await mailReadClaim(job),null)
+ assert.match((await execution(j.id)).mail_evidence.note,/대기·처리 중/)
+ await assert.rejects(asUser(admin,()=>db.exec('select * from private.sales_mail_evidence_jobs')),e=>e.code==='42501')
+})
+test('retrieved body enters immutable evidence and triggers bounded draft refresh without outreach permission',async()=>{
+ const {j,job}=await mailReadFixture(),old=await execution(j.id);await mailReadClaim(job);await mailReadFinish(job,mailResult)
+ const evidence=(await db.query('select private.sales_contact_evidence($1) r',[j.id])).rows[0].r
+ assert.equal(evidence.contacts[0].mail[0].body.text,mailResult.messages[0].text);assert.equal(evidence.contacts[0].outreach_authorized,false);assert.equal((await execution(j.id)).current,false)
+ await db.exec('select private.sales_contact_evidence_tick()');assert.equal((await strategy(j.id)).preparation_status,'준비 중')
+ assert.equal((await db.query('select payload from sales_execution_packages where id=$1',[old.id])).rows[0].payload.contact_evidence.contacts[0].mail[0].body,null)
+ await db.exec("update private.sales_mail_evidence_jobs set created_at=now()-interval '16 minutes';select private.sales_mail_evidence_tick()")
+ assert.equal((await db.query('select count(*) n from private.sales_mail_evidence_jobs')).rows[0].n,1)
+})
+test('mail evidence result rejects extra fields, mismatched IDs and false completion',async()=>{
+ const {job}=await mailReadFixture();await mailReadClaim(job)
+ for(const r of [{...mailResult,token:'secret'},{...mailResult,messages:[]},{...mailResult,messages:[{...mailResult.messages[0],id:'other'}]},{...mailResult,messages:[{...mailResult.messages[0],truncated:true}]},{status:'partial',messages:[{...mailResult.messages[0],status:'mismatch'}]}])await assert.rejects(mailReadFinish(job,r),/Invalid|Incomplete|Unexpected/)
+ await mailReadFinish(job,mailResult);await assert.rejects(mailReadFinish(job,mailResult),e=>e.code==='PT409')
+})
+test('opt-out during retrieval discards output and expiring leases cannot write late evidence',async()=>{
+ const {job}=await mailReadFixture();await mailReadClaim(job);await db.query("insert into brand_contacts(id,email,opt_out) values($1,'human@example.com',true)",[randomUUID()]);await mailReadFinish(job,mailResult)
+ assert.equal((await db.query('select state,result from private.sales_mail_evidence_jobs where id=$1',[job.id])).rows[0].state,'expired')
+ assert.equal((await db.query('select result from private.sales_mail_evidence_jobs where id=$1',[job.id])).rows[0].result,null)
+ await db.query("update private.sales_mail_evidence_jobs set state='claimed',created_at=now()-interval '4 minutes' where id=$1",[job.id]);await assert.rejects(mailReadFinish(job,mailResult),e=>e.code==='PT409')
+})
+test('failed reads retry at fifteen-minute spacing with three attempts per rolling day',async()=>{
+ const {job}=await mailReadFixture();let current=job
+ for(let attempt=1;attempt<=3;attempt++){
+  await mailReadClaim(current);await mailReadFinish(current,{status:'account_unavailable',messages:[]});await db.exec('select private.sales_mail_evidence_tick()')
+  assert.equal((await db.query('select count(*) n from private.sales_mail_evidence_jobs')).rows[0].n,attempt)
+  await db.exec("update private.sales_mail_evidence_jobs set created_at=created_at-interval '16 minutes';select private.sales_mail_evidence_tick()")
+  current=(await db.query('select * from private.sales_mail_evidence_jobs order by created_at desc limit 1')).rows[0]
+ }
+ assert.equal((await db.query('select count(*) n from private.sales_mail_evidence_jobs')).rows[0].n,3)
+})
+test('scheduler waits for read capability and skips opt-outs and unsupported provider IDs',async()=>{
+ await mail('invalid');const j=await prepared('담당자');await db.exec('select private.sales_mail_evidence_tick()');assert.equal((await db.query('select count(*) n from private.sales_mail_evidence_jobs')).rows[0].n,0)
+ assert.match((await execution(j.id)).mail_evidence.note,/읽기 권한/)
+ await db.exec("update private.sales_sender_readiness set code='read_only',email='sender@example.com',can_read=true,valid_until=now()+interval '15 minutes';select private.sales_mail_evidence_tick()")
+ assert.equal((await db.query('select count(*) n from private.sales_mail_evidence_jobs')).rows[0].n,0)
+})
+test('scheduled reads work after diagnostic expiry; worker still must verify live account and unchanged text stays stable',async()=>{
+ const {j,job}=await mailReadFixture();await db.exec("update private.sales_sender_readiness set valid_until=now()-interval '1 hour'")
+ assert.ok(await mailReadClaim(job));await mailReadFinish(job,mailResult)
+ const original=(await db.query('select private.sales_contact_evidence($1) r',[j.id])).rows[0].r
+ // A subsequent read of identical material retains its first observation in the immutable snapshot.
+ const second=randomUUID();await db.query("insert into private.sales_mail_evidence_jobs(id,strategy_id,input_hash,mailbox,messages,state,created_at,claimed_at) select $1,strategy_id,input_hash,mailbox,messages,'claimed',now(),now() from private.sales_mail_evidence_jobs where id=$2",[second,job.id]);await mailReadFinish({id:second},mailResult)
+ assert.deepEqual((await db.query('select private.sales_contact_evidence($1) r',[j.id])).rows[0].r,original)
+})
+test('mail retrieval selects at most five messages and starts at most three new plans per tick',async()=>{
+ await db.exec("update private.sales_sender_readiness set code='read_only',email='sender@example.com',can_read=true,valid_until=now()+interval '15 minutes'")
+ for(let i=0;i<8;i++){await mail('a'+i);await db.query("update mail_index set thread_id='def456' where id=$1",['a'+i])}
+ for(let i=0;i<4;i++)await prepared('담당자')
+ await db.exec('select private.sales_mail_evidence_tick()');let jobs=(await db.query('select * from private.sales_mail_evidence_jobs')).rows
+ assert.equal(jobs.length,3);assert.ok(jobs.every(j=>j.messages.length===5));await db.exec('select private.sales_mail_evidence_tick()');jobs=(await db.query('select * from private.sales_mail_evidence_jobs')).rows;assert.equal(jobs.length,4)
 })

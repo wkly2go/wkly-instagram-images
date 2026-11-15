@@ -40,6 +40,7 @@ export function SalesExecutionReview({api,strategyId,revision,canDecide}:{api:Sa
   {p&&<>
    {!p.current&&<p role="alert">근거·대상·내용·일정이 변경되었습니다. 아래는 이전 저장본이며 시스템이 새 버전을 준비합니다.</p>}
    {!!p.blockers.length&&<div role="status"><strong>시스템이 해결할 준비 항목</strong><ul>{p.blockers.map((b,i)=><li key={i}>{b}</li>)}</ul></div>}
+   {p.mail_evidence&&<p role="status"><strong>메일 원문 자동 확보</strong> · {p.mail_evidence.note}<br/>최근 24시간 조회 시도 {p.mail_evidence.attempts}/3회 · 마지막 결과 {p.mail_evidence.checked_at?time(p.mail_evidence.checked_at):'아직 없음'}</p>}
    {p.payload.contact_evidence&&<SalesContactEvidence report={p.payload.contact_evidence} prepared={p.payload.contact_evidence_prepared===true}/>}
    <p><b>발신 계정</b> · {p.payload.sender||'연결·권한 검증 전'}</p>
    {p.readiness&&<section aria-label="발신·수신 준비 점검">
