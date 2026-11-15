@@ -4,8 +4,8 @@ import { useMemo, useRef, useState } from 'react'
 import { Button, Empty } from './ui'
 import { useApp, useAsync } from '../lib/app'
 import type { DesignBase, DesignProject, Placement, SpecItem } from '../lib/design'
-import { wallLength, type PlanGeometry, type PlanItem } from '../lib/designPlan'
-import { wallType, type WallType } from '../lib/designWallTypes'
+import { wallLength, type PlanGeometry, type PlanItem, type PlanRoom } from '../lib/designPlan'
+import { BASE_TYPES, FLOOR_TYPES, wallType, type BaseType, type FloorType, type WallType } from '../lib/designWallTypes'
 import { elevationItems, furnitureTypes, materialKind, openingSize, wallFaceArea, wallFinishRows, planBounds, planDxf, ROWS_PER_SHEET, sheetList, type SheetMeta } from '../lib/designDrawings'
 
 const W = 420, H = 297, M = 10, TB = 62 // paper, margin, title-block width (mm)
@@ -182,6 +182,69 @@ function WallTypeDetail({ t }: { t: WallType }) {
   </g>
 }
 
+const Bar = ({ code, line1, line2, thk }: { code: string; line1: string; line2?: string; thk: string }) => { const y = AREA.y + AREA.h - 36; return <g>
+  <rect x={AREA.x} y={y} width={AREA.w} height={14} fill="none" stroke="#111" strokeWidth={0.4} />
+  <line x1={AREA.x + 20} y1={y} x2={AREA.x + 20} y2={y + 14} stroke="#111" strokeWidth={0.3} />{line2 != null && <line x1={AREA.x + 20} y1={y + 7} x2={AREA.x + AREA.w} y2={y + 7} stroke="#111" strokeWidth={0.3} />}
+  <text x={AREA.x + 10} y={y + 9} fontSize={4.6} fontWeight={800} textAnchor="middle">{code}</text>
+  <text x={AREA.x + 23} y={y + (line2 != null ? 5 : 9)} fontSize={3} fontWeight={800}>{line1}</text>{line2 != null && <text x={AREA.x + 23} y={y + 12} fontSize={3} fontWeight={800}>{line2}</text>}
+  <text x={AREA.x + AREA.w - 3} y={y + 12} fontSize={3} fontWeight={800} textAnchor="end">THK={thk || '확인 필요'}</text>
+</g> }
+const SAMPLE_NOTE = '표본 실시설계 도면의 유형을 옮긴 것입니다(재료 표기는 표본 원문, 실 이름은 표본의 예). 그림은 약식이므로 현장 조건에 맞춰 확인합니다.'
+
+/** Floor transition section from the learned catalogue (sample ID-101~103): two finishes meeting on the slab, layers called out on each side. */
+function FloorDetail({ t }: { t: FloorType }) {
+  const x0 = AREA.x + 30, x1 = AREA.x + AREA.w - 30, mx = (x0 + x1) / 2, y = AREA.y + 110
+  const side = (rows: string[], left: boolean) => <g>
+    {rows[0] && <><rect x={left ? x0 : x1 - 44} y={AREA.y + 34} width={44} height={7} fill="none" stroke="#111" strokeWidth={0.2} /><text x={left ? x0 + 22 : x1 - 22} y={AREA.y + 39} fontSize={3} textAnchor="middle">{rows[0].slice(0, 16)}</text></>}
+    {rows.slice(1, 9).map((r, i) => <g key={i}><line x1={(left ? x0 : mx) + 30} y1={AREA.y + 52 + i * 5.5} x2={(left ? x0 : mx) + 30} y2={y - 2} stroke="#aaa" strokeWidth={0.1} /><text x={(left ? x0 : mx) + 33} y={AREA.y + 53 + i * 5.5} fontSize={2.6}>{r.slice(0, 44)}</text></g>)}
+  </g>
+  return <g>
+    <rect x={x0} y={y + 8} width={x1 - x0} height={26} fill="#bbb" /><rect x={x0} y={y} width={x1 - x0} height={8} fill="#e4e4e4" stroke="#999" strokeWidth={0.15} />
+    <rect x={x0} y={y - 2.4} width={mx - x0 - 2} height={2.4} fill="#f1efe8" stroke="#111" strokeWidth={0.25} /><rect x={mx + 2} y={y - 2.4} width={x1 - mx - 2} height={2.4} fill="#fff" stroke="#111" strokeWidth={0.25} />
+    <rect x={mx - 2} y={y - 3} width={4} height={8} fill="#fff" stroke="#111" strokeWidth={0.35} /><line x1={mx - 2} y1={y - 3} x2={mx + 2} y2={y + 5} stroke="#111" strokeWidth={0.15} /><line x1={mx + 2} y1={y - 3} x2={mx - 2} y2={y + 5} stroke="#111" strokeWidth={0.15} />
+    <text x={x0} y={y - 5} fontSize={2.6}>▼ FL</text><text x={x0 + 3} y={y + 5.5} fontSize={2.4} fill="#444">고름몰탈</text>
+    {side(t.left, true)}{side(t.right, false)}
+    <Bar code={t.code} line1={t.composition} thk={t.thk} />
+    <text x={AREA.x} y={AREA.y + AREA.h - 6} fontSize={2.6} fill="#555">{SAMPLE_NOTE}</text>
+  </g>
+}
+
+/** Baseboard section from the learned catalogue (sample ID-104~105): wall face, floor line, baseboard with its height. */
+function BaseDetail({ t }: { t: BaseType }) {
+  const h = (Number(t.thk) || 50) / 6 * 2, x = AREA.x + AREA.w / 2 - 20, fl = AREA.y + 150
+  return <g>
+    <rect x={x - 70} y={fl} width={190} height={22} fill="#ccc" /><line x1={x - 70} y1={fl} x2={x + 120} y2={fl} stroke="#111" strokeWidth={0.5} />
+    <rect x={x - 6} y={AREA.y + 40} width={6} height={fl - AREA.y - 40} fill="#f1efe8" stroke="#111" strokeWidth={0.3} />
+    <rect x={x} y={fl - h} width={2.4} height={h} fill="#111" />
+    <rect x={x + 2.4} y={fl - 2} width={117} height={2} fill="#fff" stroke="#111" strokeWidth={0.2} />
+    <Dim x1={x + 14} y1={fl - h} x2={x + 14} y2={fl} label={t.thk || '?'} />
+    {t.layers.slice(0, 6).map((r, i) => <g key={i}><line x1={x + 2.4} y1={fl - h / 2} x2={x + 28} y2={fl - 44 + i * 6} stroke="#888" strokeWidth={0.12} /><text x={x + 30} y={fl - 43 + i * 6} fontSize={2.6}>{r.slice(0, 60)}</text></g>)}
+    <Bar code={t.code} line1={t.name} thk={t.thk} />
+    <text x={AREA.x} y={AREA.y + AREA.h - 6} fontSize={2.6} fill="#555">{SAMPLE_NOTE}</text>
+  </g>
+}
+
+/** Room finish schedule in the sample layout: one row per room, four parts each with 기호 · 마감재 · 상세. */
+function Schedule({ rooms, matName }: { rooms: PlanRoom[]; matName: (code?: string) => string }) {
+  const x0 = AREA.x, y0 = AREA.y + 14, rh = 6.2, pw = (AREA.w - 52) / 4, parts = [['floor', '바 닥 (floor)'], ['base', '걸 레 받 이 (base)'], ['wall', '벽 (wall)'], ['ceiling', '천 장 (ceiling)']] as const
+  return <g fontSize={2.7}>
+    <rect x={x0} y={y0} width={AREA.w} height={rh * 2} fill="#eee" />
+    <text x={x0 + 2} y={y0 + 8} fontWeight={800}>실번호</text><text x={x0 + 18} y={y0 + 8} fontWeight={800}>실 명</text>
+    {parts.map(([k, label], i) => { const px = x0 + 52 + pw * i; return <g key={k}>
+      <line x1={px} y1={y0} x2={px} y2={y0 + rh * (rooms.length + 2)} stroke="#111" strokeWidth={0.25} />
+      <text x={px + pw / 2} y={y0 + 4.4} textAnchor="middle" fontWeight={800}>{label}</text>
+      <text x={px + 2} y={y0 + rh + 4.4} fontWeight={800}>기호</text><text x={px + 16} y={y0 + rh + 4.4} fontWeight={800}>마 감 재</text><text x={px + pw - 2} y={y0 + rh + 4.4} textAnchor="end" fontWeight={800}>{k === 'ceiling' ? 'C.H' : '상세'}</text>
+      {rooms.slice(0, 34).map((r, ri) => <g key={r.id}>
+        <text x={px + 2} y={y0 + rh * (ri + 2) + 4.4}>{(r[k].mat ?? '').slice(0, 7)}</text><text x={px + 16} y={y0 + rh * (ri + 2) + 4.4}>{matName(r[k].mat).slice(0, Math.floor((pw - 30) / 2.2))}</text>
+        <text x={px + pw - 2} y={y0 + rh * (ri + 2) + 4.4} textAnchor="end" fontWeight={800}>{k === 'ceiling' ? (r.ch ? f(r.ch) : '') : r[k].detail ?? ''}</text>
+      </g>)}
+    </g> })}
+    {rooms.slice(0, 34).map((r, ri) => <g key={r.id}><text x={x0 + 2} y={y0 + rh * (ri + 2) + 4.4}>{r.no.slice(0, 6)}</text><text x={x0 + 18} y={y0 + rh * (ri + 2) + 4.4} fontWeight={800}>{r.name.slice(0, 14)}</text>
+      <line x1={x0} y1={y0 + rh * (ri + 3)} x2={x0 + AREA.w} y2={y0 + rh * (ri + 3)} stroke="#111" strokeWidth={0.12} /></g>)}
+    <line x1={x0} y1={y0 + rh * 2} x2={x0 + AREA.w} y2={y0 + rh * 2} stroke="#111" strokeWidth={0.35} />
+  </g>
+}
+
 /** Door elevation at the learned ID-400 scale: leaf, frame and overall sizes. Leaf type and hardware are not in the data. */
 function DoorDetail({ width, height, scale }: { width: number; height: number; scale: number }) {
   const dh = Math.min(2100, height), w = width / scale, h = dh / scale, fr = 40 / scale, x = AREA.x + (AREA.w - w) / 2, y = AREA.y + 40 + (AREA.h - 90 - h) / 2
@@ -239,6 +302,9 @@ export function DesignDrawings({ project, base }: { project: DesignProject; base
       {meta.kind === 'list' && <Table head={['도면 번호', '도면 이름', '축척 (A3)', '비고']} widths={[40, 150, 40, 100]} rows={sheets.map(s => [s.no, s.title, s.scale, ''])} />}
       {meta.kind === 'legend' && (legend.length ? <Table head={['번호', '재료 종류', '제조사 - 제품(색)', '쓰는 위치']} widths={[30, 50, 150, 100]} page={meta.page} rows={legend.map(x => [x.code ?? '', materialKind(x.code) || '', [x.maker, x.name, x.spec].filter(Boolean).join(' - '), x.location ?? ''])} />
         : <text x={AREA.x} y={AREA.y + 24} fontSize={3.2} fill="#c00">스펙북 '마감재'에 재료가 없습니다 — 스펙북 단계에서 재료 번호(PT-01 · TL-01 …)와 함께 넣으면 여기에 범례표가 만들어집니다.</text>)}
+      {meta.kind === 'schedule' && <Schedule rooms={g.rooms ?? []} matName={c => { const x = legend.find(l => l.code && l.code.replace(/\s/g, '') === (c ?? '').replace(/\s/g, '')); return x ? [x.name, x.spec].filter(Boolean).join(' ') : '' }} />}
+      {meta.kind === 'floorDetail' && FLOOR_TYPES.some(t => t.code === meta.wallType) && <FloorDetail t={FLOOR_TYPES.find(t => t.code === meta.wallType)!} />}
+      {meta.kind === 'baseDetail' && BASE_TYPES.some(t => t.code === meta.wallType) && <BaseDetail t={BASE_TYPES.find(t => t.code === meta.wallType)!} />}
       {meta.kind === 'finish' && <Table head={['공종', '품목', '규격', '수량', '단위']} widths={[50, 100, 120, 35, 25]} page={meta.page} rows={[...wallRows.map(r => ['벽 마감', r.label, r.finish, r.area, '㎡']), ...rows.map(r => [tname(r.trade_code), r.item, r.spec, r.qty, r.unit])]} />}
       {(meta.kind === 'plan' || meta.kind === 'ceiling' || meta.kind === 'furniture') && <PlanSheet g={g} mode={meta.kind} scale={sc} />}
       {meta.kind === 'elevation' && meta.wall && <Elevation g={g} wallId={meta.wall} scale={sc} finishes={finishes} />}
