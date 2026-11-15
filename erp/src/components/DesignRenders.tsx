@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Badge, Button, Empty } from './ui'
 import { useAction, useApp, useAsync } from '../lib/app'
-import type { DesignProject, DesignRender } from '../lib/design'
+import type { DesignProject, DesignRender, ModelVersion } from '../lib/design'
 import type { PlanGeometry } from '../lib/designPlan'
 import { makeImagePreview } from '../lib/imagePreview'
 
@@ -14,6 +14,8 @@ export function DesignRenders({ project }: { project: DesignProject }) {
   const { run, busy } = useAction()
   const { data: scenes } = useAsync(() => api.listRenders(project.id), [project.id, version], [] as DesignRender[])
   const { data: plan } = useAsync(() => api.getDesignPlan(project.id), [project.id, version], null as PlanGeometry | null)
+  const { data: versions } = useAsync(() => api.listModelVersions(project.id), [project.id, version], [] as ModelVersion[])
+  const SRC: Record<string, string> = { model: '모델 · 평면', manual: '직접 입력' }
   const [title, setTitle] = useState('')
   const next = scenes.length + 1
   const add = (t: string, n = next) => run(() => api.addRender({ project_id: project.id, no: pad(n), title: t, sort: n * 10 }))
@@ -26,7 +28,12 @@ export function DesignRenders({ project }: { project: DesignProject }) {
     await api.updateRender(s.id, { data })
   }, '그림을 넣었습니다')
   const done = scenes.filter(s => s.status === 'final').length
-  return (
+  return (<>
+    {versions.length > 0 && <div className="design-plan-qty" aria-label="모델 버전 이력">
+      <div className="row wrap"><b className="t-bodyb">모델 버전 이력</b><span className="t-cap">스케치업 '수량 보내기'나 '수량표에 반영'을 할 때마다 새 버전이 됩니다. 지금 쓰는 버전은 {project.model_version}번째입니다.</span></div>
+      <div className="table-wrap"><table className="table"><thead><tr><th>버전</th><th>만든 날</th><th className="num">수량 줄</th><th>출처</th><th /></tr></thead>
+        <tbody>{versions.slice(0, 12).map(v => <tr key={v.version}><td className="strong">{v.version}번째</td><td className="nowrap">{v.at.slice(0, 16).replace('T', ' ')}</td><td className="num">{v.lines}</td><td>{v.sources.map(x => SRC[x] ?? x).join(' · ')}</td><td>{v.version === project.model_version && <Badge tone="blue">사용 중</Badge>}</td></tr>)}</tbody></table></div>
+    </div>}
     <div className="design-plan-qty" aria-label="투시도 장면">
       <div className="row wrap">
         <b className="t-bodyb">투시도 · 렌더 장면 {scenes.length ? `· 확정 ${done}/${scenes.length}` : ''}</b>
@@ -52,5 +59,5 @@ export function DesignRenders({ project }: { project: DesignProject }) {
       )}
       <p className="t-cap">여기에는 작게 줄인 미리보기만 보관합니다. 큰 원본은 드라이브에 두고 주소를 적어 주세요.</p>
     </div>
-  )
+  </>)
 }
