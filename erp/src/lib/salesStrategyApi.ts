@@ -15,9 +15,12 @@ export function createSupabaseSalesStrategyApi(sb: SupabaseClient): SalesStrateg
   async listStrategyTasks(id) { const r=await sb.from('sales_strategy_tasks').select('*').eq('strategy_id',id).order('ordinal');fail(r.error);return r.data??[] },
   async updateStrategyTask(id,revision,status,result) { const r=await sb.rpc('sales_strategy_task_update',{p_id:id,p_revision:revision,p_status:status,p_result:result}).retry(false);fail(r.error) },
   async setSalesStrategyAutomatic(enabled) { const r=await sb.rpc('sales_strategy_automatic',{p_enabled:enabled});fail(r.error) },
+  // The proposals table may not exist yet on a server that has not received this release: show nothing then.
+  async listSalesMethodProposals() { const r=await sb.from('sales_method_proposals').select('id,action,name,signal,offer,first_step,reason,created_at').eq('status','승인 대기').order('created_at').limit(4);if(r.error&&['42P01','PGRST205'].includes(r.error.code??''))return [];fail(r.error);return r.data??[] },
+  async decideSalesMethodProposal(id,decision) { const r=await sb.rpc('sales_method_decide',{p_id:id,p_decision:decision}).retry(false);fail(r.error) },
 } }
 export function createDemoSalesStrategyApi(): SalesStrategyApi { const unavailable=async()=>{throw new ApiError('운영 계정에서 AI 영업 기획과 승인을 사용할 수 있습니다.')};return {
   getSalesExecution:async()=>null,decideSalesExecution:unavailable,
   listSalesDesk:async()=>[],submitSalesDesk:unavailable,
-  async listSalesStrategies(){return {items:[],total:0,automatic:false}},requestSalesStrategy:unavailable,getSalesEventBrands:async()=>({scope:'',brand_total:0,events:[]}),decideSalesStrategy:unavailable,listStrategyTasks:async()=>[],updateStrategyTask:unavailable,setSalesStrategyAutomatic:unavailable,
+  async listSalesStrategies(){return {items:[],total:0,automatic:false}},requestSalesStrategy:unavailable,getSalesEventBrands:async()=>({scope:'',brand_total:0,events:[]}),decideSalesStrategy:unavailable,listStrategyTasks:async()=>[],updateStrategyTask:unavailable,setSalesStrategyAutomatic:unavailable,listSalesMethodProposals:async()=>[],decideSalesMethodProposal:unavailable,
 } }
