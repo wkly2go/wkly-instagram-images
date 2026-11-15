@@ -20,3 +20,6 @@
 .sales-desk-actions{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 0}.sales-desk-note{color:#4d5a50;font-size:13px;margin:10px 0 0}
 .sales-desk-reject{margin-top:12px!important;padding-top:12px!important;border-top:1px solid #dce3dc!important}.sales-desk-reject textarea{min-height:64px}
 @media(max-width:700px){.sales-desk-mine,.sales-desk-answer{max-width:100%}.sales-desk-plan dl>div{grid-template-columns:1fr;gap:2px}}
+/* The conversation scrolls with the page: a second scroll area inside it trapped the mouse wheel. */
+.sales-desk-conversation,.sales-desk-chat .sales-desk-conversation{max-height:none;overflow:visible;overscroll-behavior:auto}
+@media(max-width:700px){.sales-desk-conversation{max-height:none}}
