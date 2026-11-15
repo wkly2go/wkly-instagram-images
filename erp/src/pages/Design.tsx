@@ -1,7 +1,7 @@
 // 설계·견적 — 인테리어 디자인 자동화 (2026-11-15 통합 1차): 프로젝트별 수량표 → 견적 → 공정, 검토함, 단가 · 협력사 · 자재 · 학습 자료
 // 금액 계산은 작업 처리기(견적 엔진)만 한다. 실행 단가 · 발주는 관리자에게만 보인다 (DB 정책 0125).
 import { useEffect, useMemo, useState } from 'react'
-import { Shell } from '../components/Shell'
+import { Shell, type TabKey } from '../components/Shell'
 import { Badge, Button, Empty, Field, SectionHead, ViewTabs } from '../components/ui'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { won } from '../lib/date'
@@ -15,33 +15,35 @@ import {
 import './Design.css'
 
 type Tab = 'projects' | 'cards' | 'prices' | 'vendors' | 'materials' | 'knowledge'
-const TABS: Tab[] = ['projects', 'cards', 'prices', 'vendors', 'materials', 'knowledge']
 const EMPTY_BASE: DesignBase = { trades: [], units: [] }
 const num = (v: string | number | null | undefined) => (v == null || v === '' ? 0 : Number(v))
 
+/** 왼쪽 메뉴 '설계·견적' 묶음의 화면들 (2026-11-15 대표 지시 '별도의 메뉴로 만들어서 세분화') — 주소가 곧 화면 */
+const SECTIONS: Record<string, { tab: Tab | 'orders'; active: TabKey; title: string; lead: string }> = {
+  '/design': { tab: 'projects', active: 'design', title: '설계 프로젝트', lead: '프로젝트별 수량표 → 견적 → 공정. 금액은 승인된 단가로만 계산합니다.' },
+  '/design-orders': { tab: 'orders', active: 'designOrders', title: '실행 · 발주', lead: '실행 내역(업체별 품목) → 업체별 발주서 초안 · 손익. 관리자만 봅니다.' },
+  '/design-cards': { tab: 'cards', active: 'designCards', title: '검토함', lead: '자동으로 만든 단가 · 견적 초안 · 발주서 초안을 확인하는 곳입니다.' },
+  '/design-prices': { tab: 'prices', active: 'designPrices', title: '단가', lead: '견적에 쓰는 판매 단가와 발주에 쓰는 실행 단가(관리자만)입니다.' },
+  '/design-vendors': { tab: 'vendors', active: 'designVendors', title: '협력사', lead: '거래 협력사와 나라장터 · 검색으로 찾은 후보입니다.' },
+  '/design-materials': { tab: 'materials', active: 'designMaterials', title: '자재', lead: '마감재 · 자재 목록과 코드입니다.' },
+  '/design-learn': { tab: 'knowledge', active: 'designLearn', title: '학습 자료', lead: '표본 자료에서 뽑아 둔 도면 세트 · 스펙북 · 보고서 구성과 기준입니다.' },
+}
+
 export default function Design() {
-  const { api, version } = useApp()
-  const { query, navigate } = useRouter()
-  const tab = (TABS.includes(query.get('tab') as Tab) ? query.get('tab') : 'projects') as Tab
-  const { data: ov } = useAsync(() => api.getDesignOverview(), [version], null)
+  const { api, me } = useApp()
+  const { path } = useRouter()
+  const sec = SECTIONS[path] ?? SECTIONS['/design']
   const { data: base } = useAsync(() => api.getDesignBase(), [], EMPTY_BASE)
-  const go = (k: Tab) => navigate(withQuery('/design', query, { tab: k === 'projects' ? null : k }))
+  const tab = sec.tab
   return (
-    <Shell active="design">
+    <Shell active={sec.active}>
       <div className="design-page">
         <header className="design-head">
-          <h1 className="t-title">설계·견적</h1>
-          <p className="t-cap">수량표에서 견적 · 공정 · 발주까지 한 자료로 이어집니다. 금액은 승인된 단가로만 계산합니다.</p>
+          <h1 className="t-title">{sec.title}</h1>
+          <p className="t-cap">{sec.lead}</p>
         </header>
-        <ViewTabs label="설계·견적 화면" active={tab} onPick={go} items={[
-          { key: 'projects', label: '프로젝트', count: ov?.projects },
-          { key: 'cards', label: '검토함', count: ov?.pending },
-          { key: 'prices', label: '단가', count: ov?.prices },
-          { key: 'vendors', label: '협력사', count: ov ? ov.vendors + ov.candidates : undefined },
-          { key: 'materials', label: '자재', count: ov?.materials },
-          { key: 'knowledge', label: '학습 자료', count: ov?.knowledge },
-        ]} />
-        {tab === 'projects' && <ProjectsTab base={base} />}
+        {tab === 'projects' && <ProjectsTab base={base} mode="design" />}
+        {tab === 'orders' && (me.role === 'admin' ? <ProjectsTab base={base} mode="orders" /> : <Empty>실행 · 발주는 관리자만 볼 수 있습니다.</Empty>)}
         {tab === 'cards' && <CardsTab />}
         {tab === 'prices' && <PricesTab base={base} />}
         {tab === 'vendors' && <VendorsTab base={base} />}
@@ -53,27 +55,27 @@ export default function Design() {
 }
 
 // ─────────────────────────────── 프로젝트
-function ProjectsTab({ base }: { base: DesignBase }) {
+function ProjectsTab({ base, mode }: { base: DesignBase; mode: 'design' | 'orders' }) {
   const { api, version } = useApp()
-  const { query, navigate } = useRouter()
+  const { query, navigate, path } = useRouter()
   const { data: projects, loading } = useAsync(() => api.listDesignProjects(), [version], [] as DesignProject[])
   const [starting, setStarting] = useState(false)
   const selected = projects.find(p => p.id === query.get('id')) ?? projects[0] ?? null
   return (
     <div className="design-split">
       <aside className="design-list" aria-label="설계 프로젝트">
-        <SectionHead title="설계 중인 프로젝트" count={projects.length} right={<Button size="sm" kind="outline" onClick={() => setStarting(v => !v)}>{starting ? '닫기' : '설계 시작'}</Button>} />
-        {starting && <StartDesign onDone={id => { setStarting(false); navigate(withQuery('/design', query, { id })) }} />}
+        <SectionHead title="설계 중인 프로젝트" count={projects.length} right={mode === 'design' ? <Button size="sm" kind="outline" onClick={() => setStarting(v => !v)}>{starting ? '닫기' : '설계 시작'}</Button> : undefined} />
+        {starting && <StartDesign onDone={id => { setStarting(false); navigate(withQuery(path, query, { id })) }} />}
         {projects.length === 0 && !loading && <Empty>아직 설계를 시작한 프로젝트가 없습니다. '설계 시작'에서 인트라넷 프로젝트를 고르세요.</Empty>}
         {projects.map(p => (
           <button type="button" key={p.id} className={`design-item${selected?.id === p.id ? ' on' : ''}`} aria-current={selected?.id === p.id ? 'true' : undefined}
-            onClick={() => navigate(withQuery('/design', query, { id: p.id, view: null }))}>
+            onClick={() => navigate(withQuery(path, query, { id: p.id, view: null }))}>
             <b>{p.name}</b>
             <span className="t-cap">{[p.code, SPACE_LABELS[p.space_type], STAGE_LABELS[p.stage]].filter(Boolean).join(' · ')}</span>
           </button>
         ))}
       </aside>
-      <section className="design-main">{selected ? <ProjectView key={selected.id} project={selected} base={base} /> : <Empty>왼쪽에서 프로젝트를 고르세요.</Empty>}</section>
+      <section className="design-main">{selected ? (mode === 'orders' ? <><ProjectHead project={selected} /><CostView key={selected.id} project={selected} /></> : <ProjectView key={selected.id} project={selected} base={base} />) : <Empty>왼쪽에서 프로젝트를 고르세요.</Empty>}</section>
     </div>
   )
 }
@@ -107,29 +109,32 @@ function StartDesign({ onDone }: { onDone: (id: string) => void }) {
   )
 }
 
+function ProjectHead({ project }: { project: DesignProject }) {
+  return (
+    <div className="design-proj-head">
+      <div>
+        <h2 className="t-title">{project.name}</h2>
+        <p className="t-cap">{[project.code, project.client_name, project.address].filter(Boolean).join(' · ')}</p>
+      </div>
+      <div className="design-facts">
+        <span><i>공간</i>{SPACE_LABELS[project.space_type]}</span>
+        <span><i>면적</i>{project.area_m2 != null ? `${project.area_m2}㎡ (${(project.area_m2 / 3.3058).toFixed(1)}평)` : '미입력'}</span>
+        <span><i>착공</i>{project.start_date ?? '미정'}</span>
+        <span><i>단계</i>{STAGE_LABELS[project.stage]}</span>
+        <span><i>모델</i>{project.model_version}번째</span>
+      </div>
+    </div>
+  )
+}
+
 function ProjectView({ project, base }: { project: DesignProject; base: DesignBase }) {
   const { query, navigate } = useRouter()
-  const { me } = useApp()
-  const admin = me.role === 'admin'
-  const view = (['qty', 'estimate', 'schedule', ...(admin ? ['cost'] : [])].includes(query.get('view') ?? '') ? query.get('view') : 'qty') as 'qty' | 'estimate' | 'schedule' | 'cost'
+  const view = (['qty', 'estimate', 'schedule'].includes(query.get('view') ?? '') ? query.get('view') : 'qty') as 'qty' | 'estimate' | 'schedule'
   return (
     <>
-      <div className="design-proj-head">
-        <div>
-          <h2 className="t-title">{project.name}</h2>
-          <p className="t-cap">{[project.code, project.client_name, project.address].filter(Boolean).join(' · ')}</p>
-        </div>
-        <div className="design-facts">
-          <span><i>공간</i>{SPACE_LABELS[project.space_type]}</span>
-          <span><i>면적</i>{project.area_m2 != null ? `${project.area_m2}㎡ (${(project.area_m2 / 3.3058).toFixed(1)}평)` : '미입력'}</span>
-          <span><i>착공</i>{project.start_date ?? '미정'}</span>
-          <span><i>단계</i>{STAGE_LABELS[project.stage]}</span>
-          <span><i>모델</i>{project.model_version}번째</span>
-        </div>
-      </div>
+      <ProjectHead project={project} />
       <ViewTabs label="프로젝트 작업" active={view} onPick={k => navigate(withQuery('/design', query, { view: k === 'qty' ? null : k }))}
-        items={[{ key: 'qty', label: '수량표' }, { key: 'estimate', label: '견적' }, { key: 'schedule', label: '공정' }, ...(admin ? [{ key: 'cost' as const, label: '실행 · 발주' }] : [])]} />
-      {view === 'cost' && admin && <CostView project={project} />}
+        items={[{ key: 'qty', label: '수량표' }, { key: 'estimate', label: '견적' }, { key: 'schedule', label: '공정' }]} />
       {view === 'qty' && <QuantityView project={project} base={base} />}
       {view === 'estimate' && <EstimateView project={project} base={base} />}
       {view === 'schedule' && <ScheduleView project={project} base={base} />}
@@ -200,6 +205,7 @@ function QuantityView({ project, base }: { project: DesignProject; base: DesignB
 
 function EstimateView({ project, base }: { project: DesignProject; base: DesignBase }) {
   const { api, me, version } = useApp()
+  const { navigate } = useRouter()
   const { run, busy } = useAction()
   const { data: estimates, reload } = useAsync(() => api.listEstimates(project.id), [project.id, version], [] as Estimate[])
   const { data: jobs, reload: reloadJobs } = useAsync(() => api.listDesignJobs(project.id), [project.id, version], [])
@@ -232,7 +238,7 @@ function EstimateView({ project, base }: { project: DesignProject; base: DesignB
         <span className="row">
           {working && <Badge tone="yellow">계산 중</Badge>}
           <Button size="sm" disabled={busy || working} onClick={() => run(() => api.requestDesignJob(project.id, 'estimate.build'), '견적 계산을 요청했습니다')}>견적 다시 계산</Button>
-          {me.role === 'admin' && <Button size="sm" kind="outline" disabled={busy || !confirmed} title={confirmed ? '' : '견적을 검토함에서 확정하면 만들 수 있습니다'} onClick={() => run(() => api.requestDesignJob(project.id, 'po.build'), '발주서 초안을 요청했습니다')}>발주서 초안 만들기</Button>}
+          {me.role === 'admin' && <Button size="sm" kind="outline" onClick={() => navigate(`/design-orders?id=${project.id}`)}>실행 · 발주로</Button>}
         </span>} />
       <RulesForm project={project} />
       <DocForm project={project} />
