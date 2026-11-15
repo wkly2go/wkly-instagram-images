@@ -1,3 +1,4 @@
+import { SalesStrategyDesk } from '../components/SalesStrategyDesk'
 import { showPanel } from '../components/WebSearch'
 import { SalesReport } from '../components/SalesReport'
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -67,6 +68,7 @@ export default function Sales() {
   }
   return <Shell active="sales"><div className={`sales-page${wide?' sales-wide':''}`}>
     <div className="sales-page-tools"><Button kind="outline" aria-expanded={!wide} onClick={()=>{setWide(!wide);if(wide)showPanel()}}>{wide?'일정 펼치기':'본문 넓게 보기'}</Button></div>
+    <SalesStrategyDesk />
     <SalesReport />
     <header className="sales-heading"><h2 className="t-title">진행 중인 영업</h2><p>발굴 → 접촉 → 미팅 → 제안 → 협상 → 수주 순서로 진행 상태와 다음 행동을 기록합니다.</p></header>
     <nav aria-label="영업 업무" className="sales-stages">{tabs.map(([key, label]) => <button type="button" key={key} className={`btn ${tab === key ? '' : 'btn-outline'}`} aria-current={tab === key ? 'page' : undefined} onClick={() => navigate(withQuery('/sales', query, { tab: key === 'pipeline' ? null : key, id: null, new: null, research: null }))}>{label}</button>)}</nav>
