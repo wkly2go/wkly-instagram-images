@@ -3,6 +3,7 @@ import {useAsync} from '../lib/app'
 import type {SalesExecutionApi} from '../lib/salesExecution'
 import {Button} from './ui'
 import {SalesContactEvidence} from './SalesContactEvidence'
+import {SalesCrmReport} from './SalesCrmReport'
 import {SalesContactDiscovery} from './SalesContactDiscovery'
 
 const time=(v:string)=>new Date(v).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'})
@@ -62,6 +63,7 @@ export function SalesExecutionReview({api,strategyId,revision,canDecide}:{api:Sa
     {!!p.dispatch?.jobs.length?<div className="sales-strategy-scroll"><table><caption>이 기획의 최근 처리 기록 최대 100건 · 제공사 접수는 수신함 도착·열람 확인이 아닙니다.</caption><thead><tr><th>수신 대상</th><th>처리 상태</th><th>검증·처리 사유</th></tr></thead><tbody>{p.dispatch.jobs.map(job=><tr key={job.id}><td>{job.recipient}<small>{job.package_id===p.id?'현재 실행안':'이전 실행안'}</small></td><td>{dispatchLabels[job.state]}<small>{job.finished_at?time(job.finished_at):time(job.scheduled_at)}</small></td><td>{job.reason}</td></tr>)}</tbody></table></div>:<p>등록된 처리 기록이 없습니다. 준비된 문안은 발송 실적에 포함하지 않습니다.</p>}
     <p>결과가 불명확한 건은 자동 재발송하지 않고 시스템이 제공사 결과를 대조해야 합니다.</p>
    </details>
+   {p.crm&&<SalesCrmReport report={p.crm}/>}
    <details><summary>실행안 준비·변경 기록</summary><ol>{p.events.map(e=><li key={e.id}><strong>{e.kind}</strong> · {time(e.created_at)}<p>{e.note}</p></li>)}</ol></details>
   </>}
  </section>

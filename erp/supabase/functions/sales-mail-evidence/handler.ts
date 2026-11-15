@@ -1,6 +1,6 @@
 // Read-only evidence retrieval. No message mutation, attachment download or sending.
 import type {SenderConfig} from '../sales-readiness/handler.ts'
-export interface MailTarget {id:string;thread_id:string;emails:string[]}
+export interface MailTarget {id:string;thread_id:string;emails:string[];reply_to?:string;not_before?:number}
 export interface MailJob {mailbox:string;messages:MailTarget[]}
 export interface MailEvidence {id:string;status:'retrieved'|'unsupported'|'unavailable'|'mismatch';text:string;truncated:boolean;direction:'inbound'|'outbound'|null}
 export interface MailResult {status:'complete'|'partial'|'account_unavailable';messages:MailEvidence[]}
@@ -27,11 +27,16 @@ export function extractMessage(raw:any,target:MailTarget,mailbox:string,now:numb
  const headers=raw.payload?.headers
  if(!Array.isArray(headers)||headers.length>200)return empty('mismatch')
  const header=(name:string)=>headers.filter((h:any)=>typeof h?.name==='string'&&h.name.toLowerCase()===name)
+ if(target.reply_to){
+  const references=[...header('in-reply-to'),...header('references')].flatMap((h:any)=>typeof h.value==='string'?h.value.match(/<[^<>\s]+>/g)??[]:[])
+  if(!references.includes(target.reply_to)||!Number.isFinite(target.not_before)||timestamp<target.not_before!)return empty('mismatch')
+  if(raw.labelIds.includes('SENT')||header('auto-submitted').some((h:any)=>typeof h.value!=='string'||h.value.trim().toLowerCase()!=='no')||header('precedence').some((h:any)=>/bulk|list|junk/i.test(h.value??''))||header('list-id').length)return empty('unsupported')
+ }
  const from=header('from'),to=header('to')
  if(from.length!==1||to.length!==1)return empty('mismatch')
  const f=address(from[0].value),t=address(to[0].value)
  const direction=f&&target.emails.includes(f)&&t===mailbox?'inbound':f===mailbox&&t&&target.emails.includes(t)?'outbound':null
- if(!direction)return empty('mismatch')
+ if(!direction||target.reply_to&&direction!=='inbound')return empty('mismatch')
  let visited=0,bytes=0,truncated=false,unsupported=false;const texts:string[]=[]
  const visit=(part:any,depth:number)=>{
   if(++visited>60||depth>8){unsupported=true;return}
@@ -62,6 +67,7 @@ export function extractMessage(raw:any,target:MailTarget,mailbox:string,now:numb
 export async function collectMailEvidence(job:MailJob,config:SenderConfig|null,fetcher:typeof fetch=fetch,now=Date.now()):Promise<MailResult>{
  const failed:MailResult={status:'account_unavailable',messages:[]}
  if(!email.test(job.mailbox)||job.mailbox!==job.mailbox.toLowerCase()||job.messages.length<1||job.messages.length>5||job.messages.some(m=>!messageId.test(m.id)||!messageId.test(m.thread_id)||!m.emails.length||m.emails.length>50||m.emails.some(e=>!email.test(e)||e!==e.toLowerCase())))return failed
+ if(job.messages.some(m=>m.reply_to!==undefined&&(!/^<wkly-sales-[0-9a-f-]{36}@[a-z0-9.-]+>$/.test(m.reply_to)||!Number.isFinite(m.not_before)||m.not_before!>now||m.not_before!<now-180*86400000)))return failed
  if(!config?.clientId||!config.clientSecret||!config.refreshToken||config.expectedEmail&&config.expectedEmail.toLowerCase().trim()!==job.mailbox)return failed
  let access:string
  try{

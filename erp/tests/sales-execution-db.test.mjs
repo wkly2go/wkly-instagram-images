@@ -1,3 +1,4 @@
+import {salesReleaseSQL} from '../scripts/sales-release-sql.mjs'
 import {before,beforeEach,afterEach,after,test} from 'node:test'
 import assert from 'node:assert/strict'
 import {readFile} from 'node:fs/promises'
@@ -36,19 +37,20 @@ before(async()=>{
  await db.query('insert into clients values($1,$2,$3,$4,$5,$6,$7,now())',[client,'테스트 브랜드','클라이언트','팝업 전시 기획','team@example.com','02-000-0000','https://example.com'])
  await db.query('insert into contacts values($1,$2,$3,$4,$5,$6,$7,now())',[person,client,'동명 담당자','마케팅 팀장','','human@example.com','팝업 문의'])
  await db.query('select private.sales_collect_internal()')
- await db.exec(await sql('20261115090101_sales_evidence_history.sql'))
  await db.exec(`alter table profiles add column name text default '시험 팀원';create table ai_agents(profile_id uuid primary key,role text,instructions text);`)
  await db.exec(await sql('0115_growth_ai_budget.sql'))
  await db.exec(await sql('0122_sales_strategy.sql'));await db.exec(await sql('0123_sales_strategy_gateway.sql'));await db.exec(await sql('0124_sales_strategy_output.sql'))
- await db.exec(await sql('20261115090102_sales_desk.sql'))
- await db.exec(await sql('20261115090103_sales_g2b_collection.sql'))
- await db.exec(await sql('20261115090104_sales_preapproval.sql'))
- await db.exec(await sql('20261115090105_sales_execution_packages.sql'))
- await db.exec(await sql('20261115090106_sales_dispatch_queue.sql'))
- await db.exec(await sql('20261115090107_sales_readiness.sql'))
- await db.exec(await sql('20261115090108_sales_contact_evidence.sql'))
- await db.exec(await sql('20261115090109_sales_mail_evidence.sql'))
- await db.exec(await sql('20261115090110_sales_contact_discovery.sql'))
+ const releaseNames=['sales_evidence_history','sales_desk','sales_g2b_collection','sales_preapproval','sales_execution_packages','sales_dispatch_queue','sales_readiness','sales_contact_evidence','sales_mail_evidence','sales_contact_discovery','sales_reply_crm']
+ const sections=await Promise.all(releaseNames.map(async(name,i)=>(await sql(`202611150901${String(i+1).padStart(2,'0')}_${name}.sql`)).replace(/^begin;\s*$/gmi,'').replace(/^commit;\s*$/gmi,'')))
+ const release=salesReleaseSQL(sections)
+ // Failure at the end must leave every migration unapplied, including scheduled jobs.
+ await assert.rejects(db.exec(release.replace(/commit;\s*$/, 'select nonexistent_release_probe();\ncommit;')),/nonexistent_release_probe/)
+ await db.exec('rollback')
+ assert.equal((await db.query("select to_regclass('public.sales_source_history') r")).rows[0].r,null)
+ assert.equal((await db.query("select count(*) n from cron.job where jobname='wkly_sales_contact_discovery'")).rows[0].n,0)
+ await db.exec(release)
+ await assert.rejects(db.exec(release),/partially\/already installed/)
+ await db.exec('rollback')
  await db.exec("insert into growth_ai_models values('standard','작성','test-model',3,15,true);insert into growth_ai_budgets(id,starts_at,ends_at,limit_usd,enabled) values(gen_random_uuid(),now()-interval '1 day',now()+interval '1 day',1,true);insert into vault.decrypted_secrets values('WKLY_EDGE_ANON_KEY','test-gateway');grant usage on schema public,auth to service_role;")
 })
 after(()=>db.close())
@@ -163,7 +165,7 @@ test('daily notifications distinguish unfinished preparation from review-ready p
  assert.match(body,/검토 대기 0건/);assert.match(body,/자동 준비 중 1건/)
  await claim(j.prep);await asUser(admin,()=>call('sales_strategy_prepared',[j.prep,JSON.stringify(pack),'']),'service_role')
  await db.exec('delete from notices;select private.sales_strategy_brief()');body=(await db.query('select body from notices')).rows[0].body
- assert.match(body,/검토 대기 1건/);assert.match(body,/검증 대기 1건/);assert.match(body,/발송·회신 기록은 미연결/)
+ assert.match(body,/검토 대기 1건/);assert.match(body,/검증 대기 1건/);assert.match(body,/CRM 접수 0건 · 대조 회신 0건 · 연락 중단 0건/);assert.match(body,/접수는 도착·열람·수주 확인이 아닙니다/)
 })
 
 // Test-only material adapter. Production remains transport-disabled.
@@ -510,4 +512,97 @@ test('failed website discovery retries twice per rolling day and expired claims 
 test('missing company websites are reported as system research gaps instead of human data tasks',async()=>{
  await db.query("update clients set website=null where id=$1",[client]);const j=await prepared('담당자');await db.exec('select private.sales_contact_discovery_tick()');assert.equal((await db.query('select count(*) n from private.sales_contact_discovery_jobs')).rows[0].n,0)
  const p=await execution(j.id);assert.match(p.contact_discovery.companies[0].note,/시스템의 회사 도메인 추가 조사/);assert.equal(p.contact_discovery.companies[0].website,null)
+})
+
+test('read-only release diagnostics find all expected functions and tables, without anonymous execution',async()=>{
+ const diagnostics=await readFile(new URL('../supabase/diagnostics/sales_release_readonly.sql',import.meta.url),'utf8')
+ const results=await db.exec(diagnostics)
+ assert.ok(results[0].rows.length>=8);assert.ok(results[1].rows.length>=19)
+ for(const row of [...results[0].rows,...results[1].rows])assert.equal(row.present,true,row.object)
+ for(const row of results[1].rows)assert.equal(row.anon_execute,false,row.object)
+ assert.equal(results[2].rows.length,3)
+})
+
+async function replyFixture(){
+ const fixture=await dispatchFixture(),lease=await dispatchClaim(fixture.job.id)
+ await dispatchFinish(fixture.job.id,lease.token,'accepted','aa11')
+ await db.exec("update private.sales_sender_readiness set can_read=true;insert into mail_index(id,thread_id,from_addr,to_addr,sent_at,labels) values('aa11','ee55','sender@example.com','human@example.com',now(),array['SENT']),('bb22','ee55','human@example.com','sender@example.com',now(),array['INBOX'])")
+ await db.exec('select private.sales_reply_tick()')
+ const job=(await db.query('select * from private.sales_reply_jobs where dispatch_id=$1',[fixture.job.id])).rows[0]
+ const packet=(await asUser(admin,()=>call('sales_reply_claim',[job.id,job.token]),'service_role')).rows[0].r
+ return {...fixture,replyJob:job,packet}
+}
+const finishReply=(id,text,truncated=false)=>asUser(admin,()=>call('sales_reply_finish',[id,JSON.stringify({status:truncated?'partial':'complete',messages:[{id:'bb22',status:'retrieved',text,truncated,direction:'inbound'}]})]),'service_role')
+test('accepted receipts create one automatic CRM record; unknown delivery does not become a contact',async()=>{
+ const {job}=await dispatchFixture(),lease=await dispatchClaim(job.id)
+ await dispatchFinish(job.id,lease.token,'unknown');assert.equal((await db.query('select count(*) n from private.sales_crm_threads')).rows[0].n,0)
+ await dispatchFinish(job.id,lease.token,'accepted','aa11');await dispatchFinish(job.id,lease.token,'accepted','aa11');await db.exec('select private.sales_reply_tick()')
+ const rows=(await db.query('select * from private.sales_crm_threads')).rows;assert.equal(rows.length,1);assert.equal(rows[0].stage,'접수 확인');assert.equal(rows[0].recipient,'human@example.com')
+})
+test('reply jobs bind exact recipient, outbound thread, reference and time before one-use retrieval',async()=>{
+ const f=await replyFixture();assert.equal(f.packet.mailbox,'sender@example.com');assert.deepEqual(f.packet.messages[0].emails,['human@example.com']);assert.match(f.packet.messages[0].reply_to,/^<wkly-sales-.*@example.com>$/);assert.equal(typeof f.packet.messages[0].not_before,'number')
+ assert.equal((await asUser(admin,()=>call('sales_reply_claim',[f.replyJob.id,f.replyJob.token]),'service_role')).rows[0].r,null)
+ await assert.rejects(asUser(admin,()=>call('sales_reply_finish',[f.replyJob.id,'{}'])),e=>e.code==='42501')
+})
+test('matched replies create an idempotent visible CRM history without inventing demand or revenue',async()=>{
+ const f=await replyFixture();await finishReply(f.replyJob.id,'자료를 확인했습니다. 내부 검토 예정입니다.')
+ const crm=(await execution(f.j.id)).crm;assert.equal(crm.threads.length,1);assert.equal(crm.threads[0].stage,'회신 확인');assert.equal(crm.threads[0].reply_count,1);assert.match(crm.threads[0].next_action,/수주 확정 아님/)
+ await db.exec('select private.sales_reply_tick()');assert.equal((await db.query('select count(*) n from private.sales_crm_replies')).rows[0].n,1)
+ await assert.rejects(finishReply(f.replyJob.id,'changed'),/Reply lease expired/)
+ assert.equal((await db.query('select count(*) n from sales_opportunities')).rows[0].n,0)
+})
+test('stop expressions suppress the exact recipient and block future approved versions without editing contact DB',async()=>{
+ const f=await replyFixture();await finishReply(f.replyJob.id,'메일 보내지 마세요. 수신 거부합니다.')
+ assert.equal((await execution(f.j.id)).crm.threads[0].stage,'연락 중단')
+ assert.equal((await db.query('select recipient from private.sales_contact_suppressions')).rows[0].recipient,'human@example.com')
+ assert.match((await db.query('select private.sales_dispatch_blocker(p) r from sales_execution_packages p where id=$1',[f.p.id])).rows[0].r,/발송 차단/)
+ assert.equal((await db.query('select count(*) n from brand_contacts where opt_out')).rows[0].n,0)
+})
+test('quoted opt-outs do not become new stop requests; truncated evidence remains limited',async()=>{
+ const f=await replyFixture();await finishReply(f.replyJob.id,'Thank you.\nOn yesterday, Sales wrote:\nUnsubscribe',true)
+ const row=(await db.query('select * from private.sales_crm_replies')).rows[0];assert.equal(row.signal,'limited');assert.equal((await db.query('select count(*) n from private.sales_contact_suppressions')).rows[0].n,0)
+ assert.match((await execution(f.j.id)).crm.threads[0].next_action,/일부만 확보/)
+})
+test('index or mailbox changes discard in-flight reply results and expired leases cannot write',async()=>{
+ const f=await replyFixture();await db.exec("update mail_index set labels=array['TRASH'] where id='bb22'");await finishReply(f.replyJob.id,'수신 거부')
+ assert.equal((await db.query('select count(*) n from private.sales_crm_replies')).rows[0].n,0)
+ assert.equal((await db.query('select state from private.sales_reply_jobs where id=$1',[f.replyJob.id])).rows[0].state,'expired')
+})
+test('forged inbound directions and result fields fail atomically without CRM or suppression writes',async()=>{
+ const f=await replyFixture()
+ for(const message of [{id:'bb22',status:'retrieved',text:'unsubscribe',truncated:false,direction:'outbound'},{id:'bad1',status:'retrieved',text:'unsubscribe',truncated:false,direction:'inbound'}]){
+ await assert.rejects(asUser(admin,()=>call('sales_reply_finish',[f.replyJob.id,JSON.stringify({status:'complete',messages:[message]})]),'service_role'),/Inbound reply required|Invalid reply evidence/)
+ }
+ assert.equal((await db.query('select count(*) n from private.sales_crm_replies')).rows[0].n,0)
+})
+
+test('reply failures retry with spacing and daily caps, while expired workers cannot persist results',async()=>{
+ const f=await replyFixture();await asUser(admin,()=>call('sales_reply_finish',[f.replyJob.id,JSON.stringify({status:'account_unavailable',messages:[]})]),'service_role')
+ await db.exec('select private.sales_reply_tick()');assert.equal((await db.query('select count(*) n from private.sales_reply_jobs')).rows[0].n,1)
+ for(let i=0;i<2;i++){
+ await db.exec("update private.sales_reply_jobs set created_at=created_at-interval '16 minutes';select private.sales_reply_tick()")
+ const j=(await db.query("select * from private.sales_reply_jobs where state='queued'")).rows[0];assert.ok(j)
+ await asUser(admin,()=>call('sales_reply_claim',[j.id,j.token]),'service_role')
+ await db.query("update private.sales_reply_jobs set created_at=now()-interval '4 minutes' where id=$1",[j.id])
+ await assert.rejects(finishReply(j.id,'reply'),/Reply lease expired/)
+ await db.exec('select private.sales_reply_tick()')
+ }
+ await db.exec("update private.sales_reply_jobs set created_at=created_at-interval '16 minutes';select private.sales_reply_tick()")
+ assert.equal((await db.query('select count(*) n from private.sales_reply_jobs')).rows[0].n,3)
+ assert.equal((await db.query('select count(*) n from private.sales_crm_replies')).rows[0].n,0)
+})
+test('contact stop cancels other queued plans for the same address and reports exact CRM counts',async()=>{
+ const f=await replyFixture(),other=await prepared('담당자'),p=await execution(other.id);await decision(p)
+ const queued=(await db.query("select * from private.sales_dispatch_jobs where strategy_id=$1",[other.id])).rows[0];assert.equal(queued.state,'queued')
+ await finishReply(f.replyJob.id,'Please do not contact me again.')
+ assert.equal((await db.query('select state from private.sales_dispatch_jobs where id=$1',[queued.id])).rows[0].state,'cancelled')
+ assert.equal(await dispatchClaim(queued.id),null)
+ const report=(await db.query('select private.sales_execution_summary() r')).rows[0].r
+ assert.equal(report.crm.accepted,1);assert.equal(report.crm.replied,1);assert.equal(report.crm.stopped,1);assert.equal(report.sent,null)
+})
+test('reply index scan ignores different addresses, old messages, drafts and unrelated threads',async()=>{
+ const f=await replyFixture()
+ await db.exec("insert into mail_index(id,thread_id,from_addr,to_addr,sent_at,labels) values('ab01','ee55','nothuman@example.com','sender@example.com',now(),'{}'),('ab02','ee55','human@example.com','else@example.com',now(),'{}'),('ab03','ee55','human@example.com','sender@example.com',now()-interval '1 hour','{}'),('ab04','ff66','human@example.com','sender@example.com',now(),'{}'),('ab05','ee55','human@example.com','sender@example.com',now(),array['DRAFT'])")
+ const input=(await db.query('select private.sales_reply_input($1) r',[f.job.id])).rows[0].r
+ assert.deepEqual(input.messages.map(m=>m.id),['bb22'])
 })

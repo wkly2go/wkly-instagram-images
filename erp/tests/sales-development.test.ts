@@ -1,6 +1,6 @@
 import {test} from 'node:test'
 import assert from 'node:assert/strict'
-import {developmentProgress,salesDevelopmentCheckpoint as checkpoint} from '../src/lib/salesDevelopment.ts'
+import {developmentProgress,developmentTarget,salesDevelopmentCheckpoint as checkpoint} from '../src/lib/salesDevelopment.ts'
 
 test('development progress counts each gate, not a draft as operational completion',()=>{
  const result=developmentProgress(checkpoint.milestones)
@@ -16,4 +16,11 @@ test('every recorded gate has evidence and later gates require preceding verific
   row.gates.forEach((done,index)=>{if(done&&index>0)assert.equal(row.gates[index-1],true,row.name)})
  }
  assert.ok(Number.isFinite(Date.parse(checkpoint.updatedAt)))
+})
+
+test('40 percent requires twenty gates, and targets never round up current completion',()=>{
+ assert.deepEqual(developmentTarget(checkpoint.milestones,40),{required:20,remainingGates:5,minimumPercent:41,reached:false})
+ assert.equal(developmentTarget(checkpoint.milestones,31).reached,true)
+ assert.equal(developmentTarget(checkpoint.milestones,100).remainingGates,33)
+ for(const invalid of [-1,101,NaN,40.5])assert.throws(()=>developmentTarget(checkpoint.milestones,invalid))
 })

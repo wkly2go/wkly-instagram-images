@@ -1,3 +1,6 @@
+export interface SalesCrmReport {
+ scope:string;threads:{dispatch_id:string;recipient:string;stage:string;next_action:string;read_note:string;last_reply_at:string|null;created_at:string;checked_at:string|null;reply_count:number;replies:{message_id:string;signal:'reply'|'stop'|'limited';text:string;received_at:string}[]}[];
+}
 export interface SalesContactDiscovery {
  total:number;scope:string;companies:{id:string;company:string;website:string|null;state:string;checked_at:string|null;attempts:number;note:string;limited:boolean;pages:{url:string;status:string}[];candidates:{email:string;url:string;excerpt:string;role:'partnership'|'general'|'non_sales';domain_match:boolean;excluded:boolean;outreach_authorized:false}[]}[];
 }
@@ -18,6 +21,7 @@ export interface SalesExecutionPackage {
   schedule:{at:string;expires_at:string;timezone:string;per_recipient_limit:number;followups:string};checks:string[]};
  events:{id:number;kind:string;note:string;created_at:string}[];
  dispatch?:{connected:boolean;note:string;jobs:{id:string;package_id:string;recipient:string;state:'queued'|'claimed'|'accepted'|'rejected'|'unknown'|'cancelled'|'expired';reason:string;scheduled_at:string;finished_at:string|null;created_at:string}[]};
+ crm?:SalesCrmReport;
  contact_discovery?:SalesContactDiscovery;
  mail_evidence?:{state:string;attempts:number;checked_at:string|null;note:string};
  readiness?:{scope:string;sender:{code:'unverified'|'checking'|'stale'|'ready'|'read_only'|'scope_unknown'|'identity_unverified'|'account_mismatch'|'not_connected'|'provider_error';email:string|null;can_send:boolean;can_read:boolean;checked_at:string|null;valid_until:string|null;transport_connected:boolean};recipients:{source_id:string;company:string;person:string;email:string;origin:string;code:'excluded'|'missing_contact'|'ambiguous_company'|'identity_unverified'|'permission_unverified';next_action:string}[]};

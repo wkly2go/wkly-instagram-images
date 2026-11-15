@@ -37,11 +37,16 @@ function extractMessage(raw, target, mailbox, now) {
   const headers = raw.payload?.headers;
   if (!Array.isArray(headers) || headers.length > 200) return empty("mismatch");
   const header = (name) => headers.filter((h) => typeof h?.name === "string" && h.name.toLowerCase() === name);
+  if (target.reply_to) {
+    const references = [...header("in-reply-to"), ...header("references")].flatMap((h) => typeof h.value === "string" ? h.value.match(/<[^<>\s]+>/g) ?? [] : []);
+    if (!references.includes(target.reply_to) || !Number.isFinite(target.not_before) || timestamp < target.not_before) return empty("mismatch");
+    if (raw.labelIds.includes("SENT") || header("auto-submitted").some((h) => typeof h.value !== "string" || h.value.trim().toLowerCase() !== "no") || header("precedence").some((h) => /bulk|list|junk/i.test(h.value ?? "")) || header("list-id").length) return empty("unsupported");
+  }
   const from = header("from"), to = header("to");
   if (from.length !== 1 || to.length !== 1) return empty("mismatch");
   const f = address(from[0].value), t = address(to[0].value);
   const direction = f && target.emails.includes(f) && t === mailbox ? "inbound" : f === mailbox && t && target.emails.includes(t) ? "outbound" : null;
-  if (!direction) return empty("mismatch");
+  if (!direction || target.reply_to && direction !== "inbound") return empty("mismatch");
   let visited = 0, bytes = 0, truncated = false, unsupported = false;
   const texts = [];
   const visit = (part, depth) => {
@@ -96,6 +101,7 @@ function extractMessage(raw, target, mailbox, now) {
 async function collectMailEvidence(job, config, fetcher = fetch, now = Date.now()) {
   const failed = { status: "account_unavailable", messages: [] };
   if (!email.test(job.mailbox) || job.mailbox !== job.mailbox.toLowerCase() || job.messages.length < 1 || job.messages.length > 5 || job.messages.some((m) => !messageId.test(m.id) || !messageId.test(m.thread_id) || !m.emails.length || m.emails.length > 50 || m.emails.some((e) => !email.test(e) || e !== e.toLowerCase()))) return failed;
+  if (job.messages.some((m) => m.reply_to !== void 0 && (!/^<wkly-sales-[0-9a-f-]{36}@[a-z0-9.-]+>$/.test(m.reply_to) || !Number.isFinite(m.not_before) || m.not_before > now || m.not_before < now - 180 * 864e5))) return failed;
   if (!config?.clientId || !config.clientSecret || !config.refreshToken || config.expectedEmail && config.expectedEmail.toLowerCase().trim() !== job.mailbox) return failed;
   let access;
   try {

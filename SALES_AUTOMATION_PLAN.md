@@ -170,3 +170,14 @@ Candidate records preserve the source page and nearby text, distinguish partners
 Validation: 52 DB checks, seven crawler/network worker checks, one execution UI check and two progress checks (62 focused; 13 newly added DB/worker tests). Frontend build, strict worker type-check and generated deployment-source consistency passed. Browser list verified with fictional data. No live company-site crawl, credentials access, send, main merge or production DB/worker deployment occurred. Node network behavior was dependency-tested; the deployed Edge runtime still needs a controlled transport probe during the coordinated rollout. Overall checklist remains 31% complete / 69% remaining.
 
 Implementation references: https://www.rfc-editor.org/rfc/rfc9309.html ; https://nodejs.org/api/https.html#httpsrequesturl-options-callback ; https://docs.deno.com/api/node/https/ .
+
+
+## 40% checkpoint work — 2026-11-15
+
+Target display now calculates the required count from the fixed 48-gate checklist: at least 40% requires 20 complete gates (41% displayed after rounding down), five more than the current 15. The user reconfirmed independent development only while Claude deploys; no production gate has advanced.
+
+Added the disabled Gmail send adapter, exact deterministic MIME Message-ID, account/scope rechecks, one-attempt transmission and uncertain-result suppression. Added a separate automated CRM ledger for provider acceptance, bounded exact-thread reply retrieval, conservative contact-stop detection, queue cancellation and sanitized report/briefing counts. Reply text stays untrusted; matching a reply does not prove identity, permission, demand or contract. Existing opportunity records are preserved. Full pipeline linkage, automated follow-up package preparation, recipient-purpose evidence and live dispatch remain incomplete, so the email/CRM whole-capability gates remain false.
+
+Eleventh migration `20261115090111_sales_reply_crm.sql` and seventh worker `sales-replies` require a coordinated future deployment. All are UNAPPLIED. Reader bounds: accepted jobs within 30 days, at most three starts/tick, three attempts/thread/24h, at least 15 minutes apart, three-minute job lease, five message bodies/job, 6000 characters/message. Unsupported/HTML-only bodies, unavailable account access and bounded retries remain visible system work; people are not assigned raw-data processing. Suppression cannot recall an already in-flight provider request. No credentials/provider call or actual email/DM occurred.
+
+Validation: 89 focused tests passed (database/release rollback and grants, Gmail adapter, existing dispatcher, mail/reply parsing, AI desk worker, progress target, execution/CRM DOM). Strict worker type-check and frontend build passed. Controlled fixtures only. Atomic release tooling requires a clean commit and hashes all eleven SQL sources and seven generated workers; production application remains blocked by coordination.

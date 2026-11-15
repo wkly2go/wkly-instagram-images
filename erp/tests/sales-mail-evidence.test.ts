@@ -39,3 +39,13 @@ test('one-use claim precedes provider access and save failures stay visible',asy
  assert.equal((await handler(req({id,token:key}))).status,403);assert.equal((await handler(req({id,token:key,url:'https://evil.test'}))).status,400);assert.equal(calls,0)
  const broken=createMailEvidenceHandler({claim:async()=>job,config:async()=>null,finish:async()=>{throw new Error('private details')},fetcher:fetch});const r=await broken(req({id,token:key}));assert.equal(r.status,503);assert.doesNotMatch(await r.text(),/private details/)
 })
+
+test('CRM replies require matching message reference and time, excluding automatic and list messages',()=>{
+ const reply={...target,reply_to:'<wkly-sales-10000000-0000-4000-8000-000000000001@example.com>',not_before:now-2000}
+ const raw=message();raw.payload.headers.push({name:'In-Reply-To',value:reply.reply_to})
+ assert.equal(extractMessage(raw,reply,mailbox,now).status,'retrieved')
+ assert.equal(extractMessage(message(),reply,mailbox,now).status,'mismatch')
+ assert.equal(extractMessage(raw,{...reply,not_before:now},mailbox,now).status,'mismatch')
+ for(const h of [{name:'Auto-Submitted',value:'auto-replied'},{name:'List-ID',value:'list'},{name:'Precedence',value:'bulk'}]){const automated=structuredClone(raw);automated.payload.headers.push(h);assert.equal(extractMessage(automated,reply,mailbox,now).status,'unsupported')}
+ const sent=structuredClone(raw);sent.labelIds.push('SENT');assert.equal(extractMessage(sent,reply,mailbox,now).status,'unsupported')
+})
