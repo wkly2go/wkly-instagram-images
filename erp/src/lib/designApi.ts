@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { ApiError } from './api'
 import type { PlanGeometry } from './designPlan'
 import type {
-  CostLine, DesignApi, DesignRender, ProposalSection, ProposalTemplateSection, SpecItem, DesignCard, DesignDocument, DesignJob, PoLine, PurchaseOrder, DesignMaterial, DesignProject, DesignTrade, DesignVendor, Estimate, EstimateLine,
+  CostLine, DesignApi, DesignRender, ModelVersion, ProposalSection, ProposalTemplateSection, SpecItem, DesignCard, DesignDocument, DesignJob, PoLine, PurchaseOrder, DesignMaterial, DesignProject, DesignTrade, DesignVendor, Estimate, EstimateLine,
   Knowledge, Placement, ScheduleTask, UnitCost, UnitPrice,
 } from './design'
 
@@ -145,6 +145,17 @@ export function createSupabaseDesignApi(sb: SupabaseClient): DesignApi {
     async addSpecItem(row) { fail((await sb.from('design_spec_items').insert({ ...row, sort: Math.floor(Date.now() / 1000) % 1000000 })).error) },
     async updateSpecItem(id, patch) { fail((await sb.from('design_spec_items').update(patch).eq('id', id)).error) },
     async deleteSpecItem(id) { fail((await sb.from('design_spec_items').delete().eq('id', id)).error) },
+    async listModelVersions(projectId) {
+      const r = await sb.from('design_placements').select('model_version,source,created_at').eq('project_id', projectId).order('created_at', { ascending: false }).limit(5000)
+      fail(r.error)
+      const m = new Map<number, ModelVersion>()
+      for (const x of (r.data ?? []) as { model_version: number; source: string | null; created_at: string }[]) {
+        const v = m.get(x.model_version) ?? { version: x.model_version, lines: 0, sources: [], at: x.created_at }
+        v.lines += 1; if (x.source && !v.sources.includes(x.source)) v.sources.push(x.source); if (x.created_at < v.at) v.at = x.created_at
+        m.set(x.model_version, v)
+      }
+      return [...m.values()].sort((a, b) => b.version - a.version)
+    },
     async listRenders(projectId) {
       const r = await sb.from('design_renders').select('id,project_id,no,title,data,original_url,status,note,sort').eq('project_id', projectId).order('sort').order('created_at')
       fail(r.error)
@@ -262,6 +273,7 @@ export function createDemoDesignApi(): DesignApi {
     saveDesignPlan: none, applyDesignPlan: none, addSpecItem: none, updateSpecItem: none, deleteSpecItem: none, setSpecImage: none, addRender: none, updateRender: none, deleteRender: none,
     async listSpecImages() { return {} },
     async listRenders() { return [] },
+    async listModelVersions() { return [] },
     async listSpecItems() { return [] },
     async getProposalTemplate() { return [] },
     async listProposalSections() { return [] },
