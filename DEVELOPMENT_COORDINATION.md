@@ -11,7 +11,7 @@
 ## 영업 쪽 현재 상태
 
 - PR #397은 main에 병합되어 자동 기획이 운영 중이다. 영업 전체 실행 자동화가 완성된 것은 아니다.
-- PR #399는 개발 초안이다. `0125_sales_evidence_history.sql`과 DB 테스트, 개발 규칙을 포함한다. 0125는 아직 운영 미적용이며 이번 작업에서 예약한 번호다. 상대 작업에 같은 번호가 있으면 영업 쪽 미적용 파일의 번호를 변경한다.
+- PR #399는 개발 초안이다. `0128_sales_evidence_history.sql`과 DB 테스트, 개발 규칙을 포함한다. 0128은 아직 운영 미적용이며 이번 작업에서 예약한 번호다. 상대 작업에 같은 번호가 있으면 영업 쪽 미적용 파일의 번호를 변경한다.
 - 출처 이력과 검증 현황 API 및 Sales 보고서/후보 상세의 읽기 전용 화면 연결이 준비됐으며 운영 미적용, 발송은 비활성이다. 화면 변경은 `SalesReport`·`SalesProspectReview`·신규 `SalesEvidence`·영업 API에 한정하며 공유 메뉴/라우터/전역 스타일은 변경하지 않았다. 전체 계획은 `SALES_AUTOMATION_PLAN.md`를 따른다.
 - 사람 팀원에게 원자료 검색·가공·DB 정리를 넘기지 않는 규칙은 `AGENTS.md`에 있다.
 
@@ -27,8 +27,12 @@ PR에는 기준 main SHA, 수정 파일, 새/변경 DB 객체, migration 번호�
 
 상대 브랜치를 읽을 수 있게 된 뒤에는 해당 ref를 `--base-ref`로 한 번 더 실행한다. 같은 파일명의 상이한 수정, SQL 객체 충돌, 메뉴 기능 보존은 별도 diff/통합 테스트로 확인한다. 이 스크립트는 번호 중복 검사만 담당한다.
 
-## 현재 확인 한계
+## 현재 대조 결과 (2026-11-15)
 
-2026-11-15 원격 조회에서 `claude/design-integration` ref가 보이지 않았다. 로컬 작업 또는 아직 push하지 않은 작업일 수 있다. 브랜치가 없다고 단정하거나 대신 만들지 않는다. 상대의 파일 목록·migration 번호 확인이 끝난 것으로 표시하지 않는다. 설계 영역 보호는 사용자 지시대로 즉시 적용한다.
+설계 브랜치가 원격에 공개됐다. `1fb7568c45c036ad2cb0f27ff564cadd840713ee`에서 설계 측 `0125_design_schema.sql`, `0126_design_project_info.sql`, `0127_design_actions.sql`을 읽기 전용으로 확인했다. 상대 파일은 수정하지 않고 운영 미적용 영업 출처 이력 파일을 **0128**로 변경했다. 신규 영업 대화 DB는 **0129_sales_desk.sql**이다. 이 기준으로 새 migration 번호 충돌이 없다. main 병합 직전에 양쪽 최신 SHA를 다시 확인한다.
 
-현재 main의 기존 번호 중복: `0079_festival_links.sql`/`0079_field_survey.sql`, `0080_field_survey_realtime.sql`/`0080_project_room_closed.sql`. 기존 파일은 변경하지 않았다. 검사기는 기준 ref에 이미 있는 중복을 경고하고, 합쳐질 변경이 새 중복을 만들면 실패한다. 같은 파일명 아래 다른 내용이 추가된 충돌은 Git diff/병합 검증으로 따로 확인한다.
+영업 대화 변경은 Sales 화면·영업 API·sales-desk 함수에 한정한다. 상대 변경의 App/Shell/api/demoApi/supabaseApi 및 design 파일과 겹치지 않는다. 대화는 기존 ai_agents 설정을 읽지만 수정하지 않는다. 새 객체는 public.sales_desk_messages, private.sales_desk_jobs 및 sales_desk_* 함수다. design 스키마 참조/수정은 없다.
+
+0128·0129 운영 미적용. 운영 DB 적용 및 서버 배포 순서는 확인 중이며 실제 적용으로 표시하지 않는다. 대화창은 자료 조회·분석 보고서·기존 수집 요청을 지원한다. 새 나라장터 수집기는 아직 개발 중이며 운영 연결 완료로 표시하지 않는다.
+
+현재 main의 기존 번호 중복: `0079_festival_links.sql`/`0079_field_survey.sql`, `0080_field_survey_realtime.sql`/`0080_project_room_closed.sql`. 기존 파일은 변경하지 않았다. 검사기는 기준 ref에 이미 있는 중복을 경고하고, 새 중복을 만들면 실패한다. 같은 파일명 아래 내용 충돌과 SQL 객체 충돌은 별도 검토한다.

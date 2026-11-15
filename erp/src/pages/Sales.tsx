@@ -26,6 +26,8 @@ export default function Sales() {
   const { query, navigate } = useRouter()
   const { me, api } = useApp()
   const [wide, setWide] = useState(true)
+  const [dbOpen,setDbOpen]=useState(false)
+  const showDatabase=dbOpen||query.has('id')||query.get('new')==='1'||query.has('tab')
   useEffect(()=>{const show=()=>setWide(false);window.addEventListener('wkly-show-right-panel',show);return()=>window.removeEventListener('wkly-show-right-panel',show)},[])
   const [seoulDraft, setSeoulDraft] = useState<SalesDraft | null>(null)
   const [candidatePlan, setCandidatePlan] = useState<{ id: string; candidate: GrowthItem } | null>(null)
@@ -69,6 +71,9 @@ export default function Sales() {
   return <Shell active="sales"><div className={`sales-page${wide?' sales-wide':''}`}>
     <div className="sales-page-tools"><Button kind="outline" aria-expanded={!wide} onClick={()=>{setWide(!wide);if(wide)showPanel()}}>{wide?'일정 펼치기':'본문 넓게 보기'}</Button></div>
     <SalesStrategyDesk />
+    <details className="sales-db-browser" open={showDatabase} onToggle={e=>setDbOpen(e.currentTarget.open)}>
+    <summary>저장된 영업 DB · 자료와 진행 기록 보기</summary>
+    {showDatabase&&<>
     <SalesReport />
     <header className="sales-heading"><h2 className="t-title">진행 중인 영업</h2><p>발굴 → 접촉 → 미팅 → 제안 → 협상 → 수주 순서로 진행 상태와 다음 행동을 기록합니다.</p></header>
     <nav aria-label="영업 업무" className="sales-stages">{tabs.map(([key, label]) => <button type="button" key={key} className={`btn ${tab === key ? '' : 'btn-outline'}`} aria-current={tab === key ? 'page' : undefined} onClick={() => navigate(withQuery('/sales', query, { tab: key === 'pipeline' ? null : key, id: null, new: null, research: null }))}>{label}</button>)}</nav>
@@ -85,6 +90,8 @@ export default function Sales() {
       setCandidatePlan({ id, candidate })
       navigate(withQuery('/sales', query, { tab: null, new: null, research: null, id }))
     }} />}
+    </>}
+    </details>
   </div></Shell>
 }
 

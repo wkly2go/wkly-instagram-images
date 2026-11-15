@@ -54,7 +54,16 @@ test('a saved sales plan reopens with its assessment and read-only output for an
       await act(async () => root.render(el(RouterProvider, null, el(AppProvider, { me, profiles, version: 0, bump() {}, toast() {}, openQuick() {} }, el(Sales)))))
     }
 
+    window.history.replaceState({}, '', '/sales')
     await render('admin@thewklyn.com', '00000000-0000-4000-8000-000000000001')
+    assert.ok(screen.getByRole('heading', { name: 'AI 영업 기획실', exact: true }))
+    assert.equal(screen.queryByRole('heading', { name: '진행 중인 영업', exact: true }), null)
+    assert.equal(document.querySelector('.sales-db-browser').open, false)
+    assert.ok(screen.getByRole('region', { name: 'AI 팀원 업무 대화' }))
+    await act(async () => {
+      window.history.replaceState({}, '', '/sales?new=1')
+      window.dispatchEvent(new PopStateEvent('popstate'))
+    })
     const editor = within(screen.getByRole('region', { name: '새 영업 기회', exact: true }))
     const sheet = within(editor.getByRole('region', { name: '수주 검토와 실행 계획', exact: true }))
     const today = todayKey()

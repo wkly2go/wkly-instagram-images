@@ -14,6 +14,8 @@ export interface SalesStrategy {
 }
 export interface StrategyTask { id: string; strategy_id: string; ordinal: number; owner_id: string; title: string; output: string; due_date: string; status: '대기' | '진행' | '완료'; result: string; revision: number }
 export interface SalesStrategyApi {
+  listSalesDesk(before:number|null):Promise<import('./salesDesk').SalesDeskMessage[]>;
+  submitSalesDesk(id:string,agent:string|null,action:import('./salesDesk').SalesDeskAction,instruction:string):Promise<string>;
   listSalesStrategies(page: number): Promise<{items: SalesStrategy[]; total: number; automatic: boolean}>;
   requestSalesStrategy(id: string, feedback: string): Promise<string>;
   decideSalesStrategy(id: string, revision: number, decision: '승인' | '수정 요청' | '보류', feedback: string): Promise<void>;

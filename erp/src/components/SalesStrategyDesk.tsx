@@ -5,10 +5,11 @@ import {useDraftNavigation} from '../lib/useDraftNavigation'
 import type {SalesStrategy,StrategyTask} from '../lib/salesStrategy'
 import {Button,Field} from './ui'
 import './SalesStrategyDesk.css'
+import {SalesDeskChat} from './SalesDeskChat'
 
 const time=(value:string)=>new Date(value).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'})
 export function SalesStrategyDesk(){
- const {api,me}=useApp(),[page,setPage]=useState(0),[busy,setBusy]=useState(false),[error,setError]=useState(''),[selected,setSelected]=useState<SalesStrategy|null>(null)
+ const {api,me,profiles}=useApp(),[page,setPage]=useState(0),[busy,setBusy]=useState(false),[error,setError]=useState(''),[selected,setSelected]=useState<SalesStrategy|null>(null)
  const request=useRef<{id:string;feedback:string}|null>(null)
  const state=useAsync(()=>api.listSalesStrategies(page),[page],{items:[],total:0,automatic:false})
  const pending=state.data.items.some(p=>p.status==='기획 중'||p.preparation_status==='준비 중')
@@ -19,6 +20,7 @@ export function SalesStrategyDesk(){
  const inspect=(row:SalesStrategy)=>{if(requestViewChange(`sales-strategy/${row.id}`))setSelected(row)}
  return <article className="sales-strategy-desk" aria-label="AI 영업 기획실">
   <header><div><p className="sales-strategy-eyebrow">AI SALES PLANNING</p><h1>AI 영업 기획실</h1><p>새로운 고객군과 상품·영업 방법을 기획하고, 대표님이 승인한 안을 실행 업무로 연결합니다.</p></div><div className="sales-strategy-schedule"><strong>{state.loading?'설정 확인 중':state.error?'자동 기획 상태 확인 필요':state.data.automatic?'자동 기획 켜짐':'자동 기획 꺼짐'}</strong><span>08:00 자료 취합 · 08:45~08:55 새 기획 · 09:00 보고</span><small>하루 자동 기획 최대 3건 · 수동 포함 최대 6건 · 기존 AI 사용 한도 내 실행</small></div></header>
+  <SalesDeskChat api={api} agents={profiles.filter(p=>p.is_agent&&p.active).map(p=>({id:p.id,name:p.name}))} canSubmit={me.role==='admin'} operational={api.mode!=='demo'}/>
   <div className="sales-strategy-toolbar"><p>업종을 고정하지 않습니다. 근거·기회·수익화 방법·실행 순서를 한 장으로 제안합니다.</p><div className="row wrap"><Button kind="outline" disabled={busy||state.loading} onClick={state.reload}>기획안 새로고침</Button>{me.role==='admin'&&<><Button disabled={busy||pending||api.mode==='demo'} onClick={()=>generate()}>AI 새 영업안 기획</Button><Button kind="ghost" disabled={busy||state.loading||!!state.error||api.mode==='demo'} onClick={()=>void run(async()=>{await api.setSalesStrategyAutomatic(!state.data.automatic);state.reload()})}>{state.data.automatic?'자동 기획 끄기':'자동 기획 켜기'}</Button></>}</div></div>
   <p className="sales-strategy-note">AI가 제안한 수요·효과는 검증할 가설입니다. 승인하면 AI가 실행 자료를 준비하고 내부 업무로 연결합니다. 외부 발송·게시·예약·견적 확정·계약은 실행하지 않습니다.</p>
   {(error||state.error)&&<p role="alert">{error||state.error}</p>}

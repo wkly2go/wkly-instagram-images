@@ -1,0 +1,11 @@
+.sales-desk-chat{border-block:1px solid #cfdbd1;padding:24px 0;margin-top:24px}
+.sales-desk-chat header,.sales-desk-send,.sales-desk-chat nav{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.sales-desk-chat h2{font-size:21px}.sales-desk-chat small{display:block;color:#657267;font-size:12px}
+.sales-desk-conversation{max-height:650px;overflow:auto;overscroll-behavior:contain;margin:20px 0}
+.sales-desk-exchange{padding:18px 0;border-bottom:1px solid #dce3dc;overflow-wrap:anywhere}
+.sales-desk-answer{border-left:3px solid #b5c9b8;padding:12px 18px;margin-top:12px;background:#f3f6f0}
+.sales-desk-text{white-space:pre-wrap;overflow-wrap:anywhere}.sales-desk-chat details{margin-top:12px}.sales-desk-chat summary{cursor:pointer}
+.sales-desk-chat li{padding:8px 0;border-bottom:1px solid #dce3dc}.sales-desk-chat fieldset{padding:0;border:0;margin-top:20px;min-width:0}
+.sales-desk-options{display:grid;grid-template-columns:1fr 1fr;gap:16px}.sales-desk-chat textarea{min-height:100px;width:100%}.sales-desk-send{margin-top:12px}
+.sales-db-browser{margin:16px 0}.sales-db-browser>summary{cursor:pointer;font-weight:650;padding:12px 0}
+@media(max-width:700px){.sales-desk-options{grid-template-columns:1fr}.sales-desk-answer{padding:10px}.sales-desk-conversation{max-height:520px}}
