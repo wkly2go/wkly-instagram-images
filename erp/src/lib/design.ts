@@ -1,3 +1,4 @@
+import type { PlanGeometry, PlanLine } from './designPlan'
 // 설계·견적 (인테리어 디자인 자동화) — 인트라넷 DB 의 design 구역을 public.design_* 보기로 읽고 쓴다 (0125~0127)
 // 금액 계산은 작업 처리기(맥)의 견적 엔진만 한다. 화면은 수량 · 단가를 입력하고 결과를 보여 주기만 한다.
 
@@ -211,6 +212,11 @@ export interface DesignApi {
   listDesignDocuments(projectId: string): Promise<DesignDocument[]>
   /** 보관된 산출물 파일 내려받기 (발주서는 관리자만) */
   downloadDesignFile(documentId: string): Promise<{ name: string; blob: Blob }>
+  /** 작업 중인 평면(없으면 마지막으로 반영한 평면 · 그것도 없으면 null) */
+  getDesignPlan(projectId: string): Promise<PlanGeometry | null>
+  saveDesignPlan(projectId: string, plan: PlanGeometry): Promise<void>
+  /** 평면의 수량을 수량표에 반영 (새 모델 버전) */
+  applyDesignPlan(projectId: string, plan: PlanGeometry, lines: PlanLine[]): Promise<void>
   listCostLines(projectId: string): Promise<CostLine[]>
   /** 실행 내역을 통째로 바꾼다 (엑셀 다시 올리기) */
   replaceCostLines(projectId: string, rows: CostLineDraft[], sourceDoc: string): Promise<void>

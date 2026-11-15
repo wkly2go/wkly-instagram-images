@@ -101,3 +101,20 @@
 .design-pick { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; }
 .design-pick-select { display: flex; align-items: center; gap: 8px; flex: 1 1 320px; min-width: 0; font-size: var(--fs-cap); color: var(--gray); }
 .design-pick-select .select { flex: 1; min-width: 0; font-weight: 700; color: var(--blue); }
+
+/* 평면 · 3D 모델링 */
+.design-plan-bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.design-plan-h { display: inline-flex; gap: 5px; align-items: center; font-size: var(--fs-cap); color: var(--gray); white-space: nowrap; }
+.design-plan-h .input { width: 64px; text-align: right; }
+.design-plan-split { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 8px; }
+.design-plan-svg { width: 100%; aspect-ratio: 1 / 0.62; background: var(--white); border: 1px solid var(--line); touch-action: none; user-select: none; cursor: default; }
+.design-plan-svg.tool-wall, .design-plan-svg.tool-newwall, .design-plan-svg.tool-item, .design-plan-svg.tool-door, .design-plan-svg.tool-window { cursor: crosshair; }
+.design-plan-svg text { font-family: var(--mono); pointer-events: none; }
+.design-plan-svg .design-plan-item { cursor: move; }
+.design-plan-3d { min-height: 260px; height: 100%; border: 1px solid var(--line); background: var(--paper); display: grid; place-items: center; overflow: hidden; }
+.design-plan-3d canvas { display: block; }
+.design-plan-sel { color: var(--blue); align-self: center; padding-right: 6px; }
+.design-plan-qty { display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--line); padding-top: 10px; }
+@media (max-width: 900px) { .design-plan-split { grid-template-columns: minmax(0, 1fr); } .design-plan-3d { height: 280px; } }
+
+.design-work.wide { grid-template-columns: minmax(0, 1fr); }

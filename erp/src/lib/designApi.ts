@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { ApiError } from './api'
+import type { PlanGeometry } from './designPlan'
 import type {
   CostLine, DesignApi, DesignCard, DesignDocument, DesignJob, PoLine, PurchaseOrder, DesignMaterial, DesignProject, DesignTrade, DesignVendor, Estimate, EstimateLine,
   Knowledge, Placement, ScheduleTask, UnitCost, UnitPrice,
@@ -109,6 +110,18 @@ export function createSupabaseDesignApi(sb: SupabaseClient): DesignApi {
       for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
       return { name: f.name, blob: new Blob([bytes], { type: f.mime }) }
     },
+    async getDesignPlan(projectId) {
+      const r = await sb.from('design_spaces').select('version,geometry').eq('project_id', projectId).eq('source', 'manual').order('version', { ascending: false }).limit(20)
+      fail(r.error)
+      const rows = r.data ?? []
+      return ((rows.find(x => x.version === 0) ?? rows[0])?.geometry ?? null) as PlanGeometry | null
+    },
+    async saveDesignPlan(projectId, plan) {
+      fail((await sb.from('design_spaces').upsert({ project_id: projectId, version: 0, source: 'manual', geometry: plan, approved: false }, { onConflict: 'project_id,version' })).error)
+    },
+    async applyDesignPlan(projectId, plan, lines) {
+      fail((await sb.rpc('design_apply_plan', { p_project: projectId, p_geometry: plan, p_lines: lines }).retry(false)).error)
+    },
     async listCostLines(projectId) {
       const r = await sb.from('design_cost_lines').select('id,project_id,zone,item,qty,cost_price,vendor_name,note,source_doc,sort').eq('project_id', projectId).order('sort').order('created_at')
       fail(r.error)
@@ -206,6 +219,8 @@ export function createDemoDesignApi(): DesignApi {
     requestDesignJob: none,
     async listDesignJobs() { return [] },
     async listDesignDocuments() { return [] },
+    async getDesignPlan() { return null },
+    saveDesignPlan: none, applyDesignPlan: none,
     downloadDesignFile: none, replaceCostLines: none, addCostLine: none, updateCostLine: none, deleteCostLine: none,
     async listCostLines() { return [] },
     async listPurchaseOrders() { return [] },

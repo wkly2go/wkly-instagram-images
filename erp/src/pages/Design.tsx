@@ -13,6 +13,7 @@ import {
   type DesignBase, type DesignCard, type DesignProject, type Estimate, type EstimateRules, type Knowledge, type SpaceType,
 } from '../lib/design'
 import { SiteBody } from './Site'
+import { DesignPlan } from '../components/DesignPlan'
 import './Design.css'
 
 type Tab = 'projects' | 'cards' | 'prices' | 'vendors' | 'materials' | 'knowledge'
@@ -130,7 +131,7 @@ function ProjectHead({ project }: { project: DesignProject }) {
   )
 }
 
-type StepKey = 'survey' | 'qty' | 'estimate' | 'schedule'
+type StepKey = 'survey' | 'model' | 'qty' | 'estimate' | 'schedule'
 type StepState = 'none' | 'doing' | 'review' | 'done' | 'stale'
 const STEP_STATE: Record<StepState, string> = { none: '시작 전', doing: '진행 중', review: '검토 대기', done: '완료', stale: '갱신 필요' }
 
@@ -141,7 +142,7 @@ const STEP_STATE: Record<StepState, string> = { none: '시작 전', doing: '진�
 function ProjectView({ project, base }: { project: DesignProject; base: DesignBase }) {
   const { api, me, version } = useApp()
   const { query, navigate } = useRouter()
-  const view = (['survey', 'qty', 'estimate', 'schedule'].includes(query.get('view') ?? '') ? query.get('view') : 'qty') as StepKey
+  const view = (['survey', 'model', 'qty', 'estimate', 'schedule'].includes(query.get('view') ?? '') ? query.get('view') : 'qty') as StepKey
   const go = (k: StepKey) => navigate(withQuery('/design', query, { view: k === 'qty' ? null : k }))
   const { data: survey } = useAsync(() => api.listSurvey(project.id).catch(() => []), [project.id, version], [])
   const { data: rows } = useAsync(() => api.listPlacements(project.id, project.model_version), [project.id, project.model_version, version], [])
@@ -158,18 +159,20 @@ function ProjectView({ project, base }: { project: DesignProject; base: DesignBa
   const missing = lines.filter(l => l.unit_price == null).length
   const state: Record<StepKey, StepState> = {
     survey: survey.length === 0 ? 'none' : surveyDone === survey.length ? 'done' : 'doing',
+    model: project.model_version > 0 ? 'done' : 'none',
     qty: rows.length === 0 ? 'none' : est ? 'done' : 'doing',
     estimate: !est ? 'none' : stale ? 'stale' : confirmed ? 'done' : 'review',
     schedule: tasks.length === 0 ? 'none' : tasks.every(t => t.done) ? 'done' : 'doing',
   }
   const steps: { key: StepKey; label: string; note: string }[] = [
     { key: 'survey', label: '현장 실측', note: survey.length ? `${surveyDone}/${survey.length}` : '' },
+    { key: 'model', label: '평면 · 3D', note: project.model_version > 0 ? `모델 ${project.model_version}번째` : '' },
     { key: 'qty', label: '수량표', note: rows.length ? `${rows.length}줄` : '' },
     { key: 'estimate', label: '견적', note: est ? `${est.revision}차` : '' },
     { key: 'schedule', label: '공정', note: tasks.length ? `${tasks.filter(t => t.done).length}/${tasks.length}` : '' },
   ]
   const next: { text: string; to: StepKey } | null =
-    rows.length === 0 ? { text: "수량을 넣으세요. 스케치업에서 '수량 보내기'를 하거나 수량표에서 직접 넣습니다.", to: 'qty' }
+    rows.length === 0 ? { text: "수량을 넣으세요. '평면 · 3D'에서 그려 반영하거나, 스케치업에서 '수량 보내기', 또는 수량표에서 직접 넣습니다.", to: 'model' }
     : !est ? { text: "수량표에서 '이 수량으로 견적 계산'을 누르세요.", to: 'qty' }
     : stale ? { text: "수량이 견적과 다릅니다. 견적에서 '견적 다시 계산'을 누르세요.", to: 'estimate' }
     : missing ? { text: `단가 없는 항목 ${missing}개에 판매 단가를 넣고 다시 계산하세요.`, to: 'estimate' }
@@ -198,14 +201,15 @@ function ProjectView({ project, base }: { project: DesignProject; base: DesignBa
           </button>
         )}
       </nav>
-      <div className="design-work">
+      <div className={`design-work${view === 'model' ? ' wide' : ''}`}>
         <div className="design-work-main">
           {view === 'survey' && <SiteBody projectId={project.id} />}
+          {view === 'model' && <DesignPlan project={project} base={base} />}
           {view === 'qty' && <QuantityView project={project} base={base} />}
           {view === 'estimate' && <EstimateView project={project} base={base} />}
           {view === 'schedule' && <ScheduleView project={project} base={base} />}
         </div>
-        <aside className="design-side" aria-label="확인할 것">
+        {view !== 'model' && <aside className="design-side" aria-label="확인할 것">
           <section>
             <h3>다음 할 일</h3>
             {next ? <><p>{next.text}</p>{next.to !== view && <Button size="sm" kind="outline" onClick={() => go(next.to)}>{steps.find(s => s.key === next.to)?.label}(으)로</Button>}</> : <p className="t-cap">지금 단계에서 급한 일은 없습니다.</p>}
@@ -228,7 +232,7 @@ function ProjectView({ project, base }: { project: DesignProject; base: DesignBa
               <li>단가: 승인된 판매 단가 중 가장 최근 것</li>
             </ul>
           </section>
-        </aside>
+        </aside>}
       </div>
     </>
   )
