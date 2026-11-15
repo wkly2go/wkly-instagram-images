@@ -25,4 +25,5 @@ begin
 end $$;
 revoke all on function public.sales_strategy_ai_reserve(uuid,uuid,text,text,text,integer) from public,anon,authenticated;
 grant execute on function public.sales_strategy_ai_reserve(uuid,uuid,text,text,text,integer) to service_role;
+notify pgrst,'reload schema';
 commit;
