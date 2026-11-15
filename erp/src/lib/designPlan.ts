@@ -14,7 +14,7 @@ export interface PlanItem {
 /** One part of a room's finish: material number (PT-01) and, where it applies, the detail type (F/B/W). */
 export interface RoomPart { mat?: string; detail?: string }
 /** A room row of the finish schedule (sample set I-008: 실번호 · 실명 · 바닥 · 걸레받이 · 벽 · 천장). */
-export interface PlanRoom { id: string; no: string; name: string; floor: RoomPart; base: RoomPart; wall: RoomPart; ceiling: RoomPart; /** 천장 높이 mm */ ch?: number }
+export interface PlanRoom { id: string; no: string; name: string; floor: RoomPart; base: RoomPart; wall: RoomPart; ceiling: RoomPart; /** 천장 높이 mm */ ch?: number; /** 바닥 면적 ㎡ (바닥 · 천장 수량) */ area?: number; /** 걸레받이 길이 m */ perimeter?: number }
 export interface PlanGeometry { unit: 'mm'; height: number; walls: PlanWall[]; openings: PlanOpening[]; items: PlanItem[]; rooms?: PlanRoom[] }
 export const EMPTY_PLAN: PlanGeometry = { unit: 'mm', height: 2700, walls: [], openings: [], items: [] }
 
@@ -79,6 +79,11 @@ export function planQuantities(g: PlanGeometry, wallTrade = 'T03'): PlanLine[] {
     const holes = g.openings.filter(o => o.wall === w.id).reduce((s, o) => s + o.width * (o.kind === 'door' ? Math.min(o.height || 2100, g.height) : 1200), 0)
     const m2 = (wallLength(w) * g.height - holes) / 1e6
     if (m2 > 0) add({ trade: finishTrade(w.finish!), item: '벽 마감', spec: w.finish!.trim(), unit: 'm2', qty: m2, section: null })
+  }
+  // Room finishes: floor and ceiling by the room's area, baseboard by its length. Rooms without a material or a size add nothing.
+  for (const r of g.rooms ?? []) {
+    const line = (mat: string | undefined, item: string, unit: string, qty: number | undefined) => { if (mat?.trim() && qty && qty > 0) add({ trade: finishTrade(mat), item, spec: mat.trim(), unit, qty, section: null }) }
+    line(r.floor.mat, '바닥 마감', 'm2', r.area); line(r.ceiling.mat, '천장 마감', 'm2', r.area); line(r.base.mat, '걸레받이', 'm', r.perimeter)
   }
   for (const it of g.items) {
     if (!it.name.trim() || !it.trade_code || !it.unit) continue

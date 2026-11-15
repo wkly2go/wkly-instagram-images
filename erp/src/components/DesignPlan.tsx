@@ -196,12 +196,12 @@ export function DesignPlan({ project, base }: { project: DesignProject; base: De
       <div className="design-plan-qty" aria-label="실별 마감">
         <div className="row wrap">
           <b className="t-bodyb">실별 마감 (실내재료마감표)</b>
-          <span className="t-cap">실마다 바닥 · 걸레받이 · 벽 · 천장의 재료 번호와 상세 유형을 적으면 도면 세트의 마감표와 상세도(ID-100 · ID-200)가 만들어집니다</span>
+          <span className="t-cap">실마다 바닥 · 걸레받이 · 벽 · 천장의 재료 번호와 상세 유형을 적으면 도면 세트의 마감표와 상세도(ID-100 · ID-200)가 만들어집니다. 면적 · 걸레받이 길이를 적으면 아래 수량에도 들어갑니다</span>
           <span className="design-gap" />
           <Button size="sm" kind="outline" onClick={() => change({ ...plan, rooms: [...rooms, { id: `r${Date.now().toString(36)}`, no: String(101 + rooms.length), name: '', floor: {}, base: {}, wall: {}, ceiling: {}, ch: plan.height }] })}>실 추가</Button>
         </div>
         {rooms.length > 0 && <div className="table-wrap"><table className="table design-rooms">
-          <thead><tr><th>실번호</th><th>실명</th><th>바닥 재료</th><th>상세</th><th>걸레받이 재료</th><th>상세</th><th>벽 재료</th><th>상세</th><th>천장 재료</th><th>C.H</th><th /></tr></thead>
+          <thead><tr><th>실번호</th><th>실명</th><th>바닥 재료</th><th>상세</th><th>걸레받이 재료</th><th>상세</th><th>벽 재료</th><th>상세</th><th>천장 재료</th><th>C.H</th><th>면적 ㎡</th><th>걸레받이 m</th><th /></tr></thead>
           <tbody>{rooms.map(r => { const set = (p: Partial<typeof r>) => change({ ...plan, rooms: rooms.map(x => (x.id === r.id ? { ...x, ...p } : x)) }); return <tr key={r.id}>
             <td><input className="input xs" value={r.no} aria-label="실번호" onChange={e => set({ no: e.target.value })} /></td>
             <td><input className="input" value={r.name} aria-label="실명" placeholder="예: 로비" onChange={e => set({ name: e.target.value })} /></td>
@@ -211,6 +211,8 @@ export function DesignPlan({ project, base }: { project: DesignProject; base: De
                 {(k === 'floor' ? FLOOR_TYPES.map(t => [t.code, t.composition]) : k === 'base' ? BASE_TYPES.map(t => [t.code, t.name]) : WALL_TYPES.map(t => [t.code, `${t.name} ${t.thk}`])).map(([c, n]) => <option key={c} value={c}>{c} {n.slice(0, 30)}</option>)}</select></td>])}
             <td><input className="input" list="design-mat-codes" value={r.ceiling.mat ?? ''} aria-label="천장 재료 번호" placeholder="PT-01" onChange={e => set({ ceiling: { mat: e.target.value } })} /></td>
             <td><input className="input xs" inputMode="numeric" value={r.ch ?? ''} aria-label="천장 높이" onChange={e => set({ ch: Number(e.target.value.replace(/\D/g, '')) || undefined })} /></td>
+            <td><input className="input xs" inputMode="decimal" defaultValue={r.area ?? ''} aria-label="면적" placeholder={rooms.length === 1 && area != null ? String(area) : ''} onBlur={e => set({ area: Number(e.target.value.replace(/[^\d.]/g, '')) || undefined })} /></td>
+            <td><input className="input xs" inputMode="decimal" defaultValue={r.perimeter ?? ''} aria-label="걸레받이 길이" onBlur={e => set({ perimeter: Number(e.target.value.replace(/[^\d.]/g, '')) || undefined })} /></td>
             <td><Button size="sm" kind="ghost" onClick={() => change({ ...plan, rooms: rooms.filter(x => x.id !== r.id) })}>지우기</Button></td>
           </tr> })}</tbody>
         </table></div>}

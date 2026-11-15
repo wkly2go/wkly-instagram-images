@@ -32,3 +32,8 @@ test('a wall finish becomes a quantity line with the trade from the material pre
   const l = planQuantities({ unit: 'mm', height: 2500, items: [], openings: [{ id: 'o', wall: 'w', pos: 1000, width: 1000, kind: 'door', height: 2000 }], walls: [{ id: 'w', x1: 0, y1: 0, x2: 4000, y2: 0, t: 100, kind: 'existing', finish: 'PT-01 백색' }] })
   assert.deepEqual(l.map(x => [x.trade, x.item, x.spec, x.qty, x.unit]), [['T06', '벽 마감', 'PT-01 백색', 8, 'm2']])
 })
+
+test('room finishes become floor, ceiling and baseboard lines', () => {
+  const l = planQuantities({ unit: 'mm', height: 2500, items: [], openings: [], walls: [], rooms: [{ id: 'r', no: '101', name: '홀', floor: { mat: 'TL-01' }, base: { mat: 'MT-04' }, wall: {}, ceiling: { mat: 'PT-01' }, area: 33.5, perimeter: 24 }, { id: 's', no: '102', name: '창고', floor: { mat: 'TL-01' }, base: {}, wall: {}, ceiling: {}, area: 6.5 }] })
+  assert.deepEqual(l.map(x => [x.trade, x.item, x.spec, x.qty, x.unit]), [['T08', '바닥 마감', 'TL-01', 40, 'm2'], ['T06', '천장 마감', 'PT-01', 33.5, 'm2'], ['T04', '걸레받이', 'MT-04', 24, 'm']])
+})

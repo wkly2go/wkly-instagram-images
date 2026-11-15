@@ -16,6 +16,8 @@ export function DesignSpec({ project }: { project: DesignProject }) {
   const { data: found } = useAsync(() => (q.trim().length >= 2 ? api.listDesignMaterials(q) : Promise.resolve([] as DesignMaterial[])), [q], [] as DesignMaterial[])
   const [d, setD] = useState({ code: '', name: '', spec: '', location: '', maker: '' })
   const sheet = useRef<HTMLDivElement>(null)
+  const [open, setOpen] = useState<string | null>(null)
+  const DETAIL = [['finish', 'FINISH (마감 · 색)'], ['size', 'SIZE (크기)'], ['maker', 'MANUFAC. / ORIGIN (제조사 · 원산지)'], ['distributor', 'DISTRIBUTOR (납품 업체)'], ['contact', 'CONNECT NO. (담당 · 연락처)'], ['delivery', 'DELIVERY (납기)'], ['stock', 'STOCK (재고 · 수량)'], ['note', '비고']] as const
   const live = items.filter(i => i.status !== 'dropped')
   const groups = useMemo(() => {
     const m = new Map<string, SpecItem[]>()
@@ -34,7 +36,7 @@ export function DesignSpec({ project }: { project: DesignProject }) {
   const print = () => {
     const win = window.open('', '_blank')
     if (!win || !sheet.current) { toast('인쇄 창을 열지 못했습니다. 팝업 차단을 풀어 주세요'); return }
-    win.document.write(`<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${project.code ?? ''} 스펙북</title><style>@page{size:A4 landscape;margin:12mm}body{font-family:'Pretendard','Noto Sans KR',sans-serif;font-size:9pt;color:#111}h1{font-size:16pt;margin:0 0 2mm}h2{font-size:11pt;margin:6mm 0 2mm;border-left:3pt solid #111;padding-left:2mm}table{width:100%;border-collapse:collapse}th,td{border:0.4pt solid #999;padding:1.5mm 2mm;text-align:left;vertical-align:top}th{background:#eee}p{color:#555;margin:0 0 3mm}</style></head><body>${sheet.current.innerHTML}</body></html>`)
+    win.document.write(`<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${project.code ?? ''} 스펙북</title><style>@page{size:A4 landscape;margin:12mm}body{font-family:'Pretendard','Noto Sans KR',sans-serif;font-size:9pt;color:#111}h1{font-size:16pt;margin:0 0 2mm}h2{font-size:11pt;margin:6mm 0 2mm;border-left:3pt solid #111;padding-left:2mm}table{width:100%;border-collapse:collapse}th,td{border:0.4pt solid #999;padding:1.5mm 2mm;text-align:left;vertical-align:top}th{background:#eee}p{color:#555;margin:0 0 3mm}.cards{display:grid;grid-template-columns:1fr 1fr;gap:4mm}.card{break-inside:avoid}.card .code{font-size:11pt;text-align:right;background:#111;color:#fff}.card .l{width:32%;color:#555}</style></head><body>${sheet.current.innerHTML}</body></html>`)
     win.document.close(); window.setTimeout(() => win.print(), 400)
   }
   const tone = (s: SpecItem['status']) => (s === 'confirmed' ? 'blue' : s === 'selected' ? 'yellow' : s === 'dropped' ? 'gray' : 'outline')
@@ -75,8 +77,8 @@ export function DesignSpec({ project }: { project: DesignProject }) {
                 <td>{by === 'book' ? <input className="input xs design-sec" defaultValue={i.location ?? ''} aria-label={`${i.name} 위치`} onBlur={e => { const v = e.target.value.trim() || null; if (v !== i.location) run(() => api.updateSpecItem(i.id, { location: v })) }} /> : SPEC_BOOKS[i.book]}</td>
                 <td>{i.maker}</td>
                 <td><button type="button" className="design-status" disabled={busy} title="눌러서 다음 상태로" onClick={() => run(() => api.updateSpecItem(i.id, { status: next[i.status] }))}><Badge tone={tone(i.status)}>{SPEC_STATUS[i.status]}</Badge></button></td>
-                <td className="nowrap">{i.status !== 'dropped' && <Button size="sm" kind="ghost" disabled={busy} onClick={() => run(() => api.updateSpecItem(i.id, { status: 'dropped' }))}>제외</Button>}<Button size="sm" kind="ghost" disabled={busy} onClick={() => run(() => api.deleteSpecItem(i.id))} aria-label={`${i.name} 지우기`}>지우기</Button></td>
-              </tr>)}</tbody>
+                <td className="nowrap">{i.status !== 'dropped' && <Button size="sm" kind="ghost" disabled={busy} onClick={() => run(() => api.updateSpecItem(i.id, { status: 'dropped' }))}>제외</Button>}<Button size="sm" kind="ghost" aria-expanded={open === i.id} onClick={() => setOpen(open === i.id ? null : i.id)}>상세</Button><Button size="sm" kind="ghost" disabled={busy} onClick={() => run(() => api.deleteSpecItem(i.id))} aria-label={`${i.name} 지우기`}>지우기</Button></td>
+              </tr>).flatMap((tr, n) => { const i = rows[n]; return open === i.id ? [tr, <tr key={`${i.id}-d`}><td colSpan={7}><div className="design-add">{DETAIL.map(([k, label]) => <label key={k} className="design-spec-f"><span className="t-cap">{label}</span><input className="input" defaultValue={i[k] ?? ''} onBlur={e => { const v = e.target.value.trim() || null; if (v !== (i[k] ?? null)) run(() => api.updateSpecItem(i.id, { [k]: v })) }} /></label>)}</div></td></tr>] : [tr] })}</tbody>
             </table></div>
           ) : (
             <ul className="design-spec-cards">{rows.map(i => <li key={i.id} className={i.status === 'dropped' ? 'design-off' : ''}>
@@ -86,11 +88,19 @@ export function DesignSpec({ project }: { project: DesignProject }) {
           )}
         </section>
       ))}
-      <p className="t-cap">상태는 검토 → 선정 → 확정 순서입니다(눌러서 바꿈). '제외'한 항목은 인쇄 · 내보내기에서 빠집니다. 금액은 스펙북에 넣지 않습니다.</p>
+      <p className="t-cap">상태는 검토 → 선정 → 확정 순서입니다(눌러서 바꿈). '제외'한 항목은 인쇄 · 내보내기에서 빠집니다. 금액은 스펙북에 넣지 않습니다. '상세'에서 마감 · 크기 · 납품 업체 · 납기 등을 적으면 인쇄할 때 표본 스펙북처럼 CODE LIST 와 품목별 SPEC 카드로 나옵니다.</p>
       <div ref={sheet} hidden>
         <h1>{project.name} — SPEC BOOK</h1><p>{[project.code, project.client_name, new Date().toISOString().slice(0, 10)].filter(Boolean).join(' · ')} · 주식회사 아트리어디자인스튜디오</p>
-        {(Object.keys(SPEC_BOOKS) as SpecBook[]).filter(k => live.some(i => i.book === k)).map(k => <div key={k}><h2>{SPEC_BOOKS[k]}</h2><table><thead><tr><th>코드</th><th>품명</th><th>규격</th><th>위치</th><th>제조사</th><th>상태</th><th>비고</th></tr></thead>
-          <tbody>{live.filter(i => i.book === k).map(i => <tr key={i.id}><td>{i.code}</td><td>{i.name}</td><td>{i.spec}</td><td>{i.location}</td><td>{i.maker}</td><td>{SPEC_STATUS[i.status]}</td><td>{i.note}</td></tr>)}</tbody></table></div>)}
+        {(Object.keys(SPEC_BOOKS) as SpecBook[]).filter(k => live.some(i => i.book === k)).map(k => { const rows = live.filter(i => i.book === k); return <div key={k}>
+          <h2>{SPEC_BOOKS[k]} — CODE LIST</h2>
+          <table><thead><tr><th>CODE</th><th>ITEM</th><th>DISTRIBUTOR</th><th>CONNECT NO.</th><th>REMARKS_SIZE / COLOR</th><th>STOCK</th><th>AREA</th><th>상태</th></tr></thead>
+            <tbody>{rows.map(i => <tr key={i.id}><td><b>{i.code}</b></td><td>{i.name}</td><td>{i.distributor ?? i.maker}</td><td>{i.contact}</td><td>{[i.size ?? i.spec, i.finish].filter(Boolean).join(' / ')}</td><td>{i.stock ?? (i.qty != null ? `${i.qty}${i.unit ?? ''}` : '')}</td><td>{i.location}</td><td>{SPEC_STATUS[i.status]}</td></tr>)}</tbody></table>
+          <h2>{SPEC_BOOKS[k]} — SPEC</h2>
+          <div className="cards">{rows.map(i => <table key={i.id} className="card"><tbody>
+            <tr><th colSpan={2} className="code">{i.code ?? '—'}</th></tr>
+            {([['AREA', i.location], ['ITEM', [i.name, i.spec].filter(Boolean).join(' · ')], ['FINISH', i.finish], ['SIZE', i.size], ['MANUFAC. / ORIGIN', i.maker], ['DISTRIBUTOR', i.distributor], ['CONNECT NO.', i.contact], ['DELIVERY', i.delivery], ['STOCK', i.stock], ['REMARKS', i.note]] as const).map(([l, v]) => <tr key={l}><td className="l">{l}</td><td>{v || '-'}</td></tr>)}
+          </tbody></table>)}</div>
+        </div> })}
       </div>
     </div>
   )
