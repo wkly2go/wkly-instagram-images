@@ -44,6 +44,7 @@ before(async()=>{
  await db.exec(await sql('20261115090104_sales_preapproval.sql'))
  await db.exec(await sql('20261115090105_sales_execution_packages.sql'))
  await db.exec(await sql('20261115090106_sales_dispatch_queue.sql'))
+ await db.exec(await sql('20261115090107_sales_readiness.sql'))
  await db.exec("insert into growth_ai_models values('standard','작성','test-model',3,15,true);insert into growth_ai_budgets(id,starts_at,ends_at,limit_usd,enabled) values(gen_random_uuid(),now()-interval '1 day',now()+interval '1 day',1,true);insert into vault.decrypted_secrets values('WKLY_EDGE_ANON_KEY','test-gateway');grant usage on schema public,auth to service_role;")
 })
 after(()=>db.close())
@@ -163,6 +164,8 @@ test('daily notifications distinguish unfinished preparation from review-ready p
 
 // Test-only material adapter. Production remains transport-disabled.
 async function connectedFixture(){
+ const diagnostic=(await asUser(admin,()=>call('sales_sender_check_begin'),'service_role')).rows[0].r
+ await asUser(admin,()=>call('sales_sender_check_finish',[diagnostic,JSON.stringify({code:'ready',email:'sender@example.com',can_send:true,can_read:true,valid_for:900})]),'service_role')
  await db.exec(`alter function private.sales_execution_material(uuid) rename to execution_test_original;
  create function private.sales_execution_material(p_id uuid) returns jsonb language plpgsql stable set search_path='' as $$
  declare m jsonb; payload jsonb; proofs jsonb; blockers jsonb;
@@ -262,4 +265,49 @@ test('revoked administrator access prevents a previously approved queued send',a
  const {job}=await dispatchFixture();await db.query('update profiles set active=false where id=$1',[admin])
  assert.equal(await dispatchClaim(job.id),null)
  assert.equal((await db.query('select state from private.sales_dispatch_jobs where id=$1',[job.id])).rows[0].state,'cancelled')
+})
+
+test('sender diagnostics are service-owned and single-flight; credentials cannot be persisted',async()=>{
+ await assert.rejects(asUser(admin,()=>call('sales_sender_check_begin')),e=>e.code==='42501')
+ const run=(await asUser(admin,()=>call('sales_sender_check_begin'),'service_role')).rows[0].r
+ assert.ok(run);assert.equal((await asUser(admin,()=>call('sales_sender_check_begin'),'service_role')).rows[0].r,null)
+ const result={code:'read_only',email:'sender@example.com',can_send:false,can_read:true,valid_for:900}
+ await assert.rejects(asUser(admin,()=>call('sales_sender_check_finish',[run,JSON.stringify({...result,access_token:'do-not-store'})]),'service_role'),/Invalid diagnostic/)
+ await asUser(admin,()=>call('sales_sender_check_finish',[run,JSON.stringify(result)]),'service_role')
+ const j=await prepared(),p=await execution(j.id)
+ assert.equal(p.readiness.sender.code,'read_only');assert.equal(p.readiness.sender.can_send,false);assert.equal(p.can_approve,false)
+ assert.equal('run_id' in p.readiness.sender,false)
+ await assert.rejects(asUser(admin,()=>db.exec('select * from private.sales_sender_readiness')),e=>e.code==='42501')
+})
+test('old diagnostic response cannot overwrite a newer run and expired capability cannot authorize a send',async()=>{
+ const {job}=await dispatchFixture()
+ await db.exec("update private.sales_sender_readiness set valid_until=now()-interval '1 second',checked_at=now()-interval '2 minutes'")
+ const old=(await db.query('select run_id from private.sales_sender_readiness')).rows[0].run_id
+ const next=(await asUser(admin,()=>call('sales_sender_check_begin'),'service_role')).rows[0].r;assert.notEqual(old,next)
+ const result={code:'ready',email:'sender@example.com',can_send:true,can_read:true,valid_for:900}
+ await assert.rejects(asUser(admin,()=>call('sales_sender_check_finish',[old,JSON.stringify(result)]),'service_role'),e=>e.code==='PT409')
+ assert.equal(await dispatchClaim(job.id),null)
+ assert.equal((await db.query('select state from private.sales_dispatch_jobs where id=$1',[job.id])).rows[0].state,'cancelled')
+})
+test('unresponsive diagnostic leases expire and sender identity mismatch prevents dispatch',async()=>{
+ const {job,j}=await dispatchFixture();await db.exec("update private.sales_sender_readiness set email='other@example.com'")
+ assert.equal(await dispatchClaim(job.id),null)
+ await db.exec("update private.sales_sender_readiness set code='checking',started_at=now()-interval '3 minutes'")
+ assert.equal((await execution(j.id)).readiness.sender.code,'stale')
+ assert.ok((await asUser(admin,()=>call('sales_sender_check_begin'),'service_role')).rows[0].r)
+})
+test('recipient checks distinguish actual DB gaps without assuming permission from an email address',async()=>{
+ const j=await prepared('담당자');let p=await execution(j.id)
+ assert.equal(p.readiness.recipients[0].code,'permission_unverified')
+ await db.query("insert into brand_contacts(id,email,opt_out) values($1,'human@example.com',true)",[randomUUID()]);p=await execution(j.id)
+ assert.equal(p.readiness.recipients[0].code,'excluded')
+ await db.exec('delete from brand_contacts');await db.query("update contacts set email='' where id=$1",[person]);p=await execution(j.id)
+ assert.equal(p.readiness.recipients[0].code,'missing_contact')
+ assert.equal(p.payload.transport_enabled,false)
+})
+test('one mailbox linked to different companies is flagged automatically',async()=>{
+ const j=await prepared('담당자'),company=(await db.query("select id from sales_prospects where source='거래처' limit 1")).rows[0].id
+ const other=randomUUID();await db.query("insert into clients(id,name,email) values($1,'다른 회사','human@example.com')",[other]);await db.query('update sales_prospects set client_id=$1 where id=$2',[other,company])
+ await db.query("update sales_strategies set plan=jsonb_set(plan,'{evidence_ids}',(plan->'evidence_ids')||to_jsonb($2::text)) where id=$1",[j.id,company])
+ const p=await execution(j.id);assert.equal(p.readiness.recipients.length,2);assert.ok(p.readiness.recipients.every(r=>r.code==='ambiguous_company'))
 })

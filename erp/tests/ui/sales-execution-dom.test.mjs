@@ -35,12 +35,14 @@ test('execution review blocks unready approval, shows exact material and refresh
   try {
    const {SalesExecutionReview}=await server.ssrLoadModule('/src/components/SalesExecutionReview.tsx')
    let row={id:'packet',version:1,fingerprint:'hash-one',current:true,can_approve:false,status:'준비 중',blockers:['발송 연결 검증 필요'],events:[{id:1,kind:'자료 준비',note:'외부 발송 미실행',created_at:'2026-11-15T01:00:00Z'}],payload:{title:'팝업 운영',sender:null,transport_enabled:false,research:'근거 요약',messages:[{recipient:'company@example.com',company:'시험 회사',person:'담당자',subject:'팝업 운영 제안',body:'확인된 검토 문안'}],attachments:[{name:'proposal.md',mime:'text/markdown',content:'정확한 제안 자료'}],schedule:{at:'2026-11-16T01:00:00Z',expires_at:'2026-11-16T05:00:00Z',per_recipient_limit:1,followups:'없음'},checks:[]}}
-   const decisions=[],api={getSalesExecution:async()=>structuredClone(row),decideSalesExecution:async(...args)=>{decisions.push(args);row={...row,version:2,fingerprint:'hash-two',can_approve:false,status:'재검토',current:false};throw new Error('자료가 변경되었습니다.')}}
+   row.readiness={scope:'현재 DB 자동 점검',sender:{code:'unverified',email:null,can_send:false,can_read:false,checked_at:null,valid_until:null,transport_connected:false},recipients:[{source_id:'source',company:'시험 회사',person:'담당자',email:'company@example.com',origin:'담당자 DB',code:'permission_unverified',next_action:'시스템의 요청 근거 확인 대상'}]}
+   let checks=0
+   const decisions=[],api={refreshSalesSender:async()=>{checks++;row.readiness.sender={...row.readiness.sender,code:'read_only',email:'sender@example.com',can_read:true,checked_at:'2026-11-15T03:00:00Z'}},getSalesExecution:async()=>structuredClone(row),decideSalesExecution:async(...args)=>{decisions.push(args);row={...row,version:2,fingerprint:'hash-two',can_approve:false,status:'재검토',current:false};throw new Error('자료가 변경되었습니다.')}}
    await act(async()=>root.render(el(SalesExecutionReview,{api,strategyId:'strategy',revision:3,canDecide:true})))
    assert.equal(screen.getByRole('button',{name:'이 버전의 외부 연락 승인'}).disabled,true)
-   assert.ok(screen.getByText('company@example.com'));assert.ok(screen.getByText('확인된 검토 문안'));assert.ok(screen.getByText('정확한 제안 자료'))
+   assert.equal(checks,1);assert.ok(screen.getByText('발송 권한 없음'));assert.ok(screen.getByText('시스템의 요청 근거 확인 대상'));assert.ok(screen.getAllByText('company@example.com').length>=1);assert.ok(screen.getByText('확인된 검토 문안'));assert.ok(screen.getByText('정확한 제안 자료'))
    assert.match(screen.getByText(/제안 시각/).textContent,/제안 시각/)
-   row={...row,status:'승인 대기',can_approve:true,dispatch:{connected:false,note:'실제 발송 처리기 미연결',jobs:[{id:'job',package_id:'packet',recipient:'company@example.com',state:'unknown',reason:'결과 불명 · 자동 재발송 중단',scheduled_at:'2026-11-16T01:00:00Z',finished_at:null,created_at:'2026-11-15T01:00:00Z'}]}}
+   row={...row,readiness:{...row.readiness,sender:{...row.readiness.sender,code:'ready',can_send:true}},status:'승인 대기',can_approve:true,dispatch:{connected:false,note:'실제 발송 처리기 미연결',jobs:[{id:'job',package_id:'packet',recipient:'company@example.com',state:'unknown',reason:'결과 불명 · 자동 재발송 중단',scheduled_at:'2026-11-16T01:00:00Z',finished_at:null,created_at:'2026-11-15T01:00:00Z'}]}}
    await act(async()=>fireEvent.click(screen.getByRole('button',{name:'실행안 새로고침'})))
    assert.ok(screen.getByText('결과 확인 필요'));assert.ok(screen.getByText('결과 불명 · 자동 재발송 중단'))
    await act(async()=>fireEvent.click(screen.getByRole('button',{name:'이 버전의 외부 연락 승인'})))
@@ -49,5 +51,6 @@ test('execution review blocks unready approval, shows exact material and refresh
    assert.equal(screen.getByRole('button',{name:'실행안 보류'}).disabled,true)
    await act(async()=>root.render(el(SalesExecutionReview,{api,strategyId:'strategy',revision:3,canDecide:false})))
    assert.equal(screen.queryByRole('button',{name:'이 버전의 외부 연락 승인'}),null)
+   assert.equal(screen.queryByRole('button',{name:'계정 연결 다시 점검'}),null);assert.equal(checks,1)
   } finally {await act(async()=>root.unmount());await server.close();dom.window.close()}
 })

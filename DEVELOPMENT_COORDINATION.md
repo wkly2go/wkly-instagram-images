@@ -49,3 +49,9 @@ PR에는 기준 main SHA, 수정 파일, 새/변경 DB 객체, migration 번호�
 Add `20261115090106_sales_dispatch_queue.sql` after the five existing Sales timestamp migrations. All six remain UNAPPLIED. The fifth unapplied migration additionally fixes reviewed-window drift across midnight. The sixth adds only Sales private queue/audit objects, service-only claim/result functions, an expiry watchdog, and sanitized read history. No send transport or HTTP worker entry point is deployed or enabled. The internal worker core is local/tested only.
 
 Latest read-only comparison: main `4b2a31d080ef0957262ee84512e62df0404f6e1e`, design `66073967fa3003be08116ddb26d957bc55e0043f`, design migrations through 0133. No new number collision; recheck before merge. No design/menu/shared Shell/package edits. The explicit production hold is unchanged.
+
+## Readiness handoff — 2026-11-15
+
+Seventh unapplied Sales migration: `20261115090107_sales_readiness.sql`. Apply only after 090101–090106 when the production hold is explicitly cleared. New `sales-readiness` worker is a diagnostic-only endpoint with an active-human-admin JWT check; deployment artifact is `erp/supabase/deploy/sales-readiness-dashboard.ts`. It reuses existing company OAuth secret RPCs and does not expand scopes or send. Optional `SALES_SENDER_EMAIL` pins the expected primary mailbox. No new secret values were read or changed during development.
+
+Latest compared main: `aa8d513f2f5c0ad854c26ad6735ffc1594c78e67`; design: `2a770c6ae1dbaef245f9dd215ca54643b529030c`, migrations through 0133. No new number collision and no overlap in the readiness-edited Sales files. Main has incorporated design/shared Shell changes; do not overwrite them with an old Sales checkout. Production hold remains until explicit coordination clearance. All seven Sales migrations and the new worker are still operationally unapplied.
