@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { floorArea, planQuantities, snapPoint, type PlanGeometry, type PlanWall } from '../src/lib/designPlan.ts'
+import { floorArea, planQuantities, snapPoint, type PlanGeometry, type PlanWall, finishTrade } from '../src/lib/designPlan.ts'
 
 const wall = (id: string, x1: number, y1: number, x2: number, y2: number, kind: 'existing' | 'new' = 'existing'): PlanWall => ({ id, x1, y1, x2, y2, t: 100, kind })
 const room = [wall('a', 0, 0, 6000, 0), wall('b', 6000, 0, 6000, 4000), wall('c', 6000, 4000, 0, 4000), wall('d', 0, 4000, 0, 0)]
@@ -25,4 +25,10 @@ test('가벽은 길이 × 높이에서 문 면적을 빼고, 같은 부품은 �
 test('격자와 직각 맞춤', () => {
   assert.deepEqual(snapPoint(1234, 987, 50), { x: 1250, y: 1000 })
   assert.deepEqual(snapPoint(3010, 240, 50, { x: 0, y: 0 }), { x: 3000, y: 0 })
+})
+
+test('a wall finish becomes a quantity line with the trade from the material prefix', () => {
+  assert.equal(finishTrade('PT-01 수성 페인트'), 'T06'); assert.equal(finishTrade('TL 03'), 'T08'); assert.equal(finishTrade('흰색 도장'), 'T99')
+  const l = planQuantities({ unit: 'mm', height: 2500, items: [], openings: [{ id: 'o', wall: 'w', pos: 1000, width: 1000, kind: 'door', height: 2000 }], walls: [{ id: 'w', x1: 0, y1: 0, x2: 4000, y2: 0, t: 100, kind: 'existing', finish: 'PT-01 백색' }] })
+  assert.deepEqual(l.map(x => [x.trade, x.item, x.spec, x.qty, x.unit]), [['T06', '벽 마감', 'PT-01 백색', 8, 'm2']])
 })

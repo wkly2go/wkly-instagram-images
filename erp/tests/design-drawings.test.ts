@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { materialKind, wallFaceArea, wallFinishRows, elevationItems, furnitureTypes, pickScale, planDxf, sheetList } from '../src/lib/designDrawings.ts'
+import { doorGroups, materialKind, wallFaceArea, wallFinishRows, elevationItems, furnitureTypes, pickScale, planDxf, sheetList } from '../src/lib/designDrawings.ts'
 import type { PlanGeometry } from '../src/lib/designPlan.ts'
 
 const g: PlanGeometry = { unit: 'mm', height: 2700, openings: [{ id: 'o', wall: 'a', pos: 1500, width: 900, kind: 'door' }],
@@ -57,4 +57,9 @@ test('rooms add the room finish schedule and the floor / baseboard / wall detail
   const part = {}, rooms = [{ id: 'r', no: '101', name: '로비', floor: { mat: 'TL-01', detail: 'F1' }, base: { mat: 'MT-04', detail: 'B1' }, wall: { mat: 'PT-01', detail: 'W10' }, ceiling: part }]
   const s = sheetList({ ...g, rooms })
   assert.deepEqual(s.filter(x => /schedule|finish|Detail/.test(x.kind) && x.kind !== 'furnDetail' && x.kind !== 'doorDetail').map(x => `${x.no} ${x.title}`), ['I-008 실내재료마감표', 'I-009 마감 수량표', 'ID-101 바닥 상세 F1', 'ID-104 걸레받이 상세 B1', 'ID-201 벽체 상세 W10'])
+})
+
+test('doors of the same size, kind and finish share one door-list entry', () => {
+  const o = g.openings[0], d = doorGroups({ ...g, openings: [{ ...o, to: '창고' }, { ...o, id: 'p', to: '사무실' }, { ...o, id: 'q', width: 800, height: 2000 }] })
+  assert.deepEqual(d.map(x => [x.no, x.width, x.height, x.count, x.to.join('/')]), [['D-01', 800, 2000, 1, ''], ['D-02', 900, 2100, 2, '창고/사무실']])
 })
