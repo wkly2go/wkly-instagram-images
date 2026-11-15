@@ -1,0 +1,12 @@
+.sales-data-status{margin:24px 0;padding:20px 0;border-block:1px solid var(--border,#d8dfd7)}
+.sales-data-status header,.sales-source-history nav{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.sales-data-status h2{margin:0;font-size:var(--fs-title,17px)}
+.sales-data-status dl{margin:16px 0}
+.sales-data-status dl>div{display:flex;justify-content:space-between;gap:16px;padding:8px 0;border-bottom:1px solid var(--border,#d8dfd7)}
+.sales-data-status dd{margin:0;font-weight:700}
+.sales-source-history{margin:18px 0}
+.sales-source-history ol{padding-left:24px}
+.sales-source-history li{padding:12px 0;border-bottom:1px solid var(--border,#d8dfd7);overflow-wrap:anywhere}
+.sales-source-history summary{cursor:pointer}
+.sales-evidence-text{white-space:pre-wrap;overflow-wrap:anywhere;max-height:320px;overflow:auto}
+@media print{.sales-data-status button,.sales-source-history{display:none}}

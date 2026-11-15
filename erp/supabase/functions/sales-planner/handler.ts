@@ -1,5 +1,6 @@
 import { parseStrategyPlan, strategyPrompt, preparationPrompt, parseStrategyPreparation, type StrategyPreparation, type StrategySource, type StrategyPlan } from '../../../src/lib/salesStrategy.ts'
-export interface PlanningJob {id: string; phase?: 'plan' | 'prepare'; plan?: StrategyPlan; model: 'fast' | 'standard' | 'deep'; actor: string; today: string; sources: StrategySource[]; recent: {title: string; category: string}[]; feedback: string}
+import type {SalesContactEvidence} from '../../../src/lib/salesExecution.ts'
+export interface PlanningJob {contact_evidence?:SalesContactEvidence;id: string; phase?: 'plan' | 'prepare'; plan?: StrategyPlan; model: 'fast' | 'standard' | 'deep'; actor: string; today: string; sources: StrategySource[]; recent: {title: string; category: string}[]; feedback: string}
 export interface PlannerDependencies {
   claim: (id: string, token: string) => Promise<PlanningJob | null>;
   generate: (job: PlanningJob, prompt: string) => Promise<{status?: string; text?: string; error?: string}>;
@@ -21,7 +22,7 @@ export function createSalesPlanner(deps: PlannerDependencies) {
     const work=async()=>{
       try {
         const preparing=job!.phase==='prepare'
-        const result=await deps.generate(job!,preparing?preparationPrompt(job!.plan!,job!.sources):strategyPrompt(job!))
+        const result=await deps.generate(job!,preparing?preparationPrompt(job!.plan!,job!.sources,job!.contact_evidence):strategyPrompt(job!))
         if(result.error)throw new Error(result.error)
         if(result.status!=='completed'||typeof result.text!=='string')throw new Error('AI 결과가 확정되지 않았습니다. 사용 기록을 확인해 주세요.')
         const plan=preparing?parseStrategyPreparation(result.text):parseStrategyPlan(result.text,job!.sources)
