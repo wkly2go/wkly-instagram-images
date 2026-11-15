@@ -214,3 +214,10 @@ Overall stays 15/48 (31%, 69% remaining). This is a bounded known-site research 
 - 화면: 기획실에 조사 현황 한 줄(건수만). `/sales` 의 저장 DB 접이식 영역과 개발 진행 표는 관리자에게만 보인다. `public.sales_event_brands_overview()` 는 로그인한 팀원 읽기 전용(기획 · 대화 근거용).
 - 검증: 처리기 5개 · DB 5개 신규 검사, 영업 전체 343개 통과, 화면 DOM 검사 갱신(팀원에게 저장 DB 미노출). 실제 사이트 읽기 · 운영 DB · 처리기 배포는 하지 않았다.
 - 아직 없는 것: 민간 행사 소식 자체의 자동 발견(지금은 서울시 문화행사 · 나라장터로 들어온 행사만 대상), 브랜드 공식 사이트 찾기, 대화형 기획 협의(여러 차례 대화 → 방향 확정), 발송 · 회신 실연결.
+
+### 운영 반영 — 2026-11-15 (Claude · 대표 지시 '제안대로 처리')
+- DB: migration 090101~090115 15개를 한 트랜잭션으로 운영 적용. 커밋 fe6a2bb 의 파일을 sha256 으로 대조한 뒤 실행했다. 영업 표 13 → 35개.
+- 새 예약 11개(`wkly_sales_desk_watchdog` · `g2b_watchdog` · `execution_material` · `dispatch_watchdog` · `contact_evidence` · `mail_evidence` · `contact_discovery` · `replies` · `followup` · `followup_research` · `event_brands`)는 **꺼 둔 상태**(cron active=false). 기존 예약 6개는 그대로.
+- 처리기 10개 배포(sales-planner v3 · sales-desk · sales-g2b · sales-readiness · sales-mail-evidence · sales-contact-discovery · sales-replies · sales-followup · sales-followup-research · sales-event-brands, 모두 JWT 검증 유지). 각 처리기는 같은 커밋의 `supabase/deploy/*-dashboard.ts` 를 그대로 불러온다. GET 405 응답으로 기동만 확인했다.
+- 하지 않은 것: 예약 켜기, 실제 외부 사이트 읽기, 유료 AI 호출, 발송. 발송 어댑터는 꺼져 있다.
+- 다음: 대표 계정으로 기획실 · 대화 한 건씩 확인 → 예약을 하나씩 켬(행사 참가 브랜드 → 연락 후보 → 후속 조사 순).
