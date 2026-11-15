@@ -34,7 +34,12 @@ export interface SalesStrategyApi extends SalesExecutionApi {
   /** 입찰 참가 자격 (관리자만): 공고에 나온 업종과 본사 소재지 */
   listBidQualifications(): Promise<BidQualification[]>;
   setBidQualification(kind: BidQualification['kind'], name: string, status: BidQualification['status']): Promise<void>;
+  /** 광고 고객 목록 (관리자만): 직접 거래 · 연락한 상대의 메일과 전화 */
+  getAdAudience(): Promise<AdAudienceRow[]>;
 }
+export interface AdAudienceRow {email: string; phone: string; segment: string}
+/** Google Ads Customer Match upload: English headers, E.164 phones, ISO country. */
+export const googleAudienceCsv=(rows:AdAudienceRow[])=>['Email,Phone,Country',...rows.map(r=>`${r.email},${r.phone},KR`)].join('\r\n')+'\r\n'
 export interface BidQualification {kind: '업종' | '지역'; name: string; status: '보유' | '미보유' | '확인 필요'}
 export interface SalesMethodProposal {id: string; action: '추가' | '수정' | '중지'; name: string; signal: string; offer: string; first_step: string; reason: string; created_at: string}
 
