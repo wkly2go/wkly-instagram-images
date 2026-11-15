@@ -11,6 +11,7 @@ import {SalesDeskChat} from './SalesDeskChat'
 import {SalesMethodProposals} from './SalesMethodProposals'
 import {SalesBidQualifications} from './SalesBidQualifications'
 import {SalesAdAudience} from './SalesAdAudience'
+import {SalesRecipientScope} from './SalesRecipientScope'
 
 const time=(value:string)=>new Date(value).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'})
 export function SalesStrategyDesk(){
@@ -37,6 +38,7 @@ export function SalesStrategyDesk(){
   {api.mode!=='demo'&&!events.loading&&!events.error&&events.data.brand_total>0&&<p className="sales-strategy-note" role="status"><strong>행사 참가 브랜드 자동 조사</strong> · {events.error?'현황을 불러오지 못했습니다(운영 반영 전일 수 있습니다).':eventBrandSummary(events.data)}</p>}
   {me.role==='admin'&&<SalesMethodProposals api={api} canDecide={api.mode!=='demo'}/>}
   {me.role==='admin'&&<SalesBidQualifications api={api} canEdit={api.mode!=='demo'}/>}
+  {me.role==='admin'&&api.mode!=='demo'&&<SalesRecipientScope api={api} canEdit/>}
   {me.role==='admin'&&<SalesAdAudience api={api} enabled={api.mode!=='demo'}/>}
   <SalesDeskChat api={api} agents={profiles.filter(p=>p.is_agent&&p.active).map(p=>({id:p.id,name:p.name}))} canSubmit={me.role==='admin'} operational={api.mode!=='demo'} plans={{items:page===0&&!state.error?state.data.items:[],busy:busy||state.loading,error,onApprove:approve,onReject:reject,onOpen:inspect,onPlan:direction=>generate(direction),execution:row=><SalesExecutionReview api={api} strategyId={row.id} revision={row.revision} canDecide={me.role==='admin'&&api.mode!=='demo'}/>}}/>
   <div className="sales-strategy-toolbar"><p>기획안 전체 목록입니다. 대화에서 승인·반려한 결과가 여기에도 기록됩니다.</p><div className="row wrap"><Button kind="outline" disabled={busy||state.loading} onClick={state.reload}>기획안 새로고침</Button>{state.data.items.some(r=>['수정 요청','보류'].includes(r.status))&&<Button kind="ghost" onClick={()=>setShowRejected(v=>!v)}>{showRejected?'반려한 안 숨기기':'반려한 안도 보기'}</Button>}{me.role==='admin'&&<><Button disabled={busy||pending||api.mode==='demo'} onClick={()=>generate()}>AI 새 영업안 기획</Button><Button kind="ghost" disabled={busy||state.loading||!!state.error||api.mode==='demo'} onClick={()=>void run(async()=>{await api.setSalesStrategyAutomatic(!state.data.automatic);state.reload()})}>{state.data.automatic?'자동 기획 끄기':'자동 기획 켜기'}</Button></>}</div></div>

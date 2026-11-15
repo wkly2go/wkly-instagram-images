@@ -3,6 +3,8 @@ export interface DispatchLease {
  id:string;token:string;fingerprint:string;sender:string;
  message:{recipient:string;subject:string;body:string};
  attachments:{name:string;mime:string;content:string}[];expires_at:string;
+ /** A fixed test text to an address the administrator named; sent even while customer sending is switched off. */
+ test?:boolean;
 }
 export type DispatchOutcome='accepted'|'rejected'|'unknown'
 export interface DispatchDeps {

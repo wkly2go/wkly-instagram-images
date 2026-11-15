@@ -115,8 +115,9 @@ export async function googleConnectCode(clientId: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const c = g.accounts.oauth2.initCodeClient({
       client_id: clientId,
-      // 드라이브 + 지메일 읽기 (2026-10-31 "지메일 연동해" · 메일은 읽기만, 보내지 않음)
-      scope: `${DRIVE_SCOPES} https://www.googleapis.com/auth/gmail.readonly`,
+      // 드라이브 + 지메일 읽기 (2026-10-31 "지메일 연동해") + 보내기 (2026-11-15 대표 허용: 대표가 승인한 영업 실행 묶음 범위의 메일만 발송 ·
+      // 그 밖의 메일은 계속 보내지 않는다. 보내기는 영업 발송 함수만 쓰고, 승인 · 수신자 범위 · 발송 스위치를 모두 통과해야 한다)
+      scope: `${DRIVE_SCOPES} https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send`,
       ux_mode: 'popup',
       access_type: 'offline',
       prompt: 'consent',

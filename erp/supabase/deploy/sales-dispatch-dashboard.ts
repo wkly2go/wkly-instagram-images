@@ -135,6 +135,49 @@ async function transmitGmail(lease, signal, config2, fetcher = fetch, now = Date
   throw new Error("Provider acceptance unknown");
 }
 
+// supabase/functions/sales-readiness/handler.ts
+var scope = (name) => `https://www.googleapis.com/auth/gmail.${name}`;
+var sendScopes = /* @__PURE__ */ new Set(["https://mail.google.com/", scope("send"), scope("compose"), scope("modify")]);
+var profileScopes = /* @__PURE__ */ new Set(["https://mail.google.com/", scope("readonly"), scope("metadata"), scope("compose"), scope("modify")]);
+var readScopes = /* @__PURE__ */ new Set(["https://mail.google.com/", scope("readonly"), scope("modify")]);
+var emailPattern = /^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+async function boundedJson2(response) {
+  if (!response.ok || !response.body) throw new Error("provider unavailable");
+  const reader = response.body.getReader(), decoder = new TextDecoder();
+  let text = "", size = 0;
+  try {
+    for (; ; ) {
+      const part = await reader.read();
+      if (part.done) break;
+      size += part.value.byteLength;
+      if (size > 32768) throw new Error("response limit");
+      text += decoder.decode(part.value, { stream: true });
+    }
+    return JSON.parse(text + decoder.decode());
+  } finally {
+    await reader.cancel().catch(() => void 0);
+    reader.releaseLock();
+  }
+}
+async function inspectSender(config2, fetcher = fetch) {
+  const fail = (code) => ({ code, email: null, can_send: false, can_read: false, valid_for: 60 });
+  if (!config2?.clientId || !config2.clientSecret || !config2.refreshToken) return fail("not_connected");
+  try {
+    const token = await boundedJson2(await fetcher("https://oauth2.googleapis.com/token", { method: "POST", redirect: "error", signal: AbortSignal.timeout(1e4), headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ client_id: config2.clientId, client_secret: config2.clientSecret, refresh_token: config2.refreshToken, grant_type: "refresh_token" }) }));
+    if (typeof token.access_token !== "string" || !token.access_token || /[\r\n]/.test(token.access_token) || typeof token.expires_in !== "number" || !Number.isFinite(token.expires_in) || token.expires_in <= 30) return fail("provider_error");
+    if (typeof token.scope !== "string" || !token.scope.trim()) return fail("scope_unknown");
+    const scopes = new Set(token.scope.split(/\s+/)), canSend = [...scopes].some((s) => sendScopes.has(s)), canRead = [...scopes].some((s) => readScopes.has(s));
+    if (![...scopes].some((s) => profileScopes.has(s))) return fail("identity_unverified");
+    const profile = await boundedJson2(await fetcher("https://gmail.googleapis.com/gmail/v1/users/me/profile", { method: "GET", redirect: "error", signal: AbortSignal.timeout(1e4), headers: { Authorization: `Bearer ${token.access_token}` } }));
+    const email2 = typeof profile.emailAddress === "string" ? profile.emailAddress.trim().toLowerCase() : "";
+    if (email2.length > 254 || !emailPattern.test(email2)) return fail("identity_unverified");
+    if (config2.expectedEmail && email2 !== config2.expectedEmail.trim().toLowerCase()) return fail("account_mismatch");
+    return { code: canSend ? "ready" : "read_only", email: email2, can_send: canSend, can_read: canRead, valid_for: Math.floor(Math.min(token.expires_in - 30, 900)) };
+  } catch {
+    return fail("provider_error");
+  }
+}
+
 // supabase/functions/sales-dispatch/index.ts
 var server = createClient(Deno.env.get("SUPABASE_URL"), Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"), { auth: { persistSession: false, autoRefreshToken: false } });
 async function rpc(name, args = {}) {
@@ -160,14 +203,35 @@ Deno.serve(async (req) => {
   } catch {
     return new Response("Invalid job", { status: 400 });
   }
-  const work = runSalesDispatch(id, {
-    claim: async (job) => await rpc("sales_dispatch_claim", { p_id: job }),
-    // A missing or switched-off configuration is a refusal before any send attempt.
-    transmit: async (lease, signal) => transmitGmail(lease, signal, await config().catch(() => null)),
-    finish: async (job, token, outcome, providerId) => {
-      await rpc("sales_dispatch_finish", { p_id: job, p_token: token, p_outcome: outcome, p_provider_id: providerId });
+  let test = false;
+  const work = (async () => {
+    try {
+      const run = await rpc("sales_sender_check_begin");
+      if (run) {
+        const cfg = await config();
+        await rpc("sales_sender_check_finish", { p_run: run, p_result: await inspectSender(cfg, fetch) });
+      }
+    } catch {
     }
-  }).then(() => void 0, () => void 0);
+    await runSalesDispatch(id, {
+      // A job id that is not an approved customer message may be a test send; that path has its own table and fixed text.
+      claim: async (job) => {
+        const lease = await rpc("sales_dispatch_claim", { p_id: job });
+        if (lease) return lease;
+        const trial = await rpc("sales_dispatch_test_claim", { p_id: job });
+        test = trial?.test === true;
+        return test ? trial : null;
+      },
+      // A missing or switched-off configuration is a refusal before any send attempt. Only a test lease passes while the switch is off.
+      transmit: async (lease, signal) => {
+        const cfg = await config().catch(() => null);
+        return transmitGmail(lease, signal, cfg ? { ...cfg, enabled: cfg.enabled || test && lease.test === true } : null);
+      },
+      finish: async (job, token, outcome, providerId) => {
+        await rpc(test ? "sales_dispatch_test_finish" : "sales_dispatch_finish", { p_id: job, p_token: token, p_outcome: outcome, p_provider_id: providerId });
+      }
+    });
+  })().then(() => void 0, () => void 0);
   EdgeRuntime.waitUntil(work);
   return Response.json({ accepted: true }, { status: 202 });
 });
