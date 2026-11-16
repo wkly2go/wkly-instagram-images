@@ -17,9 +17,13 @@ export interface SalesStrategy {
   preparation_status?: '미요청' | '준비 중' | '완료' | '확인 필요'; preparation?: StrategyPreparation | null; preparation_error?: string;
 }
 export interface StrategyTask { id: string; strategy_id: string; ordinal: number; owner_id: string|null; executor?:'legacy'|'system'; title: string; output: string; due_date: string; status: '대기' | '진행' | '완료'; result: string; revision: number }
+export interface SalesDeskFold { kind: 'message' | 'plan'; id: string; label: string; folded_at: string }
 export interface SalesStrategyApi extends SalesExecutionApi {
   listSalesDesk(before:number|null):Promise<import('./salesDesk').SalesDeskMessage[]>;
   submitSalesDesk(id:string,agent:string|null,action:import('./salesDesk').SalesDeskAction,instruction:string):Promise<string>;
+  /** 영업 대화 · 기획 보관함 (2026-11-16 · 사람마다) — 없으면 접기만 이 화면에서 */
+  listSalesDeskFolds?():Promise<SalesDeskFold[]>;
+  foldSalesDesk?(kind:SalesDeskFold['kind'],id:string,fold:boolean,label:string):Promise<void>;
   listSalesStrategies(page: number): Promise<{items: SalesStrategy[]; total: number; automatic: boolean}>;
   requestSalesStrategy(id: string, feedback: string): Promise<string>;
   /** 행사 → 참가 브랜드 자동 조사 현황 (건수만 화면에 쓰고 목록은 AI 기획 · 대화의 근거로 쓴다) */
