@@ -63,7 +63,7 @@ export function renderSalesEmailHtml({subject, body, proposal, sender}: SalesEma
   const pr = proposal?.trim() ? parseProposal(proposal) : null
   const reply = `mailto:${encodeURIComponent(sender)}?subject=${encodeURIComponent('Re: ' + subject)}`
   const rows: string[] = []
-  rows.push(`<tr><td style="padding:28px 40px 0;"><div style="font-size:12px;letter-spacing:3px;color:${C.sub};font-weight:700;">THE WKLY <span style="color:${C.pink};">×</span> ARTERIOR</div></td></tr>`)
+  rows.push(`<tr><td style="padding:28px 40px 0;"><div style="font-size:12px;letter-spacing:3px;color:${C.sub};font-weight:700;">THE WKLY <span style="color:${C.pink};">·</span> CREW</div></td></tr>`)
   rows.push(`<tr><td style="padding:14px 40px 8px;"><div style="font-size:22px;line-height:1.4;font-weight:700;color:${C.ink};">${esc(pr?.title || subject)}</div>${pr?.summary ? `<div style="margin-top:8px;font-size:15px;line-height:1.6;color:${C.sub};">${esc(pr.summary)}</div>` : ''}<div style="margin-top:18px;width:40px;height:3px;background:${C.green};"></div></td></tr>`)
   // The opt-out sentence and the sign-off close the mail, after the plan; the rest opens it.
   const blocks = body.replace(/\r\n?/g, '\n').split(/\n{2,}|\n/).map(t => t.trim()).filter(Boolean)
@@ -86,7 +86,7 @@ export function renderSalesEmailHtml({subject, body, proposal, sender}: SalesEma
     rows.push(`<tr><td style="padding:24px 40px 8px;">${pr.next ? paras(pr.next, P) : ''}<a href="${esc(reply)}" style="display:inline-block;background:${C.green};color:#ffffff;text-decoration:none;font-size:15px;font-weight:700;padding:13px 22px;">회신으로 미팅 요청하기</a></td></tr>`)
   }
   if (closing.length) rows.push(`<tr><td style="padding:20px 40px 4px;">${paras(closing.join('\n'), P.replace(`color:${C.ink}`, `color:${C.sub}`).replace('font-size:15px', 'font-size:14px'))}</td></tr>`)
-  rows.push(`<tr><td style="padding:28px 40px 32px;border-top:1px solid ${C.line};font-size:12px;line-height:1.7;color:${C.sub};"><b style="color:${C.ink};">더위클리컴퍼니</b> · 행사 기획·운영·홍보 콘텐츠 · 서울 마포구 성지길 25-11<br><b style="color:${C.ink};">아트리어디자인스튜디오</b> · 공간 디자인·제작·설치 · 서울 마포구 양화로 50, 4층 402호<br>${esc(sender)} · <a href="https://www.thewklyn.com" style="color:${C.green};">thewklyn.com</a></td></tr>`)
+  rows.push(`<tr><td style="padding:28px 40px 32px;border-top:1px solid ${C.line};font-size:12px;line-height:1.7;color:${C.sub};"><b style="color:${C.ink};">더위클리컴퍼니</b> · 행사 기획·운영·홍보 콘텐츠 · 공간 디자인·제작은 더위클리 크루가 함께합니다<br>서울 마포구 성지길 25-11 · ${esc(sender)} · <a href="https://www.thewklyn.com" style="color:${C.green};">thewklyn.com</a></td></tr>`)
   return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(subject)}</title></head><body style="margin:0;padding:0;background:${C.bg};"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${C.bg};"><tr><td align="center" style="padding:24px 12px;"><table role="presentation" width="640" cellpadding="0" cellspacing="0" style="width:100%;max-width:640px;background:${C.card};font-family:${FONT};">${rows.join('')}</table></td></tr></table></body></html>`
 }
 
