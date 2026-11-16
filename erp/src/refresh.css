@@ -211,3 +211,84 @@ html[data-theme="dark"] .app-page .main { border-radius: var(--v8-r-card) !impor
 html:not([data-theme="dark"]) body { color: var(--v8-text); }
 html:not([data-theme="dark"]) :is(.t-body, .t-small, .t-smallb, .t-bodyb, .board td, .cell-pre, p, li, dd) { color: var(--v8-text); }
 html:not([data-theme="dark"]) :is(.t-cap, .t-meta, .cap, .cell-sub, .filter-label, .label > span) { color: var(--v8-sub); }
+
+/* ================================================================================
+   위쪽 바 기념일 · 이벤트 (대표 지시 2026-11-16 · components/TopbarEvent.tsx · lib/topbarEvent.ts)
+   html[data-topbar-event=테마] 일 때 위쪽 바 오른쪽에 장식 · 아래 테두리 띠 · 인사말 칩. 밝은 바탕 유지
+   ================================================================================ */
+html[data-topbar-event] .app-page .topbar { isolation: isolate; }
+@media (min-width: 641px) { html[data-topbar-event] .app-page .topbar { position: relative; } }
+.tb-deco { position: absolute; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
+.tb-deco::before { content: ''; position: absolute; inset: 0; -webkit-mask-image: linear-gradient(90deg, transparent 18%, #000 62%); mask-image: linear-gradient(90deg, transparent 18%, #000 62%); }
+.tb-deco::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; }
+
+/* 인사말 칩 */
+.tb-event { display: inline-flex; align-items: center; gap: 2px; min-width: 0; max-width: 46vw; height: 30px; padding: 0 4px 0 12px; border-radius: 999px !important; font-size: var(--fs-sm); font-weight: 700; flex: 0 1 auto; animation: tb-pop .5s ease-out both; }
+.tb-event-main svg { flex: none; }
+.tb-event-main { display: inline-flex; align-items: center; gap: 6px; min-width: 0; color: inherit; text-decoration: none; }
+a.tb-event-main:hover .tb-event-long { text-decoration: underline; text-underline-offset: 3px; }
+.tb-event-long { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tb-event-short { display: none; white-space: nowrap; }
+.tb-event-x { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; margin-left: 4px; border: 0; border-radius: 999px !important; background: transparent; color: inherit; opacity: .55; cursor: pointer; }
+.tb-event-x:hover { opacity: 1; background: rgba(255, 255, 255, .6); }
+@media (max-width: 1180px) { .tb-event-long { display: none; } .tb-event-short { display: inline; } }
+@media (max-width: 640px) { .tb-event { height: 28px; padding-left: 9px; flex: none; max-width: none; } .tb-event-x { display: none; } .tb-event { padding-right: 9px; } }
+@keyframes tb-pop { from { opacity: 0; transform: translateY(-4px) scale(.96); } to { opacity: 1; transform: none; } }
+
+/* 생일: 색종이 + 무지개 띠 */
+.tb-birthday { background: #ffe8f6; color: #b0127a; }
+html[data-topbar-event="birthday"] .tb-deco::before {
+  background-image:
+    radial-gradient(circle, #fd37be 0 2.5px, transparent 3px), radial-gradient(circle, #ffc928 0 2px, transparent 2.5px),
+    radial-gradient(circle, #2bbf95 0 2px, transparent 2.5px), radial-gradient(circle, #6f9bff 0 2.5px, transparent 3px),
+    radial-gradient(circle, #b48cff 0 1.5px, transparent 2px);
+  background-size: 64px 52px, 48px 44px, 72px 60px, 56px 48px, 40px 36px;
+  background-position: 0 0, 22px 14px, 40px 28px, 12px 34px, 30px 6px;
+  animation: tb-confetti 9s linear infinite;
+}
+html[data-topbar-event="birthday"] .tb-deco::after { background: linear-gradient(90deg, #fd37be, #ffc928, #2bbf95, #6f9bff, #b48cff, #fd37be); }
+@keyframes tb-confetti { to { background-position: 0 52px, 22px 58px, 40px 88px, 12px 82px, 30px 42px; } }
+
+/* 크리스마스(11/25~12/25): 눈 + 지팡이 사탕 띠 */
+.tb-christmas { background: #fdecef; color: #a3162f; }
+.tb-christmas svg { color: #1f6b4a; }
+html[data-topbar-event="christmas"] .tb-deco { background: linear-gradient(90deg, transparent 45%, rgba(196, 30, 58, .05)); }
+html[data-topbar-event="christmas"] .tb-deco::before {
+  background-image: radial-gradient(circle, #c5d4e3 0 2px, transparent 2.5px), radial-gradient(circle, #d7e2ee 0 1.5px, transparent 2px), radial-gradient(circle, #b8c9db 0 1px, transparent 1.5px);
+  background-size: 46px 46px, 30px 30px, 22px 22px;
+  background-position: 0 0, 15px 10px, 8px 4px;
+  animation: tb-snow 12s linear infinite;
+}
+html[data-topbar-event="christmas"] .tb-deco::after { background: repeating-linear-gradient(135deg, #c41e3a 0 8px, #fff 8px 14px, #1f6b4a 14px 22px, #fff 22px 28px); }
+@keyframes tb-snow { to { background-position: 10px 46px, 5px 70px, 12px 48px; } }
+
+/* 새해 · 연말: 금빛 반짝임 */
+:is(.tb-newyear, .tb-yearend) { background: #fbf3da; color: #81590b; }
+html[data-topbar-event="newyear"] .tb-deco::before, html[data-topbar-event="yearend"] .tb-deco::before, html[data-topbar-event="anniversary"] .tb-deco::before {
+  background-image: radial-gradient(circle, #e2b844 0 1.5px, transparent 2px), radial-gradient(circle, #f1d27c 0 1px, transparent 1.5px);
+  background-size: 38px 30px, 26px 22px; background-position: 0 0, 13px 9px;
+  animation: tb-twinkle 2.8s ease-in-out infinite alternate;
+}
+html[data-topbar-event="newyear"] .tb-deco::after, html[data-topbar-event="yearend"] .tb-deco::after { background: linear-gradient(90deg, #f5d77a, #c99a2e, #f5d77a, #c99a2e); }
+@keyframes tb-twinkle { from { opacity: .45; } to { opacity: 1; } }
+
+/* 설: 색동 띠 */
+.tb-seollal { background: #fff0e8; color: #a83a1c; }
+html[data-topbar-event="seollal"] .tb-deco::after { height: 4px; background: repeating-linear-gradient(90deg, #e2483d 0 26px, #f6c443 26px 52px, #3b7dd8 52px 78px, #4caf7a 78px 104px, #e86fa8 104px 130px, #fff 130px 136px); }
+html[data-topbar-event="seollal"] .tb-deco { background: linear-gradient(90deg, transparent 50%, rgba(226, 72, 61, .05)); }
+
+/* 추석: 보름달 */
+.tb-chuseok { background: #fff3d9; color: #87520c; }
+html[data-topbar-event="chuseok"] .tb-deco { background: radial-gradient(circle at 47% 50%, #fff2bf 0 15px, rgba(255, 228, 150, .45) 16px 26px, transparent 27px), linear-gradient(90deg, transparent 50%, rgba(240, 181, 74, .07)); }
+html[data-topbar-event="chuseok"] .tb-deco::after { background: linear-gradient(90deg, #f0b54a, #d9822b, #f0b54a); }
+
+/* 입사 · 회사 기념일 */
+.tb-anniversary { background: var(--v8-tint); color: var(--v8-green); }
+html[data-topbar-event="anniversary"] .tb-deco::after { background: linear-gradient(90deg, var(--v8-green), #d4a63a, var(--v8-green)); }
+
+/* 국경일 */
+.tb-holiday { background: #eef3fb; color: #1d3f7a; }
+html[data-topbar-event="holiday"] .tb-deco::after { background: linear-gradient(90deg, #c8102e 0 50%, #003478 50% 100%); }
+
+@media (prefers-reduced-motion: reduce) { .tb-deco::before, .tb-event { animation: none !important; } }
+@media (max-width: 640px) { .tb-deco::before { -webkit-mask-image: none; mask-image: none; opacity: .6; } }

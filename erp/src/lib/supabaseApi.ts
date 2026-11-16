@@ -842,6 +842,12 @@ export function createSupabaseApi(url: string, key: string): Api {
       if (error) return []
       return data as HrRecord[]
     },
+    async topbarEvents() {
+      const { data, error } = await sb.rpc('topbar_events')
+      if (error || !data || typeof data !== 'object') return { birthdays: [], anniversaries: [], custom: [] }
+      const d = data as Partial<import('./topbarEvent').TopbarEventData>
+      return { birthdays: d.birthdays ?? [], anniversaries: d.anniversaries ?? [], custom: Array.isArray(d.custom) ? d.custom : [] }
+    },
     async saveMyHr(r) {
       must(await sb.rpc('hr_self_update', { p_phone: r.phone ?? '', p_birthday: r.birthday || null, p_address: r.address ?? '', p_emergency: r.emergency_contact ?? '', p_bank: r.bank_name ?? '', p_account: r.account_no ?? '', p_holder: r.account_holder ?? '' }))
     },
