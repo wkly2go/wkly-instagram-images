@@ -99,8 +99,9 @@ const NAV_GROUPS: { label: string; tabs: TabKey[] }[] = [
   // 설계·견적 (인테리어 디자인 자동화) — 별도 묶음으로 세분화 (대표 지시 2026-11-15)
   { label: '설계·견적', tabs: ['site', 'design', 'designOrders', 'designCards', 'designPrices', 'designVendors', 'designMaterials', 'designLearn'] },
   { label: '협업·자료', tabs: ['chat', 'drive', 'team'] },
-  { label: '운영', tabs: ['sales', 'leads', 'agents', 'ads'] },
-  { label: '관리자 전용', tabs: ['ledger', 'admin'] },
+  { label: '운영', tabs: ['sales', 'leads', 'ads'] },
+  // AI 팀·비용은 관리 묶음으로 (대표 지시 2026-11-16) — 팀원에게는 이 묶음에 AI 팀·비용만 보이므로 이름을 '관리'로 보여 줌
+  { label: '관리자 전용', tabs: ['agents', 'ledger', 'admin'] },
 ]
 
 export interface Summary {
@@ -365,7 +366,7 @@ function SideNav({ active, summary, onExpand }: { active: TabKey; summary: Summa
         const hidden = closed ? items.filter(t => t.key !== active && t.key !== 'projects').reduce((a, t) => a + count(t.key), 0) : 0
         return <div className={`side-nav-group${closed ? ' shut' : ''}`} key={group.label}>
           <button type="button" className="side-group-label" onClick={() => toggleGroup(group.label)} aria-expanded={!closed} title={closed ? `${group.label} 펼치기` : `${group.label} 접기`}>
-            <ChevronDown size={12} aria-hidden="true" /><span className="grow">{group.label}</span>
+            <ChevronDown size={12} aria-hidden="true" /><span className="grow">{group.label === '관리자 전용' && me.role !== 'admin' ? '관리' : group.label}</span>
             {hidden > 0 && <span className="side-n">{hidden > 99 ? '99+' : hidden}</span>}
           </button>
           {items.map(t => {
