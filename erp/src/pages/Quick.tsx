@@ -11,6 +11,7 @@ import { useRouter } from '../lib/router'
 import { DIVISIONS, projectBrand, TODAY_STATUSES, type ChatRoomSummary, type Division, type Project, type TodayStatus, type WorkLog } from '../lib/types'
 import { QuickLogForm } from '../components/LogForm'
 import { AssignTaskButton } from '../components/AssignTask'
+import { continueList } from '../lib/listInput'
 import { AgentTyping, AttachButton, DropHint, MessageList, useFileDrop } from '../components/ChatMessages'
 import { TABS, useSummary } from '../components/Shell'
 import { Empty, KindBadge } from '../components/ui'
@@ -256,6 +257,7 @@ export function QuickChat({ rooms }: { rooms: ChatRoomSummary[] }) {
     setSending(false)
   }
   const onKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (continueList(e, setText)) return
     if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
       e.preventDefault()
       submit()

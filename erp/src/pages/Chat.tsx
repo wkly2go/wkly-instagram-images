@@ -18,6 +18,7 @@ import { AssistantSettingsButton } from '../components/AssistantSettings'
 import { Badge, Button, Empty, Field, Modal } from '../components/ui'
 import { AssignTaskButton } from '../components/AssignTask'
 import { CardDataProvider } from '../components/ChatCards'
+import { continueList } from '../lib/listInput'
 import { AgentTyping, AttachButton, DropHint, MessageList, useFileDrop } from '../components/ChatMessages'
 
 const ACTIVITY_KINDS: NotificationKind[] = ['멘션', '승인', '할 일', '알람']
@@ -519,6 +520,7 @@ function Room({ room }: { room: ChatRoomSummary }) {
   const [menuSel, setMenuSel] = useState(0)
   useEffect(() => setMenuSel(0), [text])
   const onKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (continueList(e, setText)) return
     if (menu.length && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
       e.preventDefault()
       setMenuSel(i => (i + (e.key === 'ArrowDown' ? 1 : -1) + menu.length) % menu.length)
