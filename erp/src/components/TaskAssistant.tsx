@@ -11,7 +11,15 @@ import { Linkify } from './ui'
 const QUICK: string[] = ['할 일을 단계로 나눠 줘', '필요한 서류 · 준비물 정리해 줘', '마감까지 일정 짜 줘', '이 업무 맡아서 처리해 줘']
 const ASK_MARK = '\n\n질문: '
 
-export function TaskAssistant({ roomId, agentId, name, context, onMemo }: { roomId: string; agentId: string; name: string; context: string; onMemo: (text: string) => void }) {
+export function TaskAssistant(props: { roomId: string; agentId: string; name: string; context: string; onMemo: (text: string) => void }) {
+  return <AssistantChat {...props} quick={QUICK} hint="이 업무 내용을 함께 보냅니다 · 대화는 비서 대화방에도 남아요" useLabel="메모에 넣기" />
+}
+
+/**
+ * 비서 대화 칸 공용 (업무 창 · 모든 화면의 비서 창 · 2026-11-16)
+ * context: 보낼 때마다 붙이는 화면 · 업무 정보 (함수면 보내는 순간에 읽음)
+ */
+export function AssistantChat({ roomId, agentId, name, context, onMemo, quick, hint, useLabel, placeholder, className = '' }: { roomId: string; agentId: string; name: string; context: string | (() => string); onMemo?: (text: string) => void; quick: string[]; hint: string; useLabel?: string; placeholder?: string; className?: string }) {
   const { messages, drafts, send } = useRoomMessages(roomId)
   const [since] = useState(() => Date.now() - 2000)
   const [text, setText] = useState('')
@@ -29,20 +37,21 @@ export function TaskAssistant({ roomId, agentId, name, context, onMemo }: { room
     const question = q.trim()
     if (!question || sending) return
     setSending(true)
-    const ok = await send(`${context}${ASK_MARK}${question}`)
+    const ctx = typeof context === 'function' ? context() : context
+    const ok = await send(`${ctx}${ASK_MARK}${question}`)
     setSending(false)
     if (ok) setText('')
   }
 
   return (
-    <section className="task-ai" aria-label={`${name}에게 묻기`}>
+    <section className={`task-ai ${className}`} aria-label={`${name}에게 묻기`}>
       <div className="task-ai-h">
         <Bot size={14} aria-hidden="true" />
         <b>{name}에게 묻기</b>
-        <span className="t-cap">이 업무 내용을 함께 보냅니다 · 대화는 비서 대화방에도 남아요</span>
+        <span className="t-cap">{hint}</span>
       </div>
       <div className="task-ai-quick">
-        {QUICK.map(q => (
+        {quick.map(q => (
           <button key={q} type="button" className="chip" disabled={sending} onClick={() => ask(q)}>
             {q}
           </button>
@@ -58,9 +67,9 @@ export function TaskAssistant({ roomId, agentId, name, context, onMemo }: { room
                 <div className="task-ai-bubble">
                   <Linkify text={body} />
                 </div>
-                {!mine && (
+                {!mine && onMemo && (
                   <button type="button" className="task-ai-use" onClick={() => onMemo(body)} title="이 답을 아래 메모에 덧붙이기 (저장을 눌러야 반영)">
-                    <NotebookPen size={12} aria-hidden="true" /> 메모에 넣기
+                    <NotebookPen size={12} aria-hidden="true" /> {useLabel ?? '메모에 넣기'}
                   </button>
                 )}
               </div>
@@ -81,7 +90,7 @@ export function TaskAssistant({ roomId, agentId, name, context, onMemo }: { room
           void ask(text)
         }}
       >
-        <input className="input" value={text} onChange={e => setText(e.target.value)} placeholder={`${name}에게 이 업무에 대해 물어보세요 (예: 법무사에 보낼 서류 목록 정리해 줘)`} maxLength={1000} />
+        <input className="input" value={text} onChange={e => setText(e.target.value)} placeholder={placeholder ?? `${name}에게 이 업무에 대해 물어보세요 (예: 법무사에 보낼 서류 목록 정리해 줘)`} maxLength={1000} />
         <button type="submit" className="btn btn-blue" disabled={!text.trim() || sending} aria-label="보내기">
           <CornerDownLeft size={13} aria-hidden="true" /> 묻기
         </button>

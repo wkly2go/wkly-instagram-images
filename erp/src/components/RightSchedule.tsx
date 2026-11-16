@@ -7,7 +7,7 @@ import { X } from 'lucide-react'
 import { useApp, useAsync } from '../lib/app'
 import { addDays, shortDate, todayKey } from '../lib/date'
 import { useRouter } from '../lib/router'
-import type { Client, Payment, Project, Task } from '../lib/types'
+import { DIVISIONS, DIVISION_KEYS, projectBrand, type Client, type Payment, type Project, type Task } from '../lib/types'
 import { ClientDetail } from '../pages/Clients'
 import { useAction } from '../lib/app'
 import { manwon } from '../lib/date'
@@ -83,7 +83,8 @@ export function RightSchedule() {
   )
 }
 
-/** 프로젝트를 열지 않았을 때: 진행 · 기획 중 프로젝트별 기간 · D-day · 다가오는 일정 */
+/** 프로젝트를 열지 않았을 때: 진행 · 기획 중 프로젝트를 구분(아트리어 · 더위클리 · 내부 리서치)별로 묶어 기간 · D-day · 다가오는 일정
+ *  (대표 지시 2026-11-16 '프로젝트로 묶어줘') — 2주 안 일정 · 지연이 있는 프로젝트는 카드로, 없는 것은 묶음 아래 한 줄씩 */
 function AllProjects({ projects, tasks, onOpen }: { projects: Project[]; tasks: Task[]; onOpen: (id: string) => void }) {
   const { profileName } = useApp()
   const today = todayKey()
@@ -92,40 +93,70 @@ function AllProjects({ projects, tasks, onOpen }: { projects: Project[]; tasks: 
     .filter(p => p.status === '진행' || p.status === '기획')
     .sort((a, b) => (a.end_date ?? a.start_date ?? '9').localeCompare(b.end_date ?? b.start_date ?? '9'))
   if (!list.length) return <span className="t-cap">진행 중인 프로젝트가 없습니다.</span>
+  const rows = list.map(p => {
+    const mine = tasks.filter(t => t.project_id === p.id && t.status !== '완료' && t.due_date)
+    const late = mine.filter(t => t.due_date! < today)
+    const next = mine.filter(t => t.due_date! >= today && t.due_date! <= until).sort((a, b) => a.due_date!.localeCompare(b.due_date!))
+    const start = p.start_date
+    const end = p.end_date ?? p.start_date
+    const label = !start || !end ? '기간 미정' : today < start ? `시작 D-${dd(today, start)}` : today <= end ? `종료 D-${dd(today, end)}` : `종료 후 ${dd(end, today)}일`
+    const prog = start && end && end > start ? Math.max(0, Math.min(100, (dd(start, today) / dd(start, end)) * 100)) : null
+    return { p, late, next, start, end, label, prog, busy: late.length > 0 || next.length > 0 }
+  })
   return (
-    <ul className="right-plist">
-      {list.map(p => {
-        const mine = tasks.filter(t => t.project_id === p.id && t.status !== '완료' && t.due_date)
-        const late = mine.filter(t => t.due_date! < today)
-        const next = mine.filter(t => t.due_date! >= today && t.due_date! <= until).sort((a, b) => a.due_date!.localeCompare(b.due_date!))
-        const start = p.start_date
-        const end = p.end_date ?? p.start_date
-        const label = !start || !end ? '기간 미정' : today < start ? `시작 D-${dd(today, start)}` : today <= end ? `종료 D-${dd(today, end)}` : `종료 후 ${dd(end, today)}일`
-        const prog = start && end && end > start ? Math.max(0, Math.min(100, (dd(start, today) / dd(start, end)) * 100)) : null
+    <div className="right-pgroups">
+      {DIVISION_KEYS.map(div => {
+        const group = rows.filter(r => projectBrand(r.p) === div)
+        if (!group.length) return null
+        const busy = group.filter(r => r.busy).sort((a, b) => b.late.length - a.late.length)
+        const quiet = group.filter(r => !r.busy)
+        const lateN = group.reduce((n, r) => n + r.late.length, 0)
         return (
-          <li key={p.id}>
-            <button type="button" className="right-pitem" onClick={() => onOpen(p.id)}>
-              <span className="rp-top">
-                <b className="truncate">{[p.code, p.name].filter(Boolean).join(' ')}</b>
-                <span className={`rp-dday${late.length ? ' late' : ''}`}>{late.length ? `지연 ${late.length}` : label}</span>
-              </span>
-              {prog != null && (
-                <span className="rp-bar" title={`${shortDate(start!)} ~ ${shortDate(end!)}`}>
-                  <i style={{ width: `${prog}%` }} />
-                </span>
-              )}
-              {next.slice(0, 3).map(t => (
-                <span key={t.id} className="rp-task">
-                  <em>{shortDate(t.due_date!)}</em> {t.title}
-                  {t.assignee_id && <span className="t-cap"> · {profileName(t.assignee_id)}</span>}
-                </span>
+          <details key={div} className={`right-pgroup g-${div}`} open>
+            <summary>
+              <i style={{ background: DIVISIONS[div].color }} aria-hidden="true" />
+              <b>{DIVISIONS[div].label}</b>
+              <span className="t-cap">프로젝트 {group.length}</span>
+              {lateN > 0 && <span className="rp-dday late">지연 {lateN}</span>}
+            </summary>
+            <ul className="right-plist">
+              {busy.map(({ p, late, next, start, end, label, prog }) => (
+                <li key={p.id}>
+                  <button type="button" className="right-pitem" onClick={() => onOpen(p.id)}>
+                    <span className="rp-top">
+                      <b className="truncate">{[p.code, p.name].filter(Boolean).join(' ')}</b>
+                      <span className={`rp-dday${late.length ? ' late' : ''}`}>{late.length ? `지연 ${late.length}` : label}</span>
+                    </span>
+                    {prog != null && (
+                      <span className="rp-bar" title={`${shortDate(start!)} ~ ${shortDate(end!)}`}>
+                        <i style={{ width: `${prog}%` }} />
+                      </span>
+                    )}
+                    {next.slice(0, 3).map(t => (
+                      <span key={t.id} className="rp-task">
+                        <em>{shortDate(t.due_date!)}</em> {t.title}
+                        {t.assignee_id && <span className="t-cap"> · {profileName(t.assignee_id)}</span>}
+                      </span>
+                    ))}
+                  </button>
+                </li>
               ))}
-              {!next.length && !late.length && <span className="t-cap">2주 안 일정 없음</span>}
-            </button>
-          </li>
+            </ul>
+            {quiet.length > 0 && (
+              <div className="right-pquiet">
+                <span className="t-cap">2주 안 일정 없음 {quiet.length}</span>
+                {quiet.map(({ p, label }) => (
+                  <button key={p.id} type="button" className="rp-quiet" onClick={() => onOpen(p.id)}>
+                    <span className="truncate">{[p.code, p.name].filter(Boolean).join(' ')}</span>
+                    <em>{label}</em>
+                  </button>
+                ))}
+              </div>
+            )}
+          </details>
         )
       })}
-    </ul>
+    </div>
   )
 }
 
