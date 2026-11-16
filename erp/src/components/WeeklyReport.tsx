@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { addDays, minutesLabel, shortDate, todayKey, weekday } from '../lib/date'
 import { Link, useRouter, withQuery } from '../lib/router'
@@ -13,7 +14,7 @@ import { Badge, Button, Chip, Empty, Field, KindBadge, Linkify, SectionHead } fr
  *  - 보완한 내용은 그 날짜의 업무 일지로 바로 들어감 (일간 업무와 같은 표라 자동 연동)
  */
 export function WeeklyReportPane() {
-  const { api, me, profiles, profileName, version } = useApp()
+  const { api, me, profiles, profileName, profileOf, version } = useApp()
   const { query, path, navigate } = useRouter()
   const { busy, run } = useAction()
   const today = todayKey()
@@ -78,6 +79,18 @@ export function WeeklyReportPane() {
     run(() => api.saveWorkLog({ log_date: taskDoneDay(t)!, kind: '업무', content: `[완료] ${t.title}`, project_id: t.project_id ?? null, client_id: data.projects.find(p => p.id === t.project_id)?.client_id ?? null, minutes: null, memo: '주간 보고에서 보완 · 끝낸 할 일' }), '업무 일지에 넣었습니다.')
   const setProject = (l: WorkLog, projectId: string) => run(() => api.saveWorkLog({ id: l.id, project_id: projectId || null }), '프로젝트를 지정했습니다.')
 
+  // 인쇄 · PDF: 화면과 별도로 A4 보고서 양식을 body 에 그려 두고 인쇄할 때만 보임
+  const print = () => {
+    document.body.classList.add('weekly-printing')
+    const done = () => {
+      document.body.classList.remove('weekly-printing')
+      window.removeEventListener('afterprint', done)
+    }
+    window.addEventListener('afterprint', done)
+    window.print()
+  }
+  const writer = profileOf(uid)
+
   const projLabel = (p: Project) => `${p.code ? `${p.code} ` : ''}${p.name}`
   const projSelect = (value: string, onChange: (v: string) => void, label: string) => (
     <select className="input" value={value} onChange={e => onChange(e.target.value)} aria-label={label}>
@@ -108,6 +121,9 @@ export function WeeklyReportPane() {
           </button>
         )}
         <span className="grow" />
+        <Button size="sm" kind="outline" onClick={print}>
+          인쇄 · PDF
+        </Button>
         {report?.submitted_at ? <Badge tone="acid">제출함 · {shortDate(report.submitted_at.slice(0, 10))}</Badge> : <Badge tone="yellow">아직 제출 전</Badge>}
       </div>
 
@@ -320,6 +336,115 @@ export function WeeklyReportPane() {
           </div>
         )}
       </section>
+      {createPortal(
+        <div className="weekly-print" aria-hidden="true">
+          <div className="wp-top">
+            <div>
+              <h1>주간 업무 보고서</h1>
+              <p>
+                {monday.replace(/-/g, '.')} (월) ~ {sunday.replace(/-/g, '.')} (일)
+              </p>
+            </div>
+            <table className="wp-sign">
+              <tbody>
+                <tr>
+                  <th>작성</th>
+                  <th>대표</th>
+                </tr>
+                <tr>
+                  <td>{profileName(uid)}</td>
+                  <td />
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <table className="wp-meta">
+            <tbody>
+              <tr>
+                <th>작성자</th>
+                <td>
+                  {profileName(uid)}
+                  {writer?.title ? ` · ${writer.title}` : ''}
+                </td>
+                <th>제출일</th>
+                <td>{report?.submitted_at ? report.submitted_at.slice(0, 10).replace(/-/g, '.') : '제출 전'}</td>
+              </tr>
+              <tr>
+                <th>요약</th>
+                <td colSpan={3}>
+                  업무 기록 {data.logs.length}건 · 프로젝트 {projCount}개 · 기록한 날 {dayCount}일 · 끝낸 할 일 {doneThisWeek.length}건{total ? ` · 기록 시간 ${minutesLabel(total)}` : ''}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <h2>1. 주간 활동 (구분 · 프로젝트별)</h2>
+          {data.logs.length === 0 && <p className="wp-empty">이 주의 업무 기록이 없습니다.</p>}
+          {groups.map(g => (
+            <div key={g.division ?? 'none'} className="wp-div">
+              <h3>
+                {g.division ? DIVISIONS[g.division].full : '프로젝트 미지정 (공통 업무)'} <span>{g.count}건</span>
+              </h3>
+              <table className="wp-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: '26%' }}>프로젝트</th>
+                    <th style={{ width: '13%' }}>날짜</th>
+                    <th>한 일</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {g.projects.flatMap(b =>
+                    b.logs.map((l, i) => (
+                      <tr key={l.id}>
+                        {i === 0 && <td rowSpan={b.logs.length}>{b.project ? projLabel(b.project) : '프로젝트 없음'}</td>}
+                        <td>
+                          {shortDate(l.log_date)} ({weekday(l.log_date)})
+                        </td>
+                        <td className="wp-text">
+                          {l.kind !== '업무' ? `[${l.kind}] ` : ''}
+                          {l.content}
+                        </td>
+                      </tr>
+                    )),
+                  )}
+                </tbody>
+              </table>
+            </div>
+          ))}
+          {doneThisWeek.length > 0 && (
+            <>
+              <h2>2. 끝낸 할 일</h2>
+              <table className="wp-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: '13%' }}>완료일</th>
+                    <th style={{ width: '30%' }}>프로젝트</th>
+                    <th>할 일</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {doneThisWeek.map(t => {
+                    const p = data.projects.find(x => x.id === t.project_id)
+                    return (
+                      <tr key={t.id}>
+                        <td>{shortDate(taskDoneDay(t))}</td>
+                        <td>{p ? projLabel(p) : '–'}</td>
+                        <td>{t.title}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </>
+          )}
+          <h2>{doneThisWeek.length > 0 ? 3 : 2}. 이번 주 총평</h2>
+          <div className="wp-box">{(own ? summary : report?.summary) || ' '}</div>
+          <h2>{doneThisWeek.length > 0 ? 4 : 3}. 다음 주 계획</h2>
+          <div className="wp-box">{(own ? plan : report?.next_plan) || ' '}</div>
+          <p className="wp-foot">더위클리 사내 인트라넷 · 주간 보고 · 출력 {today.replace(/-/g, '.')}</p>
+        </div>,
+        document.body,
+      )}
     </div>
   )
 }

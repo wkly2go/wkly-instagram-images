@@ -178,3 +178,31 @@
 .weekly-fixed { font-size: var(--fs-cap); color: var(--pink); font-weight: 700; white-space: nowrap; }
 .weekly-read { white-space: pre-wrap; overflow-wrap: anywhere; padding: 6px 0; }
 @media (max-width: 640px) { .weekly-logs li { flex-wrap: wrap; } .weekly-day { flex-basis: 100%; } .weekly-proj, .log-proj { padding-left: 4px; } }
+
+/* 주간 업무 보고서 인쇄 양식 (2026-11-16) — 화면에는 안 보이고 인쇄할 때만 A4 로 */
+.weekly-print { display: none; }
+@media print {
+  @page { size: A4; margin: 14mm 13mm; }
+  html:has(> body.weekly-printing), body.weekly-printing { height: auto; overflow: visible; background: #fff; }
+  body.weekly-printing > :not(.weekly-print) { display: none !important; }
+  body.weekly-printing > .weekly-print { display: block; color: #000; font-size: 10pt; line-height: 1.5; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  .weekly-print, .weekly-print * { visibility: visible !important; }
+  .weekly-print h1 { font-size: 18pt; margin: 0 0 2mm; font-weight: 700; }
+  .weekly-print h2 { font-size: 11.5pt; margin: 6mm 0 2mm; padding-bottom: 1mm; border-bottom: 1.5pt solid #000; break-after: avoid; }
+  .weekly-print h3 { font-size: 10.5pt; margin: 3mm 0 1.5mm; break-after: avoid; }
+  .weekly-print h3 span { font-weight: 400; color: #555; font-size: 9pt; }
+  .weekly-print p { margin: 0; }
+  .wp-top { display: flex; justify-content: space-between; align-items: flex-end; gap: 8mm; margin-bottom: 4mm; }
+  .weekly-print table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  .weekly-print th, .weekly-print td { border: 0.5pt solid #555; padding: 1.5mm 2mm; text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+  .weekly-print th { background: #eef3ee; font-weight: 700; }
+  .weekly-print .wp-sign { width: 44mm; }
+  .wp-sign th, .wp-sign td { text-align: center; }
+  .wp-sign td { height: 14mm; vertical-align: middle; }
+  .wp-meta th { width: 16%; }
+  .wp-table tr { break-inside: avoid; }
+  .wp-text { white-space: pre-wrap; }
+  .wp-box { border: 0.5pt solid #555; padding: 2.5mm 3mm; min-height: 22mm; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .wp-empty { color: #555; }
+  .wp-foot { margin-top: 5mm; font-size: 8pt; color: #666; text-align: right; }
+}
