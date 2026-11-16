@@ -220,6 +220,22 @@ export default function Chat() {
           <div className="pane-head">
             <div className="row">
               <span className="t-bodyb grow">채팅</span>
+              <button
+                type="button"
+                className="quick-btn"
+                title="나만 보는 개인 AI 비서 · 할 일 · 일정 · 업무 일지 · 주간 보고 초안"
+                onClick={async () => {
+                  try {
+                    const { room_id } = await api.openMyAssistant()
+                    bump()
+                    navigate(withQuery(path, query, { room: room_id }))
+                  } catch (e) {
+                    toast(friendlyError(e))
+                  }
+                }}
+              >
+                내 비서
+              </button>
               <button type="button" className="quick-btn" onClick={() => setDmPicking(true)} title="팀원과 둘이서만 보는 대화">
                 1:1 대화
               </button>

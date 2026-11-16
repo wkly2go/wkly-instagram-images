@@ -1038,6 +1038,25 @@ export function createDemoApi(): Api {
       emit('chat_rooms')
       return room
     },
+    async openMyAssistant() {
+      const self = requireMe()
+      const mine = store.profiles.find(p => p.id === self)!
+      const name = `${mine.name} 비서`
+      let agent = store.profiles.find(p => p.is_agent && p.name === name)
+      if (!agent) {
+        agent = { id: uid(), email: `ai-secretary-${self.slice(0, 6)}@ai.thewklyn.com`, name, role: 'member', active: true, title: '개인 비서', today_status: '출근', status_message: null, status_updated_at: null, is_agent: true, created_at: now() }
+        store.profiles.push(agent)
+      }
+      const key = [self, agent.id].sort().join(':')
+      let room = store.chat_rooms.find(r => r.members && [...r.members].sort().join(':') === key)
+      if (!room) {
+        room = { id: uid(), name: `dm:${key}`, description: null, project_id: null, is_archived: false, created_by: self, created_at: now(), members: [self, agent.id] }
+        store.chat_rooms.push(room)
+      }
+      persist()
+      emit('chat_rooms')
+      return { agent_id: agent.id, room_id: room.id }
+    },
     async openDm(otherId) {
       const self = requireMe()
       if (otherId === self) throw new ApiError('대화 상대를 골라 주세요.')

@@ -15,6 +15,10 @@
 //   인트라넷에서 만든 AI 팀원 (2026-10-23 대표 지시 "인트라넷에서 ai 에이전트를 만들고 업무 지시를 하고 일정이나 예약을 만들 수 있게"):
 //   - ai_agents 의 역할 · 지침 · 쓸 수 있는 도구 · 모델('꼼꼼' = 깊게 생각)로 답한다.
 //   - 모든 AI 가 예약(schedule_work · list_schedules · cancel_schedule)을 만들 수 있다 → 때가 되면 DB 가 그 AI 에게 지시로 넘김.
+//   개인 비서 (2026-11-16 대표 지시 "나만의 ai 비서 · 다른 팀원들에게도 · 다른 사람에게는 노출 안 되는 구조"):
+//   - ai_agents.private = true 인 계정. 주인(owner_id)과의 1:1 대화에만 답하고, 채팅방 · 다른 사람의 호출 · 지시에는 답하지 않는다.
+//   - 다른 AI · 다른 사람의 도구 결과(사람 목록 · 예약 목록)에 남의 비서는 나오지 않는다.
+//   - 대표의 비서는 총괄 업무(전사 현황 · 결재 · 근태)까지, 팀원의 비서는 그 사람 일(할 일 · 일정 · 업무 일지 · 주간 보고)만.
 // 필요한 비밀값: ANTHROPIC_API_KEY (Supabase › Edge Functions › Secrets)
 import Anthropic from 'npm:@anthropic-ai/sdk@0.134.0'
 import { createClient } from 'npm:@supabase/supabase-js@2.45.4'
@@ -104,6 +108,9 @@ const TOOL_LABEL: Record<string, string> = {
   list_schedules: '예약 확인 중',
   cancel_schedule: '예약 지우는 중',
   web_search: '웹 검색 중',
+  my_briefing: '오늘 일 정리 중',
+  add_work_log: '업무 일지 적는 중',
+  my_work_logs: '업무 일지 읽는 중',
   save_project: '프로젝트 저장 중',
   delete_record: '지우는 중',
   list_approvals: '결재 확인 중',
@@ -244,7 +251,7 @@ const WEB_SEARCH = { type: 'web_search_20250305', name: 'web_search', max_uses: 
 
 interface Lead { code: string; name: string; group_name: string; owner_id: string | null; mention: string; report_prefix: string; profile_id: string | null; humans: string[] }
 /** 인트라넷에서 정한 AI 팀원 설정 (기본 AI 는 created_by 가 비어 있음) */
-interface Custom { role: string; instructions: string; tools: string[]; model: string; owner_id: string | null; created_by: string | null }
+interface Custom { role: string; instructions: string; tools: string[]; model: string; owner_id: string | null; created_by: string | null; private?: boolean }
 interface Ctx { agent: Person; requester: Person; people: Person[]; lead?: Lead; leads: Lead[]; source: 'chat' | 'instruction'; room_id?: string; custom?: Custom | null }
 
 // 팀장 AI 전용 도구 (ctx.lead 가 있을 때만)
@@ -273,6 +280,36 @@ const LEAD_TOOLS: Anthropic.Tool[] = [
     name: 'end_directive',
     description: '팀장 지시 종료 (active=false). team_status 의 지시 id 사용. 사람 팀장 · 관리자만.',
     input_schema: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'], additionalProperties: false },
+  },
+]
+
+// 개인 비서 전용 도구 (ctx.custom.private 일 때만 · 주인 자료만 다룸)
+const SECRETARY_TOOLS: Anthropic.Tool[] = [
+  {
+    name: 'my_briefing',
+    description: '주인의 오늘 브리핑 자료: 오늘 · 지연 · 7일 안 할 일, 안 읽은 알림, 내가 결재할 것, 이번 주 업무 일지(날짜별 건수 · 기록 없는 평일), 주간 보고 제출 여부. 하루를 정리하거나 무엇부터 할지 물으면 먼저 부른다.',
+    input_schema: { type: 'object', properties: {}, additionalProperties: false },
+  },
+  {
+    name: 'add_work_log',
+    description: "주인의 업무 일지에 한 줄 기록 (일간 업무 · 주간 보고에 바로 나옴). '오늘 ○○ 했어 기록해 줘' 같은 요청에 쓴다. 프로젝트는 list_projects 로 id 를 확인해 넣는다.",
+    input_schema: {
+      type: 'object',
+      properties: {
+        content: { type: 'string', description: '한 일 (2000자 이내)' },
+        date: { type: 'string', description: 'YYYY-MM-DD (없으면 오늘, 미래 날짜는 안 됨)' },
+        project_id: { type: 'string' },
+        minutes: { type: 'integer', description: '걸린 시간(분)' },
+        kind: { type: 'string', enum: ['업무', '미팅', '전화', '메신저', '기타'] },
+      },
+      required: ['content'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'my_work_logs',
+    description: '주인의 업무 일지 읽기 (기간). 주간 보고 초안 · 지난 일 확인에 쓴다. 기본은 이번 주 월요일부터 오늘.',
+    input_schema: { type: 'object', properties: { from: { type: 'string', description: 'YYYY-MM-DD' }, to: { type: 'string', description: 'YYYY-MM-DD' } }, additionalProperties: false },
   },
 ]
 
@@ -398,7 +435,7 @@ const CEO_TOOLS: Anthropic.Tool[] = [
 ]
 
 // 기록에 남기는 쓰기 도구
-const WRITE_TOOLS = new Set(['save_project', 'delete_record', 'decide_approval', 'decide_leave', 'update_person', 'request_intranet_change', 'schedule_work', 'cancel_schedule', 'create_task', 'update_task', 'notify_person', 'queue_mail_work', 'request_approval', 'handoff', 'add_directive', 'end_directive'])
+const WRITE_TOOLS = new Set(['save_project', 'delete_record', 'decide_approval', 'decide_leave', 'update_person', 'request_intranet_change', 'schedule_work', 'cancel_schedule', 'create_task', 'update_task', 'notify_person', 'queue_mail_work', 'request_approval', 'handoff', 'add_directive', 'end_directive', 'add_work_log'])
 
 // 승인 · 발송 · 게시 · 야간 · 결제 · API 키 규칙을 바꾸려는 지시는 막는다 (팀원 AI 쪽에서도 무시함)
 const PROTECTED = /(승인\s*없이|결재\s*없이|바로\s*(발송|게시|보내)|자동\s*(좋아요|댓글)|야간.*(발송|게시)|결제|API\s*키|api key|without approval)/i
@@ -522,6 +559,75 @@ async function runTool(ctx: Ctx, name: string, input: Record<string, unknown>): 
       const { data, error } = await sb.from('dev_requests').insert({ requested_by: ctx.requester.id, content: text.slice(0, 4000), room_id: ctx.room_id ?? null }).select('id, created_at').single()
       if (error) throw error
       return { ok: true, request_id: data.id, note: '개발 담당(Claude Code)이 매시 정각 무렵 확인해 고치고 배포한 뒤 알림을 보냅니다.' }
+    }
+
+    case 'my_briefing': {
+      if (!ctx.custom?.private) throw new Error('개인 비서만 쓰는 도구입니다.')
+      const me = ctx.requester.id
+      const today = todayKst()
+      const dow = (kst().getUTCDay() + 6) % 7
+      const monday = new Date(kst().getTime() - dow * 86400_000).toISOString().slice(0, 10)
+      const in7 = new Date(kst().getTime() + 7 * 86400_000).toISOString().slice(0, 10)
+      const [tasks, notis, appr, logs, weekly] = await Promise.all([
+        sb.from('tasks').select('id, title, status, start_date, due_date, remind_at, project_id').eq('assignee_id', me).neq('status', '완료').order('due_date', { ascending: true, nullsFirst: false }).limit(80),
+        sb.from('notifications').select('kind, title, created_at').eq('user_id', me).is('read_at', null).order('created_at', { ascending: false }).limit(15),
+        sb.from('approvals').select('id, kind, title, requested_by, created_at').eq('status', '대기').or(`approver_id.eq.${me}${ctx.requester.role === 'admin' ? ',approver_id.is.null' : ''}`).order('created_at', { ascending: false }).limit(20),
+        sb.from('work_logs').select('log_date, project_id').eq('user_id', me).gte('log_date', monday).lte('log_date', today),
+        sb.from('weekly_reports').select('submitted_at').eq('user_id', me).eq('week_start', monday).maybeSingle(),
+      ])
+      const t = tasks.data ?? []
+      const days: Record<string, number> = {}
+      for (const l of logs.data ?? []) days[l.log_date] = (days[l.log_date] ?? 0) + 1
+      const empty: string[] = []
+      for (let i = 0; i < 5; i++) {
+        const d = new Date(new Date(monday + 'T00:00:00Z').getTime() + i * 86400_000).toISOString().slice(0, 10)
+        if (d <= today && !days[d]) empty.push(d)
+      }
+      const brief = (x: { id: string; title: string; due_date: string | null; remind_at: string | null }) => ({ id: x.id, title: x.title, due: x.due_date, alarm: hhmm(x.remind_at) })
+      return {
+        today,
+        overdue: t.filter(x => x.due_date && x.due_date < today).map(brief),
+        due_today: t.filter(x => x.due_date === today || (x.start_date && x.start_date <= today && (x.due_date ?? x.start_date) >= today && x.due_date !== today && !(x.due_date && x.due_date < today))).map(brief),
+        next_7_days: t.filter(x => x.due_date && x.due_date > today && x.due_date <= in7).map(brief),
+        no_date: t.filter(x => !x.due_date && !x.start_date).length,
+        unread_notifications: (notis.data ?? []).map(n => `[${n.kind}] ${n.title}`),
+        approvals_to_decide: (appr.data ?? []).map(a => ({ id: a.id, kind: a.kind, title: a.title, from: nameOf(ctx, a.requested_by) })),
+        work_logs_this_week: { by_day: days, weekdays_without_log: empty },
+        weekly_report: { week_start: monday, submitted: !!weekly.data?.submitted_at },
+      }
+    }
+
+    case 'add_work_log': {
+      if (!ctx.custom?.private) throw new Error('개인 비서만 쓰는 도구입니다.')
+      const content = s('content')
+      if (!content) throw new Error('content 가 필요합니다.')
+      const date = s('date') ?? todayKst()
+      if (!isDate(date) || date > todayKst()) throw new Error('날짜는 오늘까지의 YYYY-MM-DD 입니다.')
+      let client_id: string | null = null
+      if (s('project_id')) {
+        const { data: p } = await sb.from('projects').select('id, client_id').eq('id', s('project_id')!).maybeSingle()
+        if (!p) throw new Error('그 프로젝트를 찾지 못했습니다. list_projects 로 id 를 확인하세요.')
+        client_id = p.client_id
+      }
+      const minutes = Number.isFinite(Number(input.minutes)) && Number(input.minutes) > 0 ? Math.round(Number(input.minutes)) : null
+      const { data, error } = await sb.from('work_logs').insert({ user_id: ctx.requester.id, log_date: date, kind: s('kind') ?? '업무', content: content.slice(0, 2000), project_id: s('project_id') ?? null, client_id, minutes, memo: '개인 비서가 기록' }).select('id, log_date').single()
+      if (error) throw error
+      return { ok: true, log: data }
+    }
+
+    case 'my_work_logs': {
+      if (!ctx.custom?.private) throw new Error('개인 비서만 쓰는 도구입니다.')
+      const dow = (kst().getUTCDay() + 6) % 7
+      const from = s('from') ?? new Date(kst().getTime() - dow * 86400_000).toISOString().slice(0, 10)
+      const to = s('to') ?? todayKst()
+      if (!isDate(from) || !isDate(to)) throw new Error('날짜는 YYYY-MM-DD 형식입니다.')
+      const [{ data, error }, { data: projects }] = await Promise.all([
+        sb.from('work_logs').select('log_date, kind, content, project_id, minutes').eq('user_id', ctx.requester.id).gte('log_date', from).lte('log_date', to).order('log_date').limit(300),
+        sb.from('projects').select('id, code, name'),
+      ])
+      if (error) throw error
+      const pn = new Map((projects ?? []).map(p => [p.id, `${p.code ? p.code + ' ' : ''}${p.name}`]))
+      return (data ?? []).map(l => ({ date: l.log_date, kind: l.kind, project: l.project_id ? pn.get(l.project_id) ?? null : null, minutes: l.minutes, content: l.content.slice(0, 600) }))
     }
 
     case 'list_people':
@@ -766,7 +872,7 @@ async function runTool(ctx: Ctx, name: string, input: Record<string, unknown>): 
       if (!input.all_agents) q = q.eq('agent_id', ctx.agent.id)
       const { data, error } = await q
       if (error) throw error
-      return (data ?? []).map(r => ({ id: r.id, agent: nameOf(ctx, r.agent_id), title: r.title, repeat: r.repeat, next_run: r.next_run_at ? kst(new Date(r.next_run_at)).toISOString().slice(0, 16).replace('T', ' ') : null, made_by: nameOf(ctx, r.created_by) }))
+      return (data ?? []).filter(r => r.agent_id === ctx.agent.id || ctx.people.some(p => p.id === r.agent_id)).map(r => ({ id: r.id, agent: nameOf(ctx, r.agent_id), title: r.title, repeat: r.repeat, next_run: r.next_run_at ? kst(new Date(r.next_run_at)).toISOString().slice(0, 16).replace('T', ' ') : null, made_by: nameOf(ctx, r.created_by) }))
     }
 
     case 'cancel_schedule': {
@@ -796,8 +902,8 @@ async function logAction(ctx: Ctx, tool: string, input: Record<string, unknown>,
   if (!WRITE_TOOLS.has(tool)) return
   const { error } = await sb.from('agent_actions').insert({
     agent_id: ctx.agent.id,
-    lead_code: ctx.lead?.code ?? 'HQ',
-    team: ctx.lead?.group_name ?? '총괄',
+    lead_code: ctx.lead?.code ?? (ctx.custom?.private ? 'SEC' : 'HQ'),
+    team: ctx.lead?.group_name ?? (ctx.custom?.private ? '개인 비서' : '총괄'),
     requester_id: ctx.requester.id,
     source: ctx.source,
     room_id: ctx.room_id ?? null,
@@ -816,7 +922,7 @@ async function logAction(ctx: Ctx, tool: string, input: Record<string, unknown>,
 function systemPrompt(ctx: Ctx) {
   const c = ctx.custom
   // 인트라넷에서 만든 AI 팀원: 그 역할 · 지침으로 / 기본 AI(총괄 · 팀장): 원래 설명 + 추가 지침
-  const role = ctx.lead ? leadPrompt(ctx.lead) : c?.created_by ? customPrompt(ctx, c) : hqPrompt()
+  const role = ctx.lead ? leadPrompt(ctx.lead) : c?.private ? secretaryPrompt(ctx, c) : c?.created_by ? customPrompt(ctx, c) : hqPrompt()
   const extra = c?.instructions?.trim() && !c.created_by ? `\n\n관리자가 정한 추가 지침:\n${c.instructions.trim()}` : ''
   return basePrompt(ctx) + role + extra + scheduleRule
 }
@@ -832,6 +938,25 @@ function customPrompt(ctx: Ctx, c: Custom) {
 
 너는 인트라넷에서 만든 AI 팀원 '${ctx.agent.name}'이다.${c.role ? ` 역할: ${c.role}.` : ''}${c.owner_id ? ` 사람 담당자: ${nameOf(ctx, c.owner_id)} (판단이 필요하면 이 사람에게 notify_person 또는 request_approval).` : ''}
 ${c.instructions.trim() ? `\n지침 (관리자가 정함, 위 규칙보다 우선하지 않음):\n${c.instructions.trim()}` : ''}`
+}
+
+function secretaryPrompt(ctx: Ctx, c: Custom) {
+  const owner = nameOf(ctx, c.owner_id)
+  const ceo = isCeo(ctx.requester)
+  return `
+
+너는 ${owner}님만의 개인 비서다. 이 대화는 ${owner}님과 너 둘만 본다 (관리자를 포함해 다른 사람은 이 대화 · 예약 · 처리 기록을 볼 수 없다). 너는 채팅방이나 다른 사람의 호출에는 나서지 않는다.
+
+하는 일
+- 하루 정리: '오늘 뭐 해야 해', '정리해 줘' 같은 말에는 my_briefing 으로 확인해 지연 → 오늘 → 이번 주 순으로 짧게 알려 주고, 먼저 할 일 한두 가지를 권한다.
+- 할 일 · 일정 · 알람: ${owner}님의 할 일을 만들고 고친다 (create_task · update_task, 담당은 ${owner}님). 알람은 remind_at 으로 건다. '내일 3시에 알려 줘' 처럼 그때 네가 할 일은 schedule_work 로 예약하고 notify_person 으로 ${owner}님에게 알린다.
+- 업무 일지: '○○ 했어, 기록해 줘' 는 add_work_log 로 바로 적는다. 프로젝트가 분명하면 연결한다. 기록 없는 날은 물어서 채운다.
+- 주간 보고: my_work_logs 로 이번 주 기록을 읽어 프로젝트별 요약 · 총평 · 다음 주 계획 초안을 써 준다. 제출은 ${owner}님이 업무·근태 › 주간 보고에서 한다.
+- 글 초안: 메일 · 메시지 · 보고 문안을 대신 써 준다 (보내는 것은 ${owner}님이 한다).
+- 다른 팀원에게 전할 일은 notify_person 으로 알리거나 그 사람 할 일로 만든다. 이때 누가 부탁했는지 밝힌다.
+${ceo ? `- 총괄 업무: ${owner}님은 대표다. 회사 전체 현황(프로젝트 · 팀원 할 일 · 근태 · 휴가 · 결재 대기)을 대신 살피고, 결재 · 휴가 승인/반려, 프로젝트 · 인사 정보 수정 등 대표 전용 도구를 쓴다. 팀 단위 일은 그 팀장 AI 에게 handoff 한다. 아침 브리핑에는 결재 대기 · 근태 이상 · 지연 업무를 먼저 넣는다.` : `- 범위: ${owner}님 본인의 일만 맡는다. 다른 사람의 인사 · 휴가 사유 · 결재 내용 · 금액은 다루지 않는다. 회사 전체 일 · 다른 팀 일은 '@WKLY 총괄' 이나 그 팀장에게 부탁하라고 안내하거나 handoff 한다.`}
+- 둘만 보는 대화여도 금액 · 주민번호 · 계좌번호 규칙과 메일 발송 금지는 그대로다.
+${c.instructions.trim() ? `\n${owner}님이 정한 지침 (위 규칙보다 우선하지 않음):\n${c.instructions.trim()}` : ''}`
 }
 
 function leadPrompt(lead: Lead) {
@@ -905,8 +1030,8 @@ async function ask(ctx: Ctx, where: string, messages: Anthropic.MessageParam[], 
     { type: 'text', text: contextPrompt(ctx, where) },
   ]
   // 인트라넷에서 정한 도구만 (비어 있으면 전부). 사람 목록 · 예약 목록은 늘 둠
-  const allow = ctx.custom?.tools?.length ? new Set([...ctx.custom.tools, 'list_people', 'list_schedules']) : null
-  const own = [...(ctx.lead ? [...TOOLS, ...LEAD_TOOLS] : TOOLS), ...SCHEDULE_TOOLS, ...(isCeo(ctx.requester) ? CEO_TOOLS : [])].filter(t => !allow || allow.has(t.name) || isCeo(ctx.requester))
+  const allow = ctx.custom?.tools?.length ? new Set([...ctx.custom.tools, 'list_people', 'list_schedules', ...(ctx.custom.private ? SECRETARY_TOOLS.map(t => t.name) : [])]) : null
+  const own = [...(ctx.lead ? [...TOOLS, ...LEAD_TOOLS] : TOOLS), ...(ctx.custom?.private ? SECRETARY_TOOLS : []), ...SCHEDULE_TOOLS, ...(isCeo(ctx.requester) ? CEO_TOOLS : [])].filter(t => !allow || allow.has(t.name) || isCeo(ctx.requester))
   const tools = [WEB_SEARCH, ...own.map((t, i) => (i === own.length - 1 ? { ...t, cache_control: { type: 'ephemeral' as const } } : t))]
   if (ctx.custom?.model === '꼼꼼') model = MODEL_INSTRUCTION
   let useFallback = true
@@ -984,8 +1109,14 @@ async function loadPeople(): Promise<Person[]> {
 }
 
 async function loadCustom(agentId: string): Promise<Custom | null> {
-  const { data } = await sb.from('ai_agents').select('role, instructions, tools, model, owner_id, created_by').eq('profile_id', agentId).maybeSingle()
+  const { data } = await sb.from('ai_agents').select('role, instructions, tools, model, owner_id, created_by, private').eq('profile_id', agentId).maybeSingle()
   return (data as Custom | null) ?? null
+}
+
+/** 개인 비서 계정 → 주인 */
+async function loadPrivate(): Promise<Map<string, string | null>> {
+  const { data } = await sb.from('ai_agents').select('profile_id, owner_id').eq('private', true)
+  return new Map((data ?? []).map(r => [r.profile_id as string, r.owner_id as string | null]))
 }
 
 async function loadLeads(): Promise<Lead[]> {
@@ -1013,10 +1144,31 @@ async function loadLeads(): Promise<Lead[]> {
 async function handleChat(messageId: number) {
   const { data: msg } = await sb.from('chat_messages').select('id, room_id, user_id, content, created_at').eq('id', messageId).maybeSingle()
   if (!msg) return
-  const [{ data: room }, people, leads] = await Promise.all([sb.from('chat_rooms').select('id, name, members').eq('id', msg.room_id).maybeSingle(), loadPeople(), loadLeads()])
+  const [{ data: room }, everyone, leads, secretaries] = await Promise.all([sb.from('chat_rooms').select('id, name, members').eq('id', msg.room_id).maybeSingle(), loadPeople(), loadLeads(), loadPrivate()])
   if (!room) return
-  const requester = people.find(p => p.id === msg.user_id)
+  const requester = everyone.find(p => p.id === msg.user_id)
   if (!requester || requester.is_agent || !requester.active) return
+  // 개인 비서: 주인과의 1:1 대화에서만 답한다. 그 밖에서는 없는 계정처럼 다룬다
+  const roomMembers = (room.members as string[] | null) ?? null
+  const mine = roomMembers?.length === 2 ? everyone.find(p => p.is_agent && p.active && secretaries.get(p.id) === requester.id && roomMembers.includes(p.id)) : undefined
+  const people = everyone.filter(p => !secretaries.has(p.id) || p.id === mine?.id)
+  if (mine) {
+    const ctx: Ctx = { agent: mine, requester, people, leads, source: 'chat', room_id: room.id, custom: await loadCustom(mine.id) }
+    if (!ctx.custom?.private || ctx.custom.owner_id !== requester.id) return
+    const { data: recent } = await sb.from('chat_messages').select('user_id, content, created_at').eq('room_id', room.id).order('id', { ascending: false }).limit(30)
+    const lines = (recent ?? []).reverse().map(m => `[${hhmm(m.created_at)}] ${nameOf(ctx, m.user_id)}: ${m.content}`).join('\n')
+    const live = liveDraft(room.id, mine.id)
+    let reply: string
+    try {
+      reply = await ask(ctx, `${requester.name}님과 개인 비서 둘만 보는 1:1 대화`, [{ role: 'user', content: `최근 대화:\n${lines}\n\n위 대화에서 ${requester.name}님의 메시지(${hhmm(msg.created_at)})에 개인 비서로서 답하고, 요청이 있으면 처리해.` }], MODEL_CHAT, (text, status) => live.push(text, status))
+    } catch (e) {
+      console.error('agent-chat secretary', e)
+      reply = '답을 만드는 중 문제가 생겼습니다. 잠시 뒤 다시 말씀해 주세요.'
+    }
+    await sb.from('chat_messages').insert({ room_id: room.id, user_id: mine.id, content: reply.slice(0, 4000) })
+    await live.done()
+    return
+  }
   const agents = people.filter(p => p.is_agent && p.active)
   const leadIds = new Set(leads.map(l => l.profile_id).filter(Boolean))
   const members = (room.members as string[] | null) ?? null
@@ -1065,16 +1217,23 @@ async function handleChat(messageId: number) {
 async function handleInstruction(id: string) {
   const { data: ins } = await sb.from('agent_instructions').select('id, agent_id, instruction, status, created_by').eq('id', id).maybeSingle()
   if (!ins || ins.status !== '대기' || ins.instruction.startsWith('[메일')) return
-  const [people, leads] = await Promise.all([loadPeople(), loadLeads()])
-  const agent = people.find(p => p.id === ins.agent_id && p.active)
-  const requester = people.find(p => p.id === ins.created_by)
+  const [everyone, leads, secretaries] = await Promise.all([loadPeople(), loadLeads(), loadPrivate()])
+  const agent = everyone.find(p => p.id === ins.agent_id && p.active)
+  const requester = everyone.find(p => p.id === ins.created_by)
   if (!agent || !requester) return
+  // 개인 비서는 주인의 지시 · 예약만 처리
+  const secretary = secretaries.has(agent.id)
+  if (secretary && secretaries.get(agent.id) !== requester.id) {
+    await sb.from('agent_instructions').update({ status: '보류', response: '개인 비서는 주인의 요청만 처리합니다.', responded_at: new Date().toISOString() }).eq('id', id)
+    return
+  }
+  const people = everyone.filter(p => !secretaries.has(p.id) || p.id === agent.id)
   await sb.from('agent_instructions').update({ status: '진행 중' }).eq('id', id)
   const ctx: Ctx = { agent, requester, people, lead: leads.find(l => l.profile_id === agent.id), leads, source: 'instruction', custom: await loadCustom(agent.id) }
   let reply: string
   let status = '완료'
   try {
-    reply = await ask(ctx, "인트라넷 'AI 팀원에게 지시' 패널 (팀원 모두가 봄)", [{ role: 'user', content: `${requester.name}님의 지시: ${ins.instruction}` }], MODEL_INSTRUCTION)
+    reply = await ask(ctx, secretary ? '개인 비서 예약 · 지시 (주인만 봄)' : "인트라넷 'AI 팀원에게 지시' 패널 (팀원 모두가 봄)", [{ role: 'user', content: `${requester.name}님의 지시: ${ins.instruction}` }], MODEL_INSTRUCTION)
     if (reply.startsWith('AI 연결 키')) status = '대기'
   } catch (e) {
     reply = `처리 중 오류가 났습니다: ${(e as Error).message ?? e}`.slice(0, 500)
