@@ -30,6 +30,7 @@ import { countedUnread, rememberRoomLevels, useChatTick } from '../lib/chat'
 import { QuickChat, QUICK_OPEN_ROOM } from '../pages/Quick'
 import { DockTodo } from './DockTodo'
 import { TopbarEvent } from './TopbarEvent'
+import { AssistantFloat } from './AssistantFloat'
 import { AssistantSettingsButton } from './AssistantSettings'
 import type { ChatRoomSummary } from '../lib/types'
 import './ShellUsability.css'
@@ -865,6 +866,8 @@ export function ShellFrame({ children, initial }: { children: ReactNode; initial
           </div>
         </div>
         <MobileNav active={active} summary={summary} />
+        {/* 모든 화면의 AI 비서 창 (2026-11-16) */}
+        <AssistantFloat pageLabel={TABS.find(t => t.key === active)?.label ?? '업무'} />
       </div>
     </div>
     </ShellCtx.Provider>

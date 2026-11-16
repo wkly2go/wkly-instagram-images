@@ -322,3 +322,43 @@ html:not([data-theme="dark"]) .task-ai-quick .chip:hover { background: #f1eaff; 
 .task-ai-input .btn { display: inline-flex; align-items: center; gap: 4px; flex: none; }
 html:not([data-theme="dark"]) .task-ai-input .btn-blue { background: #6b46c1; border-color: #6b46c1; }
 html:not([data-theme="dark"]) .task-ai-input .btn-blue:not(:disabled):hover { background: #5a37ad; border-color: #5a37ad; }
+
+/* 오른쪽 '프로젝트 일정': 구분별 묶음 (2026-11-16 '프로젝트로 묶어줘') */
+.right-pgroups { display: flex; flex-direction: column; gap: 10px; }
+.right-pgroup > summary { display: flex; align-items: center; gap: 6px; padding: 4px 2px 6px; cursor: pointer; list-style: none; font-size: var(--fs-sm); }
+.right-pgroup > summary::-webkit-details-marker { display: none; }
+.right-pgroup > summary i { width: 8px; height: 8px; border-radius: 2px !important; flex: none; }
+.right-pgroup > summary b { color: var(--v8-ink); font-size: var(--fs-body); }
+.right-pgroup > summary .rp-dday { margin-left: auto; }
+.right-pgroup:not([open]) > summary { opacity: .75; }
+.right-pquiet { display: flex; flex-direction: column; margin-top: 6px; padding: 6px 4px 2px; border-top: 1px dashed var(--v8-line-2); }
+.right-pquiet > .t-cap { padding: 0 6px 4px; }
+.rp-quiet { display: flex; align-items: center; gap: 8px; width: 100%; padding: 5px 6px; border: 0; border-radius: 6px !important; background: none; font: inherit; font-size: var(--fs-sm); color: var(--v8-text); text-align: left; cursor: pointer; }
+.rp-quiet:hover { background: var(--v8-hover); color: var(--v8-green); }
+.rp-quiet .truncate { flex: 1; min-width: 0; }
+.rp-quiet em { flex: none; font-style: normal; font-size: var(--fs-cap); color: var(--v8-sub); font-variant-numeric: tabular-nums; }
+
+/* 모든 화면의 AI 비서 창 (2026-11-16 · components/AssistantFloat.tsx) */
+.ast-fab { position: fixed; right: 18px; bottom: 18px; z-index: 45; display: inline-flex; align-items: center; gap: 6px; height: 40px; padding: 0 16px 0 13px; border: 0; border-radius: 999px !important; background: #6b46c1; color: #fff; font: inherit; font-size: var(--fs-sm); font-weight: 700; cursor: pointer; box-shadow: 0 6px 20px rgba(76, 44, 150, .32); }
+.ast-fab:hover { background: #5a37ad; }
+.ast-fab.on { background: #4a2a92; }
+.ast-fab:focus-visible { outline: 2px solid #4a2a92; outline-offset: 3px; }
+.ast-panel { position: fixed; right: 18px; bottom: 68px; z-index: 45; width: min(420px, calc(100vw - 24px)); max-height: min(680px, calc(100vh - 140px)); display: flex; flex-direction: column; background: #fff; border: 1px solid #e3d9fa; border-radius: 16px !important; box-shadow: 0 16px 48px rgba(31, 42, 36, .22); overflow: hidden; animation: tb-pop .2s ease-out both; }
+.ast-head { display: flex; align-items: center; gap: 6px; padding: 10px 10px 10px 14px; background: #f4efff; color: #4a2a92; border-bottom: 1px solid #e8e1f7; }
+.ast-head b { font-size: var(--fs-sub); }
+.ast-panel .ast-chat { margin: 0; border: 0; border-radius: 0 !important; flex: 1; min-height: 0; overflow: hidden; }
+.ast-panel .ast-chat .task-ai-h { display: none; }
+.ast-panel .ast-chat .task-ai-list { flex: 1; max-height: none; min-height: 120px; }
+.ast-loading { padding: 16px; }
+/* 업무 · 결제 같은 옆 창이 열려 있으면 비서는 왼쪽 아래로 (옆 창의 저장 단추를 가리지 않게) */
+body:has(.modal-col) .ast-fab, body:has(.modal-col) .ast-panel { right: auto; left: 18px; }
+@media (pointer: coarse), (max-width: 640px) {
+  .ast-fab { bottom: calc(92px + env(safe-area-inset-bottom)); right: 12px; height: 44px; }
+  .ast-panel { right: 8px; left: 8px; width: auto; bottom: calc(144px + env(safe-area-inset-bottom)); max-height: calc(100vh - 220px); }
+}
+@media print { .ast-fab, .ast-panel { display: none !important; } }
+html[data-theme="dark"] .ast-panel { background: var(--white); border-color: var(--line); }
+html[data-theme="dark"] .ast-head { background: #20392a; color: var(--ink); border-color: var(--line); }
+.msg-ctx { margin-top: 4px; font-size: var(--fs-cap); color: var(--v8-sub); }
+.msg-ctx > summary { cursor: pointer; }
+.msg-ctx-body { display: block; margin-top: 4px; max-height: 180px; overflow: auto; white-space: pre-wrap; opacity: .85; }
