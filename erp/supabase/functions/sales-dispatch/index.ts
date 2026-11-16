@@ -1,6 +1,7 @@
 import {createClient} from 'npm:@supabase/supabase-js@2.117.3'
 import {runSalesDispatch,type DispatchLease} from './worker.ts'
 import {transmitGmail} from './gmail.ts'
+import {transmitInstagram} from './instagram.ts'
 import {inspectSender} from '../sales-readiness/handler.ts'
 // Sends one approved message. The request names a queued job only; recipients, wording and
 // attachments come from the package the administrator approved, re-checked when the job is claimed.
@@ -24,7 +25,12 @@ Deno.serve(async req=>{
    // A job id that is not an approved customer message may be a test send; that path has its own table and fixed text.
    claim:async job=>{const lease=await rpc('sales_dispatch_claim',{p_id:job}) as DispatchLease|null;if(lease)return lease;const trial=await rpc('sales_dispatch_test_claim',{p_id:job}) as DispatchLease|null;test=trial?.test===true;return test?trial:null},
    // A missing or switched-off configuration is a refusal before any send attempt. Only a test lease passes while the switch is off.
-   transmit:async(lease,signal)=>{const cfg=await config().catch(()=>null);return transmitGmail(lease,signal,cfg?{...cfg,enabled:cfg.enabled||(test&&lease.test===true)}:null)},
+   transmit:async(lease,signal)=>{
+    if(lease.message.channel==='instagram'){
+     const [enabled,token]=await Promise.all([rpc('sales_dispatch_enabled'),rpc('instagram_secret_get',{p_name:'INSTAGRAM_ACCESS_TOKEN'})]).catch(()=>[false,null])
+     return transmitInstagram(lease,signal,{enabled:enabled===true&&!test,token:typeof token==='string'?token:null})
+    }
+    const cfg=await config().catch(()=>null);return transmitGmail(lease,signal,cfg?{...cfg,enabled:cfg.enabled||(test&&lease.test===true)}:null)},
    finish:async(job,token,outcome,providerId)=>{await rpc(test?'sales_dispatch_test_finish':'sales_dispatch_finish',{p_id:job,p_token:token,p_outcome:outcome,p_provider_id:providerId})},
   })
  })().then(()=>undefined,()=>undefined)
