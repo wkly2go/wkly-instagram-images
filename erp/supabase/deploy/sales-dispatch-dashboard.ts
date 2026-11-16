@@ -135,13 +135,39 @@ async function transmitGmail(lease, signal, config2, fetcher = fetch, now = Date
   throw new Error("Provider acceptance unknown");
 }
 
+// supabase/functions/sales-dispatch/instagram.ts
+var recipient = /^ig:([0-9]{5,30})$/;
+async function boundedJson2(response) {
+  const text = (await response.text()).slice(0, 32768);
+  const value = JSON.parse(text);
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Invalid response");
+  return value;
+}
+async function transmitInstagram(lease, signal, config2, fetcher = fetch, now = Date.now) {
+  const rejected = { outcome: "rejected" };
+  const id = recipient.exec(lease.message.recipient)?.[1], text = lease.message.body;
+  if (!config2?.enabled || !config2.token || /\s/.test(config2.token) || !id || typeof text !== "string" || !text.trim() || text.length > 1e3) return rejected;
+  if (signal.aborted || !Number.isFinite(Date.parse(lease.expires_at)) || Date.parse(lease.expires_at) <= now()) return rejected;
+  const response = await fetcher("https://graph.instagram.com/v21.0/me/messages", { method: "POST", signal, redirect: "error", headers: { Authorization: `Bearer ${config2.token}`, "Content-Type": "application/json" }, body: JSON.stringify({ recipient: { id }, message: { text } }) });
+  let receipt;
+  try {
+    receipt = await boundedJson2(response);
+  } catch {
+    if (response.status >= 400 && response.status < 500) return rejected;
+    throw new Error("Provider acceptance unknown");
+  }
+  if (response.ok && typeof receipt.message_id === "string" && receipt.message_id.length > 0 && receipt.message_id.length <= 200 && !/[\r\n\x00-\x1f\x7f]/.test(receipt.message_id)) return { outcome: "accepted", providerId: receipt.message_id };
+  if (response.status >= 400 && response.status < 500) return rejected;
+  throw new Error("Provider acceptance unknown");
+}
+
 // supabase/functions/sales-readiness/handler.ts
 var scope = (name) => `https://www.googleapis.com/auth/gmail.${name}`;
 var sendScopes = /* @__PURE__ */ new Set(["https://mail.google.com/", scope("send"), scope("compose"), scope("modify")]);
 var profileScopes = /* @__PURE__ */ new Set(["https://mail.google.com/", scope("readonly"), scope("metadata"), scope("compose"), scope("modify")]);
 var readScopes = /* @__PURE__ */ new Set(["https://mail.google.com/", scope("readonly"), scope("modify")]);
 var emailPattern = /^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
-async function boundedJson2(response) {
+async function boundedJson3(response) {
   if (!response.ok || !response.body) throw new Error("provider unavailable");
   const reader = response.body.getReader(), decoder = new TextDecoder();
   let text = "", size = 0;
@@ -163,12 +189,12 @@ async function inspectSender(config2, fetcher = fetch) {
   const fail = (code) => ({ code, email: null, can_send: false, can_read: false, valid_for: 60 });
   if (!config2?.clientId || !config2.clientSecret || !config2.refreshToken) return fail("not_connected");
   try {
-    const token = await boundedJson2(await fetcher("https://oauth2.googleapis.com/token", { method: "POST", redirect: "error", signal: AbortSignal.timeout(1e4), headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ client_id: config2.clientId, client_secret: config2.clientSecret, refresh_token: config2.refreshToken, grant_type: "refresh_token" }) }));
+    const token = await boundedJson3(await fetcher("https://oauth2.googleapis.com/token", { method: "POST", redirect: "error", signal: AbortSignal.timeout(1e4), headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ client_id: config2.clientId, client_secret: config2.clientSecret, refresh_token: config2.refreshToken, grant_type: "refresh_token" }) }));
     if (typeof token.access_token !== "string" || !token.access_token || /[\r\n]/.test(token.access_token) || typeof token.expires_in !== "number" || !Number.isFinite(token.expires_in) || token.expires_in <= 30) return fail("provider_error");
     if (typeof token.scope !== "string" || !token.scope.trim()) return fail("scope_unknown");
     const scopes = new Set(token.scope.split(/\s+/)), canSend = [...scopes].some((s) => sendScopes.has(s)), canRead = [...scopes].some((s) => readScopes.has(s));
     if (![...scopes].some((s) => profileScopes.has(s))) return fail("identity_unverified");
-    const profile = await boundedJson2(await fetcher("https://gmail.googleapis.com/gmail/v1/users/me/profile", { method: "GET", redirect: "error", signal: AbortSignal.timeout(1e4), headers: { Authorization: `Bearer ${token.access_token}` } }));
+    const profile = await boundedJson3(await fetcher("https://gmail.googleapis.com/gmail/v1/users/me/profile", { method: "GET", redirect: "error", signal: AbortSignal.timeout(1e4), headers: { Authorization: `Bearer ${token.access_token}` } }));
     const email2 = typeof profile.emailAddress === "string" ? profile.emailAddress.trim().toLowerCase() : "";
     if (email2.length > 254 || !emailPattern.test(email2)) return fail("identity_unverified");
     if (config2.expectedEmail && email2 !== config2.expectedEmail.trim().toLowerCase()) return fail("account_mismatch");
@@ -224,6 +250,10 @@ Deno.serve(async (req) => {
       },
       // A missing or switched-off configuration is a refusal before any send attempt. Only a test lease passes while the switch is off.
       transmit: async (lease, signal) => {
+        if (lease.message.channel === "instagram") {
+          const [enabled, token] = await Promise.all([rpc("sales_dispatch_enabled"), rpc("instagram_secret_get", { p_name: "INSTAGRAM_ACCESS_TOKEN" })]).catch(() => [false, null]);
+          return transmitInstagram(lease, signal, { enabled: enabled === true && !test, token: typeof token === "string" ? token : null });
+        }
         const cfg = await config().catch(() => null);
         return transmitGmail(lease, signal, cfg ? { ...cfg, enabled: cfg.enabled || test && lease.test === true } : null);
       },

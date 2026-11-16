@@ -23,11 +23,14 @@ export function createSupabaseSalesStrategyApi(sb: SupabaseClient): SalesStrateg
   async setRecipientScope(scope) { const r=await sb.rpc('sales_recipient_scope_set',{p_scope:scope}).retry(false);fail(r.error) },
   async approveSalesStrategyAndExecute(id,revision,packageId,version,fingerprint) { const r=await sb.rpc('sales_strategy_approve_execute',{p_id:id,p_revision:revision,p_package:packageId,p_version:version,p_fingerprint:fingerprint}).retry(false);fail(r.error);return String(r.data??'') },
   async getAdAudienceByPurpose() { const r=await sb.rpc('sales_ad_audience_by_purpose');if(r.error&&['PGRST202','42883'].includes(r.error.code??''))return [];fail(r.error);return r.data??[] },
+  async getSalesOpsStatus() { const r=await sb.rpc('sales_ops_status');if(r.error&&['PGRST202','42883'].includes(r.error.code??''))return null;fail(r.error);return r.data??null },
+  async getInstagramStatus() { const r=await sb.rpc('sales_instagram_status');if(r.error&&['PGRST202','42883'].includes(r.error.code??''))return null;fail(r.error);return r.data??null },
+  async setInstagramSecret(name,value) { const r=await sb.rpc('instagram_secret_set',{p_name:name,p_value:value}).retry(false);fail(r.error) },
   async getAdAudience() { const r=await sb.rpc('sales_ad_audience');fail(r.error);return r.data??[] },
   async decideSalesMethodProposal(id,decision) { const r=await sb.rpc('sales_method_decide',{p_id:id,p_decision:decision}).retry(false);fail(r.error) },
 } }
 export function createDemoSalesStrategyApi(): SalesStrategyApi { const unavailable=async()=>{throw new ApiError('운영 계정에서 AI 영업 기획과 승인을 사용할 수 있습니다.')};return {
   getSalesExecution:async()=>null,decideSalesExecution:unavailable,
   listSalesDesk:async()=>[],submitSalesDesk:unavailable,
-  async listSalesStrategies(){return {items:[],total:0,automatic:false}},requestSalesStrategy:unavailable,getSalesEventBrands:async()=>({scope:'',brand_total:0,events:[]}),decideSalesStrategy:unavailable,listStrategyTasks:async()=>[],updateStrategyTask:unavailable,setSalesStrategyAutomatic:unavailable,listSalesMethodProposals:async()=>[],decideSalesMethodProposal:unavailable,listBidQualifications:async()=>[],setBidQualification:unavailable,getAdAudience:unavailable,getAdAudienceByPurpose:unavailable,approveSalesStrategyAndExecute:unavailable,getRecipientScope:async()=>'미정' as const,setRecipientScope:unavailable,
+  async listSalesStrategies(){return {items:[],total:0,automatic:false}},requestSalesStrategy:unavailable,getSalesEventBrands:async()=>({scope:'',brand_total:0,events:[]}),decideSalesStrategy:unavailable,listStrategyTasks:async()=>[],updateStrategyTask:unavailable,setSalesStrategyAutomatic:unavailable,listSalesMethodProposals:async()=>[],decideSalesMethodProposal:unavailable,listBidQualifications:async()=>[],setBidQualification:unavailable,getAdAudience:unavailable,getAdAudienceByPurpose:unavailable,approveSalesStrategyAndExecute:unavailable,getRecipientScope:async()=>'미정' as const,setRecipientScope:unavailable,getSalesOpsStatus:async()=>null,getInstagramStatus:async()=>null,setInstagramSecret:unavailable,
 } }

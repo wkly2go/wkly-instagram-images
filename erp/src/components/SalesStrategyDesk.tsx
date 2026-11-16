@@ -12,6 +12,7 @@ import {SalesMethodProposals} from './SalesMethodProposals'
 import {SalesBidQualifications} from './SalesBidQualifications'
 import {SalesAdAudience} from './SalesAdAudience'
 import {SalesRecipientScope} from './SalesRecipientScope'
+import {SalesInstagramConnect,SalesOpsHealth} from './SalesOpsPanel'
 
 const time=(value:string)=>new Date(value).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'})
 export function SalesStrategyDesk(){
@@ -44,6 +45,8 @@ export function SalesStrategyDesk(){
   {me.role==='admin'&&<SalesBidQualifications api={api} canEdit={api.mode!=='demo'}/>}
   {me.role==='admin'&&api.mode!=='demo'&&<SalesRecipientScope api={api} canEdit/>}
   {me.role==='admin'&&<SalesAdAudience api={api} enabled={api.mode!=='demo'}/>}
+  {me.role==='admin'&&api.mode!=='demo'&&<SalesInstagramConnect api={api}/>}
+  {me.role==='admin'&&api.mode!=='demo'&&<SalesOpsHealth api={api}/>}
   <SalesDeskChat api={api} agents={profiles.filter(p=>p.is_agent&&p.active).map(p=>({id:p.id,name:p.name}))} canSubmit={me.role==='admin'} operational={api.mode!=='demo'} plans={{items:page===0&&!state.error?state.data.items:[],busy:busy||state.loading,error,onApprove:approve,loadExecution:row=>api.getSalesExecution(row.id),onApproveExecute:approveExecute,onReject:reject,onOpen:inspect,onPlan:direction=>generate(direction),execution:row=><SalesExecutionReview api={api} strategyId={row.id} revision={row.revision} canDecide={me.role==='admin'&&api.mode!=='demo'}/>}}/>
   <div className="sales-strategy-toolbar"><p>기획안 전체 목록입니다. 대화에서 승인·반려한 결과가 여기에도 기록됩니다.</p><div className="row wrap"><Button kind="outline" disabled={busy||state.loading} onClick={state.reload}>기획안 새로고침</Button>{state.data.items.some(r=>['수정 요청','보류'].includes(r.status))&&<Button kind="ghost" onClick={()=>setShowRejected(v=>!v)}>{showRejected?'반려한 안 숨기기':'반려한 안도 보기'}</Button>}{me.role==='admin'&&<><Button disabled={busy||pending||api.mode==='demo'} onClick={()=>generate()}>AI 새 영업안 기획</Button><Button kind="ghost" disabled={busy||state.loading||!!state.error||api.mode==='demo'} onClick={()=>void run(async()=>{await api.setSalesStrategyAutomatic(!state.data.automatic);state.reload()})}>{state.data.automatic?'자동 기획 끄기':'자동 기획 켜기'}</Button></>}</div></div>
   <p className="sales-strategy-note">AI가 제안한 수요·효과는 검증할 가설입니다. AI가 근거·대상 DB·제안 자료를 준비하고, 대표님은 준비된 기획을 검토합니다. 자료 검색·가공은 시스템 업무입니다. 외부 발송·게시·예약·견적 확정·계약은 실행하지 않습니다.</p>
