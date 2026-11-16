@@ -8,6 +8,7 @@ import { Link, useRouter, withQuery } from '../lib/router'
 import { TASK_STATUSES, type LeaveRecord, type PersonalEvent, type Project, type Task, type TaskStatus } from '../lib/types'
 import { Badge, Button, Chip, Empty, Field, Modal, StatusBadge } from '../components/ui'
 import { GoogleCalendarModal, googleEventLink } from '../components/GoogleCalendar'
+import { TaskAssistant } from '../components/TaskAssistant'
 import { ask } from '../components/Ask'
 
 const DAY = 86_400_000
@@ -196,6 +197,25 @@ export function TaskAssignModal({ task, projects, tasks, presetProject, presetAs
       </div>
       {f.start_date && f.due_date && f.start_date > f.due_date && <span className="t-cap t-red">시작일이 마감일보다 늦습니다.</span>}
       {!task && f.assignee_id && assigneeOpen > 15 && <span className="t-cap t-red">⚠ 이 사람은 남은 할 일이 {assigneeOpen}건입니다. 다른 사람에게 나누거나 마감을 넉넉히 잡아 주세요.</span>}
+      {assistant && (
+        <TaskAssistant
+          roomId={assistant.room_id}
+          agentId={assistant.agent_id}
+          name={assistantName}
+          context={[
+            `[업무 상담] ${f.title.trim() || '(제목 없음)'}`,
+            projects.find(p => p.id === f.project_id) ? `프로젝트: ${projects.find(p => p.id === f.project_id)!.code ?? ''} ${projects.find(p => p.id === f.project_id)!.name}`.trim() : '',
+            f.start_date || f.due_date ? `기간: ${f.start_date || '-'} ~ ${f.due_date || '-'}` : '',
+            `담당: ${assistant.agent_id === f.assignee_id ? assistantName : profiles.find(p => p.id === f.assignee_id)?.name ?? '-'} · 상태: ${f.status}`,
+            f.memo.trim() ? `메모: ${f.memo.trim()}` : '',
+            task ? `할 일 번호: ${task.id}` : '아직 저장 전인 새 업무',
+            '이 업무 정보는 참고용입니다. 제가 처리를 부탁하기 전에는 할 일을 고치지 말고 답만 주세요.',
+          ]
+            .filter(Boolean)
+            .join('\n')}
+          onMemo={text => setF(prev => ({ ...prev, memo: prev.memo.trim() ? `${prev.memo.trim()}\n\n${text}` : text }))}
+        />
+      )}
       {!task && <span className="t-cap">받는 사람에게 알림이 가고, 그 사람의 '내 할 일'과 프로젝트 일정표에 바로 들어갑니다. 이름 옆 숫자는 남은 할 일입니다.</span>}
     </Modal>
   )
