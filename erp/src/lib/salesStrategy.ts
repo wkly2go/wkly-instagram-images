@@ -125,7 +125,9 @@ export function draftIssues(p:Pick<StrategyPreparation,'proposal'|'contact_draft
 export function parseStrategyPreparation(text:string):StrategyPreparation {
   const p=JSON.parse(text.trim().replace(/^```(?:json)?\s*/,'').replace(/\s*```$/,'')) as StrategyPreparation
   if(!p||typeof p!=='object'||Object.keys(p).some(k=>!['research','proposal','contact_draft','checks'].includes(k)))throw new Error('실행 자료 형식을 확인하지 못했습니다.')
-  for(const k of ['research','proposal','contact_draft'] as const)if(typeof p[k]!=='string'||!p[k].trim()||p[k].length>3000)throw new Error('실행 자료 필수 내용이 부족합니다.')
+  for(const k of ['research','proposal','contact_draft'] as const)if(typeof p[k]!=='string'||!p[k].trim())throw new Error('실행 자료 필수 내용이 부족합니다.')
+  // An over-long section is cut, not discarded: the research is reference text, and an over-long proposal or draft is flagged below.
+  for(const k of ['research','proposal','contact_draft'] as const)if(p[k].length>3000)p[k]=p[k].slice(0,3000)
   // Too many or over-long checks are trimmed rather than discarding the whole preparation.
   const checks=Array.isArray(p.checks)?p.checks.filter((v):v is string=>typeof v==='string'&&!!v.trim()).map(v=>v.trim().slice(0,500)).slice(0,6):[]
   if(!checks.length)throw new Error('외부 실행 전 확인 사항이 필요합니다.')

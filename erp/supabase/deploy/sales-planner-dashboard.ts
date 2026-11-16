@@ -165,7 +165,8 @@ function draftIssues(p) {
 function parseStrategyPreparation(text) {
   const p = JSON.parse(text.trim().replace(/^```(?:json)?\s*/, "").replace(/\s*```$/, ""));
   if (!p || typeof p !== "object" || Object.keys(p).some((k) => !["research", "proposal", "contact_draft", "checks"].includes(k))) throw new Error("\uC2E4\uD589 \uC790\uB8CC \uD615\uC2DD\uC744 \uD655\uC778\uD558\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4.");
-  for (const k of ["research", "proposal", "contact_draft"]) if (typeof p[k] !== "string" || !p[k].trim() || p[k].length > 3e3) throw new Error("\uC2E4\uD589 \uC790\uB8CC \uD544\uC218 \uB0B4\uC6A9\uC774 \uBD80\uC871\uD569\uB2C8\uB2E4.");
+  for (const k of ["research", "proposal", "contact_draft"]) if (typeof p[k] !== "string" || !p[k].trim()) throw new Error("\uC2E4\uD589 \uC790\uB8CC \uD544\uC218 \uB0B4\uC6A9\uC774 \uBD80\uC871\uD569\uB2C8\uB2E4.");
+  for (const k of ["research", "proposal", "contact_draft"]) if (p[k].length > 3e3) p[k] = p[k].slice(0, 3e3);
   const checks = Array.isArray(p.checks) ? p.checks.filter((v) => typeof v === "string" && !!v.trim()).map((v) => v.trim().slice(0, 500)).slice(0, 6) : [];
   if (!checks.length) throw new Error("\uC678\uBD80 \uC2E4\uD589 \uC804 \uD655\uC778 \uC0AC\uD56D\uC774 \uD544\uC694\uD569\uB2C8\uB2E4.");
   p.checks = checks;
