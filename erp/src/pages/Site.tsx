@@ -5,6 +5,7 @@
 //   - 도면: 도면 이미지 올리기 → 사진을 골라 도면 위를 누르면 그 자리에 핀 · 핀을 누르면 사진 · 치수
 //   - 체크리스트: 프로젝트의 현장 실측 체크리스트 (구분별)
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { ProjectOptions } from '../components/ProjectOptions'
 import { createPortal } from 'react-dom'
 import { Camera, Check, ImagePlus, ListChecks, MapPin, Trash2, Upload, X } from 'lucide-react'
 import { Shell } from '../components/Shell'
@@ -59,32 +60,6 @@ function useSignedUrl(path: string | null | undefined, preview = false) {
 }
 
 /** 프로젝트 고르기: 상태별로 묶어서 (대표 지시 2026-11-06 "프로젝트를 구분해줘") · 묶음 안은 연번 최신순 */
-const STATUS_GROUPS: [Project['status'], string][] = [
-  ['진행', '진행 중'],
-  ['기획', '기획 · 준비'],
-  ['보류', '보류'],
-  ['NIC', 'NIC (수주 안 됨)'],
-  ['완료', '완료'],
-]
-function ProjectOptions({ projects, exclude }: { projects: Project[]; exclude?: string }) {
-  return (
-    <>
-      {STATUS_GROUPS.map(([st, label]) => {
-        const list = projects.filter(p => p.status === st && p.id !== exclude).sort((a, b) => (b.code ?? '').localeCompare(a.code ?? ''))
-        return list.length ? (
-          <optgroup key={st} label={`${label} · ${list.length}`}>
-            {list.map(p => (
-              <option key={p.id} value={p.id}>
-                {p.code ? `${p.code} ` : ''}
-                {p.name}
-              </option>
-            ))}
-          </optgroup>
-        ) : null
-      })}
-    </>
-  )
-}
 
 export function Site() {
   return (
@@ -197,7 +172,7 @@ function MoveBar({ count, projects, from, busy, onMove, onCancel, what }: { coun
       <b>{count ? `${what} ${count}개 고름` : `옮길 ${what}을(를) 누르세요`}</b>
       <select className="select" value={to} onChange={e => setTo(e.target.value)} aria-label="옮길 프로젝트">
         <option value="">옮길 프로젝트 고르기</option>
-        <ProjectOptions projects={projects} exclude={from} />
+        <ProjectOptions projects={projects.filter(p => p.id !== from)} />
       </select>
       <Button size="sm" disabled={busy || !count || !to} onClick={() => onMove(to)}>
         옮기기

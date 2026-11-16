@@ -1,4 +1,6 @@
 import { useResearchBodyMatches } from '../lib/researchSearch'
+import { AlarmInput } from '../components/AlarmInput'
+import { ProjectOptions } from '../components/ProjectOptions'
 import { useMemo, useRef, useState, type ReactNode } from 'react'
 import { TextLinks } from '../components/ui'
 import { ArrowLeft, FileText, Pencil, Plus, Search, Trash2 } from 'lucide-react'
@@ -349,24 +351,24 @@ function ResearchDetail({ r, projects, rooms, clients, onBack, onEdit }: { r: Re
       <span className="grow" />
       <div className="row wrap" style={{ gap: 6 }}>
         {r.status === '새 자료' && (
-          <Button kind="yellow" disabled={busy} onClick={() => setStatus('검토 완료', '검토 완료로 표시했습니다.')}>
+          <Button size="sm" kind="yellow" disabled={busy} onClick={() => setStatus('검토 완료', '검토 완료로 표시했습니다.')}>
             검토 완료
           </Button>
         )}
-        <Button disabled={busy} onClick={() => setModal('task')}>
+        <Button size="sm" disabled={busy} onClick={() => setModal('task')}>
           할 일 만들기
         </Button>
-        <Button kind="outline" disabled={busy} onClick={() => setModal('project')}>
+        <Button size="sm" kind="outline" disabled={busy} onClick={() => setModal('project')}>
           프로젝트 연결
         </Button>
-        <Button kind="outline" disabled={busy} onClick={() => setModal('chat')}>
+        <Button size="sm" kind="outline" disabled={busy} onClick={() => setModal('chat')}>
           채팅 공유
         </Button>
-        <Button kind="outline" disabled={busy} onClick={() => setModal('contact')}>
+        <Button size="sm" kind="outline" disabled={busy} onClick={() => setModal('contact')}>
           브랜드 담당자 저장
         </Button>
         {r.status !== '보관' && (
-          <Button kind="ghost" disabled={busy} onClick={() => setStatus('보관', '보관했습니다.')}>
+          <Button size="sm" kind="ghost" disabled={busy} onClick={() => setStatus('보관', '보관했습니다.')}>
             보관
           </Button>
         )}
@@ -463,18 +465,14 @@ function TaskFromResearch({ r, projects, onClose }: { r: ResearchItem; projects:
         <Field label="프로젝트">
           <select className="select" value={projectId} onChange={e => setProjectId(e.target.value)}>
             <option value="">없음</option>
-            {projects.map(p => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
+            <ProjectOptions projects={projects} />
           </select>
         </Field>
         <Field label="마감일">
           <input className="input" type="date" value={due} onChange={e => setDue(e.target.value)} />
         </Field>
         <Field label="알람">
-          <input className="input" type="datetime-local" value={alarm} onChange={e => setAlarm(e.target.value)} />
+          <AlarmInput value={alarm} onChange={setAlarm} />
         </Field>
       </div>
     </Modal>
@@ -579,11 +577,7 @@ function ResearchForm({ item, projects, onClose, onSaved }: { item: ResearchItem
         <Field label="프로젝트">
           <select className="select" value={f.project_id ?? ''} onChange={e => set({ project_id: e.target.value || null })}>
             <option value="">없음</option>
-            {projects.map(p => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
+            <ProjectOptions projects={projects} />
           </select>
         </Field>
       </div>

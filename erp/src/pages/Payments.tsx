@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { ProjectOptions } from '../components/ProjectOptions'
 import { ChevronLeft, ChevronRight, Search } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { toCsv, downloadText } from '../lib/csv'
@@ -192,11 +193,7 @@ function Register({ data, projects, clients }: { data: PayData; projects: Projec
         <select className="select" value={projectId} onChange={e => go({ project: e.target.value || null })} aria-label="프로젝트">
           <option value="">모든 현장</option>
           <option value="none">현장 없음</option>
-          {projects.map(p => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
+          <ProjectOptions projects={projects} />
         </select>
         )}
         <select className="select" value={dir} onChange={e => go({ dir: e.target.value || null })} aria-label="구분">
