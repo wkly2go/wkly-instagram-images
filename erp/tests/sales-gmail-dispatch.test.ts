@@ -33,3 +33,14 @@ test('lost send response stays unknown and only the database receipt write may r
 test('expired during profile verification never reaches the send endpoint',async()=>{
  let calls=0,time=now();const fetcher:typeof fetch=async()=>{calls++;if(calls===2)time=Date.parse(lease.expires_at);return Response.json(calls===1?token:{emailAddress:lease.sender})};assert.equal((await transmitGmail(lease,signal(),config,fetcher,()=>time)).outcome,'rejected');assert.equal(calls,2)
 })
+test('a follow-up answers the first mail in the same conversation',()=>{
+ const first='10000000-0000-4000-8000-000000000002'
+ const mime=approvedMime({...lease,attachments:[],followup:true,message:{...lease.message,subject:'Re: 제안',in_reply_to:first,thread_id:'abc123'}},now())
+ assert.match(mime,new RegExp(`In-Reply-To: <wkly-sales-${first}@example.com>`));assert.match(mime,new RegExp(`References: <wkly-sales-${first}@example.com>`))
+ assert.doesNotMatch(approvedMime({...lease,message:{...lease.message,in_reply_to:'x\r\nBcc: a@b.c'}},now()),/In-Reply-To/)
+})
+test('a follow-up is posted into the original Gmail thread',async()=>{
+ const sent:string[]=[];const fetcher=(async(url:string,init:RequestInit)=>{if(url.includes('oauth2'))return new Response(JSON.stringify(token));if(url.includes('profile'))return new Response(JSON.stringify({emailAddress:lease.sender}));sent.push(String(init.body));return new Response(JSON.stringify({id:'abc',threadId:'abc123'}))}) as typeof fetch
+ const r=await transmitGmail({...lease,attachments:[],message:{...lease.message,in_reply_to:'10000000-0000-4000-8000-000000000002',thread_id:'abc123'}},signal(),config,fetcher,now)
+ assert.equal(r.outcome,'accepted');assert.equal(JSON.parse(sent[0]).threadId,'abc123')
+})

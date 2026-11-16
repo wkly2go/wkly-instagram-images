@@ -211,7 +211,8 @@ function approvedMime(lease, sentAt = Date.now()) {
   const proposal = lease.attachments.find((f) => f.name === INLINE_PROPOSAL && /^text\/(?:plain|markdown)(?:; charset=utf-8)?$/i.test(f.mime))?.content ?? null;
   const text = salesEmailText({ body: lease.message.body, proposal }).replace(/\r\n|\r|\n/g, "\r\n");
   const html = renderSalesEmailHtml({ subject: lease.message.subject, body: lease.message.body, proposal, sender: lease.sender });
-  const lines = [`From: ${lease.sender}`, `To: ${lease.message.recipient}`, `Subject: ${encodedSubject(lease.message.subject)}`, `Message-ID: ${dispatchMessageId(lease)}`, `Date: ${new Date(sentAt).toUTCString()}`, "MIME-Version: 1.0", `Content-Type: multipart/mixed; boundary="${boundary}"`, "", `--${boundary}`, `Content-Type: multipart/alternative; boundary="${alt}"`, "", `--${alt}`, "Content-Type: text/plain; charset=UTF-8", "Content-Transfer-Encoding: base64", "", foldedBase64(text), `--${alt}`, "Content-Type: text/html; charset=UTF-8", "Content-Transfer-Encoding: base64", "", foldedBase64(html), `--${alt}--`];
+  const replyTo = lease.message.in_reply_to && uuid.test(lease.message.in_reply_to) ? dispatchMessageId({ ...lease, id: lease.message.in_reply_to }) : null;
+  const lines = [`From: ${lease.sender}`, `To: ${lease.message.recipient}`, `Subject: ${encodedSubject(lease.message.subject)}`, `Message-ID: ${dispatchMessageId(lease)}`, ...replyTo ? [`In-Reply-To: ${replyTo}`, `References: ${replyTo}`] : [], `Date: ${new Date(sentAt).toUTCString()}`, "MIME-Version: 1.0", `Content-Type: multipart/mixed; boundary="${boundary}"`, "", `--${boundary}`, `Content-Type: multipart/alternative; boundary="${alt}"`, "", `--${alt}`, "Content-Type: text/plain; charset=UTF-8", "Content-Transfer-Encoding: base64", "", foldedBase64(text), `--${alt}`, "Content-Type: text/html; charset=UTF-8", "Content-Transfer-Encoding: base64", "", foldedBase64(html), `--${alt}--`];
   let total = encoder.encode(lease.message.body).length + encoder.encode(html).length;
   for (const file of lease.attachments) {
     if (file.name === INLINE_PROPOSAL && /^text\/(?:plain|markdown)(?:; charset=utf-8)?$/i.test(file.mime) && typeof file.content === "string" && file.content.length <= 5e4) {
@@ -264,7 +265,7 @@ async function transmitGmail(lease, signal, config2, fetcher = fetch, now = Date
   } catch {
     return rejected;
   }
-  const response = await fetcher("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", { method: "POST", signal, redirect: "error", headers: { Authorization: `Bearer ${access}`, "Content-Type": "application/json" }, body: JSON.stringify({ raw }) });
+  const response = await fetcher("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", { method: "POST", signal, redirect: "error", headers: { Authorization: `Bearer ${access}`, "Content-Type": "application/json" }, body: JSON.stringify(lease.message.thread_id && /^[a-f0-9]{1,32}$/i.test(lease.message.thread_id) ? { raw, threadId: lease.message.thread_id } : { raw }) });
   const receipt = await boundedJson(response);
   if (response.ok && typeof receipt.id === "string" && /^[a-f0-9]{1,32}$/i.test(receipt.id) && typeof receipt.threadId === "string" && /^[a-f0-9]{1,32}$/i.test(receipt.threadId)) return { outcome: "accepted", providerId: receipt.id };
   if ([400, 401, 403, 404, 413, 422, 429].includes(response.status) && receipt.error && typeof receipt.error === "object") return rejected;
@@ -365,7 +366,7 @@ Deno.serve(async (req) => {
   } catch {
     return new Response("Invalid job", { status: 400 });
   }
-  let test = false;
+  let test = false, followup = false;
   const work = (async () => {
     try {
       const run = await rpc("sales_sender_check_begin");
@@ -382,7 +383,10 @@ Deno.serve(async (req) => {
         if (lease) return lease;
         const trial = await rpc("sales_dispatch_test_claim", { p_id: job });
         test = trial?.test === true;
-        return test ? trial : null;
+        if (test) return trial;
+        const next = await rpc("sales_followup_claim", { p_id: job });
+        followup = next?.followup === true;
+        return followup ? next : null;
       },
       // A missing or switched-off configuration is a refusal before any send attempt. Only a test lease passes while the switch is off.
       transmit: async (lease, signal) => {
@@ -394,7 +398,7 @@ Deno.serve(async (req) => {
         return transmitGmail(lease, signal, cfg ? { ...cfg, enabled: cfg.enabled || test && lease.test === true } : null);
       },
       finish: async (job, token, outcome, providerId) => {
-        await rpc(test ? "sales_dispatch_test_finish" : "sales_dispatch_finish", { p_id: job, p_token: token, p_outcome: outcome, p_provider_id: providerId });
+        await rpc(test ? "sales_dispatch_test_finish" : followup ? "sales_followup_finish" : "sales_dispatch_finish", { p_id: job, p_token: token, p_outcome: outcome, p_provider_id: providerId });
       }
     });
   })().then(() => void 0, () => void 0);

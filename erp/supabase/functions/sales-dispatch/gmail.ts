@@ -18,7 +18,8 @@ export function approvedMime(lease:DispatchLease,sentAt=Date.now()):string{
  const proposal=lease.attachments.find(f=>f.name===INLINE_PROPOSAL&&/^text\/(?:plain|markdown)(?:; charset=utf-8)?$/i.test(f.mime))?.content??null
  const text=salesEmailText({body:lease.message.body,proposal}).replace(/\r\n|\r|\n/g,'\r\n')
  const html=renderSalesEmailHtml({subject:lease.message.subject,body:lease.message.body,proposal,sender:lease.sender})
- const lines=[`From: ${lease.sender}`,`To: ${lease.message.recipient}`,`Subject: ${encodedSubject(lease.message.subject)}`,`Message-ID: ${dispatchMessageId(lease)}`,`Date: ${new Date(sentAt).toUTCString()}`,'MIME-Version: 1.0',`Content-Type: multipart/mixed; boundary="${boundary}"`,'',`--${boundary}`,`Content-Type: multipart/alternative; boundary="${alt}"`,'',`--${alt}`,'Content-Type: text/plain; charset=UTF-8','Content-Transfer-Encoding: base64','',foldedBase64(text),`--${alt}`,'Content-Type: text/html; charset=UTF-8','Content-Transfer-Encoding: base64','',foldedBase64(html),`--${alt}--`]
+ const replyTo=lease.message.in_reply_to&&uuid.test(lease.message.in_reply_to)?dispatchMessageId({...lease,id:lease.message.in_reply_to}):null
+ const lines=[`From: ${lease.sender}`,`To: ${lease.message.recipient}`,`Subject: ${encodedSubject(lease.message.subject)}`,`Message-ID: ${dispatchMessageId(lease)}`,...(replyTo?[`In-Reply-To: ${replyTo}`,`References: ${replyTo}`]:[]),`Date: ${new Date(sentAt).toUTCString()}`,'MIME-Version: 1.0',`Content-Type: multipart/mixed; boundary="${boundary}"`,'',`--${boundary}`,`Content-Type: multipart/alternative; boundary="${alt}"`,'',`--${alt}`,'Content-Type: text/plain; charset=UTF-8','Content-Transfer-Encoding: base64','',foldedBase64(text),`--${alt}`,'Content-Type: text/html; charset=UTF-8','Content-Transfer-Encoding: base64','',foldedBase64(html),`--${alt}--`]
  let total=encoder.encode(lease.message.body).length+encoder.encode(html).length
  for(const file of lease.attachments){
   if(file.name===INLINE_PROPOSAL&&/^text\/(?:plain|markdown)(?:; charset=utf-8)?$/i.test(file.mime)&&typeof file.content==='string'&&file.content.length<=50000){names.add(file.name);continue}
@@ -52,7 +53,7 @@ export async function transmitGmail(lease:DispatchLease,signal:AbortSignal,confi
   const profile=await boundedJson(profileResponse)
   if(!profileResponse.ok||typeof profile.emailAddress!=='string'||profile.emailAddress.trim().toLowerCase()!==lease.sender.toLowerCase()||signal.aborted||Date.parse(lease.expires_at)<=now())return rejected
  }catch{return rejected} // No send attempt has happened yet.
- const response=await fetcher('https://gmail.googleapis.com/gmail/v1/users/me/messages/send',{method:'POST',signal,redirect:'error',headers:{Authorization:`Bearer ${access}`,'Content-Type':'application/json'},body:JSON.stringify({raw})})
+ const response=await fetcher('https://gmail.googleapis.com/gmail/v1/users/me/messages/send',{method:'POST',signal,redirect:'error',headers:{Authorization:`Bearer ${access}`,'Content-Type':'application/json'},body:JSON.stringify(lease.message.thread_id&&/^[a-f0-9]{1,32}$/i.test(lease.message.thread_id)?{raw,threadId:lease.message.thread_id}:{raw})})
  const receipt=await boundedJson(response)
  if(response.ok&&typeof receipt.id==='string'&&/^[a-f0-9]{1,32}$/i.test(receipt.id)&&typeof receipt.threadId==='string'&&/^[a-f0-9]{1,32}$/i.test(receipt.threadId))return {outcome:'accepted',providerId:receipt.id}
  if([400,401,403,404,413,422,429].includes(response.status)&&receipt.error&&typeof receipt.error==='object')return rejected

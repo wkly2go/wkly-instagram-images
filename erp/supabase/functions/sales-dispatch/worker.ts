@@ -1,10 +1,12 @@
 /** Internal worker core. No HTTP entry point or provider connection is enabled. */
 export interface DispatchLease {
  id:string;token:string;fingerprint:string;sender:string;
- message:{recipient:string;subject:string;body:string;channel?:string};
+ message:{recipient:string;subject:string;body:string;channel?:string;/** Original dispatch id a follow-up answers; the mail stays in that conversation. */in_reply_to?:string;thread_id?:string|null};
  attachments:{name:string;mime:string;content:string}[];expires_at:string;
  /** A fixed test text to an address the administrator named; sent even while customer sending is switched off. */
  test?:boolean;
+ /** A follow-up the administrator approved together with the first mail; sent only while no reply or opt-out exists. */
+ followup?:boolean;
 }
 export type DispatchOutcome='accepted'|'rejected'|'unknown'
 export interface DispatchDeps {
