@@ -378,7 +378,7 @@ export function Gantt({ projects, tasks }: { projects: Project[]; tasks: Task[] 
       </div>
       <div className="legend">
         <span>
-          <i style={{ background: 'var(--blue)' }} />
+          <i style={{ background: 'var(--cal-mine)' }} />
           완료
         </span>
         <span>
@@ -587,6 +587,8 @@ export function MonthCalendar({ projects, tasks }: { projects: Project[]; tasks:
     return m
   }, [tasks, projects, leaves, personal, mine, me.id, month, today, profileName])
 
+  // 달력 한 칸에 보이는 일정 수 (대표 지시 2026-11-16 '더 크게 만들어서 잘 보이게' · 3 → 5)
+  const CELL_MAX = 5
   const item = (it: CalItem) =>
     it.personal ? (
       <button key={it.key} type="button" className={`cal-item c-personal${it.personal.done ? ' p-done' : ''}`} onClick={() => setPEdit({ ev: it.personal })} title={`${it.label}${it.personal.memo ? `\n${it.personal.memo}` : ''}`}>
@@ -718,10 +720,10 @@ export function MonthCalendar({ projects, tasks }: { projects: Project[]; tasks:
                   <Plus size={12} />
                 </button>
               </span>
-              {list.slice(0, 3).map(item)}
-              {list.length > 3 && (
+              {list.slice(0, CELL_MAX).map(item)}
+              {list.length > CELL_MAX && (
                 <button type="button" className="more" onClick={() => setOpenDay(d)}>
-                  +{list.length - 3}건 더
+                  +{list.length - CELL_MAX}건 더
                 </button>
               )}
             </div>
@@ -749,7 +751,7 @@ export function MonthCalendar({ projects, tasks }: { projects: Project[]; tasks:
       )}
       <div className="legend">
         <span>
-          <i style={{ background: 'var(--blue)' }} />
+          <i style={{ background: 'var(--cal-mine)' }} />
           내 업무
         </span>
         <span>
@@ -1036,7 +1038,7 @@ export function WeekView({ projects, tasks }: { projects: Project[]; tasks: Task
       </div>
       <div className="legend">
         <span>
-          <i style={{ background: 'var(--blue)' }} />내 업무
+          <i style={{ background: 'var(--cal-mine)' }} />내 업무
         </span>
         <span>
           <i style={{ background: 'var(--blue-tint)' }} />팀 업무
