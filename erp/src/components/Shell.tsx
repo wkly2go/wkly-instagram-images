@@ -29,6 +29,7 @@ import { Presence, toneOf } from './ui'
 import { countedUnread, rememberRoomLevels, useChatTick } from '../lib/chat'
 import { QuickChat, QUICK_OPEN_ROOM } from '../pages/Quick'
 import { DockTodo } from './DockTodo'
+import { AssistantSettingsButton } from './AssistantSettings'
 import type { ChatRoomSummary } from '../lib/types'
 import './ShellUsability.css'
 
@@ -292,6 +293,7 @@ function ChatDock() {
         <button type="button" className="chat-dock-full chat-dock-sec" onClick={openAssistant} title="나만 보는 개인 AI 비서 · 할 일 · 일정 · 업무 일지 · 주간 보고 초안">
           <Bot size={13} aria-hidden="true" /> 내 비서
         </button>
+        <AssistantSettingsButton />
         <Link to="/chat" className="chat-dock-full" title="방 만들기 · 나중에 보기 · 스레드는 전체 화면에서">
           전체 화면
         </Link>

@@ -341,6 +341,10 @@ export function createSupabaseApi(url: string, key: string): Api {
     async openMyAssistant() {
       return must(await sb.rpc('my_assistant')) as { agent_id: string; room_id: string }
     },
+    async assistantSettings(patch) {
+      const r = must(await sb.rpc('my_assistant_settings', { p_name: patch?.name ?? null, p_instructions: patch?.instructions ?? null })) as { agent_id: string; name: string; instructions: string | null }
+      return { ...r, instructions: r.instructions ?? '' }
+    },
     async openDm(otherId) {
       return must(await sb.rpc('chat_open_dm', { p_other: otherId })) as string
     },

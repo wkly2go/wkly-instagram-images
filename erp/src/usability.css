@@ -214,3 +214,12 @@
 
 /* 채팅 칸 '내 비서' 버튼 (2026-11-16) */
 .chat-dock-sec { display: inline-flex; align-items: center; gap: 3px; border: 1px solid currentColor; background: none; cursor: pointer; font: inherit; }
+
+/* 내 비서 설정 (이름 · 지침) */
+.asst-set { display: grid; gap: 12px; }
+.asst-set-note { margin: 0; color: var(--ink-3, #667); font-size: var(--fs-sm); }
+.asst-set-text { width: 100%; min-height: 180px; resize: vertical; line-height: 1.55; }
+.asst-set-ex { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: var(--fs-cap); color: var(--ink-3, #667); }
+.asst-set-ex button { border: 1px solid var(--line, #d9dde3); background: none; padding: 3px 8px; font: inherit; cursor: pointer; color: inherit; }
+.asst-set-ex button:hover:not(:disabled) { border-color: currentColor; }
+.asst-set-err { margin: 0; color: var(--red, #c62828); font-size: var(--fs-sm); }
