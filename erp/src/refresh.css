@@ -404,3 +404,7 @@ html[data-theme="dark"] :is(.home-kpi b, .home-hello h1, .home-proj-name) { colo
 .home-proj .t-cap, .home-proj-name { color: inherit; }
 .home-proj .t-cap { color: var(--v8-sub); }
 html:not([data-theme="dark"]) .section-h::before { align-self: center; margin: 0; }
+/* 프로젝트 목록 카드 보기 */
+.proj-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; padding: 6px 0 4px; }
+.proj-layout { flex: none; }
+.proj-layout button { padding: 2px 12px; }
