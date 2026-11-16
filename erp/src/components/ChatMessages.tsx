@@ -3,8 +3,9 @@ import { CardView } from './ChatCards'
 import { Linkify } from './ui'
 import { useEffect, useRef, useState, type DragEvent } from 'react'
 import { createPortal } from 'react-dom'
-import { Bookmark, Check, Download, FileText, Loader2, MessageSquare, MessageSquareQuote, Paperclip, Pencil, Send, SmilePlus, Trash2, X } from 'lucide-react'
+import { Bookmark, Check, Download, FileText, Loader2, Copy, MessageSquare, MessageSquareQuote, Paperclip, Pencil, Send, SmilePlus, Trash2, X } from 'lucide-react'
 import { useApp } from '../lib/app'
+import { continueList } from '../lib/listInput'
 import { addDays, dateLabel, timeLabel, toDateKey, todayKey } from '../lib/date'
 import type { ChatAttachment, ChatMessage, ChatRead } from '../lib/types'
 import { CHAT_FILE_MAX, friendlyError, type AgentDraft } from '../lib/api'
@@ -63,7 +64,7 @@ type ListProps = {
 
 /** 말풍선 목록 (날짜 구분 · 3분 안 연속 메시지 묶음 · 읽음 표시 · 스레드 답글 · 이모지 반응 · 내 메시지/관리자 삭제) */
 export function MessageList({ messages, reads = [], members, onRemove, onEdit, onReply, onReact, thread = null }: ListProps) {
-  const { me, profiles, profileName } = useApp()
+  const { me, profiles, profileName, toast } = useApp()
   const [openId, setOpenId] = useState<number | null>(null)
   const [editId, setEditId] = useState<number | null>(null)
   const [draft, setDraft] = useState('')
@@ -122,6 +123,27 @@ export function MessageList({ messages, reads = [], members, onRemove, onEdit, o
       window.removeEventListener('scroll', off, true)
     }
   }, [onReply])
+  // 글 복사 (대표 지시 2026-11-16 '글을 복사할 수 있게') — 고른 부분 또는 메시지 전체
+  const copyText = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text)
+    } catch {
+      const box = document.createElement('textarea')
+      box.value = text
+      box.style.cssText = 'position:fixed;opacity:0'
+      document.body.appendChild(box)
+      box.select()
+      document.execCommand('copy')
+      box.remove()
+    }
+    toast('복사했습니다.')
+  }
+  const copyPick = () => {
+    const raw = window.getSelection()?.toString().trim()
+    if (raw) void copyText(raw)
+    window.getSelection()?.removeAllRanges()
+    setPick(null)
+  }
   const quotePick = () => {
     if (!pick) return
     const { root, text } = pick
@@ -230,6 +252,11 @@ export function MessageList({ messages, reads = [], members, onRemove, onEdit, o
               </span>
               {editId !== m.id && (
                 <span className="msg-actions">
+                  {!!m.content && !m.attachment?.card && (
+                    <button type="button" className="icon-btn sm del" onClick={() => void copyText(m.content)} aria-label="글 복사" title="글 전체 복사">
+                      <Copy size={13} />
+                    </button>
+                  )}
                   <button type="button" className="icon-btn sm del" onClick={() => setLaterId(laterId === m.id ? null : m.id)} aria-label="나중에 보기" title="나중에 보기 (다시 알림)">
                     <Bookmark size={13} />
                   </button>
@@ -328,6 +355,7 @@ export function MessageList({ messages, reads = [], members, onRemove, onEdit, o
                 maxLength={4000}
                 onChange={e => setReplyText(prev => ({ ...prev, [m.id]: e.target.value }))}
                 onKeyDown={e => {
+                  if (continueList(e, v => setReplyText(prev => ({ ...prev, [m.id]: v })))) return
                   if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
                     e.preventDefault()
                     void sendReply(m.id)
@@ -351,9 +379,14 @@ export function MessageList({ messages, reads = [], members, onRemove, onEdit, o
       {top.map((m, i) => row(m, top[i - 1], false))}
       {pick &&
         createPortal(
-          <button type="button" className="quote-pick" style={{ left: pick.x, top: pick.y }} onMouseDown={e => e.preventDefault()} onClick={quotePick} title="고른 부분을 인용해 스레드에 댓글 · 질문을 답니다">
-            <MessageSquareQuote size={13} aria-hidden="true" /> 댓글 · 질문
-          </button>,
+          <span className="quote-pick" style={{ left: pick.x, top: pick.y }} onMouseDown={e => e.preventDefault()}>
+            <button type="button" onClick={copyPick} title="고른 부분 복사">
+              <Copy size={13} aria-hidden="true" /> 복사
+            </button>
+            <button type="button" onClick={quotePick} title="고른 부분을 인용해 스레드에 댓글 · 질문을 답니다">
+              <MessageSquareQuote size={13} aria-hidden="true" /> 댓글 · 질문
+            </button>
+          </span>,
           document.body,
         )}
     </>
