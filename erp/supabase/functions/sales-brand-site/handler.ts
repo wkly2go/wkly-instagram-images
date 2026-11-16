@@ -13,19 +13,24 @@ export interface BrandSiteDeps {
  background?:(work:Promise<void>)=>void;
 }
 /** Marketplaces, social networks, portals, news and wikis are never a brand's own site. */
-const OTHER=/(^|\.)(instagram|facebook|youtube|x|twitter|tiktok|threads|linkedin|pinterest|naver|daum|kakao|tistory|google|coupang|11st|gmarket|auction|ssg|musinsa|29cm|oliveyoung|wikipedia|namu|wadiz|tumblbug|saramin|jobkorea|wanted|greetinghr|catch|blind|brunch|medium|notion|linktr|apple|amazon)\.[a-z.]+$|(news|press|times|daily|ilbo|sinmun|herald|biz|media|journal|tv|magazine|blog|wiki|review)\b|(^|\.)xn--/i
+const OTHER=/(^|\.)(instagram|facebook|youtube|x|twitter|tiktok|threads|linkedin|pinterest|naver|daum|kakao|tistory|google|coupang|11st|gmarket|auction|ssg|musinsa|29cm|oliveyoung|wikipedia|namu|wadiz|tumblbug|saramin|jobkorea|wanted|greetinghr|catch|blind|brunch|medium|notion|linktr|apple|amazon)\.[a-z.]+$|(news|press|times|daily|ilbo|sinmun|herald|biz|media|journal|tv|magazine|blog|wiki|review)\b|(^|\.)xn--|^(www\.)?(cafe24\.com|imweb\.me|sixshop\.com|shopify\.com|myshopify\.com|wix\.com|wixsite\.com|modoo\.at|godo\.co\.kr|makeshop\.co\.kr|smartstore\.naver\.com|github\.io)$/i
 const squash=(v:string)=>v.toLowerCase().replace(/<[^>]*>/g,'').replace(/[\s·.,'"()\[\]㈜]|주식회사|\(주\)/g,'')
 function origin(value:unknown):string{
  if(typeof value!=='string'||value.length>1000)return ''
  try{const u=new URL(value);if(u.protocol!=='https:'||u.username||u.password||u.port||!/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(u.hostname)||OTHER.test(u.hostname))return '';return 'https://'+u.hostname.toLowerCase()+'/'}catch{return ''}
 }
+/** Ways a brand may be written: the whole name, the part before a bracket and the part inside it ('라뒤레(Ladurée)'). */
+export function variants(brand:string):string[]{
+ const out=[brand,brand.replace(/[(（\[][^)）\]]*[)）\]]/g,' '),...[...brand.matchAll(/[(（\[]([^)）\]]+)[)）\]]/g)].map(m=>m[1])].map(v=>squash(v)).filter(v=>v.length>=2)
+ return [...new Set(out)]
+}
 /** Search results are candidates only; at most three distinct sites that mention the brand are tried. */
 export function candidates(input:unknown,brand:string):string[]{
  if(!Array.isArray(input))throw new Error('format')
- const key=squash(brand),out:string[]=[]
+ const keys=variants(brand),out:string[]=[]
  for(const r of input as Record<string,unknown>[]){
   const site=origin(r?.url);if(!site||out.includes(site))continue
-  if(!squash(String(r?.title??'')+' '+String(r?.description??'')).includes(key))continue
+  const shown=squash(String(r?.title??'')+' '+String(r?.description??''));if(!keys.some(k=>shown.includes(k)))continue
   out.push(site);if(out.length===3)break
  }
  return out
@@ -33,11 +38,11 @@ export function candidates(input:unknown,brand:string):string[]{
 /** Sites whose own front-page title, as the search engine shows it, begins with the brand's name. */
 export function titled(input:unknown,brand:string):string[]{
  if(!Array.isArray(input))return []
- const key=squash(brand),out:string[]=[]
+ const keys=variants(brand),out:string[]=[]
  for(const r of input as Record<string,unknown>[]){
   const site=origin(r?.url);if(!site||out.includes(site))continue
   try{if(new URL(String(r.url)).pathname!=='/')continue}catch{continue}
-  if(key.length>=2&&squash(String(r?.title??'')).startsWith(key))out.push(site)
+  const title=squash(String(r?.title??''));if(keys.some(k=>title.startsWith(k)))out.push(site)
  }
  return out
 }
@@ -69,9 +74,10 @@ const meta=(html:string,name:string)=>{for(const m of html.matchAll(/<meta\b[^>]
  * magazine article list, does not count. Addresses and the contact link come only from what the page shows.
  */
 export function inspect(html:string,site:string,brand:string):{named:boolean;contact_page:string;emails:string[];more:string[];thin:boolean}{
- const body=text(html),key=squash(brand),host=new URL(site).hostname.replace(/^www\./,'')
+ const body=text(html),host=new URL(site).hostname.replace(/^www\./,'')
  const identity=[html.match(/<title[^>]*>([^<]{0,200})/i)?.[1]??'',meta(html,'og:site_name'),meta(html,'og:title'),meta(html,'application-name'),...[...body.matchAll(/(?:©|ⓒ|\(c\)|copyright)[^|]{0,80}/gi)].slice(0,3).map(m=>m[0])].join(' ')
- const named=key.length>=2&&(squash(identity).includes(key)||(/^[a-z0-9]{3,}$/.test(key)&&host.replace(/[^a-z0-9]/g,'').includes(key)))
+ const shown=squash(identity),plain=host.replace(/[^a-z0-9]/g,'')
+ const named=variants(brand).some(k=>shown.includes(k)||(/^[a-z0-9]{3,}$/.test(k)&&plain.includes(k)))
  let contact_page='';const more:string[]=[]
  for(const m of html.matchAll(/<a\b[^>]*href\s*=\s*["']([^"'#]{1,500})["'][^>]*>([\s\S]{0,200}?)<\/a>/gi)){
   const label=text(m[2])+' '+m[1],contact=/(제휴|입점|협업|비즈니스|파트너|문의|contact|partnership|business|b2b)/i.test(label)
@@ -99,7 +105,7 @@ export function createBrandSiteHandler(d:BrandSiteDeps){return async(req:Request
     let answered=0,failure=''
     search:for(const provider of d.providers){
      let rows:SearchRow[]
-     try{rows=await provider.search(job!.brand+' 공식 홈페이지')}catch(error){const reason=error instanceof Error?error.message:'';failure=`${provider.name} ${reason==='auth'?'검색 키 인증 실패':reason==='quota'?'검색 한도 도달':'검색 응답 실패'}`;continue}
+     try{rows=await provider.search(job!.brand.replace(/[(（\[][^)）\]]*[)）\]]/g,' ').replace(/\s+/g,' ').trim()+' 공식 홈페이지')}catch(error){const reason=error instanceof Error?error.message:'';failure=`${provider.name} ${reason==='auth'?'검색 키 인증 실패':reason==='quota'?'검색 한도 도달':'검색 응답 실패'}`;continue}
      answered++
      const byTitle=titled(rows,job!.brand)
      for(const site of [...new Set([...candidates(rows,job!.brand),...byTitle])].slice(0,4)){

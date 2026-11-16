@@ -1,6 +1,6 @@
 import {test} from 'node:test'
 import assert from 'node:assert/strict'
-import {readFollowing,sameSite,titled,candidates,createBrandSiteHandler,googleSearch,inspect,kakaoSearch,naverSearch,type BrandSiteResult,type SearchRow} from '../supabase/functions/sales-brand-site/handler.ts'
+import {readFollowing,sameSite,titled,variants,candidates,createBrandSiteHandler,googleSearch,inspect,kakaoSearch,naverSearch,type BrandSiteResult,type SearchRow} from '../supabase/functions/sales-brand-site/handler.ts'
 const id='11111111-1111-4111-8111-111111111111',token='22222222-2222-4222-8222-222222222222'
 const results:SearchRow[]=[{url:'https://www.instagram.com/paulnua',title:'폴뉴아 (@paulnua)',description:''},{url:'https://news.example-daily.com/a/1',title:'폴뉴아 오픈',description:''},{url:'https://shop.other.co.kr/',title:'여성의류 쇼핑몰',description:'무관'},{url:'https://www.paulnua.com/about?x=1',title:'<b>폴뉴아</b> 공식 온라인 스토어',description:'PAULNUA'},{url:'https://paulnua.com/',title:'폴뉴아',description:''},{url:'http://plain.paulnua.kr/',title:'폴뉴아',description:''}]
 const home='<html><head><title>폴뉴아 | PAULNUA</title><script>var a="x@y.com"</script></head><body><a href="/contact/partnership">제휴 문의</a><a href="https://other.com/contact">문의</a><p>제휴 partner@paulnua.com · 고객센터 help@cs-vendor.co.kr · logo@2x.png</p></body></html>'
@@ -79,4 +79,11 @@ test('a missing address is looked for on the contact page; a script-drawn front 
  const shell=setup({read:async()=>({status:200,contentType:'text/html',text:'<html><body><div id="app"></div><script src="/a.js"></script></body></html>'})},async()=>rootRow);await shell.handler(post({id,token}))
  assert.equal(shell.calls.done?.status,'found');assert.match(shell.calls.done!.note,/검색 결과의 사이트 제목으로/)
  const parked=setup({read:async()=>({status:200,contentType:'text/html',text:'<title>도메인 임대 문의</title><body></body>'})},async()=>rootRow);await parked.handler(post({id,token}));assert.equal(parked.calls.done?.status,'not_found')
+})
+
+test('a name with a bracketed spelling matches either spelling; hosting platforms are never a brand site',async()=>{
+ assert.deepEqual(variants('라뒤레(Ladurée)'),['라뒤레ladurée','라뒤레','ladurée']);assert.deepEqual(variants('폴뉴아'),['폴뉴아'])
+ assert.equal(inspect('<title>Ladurée Korea</title><body></body>','https://www.laduree.co.kr/','라뒤레(Ladurée)').named,true)
+ assert.deepEqual(candidates([{url:'https://cafe24.com/',title:'소주한잔',description:''},{url:'https://sojuhanjan.cafe24.com/',title:'소주한잔',description:''}],'소주한잔'),['https://sojuhanjan.cafe24.com/'])
+ const q:string[]=[];const s=setup({claim:async()=>({id,brand:'라뒤레(Ladurée)'}),providers:[{name:'A',search:async(x:string)=>{q.push(x);return []}}]});await s.handler(post({id,token}));assert.deepEqual(q,['라뒤레 공식 홈페이지'])
 })
