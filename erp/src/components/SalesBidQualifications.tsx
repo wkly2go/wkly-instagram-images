@@ -8,9 +8,11 @@ import './SalesMethodProposals.css'
 /** Which tender licences the company holds. The collector lists what notices ask for; the administrator answers once. */
 export function SalesBidQualifications({api,canEdit}:{api:Api;canEdit:boolean}){
  const state=useAsync(()=>api.listBidQualifications(),[api],[] as BidQualification[])
- const [busy,setBusy]=useState(false),[error,setError]=useState('')
+ const [busy,setBusy]=useState(false),[error,setError]=useState(''),[showOff,setShowOff]=useState(false)
  if(state.loading||state.error||!state.data.length)return null
  const regions=state.data.filter(r=>r.kind==='지역'),licences=state.data.filter(r=>r.kind==='업종'),home=regions.find(r=>r.status==='보유')?.name??''
+ // 등록 안 함(우리와 무관한 업종)은 숨김 · 필요하면 펼쳐서 다시 고침 (대표 지시 2026-11-16)
+ const off=licences.filter(r=>r.status==='미보유'),shown=showOff?licences:licences.filter(r=>r.status!=='미보유')
  const waiting=licences.filter(r=>r.status==='확인 필요').length+(home?0:1)
  const save=async(kind:BidQualification['kind'],name:string,status:BidQualification['status'])=>{
   if(busy||!name)return
@@ -23,7 +25,8 @@ export function SalesBidQualifications({api,canEdit}:{api:Api;canEdit:boolean}){
   {error&&<p role="alert">{error}</p>}
   <fieldset disabled={busy||!canEdit}>
    <Field label="본사 소재지 (지역 제한 공고 판정)"><select className="select" value={home} onChange={e=>void save('지역',e.target.value,'보유')}><option value="">선택해 주세요</option>{regions.map(r=><option key={r.name} value={r.name}>{r.name}</option>)}</select></Field>
-   {licences.length===0?<p>아직 업종을 요구한 공고가 없습니다. 다음 수집부터 표시됩니다.</p>:<ul>{licences.map(r=><li key={r.name}><span>{r.name}</span><select className="select" aria-label={r.name+' 보유 여부'} value={r.status} onChange={e=>void save('업종',r.name,e.target.value as BidQualification['status'])}><option value="확인 필요">확인 필요</option><option value="보유">나라장터에 등록함</option><option value="미보유">등록 안 함</option></select></li>)}</ul>}
+   {licences.length===0?<p>아직 업종을 요구한 공고가 없습니다. 다음 수집부터 표시됩니다.</p>:<ul>{shown.map(r=><li key={r.name}><span>{r.name}</span><select className="select" aria-label={r.name+' 보유 여부'} value={r.status} onChange={e=>void save('업종',r.name,e.target.value as BidQualification['status'])}><option value="확인 필요">확인 필요</option><option value="보유">나라장터에 등록함</option><option value="미보유">등록 안 함</option></select></li>)}</ul>}
+   {off.length>0&&<button type="button" className="link-btn sales-bid-off" onClick={()=>setShowOff(v=>!v)}>{showOff?'해당 없는 업종 숨기기':`해당 없는 업종 ${off.length}개 숨김 · 보기`}</button>}
   </fieldset>
  </details>
 }

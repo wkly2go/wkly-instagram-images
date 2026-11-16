@@ -167,6 +167,19 @@ export interface Attendance {
   kind?: '출근' | '외근' | '재택' | '현장 직출' | null
 }
 
+/** 주간 보고: 한 사람 · 한 주(월요일)에 한 건. 활동은 업무 일지에서 취합 (2026-11-16) */
+export interface WeeklyReport {
+  id: string
+  user_id: string
+  /** 그 주 월요일 YYYY-MM-DD */
+  week_start: string
+  summary: string | null
+  next_plan: string | null
+  submitted_at: string | null
+  created_at: string
+  updated_at: string
+}
+
 /** 개인 메모 (본인만 봄 · 업무 일지에 안 들어감) */
 export interface Note {
   id: string

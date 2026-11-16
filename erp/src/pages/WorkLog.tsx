@@ -17,6 +17,7 @@ import { Link, useRouter, withQuery } from "../lib/router";
 import { presenceOf, useAttendance } from "../lib/attendance";
 import { DIVISIONS, projectBrand, type ApprovalSummary, type Client, type Project, type Task, type WorkLog as Log } from "../lib/types";
 import { Board, BoardHead, type BoardCol } from "../components/Board";
+import { groupLogsByProject } from "../lib/weekly";
 import { LogComposer, isMail } from "../components/LogForm";
 import { usePanelWide, useRightPanel } from "../components/RightPanel";
 import {
@@ -255,7 +256,11 @@ export function WorkPane({ tabs }: { tabs?: ReactNode }) {
           {periodReports.length > 0 && <ReportStrip reports={periodReports} period={period} />}
           <div className="chat-body" style={{ gap: 12 }}>
             {period === "day" ? (
-              <Board rows={data.logs} cols={logCols} rowKey={l => l.id} compact empty={q ? "검색 결과가 없습니다." : other || team ? "이 기간의 기록이 없습니다." : "아래 입력창에 오늘 한 일을 남겨 보세요. 메일·미팅·전화도 모두 기록할 수 있어요."} />
+              data.logs.length === 0 ? (
+                <Board rows={data.logs} cols={logCols} rowKey={l => l.id} compact empty={q ? "검색 결과가 없습니다." : other || team ? "이 기간의 기록이 없습니다." : "아래 입력창에 오늘 한 일을 남겨 보세요. 메일·미팅·전화도 모두 기록할 수 있어요."} />
+              ) : (
+                <ProjectLogBoards logs={data.logs} projects={data.projects} cols={logCols} />
+              )
             ) : (
               <>
                 {byDate.map(([d, list]) => (
@@ -269,7 +274,7 @@ export function WorkPane({ tabs }: { tabs?: ReactNode }) {
                       count={`${list.length}건`}
                       right={`${minutesLabel(list.reduce((n, l) => n + (l.minutes ?? 0), 0))}`}
                     />
-                    <Board rows={list} cols={logCols} rowKey={l => l.id} compact numbered={false} />
+                    <ProjectLogBoards logs={list} projects={data.projects} cols={logCols} nested />
                   </div>
                 ))}
                 {data.logs.length === 0 && <Empty>{q ? "검색 결과가 없습니다." : "이 기간의 기록이 없습니다."}</Empty>}
@@ -289,6 +294,48 @@ export function WorkPane({ tabs }: { tabs?: ReactNode }) {
       {reporting && (
         <NewApproval preset={{ kind: "업무 보고", payload: { date } }} onClose={() => setReporting(false)} onCreated={(id) => navigate(`/approvals?view=mine&id=${id}`)} />
       )}
+    </div>
+  );
+}
+
+/**
+ * 업무 일지를 구분 → 프로젝트별로 나눠 보여 줌 (대표 지시 2026-11-16 '업무일지는 프로젝트별로 · 프로젝트는 구분')
+ *  - nested: 월 · 년 보기에서 날짜 아래에 넣을 때 (구분 머리 줄을 작게)
+ */
+function ProjectLogBoards({ logs, projects, cols, nested }: { logs: Log[]; projects: Project[]; cols: BoardCol<Log>[]; nested?: boolean }) {
+  const groups = useMemo(() => groupLogsByProject(logs, projects), [logs, projects]);
+  return (
+    <div className={`col gap-10 log-groups${nested ? " nested" : ""}`}>
+      {groups.map((g) => (
+        <div key={g.division ?? "none"} className="log-div">
+          <div className="log-div-head" style={{ borderColor: g.division ? DIVISIONS[g.division].color : "var(--gray)" }}>
+            <span className="t-bodyb" style={{ color: g.division ? DIVISIONS[g.division].color : undefined }}>
+              {g.division ? DIVISIONS[g.division].full : "프로젝트 미지정 (공통 업무)"}
+            </span>
+            <span className="t-cap">
+              {g.count}건{g.minutes ? ` · ${minutesLabel(g.minutes)}` : ""}
+            </span>
+          </div>
+          {g.projects.map((b) => (
+            <div key={b.project?.id ?? "none"} className="col gap-4 log-proj">
+              <div className="row gap-6 log-proj-head">
+                {b.project ? (
+                  <Link to={`/projects?id=${b.project.id}`} className="t-smallb">
+                    {b.project.code ? `${b.project.code} ` : ""}
+                    {b.project.name}
+                  </Link>
+                ) : (
+                  <span className="t-smallb">프로젝트 없이 적은 기록</span>
+                )}
+                <span className="t-cap">
+                  {b.logs.length}건{b.minutes ? ` · ${minutesLabel(b.minutes)}` : ""}
+                </span>
+              </div>
+              <Board rows={b.logs as Log[]} cols={cols} rowKey={(l) => l.id} compact numbered={false} />
+            </div>
+          ))}
+        </div>
+      ))}
     </div>
   );
 }

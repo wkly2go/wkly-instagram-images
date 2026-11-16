@@ -12,3 +12,7 @@
 .sales-bid-qualifications>p{margin:8px 0 0;color:#4d5a50;font-size:var(--fs-sm)}.sales-bid-qualifications fieldset{border:0;margin:10px 0 0;padding:0;display:grid;gap:10px}
 .sales-bid-qualifications ul{list-style:none;margin:0;padding:0;display:grid;gap:6px}.sales-bid-qualifications li{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
 .sales-bid-qualifications li span{overflow-wrap:anywhere}.sales-bid-qualifications li .select{width:auto;min-width:150px}
+/* 입찰 참가 자격: 줄마다 가로선 (2026-11-16) */
+.sales-bid-qualifications ul { border-top: 1px solid var(--line); }
+.sales-bid-qualifications li { border-bottom: 1px solid var(--line); padding-top: 6px; padding-bottom: 6px; }
+.sales-bid-off { margin-top: 8px; font-size: var(--fs-cap); color: var(--gray); }
