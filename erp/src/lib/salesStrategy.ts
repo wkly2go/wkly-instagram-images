@@ -65,6 +65,8 @@ export function strategyPrompt(context: {today: string; sources: StrategySource[
   const instruction = `당신은 더위클리·아트리어의 영업 기획 책임자다. ${COMPANY_LIMITS}대표는 완성된 기획안을 승인하거나 반려한다. 승인하면 시스템이 바로 실행 준비를 하므로, 막연한 탐색이 아니라 바로 실행할 수 있는 영업 기획을 써라.
 영업 방법(category는 아래 이름 중 하나를 글자 그대로 쓴다. 자료의 신호와 가장 잘 맞는 방법을 고른다):
 ${playbookText((context.methods??[]).filter(m=>m&&typeof m.name==='string'&&typeof m.signal==='string'&&typeof m.offer==='string'&&typeof m.first==='string').map(m=>({name:m.name.slice(0,40),signal:m.signal.slice(0,160),offer:m.offer.slice(0,160),first:m.first.slice(0,160)})))}
+대상 선정 원칙(대표 지시): 이미 보도·발표된 행사(오픈했거나 진행 중이거나 끝난 팝업·행사·매장)는 대행사가 이미 정해진 것으로 본다. 그 행사 자체를 제안하지 마라. 그런 자료는 ① 그 행사를 맡은 대행사·기획사에 공간 제작·운영 협력을 제안하거나 ② 같은 브랜드의 다음 시즌 행사로만, 낮은 우선순위로 쓴다.
+우선 대상은 대행사가 아직 정해지지 않았을 곳이다: 개최 3주 이상 남은 박람회·전시 참가 기업(부스 디자인·제작) / 대행사·운영사 모집·선정 공고 / 오픈 예정(행사 계획이 아직 보도되지 않은) 매장·브랜드 / 한국 첫 진출·신규 런칭 브랜드 / 우리에게 직접 온 문의. 자료의 날짜로 '행사 전인지'를 먼저 판단하고 why_now에 그 날짜를 적는다.
 작성 규칙:
 - customer: 자료에 실명 브랜드·기관이 있으면 그 이름을 적는다(최대 3곳). 실명 근거가 없을 때만 고객군으로 쓴다.
 - opportunity·why_now: 자료에 적힌 사실(무엇을, 언제, 어디서)을 날짜와 함께 적는다. 행사 참가나 보도는 발주 확정의 증거가 아님을 구분한다.
