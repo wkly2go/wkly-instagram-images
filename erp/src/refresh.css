@@ -297,3 +297,28 @@ html[data-topbar-event="holiday"] .tb-deco::after { background: linear-gradient(
 .chip.chip-ai { display: inline-flex; align-items: center; gap: 5px; border-style: dashed; }
 html:not([data-theme="dark"]) .chip.chip-ai { border-color: #c9b3f0; color: #5b3aa3; background: #faf7ff; }
 html:not([data-theme="dark"]) .chip.chip-ai.active { background: #efe7ff; border-style: solid; border-color: #9b7be0; color: #4a2a92; }
+
+/* 업무 창 안의 비서 대화 칸 (2026-11-16 · components/TaskAssistant.tsx) */
+.task-ai { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; padding: 12px 14px; border: 1px solid #e3d9fa; border-radius: var(--v8-r-card) !important; background: #fbf9ff; }
+.task-ai-h { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; color: #4a2a92; }
+.task-ai-h b { font-size: var(--fs-sub); }
+.task-ai-h .t-cap { margin-left: auto; }
+.task-ai-quick { display: flex; flex-wrap: wrap; gap: 6px; }
+.task-ai-quick .chip { font-size: var(--fs-sm); }
+html:not([data-theme="dark"]) .task-ai-quick .chip { background: #fff; border-color: #ddd0f7; color: #4a2a92; }
+html:not([data-theme="dark"]) .task-ai-quick .chip:hover { background: #f1eaff; }
+.task-ai-list { display: flex; flex-direction: column; gap: 8px; max-height: 360px; overflow-y: auto; padding: 4px 2px; }
+.task-ai-msg { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; max-width: 92%; }
+.task-ai-msg.mine { align-self: flex-end; align-items: flex-end; }
+.task-ai-bubble { padding: 8px 12px; border-radius: 12px !important; background: #fff; border: 1px solid #e8e1f7; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.6; font-size: var(--fs-body); color: var(--v8-text); }
+.task-ai-msg.mine .task-ai-bubble { background: #efe7ff; border-color: #efe7ff; }
+.task-ai-msg.pending .task-ai-bubble { opacity: .6; }
+.task-ai-bubble.typing { color: var(--v8-sub); font-style: normal; }
+.task-ai-use { display: inline-flex; align-items: center; gap: 4px; border: 0; background: none; padding: 2px 4px; color: #5b3aa3; font: inherit; font-size: var(--fs-cap); font-weight: 600; cursor: pointer; }
+.task-ai-use:hover { text-decoration: underline; text-underline-offset: 3px; }
+.task-ai-wait { padding-left: 4px; }
+.task-ai-input { display: flex; gap: 6px; }
+.task-ai-input .input { flex: 1; min-width: 0; }
+.task-ai-input .btn { display: inline-flex; align-items: center; gap: 4px; flex: none; }
+html:not([data-theme="dark"]) .task-ai-input .btn-blue { background: #6b46c1; border-color: #6b46c1; }
+html:not([data-theme="dark"]) .task-ai-input .btn-blue:not(:disabled):hover { background: #5a37ad; border-color: #5a37ad; }
