@@ -68,3 +68,10 @@ test('the Google customer list uses the required headers, one contact per line',
  const {googleAudienceCsv}=await import('../src/lib/salesStrategy.ts')
  assert.equal(googleAudienceCsv([{email:'a@b.kr',phone:'+821012345678',segment:'거래처'},{email:'c@d.kr',phone:'',segment:'문의'}]),'Email,Phone,Country\r\na@b.kr,+821012345678,KR\r\nc@d.kr,,KR\r\n')
 })
+
+test('too many or over-long checks are trimmed, and a preparation without any check is refused',()=>{
+ const base={research:'근거',proposal:'제목: 제안',contact_draft:'담당자님께, 안녕하세요. 행사 기획·운영을 맡는 더위클리와 공간 디자인·제작을 맡는 아트리어디자인스튜디오입니다. 공개된 행사 소식을 보고 연락드립니다. 구성안을 한 장으로 보내 드리고 싶습니다. 담당 부서를 안내해 주시면 감사하겠습니다. 이런 연락을 원치 않으시면 회신으로 알려 주세요.'}
+ const many=parseStrategyPreparation(JSON.stringify({...base,checks:['1','2','3','4','5','6','7','8',' ',3,'가'.repeat(900)]}))
+ assert.equal(many.checks.length,6);assert.equal(parseStrategyPreparation(JSON.stringify({...base,checks:['가'.repeat(900)]})).checks[0].length,500)
+ assert.throws(()=>parseStrategyPreparation(JSON.stringify({...base,checks:[]})),/확인 사항/);assert.throws(()=>parseStrategyPreparation(JSON.stringify({...base,checks:'없음'})),/확인 사항/)
+})
