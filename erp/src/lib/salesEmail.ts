@@ -6,14 +6,16 @@ export interface ProposalStep {step: string; period: string; work: string; outpu
 export interface ParsedProposal {
   title: string; summary: string; why: string; approach: string;
   steps: ProposalStep[]; roles: {who: string; text: string}[]; budget: string; next: string;
+  /** First-mail ideas: short, scene-like, the friendly part of a first contact. */
+  ideas: {name: string; text: string}[]; stepsTitle: string;
   /** Text that did not fit the structure (older drafts): shown as plain paragraphs, never dropped. */
   rest: string; structured: boolean;
 }
-const HEADS: Record<string, keyof Pick<ParsedProposal,'why'|'approach'|'budget'|'next'>|'steps'|'roles'> = {
-  '왜 지금': 'why', '수행 방식': 'approach', '진행 계획': 'steps', '역할 분담': 'roles', '견적 기준': 'budget', '다음 단계': 'next',
+const HEADS: Record<string, keyof Pick<ParsedProposal,'why'|'approach'|'budget'|'next'>|'steps'|'roles'|'ideas'> = {
+  '왜 지금': 'why', '수행 방식': 'approach', '진행 계획': 'steps', '함께하면': 'steps', '역할 분담': 'roles', '견적 기준': 'budget', '다음 단계': 'next', '이런 아이디어': 'ideas', '아이디어': 'ideas',
 }
 export function parseProposal(md: string): ParsedProposal {
-  const p: ParsedProposal = {title:'',summary:'',why:'',approach:'',steps:[],roles:[],budget:'',next:'',rest:'',structured:false}
+  const p: ParsedProposal = {title:'',summary:'',why:'',approach:'',steps:[],roles:[],budget:'',next:'',ideas:[],stepsTitle:'진행 계획',rest:'',structured:false}
   let current: string | null = null
   const rest: string[] = []
   for (const raw of md.replace(/\r\n?/g, '\n').split('\n')) {
@@ -23,15 +25,22 @@ export function parseProposal(md: string): ParsedProposal {
     if (/^요약\s*[:：]/.test(line)) { p.summary = line.replace(/^요약\s*[:：]\s*/, ''); continue }
     if (head) {
       const key = Object.keys(HEADS).find(k => head[1].replace(/^\d+[.)]\s*/, '').startsWith(k))
-      if (key) { current = HEADS[key]; p.structured = true; continue }
+      if (key) { current = HEADS[key]; p.structured = true; if (current === 'steps') p.stepsTitle = head[1].replace(/^\d+[.)]\s*/, '').slice(0, 30); continue }
       if (!p.title) { p.title = head[1]; continue }
       current = null; rest.push(head[1]); continue
     }
-    if (!line) { if (current && current !== 'steps' && current !== 'roles') (p as unknown as Record<string,string>)[current] += '\n'; else if (!current) rest.push(''); continue }
+    if (!line) { if (current && current !== 'steps' && current !== 'roles' && current !== 'ideas') (p as unknown as Record<string,string>)[current] += '\n'; else if (!current) rest.push(''); continue }
     if (current === 'steps') {
       const cells = line.replace(/^(?:[-*]\s*|\d+[.)]\s+)/, '').split('|').map(c => c.trim())
       if (cells.length >= 3) p.steps.push({step: cells[0], period: cells[1] ?? '', work: cells[2] ?? '', output: cells[3] ?? ''})
       else if (p.steps.length) p.steps[p.steps.length - 1].work += ' ' + line
+      continue
+    }
+    if (current === 'ideas') {
+      const m = /^[-*\d.)\s]*([^:：]{1,40})[:：]\s*(.+)$/.exec(line)
+      if (m) p.ideas.push({name: m[1].trim(), text: m[2].trim()})
+      else if (p.ideas.length) p.ideas[p.ideas.length - 1].text += ' ' + line.replace(/^[-*]\s*/, '')
+      else p.ideas.push({name: '', text: line.replace(/^[-*]\s*/, '')})
       continue
     }
     if (current === 'roles') {
@@ -52,7 +61,7 @@ export function parseProposal(md: string): ParsedProposal {
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
 const paras = (s: string, style: string) => s.split(/\n{2,}|\n/).map(t => t.trim()).filter(Boolean).map(t => `<p style="${style}">${esc(t)}</p>`).join('')
 const C = {bg:'#F6F4EF', card:'#FFFFFF', ink:'#1F2A24', sub:'#5F6A63', line:'#E7E3DA', green:'#1F6B4A', tint:'#EEF5F0', warm:'#F7F1E8', pink:'#FD37BE'}
-const OPT_OUT = /원치 않|수신을 원하지|받지 않으시려면|불필요하시면|그만 받/
+const OPT_OUT = /원치 않|수신을 원하지|받지 않으시려면|불필요하시면|그만 받|편하게 (답장|회신)/
 const FONT = "'Pretendard','Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif"
 const P = `margin:0 0 12px;font-size:15px;line-height:1.75;color:${C.ink};`
 const H = (t: string) => `<tr><td style="padding:28px 40px 10px;"><div style="font-size:12px;letter-spacing:2px;color:${C.green};font-weight:700;">${esc(t)}</div></td></tr>`
@@ -73,9 +82,13 @@ export function renderSalesEmailHtml({subject, body, proposal, sender}: SalesEma
   if (pr) {
     if (pr.why) { rows.push(H('왜 지금')); rows.push(`<tr><td style="padding:0 40px;">${paras(pr.why, P)}</td></tr>`) }
     if (pr.approach) { rows.push(H('수행 방식')); rows.push(`<tr><td style="padding:0 40px;"><div style="background:${C.tint};padding:18px 20px;">${paras(pr.approach, P.replace('margin:0 0 12px', 'margin:0 0 8px'))}</div></td></tr>`) }
+    if (pr.ideas.length) {
+      rows.push(H('이런 아이디어는 어떠세요'))
+      rows.push(`<tr><td style="padding:0 40px;">${pr.ideas.slice(0, 4).map((d, i) => `<div style="background:${i % 2 ? C.warm : C.tint};padding:16px 20px;margin:0 0 10px;">${d.name ? `<div style="font-size:16px;font-weight:700;color:${C.ink};"><span style="color:${C.pink};">●</span> ${esc(d.name)}</div>` : ''}<div style="margin-top:6px;font-size:15px;line-height:1.7;color:${C.ink};">${esc(d.text)}</div></div>`).join('')}</td></tr>`)
+    }
     if (pr.steps.length) {
-      rows.push(H('진행 계획'))
-      rows.push(`<tr><td style="padding:0 40px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">${pr.steps.map((s, i) => `<tr><td valign="top" style="width:36px;padding:12px 0;border-top:1px solid ${C.line};"><div style="width:26px;height:26px;line-height:26px;text-align:center;background:${C.green};color:#fff;font-size:13px;font-weight:700;">${i + 1}</div></td><td valign="top" style="padding:12px 0 12px 8px;border-top:1px solid ${C.line};"><div style="font-size:15px;font-weight:700;color:${C.ink};">${esc(s.step)}${s.period ? ` <span style="font-weight:400;color:${C.sub};font-size:13px;">· ${esc(s.period)}</span>` : ''}</div><div style="margin-top:4px;font-size:14px;line-height:1.65;color:${C.ink};">${esc(s.work)}</div>${s.output ? `<div style="margin-top:4px;font-size:13px;color:${C.green};">산출물 · ${esc(s.output)}</div>` : ''}</td></tr>`).join('')}</table></td></tr>`)
+      rows.push(H(pr.stepsTitle || '진행 계획'))
+      rows.push(`<tr><td style="padding:0 40px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">${pr.steps.map((s, i) => `<tr><td valign="top" style="width:36px;padding:12px 0;border-top:1px solid ${C.line};"><div style="width:26px;height:26px;line-height:26px;text-align:center;background:${C.green};color:#fff;font-size:13px;font-weight:700;">${i + 1}</div></td><td valign="top" style="padding:12px 0 12px 8px;border-top:1px solid ${C.line};"><div style="font-size:15px;font-weight:700;color:${C.ink};">${esc(s.step)}${s.period ? ` <span style="font-weight:400;color:${C.sub};font-size:13px;">· ${esc(s.period)}</span>` : ''}</div><div style="margin-top:4px;font-size:14px;line-height:1.65;color:${C.ink};">${esc(s.work)}</div>${s.output ? `<div style="margin-top:4px;font-size:13px;color:${C.green};">${pr.stepsTitle.startsWith('함께') ? '결과물' : '산출물'} · ${esc(s.output)}</div>` : ''}</td></tr>`).join('')}</table></td></tr>`)
     }
     if (pr.roles.length) {
       rows.push(H('역할 분담'))
@@ -83,7 +96,7 @@ export function renderSalesEmailHtml({subject, body, proposal, sender}: SalesEma
     }
     if (pr.budget) { rows.push(H('견적 기준')); rows.push(`<tr><td style="padding:0 40px;">${paras(pr.budget, P)}</td></tr>`) }
     if (pr.rest) { rows.push(H('제안 내용')); rows.push(`<tr><td style="padding:0 40px;">${paras(pr.rest, P)}</td></tr>`) }
-    rows.push(`<tr><td style="padding:24px 40px 8px;">${pr.next ? paras(pr.next, P) : ''}<a href="${esc(reply)}" style="display:inline-block;background:${C.green};color:#ffffff;text-decoration:none;font-size:15px;font-weight:700;padding:13px 22px;">회신으로 미팅 요청하기</a></td></tr>`)
+    rows.push(`<tr><td style="padding:24px 40px 8px;">${pr.next ? paras(pr.next, P) : ''}<a href="${esc(reply)}" style="display:inline-block;background:${C.green};color:#ffffff;text-decoration:none;font-size:15px;font-weight:700;padding:13px 22px;">편하게 답장하기</a></td></tr>`)
   }
   if (closing.length) rows.push(`<tr><td style="padding:20px 40px 4px;">${paras(closing.join('\n'), P.replace(`color:${C.ink}`, `color:${C.sub}`).replace('font-size:15px', 'font-size:14px'))}</td></tr>`)
   rows.push(`<tr><td style="padding:28px 40px 32px;border-top:1px solid ${C.line};font-size:12px;line-height:1.7;color:${C.sub};"><b style="color:${C.ink};">더위클리컴퍼니</b> · 행사 기획·운영·홍보 콘텐츠 · 공간 디자인·제작은 더위클리 크루가 함께합니다<br>서울 마포구 성지길 25-11 · ${esc(sender)} · <a href="https://www.thewklyn.com" style="color:${C.green};">thewklyn.com</a></td></tr>`)

@@ -55,7 +55,7 @@ test('preparation gets bounded contact context without treating email history as
 
 test('drafts are written as customer-ready text and wording problems are listed for the reviewer',()=>{
  const prompt=preparationPrompt(plan,sources)
- assert.match(prompt,/고객이 그대로 읽는 완성 문장/);assert.match(prompt,/원치 않으면 회신으로 알려 달라는 한 문장/);assert.match(prompt,/지어내지 말고/)
+ assert.match(prompt,/고객이 그대로 읽는 완성 문장/);assert.match(prompt,/원치 않으시면 편하게 답장으로 알려 주세요/);assert.match(prompt,/따뜻하고 친근하게/);assert.match(prompt,/지어내지 말고/)
  const good='담당자님께, 안녕하세요. 행사 기획·운영을 맡는 더위클리와 공간 디자인·제작을 맡는 아트리어디자인스튜디오입니다. 최근 보도에서 귀사가 체험형 팝업을 운영 중이라는 소식을 보았습니다. 다음 시즌 팝업을 준비하신다면 체험 동선과 공간 구성안을 한 장으로 정리해 보내 드리고 싶습니다. 담당 부서를 안내해 주시면 감사하겠습니다. 이런 연락을 원치 않으시면 회신으로 알려 주세요. 더위클리 · 아트리어디자인스튜디오 드림'
  assert.deepEqual(draftIssues({proposal:'제목: 다음 시즌 팝업 공간·운영 제안\n왜 지금인가: 현재 팝업이 운영 중입니다.',contact_draft:good}),[])
  assert.deepEqual(draftIssues({proposal:'[검토용 1쪽 초안] 사례는 시스템이 삽입',contact_draft:'[담당자명]님, 안녕하세요.'}),['제안서에 자리 표시가 남아 있음','제안서에 내부 메모 표현이 있음','연락 문안에 자리 표시가 남아 있음','연락 문안이 너무 짧음','연락 문안에 보내는 회사 이름이 없음','연락 문안에 수신 거부 안내가 없음'])
