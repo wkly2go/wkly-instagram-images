@@ -97,7 +97,7 @@ export function AssistantSettingsButton({ className = 'icon-btn sm' }: { classNa
   return (
     <>
       <button type="button" className={className} onClick={() => setOpen(true)} aria-label="내 비서 설정" title="내 비서 이름 · 지침 바꾸기">
-        <Settings size={14} aria-hidden="true" />
+        <Settings size={13} aria-hidden="true" />
       </button>
       {open && <AssistantSettingsModal onClose={() => setOpen(false)} />}
     </>

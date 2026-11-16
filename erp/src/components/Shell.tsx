@@ -93,6 +93,7 @@ const ICONS: Record<TabKey, LucideIcon> = {
 }
 const MAIN_TABS: TabKey[] = ['home', 'approvals', 'chat', 'projects', 'site']
 const SHORT: Partial<Record<TabKey, string>> = { approvals: '보고서', site: '현장' }
+const NAV_SHUT_KEY = 'wkly-side-groups-shut'
 const NAV_GROUPS: { label: string; tabs: TabKey[] }[] = [
   { label: '업무', tabs: ['home', 'reportTemplates', 'approvals', 'projects'] },
   // 설계·견적 (인테리어 디자인 자동화) — 별도 묶음으로 세분화 (대표 지시 2026-11-15)
@@ -334,6 +335,25 @@ function SideNav({ active, summary, onExpand }: { active: TabKey; summary: Summa
   const { me } = useApp()
   const { navigate } = useRouter()
   const tabs = TABS.filter(t => !t.admin || me.role === 'admin')
+  // 큰 묶음(업무 · 설계·견적 …) 접기 (대표 지시 2026-11-16) — 접어도 지금 보는 화면 줄은 남김
+  const [shut, setShut] = useState<string[]>(() => {
+    try {
+      const v = JSON.parse(localStorage.getItem(NAV_SHUT_KEY) ?? '[]')
+      return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []
+    } catch {
+      return []
+    }
+  })
+  const toggleGroup = (label: string) =>
+    setShut(prev => {
+      const next = prev.includes(label) ? prev.filter(x => x !== label) : [...prev, label]
+      try {
+        localStorage.setItem(NAV_SHUT_KEY, JSON.stringify(next))
+      } catch {
+        /* 저장 못 해도 이번엔 그대로 */
+      }
+      return next
+    })
   const count = (k: TabKey) => (k === 'chat' ? summary.unread : summary.countsError ? 0 : k === 'approvals' ? summary.pendingToDecide : k === 'projects' ? summary.myOpenTasks : 0)
   return (
     <nav className="side-nav" aria-label="메뉴">
@@ -341,8 +361,13 @@ function SideNav({ active, summary, onExpand }: { active: TabKey; summary: Summa
       {NAV_GROUPS.map(group => {
         const items = group.tabs.map(key => tabs.find(t => t.key === key)).filter((t): t is typeof tabs[number] => !!t)
         if (!items.length) return null
-        return <div className="side-nav-group" key={group.label}>
-          <span className="side-group-label">{group.label}</span>
+        const closed = shut.includes(group.label)
+        const hidden = closed ? items.filter(t => t.key !== active && t.key !== 'projects').reduce((a, t) => a + count(t.key), 0) : 0
+        return <div className={`side-nav-group${closed ? ' shut' : ''}`} key={group.label}>
+          <button type="button" className="side-group-label" onClick={() => toggleGroup(group.label)} aria-expanded={!closed} title={closed ? `${group.label} 펼치기` : `${group.label} 접기`}>
+            <ChevronDown size={12} aria-hidden="true" /><span className="grow">{group.label}</span>
+            {hidden > 0 && <span className="side-n">{hidden > 99 ? '99+' : hidden}</span>}
+          </button>
           {items.map(t => {
             const Icon = ICONS[t.key]
             const n = count(t.key)
@@ -516,8 +541,8 @@ function ProfilePanel({ summary, active }: { summary: Summary; active: TabKey })
       <button type="button" className="icon-btn side-unfold" onClick={() => setRail(false)} aria-label="왼쪽 칸 펼치기" title="왼쪽 칸 펼치기">
         <PanelLeftOpen size={16} />
       </button>
-      <SideNav active={active} summary={summary} onExpand={() => setRail(false)} />
       <MiniCalendar />
+      <SideNav active={active} summary={summary} onExpand={() => setRail(false)} />
       <div className="today-is">
         <span className="t-meta">TODAY IS</span>
         <select value={pick} onChange={e => setPick(e.target.value as TodayStatus)} aria-label="오늘 상태">

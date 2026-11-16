@@ -237,7 +237,7 @@ export default function Chat() {
               >
                 내 비서
               </button>
-              <AssistantSettingsButton className="quick-btn" />
+              <AssistantSettingsButton />
               <button type="button" className="quick-btn" onClick={() => setDmPicking(true)} title="팀원과 둘이서만 보는 대화">
                 1:1 대화
               </button>

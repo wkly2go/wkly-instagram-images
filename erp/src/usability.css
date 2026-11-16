@@ -213,7 +213,9 @@
 .alarm-input > .alarm-preset { flex: 0 1 150px; min-width: 110px; }
 
 /* 채팅 칸 '내 비서' 버튼 (2026-11-16) */
-.chat-dock-sec { display: inline-flex; align-items: center; gap: 3px; border: 1px solid currentColor; background: none; cursor: pointer; font: inherit; }
+.chat-dock-sec { display: inline-flex; align-items: center; gap: 3px; border: 0; background: none; cursor: pointer; font-family: inherit; font-weight: 600; }
+.chat-dock-h .icon-btn.sm { color: rgba(255,255,255,.85); }
+.chat-dock-h .icon-btn.sm:hover { color: #fff; background: rgba(255,255,255,.12); }
 
 /* 내 비서 설정 (이름 · 지침) */
 .asst-set { display: grid; gap: 12px; }
@@ -223,3 +225,25 @@
 .asst-set-ex button { border: 1px solid var(--line, #d9dde3); background: none; padding: 3px 8px; font: inherit; cursor: pointer; color: inherit; }
 .asst-set-ex button:hover:not(:disabled) { border-color: currentColor; }
 .asst-set-err { margin: 0; color: var(--red, #c62828); font-size: var(--fs-sm); }
+
+/* 아이콘 크기 공통 (대표 지시 2026-11-16 '아이콘의 크기 작게 · 전체 공통사항')
+   코드에 적힌 크기와 상관없이 한 단계씩 작게. 누르는 칸(버튼) 크기는 그대로라 누르기는 같음.
+   새 아이콘은 글 옆 12~13 · 버튼 14 · 빈 화면 안내 20 을 넘기지 않는다. */
+svg.lucide:is([width="14"], [width="15"]) { width: 13px; height: 13px; }
+svg.lucide:is([width="16"], [width="17"]) { width: 14px; height: 14px; }
+svg.lucide:is([width="18"], [width="19"], [width="20"]) { width: 15px; height: 15px; }
+svg.lucide:is([width="22"], [width="24"]) { width: 17px; height: 17px; }
+svg.lucide:is([width="27"], [width="28"], [width="30"], [width="32"]) { width: 20px; height: 20px; }
+.app-page .profile .side-item > svg { width: 15px; height: 15px; }
+.icon-btn { width: 26px; height: 26px; }
+.icon-btn.sm { width: 22px; height: 22px; }
+.quick-btn { height: 28px; padding: 0 10px; gap: 4px; }
+@media (pointer: coarse) { .icon-btn { width: 32px; height: 32px; } .quick-btn { height: 32px; } }
+
+/* 채팅: 고른 부분(하이라이트)에 댓글 · 질문 */
+.quote-pick { position: fixed; z-index: 400; transform: translateX(-50%); display: inline-flex; align-items: center; gap: 4px; height: 28px; padding: 0 10px; border: 1px solid var(--blue); background: var(--white); color: var(--blue); font-size: var(--fs-cap); font-family: inherit; font-weight: 600; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,.14); white-space: nowrap; }
+.quote-pick:hover { background: var(--blue-tint); }
+.msg-quote { display: block; margin: 0 0 4px; padding: 2px 0 2px 8px; border-left: 3px solid var(--blue); color: var(--gray); font-size: var(--fs-sm); white-space: pre-wrap; }
+.chat-list .pane-head .row > .t-bodyb { white-space: nowrap; }
+.chat-list .pane-head .row { gap: 4px; }
+.chat-list .pane-head .quick-btn { padding: 0 8px; }

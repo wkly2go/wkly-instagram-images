@@ -2,7 +2,8 @@ import { UserPic } from './UserPic'
 import { CardView } from './ChatCards'
 import { Linkify } from './ui'
 import { useEffect, useRef, useState, type DragEvent } from 'react'
-import { Bookmark, Check, Download, FileText, Loader2, MessageSquare, Paperclip, Pencil, Send, SmilePlus, Trash2, X } from 'lucide-react'
+import { createPortal } from 'react-dom'
+import { Bookmark, Check, Download, FileText, Loader2, MessageSquare, MessageSquareQuote, Paperclip, Pencil, Send, SmilePlus, Trash2, X } from 'lucide-react'
 import { useApp } from '../lib/app'
 import { addDays, dateLabel, timeLabel, toDateKey, todayKey } from '../lib/date'
 import type { ChatAttachment, ChatMessage, ChatRead } from '../lib/types'
@@ -92,6 +93,49 @@ export function MessageList({ messages, reads = [], members, onRemove, onEdit, o
       else n.add(id)
       return n
     })
+  // 글의 일부를 골라(하이라이트) 그 부분에 댓글 · 질문 달기 (대표 지시 2026-11-16) → 그 메시지의 스레드에 인용으로
+  const [pick, setPick] = useState<{ root: number; text: string; x: number; y: number } | null>(null)
+  useEffect(() => {
+    if (!onReply) return
+    let t = 0
+    const read = () => {
+      const sel = window.getSelection()
+      if (!sel || sel.isCollapsed || !sel.rangeCount) return setPick(null)
+      const el = (n: Node | null) => (n instanceof Element ? n : n?.parentElement)?.closest<HTMLElement>('[data-quote-root]') ?? null
+      const a = el(sel.anchorNode)
+      const text = sel.toString().replace(/\s*\n\s*/g, ' ').trim()
+      if (!a || a !== el(sel.focusNode) || !text) return setPick(null)
+      const r = sel.getRangeAt(0).getBoundingClientRect()
+      if (!r.width && !r.height) return setPick(null)
+      setPick({ root: Number(a.dataset.quoteRoot), text: text.slice(0, 500), x: Math.max(70, Math.min(window.innerWidth - 70, r.left + r.width / 2)), y: r.top < 44 ? r.bottom + 6 : r.top - 34 })
+    }
+    const on = () => {
+      window.clearTimeout(t)
+      t = window.setTimeout(read, 180)
+    }
+    const off = () => setPick(null)
+    document.addEventListener('selectionchange', on)
+    window.addEventListener('scroll', off, true)
+    return () => {
+      window.clearTimeout(t)
+      document.removeEventListener('selectionchange', on)
+      window.removeEventListener('scroll', off, true)
+    }
+  }, [onReply])
+  const quotePick = () => {
+    if (!pick) return
+    const { root, text } = pick
+    setThreads(prev => new Set(prev).add(root))
+    setReplyText(prev => ({ ...prev, [root]: `> ${text}\n${(prev[root] ?? '').replace(/^(> .*\n)+/, '')}`.slice(0, 4000) }))
+    window.getSelection()?.removeAllRanges()
+    setPick(null)
+    window.setTimeout(() => {
+      const box = document.getElementById(`thread-input-${root}`) as HTMLTextAreaElement | null
+      box?.focus()
+      box?.setSelectionRange(box.value.length, box.value.length)
+      box?.scrollIntoView({ block: 'nearest' })
+    }, 60)
+  }
   const sendReply = async (id: number) => {
     const v = (replyText[id] ?? '').trim()
     if (!v || !onReply || replying) return
@@ -163,10 +207,10 @@ export function MessageList({ messages, reads = [], members, onRemove, onEdit, o
                   </div>
                 </div>
               ) : (
-                <div tabIndex={-1} className={`bubble ${mine ? 'mine' : 'other'} ${m.attachment?.card ? 'has-card' : m.attachment ? 'has-file' : ''}`}>
+                <div tabIndex={-1} data-quote-root={onReply && !m.pending ? (inThread && m.parent_id ? m.parent_id : m.id) : undefined} className={`bubble ${mine ? 'mine' : 'other'} ${m.attachment?.card ? 'has-card' : m.attachment ? 'has-file' : ''}`}>
                   {m.attachment?.card ? <span className="card-note"><Linkify text={m.content} /></span> : null}
                   {m.attachment?.card ? <CardView card={m.attachment.card} /> : m.attachment && <AttachmentView att={m.attachment} />}
-                  {!m.attachment?.card && (!m.attachment || m.content !== `📎 ${m.attachment.name}`) && <span><Linkify text={m.content} /></span>}
+                  {!m.attachment?.card && (!m.attachment || m.content !== `📎 ${m.attachment.name}`) && <QuotedText text={m.content} />}
                 </div>
               )}
               <span className="meta">
@@ -277,6 +321,7 @@ export function MessageList({ messages, reads = [], members, onRemove, onEdit, o
             <div className="thread-composer">
               <textarea
                 className="textarea"
+                id={`thread-input-${m.id}`}
                 autoFocus={thread !== m.id}
                 placeholder="답글 입력 · Enter 전송"
                 value={replyText[m.id] ?? ''}
@@ -304,7 +349,29 @@ export function MessageList({ messages, reads = [], members, onRemove, onEdit, o
     <>
       {messages.length === 0 && <Empty>첫 메시지를 남겨 보세요.</Empty>}
       {top.map((m, i) => row(m, top[i - 1], false))}
+      {pick &&
+        createPortal(
+          <button type="button" className="quote-pick" style={{ left: pick.x, top: pick.y }} onMouseDown={e => e.preventDefault()} onClick={quotePick} title="고른 부분을 인용해 스레드에 댓글 · 질문을 답니다">
+            <MessageSquareQuote size={13} aria-hidden="true" /> 댓글 · 질문
+          </button>,
+          document.body,
+        )}
     </>
+  )
+}
+
+/** 맨 앞의 '> ' 줄은 인용(고른 부분)으로 보여 줌 */
+function QuotedText({ text }: { text: string }) {
+  const lines = text.split('\n')
+  let n = 0
+  while (n < lines.length && lines[n].startsWith('> ')) n++
+  if (!n) return <span><Linkify text={text} /></span>
+  const rest = lines.slice(n).join('\n')
+  return (
+    <span>
+      <span className="msg-quote">{lines.slice(0, n).map(l => l.slice(2)).join('\n')}</span>
+      {rest && <Linkify text={rest} />}
+    </span>
   )
 }
 
