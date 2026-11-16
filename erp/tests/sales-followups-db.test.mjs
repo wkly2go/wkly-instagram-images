@@ -39,29 +39,29 @@ test('accepting the first mail schedules follow-ups on business days, which are 
  const rows=(await db.query(`select seq,subject,extract(isodow from scheduled_at at time zone 'Asia/Seoul') dow,to_char(scheduled_at at time zone 'Asia/Seoul','HH24:MI') hm from private.sales_followups order by seq`)).rows
  assert.equal(rows.length,2);assert.equal(rows[0].subject,'Re: 폴뉴아 제안');for(const r of rows){assert.ok(Number(r.dow)<6);assert.equal(r.hm,'10:00')}
  await db.exec("update private.sales_followups set scheduled_at=now()-interval '1 minute' where seq=1")
- assert.equal((await db.query('select private.sales_followup_tick() n')).rows[0].n,1)
+ assert.equal((await db.query('select private.sales_followup_send_tick() n')).rows[0].n,1)
  const id=(await db.query('select id from private.sales_followups where seq=1')).rows[0].id
- const lease=(await db.query('select public.sales_followup_claim($1) l',[id])).rows[0].l
+ const lease=(await db.query('select public.sales_followup_send_claim($1) l',[id])).rows[0].l
  assert.equal(lease.message.thread_id,'t1');assert.equal(lease.message.in_reply_to,J);assert.equal(lease.followup,true)
- await db.query("select public.sales_followup_finish($1,$2,'accepted','def')",[id,lease.token])
+ await db.query("select public.sales_followup_send_finish($1,$2,'accepted','def')",[id,lease.token])
  assert.equal((await db.query('select state from private.sales_followups where seq=1')).rows[0].state,'accepted')
 })
 test('a reply, an opt-out or a held package cancels the follow-up; a switched-off sender waits',async()=>{
  for(const stop of ["update private.sales_crm_threads set last_reply_at=now()","insert into private.sales_contact_suppressions values('a@brand.com')","update public.sales_execution_packages set status='보류'"]){
   const db=await setup();await sent(db);await db.query(`insert into private.sales_crm_threads(dispatch_id) values($1)`,[J]);await db.exec(stop)
   await db.exec("update private.sales_followups set scheduled_at=now()-interval '1 minute' where seq=1")
-  await db.exec('select private.sales_followup_tick()')
+  await db.exec('select private.sales_followup_send_tick()')
   assert.equal((await db.query('select state from private.sales_followups where seq=1')).rows[0].state,'cancelled',stop)
   assert.equal((await db.query('select count(*)::int n from posts')).rows[0].n,0)
  }
  const db=await setup();await sent(db);await db.exec('update switch set on_=false')
  await db.exec("update private.sales_followups set scheduled_at=now()-interval '1 minute' where seq=1")
- assert.equal((await db.query('select private.sales_followup_tick() n')).rows[0].n,0)
+ assert.equal((await db.query('select private.sales_followup_send_tick() n')).rows[0].n,0)
  assert.equal((await db.query('select state from private.sales_followups where seq=1')).rows[0].state,'queued')
  // the last follow-up never goes out before the first one did
  await db.exec("update switch set on_=true;update private.sales_followups set scheduled_at=now()-interval '1 minute',state='queued'")
  await db.exec("update private.sales_followups set state='rejected' where seq=1")
- await db.exec('select private.sales_followup_tick()')
+ await db.exec('select private.sales_followup_send_tick()')
  assert.equal((await db.query('select state from private.sales_followups where seq=2')).rows[0].state,'cancelled')
 })
 test('news search rotates through a fourth set looking for upcoming events and open calls',async()=>{

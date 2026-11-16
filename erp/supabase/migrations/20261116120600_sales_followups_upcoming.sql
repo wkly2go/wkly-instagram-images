@@ -106,7 +106,7 @@ begin
 end $$;
 revoke all on function private.sales_followup_block(private.sales_followups) from public,anon,authenticated,service_role;
 
-create or replace function private.sales_followup_tick() returns integer language plpgsql security definer set search_path='' as $$
+create or replace function private.sales_followup_send_tick() returns integer language plpgsql security definer set search_path='' as $$
 declare f private.sales_followups;why text;gateway_key text;n integer:=0;
 begin
  if not pg_try_advisory_xact_lock(903161206) then return 0;end if;
@@ -123,9 +123,9 @@ begin
  end loop;
  return n;
 end $$;
-revoke all on function private.sales_followup_tick() from public,anon,authenticated,service_role;
+revoke all on function private.sales_followup_send_tick() from public,anon,authenticated,service_role;
 
-create or replace function public.sales_followup_claim(p_id uuid) returns jsonb language plpgsql security definer set search_path='' as $$
+create or replace function public.sales_followup_send_claim(p_id uuid) returns jsonb language plpgsql security definer set search_path='' as $$
 declare f private.sales_followups;why text;thread text;
 begin
  select * into f from private.sales_followups where id=p_id for update;
@@ -138,7 +138,7 @@ begin
   'message',jsonb_build_object('recipient',f.recipient,'subject',f.subject,'body',f.body,'channel','email','in_reply_to',f.dispatch_id::text,'thread_id',thread),
   'attachments','[]'::jsonb,'expires_at',f.expires_at,'followup',true);
 end $$;
-create or replace function public.sales_followup_finish(p_id uuid,p_token uuid,p_outcome text,p_provider_id text default null) returns void language plpgsql security definer set search_path='' as $$
+create or replace function public.sales_followup_send_finish(p_id uuid,p_token uuid,p_outcome text,p_provider_id text default null) returns void language plpgsql security definer set search_path='' as $$
 declare f private.sales_followups;
 begin
  select * into f from private.sales_followups where id=p_id for update;
@@ -149,9 +149,9 @@ begin
  update private.sales_followups set state=p_outcome,provider_id=p_provider_id,finished_at=now(),
   reason=case p_outcome when 'accepted' then '후속 '||f.seq||'회 제공사 접수' when 'rejected' then '후속 미접수 · 자동 재발송 없음' else '후속 결과 불명 · 재발송 중단' end where id=p_id;
 end $$;
-revoke all on function public.sales_followup_claim(uuid),public.sales_followup_finish(uuid,uuid,text,text) from public,anon,authenticated;
-grant execute on function public.sales_followup_claim(uuid),public.sales_followup_finish(uuid,uuid,text,text) to service_role;
+revoke all on function public.sales_followup_send_claim(uuid),public.sales_followup_send_finish(uuid,uuid,text,text) from public,anon,authenticated;
+grant execute on function public.sales_followup_send_claim(uuid),public.sales_followup_send_finish(uuid,uuid,text,text) to service_role;
 
-insert into private.sales_ops_steps(step,label,call,every_min,grace_min) values('followups','후속 연락 (승인된 문안)','private.sales_followup_tick()',5,5) on conflict(step) do nothing;
+insert into private.sales_ops_steps(step,label,call,every_min,grace_min) values('followups','후속 연락 (승인된 문안)','private.sales_followup_send_tick()',5,5) on conflict(step) do nothing;
 notify pgrst,'reload schema';
 commit;
