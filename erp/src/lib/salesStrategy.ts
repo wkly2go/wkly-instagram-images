@@ -36,6 +36,8 @@ export interface SalesStrategyApi extends SalesExecutionApi {
   setBidQualification(kind: BidQualification['kind'], name: string, status: BidQualification['status']): Promise<void>;
   /** 광고 고객 목록 (관리자만): 직접 거래 · 연락한 상대의 메일과 전화 */
   getAdAudience(): Promise<AdAudienceRow[]>;
+  /** 목적별 광고 고객 목록 (팝업 스케줄 · 공간 대관 · 팝업 대행). 한 사람이 여러 목적에 들어갈 수 있다. */
+  getAdAudienceByPurpose(): Promise<{purpose: string; email: string; phone: string}[]>;
   /** 기획과 화면에 보인 실행 묶음을 한 번에 승인. 승인 뒤 다시 만든 묶음의 내용이 다르면 기획만 승인된다. */
   approveSalesStrategyAndExecute(id: string, revision: number, packageId: string, version: number, fingerprint: string): Promise<string>;
   /** 승인된 영업 메일을 보낼 수 있는 수신자 범위 (관리자만) */

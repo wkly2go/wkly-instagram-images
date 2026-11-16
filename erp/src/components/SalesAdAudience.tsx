@@ -10,8 +10,9 @@ function save(name:string,text:string,type:string){
 }
 /** Customer lists for Google Ads and Naver, built on the administrator's device from directly held contacts only. */
 export function SalesAdAudience({api,enabled}:{api:Api;enabled:boolean}){
- const [rows,setRows]=useState<AdAudienceRow[]|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState('')
- const load=async()=>{setBusy(true);setError('');try{setRows(await api.getAdAudience())}catch(e){setError(e instanceof Error?e.message:'목록을 불러오지 못했습니다.')}finally{setBusy(false)}}
+ const [rows,setRows]=useState<AdAudienceRow[]|null>(null),[byPurpose,setByPurpose]=useState<{purpose:string;email:string;phone:string}[]>([]),[busy,setBusy]=useState(false),[error,setError]=useState('')
+ const load=async()=>{setBusy(true);setError('');try{const [all,split]=await Promise.all([api.getAdAudience(),api.getAdAudienceByPurpose()]);setRows(all);setByPurpose(split)}catch(e){setError(e instanceof Error?e.message:'목록을 불러오지 못했습니다.')}finally{setBusy(false)}}
+ const purposes=['팝업 스케줄','공간 대관','팝업 대행'].map(name=>({name,rows:byPurpose.filter(r=>r.purpose===name).map(r=>({email:r.email,phone:r.phone,segment:name}))}))
  const phones=rows?.filter(r=>r.phone)??[],day=new Date().toISOString().slice(0,10)
  return <details className="sales-bid-qualifications">
   <summary>광고 고객 목록 내려받기 <span>구글 · 네이버 광고 타겟용</span></summary>
@@ -24,6 +25,8 @@ export function SalesAdAudience({api,enabled}:{api:Api;enabled:boolean}){
     <Button kind="outline" disabled={!rows.length} onClick={()=>save(`naver-email-${day}.txt`,rows.map(r=>r.email).join('\r\n')+'\r\n','text/plain;charset=utf-8')}>네이버용 메일 목록</Button>
     <Button kind="outline" disabled={!phones.length} onClick={()=>save(`naver-phone-${day}.txt`,phones.map(r=>'0'+r.phone.slice(3)).join('\r\n')+'\r\n','text/plain;charset=utf-8')}>네이버용 전화 목록</Button>
    </div>
+   <p role="status">목적별: {purposes.map(p=>`${p.name} ${p.rows.length}명`).join(' · ')} (주고받은 메일 제목 · 거래 기록의 낱말로 구분)</p>
+   <div className="row wrap">{purposes.map(p=><Button key={p.name} kind="outline" disabled={!p.rows.length} onClick={()=>save(`google-${p.name.replace(' ','')}-${day}.csv`,googleAudienceCsv(p.rows),'text/csv;charset=utf-8')}>{p.name} · 구글용 CSV</Button>)}</div>
    <p>구글: 잠재고객 관리자 › 고객 목록에 CSV를 올립니다(머리글 Email · Phone). 네이버: 업로드 화면의 양식과 암호화 안내에 맞춰 올려 주세요.</p>
   </>}
  </details>
