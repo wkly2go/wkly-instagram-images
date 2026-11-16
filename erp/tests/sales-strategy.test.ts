@@ -75,3 +75,9 @@ test('too many or over-long checks are trimmed, and a preparation without any ch
  assert.equal(many.checks.length,6);assert.equal(parseStrategyPreparation(JSON.stringify({...base,checks:['가'.repeat(900)]})).checks[0].length,500)
  assert.throws(()=>parseStrategyPreparation(JSON.stringify({...base,checks:[]})),/확인 사항/);assert.throws(()=>parseStrategyPreparation(JSON.stringify({...base,checks:'없음'})),/확인 사항/)
 })
+test('an over-long research section is cut instead of failing the whole preparation',()=>{
+ const good='담당자님께\n더위클리와 아트리어디자인스튜디오입니다. 팝업 기획·운영과 공간 제작을 맡고 있습니다. 보도로 확인한 행사 후속으로 연말 팝업을 제안드립니다. 담당 부서를 알려 주시면 자료를 보내드리겠습니다. 원치 않으시면 회신으로 알려 주세요.\n더위클리 · 아트리어디자인스튜디오'
+ const p=parseStrategyPreparation(JSON.stringify({research:'가'.repeat(4500),proposal:'제목: 제안',contact_draft:good,checks:['확인 1']}))
+ assert.equal(p.research.length,3000)
+ assert.throws(()=>parseStrategyPreparation(JSON.stringify({research:' ',proposal:'제목',contact_draft:good,checks:['x']})),/부족/)
+})
