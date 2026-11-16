@@ -159,7 +159,7 @@ function draftIssues(p) {
   }
   if (p.contact_draft.length < 120) issues.push("\uC5F0\uB77D \uBB38\uC548\uC774 \uB108\uBB34 \uC9E7\uC74C");
   if (!/더위클리|아트리어/.test(p.contact_draft)) issues.push("\uC5F0\uB77D \uBB38\uC548\uC5D0 \uBCF4\uB0B4\uB294 \uD68C\uC0AC \uC774\uB984\uC774 \uC5C6\uC74C");
-  if (!/원치 않|수신을 원하지|받지 않으시려면/.test(p.contact_draft)) issues.push("\uC5F0\uB77D \uBB38\uC548\uC5D0 \uC218\uC2E0 \uAC70\uBD80 \uC548\uB0B4\uAC00 \uC5C6\uC74C");
+  if (!/원치 않|수신을 원하지|받지 않으시려면|불필요하시면|그만 받/.test(p.contact_draft)) issues.push("\uC5F0\uB77D \uBB38\uC548\uC5D0 \uC218\uC2E0 \uAC70\uBD80 \uC548\uB0B4\uAC00 \uC5C6\uC74C");
   return [...new Set(issues)];
 }
 function parseStrategyPreparation(text) {

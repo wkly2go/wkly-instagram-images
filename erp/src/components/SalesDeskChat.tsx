@@ -3,6 +3,7 @@ import {useAsync} from '../lib/app'
 import {useDraftNavigation} from '../lib/useDraftNavigation'
 import type {SalesStrategy,SalesStrategyApi} from '../lib/salesStrategy'
 import type {SalesDeskAction,SalesDeskMessage} from '../lib/salesDesk'
+import type {SalesExecutionPackage} from '../lib/salesExecution'
 import {Button,Field} from './ui'
 import './SalesDeskChat.css'
 /** One-tap instructions for the most common questions. */
@@ -12,7 +13,7 @@ const REASONS=['대상이 너무 넓다. 더 좁고 구체적으로','근거가 
 const QUICK=['이번 주 새로 확인된 팝업·매장 오픈 브랜드와 접근 방법','참여 가능한 나라장터 용역 공고 정리','승인 대기 중인 기획안 요약과 우선순위']
 const time=(v:string)=>new Date(v).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'})
 /** Plans join the conversation as proposals the administrator approves or rejects in place. */
-export interface DeskPlans {items:SalesStrategy[];busy:boolean;error:string;onApprove:(row:SalesStrategy)=>void;onReject:(row:SalesStrategy,reason:string,replan:boolean)=>void;onOpen:(row:SalesStrategy)=>void;onPlan:(direction:string)=>void;execution?:(row:SalesStrategy)=>ReactNode}
+export interface DeskPlans {items:SalesStrategy[];busy:boolean;error:string;onApprove:(row:SalesStrategy)=>void;/** The prepared execution package of a plan, for one-step approval. */loadExecution?:(row:SalesStrategy)=>Promise<SalesExecutionPackage|null>;onApproveExecute?:(row:SalesStrategy,pkg:SalesExecutionPackage)=>void;onReject:(row:SalesStrategy,reason:string,replan:boolean)=>void;onOpen:(row:SalesStrategy)=>void;onPlan:(direction:string)=>void;execution?:(row:SalesStrategy)=>ReactNode}
 export function SalesDeskChat({api,agents,canSubmit,operational,plans}:{api:SalesStrategyApi;agents:{id:string;name:string}[];canSubmit:boolean;operational:boolean;plans?:DeskPlans}){
  const [instruction,setInstruction]=useState(''),[agent,setAgent]=useState(''),[action,setAction]=useState<SalesDeskAction>('보고서'),[busy,setBusy]=useState(false),[error,setError]=useState(''),[cursors,setCursors]=useState<(number|null)[]>([null])
  const before=cursors[cursors.length-1],state=useAsync(()=>api.listSalesDesk(before),[api,before],[])
@@ -68,6 +69,11 @@ const planState=(row:SalesStrategy)=>row.status==='승인 대기'&&row.preparati
 function PlanProposal({row,plans,canDecide}:{row:SalesStrategy;plans:DeskPlans;canDecide:boolean}){
  const [rejecting,setRejecting]=useState(false),[reason,setReason]=useState(''),p=row.plan
  const waiting=row.status==='승인 대기',ready=!row.preparation_before_approval||row.preparation_status==='완료'
+ // The package is loaded only for a plan that is waiting and prepared; what is shown here is exactly what one approval covers.
+ const [pkg,setPkg]=useState<SalesExecutionPackage|null>(null)
+ const load=plans.loadExecution
+ useEffect(()=>{let live=true;setPkg(null);if(!load||!canDecide||!waiting||!ready||!row.preparation_before_approval)return;load(row).then(v=>{if(live)setPkg(v)}).catch(()=>undefined);return()=>{live=false}},[row.id,row.revision,row.preparation_status,waiting,ready,canDecide])
+ const sendable=!!pkg&&pkg.can_approve&&pkg.payload.messages.length>0&&(!pkg.readiness||pkg.readiness.sender.can_send||!!pkg.payload.sender)
  return <article id={'sales-plan-'+row.id} className="sales-desk-exchange sales-desk-plan" aria-label={`기획안 제안 · ${p?.title||'기획 중'}`}><div className="sales-desk-answer">
   <header><strong>영업 기획 AI · 기획안 제안</strong><small>{planState(row)} · {time(row.created_at)}</small></header>
   {row.status==='기획 중'?<p role="status">자료를 읽고 기획안을 작성하고 있습니다.</p>:!p?<p className="sales-desk-text">기획안을 완성하지 못했습니다. 아래에서 다시 지시하거나 ‘AI 새 영업안 기획’으로 새 안을 받을 수 있습니다.</p>:<>
@@ -78,7 +84,11 @@ function PlanProposal({row,plans,canDecide}:{row:SalesStrategy;plans:DeskPlans;c
   {row.status==='승인'&&<p className="sales-desk-note">승인됨 · 실행 자료와 대상은 시스템이 이어서 준비합니다. 외부 발송은 아래 실행 묶음(수신자·문안·일정)을 승인한 범위에서만 진행됩니다.</p>}
   {['수정 요청','보류'].includes(row.status)&&<p className="sales-desk-note">반려됨{row.feedback?` · ${row.feedback}`:''}</p>}
   {canDecide&&REJECTED.includes(row.status)&&p&&<p className="sales-desk-actions"><Button kind="outline" disabled={plans.busy} onClick={()=>plans.onPlan(`이전 안: ${p.title}. 수정 방향: ${row.feedback||'다른 대상과 방법으로 근거 중심 재기획'}`.slice(0,600))}>사유를 반영한 개선안 받기</Button></p>}
-  {p&&<p className="sales-desk-actions">{canDecide&&waiting&&!rejecting&&<><Button disabled={plans.busy||!ready} aria-label={`${p.title} 승인`} onClick={()=>plans.onApprove(row)}>승인</Button><Button kind="outline" disabled={plans.busy} aria-label={`${p.title} 반려`} onClick={()=>setRejecting(true)}>반려</Button></>}<Button kind="ghost" disabled={plans.busy} onClick={()=>plans.onOpen(row)}>자세히 보기</Button></p>}
+  {canDecide&&waiting&&ready&&pkg&&(sendable?<section className="sales-desk-send-summary" aria-label="승인하면 실행되는 내용"><strong>승인하면 이대로 실행됩니다</strong>
+   <dl><div><dt>받는 곳</dt><dd>{pkg.payload.messages.map(m=>`${m.company||m.person||'수신자'} (${m.recipient})`).join(' · ')}</dd></div><div><dt>제목</dt><dd>{pkg.payload.messages[0].subject}</dd></div><div><dt>발송 예정</dt><dd>{time(pkg.payload.schedule.at)} · 보내는 계정 {pkg.payload.sender}</dd></div><div><dt>첨부</dt><dd>{pkg.payload.attachments.map(a=>a.name).join(', ')||'없음'}</dd></div></dl>
+   <details><summary>보낼 문안 보기</summary><p className="sales-desk-text">{pkg.payload.messages[0].body}</p></details></section>
+   :<p className="sales-desk-note">승인하면 기획이 확정되고, 실행은 다음이 해결되면 이어집니다: {pkg.blockers.slice(0,3).join(' / ')||'실행 준비 확인 중'}</p>)}
+  {p&&<p className="sales-desk-actions">{canDecide&&waiting&&!rejecting&&<>{sendable&&plans.onApproveExecute?<Button disabled={plans.busy} aria-label={`${p.title} 승인하고 실행`} onClick={()=>plans.onApproveExecute!(row,pkg!)}>승인하고 실행</Button>:<Button disabled={plans.busy||!ready} aria-label={`${p.title} 승인`} onClick={()=>plans.onApprove(row)}>승인</Button>}<Button kind="outline" disabled={plans.busy} aria-label={`${p.title} 반려`} onClick={()=>setRejecting(true)}>반려</Button></>}<Button kind="ghost" disabled={plans.busy} onClick={()=>plans.onOpen(row)}>자세히 보기</Button></p>}
   {canDecide&&waiting&&rejecting&&<fieldset className="sales-desk-reject" disabled={plans.busy}><div className="sales-desk-chips" aria-label="자주 쓰는 반려 사유">{REASONS.map(r=><Button key={r} kind="outline" onClick={()=>setReason(v=>v?v+' '+r:r)}>{r}</Button>)}</div><Field label="반려 사유 · 바꿀 방향"><textarea className="textarea" maxLength={500} value={reason} onChange={e=>setReason(e.target.value)} placeholder="예: 대상이 너무 넓다. 성수동 팝업을 여는 식음료 브랜드로 좁혀서 다시."/></Field><p className="sales-desk-actions"><Button disabled={reason.trim().length<3} onClick={()=>{plans.onReject(row,reason.trim(),true);setRejecting(false);setReason('')}}>반려하고 개선안 받기</Button><Button kind="outline" disabled={reason.trim().length<3} onClick={()=>{plans.onReject(row,reason.trim(),false);setRejecting(false);setReason('')}}>반려만 하기</Button><Button kind="ghost" onClick={()=>setRejecting(false)}>취소</Button></p></fieldset>}
   {plans.execution&&row.preparation_before_approval&&ready&&['승인 대기','승인'].includes(row.status)&&<PlanExecution open={row.status==='승인'}>{()=>plans.execution!(row)}</PlanExecution>}
  </div></article>
