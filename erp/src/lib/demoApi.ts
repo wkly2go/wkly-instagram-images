@@ -955,7 +955,7 @@ export function createDemoApi(): Api {
           const myName = store.profiles.find(p => p.id === self)?.name ?? ''
           const proj = r.project_id ? store.projects.find(p => p.id === r.project_id) : undefined
           const level: RoomLevel =
-            store.chat_prefs?.find(x => x.room_id === r.id && x.user_id === self)?.level ?? (r.members || !proj ? 'all' : proj.owner_id === self ? 'all' : 'mention')
+            store.chat_prefs?.find(x => x.room_id === r.id && x.user_id === self)?.level ?? (r.members ? 'all' : !proj ? 'mention' : proj.owner_id === self ? 'all' : 'mention')
           return {
             ...r,
             last_content: last?.content ?? null,
