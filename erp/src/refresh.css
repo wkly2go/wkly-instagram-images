@@ -192,3 +192,17 @@ html:not([data-theme="dark"]) .bigcal :is(.day, .dow) { border-color: var(--v8-l
 /* ---------- '화면 어둡게'(본인 선택): 색은 짙은 초록 그대로, 모양만 v8 ---------- */
 html[data-theme="dark"] .app-page .main { border-radius: var(--v8-r-card) !important; margin: 10px 10px 10px 0; }
 @media (max-width: 640px) { html[data-theme="dark"] .app-page .main { margin: 0; border-radius: 0 !important; } }
+
+/* ---------- 중간 폭(641~1000px · 작은 노트북 · 창을 반만 쓸 때): 메뉴를 본문 위에 쌓지 않고 왼쪽 기둥으로 ---------- */
+@media (min-width: 641px) and (max-width: 1000px) {
+  .app-page .topbar { flex-wrap: nowrap; }
+  .app-page .topbar .one-box { flex: 1 1 auto; min-width: 0; }
+  .app-page .topbar .one-box-hint, .app-page .topbar .one-box kbd { display: none; }
+  .app-page .body { flex-direction: row; min-height: 0; }
+  .app-page .body > .profile { width: 168px; flex: none; flex-direction: column; flex-wrap: nowrap; align-items: stretch; align-content: stretch; overflow-y: auto; padding: 10px 8px; gap: 8px; }
+  .app-page .profile .side-nav { flex-direction: column; flex-wrap: nowrap; flex-basis: auto; }
+  .app-page .profile .side-item { border: 0 !important; background: transparent; }
+  html:not([data-theme="dark"]) .app-page .profile .side-item.on { background: #fff; }
+  .app-page .profile :is(.mini-cal, .my-counts, .status-msg, .new-menu) { flex-basis: auto; }
+  .app-page .body > .main { flex: 1 1 auto; min-width: 0; }
+}
