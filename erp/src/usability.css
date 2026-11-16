@@ -250,3 +250,19 @@ svg.lucide:is([width="27"], [width="28"], [width="30"], [width="32"]) { width: 2
 .chat-list .pane-head .row > .t-bodyb { white-space: nowrap; }
 .chat-list .pane-head .row { gap: 4px; }
 .chat-list .pane-head .quick-btn { padding: 0 8px; }
+
+/* 월별 일정표 크게 · 내 업무는 다른 색 (대표 지시 2026-11-16)
+   - 칸을 키우고 글자를 본문 크기로, 한 칸에 5건까지
+   - 내 업무 = 파랑(--cal-mine): 초록 계열(팀 업무 · 프로젝트)과 한눈에 구분 */
+:root { --cal-mine: #2457b3; --cal-mine-tint: #e6eefb; }
+.cal-item.c-mine { background: var(--cal-mine); color: #fff; }
+.mini-cal-grid .day i.mine, .m-dots i.c-mine { background: var(--cal-mine); }
+.week-task.mine, .wk-task.mine { border-left-color: var(--cal-mine); }
+.wk-span.mine { border-left-color: var(--cal-mine); background: var(--cal-mine-tint); }
+@media (min-width: 641px) {
+  .bigcal .day { min-height: 168px; padding: 8px 6px; gap: 4px; }
+  .bigcal .n { font-size: var(--fs-body); font-weight: 700; }
+  .bigcal .dow { font-size: var(--fs-body); padding: 9px 0; }
+  .bigcal .cal-item { font-size: var(--fs-body); line-height: 1.5; padding: 3px 7px; }
+  .bigcal .day .more { font-size: var(--fs-sm); padding: 2px 6px; }
+}
