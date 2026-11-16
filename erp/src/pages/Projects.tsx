@@ -31,6 +31,7 @@ import { Gantt, MonthCalendar, SentTasks, TaskAssignModal, WeekView } from './Sc
 import { OverdueCleanup, PendingReports, useWorkReports } from '../components/WorkReports'
 import { ask } from '../components/Ask'
 import { TaskDetailPage } from '../components/TaskDetailPage'
+import { ProjectCards } from '../components/ProjectCards'
 
 interface Data {
   projects: Project[]
@@ -48,6 +49,21 @@ export default function Projects() {
   const taskId = query.get('task')
   const [editing, setEditing] = useState<Project | 'new' | null>(null)
   const [newDiv, setNewDiv] = useState<Division | null>(null)
+  const [layout, setLayoutState] = useState<'table' | 'cards'>(() => {
+    try {
+      return localStorage.getItem('wkly-proj-layout') === 'cards' ? 'cards' : 'table'
+    } catch {
+      return 'table'
+    }
+  })
+  const setLayout = (v: 'table' | 'cards') => {
+    setLayoutState(v)
+    try {
+      localStorage.setItem('wkly-proj-layout', v)
+    } catch {
+      /* 이번만 */
+    }
+  }
   // 왼쪽 '+ 새로 만들기' 에서 들어오면 바로 새 프로젝트 창
   useEffect(() => {
     if (query.get('new') !== '1') return
@@ -207,6 +223,15 @@ export default function Projects() {
                 ))}
               </FilterGroup>
               <span className="grow" />
+              {/* 표 ↔ 카드 보기 (디자인 v8 2단계 · 이 기기에 기억) */}
+              <div className="seg proj-layout" role="group" aria-label="보기 방식">
+                <button type="button" className={layout === 'table' ? 'on' : ''} onClick={() => setLayout('table')} aria-pressed={layout === 'table'}>
+                  표
+                </button>
+                <button type="button" className={layout === 'cards' ? 'on' : ''} onClick={() => setLayout('cards')} aria-pressed={layout === 'cards'}>
+                  카드
+                </button>
+              </div>
               <label className="filter-group" title="정렬">
                 <select className="sort-select" value={sort ?? ''} onChange={e => go({ sort: e.target.value || null })} aria-label="정렬">
                   <option value="">연번순</option>
@@ -228,7 +253,7 @@ export default function Projects() {
                       </span>
                       <span className="board-count">{rows.length}</span>
                     </div>
-                    <ProjectBoard list={rows} data={data} loading={loading} onOpen={id => go({ id })} />
+                    {layout === 'cards' ? <ProjectCards projects={rows} tasks={data.tasks} /> : <ProjectBoard list={rows} data={data} loading={loading} onOpen={id => go({ id })} />}
                     {/* 다른 상태에 있는 이 회사 프로젝트 (2026-10-31 "아트리어 프로젝트가 이 화면에 안 보임" → 기획 · NIC · 보류 · 완료도 바로 보이게) */}
                     {(() => {
                       const others = (['진행', '기획', 'NIC', '보류', '완료'] as ProjectStatus[])

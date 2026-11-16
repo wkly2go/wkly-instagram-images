@@ -395,6 +395,19 @@ export function MessageList({ messages, reads = [], members, onRemove, onEdit, o
 
 /** 맨 앞의 '> ' 줄은 인용(고른 부분)으로 보여 줌 */
 function QuotedText({ text }: { text: string }) {
+  // 비서 창 · 업무 창에서 보낸 글: 화면 · 업무 정보는 접고 질문만 (2026-11-16)
+  const ask = text.indexOf('\n\n질문: ')
+  if (ask > 0 && /^\[(화면|업무 상담)\]/.test(text)) {
+    return (
+      <span>
+        <Linkify text={text.slice(ask + 6)} />
+        <details className="msg-ctx">
+          <summary>{text.startsWith('[화면]') ? '보고 있던 화면 정보' : '업무 정보'} 함께 보냄</summary>
+          <span className="msg-ctx-body">{text.slice(0, ask)}</span>
+        </details>
+      </span>
+    )
+  }
   const lines = text.split('\n')
   let n = 0
   while (n < lines.length && lines[n].startsWith('> ')) n++

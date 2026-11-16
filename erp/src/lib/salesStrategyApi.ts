@@ -7,6 +7,8 @@ export function createSupabaseSalesStrategyApi(sb: SupabaseClient): SalesStrateg
   async refreshSalesSender(){const r=await sb.functions.invoke('sales-readiness',{body:{}});if(r.error)throw new ApiError('발신 계정 진단 서버를 확인하지 못했습니다. 운영 연결 상태 확인이 필요합니다.');if(r.data?.error)throw new ApiError(String(r.data.error))},
   async decideSalesExecution(id,version,fingerprint,decision){const r=await sb.rpc('sales_execution_decide',{p_id:id,p_version:version,p_fingerprint:fingerprint,p_decision:decision}).retry(false);fail(r.error)},
   async listSalesDesk(before){const r=await sb.rpc('sales_desk_list',{p_before:before});fail(r.error);if(!Array.isArray(r.data))throw new ApiError('영업 대화 기록을 확인하지 못했습니다.');return r.data},
+  async listSalesDeskFolds(){const r=await sb.rpc('sales_desk_folds');fail(r.error);return Array.isArray(r.data)?r.data:[]},
+  async foldSalesDesk(kind,id,fold,label){const r=await sb.rpc('sales_desk_fold',{p_kind:kind,p_id:id,p_fold:fold,p_label:label});fail(r.error)},
   async submitSalesDesk(id,agent,action,instruction){const r=await sb.rpc('sales_desk_submit',{p_id:id,p_agent:agent,p_action:action,p_instruction:instruction}).retry(false);fail(r.error);return r.data},
   async listSalesStrategies(page) { const r=await sb.rpc('sales_strategies',{p_page:page});fail(r.error);return r.data },
   async getSalesEventBrands() { const r=await sb.rpc('sales_event_brands_overview');fail(r.error);return r.data },

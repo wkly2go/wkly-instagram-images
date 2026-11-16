@@ -29,6 +29,8 @@ import { Presence, toneOf } from './ui'
 import { countedUnread, rememberRoomLevels, useChatTick } from '../lib/chat'
 import { QuickChat, QUICK_OPEN_ROOM } from '../pages/Quick'
 import { DockTodo } from './DockTodo'
+import { TopbarEvent } from './TopbarEvent'
+import { AssistantFloat } from './AssistantFloat'
 import { AssistantSettingsButton } from './AssistantSettings'
 import type { ChatRoomSummary } from '../lib/types'
 import './ShellUsability.css'
@@ -826,6 +828,8 @@ export function ShellFrame({ children, initial }: { children: ReactNode; initial
               <span className="site-title">사내 인트라넷</span>
               <span className="site-url t-meta">{window.location.host}</span>
               {api.mode === 'demo' && <span className="mode-badge" title="Supabase 연결 전 체험 모드. 데이터는 이 브라우저에만 저장됩니다.">DEMO</span>}
+              {/* 기념일 · 이벤트에 맞춰 위쪽 바 장식 · 인사말 (2026-11-16) */}
+              <TopbarEvent />
               {/* 입력칸 하나 (2026-10-23): 찾기 · AI 에게 묻기 · 인터넷 검색을 Ctrl K 한 칸으로 */}
               {/* 화면 뒤로 · 앞으로: 가운데 창 위 한 줄을 없애고 위쪽 바로 (2026-10-28 "여백 정리") */}
               <span className="main-nav" role="group" aria-label="화면 이동">
@@ -862,6 +866,8 @@ export function ShellFrame({ children, initial }: { children: ReactNode; initial
           </div>
         </div>
         <MobileNav active={active} summary={summary} />
+        {/* 모든 화면의 AI 비서 창 (2026-11-16) */}
+        <AssistantFloat pageLabel={TABS.find(t => t.key === active)?.label ?? '업무'} />
       </div>
     </div>
     </ShellCtx.Provider>

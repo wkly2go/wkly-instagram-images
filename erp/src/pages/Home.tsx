@@ -2,9 +2,9 @@ import { useState } from 'react'
 import { Linkify } from '../components/ui'
 import { countedUnread } from '../lib/chat'
 import { useAction, useApp, useAsync } from '../lib/app'
-import { dateLabel, dateTimeLabel, relativeLabel, todayKey } from '../lib/date'
-import { Link, useRouter } from '../lib/router'
-import type { Approval, ApprovalSummary, ChatMessage, ChatRoomSummary, Project, Task, WorkLog } from '../lib/types'
+import { addDays, dateLabel, dateTimeLabel, relativeLabel, shortDate, todayKey } from '../lib/date'
+import { Link } from '../lib/router'
+import { type Approval, type ApprovalSummary, type ChatMessage, type ChatRoomSummary, type Project, type Task, type WorkLog } from '../lib/types'
 import { CheckInCard } from '../components/CheckIn'
 import { Shell } from '../components/Shell'
 import { AgentDesk } from '../components/AgentDesk'
@@ -12,6 +12,7 @@ import { PushSetupCard } from '../components/PushSetup'
 import { KindTag, Button, Empty, Modal, SectionHead, StatusBadge } from '../components/ui'
 import { DailyReport, DecideButtons, reportSections } from './Approvals'
 import { MonthCalendar } from './Schedule'
+import { ProjectCards } from '../components/ProjectCards'
 
 interface HomeData {
   approvals: ApprovalSummary[]
@@ -24,7 +25,6 @@ interface HomeData {
 
 export default function Home() {
   const { api, me, version, profileName } = useApp()
-  const { navigate } = useRouter()
   const today = todayKey()
   const { data, loading } = useAsync<HomeData>(
     async () => {
@@ -42,13 +42,88 @@ export default function Home() {
   const open = data.tasks.filter(t => t.status !== '완료')
   const dueToday = open.filter(t => t.due_date === today)
   const overdue = open.filter(t => t.due_date && t.due_date < today)
-  const byKind = (k: string) => data.logs.filter(l => l.kind.startsWith(k)).length
   const count = (s: Project['status']) => data.projects.filter(p => p.status === s).length
   const unreadRooms = data.rooms.filter(r => countedUnread(r) > 0)
   const report = data.approvals.filter(a => a.kind === '일일 보고').sort((a, b) => b.created_at.localeCompare(a.created_at))[0]
 
+  const myOpen = open.filter(t => t.assignee_id === me.id)
+  const soon = addDays(today, 2)
+  const focus = [...myOpen.filter(t => t.due_date && t.due_date < today), ...myOpen.filter(t => t.due_date === today), ...myOpen.filter(t => t.due_date && t.due_date > today && t.due_date <= soon)].slice(0, 3)
+  const myLate = myOpen.filter(t => t.due_date && t.due_date < today).length
+  const myToday = myOpen.filter(t => t.due_date === today).length
+  const hour = Number(new Intl.DateTimeFormat('en-US', { hour: 'numeric', hour12: false, timeZone: 'Asia/Seoul' }).format(new Date()))
+  const hello = hour < 5 ? '늦은 시간까지 수고 많으세요' : hour < 11 ? '좋은 아침이에요' : hour < 17 ? '오후도 힘내세요' : '오늘 하루 수고 많으셨어요'
+  const active = data.projects.filter(p => p.status === '진행').sort((a, b) => (a.end_date ?? '9').localeCompare(b.end_date ?? '9'))
+  const unread = data.rooms.reduce((s, r) => s + countedUnread(r), 0)
+
   return (
     <Shell active="home">
+      {/* 홈 맨 위: 인사 · 오늘 할 일 3개 · 숫자 카드 (디자인 개편 2단계 · 2026-11-16) */}
+      <section className="home-hero" aria-label="오늘 한눈에">
+        <div className="home-hello">
+          <h1>
+            {me.name}님, {hello}
+          </h1>
+          <span className="t-cap">
+            {dateLabel(today)} · 내 할 일 오늘 {myToday}건{myLate ? ` · 지연 ${myLate}건` : ''}
+          </span>
+        </div>
+        <div className="home-focus">
+          {focus.length ? (
+            focus.map(t => {
+              const late = !!t.due_date && t.due_date < today
+              const proj = data.projects.find(p => p.id === t.project_id)
+              return (
+                <Link key={t.id} to={`/projects?view=mine&task=${t.id}`} className={`home-focus-row${late ? ' late' : ''}`}>
+                  <span className="home-focus-due">{late ? '지연' : t.due_date === today ? '오늘' : shortDate(t.due_date!)}</span>
+                  <span className="truncate grow">{t.title}</span>
+                  {proj && <span className="t-cap truncate home-focus-proj">{proj.code ?? proj.name}</span>}
+                </Link>
+              )
+            })
+          ) : (
+            <span className="t-cap">{loading ? '불러오는 중…' : '이틀 안에 마감인 내 할 일이 없습니다.'}</span>
+          )}
+          {myOpen.length > focus.length && (
+            <Link to="/projects?view=mine" className="t-cap home-focus-more">
+              내 할 일 {myOpen.length}건 모두 보기 ›
+            </Link>
+          )}
+        </div>
+        <div className="home-kpis">
+          <Link to="/approvals" className={`home-kpi${toDecide.length ? ' warn' : ''}`}>
+            <span className="t-cap">승인 대기</span>
+            <b>{toDecide.length}</b>
+            <span className="t-cap">{toDecide.length ? '내가 처리할 결재' : '처리할 결재 없음'}</span>
+          </Link>
+          <Link to="/projects?view=tasks" className={`home-kpi${overdue.length ? ' bad' : ''}`}>
+            <span className="t-cap">오늘 마감</span>
+            <b>{dueToday.length}</b>
+            <span className={`t-cap ${overdue.length ? 't-red' : ''}`}>{overdue.length ? `팀 지연 ${overdue.length}건` : '지연 없음'}</span>
+          </Link>
+          <Link to="/projects?view=list" className="home-kpi">
+            <span className="t-cap">진행 프로젝트</span>
+            <b>{count('진행')}</b>
+            <span className="t-cap">
+              기획 {count('기획')} · NIC {count('NIC')} · 보류 {count('보류')}
+            </span>
+          </Link>
+          <Link to="/chat" className="home-kpi">
+            <span className="t-cap">안 읽은 채팅</span>
+            <b>{unread}</b>
+            <span className="t-cap">{unreadRooms.length ? `채팅방 ${unreadRooms.length}곳` : `오늘 업무 기록 ${data.logs.length}건`}</span>
+          </Link>
+        </div>
+      </section>
+
+      {/* 진행 프로젝트 카드 줄 (구분 색 · 남은 기간 · 진행 막대 · 남은 할 일) */}
+      {active.length > 0 && (
+        <section className="section" aria-label="진행 프로젝트">
+          <SectionHead title="진행 프로젝트" count={active.length} right={<Link to="/projects?view=list">전체 보기 ›</Link>} />
+          <ProjectCards projects={active} tasks={data.tasks} scroll limit={12} />
+        </section>
+      )}
+
       {/* 월별 일정표 (대표 지시 2026-10-23) */}
       <section className="section" aria-label="월별 일정표">
         <SectionHead title="월별 일정표" right={<Link to="/projects?view=calendar">크게 보기 ›</Link>} />
@@ -96,34 +171,6 @@ export default function Home() {
           ))}
         </div>
       )}
-
-      <SectionHead title="오늘의 현황" right={dateLabel(today)} />
-      <div className="stats">
-        <button type="button" className="stat" style={{ textAlign: 'left', cursor: 'pointer' }} onClick={() => navigate('/work?team=1')}>
-          <span className="t-cap">업무 기록</span>
-          <span className="t-num">{data.logs.length}</span>
-          <span className="t-cap">
-            메일 {byKind('메일')} · 미팅 {byKind('미팅')} · 전화 {byKind('전화')}
-          </span>
-        </button>
-        <button type="button" className="stat" style={{ textAlign: 'left', cursor: 'pointer' }} onClick={() => navigate('/projects?view=tasks')}>
-          <span className="t-cap">오늘 마감</span>
-          <span className="t-num">{dueToday.length}</span>
-          <span className={`t-cap ${overdue.length ? 't-red' : ''}`}>{overdue.length ? `지연 ${overdue.length}건` : '지연 없음'}</span>
-        </button>
-        <button type="button" className="stat" style={{ textAlign: 'left', cursor: 'pointer' }} onClick={() => navigate('/projects?view=list')}>
-          <span className="t-cap">진행 프로젝트</span>
-          <span className="t-num">{count('진행')}</span>
-          <span className="t-cap">
-            기획 {count('기획')} · NIC {count('NIC')} · 보류 {count('보류')}
-          </span>
-        </button>
-        <button type="button" className="stat" style={{ textAlign: 'left', cursor: 'pointer' }} onClick={() => navigate('/chat')}>
-          <span className="t-cap">안 읽은 채팅</span>
-          <span className="t-num">{data.rooms.reduce((s, r) => s + countedUnread(r), 0)}</span>
-          <span className="t-cap">{unreadRooms.length ? `채팅방 ${unreadRooms.length}곳` : '모두 읽음'}</span>
-        </button>
-      </div>
 
       {report && (
         <section className="section">

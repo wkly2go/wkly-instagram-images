@@ -53,9 +53,9 @@ export function TodayBadge({ status }: { status: TodayStatus | '미출근' }) {
   return <Badge tone={TODAY_TONE[status] ?? 'outline'}>{status}</Badge>
 }
 
-export function Chip({ active, onClick, children }: { active?: boolean; onClick?: () => void; children: ReactNode }) {
+export function Chip({ active, onClick, children, className, title }: { active?: boolean; onClick?: () => void; children: ReactNode; className?: string; title?: string }) {
   return (
-    <button type="button" className={`chip ${active ? 'active' : ''}`} onClick={onClick} aria-pressed={!!active}>
+    <button type="button" className={`chip ${active ? 'active' : ''}${className ? ' ' + className : ''}`} onClick={onClick} aria-pressed={!!active} title={title}>
       {children}
     </button>
   )

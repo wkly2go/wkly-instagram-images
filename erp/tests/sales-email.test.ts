@@ -37,3 +37,22 @@ test('the mail escapes text, offers a reply link and carries both companies',()=
  assert.doesNotMatch(html,/#000000|#000\b|background:\s*black/i)
  assert.match(salesEmailText({body:'인사',proposal:sample}),/■ 진행 계획/)
 })
+export const friendly=`제목: 폴뉴아 서울숲 연말, 이런 팝업 어떠세요?
+요약: 새로 문을 연 서울숲 플래그십에서 연말을 함께 즐길 작은 아이디어 세 가지를 들고 왔어요.
+## 이런 아이디어는 어떠세요
+- 겨울 산책 선물 코너: 서울숲을 걷다 들른 손님이 백팩에 작은 겨울 키트를 담아 가는 코너예요.
+- 백팩 짐 싸기 체험존: 여행 가방을 직접 꾸려 보며 수납을 체험하고, 사진을 남기는 공간이에요.
+- 단골 초대의 밤: 오픈 고객을 다시 초대해 음악과 함께 신제품을 먼저 보여 드리는 저녁 행사예요.
+## 함께하면 이렇게 진행해요
+- 1단계 | 1주 | 매장 둘러보고 원하시는 방향 듣기 | 아이디어 한 장
+- 2단계 | 2주 | 컨셉 시안과 공간 그림 | 시안
+- 3단계 | 행사 기간 | 제작·설치·운영·사진 콘텐츠 | 현장 운영과 결과 정리
+## 다음 단계
+이번 주나 다음 주에 20분 정도 편하게 통화하실 수 있을까요?`
+test('a first mail shows friendly idea cards and a light three-step path',()=>{
+ const p=parseProposal(friendly)
+ assert.equal(p.ideas.length,3);assert.equal(p.ideas[0].name,'겨울 산책 선물 코너');assert.equal(p.stepsTitle,'함께하면 이렇게 진행해요');assert.equal(p.steps.length,3)
+ const html=renderSalesEmailHtml({subject:'s',body:'담당자님, 안녕하세요!\n원치 않으시면 편하게 답장으로 알려 주세요.\n더위클리 드림',proposal:friendly,sender:'info@thewklyn.com'})
+ assert.match(html,/이런 아이디어는 어떠세요/);assert.match(html,/결과물 · 아이디어 한 장/);assert.match(html,/편하게 답장하기/)
+ assert.ok(html.indexOf('편하게 답장으로 알려')>html.indexOf('편하게 답장하기'))
+})

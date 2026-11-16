@@ -403,6 +403,8 @@ export interface Api extends SalesStrategyApi, SalesApi, GrowthApi, SalesReportA
   saveMyHr(r: Pick<HrRecord, 'phone' | 'birthday' | 'address' | 'emergency_contact' | 'bank_name' | 'account_no' | 'account_holder'>): Promise<void>
   /** 볼 수 있는 인사기록 전부 (관리자: 전원, 팀원: 본인) */
   listHrRecords(): Promise<HrRecord[]>
+  /** 위쪽 바 이벤트: 오늘 생일 · 입사 기념일인 팀원 이름 + 회사 기념일 (날짜 · 나이는 안 줌) */
+  topbarEvents(): Promise<import('./topbarEvent').TopbarEventData>
   exportTable(table: ExportTable): Promise<Record<string, unknown>[]>
   listAgentTokens(): Promise<AgentToken[]>
   /** 새 키를 만들고 평문 키를 한 번만 돌려준다 */

@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ProjectOptions } from '../components/ProjectOptions'
 import { TextLinks } from '../components/ui'
-import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
+import { Bot, ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { addDays, addMonths, monthGrid, shortDate, todayKey, weekday, periodLabel } from '../lib/date'
 import { Link, useRouter, withQuery } from '../lib/router'
 import { TASK_STATUSES, type LeaveRecord, type PersonalEvent, type Project, type Task, type TaskStatus } from '../lib/types'
 import { Badge, Button, Chip, Empty, Field, Modal, StatusBadge } from '../components/ui'
 import { GoogleCalendarModal, googleEventLink } from '../components/GoogleCalendar'
+import { TaskAssistant } from '../components/TaskAssistant'
 import { ask } from '../components/Ask'
 
 const DAY = 86_400_000
@@ -49,6 +50,34 @@ export function TaskAssignModal({ task, projects, tasks, presetProject, presetAs
   const assigneeOpen = tasks.filter(t => t.assignee_id === f.assignee_id && t.status !== '완료').length
   const bad = !f.title.trim() || !f.assignee_id || (!!f.start_date && !!f.due_date && f.start_date > f.due_date)
   const people = profiles.filter(p => p.active && !p.is_agent)
+  // 내 AI 비서도 받는 사람으로 (대표 지시 2026-11-16 '여기에도 비서를 넣어줘') — 맡기면 비서 대화방에 업무 내용을 넘겨 바로 처리
+  const [assistant, setAssistant] = useState<{ agent_id: string; room_id: string } | null>(null)
+  useEffect(() => {
+    let live = true
+    api.openMyAssistant().then(a => live && setAssistant(a)).catch(() => undefined)
+    return () => {
+      live = false
+    }
+  }, [api])
+  const assistantName = assistant ? profiles.find(p => p.id === assistant.agent_id)?.name ?? `${me.name} 비서` : ''
+  const handToAssistant = async (saved: Task) => {
+    if (!assistant || saved.assignee_id !== assistant.agent_id) return
+    if (task && task.assignee_id === assistant.agent_id) return // 이미 비서 일이었으면 다시 보내지 않음
+    const proj = projects.find(p => p.id === saved.project_id)
+    const lines = [
+      `[업무 맡김] ${saved.title}`,
+      proj ? `프로젝트: ${proj.code ? proj.code + ' ' : ''}${proj.name}` : '',
+      saved.start_date || saved.due_date ? `기간: ${saved.start_date ?? '-'} ~ ${saved.due_date ?? '-'}` : '',
+      saved.memo ? `메모: ${saved.memo}` : '',
+      `할 일 번호: ${saved.id}`,
+      '이 업무를 처리하고 결과를 여기에 알려 주세요. 끝나면 이 할 일을 완료로 바꿔 주세요. 제가 해야 할 부분이 있으면 무엇이 필요한지 정리해 주세요.',
+    ].filter(Boolean)
+    try {
+      await api.sendMessage(assistant.room_id, lines.join('\n'))
+    } catch {
+      /* 할 일은 저장됨 · 대화방 전달만 실패 */
+    }
+  }
   const save = async () => {
     if (bad) return
     const draft = {
@@ -62,8 +91,10 @@ export function TaskAssignModal({ task, projects, tasks, presetProject, presetAs
       status: f.status,
       memo: f.memo.trim() || null,
     }
-    const who = profiles.find(p => p.id === f.assignee_id)?.name ?? ''
-    if (await run(() => api.saveTask(draft), task ? '업무를 고쳤습니다.' : `${who}님에게 업무를 지시했습니다. 일정표와 할 일 목록에 들어갔어요.`)) onClose()
+    const toAssistant = !!assistant && f.assignee_id === assistant.agent_id
+    const who = toAssistant ? assistantName : profiles.find(p => p.id === f.assignee_id)?.name ?? ''
+    const msg = toAssistant ? `${who}에게 맡겼습니다. 비서 대화방에서 처리 결과를 알려 드려요.` : task ? '업무를 고쳤습니다.' : `${who}님에게 업무를 지시했습니다. 일정표와 할 일 목록에 들어갔어요.`
+    if (await run(async () => handToAssistant(await api.saveTask(draft)), msg)) onClose()
   }
   const gLink = googleEventLink(
     { title: f.title.trim() || '업무', start_date: f.start_date || null, due_date: f.due_date || null, memo: f.memo.trim() || null },
@@ -113,6 +144,15 @@ export function TaskAssignModal({ task, projects, tasks, presetProject, presetAs
                 </Chip>
               )
             })}
+            {assistant && (
+              <Chip key={assistant.agent_id} active={f.assignee_id === assistant.agent_id} onClick={() => setF({ ...f, assignee_id: assistant.agent_id })} className="chip-ai" title="나만 보는 AI 비서에게 맡기기 · 비서 대화방으로 업무 내용이 넘어가 바로 처리합니다">
+                <Bot size={13} aria-hidden="true" />
+                {assistantName}
+                <span className="chip-count" title="남은 할 일">
+                  {tasks.filter(t => t.assignee_id === assistant.agent_id && t.status !== '완료').length}
+                </span>
+              </Chip>
+            )}
           </div>
         </div>
         <Field label="업무" className="full">
@@ -157,6 +197,25 @@ export function TaskAssignModal({ task, projects, tasks, presetProject, presetAs
       </div>
       {f.start_date && f.due_date && f.start_date > f.due_date && <span className="t-cap t-red">시작일이 마감일보다 늦습니다.</span>}
       {!task && f.assignee_id && assigneeOpen > 15 && <span className="t-cap t-red">⚠ 이 사람은 남은 할 일이 {assigneeOpen}건입니다. 다른 사람에게 나누거나 마감을 넉넉히 잡아 주세요.</span>}
+      {assistant && (
+        <TaskAssistant
+          roomId={assistant.room_id}
+          agentId={assistant.agent_id}
+          name={assistantName}
+          context={[
+            `[업무 상담] ${f.title.trim() || '(제목 없음)'}`,
+            projects.find(p => p.id === f.project_id) ? `프로젝트: ${projects.find(p => p.id === f.project_id)!.code ?? ''} ${projects.find(p => p.id === f.project_id)!.name}`.trim() : '',
+            f.start_date || f.due_date ? `기간: ${f.start_date || '-'} ~ ${f.due_date || '-'}` : '',
+            `담당: ${assistant.agent_id === f.assignee_id ? assistantName : profiles.find(p => p.id === f.assignee_id)?.name ?? '-'} · 상태: ${f.status}`,
+            f.memo.trim() ? `메모: ${f.memo.trim()}` : '',
+            task ? `할 일 번호: ${task.id}` : '아직 저장 전인 새 업무',
+            '이 업무 정보는 참고용입니다. 제가 처리를 부탁하기 전에는 할 일을 고치지 말고 답만 주세요.',
+          ]
+            .filter(Boolean)
+            .join('\n')}
+          onMemo={text => setF(prev => ({ ...prev, memo: prev.memo.trim() ? `${prev.memo.trim()}\n\n${text}` : text }))}
+        />
+      )}
       {!task && <span className="t-cap">받는 사람에게 알림이 가고, 그 사람의 '내 할 일'과 프로젝트 일정표에 바로 들어갑니다. 이름 옆 숫자는 남은 할 일입니다.</span>}
     </Modal>
   )

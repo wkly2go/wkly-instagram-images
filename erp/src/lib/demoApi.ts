@@ -1886,6 +1886,10 @@ export function createDemoApi(): Api {
       requireMe()
       return clone((store.hr_records ?? []).filter(h => isAdmin() || h.profile_id === me))
     },
+    async topbarEvents() {
+      // 체험 모드: 목업 없이 (대표 지시 '목업은 올리지 마') · 미리 보기는 주소 ?topbar=birthday 등
+      return { birthdays: [], anniversaries: [], custom: [] }
+    },
     async saveMyHr(r) {
       const self = requireMe()
       const list = (store.hr_records ??= [])
