@@ -2,12 +2,12 @@ import {test} from 'node:test'
 import assert from 'node:assert/strict'
 import {readFile} from 'node:fs/promises'
 import {PGlite} from '@electric-sql/pglite'
-const sql=await readFile(new URL('../supabase/migrations/20261116120200_sales_target_refresh.sql',import.meta.url),'utf8')+await readFile(new URL('../supabase/migrations/20261116120300_sales_preparation_retry.sql',import.meta.url),'utf8')
+const sql=await readFile(new URL('../supabase/migrations/20261116120200_sales_target_refresh.sql',import.meta.url),'utf8')+await readFile(new URL('../supabase/migrations/20261116120300_sales_preparation_retry.sql',import.meta.url),'utf8')+await readFile(new URL('../supabase/migrations/20261116120400_sales_target_refresh_fix.sql',import.meta.url),'utf8')
 const base=`create role anon;create role authenticated;create role service_role;create schema private;
  create table private.sales_ops_steps(step text primary key,label text,call text,every_min integer,grace_min integer);
  create table public.sales_prospects(id uuid primary key,sig text);
  create function private.sales_prospect_signature(p public.sales_prospects) returns text language sql as $$select p.sig$$;
- create table public.sales_strategies(id uuid primary key,status text,preparation_status text,preparation_error text,revision integer default 1,created_at timestamptz default now(),targets jsonb,sources jsonb default '[]',plan jsonb default '{}',live_targets jsonb);
+ create table public.sales_strategies(id uuid primary key,status text,preparation_status text,preparation_error text,revision integer default 1,created_at timestamptz default now(),targets jsonb,sources jsonb default '[]',plan jsonb default '{"evidence_ids":["x"]}',live_targets jsonb);
  create function private.sales_strategy_targets(p uuid) returns jsonb language sql stable as $$select live_targets from public.sales_strategies where id=p$$;
  create table private.sales_strategy_preparations(id uuid primary key,strategy_id uuid,done boolean,evidence_retries integer default 0,started_at timestamptz default now()-interval '1 hour');
  create table restarts(prep uuid);
@@ -50,5 +50,15 @@ test('a failed draft is retried automatically, but not a limit stop',async()=>{
  assert.match((await db.query('select preparation_error e from public.sales_strategies')).rows[0].e,/자동 재시도/)
  const db2=await setup()
  await db2.exec("update public.sales_strategies set targets=live_targets,preparation_status='확인 필요',preparation_error='주간 AI 한도 도달'")
+ assert.equal((await db2.query('select private.sales_target_refresh_tick() n')).rows[0].n,0)
+})
+test('the newly found recipient is taken into the plan, so it is re-drafted only once; plans without evidence are not retried',async()=>{
+ const db=await setup()
+ await db.exec('select private.sales_target_refresh_tick()')
+ assert.equal((await db.query('select (targets=live_targets) same from public.sales_strategies')).rows[0].same,true)
+ await db.exec("update private.sales_strategy_preparations set done=true")
+ assert.equal((await db.query('select private.sales_target_refresh_tick() n')).rows[0].n,0)
+ const db2=await setup()
+ await db2.exec(`update public.sales_strategies set targets=live_targets,plan='{"evidence_ids":[]}',preparation_status='확인 필요',preparation_error='실행 자료 필수 내용이 부족합니다.'`)
  assert.equal((await db2.query('select private.sales_target_refresh_tick() n')).rows[0].n,0)
 })
