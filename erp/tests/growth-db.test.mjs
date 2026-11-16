@@ -22,7 +22,7 @@ before(async()=>{
  grant usage on schema auth,public to authenticated,anon,service_role;`)
  await db.exec('begin read only')
  try{beforeInstall=(await db.query(preflight)).rows;beforePostflight=(await db.query(postflight)).rows}finally{await db.exec('rollback')}
- for(const file of ['0113_sales_pipeline.sql','0114_growth_workspace.sql','0115_growth_ai_budget.sql'])await db.exec(await readFile(new URL('../supabase/migrations/'+file,import.meta.url),'utf8'))
+ for(const file of ['0113_sales_pipeline.sql','0114_growth_workspace.sql','0115_growth_ai_budget.sql','0117_growth_approval_context.sql','0118_instagram_contact_capture.sql'])await db.exec(await readFile(new URL('../supabase/migrations/'+file,import.meta.url),'utf8'))
 })
 after(()=>db.close())
 async function as(user,fn,role='authenticated'){await db.query("select set_config('request.jwt.claim.sub',$1,false)",[user??'']);await db.exec('set role '+role);try{return await fn()}finally{await db.exec('reset role')}}
@@ -162,3 +162,67 @@ test('manual reconciliation is admin-only, audited, and never replays the API ca
  const r=(await db.query('select * from growth_ai_usage where id=$1',[row.id])).rows[0];assert.equal(r.status,'reconciled');assert.equal(r.reconciled_by,ADMIN)
  assert.equal((await reserve(row.id)).execute,false);assert.equal(Number((await db.query('select reserved_usd from growth_ai_budgets where id=$1',[budgetId])).rows[0].reserved_usd),0)
 })
+
+for (const [field, changed] of [['division','AR'], ['source_url','https://example.com/new-evidence']]) {
+ test(`server rejects stale approval after ${field} changes, including direct RPC`, async()=>{
+  const d=doc('content'),r=await save(d)
+  d.document.versions.forEach(v=>{v.status='승인'})
+  const approved=await save(d,r.id,r.revision,ADMIN)
+  d.document[field]=changed
+  await assert.rejects(save(d,r.id,approved.revision,ADMIN),/초안/)
+  await assert.rejects(save(d,r.id,approved.revision,OWNER),/초안/)
+  const stored=(await db.query('select document,revision from growth_items where id=$1',[r.id])).rows[0]
+  assert.equal(stored.revision,approved.revision)
+  d.document.versions.forEach(v=>{v.status='초안';v.publication_url='';v.external_id=''})
+  const updated=await save(d,r.id,approved.revision)
+  assert.equal(updated.document[field],changed)
+  assert.ok(updated.document.versions.every(v=>v.status==='초안'))
+  d.document.versions[0].status='승인'
+  await assert.rejects(save(d,r.id,updated.revision),denied)
+  assert.equal((await save(d,r.id,updated.revision,ADMIN)).document.versions[0].status,'승인')
+ })
+}
+test('server preserves approvals when only a note changes',async()=>{
+ const d=doc('content'),r=await save(d)
+ d.document.versions[0].status='승인'
+ const approved=await save(d,r.id,r.revision,ADMIN)
+ d.document.note='검토 메모만 수정'
+ const updated=await save(d,r.id,approved.revision)
+ assert.equal(updated.document.versions[0].status,'승인')
+})
+
+const igCommit=(account,revision,cursor,contacts,owner=OWNER,role='service_role',division='TW')=>as(ADMIN,async()=>(await db.query('select growth_ig_commit($1,$2,$3,$4::jsonb,$5,$6) result',[account,revision,cursor,JSON.stringify(contacts),owner,division])).rows[0].result,role)
+test('Instagram candidate ingest, checkpoint and stable IDs commit atomically without overwriting manual edits',async()=>{
+ const a='70001',c=[{id:'70002',username:'candidate_one'}]
+ assert.equal((await igCommit(a,0,'page2',c)).inserted,1)
+ const row=(await db.query("select * from growth_items where source_key='ig:candidate_one'")).rows[0]
+ const d={kind:row.kind,title:'검토한 담당자',owner_id:row.owner_id,status:'확인',document:{...row.document,note:'담당자가 직접 확인'},campaign_id:null}
+ await save(d,row.id,row.revision)
+ const second=await igCommit(a,1,null,[{id:'70002',username:'renamed_candidate'}])
+ assert.equal(second.kept,1)
+ assert.equal((await db.query('select title from growth_items where id=$1',[row.id])).rows[0].title,'검토한 담당자')
+ const checkpoint=(await db.query('select * from growth_ig_sync where account_id=$1',[a])).rows[0]
+ assert.equal(checkpoint.revision,2);assert.equal(checkpoint.cursor,null);assert.ok(checkpoint.last_completed_at)
+ await assert.rejects(igCommit(a,1,null,[{id:'70003',username:'must_not_insert'}]),e=>e.code==='40001')
+ assert.equal((await db.query("select count(*)::int n from growth_items where source_key='ig:must_not_insert'")).rows[0].n,0)
+})
+test('Instagram batch rollback retains cursor and inserts no partial candidates',async()=>{
+ await igCommit('71000',0,'before',[])
+ await assert.rejects(igCommit('71000',1,'after',[{id:'71001',username:'rollback_candidate'},{id:'x',username:'bad'}]))
+ assert.equal((await db.query("select cursor from growth_ig_sync where account_id='71000'")).rows[0].cursor,'before')
+ assert.equal((await db.query("select count(*)::int n from growth_items where source_key='ig:rollback_candidate'")).rows[0].n,0)
+})
+test('Instagram capture is service-only and rejects inactive owners and malformed pages',async()=>{
+ for(const role of ['authenticated','anon'])await assert.rejects(igCommit('72000',0,null,[],OWNER,role),denied)
+ await assert.rejects(igCommit('72000',0,null,[],INACTIVE),/담당자/)
+ await assert.rejects(igCommit('bad',0,null,[]))
+ await assert.rejects(igCommit('72000',0,null,Array.from({length:101},()=>({id:'2',username:'a'}))))
+})
+test('Instagram username matches an existing email-based contact without changing its status',async()=>{
+ const d=doc('contact');d.document.instagram='already_known';d.status='제외';const row=await save(d)
+ const result=await igCommit('73000',0,null,[{id:'73001',username:'already_known'}]);assert.equal(result.kept,1);assert.equal(result.inserted,0)
+ assert.equal((await db.query('select item_id from growth_ig_contacts where account_id=$1',['73000'])).rows[0].item_id,row.id)
+ assert.equal((await db.query('select status from growth_items where id=$1',[row.id])).rows[0].status,'제외')
+})
+
+test('Instagram account cannot silently change the candidate company',async()=>{await igCommit('99110',0,null,[],OWNER,'service_role','AR');await assert.rejects(igCommit('99110',1,null,[],OWNER,'service_role','TW'),/회사가 다릅니다/);await assert.rejects(igCommit('99111',0,null,[],OWNER,'service_role','WRONG'),/회사를 확인/);assert.equal((await db.query("select revision from growth_ig_sync where account_id='99110'")).rows[0].revision,1)})

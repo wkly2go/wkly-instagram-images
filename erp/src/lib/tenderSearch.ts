@@ -4,6 +4,19 @@ export interface TenderSearchQuery { category: 'service' | 'construction'; start
 export interface TenderCandidate { title: string; number: string; round: string; agency: string; deadline: string; amount: number | null; source_url: string; notice_date: string; warnings: string[] }
 export interface TenderSearchResult { items: TenderCandidate[]; total: number; page: number; hasMore: boolean; limited: boolean; omitted: number }
 
+/** Selecting a preset only edits query conditions. Lookup remains an explicit action. */
+export const TENDER_SEARCH_PRESETS = [
+  { keyword: 'SNS 홍보', category: 'service' },
+  { keyword: '콘텐츠 제작', category: 'service' },
+  { keyword: '행사 운영', category: 'service' },
+  { keyword: '전시', category: 'service' },
+  { keyword: '공간', category: 'service' },
+  { keyword: '공간 설계', category: 'service' },
+  { keyword: '인테리어', category: 'construction' },
+  { keyword: '실내건축', category: 'construction' },
+  { keyword: '리모델링', category: 'construction' },
+] as const satisfies ReadonlyArray<Pick<TenderSearchQuery, 'keyword' | 'category'>>
+
 export function defaultTenderQuery(now = new Date()): TenderSearchQuery {
   const koreanDay = now.getTime() + 9 * 3600000
   return { category: 'service', startDate: new Date(koreanDay - 6 * 86400000).toISOString().slice(0, 10), endDate: new Date(koreanDay).toISOString().slice(0, 10), keyword: '', page: 1 }
@@ -36,6 +49,7 @@ export function readTenderSearchResult(value: unknown): TenderSearchResult {
 export function tenderCandidateDraft(candidate: TenderCandidate, owner: string, category: TenderSearchQuery['category']): GrowthDraft {
   const draft = newGrowth('tender', owner)
   draft.title = candidate.title
+  if (category === 'construction') draft.document.division = 'AR'
   Object.assign(draft.document, {
     number: candidate.number, round: candidate.round, agency: candidate.agency, deadline: candidate.deadline,
     amount: candidate.amount, source_url: candidate.source_url,

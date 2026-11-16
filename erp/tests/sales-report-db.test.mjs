@@ -1,0 +1,139 @@
+import {before,after,test} from 'node:test'
+import assert from 'node:assert/strict'
+import {readFile} from 'node:fs/promises'
+import {randomUUID} from 'node:crypto'
+import {PGlite} from '@electric-sql/pglite'
+const db=new PGlite(), admin=randomUUID(), member=randomUUID(), client=randomUUID(), person=randomUUID()
+const sql=name=>readFile(new URL(`../supabase/migrations/${name}`,import.meta.url),'utf8')
+before(async()=>{
+ await db.exec(`create role authenticated;create role anon;create role service_role;create schema vault;create table vault.decrypted_secrets(name text,decrypted_secret text);create schema auth;create schema private;create schema net;create schema cron;
+ create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
+ create table profiles(id uuid primary key,role text,active boolean,is_agent boolean default false);
+ insert into profiles values('${admin}','admin',true,false),('${member}','member',true,false);
+ create function is_active_member() returns boolean language sql security definer stable as $$select exists(select 1 from public.profiles where id=auth.uid() and active)$$;
+ create function is_admin() returns boolean language sql security definer stable as $$select exists(select 1 from public.profiles where id=auth.uid() and active and role='admin')$$;
+ create table clients(id uuid primary key,name text,category text,memo text,email text,phone text,website text,updated_at timestamptz);
+ create table contacts(id uuid primary key,client_id uuid references clients(id),name text,title text,phone text,email text,memo text,created_at timestamptz);
+ create table projects(id uuid primary key,client_id uuid,division text);
+ create table growth_items(id uuid primary key,kind text,title text,document jsonb,status text,updated_at timestamptz,linked_sales_id uuid);
+ create table brand_contacts(id uuid primary key,contact_name text,brand_name text,email text,phone text,source_note text,memo text,source_url text,updated_at timestamptz,client_id uuid,opt_out boolean);
+ create table research_items(id uuid primary key,title text,status text,brand_name text,summary text,body text,source_url text,updated_at timestamptz,client_id uuid);
+ create table notices(user_id uuid,title text);
+ create function notify(u uuid,k text,t text,b text,l text) returns void language sql as $$insert into public.notices values(u,t)$$;
+ create function growth_safe_url(v text) returns boolean language sql immutable as $$select v='' or v ~ '^https?://[^ @]+$'$$;
+ create table cron.job(jobname text primary key,schedule text,active boolean);
+ create function cron.schedule(n text,s text,c text) returns bigint language plpgsql as $$begin insert into cron.job values(n,s,true);return 1;end$$;
+ create table net.requests(id bigserial primary key,url text);
+ create function net.http_post(url text,headers jsonb,body jsonb,timeout_milliseconds int) returns bigint language sql as $$insert into net.requests(url) values(url) returning id$$;
+ create table net._http_response(id bigint,status_code integer,content text,error_msg text,timed_out boolean);
+ create function net.http_get(url text,timeout_milliseconds int) returns bigint language sql as $$insert into net.requests(url) values(url) returning id$$;
+ grant usage on schema public,auth to authenticated,anon;`)
+ await db.exec(await sql('0113_sales_pipeline.sql'))
+ await db.exec(await sql('0119_sales_briefing.sql'))
+ await db.exec(await sql('0120_sales_verification.sql'))
+ await db.exec(await sql('0121_sales_verification_fast_path.sql'))
+ await db.query('insert into clients values($1,$2,$3,$4,$5,$6,$7,now())',[client,'테스트 브랜드','클라이언트','팝업 전시 기획','team@example.com','02-000-0000','https://example.com'])
+ await db.query('insert into contacts values($1,$2,$3,$4,$5,$6,$7,now())',[person,client,'동명 담당자','마케팅 팀장','','human@example.com','팝업 문의'])
+})
+after(()=>db.close())
+async function asUser(id,fn,role='authenticated'){await db.query("select set_config('request.jwt.claim.sub',$1,false)",[id??'']);await db.exec(`set role ${role}`);try{return await fn()}finally{await db.exec('reset role')}}
+async function prospect(source='거래처'){return(await db.query('select * from sales_prospects where source=$1 limit 1',[source])).rows[0]}
+test('company/person stay separate with real affiliation; repeat collection preserves identity and manual review',async()=>{
+ await db.query('select private.sales_collect_internal()');const company=await prospect(),human=await prospect('담당자');assert.equal(company.entity_kind,'회사');assert.equal(human.entity_kind,'사람');assert.equal(human.client_id,company.client_id);assert.equal(company.assessment,'확인 필요');
+ await asUser(admin,()=>db.query("select sales_prospect_review($1,$2,'회사','보류','다음 분기 협의')",[company.id,company.revision]));
+ await db.query('select private.sales_collect_internal()');const again=await prospect();assert.equal(again.id,company.id);assert.equal(again.reviewed_assessment,'보류');assert.equal(again.review_note,'다음 분기 협의');assert.equal((await db.query('select count(*) n from sales_prospects')).rows[0].n,2);
+ await assert.rejects(asUser(admin,()=>db.query("select sales_prospect_review($1,$2,'회사','우선 검토','갱신 충돌')",[company.id,company.revision])),e=>e.code==='40001');
+})
+test('permission boundaries protect report, classification, and server collection',async()=>{
+ await assert.rejects(asUser(null,()=>db.query('select sales_report()'),'anon'),e=>e.code==='42501');
+ await assert.rejects(asUser(member,()=>db.query('select sales_collect_now()')),e=>e.code==='42501');
+ await assert.rejects(asUser(member,async()=>db.query("select sales_prospect_review($1,1,'회사','제외','검토')",[(await prospect()).id])),e=>e.code==='42501');
+ await assert.rejects(asUser(admin,()=>db.query('select private.sales_collect()')),e=>e.code==='42501');
+ await assert.rejects(asUser(member,()=>db.query("update sales_prospects set score=100")),e=>e.code==='42501');
+})
+test('opt-out overrides suitability and manual classification and prevents new pipeline',async()=>{
+ const key=randomUUID();await db.query('select private.sales_index($1,$2,$3)', ['브랜드 연락처',key,JSON.stringify({name:'거절 브랜드',entity_kind:'회사',contact:'no@example.com',evidence:'팝업 행사',source_updated_at:new Date().toISOString(),source_url:'https://example.com',blocked:true})]);const p=await prospect('브랜드 연락처');assert.equal(p.assessment,'제외');
+ await assert.rejects(asUser(member,()=>db.query('select sales_prospect_start($1)',[p.id])),/제외/);
+ await assert.rejects(asUser(admin,()=>db.query("select sales_prospect_review($1,$2,'회사','우선 검토','우회')",[p.id,p.revision])),/수신 거부/);
+})
+test('starting sales is idempotent, preserves company/contact links, and starts in discovery',async()=>{
+ const p=await prospect('담당자');
+ await assert.rejects(asUser(member,()=>db.query('select sales_prospect_start($1)',[p.id])),/검증/);
+ await asUser(admin,()=>db.query("select sales_prospect_verify($1,$2,'발주처','팝업 제작 견적 요청','미발주 공간 제작','담당자의 원문 요청 확인','확인','사람')",[p.id,p.revision]));
+ const start=()=>asUser(member,()=>db.query('select sales_prospect_start($1) id',[p.id]));const a=(await start()).rows[0].id,b=(await start()).rows[0].id;assert.equal(a,b);
+ const saved=(await db.query('select * from sales_opportunities where id=$1',[a])).rows[0];assert.equal(saved.stage,'발굴');assert.equal(saved.owner_id,member);assert.equal(saved.client_id,client);assert.equal(saved.contact_id,person);assert.equal(saved.expected_amount,null);
+})
+test('collection deduplicates requests, official API worker claims once, fallback is used only for COEX',async()=>{
+ await db.query('select private.sales_collect()');await db.query('select private.sales_collect()');assert.equal((await db.query('select count(*) n from net.requests')).rows[0].n,2);
+ const job=(await db.query('select * from private.sales_seoul_jobs')).rows[0];
+ await assert.rejects(asUser(member,()=>db.query('select sales_seoul_claim($1,$2)',[job.run_id,job.token])),e=>e.code==='42501');
+ assert.equal((await db.query('select sales_seoul_claim($1,$2) ok',[job.run_id,randomUUID()])).rows[0].ok,false);
+ assert.equal((await db.query('select sales_seoul_claim($1,$2) ok',[job.run_id,job.token])).rows[0].ok,true);
+ assert.equal((await db.query('select sales_seoul_claim($1,$2) ok',[job.run_id,job.token])).rows[0].ok,false);
+ const event={id:'event-1',title:'공식 전시',organization:'공식 주최사',start:'2099-01-01',end:'2099-01-02',url:'https://example.com/event'};
+ for(let i=0;i<2;i++)await db.query('select sales_seoul_page($1,$2,now())',[job.run_id,JSON.stringify([event])]);
+ await db.query("select sales_seoul_finish($1,'완료',1,1000,1000,'공식 API 전체 조회',now())",[job.run_id]);
+ assert.equal((await db.query("select count(*) n from sales_prospects where source='서울시 문화행사'")).rows[0].n,1);
+ const coex=(await db.query('select * from private.sales_collection_requests')).rows[0];
+ await db.query('insert into net._http_response values($1,502,null,null,false)',[coex.request_id]);await db.query('select private.sales_receive()');
+ const retry=(await db.query('select * from private.sales_collection_requests')).rows[0];assert.equal(retry.fallback,true);
+ const payload={rows:[event],fetchedAt:'2020-01-01T00:00:00Z',limited:true};
+ await db.query('insert into net._http_response values($1,200,$2,null,false)',[retry.request_id,JSON.stringify(payload)]);await db.query('select private.sales_receive()');
+ const run=(await db.query('select * from sales_collection_runs where id=$1',[coex.run_id])).rows[0];assert.equal(run.status,'일부 수집');assert.match(run.note,/최신 수집 아님/);assert.ok(await prospect('담당자'));
+ await db.query('select private.sales_receive()');
+ assert.equal((await db.query("select count(*) n from sales_prospects where source='코엑스 행사'")).rows[0].n,1);
+})
+test('daily briefing is exactly once, flags stale coverage, retains source evidence and scheduled KST hours',async()=>{
+ await db.query('select private.sales_brief()');await db.query('select private.sales_brief()');assert.equal((await db.query('select count(*) n from sales_briefings')).rows[0].n,1);
+ const b=(await db.query('select * from sales_briefings')).rows[0];assert.match(b.summary,/확인하지 못한 출처/);assert.ok(b.actions.length);assert.ok(b.direction.length);assert.equal((await db.query('select count(*) n from notices')).rows[0].n,2);
+ const schedules=(await db.query('select * from cron.job')).rows;assert.equal(schedules.find(s=>s.jobname==='wkly_sales_collect').schedule,'0,20,40 23 * * *');assert.equal(schedules.find(s=>s.jobname==='wkly_sales_brief').schedule,'0 0 * * *');
+ const report=(await asUser(member,()=>db.query("select sales_report('', '사람', '', 0) r"))).rows[0].r;assert.equal(report.total,1);assert.equal(report.prospects[0].entity_kind,'사람');assert.equal(report.counts.companies,2);
+})
+test('daily collection retires ended events absent from API pages while preserving human review and identity',async()=>{
+ const p=await prospect('서울시 문화행사');
+ await asUser(admin,()=>db.query("select sales_prospect_review($1,$2,'영업 기회','확인 필요','다음 회차 협의 예정')",[p.id,p.revision]));
+ await db.query("update sales_prospects set end_date='2000-01-01' where id=$1",[p.id]);
+ await db.query("update sales_collection_runs set started_at=now()-interval '6 minutes'");
+ await db.query('select private.sales_collect()');
+ const aged=await prospect('서울시 문화행사');assert.equal(aged.id,p.id);assert.equal(aged.assessment,'보류');assert.equal(aged.score,0);assert.equal(aged.reviewed_assessment,'확인 필요');assert.equal(aged.review_note,'다음 회차 협의 예정');assert.ok(await prospect('담당자'));
+})
+
+async function indexFixture(key,data){await db.query('select private.sales_index($1,$2,$3)', ['민간 영업 후보',key,JSON.stringify(data)]);return (await db.query('select * from sales_prospects where source_key=$1',[key])).rows[0]}
+async function verify(p,status='확인',role='발주처') {return(await asUser(admin,()=>db.query("select sales_prospect_verify($1,$2,$3,'팝업 제작 견적 요청','미발주 공간 제작','원문과 담당자 회신 대조',$4,'회사') p",[p.id,p.revision,role,status]))).rows[0].p}
+test('supplier pitches and public events are not ranked as verified customer demand; briefing retains source evidence',async()=>{
+ const supplier=await indexFixture(randomUUID(),{name:'패키지 파트너',evidence:'팝업 패키지 제작 크루 참여 협업 제안',source_url:'https://example.com',contact:'partner@example.com',source_updated_at:new Date().toISOString()});
+ assert.equal(supplier.assessment,'확인 필요');assert.ok(supplier.score<=40);assert.match(supplier.reasons,/공급·협력/);assert.match(supplier.next_action,/실제 공동 고객/);
+ const event=await prospect('코엑스 행사');assert.equal(event.assessment,'확인 필요');
+ const actions=(await db.query('select private.sales_brief_actions() a')).rows[0].a;assert.ok(actions.every(a=>'evidence' in a&&'verification_current' in a));assert.ok(actions.every(a=>!a.verification_current));
+})
+test('verification enforces role, proof, revision and administrator permissions',async()=>{
+ const p=await indexFixture(randomUUID(),{name:'검증 권한',evidence:'팝업 견적 요청'});
+ await assert.rejects(asUser(null,()=>db.query('select sales_prospect_get($1)',[p.id]),'anon'),e=>e.code==='42501');
+ await assert.rejects(asUser(member,()=>db.query("select sales_prospect_verify($1,$2,'발주처','수요','범위','근거','확인','회사')",[p.id,p.revision])),e=>e.code==='42501');
+ for(const [role,need,scope,proof] of [['미확인','수요','범위','근거'],['발주처',' ','범위','근거'],['발주처','수요','','근거'],['발주처','수요','범위',' ']]){
+  await assert.rejects(asUser(admin,()=>db.query("select sales_prospect_verify($1,$2,$3,$4,$5,$6,'확인','회사')",[p.id,p.revision,role,need,scope,proof])));
+ }
+ const held=await verify(p,'추가 확인','미확인');assert.equal(held.verification_current,false);
+ await assert.rejects(asUser(member,()=>db.query('select sales_prospect_start($1)',[p.id])),/검증/);
+ await assert.rejects(verify(p),e=>e.code==='PT409');
+ const checked=await verify(held);assert.equal(checked.verification_current,true);assert.equal(checked.verification.verified_by,admin);assert.equal(checked.reviewed_kind,'회사');
+ const id=(await asUser(member,()=>db.query('select sales_prospect_start($1) id',[p.id]))).rows[0].id;
+ const saved=(await db.query('select * from sales_opportunities where id=$1',[id])).rows[0];assert.match(saved.title,/팝업 제작 견적 요청/);assert.match(saved.description,/검증 근거:/);assert.equal(saved.expected_amount,null);
+})
+test('unchanged daily refresh preserves verification but source changes require review again',async()=>{
+ const key=randomUUID(),data={name:'재검증 브랜드',evidence:'팝업 견적 요청',contact:'review@example.com',source_updated_at:'2026-01-01T00:00:00Z'};
+ let p=await indexFixture(key,data);p=await verify(p);assert.equal(p.verification_current,true);
+ p=await indexFixture(key,{...data,source_updated_at:new Date().toISOString()});
+ const get=async()=>(await asUser(member,()=>db.query('select sales_prospect_get($1) p',[p.id]))).rows[0].p;
+ assert.equal((await get()).verification_current,true);
+ p=await indexFixture(key,{...data,evidence:'견적 요청 취소. 다른 업체 선정'});assert.equal((await get()).verification_current,false);
+ await assert.rejects(asUser(member,()=>db.query('select sales_prospect_start($1)',[p.id])),/검증/);
+ assert.equal((await get()).verification.need,'팝업 제작 견적 요청');
+})
+test('current opt-out defeats earlier verification even before the next collection',async()=>{
+ let p=await indexFixture(randomUUID(),{name:'연락 중단',evidence:'팝업 견적 요청',contact:'stopped@example.com'});p=await verify(p);assert.equal(p.verification_current,true);
+ await db.query('insert into brand_contacts(id,email,opt_out) values($1,$2,true)',[randomUUID(),'stopped@example.com']);
+ const current=(await asUser(member,()=>db.query('select sales_prospect_get($1) p',[p.id]))).rows[0].p;assert.equal(current.verification_current,false);assert.equal(current.blocked,true);
+ await assert.rejects(asUser(member,()=>db.query('select sales_prospect_start($1)',[p.id])),/제외/);
+ await assert.rejects(verify(p),/수신 거부/);
+})

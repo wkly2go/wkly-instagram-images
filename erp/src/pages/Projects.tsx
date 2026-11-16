@@ -29,6 +29,7 @@ import { Subscriptions } from './Subscriptions'
 import { Gantt, MonthCalendar, SentTasks, TaskAssignModal, WeekView } from './Schedule'
 import { OverdueCleanup, PendingReports, useWorkReports } from '../components/WorkReports'
 import { ask } from '../components/Ask'
+import { TaskDetailPage } from '../components/TaskDetailPage'
 
 interface Data {
   projects: Project[]
@@ -43,6 +44,7 @@ export default function Projects() {
   const view = query.get('view') // null(대시보드) | 'schedule' | 'week' | 'calendar' | 'list' | 'mine' | 'tasks' | 'payments'
   const status = (query.get('status') as ProjectStatus | 'all' | null) ?? '진행'
   const selectedId = query.get('id')
+  const taskId = query.get('task')
   const [editing, setEditing] = useState<Project | 'new' | null>(null)
   const [newDiv, setNewDiv] = useState<Division | null>(null)
   // 왼쪽 '+ 새로 만들기' 에서 들어오면 바로 새 프로젝트 창
@@ -66,9 +68,9 @@ export default function Projects() {
   const wide = usePanelWide()
   // 첫 화면(넓은 화면): 가운데 = 프로젝트 목록, 오른쪽 = 대시보드 요약 → 프로젝트를 누르면 오른쪽이 그 프로젝트 상세 (2026-10-28)
   const view0 = query.get('view')
-  const dashRight = wide && !view0 && !query.get('q')
+  const dashRight = wide && !view0 && !query.get('q') && !taskId
   useRightPanel(
-    wide && selected ? `projfull:${selected.id}` : dashRight ? 'projdash' : null,
+    !taskId && wide && selected ? `projfull:${selected.id}` : dashRight ? 'projdash' : null,
     selected ? `${selected.code ? `${selected.code} · ` : ''}${selected.name}` : '대시보드 · 요약',
     selected ? (
       <ProjectDetail key={selected.id} project={selected} data={data} panel onEdit={() => setEditing(selected)} onBack={() => go({ id: null })} />
@@ -80,6 +82,11 @@ export default function Projects() {
     // 요약 대시보드가 넓은 프로젝트 상세의 기본 폭을 차지하지 않게 한다.
     { wide: !!selected, full: !!selected, onClose: selected ? () => go({ id: null }) : undefined },
   )
+
+  if (taskId) {
+    const task = data.tasks.find(t => t.id === taskId)
+    return <Shell active="projects">{task ? <TaskDetailPage key={task.id} task={task} tasks={data.tasks} projects={data.projects} onBack={() => go({ task: null })} /> : <section className="section"><Button kind="outline" onClick={() => go({ task: null })}>← 업무 목록</Button><Empty>{loading ? '업무를 불러오는 중…' : '업무를 찾을 수 없거나 접근할 수 없습니다.'}</Empty></section>}</Shell>
+  }
 
   if (selectedId && !wide) {
     return (
@@ -969,11 +976,11 @@ function ProjectSearch({ value, onChange }: { value: string; onChange: (v: strin
   )
 }
 
-export function ProjectForm({ project, clients, division, onClose, onSaved }: { project: Project | null; clients: Client[]; /** 새로 만들 때 구분 (그룹에서 바로 만들기) */ division?: Division; onClose: () => void; onSaved: (id: string) => void }) {
+export function ProjectForm({ project, clients, division, initialClientId, onClose, onSaved }: { initialClientId?: string | null; project: Project | null; clients: Client[]; /** 새로 만들 때 구분 (그룹에서 바로 만들기) */ division?: Division; onClose: () => void; onSaved: (id: string) => void }) {
   const { api, me, profiles, toast } = useApp()
   const { busy, run } = useAction()
   const syncFolder = useProjectFolderSync()
-  const [f, setF] = useState<Partial<Project>>(() => project ?? { name: '', division: division ?? 'AR', category: '팝업', status: '기획', owner_id: me.id, client_id: null, start_date: null, end_date: null, location: null, description: null })
+  const [f, setF] = useState<Partial<Project>>(() => project ?? { name: '', division: division ?? 'AR', category: '팝업', status: '기획', owner_id: me.id, client_id: initialClientId ?? null, start_date: null, end_date: null, location: null, description: null })
   const set = (p: Partial<Project>) => setF(prev => ({ ...prev, ...p }))
   const submit = async () => {
     let saved: Project | null = null

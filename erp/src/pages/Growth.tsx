@@ -1,6 +1,5 @@
 import { Shell } from '../components/Shell'
+import { ContactSalesPlan } from '../components/SalesEditor'
 import { GrowthWorkspace } from '../components/GrowthWorkspace'
-import { GrowthAiSettings } from '../components/GrowthAi'
 export function Tenders(){return <Shell active="tenders"><GrowthWorkspace kind="tender"/></Shell>}
-export function Leads(){return <Shell active="leads"><GrowthWorkspace kind="contact"/></Shell>}
-export function AiUsage(){return <Shell active="aiUsage"><GrowthAiSettings/></Shell>}
+export function Leads(){return <Shell active="leads"><GrowthWorkspace kind="contact" renderContactPlan={(candidate, actions) => <ContactSalesPlan key={candidate.id} candidate={candidate} actions={actions} />}/></Shell>}

@@ -87,11 +87,20 @@ function ProjectOptions({ projects, exclude }: { projects: Project[]; exclude?: 
 }
 
 export function Site() {
+  return (
+    <Shell active="site">
+      <SiteBody />
+    </Shell>
+  )
+}
+
+/** 현장 실측 본문. projectId 를 주면 그 프로젝트로 고정한다 (설계 프로젝트 화면 '현장 실측' 탭 · 2026-11-15 대표 지시 '해당 프로젝트에서 관리') */
+export function SiteBody({ projectId }: { projectId?: string }) {
   const { api, version } = useApp()
   const { data: projects } = useAsync(() => api.listProjects(), [version], [] as Project[])
   const active = useMemo(() => projects.filter(p => p.status === '진행' || p.status === '기획').sort((a, b) => (b.code ?? '').localeCompare(a.code ?? '')), [projects])
   const [pid, setPid] = useState<string | null>(readLast())
-  const project = projects.find(p => p.id === pid) ?? active[0] ?? null
+  const project = projectId ? projects.find(p => p.id === projectId) ?? null : projects.find(p => p.id === pid) ?? active[0] ?? null
   // 체크리스트가 맨 앞 · 기본 (대표 지시 2026-11-04 "현장 실측에 체크리스트도") · 마지막에 본 탭 기억
   const [tab, setTabState] = useState<Tab>(() => {
     try {
@@ -120,15 +129,15 @@ export function Site() {
     }
   }
   return (
-    <Shell active="site">
+    <>
       <section className="section site-top">
-        <SectionHead title="현장 실측" />
-        <label className="site-pick">
+        {!projectId && <SectionHead title="현장 실측" />}
+        {!projectId && <label className="site-pick">
           <span>프로젝트</span>
           <select className="select" value={project?.id ?? ''} onChange={e => choose(e.target.value)}>
             <ProjectOptions projects={projects} />
           </select>
-        </label>
+        </label>}
         <div className="site-tabs" role="tablist">
           {(
             [
@@ -157,7 +166,7 @@ export function Site() {
           <SiteSurveySection key={project.id} project={project} />
         </section>
       )}
-    </Shell>
+    </>
   )
 }
 

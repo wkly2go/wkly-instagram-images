@@ -1,0 +1,14 @@
+.sales-method-proposals{margin:16px 0 0;padding:14px 16px;background:#f6faf6;border:1px solid #cfe0d0}
+.sales-method-proposals header h2{font-size:var(--fs-title);margin:0}.sales-method-proposals header p{margin:4px 0 0;color:#4d5a50;font-size:var(--fs-sm)}
+.sales-method-proposals article{margin:12px 0 0;padding:12px 14px;background:#fff;border:1px solid #dfe7df}
+.sales-method-proposals h3{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0;font-size:var(--fs-sub)}
+.sales-method-proposals h3 span{padding:2px 8px;background:#fdf1f5;border:1px solid #f1c7d6;font-size:var(--fs-cap);font-weight:600}
+.sales-method-proposals dl{display:grid;gap:6px;margin:10px 0 0}.sales-method-proposals dl div{display:grid;grid-template-columns:84px 1fr;gap:8px}
+.sales-method-proposals dt{color:#4d5a50;font-size:var(--fs-sm)}.sales-method-proposals dd{margin:0;overflow-wrap:anywhere}
+.sales-method-proposals article>p{margin:10px 0 0;overflow-wrap:anywhere}.sales-method-proposals article>.row{margin:12px 0 0}
+.sales-bid-qualifications{margin:16px 0 0;padding:12px 16px;background:#fff;border:1px solid #dfe7df}
+.sales-bid-qualifications summary{cursor:pointer;font-weight:600}.sales-bid-qualifications summary strong{margin-left:8px;padding:2px 8px;background:#fdf1f5;border:1px solid #f1c7d6;font-size:var(--fs-cap)}
+.sales-bid-qualifications summary span{margin-left:8px;color:#4d5a50;font-weight:400;font-size:var(--fs-sm)}
+.sales-bid-qualifications>p{margin:8px 0 0;color:#4d5a50;font-size:var(--fs-sm)}.sales-bid-qualifications fieldset{border:0;margin:10px 0 0;padding:0;display:grid;gap:10px}
+.sales-bid-qualifications ul{list-style:none;margin:0;padding:0;display:grid;gap:6px}.sales-bid-qualifications li{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.sales-bid-qualifications li span{overflow-wrap:anywhere}.sales-bid-qualifications li .select{width:auto;min-width:150px}

@@ -9,7 +9,12 @@ export interface G2bQuery { category: keyof typeof operations; startDate: string
 export interface G2bCandidate {
   title: string; number: string; round: string; agency: string; deadline: string
   amount: number | null; source_url: string; notice_date: string; warnings: string[]
+  /** Participation terms as the provider states them; licences and regions are filled by the collector. */
+  terms?: G2bTerms
+  /** The officer the notice itself names for enquiries. Empty parts are omitted. */
+  officer?: { name?: string; phone?: string; email?: string }
 }
+export interface G2bTerms { contract: string; award: string; classification: string; joint: string; industry_limited: boolean; region_limited: boolean; licenses?: string[]; regions?: string[] }
 export interface G2bDependencies {
   configured: boolean
   serviceKey?: string
@@ -84,7 +89,29 @@ function candidate(value: unknown): G2bCandidate | null {
   if (!deadline) warnings.push('마감 시각을 원문에서 확인해 주세요.')
   if (amount === null) warnings.push('추정가격을 원문에서 확인해 주세요.')
   if (!source_url) warnings.push('원문 링크를 공고번호로 확인해 주세요.')
-  return { title, number, round, agency, deadline, amount, source_url, notice_date: koreaDateTime(row.bidNtceDt), warnings }
+  const short = (v: unknown) => text(v).slice(0, 80)
+  const terms: G2bTerms = { contract: short(row.cntrctCnclsMthdNm), award: short(row.sucsfbidMthdNm), classification: short(row.pubPrcrmntClsfcNm), joint: short(row.cmmnSpldmdMethdNm),
+    industry_limited: text(row.indstrytyLmtYn) === 'Y', region_limited: !!text(row.rgnLmtBidLocplcJdgmBssNm) || text(row.rgnLmtBidLocplcJdgmBssCd) === 'Y' }
+  const name = text(row.ntceInsttOfclNm).replace(/\s+/g, ' '), phone = text(row.ntceInsttOfclTelNo).replace(/[^0-9+()-]/g, ''), mail = (text(row.ntceInsttOfclEmailAdrs) || text(row.dminsttOfclEmailAdrs)).toLowerCase()
+  const officer = { ...(name.length >= 2 && name.length <= 40 && !/[<>{}\\@]/.test(name) ? { name } : {}), ...(/^[0-9+()-]{8,20}$/.test(phone) ? { phone } : {}),
+    ...(mail.length <= 254 && /^[a-z0-9._%+-]+@[a-z0-9]([a-z0-9.-]*[a-z0-9])?\.[a-z]{2,}$/.test(mail) ? { email: mail } : {}) }
+  return { title, number, round, agency, deadline, amount, source_url, notice_date: koreaDateTime(row.bidNtceDt), warnings, terms, ...(Object.keys(officer).length ? { officer } : {}) }
+}
+const detail = { license: ['getBidPblancListInfoLicenseLimit02', 'lcnsLmtNm'], region: ['getBidPblancListInfoPrtcptPsblRgn02', 'prtcptPsblRgnNm'] } as const
+/** Licence and region limits of one notice. The notice number comes from a collected row, never from a client. */
+export function g2bDetailUrl(kind: keyof typeof detail, number: string, round: string, serviceKey: string): URL {
+  if (!/^[A-Za-z0-9_-]{1,60}$/.test(number) || !/^[A-Za-z0-9_-]{1,10}$/.test(round)) throw new Error('Invalid notice')
+  const url = new URL(detail[kind][0], G2B_BASE)
+  url.search = new URLSearchParams({ serviceKey, type: 'json', inqryDiv: '2', bidNtceNo: number, bidNtceOrd: round, pageNo: '1', numOfRows: '20' }).toString()
+  return url
+}
+/** Distinct limit names exactly as the provider lists them (at most 12, markup-free). */
+export function parseG2bNames(value: unknown, kind: keyof typeof detail): string[] {
+  const envelope = object(object(value)?.response), header = object(envelope?.header), body = object(envelope?.body)
+  if (!header || !['00', '0'].includes(String(header.resultCode)) || !body) throw new Error('Unexpected detail response')
+  const raw = body.items, list = Array.isArray(raw) ? raw : Array.isArray(object(raw)?.item) ? object(raw)!.item as unknown[] : []
+  const names = list.map(row => text(object(row)?.[detail[kind][1]]).replace(/\s+/g, ' ')).filter(name => name.length >= 2 && name.length <= 80 && !/[<>{}\\]/.test(name))
+  return [...new Set(names)].slice(0, 12)
 }
 class UpstreamError extends Error { status: number; constructor(message: string, status = 502) { super(message); this.status = status } }
 function upstreamCode(code: unknown): never {

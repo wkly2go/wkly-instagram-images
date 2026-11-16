@@ -140,3 +140,19 @@ details[open] > summary > .ads-details-chevron { transform: rotate(180deg); }
   .ads-empty-actions { flex-direction: column; width: 100%; }
 }
 @media (prefers-reduced-motion: reduce) { .ads-spin { animation: none; } .ads-details-chevron { transition: none; } }
+
+/* 검색 노출 점검: SEO · AEO · GEO 세 표의 열 폭 · 칸 여백을 똑같이 (2026-11-13) */
+.seo-board .board { table-layout: fixed; }
+.seo-board .board th, .seo-board .board td { padding: 8px 10px; }
+.seo-board .board th.title, .seo-board .board td.title { width: auto; max-width: none; min-width: 0; }
+.seo-board .board td:not(.title) { max-width: none; }
+.seo-board .board td > span:not(.badge) { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.seo-board .board td .btn-sm { min-width: 52px; justify-content: center; }
+.seo-board .board tr.board-expand > td { white-space: normal; overflow: visible; padding: 12px 14px; }
+.seo-detail { display: grid; gap: 12px; }
+.seo-detail dl { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 6px 12px; margin: 0; font-size: var(--fs-sm); }
+.seo-detail dt { color: var(--blue); font-weight: 700; }
+.seo-detail dd { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--ink, inherit); }
+@media (max-width: 800px) { .seo-detail dl { grid-template-columns: 1fr; gap: 2px; } .seo-detail dd { margin-bottom: 6px; } }
+/* 소재 이미지가 없을 때의 페이지 미리보기: 화면 위쪽부터 보이게 */
+.ad-creative img.preview { object-position: top center; }

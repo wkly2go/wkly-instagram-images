@@ -1,0 +1,111 @@
+import assert from 'node:assert/strict'
+import { createRequire } from 'node:module'
+import { test } from 'node:test'
+import { fileURLToPath } from 'node:url'
+import { createServer } from 'vite'
+
+const require = createRequire(import.meta.url)
+const { JSDOM } = require('jsdom')
+
+test('the administrator saves and reopens a sales plan; team members see only the planning desk', async () => {
+  const dom = new JSDOM('<main id="test-root"></main>', { url: 'http://localhost/sales?new=1', pretendToBeVisual: true })
+  for (const key of ['window', 'document', 'navigator', 'location', 'localStorage', 'sessionStorage', 'Element', 'HTMLElement', 'HTMLInputElement', 'HTMLTextAreaElement', 'MutationObserver', 'Node', 'NodeFilter', 'EventTarget', 'Event', 'CustomEvent', 'MouseEvent', 'KeyboardEvent', 'StorageEvent', 'PopStateEvent', 'getComputedStyle']) {
+    const value = key === 'getComputedStyle' ? dom.window.getComputedStyle.bind(dom.window) : dom.window[key]
+    Object.defineProperty(globalThis, key, { configurable: true, writable: true, value })
+  }
+  globalThis.requestAnimationFrame = window.requestAnimationFrame.bind(window)
+  globalThis.cancelAnimationFrame = window.cancelAnimationFrame.bind(window)
+  globalThis.IS_REACT_ACT_ENVIRONMENT = true
+  globalThis.ResizeObserver = class { observe() {} disconnect() {} }
+  window.matchMedia = query => ({ matches: false, media: query, addEventListener() {}, removeEventListener() {} })
+  window.confirm = () => false
+  window.scrollTo = () => {}
+  HTMLElement.prototype.scrollTo = () => {}
+  globalThis.fetch = async () => { throw new Error('Network disabled in sales DOM tests') }
+
+  const server = await createServer({
+    root: fileURLToPath(new URL('../../', import.meta.url)),
+    server: { middlewareMode: true, watch: null, hmr: false },
+    logLevel: 'error',
+    define: { 'import.meta.env.VITE_SUPABASE_URL': '""', 'import.meta.env.VITE_SUPABASE_ANON_KEY': '""' },
+  })
+  const React = require('react')
+  const { createRoot } = require('react-dom/client')
+  const { fireEvent, within } = require('@testing-library/dom')
+  const user = require('@testing-library/user-event').default.setup({ document })
+  const { act, createElement: el } = React
+  const mountNode = document.getElementById('test-root')
+  let root = createRoot(mountNode)
+  try {
+    const { api, AppProvider } = await server.ssrLoadModule('/src/lib/app.tsx')
+    const { RouterProvider } = await server.ssrLoadModule('/src/lib/router.tsx')
+    const { todayKey, addDays } = await server.ssrLoadModule('/src/lib/date.ts')
+    const { readSalesPlan } = await server.ssrLoadModule('/src/lib/salesPlan.ts')
+    const { default: Sales } = await server.ssrLoadModule('/src/pages/Sales.tsx')
+    assert.equal(api.mode, 'demo')
+    const screen = within(document.body)
+    const click = button => act(async () => user.click(button))
+    const type = (input, value) => act(async () => user.type(input, value))
+    const render = async (email, profileId) => {
+      await api.signIn(email, '')
+      const profiles = await api.listProfiles()
+      const me = profiles.find(profile => profile.id === profileId)
+      assert.ok(me)
+      await act(async () => root.render(el(RouterProvider, null, el(AppProvider, { me, profiles, version: 0, bump() {}, toast() {}, openQuick() {} }, el(Sales)))))
+    }
+
+    window.history.replaceState({}, '', '/sales')
+    await render('admin@thewklyn.com', '00000000-0000-4000-8000-000000000001')
+    assert.ok(screen.getByRole('heading', { name: 'AI 영업 기획실', exact: true }))
+    assert.equal(screen.queryByRole('heading', { name: '진행 중인 영업', exact: true }), null)
+    assert.equal(document.querySelector('.sales-db-browser').open, false)
+    assert.ok(screen.getByRole('region', { name: 'AI 팀원 업무 대화' }))
+    await act(async () => {
+      window.history.replaceState({}, '', '/sales?new=1')
+      window.dispatchEvent(new PopStateEvent('popstate'))
+    })
+    const editor = within(screen.getByRole('region', { name: '새 영업 기회', exact: true }))
+    const sheet = within(editor.getByRole('region', { name: '수주 검토와 실행 계획', exact: true }))
+    const today = todayKey()
+    const launch = addDays(today, 20)
+    const decision = addDays(today, 7)
+    assert.ok(sheet.getByText('팝업 오픈 목표일이 미정입니다.'))
+    await type(editor.getByLabelText('영업 건 이름 *'), '수주 실행 검증')
+    await type(sheet.getByLabelText('브랜드·발주기관'), '테스트 브랜드')
+    await click(sheet.getByRole('button', { name: '설계·시공', exact: true }))
+    await type(sheet.getByLabelText('문의처·결정권자'), '공식 제휴 문의')
+    await type(sheet.getByLabelText('영업 계기·고객 요구'), '팝업 출시')
+    await type(sheet.getByLabelText('확인 근거'), '브랜드 공개 일정 확인')
+    await act(async () => user.selectOptions(sheet.getByLabelText('대행 발주 상태'), '일부 미발주'))
+    await act(async () => fireEvent.change(sheet.getByLabelText('오픈·행사 예정일'), { target: { value: launch } }))
+    await act(async () => fireEvent.change(sheet.getByLabelText('대행사 선정 예정일'), { target: { value: addDays(launch, 1) } }))
+    assert.match(sheet.getByRole('alert').textContent, /오픈 목표일 이후/)
+    assert.equal(sheet.getByLabelText('브랜드·발주기관').value, '테스트 브랜드')
+    await act(async () => fireEvent.change(sheet.getByLabelText('대행사 선정 예정일'), { target: { value: decision } }))
+    assert.equal(sheet.getByRole('status').textContent, '검토 우선')
+    assert.equal(editor.getByLabelText('다음 행동').value, '')
+    await click(sheet.getByRole('button', { name: '권장 행동·연락일 적용', exact: true }))
+    assert.equal(editor.getByLabelText('다음 연락일').value, today)
+    await click(editor.getByRole('button', { name: '저장', exact: true }))
+
+    const id = new URL(location.href).searchParams.get('id')
+    assert.ok(id)
+    const saved = await api.getSales(id)
+    assert.equal(readSalesPlan(saved.description).plan.decisionDate, decision)
+    assert.equal(readSalesPlan(saved.description).plan.scope, '설계·시공')
+    assert.equal(saved.next_date, today)
+
+    await act(async () => root.unmount())
+    root = createRoot(mountNode)
+    // 2026-11-15: team members see only the planning desk and the chat. Saved Sales data is an administrator check view,
+    // so the former read-only member view of a saved plan is no longer reachable.
+    await render('haneul@thewklyn.com', '00000000-0000-4000-8000-000000000002')
+    assert.ok(screen.getByRole('article', { name: 'AI 영업 기획실' }))
+    assert.equal(screen.queryByRole('region', { name: '수주 실행 검증', exact: true }), null)
+    assert.equal(document.querySelector('.sales-db-browser'), null)
+  } finally {
+    await act(async () => root.unmount())
+    await server.close()
+    dom.window.close()
+  }
+})

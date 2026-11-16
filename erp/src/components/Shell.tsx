@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useId, useLayoutEffe
 import { useMyAgents } from './AgentDesk'
 import { MobileAppBar, TopAppButton } from './InstallCard'
 import { useTheme } from '../lib/theme'
-import { Ruler, BookOpen, Bookmark, Bot, ListTodo, Plus, Search, Briefcase, HardDrive, ChevronDown, ChevronLeft, ChevronRight, CircleHelp, PanelLeftClose, PanelLeftOpen, ClipboardCheck, FolderKanban, Home, Library, Megaphone, MessageCircle, MoreHorizontal, Settings, Users, Landmark, type LucideIcon } from 'lucide-react'
+import { PencilRuler, Truck, Inbox, Calculator, Building2, Layers, GraduationCap, Ruler, BookOpen, Bookmark, Bot, ListTodo, Plus, Search, Briefcase, HardDrive, ChevronDown, ChevronLeft, ChevronRight, CircleHelp, PanelLeftClose, PanelLeftOpen, ClipboardCheck, FolderKanban, Home, Library, Megaphone, MessageCircle, MoreHorizontal, Settings, Users, Landmark, type LucideIcon } from 'lucide-react'
 import { accessSource, isDesktopApp } from '../lib/desktop'
 import { useAttendance } from '../lib/attendance'
 import { AssignTaskModal } from './AssignTask'
@@ -28,10 +28,11 @@ import { TODAY_STATUSES, type TodayStatus } from '../lib/types'
 import { Presence, toneOf } from './ui'
 import { countedUnread, rememberRoomLevels, useChatTick } from '../lib/chat'
 import { QuickChat } from '../pages/Quick'
+import { DockTodo } from './DockTodo'
 import type { ChatRoomSummary } from '../lib/types'
 import './ShellUsability.css'
 
-export type TabKey = 'tenders' | 'leads' | 'aiUsage' | 'sales' | 'home' | 'reportTemplates' | 'approvals' | 'chat' | 'work' | 'projects' | 'clients' | 'library' | 'drive' | 'team' | 'site' | 'agents' | 'ads' | 'ledger' | 'admin'
+export type TabKey = 'design' | 'designOrders' | 'designCards' | 'designPrices' | 'designVendors' | 'designMaterials' | 'designLearn' | 'tenders' | 'leads' | 'sales' | 'home' | 'reportTemplates' | 'approvals' | 'chat' | 'work' | 'projects' | 'clients' | 'library' | 'drive' | 'team' | 'site' | 'agents' | 'ads' | 'ledger' | 'admin'
 
 export const TABS: { key: TabKey; label: string; path: string; admin?: boolean; keywords?: string[] }[] = [
   { key: 'home', label: '홈', path: '/' },
@@ -43,16 +44,22 @@ export const TABS: { key: TabKey; label: string; path: string; admin?: boolean; 
   { key: 'drive', label: '드라이브', path: '/drive' },
   { key: 'team', label: '업무·근태', path: '/team' },
   // 현장 실측: 사진 위 치수 · 도면 배치 · 체크리스트 (2026-11-04)
-  { key: 'site', label: '현장', path: '/site' },
-  { key: 'agents', label: 'AI팀', path: '/agents' },
+  { key: 'site', label: '현장 실측', path: '/site', keywords: ['현장', '실측', '치수', '체크리스트'] },
+  // 설계·견적: 인테리어 디자인 자동화 통합 (2026-11-15)
+  { key: 'design', label: '설계 프로젝트', path: '/design', keywords: ['설계', '견적', '수량표', '공정표', '스케치업', '인테리어 자동화'] },
+  { key: 'designOrders', label: '실행·발주', path: '/design-orders', admin: true, keywords: ['실행 내역', '발주서', '손익', '실행가'] },
+  { key: 'designCards', label: '검토함', path: '/design-cards', keywords: ['견적 확정', '단가 가져오기', '검토'] },
+  { key: 'designPrices', label: '단가', path: '/design-prices', keywords: ['판매 단가', '실행 단가', '일위대가'] },
+  { key: 'designVendors', label: '협력사', path: '/design-vendors', keywords: ['협력업체', '시공사', '나라장터 후보'] },
+  { key: 'designMaterials', label: '자재', path: '/design-materials', keywords: ['마감재', '자재 코드', '스펙'] },
+  { key: 'designLearn', label: '학습 자료', path: '/design-learn', keywords: ['도면 세트', '스펙북', '표본', '학습'] },
+  { key: 'agents', label: 'AI 팀·비용', path: '/agents', keywords: ['AI팀', 'AI 팀', 'AI 사용', '사용량', '비용', '예산', 'API', '에이전트'] },
   // 광고는 팀원 모두에게 공개 (대표 지시 2026-11-06)
   { key: 'ads', label: '광고·콘텐츠', path: '/ads', keywords: ['인스타그램', 'Instagram', 'Meta', '블로그', '유튜브', '캠페인', '소재', '마케팅', 'SEO'] },
   { key: 'ledger', label: '입출금 장부', path: '/ledger', admin: true },
   { key: 'admin', label: '관리', path: '/admin', admin: true },
-  { key: 'tenders', label: '나라장터', path: '/tenders' },
   { key: 'leads', label: '연락처 검토함', path: '/leads' },
-  { key: 'aiUsage', label: 'AI 사용·비용', path: '/ai-usage' },
-  { key: 'sales', label: '영업·수주', path: '/sales' },
+  { key: 'sales', label: '영업·수주', path: '/sales', keywords: ['나라장터', '공고', '입찰', '신규 영업', '인테리어'] },
 ]
 
 /** 휴대폰 · 태블릿 아래 메뉴: 자주 쓰는 4개 + 더보기 */
@@ -60,7 +67,6 @@ const ICONS: Record<TabKey, LucideIcon> = {
   sales: Briefcase,
   tenders: Briefcase,
   leads: Briefcase,
-  aiUsage: Briefcase,
   home: Home,
   approvals: ClipboardCheck,
   reportTemplates: BookOpen,
@@ -72,17 +78,26 @@ const ICONS: Record<TabKey, LucideIcon> = {
   drive: HardDrive,
   team: Users,
   site: Ruler,
+  design: PencilRuler,
+  designOrders: Truck,
+  designCards: Inbox,
+  designPrices: Calculator,
+  designVendors: Building2,
+  designMaterials: Layers,
+  designLearn: GraduationCap,
   agents: Bot,
   ads: Megaphone,
   ledger: Landmark,
   admin: Settings,
 }
 const MAIN_TABS: TabKey[] = ['home', 'approvals', 'chat', 'projects', 'site']
-const SHORT: Partial<Record<TabKey, string>> = { approvals: '보고서' }
+const SHORT: Partial<Record<TabKey, string>> = { approvals: '보고서', site: '현장' }
 const NAV_GROUPS: { label: string; tabs: TabKey[] }[] = [
-  { label: '업무', tabs: ['home', 'reportTemplates', 'approvals', 'projects', 'site'] },
+  { label: '업무', tabs: ['home', 'reportTemplates', 'approvals', 'projects'] },
+  // 설계·견적 (인테리어 디자인 자동화) — 별도 묶음으로 세분화 (대표 지시 2026-11-15)
+  { label: '설계·견적', tabs: ['site', 'design', 'designOrders', 'designCards', 'designPrices', 'designVendors', 'designMaterials', 'designLearn'] },
   { label: '협업·자료', tabs: ['chat', 'drive', 'team'] },
-  { label: '운영', tabs: ['sales', 'tenders', 'leads', 'agents', 'aiUsage', 'ads'] },
+  { label: '운영', tabs: ['sales', 'leads', 'agents', 'ads'] },
   { label: '관리자 전용', tabs: ['ledger', 'admin'] },
 ]
 
@@ -270,6 +285,7 @@ function ChatDock() {
           <ChevronLeft size={15} />
         </button>
       </div>
+      <DockTodo />
       <div className="quick q2 chat-dock-in">
         <QuickChat rooms={rooms} />
       </div>

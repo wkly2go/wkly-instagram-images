@@ -88,6 +88,7 @@ export function Link({ to, className, children, title, style, onNavigate }: { to
 /** 예전·외부 링크 별칭 (알림 링크 등) → 실제 화면 주소 */
 export function normalizePath(to: string): string {
   const [pathname, search = ''] = to.split('?')
+  if (pathname === '/ai-usage') return withQuery('/agents', new URLSearchParams(search), { tab: 'usage' })
   if (pathname === '/library' && new URLSearchParams(search).get('tab') === 'reports') return '/research'
   if (pathname === '/library') {
     const query = new URLSearchParams(search)

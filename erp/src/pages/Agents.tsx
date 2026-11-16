@@ -6,6 +6,7 @@ import { useRouter, withQuery } from '../lib/router'
 import { AGENT_VERDICTS, type AgentAction, type AgentJob, type AgentActionLog, type AgentJobRequest, type AgentReport, type Department } from '../lib/types'
 import { Shell } from '../components/Shell'
 import { AiTeam } from '../components/AiTeam'
+import { GrowthAiSettings } from '../components/GrowthAi'
 import { DocFullText } from '../components/DocFullText'
 import { usePanelWide, useRightPanel } from '../components/RightPanel'
 import { Badge, Button, Chip, Empty, Field, Linkify, Modal, SectionHead, type Tone } from '../components/ui'
@@ -14,56 +15,46 @@ const V_TONE: Record<string, Tone> = { 완료: 'acid', '변동 없음': 'outline
 const R_TONE: Record<string, Tone> = { 대기: 'yellow', '처리 중': 'blue', 완료: 'acid', '수동 필요': 'red', 거절: 'gray' }
 const MANAGER = 'WKLY 총괄 에이전트 관리'
 
-type Tab = 'team' | 'jobs' | 'org' | 'reports' | 'requests' | 'actions'
+type Tab = 'team' | 'usage' | 'jobs' | 'org' | 'reports' | 'requests' | 'actions'
+const AI_TABS: { key: Tab; label: string; admin?: boolean }[] = [
+  { key: 'team', label: '팀원·지시·예약' },
+  { key: 'usage', label: '사용·비용' },
+  { key: 'jobs', label: '예약 작업 점검', admin: true },
+  { key: 'org', label: '조직도·관리자', admin: true },
+  { key: 'reports', label: '일일 보고', admin: true },
+  { key: 'requests', label: '관리 요청', admin: true },
+  { key: 'actions', label: 'AI 처리 기록', admin: true },
+]
 
-/** Claude AI 에이전트(예약 작업) 관리 · 일일 보고 (관리자) */
+/** 팀원 운영과 업무 도구의 비용을 같은 메뉴에서 확인한다. */
 export default function Agents() {
   const { me } = useApp()
   const { query, path, navigate } = useRouter()
-  const admin = me.role === 'admin'
-  const asked = (query.get('tab') as Tab | null) ?? (query.get('date') ? 'reports' : 'team')
-  // AI 팀원(지시 · 예약)은 누구나, 나머지(예약 작업 점검 · 보고 · 기록)는 관리자만
-  const tab: Tab = admin ? asked : 'team'
-  const go = (t: Tab) => navigate(withQuery(path, query, { tab: t === 'team' ? null : t }), { replace: true })
-  if (!admin || tab === 'team') {
-    return (
-      <Shell active="agents">
-        {admin && <AgentTabs tab={tab} go={go} />}
-        <AiTeam />
-      </Shell>
-    )
+  const tabs = AI_TABS.filter(t => !t.admin || me.role === 'admin')
+  const asked = path === '/ai-usage' ? 'usage' : query.get('tab') ?? (query.get('date') ? 'reports' : 'team')
+  const tab = tabs.find(t => t.key === asked) ?? tabs[0]
+  const go = (key: Tab) => {
+    if (key === tab.key) return
+    // Keep date filters and unrelated link context, including on return to team.
+    navigate(withQuery('/agents', query, { tab: key }))
   }
   return (
     <Shell active="agents">
-      <AgentTabs tab={tab} go={go} />
-      <FailureBanner />
-      {tab === 'jobs' ? <Jobs /> : tab === 'org' ? <AgentOrg /> : tab === 'reports' ? <Reports /> : tab === 'actions' ? <Actions /> : <Requests />}
+      <header className="growth-heading">
+        <div><h1>AI 팀·비용</h1><p>AI 팀원에게 업무를 맡기고 사용 기록과 비용을 한곳에서 확인합니다.</p></div>
+        <a className="btn btn-outline" href="/manual/growth.html#ai" target="_blank" rel="noreferrer">통합 메뉴 사용설명</a>
+      </header>
+      <nav className="chips" aria-label="AI 팀·비용 메뉴">
+        {tabs.map(t => <button key={t.key} type="button" className={`chip${tab.key === t.key ? ' active' : ''}`} aria-current={tab.key === t.key ? 'page' : undefined} onClick={() => go(t.key)}>{t.label}</button>)}
+      </nav>
+      <section key={tab.key} aria-label={tab.label}>
+        {tab.key === 'team' ? <AiTeam /> : tab.key === 'usage' ? <GrowthAiSettings embedded /> : <>
+          <p className="t-cap">예약 작업 점검·보고·관리 요청·처리 기록은 관리자에게 표시됩니다.</p>
+          <FailureBanner />
+          {tab.key === 'jobs' ? <Jobs /> : tab.key === 'org' ? <AgentOrg /> : tab.key === 'reports' ? <Reports /> : tab.key === 'actions' ? <Actions /> : <Requests />}
+        </>}
+      </section>
     </Shell>
-  )
-}
-
-function AgentTabs({ tab, go }: { tab: Tab; go: (t: Tab) => void }) {
-  return (
-      <div className="row wrap">
-        <div className="chips" role="tablist" aria-label="AI 팀 메뉴">
-          {(
-            [
-              ['team', 'AI 팀원 · 지시 · 예약'],
-              ['jobs', '예약 작업 점검'],
-              ['org', '조직도 · 관리자'],
-              ['reports', '일일 보고'],
-              ['requests', '관리 요청'],
-              ['actions', 'AI 처리 기록'],
-            ] as [Tab, string][]
-          ).map(([k, l]) => (
-            <Chip key={k} active={tab === k} onClick={() => go(k)}>
-              {l}
-            </Chip>
-          ))}
-        </div>
-        <span className="grow" />
-        {tab !== 'team' && <span className="t-cap">Claude 예약 작업을 WKLY 총괄이 2시간마다 점검해 이곳에 기록합니다.</span>}
-      </div>
   )
 }
 

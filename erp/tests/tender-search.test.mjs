@@ -54,6 +54,20 @@ test('tender selection prepares an unapproved draft without saving, changing own
   assert.equal(draft.document.deadline, item.deadline); assert.equal(draft.campaign_id, null)
   assert.equal('id' in draft, false); assert.match(draft.document.note, /추정가격/); assert.match(draft.document.note, /원문 확인 필요/)
 })
+test('construction candidates belong to AR while service candidates keep TW and both still require qualification review', () => {
+  const item = { ...candidate(), title: '사무실 인테리어 공사' }
+  const construction = tenderCandidateDraft(item, 'current-member', 'construction')
+  const service = tenderCandidateDraft(item, 'current-member', 'service')
+  assert.equal(construction.document.division, 'AR'); assert.equal(service.document.division, 'TW')
+  for (const draft of [construction, service]) {
+    assert.equal(draft.owner_id, 'current-member'); assert.equal(draft.status, '검토')
+    assert.equal(draft.document.qualification, '추가 확인'); assert.equal(draft.document.evidence, '')
+    assert.equal(draft.document.deadline, item.deadline); assert.equal(draft.document.number, item.number)
+    assert.equal('id' in draft, false)
+  }
+  assert.match(construction.document.note, /나라장터 공사 조회 후보/)
+  assert.match(service.document.note, /나라장터 용역 조회 후보/)
+})
 test('tender demo refuses actual external lookup rather than pretending to connect', async () => {
   const api = createDemoGrowthApi(() => ({ id: 'member', role: 'member', active: true }), {})
   await assert.rejects(api.searchTenders(query()), /체험 모드에서는 실제 나라장터 공고를 조회하지 않습니다/)

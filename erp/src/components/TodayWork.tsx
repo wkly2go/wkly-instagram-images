@@ -69,7 +69,7 @@ export function TodayWork({ tasks, projects }: { tasks: Task[]; projects: Projec
             return (
               <div key={t.id} className={`today-row${late ? ' late' : ''}`}>
                 <input type="checkbox" checked={false} disabled={busy} onChange={() => run(() => api.saveTask({ id: t.id, status: '완료' }), '완료했습니다.')} aria-label={`${t.title} 완료`} />
-                <span className="today-title">{t.title}</span>
+                <Link to={`/projects?view=mine&task=${t.id}`} className="today-title task-detail-link" title={`${t.title} 상세 보기`}>{t.title}</Link>
                 {p && (
                   <Link to={`/projects?id=${p.id}`} className="today-proj">
                     {p.code ?? p.name}

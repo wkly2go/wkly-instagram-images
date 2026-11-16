@@ -1,8 +1,12 @@
+import type { SalesStrategyApi } from './salesStrategy'
+import type { DesignApi } from './design'
+import type { SalesReportApi } from './salesReport'
 import type { GrowthApi } from './growth'
 import type { SalesApi } from './sales'
 import type { ApprovalSummary, ResearchSummary, ResearchBodyMatch } from './types'
 import type { MarketingCampaign, MarketingAsset } from './marketing'
 import type { NavigationCounts } from './navigationCounts'
+import type { ProspectingClientResult } from './prospectingClientSearch'
 import { UploadRecordResolutionError } from './uploadRecord'
 import type { AccessSource } from './desktop'
 import type { LedgerEntry, LedgerFile, LedgerRecurring, LedgerStatus, MaterialItem, MaterialMove, MaterialStockRow,
@@ -165,7 +169,7 @@ export type AgentDraft = { agent_id: string; seq: number; text: string; status: 
  * - supabaseApi: 실제 운영 (Supabase)
  * - demoApi: 환경변수가 없을 때 브라우저 저장소로 동작하는 체험판
  */
-export interface Api extends SalesApi, GrowthApi {
+export interface Api extends SalesStrategyApi, SalesApi, GrowthApi, SalesReportApi, DesignApi {
   mode: 'supabase' | 'demo'
 
   // 인증
@@ -185,6 +189,7 @@ export interface Api extends SalesApi, GrowthApi {
 
   // 거래처
   listClients(): Promise<Client[]>
+  searchProspectingClients(query: string): Promise<ProspectingClientResult[]>
   saveClient(c: Draft<Client>): Promise<Client>
   deleteClient(id: string): Promise<void>
   /** clientId 없으면 전체 (거래처 검색용) */

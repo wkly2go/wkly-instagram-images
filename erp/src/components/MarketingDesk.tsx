@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, ty
 import { ArrowDownToLine, ArrowLeft, ArrowRight, Check, CheckCircle2, ChevronDown, Clipboard, ExternalLink, Eye, FileText, FolderOpen, ImagePlus, Loader2, Plus, RefreshCw, Save, Search, Trash2, Upload } from 'lucide-react'
 import { useApp } from '../lib/app'
 import { friendlyError } from '../lib/api'
+import { saveMarketingWithRecovery } from '../lib/marketingSave'
 import {
   MARKETING_ASSET_MAX_BYTES, MARKETING_ASSET_MIME_TYPES, MARKETING_BRANDS, MARKETING_GOALS, MARKETING_PLATFORMS,
   buildMarketingAIPrompt, buildMarketingHandoff, buildMarketingHandoffText, buildMarketingUTM,
@@ -259,7 +260,7 @@ export function MarketingDesk({ onDirtyChange, initialCampaignId }: { onDirtyCha
     const candidate = { ...draft, status: ready ? 'ready' as const : draft.status }
     const result = validateMarketingCampaign(candidate, assets, { forHandoff: ready || candidate.status === 'ready' })
     if (result.errors.length) { setActionError(result.errors.join('\n')); return null }
-    const saved = await api.saveMarketingCampaign(candidate)
+    const saved = await saveMarketingWithRecovery(api, candidate, me.id)
     if (alive.current) applySaved(saved)
     return saved
   }
@@ -419,14 +420,14 @@ export function MarketingDesk({ onDirtyChange, initialCampaignId }: { onDirtyCha
       <header className="md-head">
         <div><p className="md-eyebrow">WKLY MARKETING DESK</p><h2>캠페인 준비</h2><p>기획 → 문구·소재 → 검토, 세 단계로 준비하세요.</p></div>
         <div className="md-actions">
-          <button type="button" className="md-button md-subtle" disabled={!!busy || loading} onClick={async () => { if (await mayLeave()) await load(draft?.id) }} aria-label="캠페인 새로고침"><RefreshCw size={15} /><span>새로고침</span></button>
+          <button type="button" className="md-button md-subtle" disabled={!!busy || loading} onClick={async () => { if (await mayLeave()) await load(draft?.id ?? initialCampaignId) }} aria-label="캠페인 새로고침"><RefreshCw size={15} /><span>새로고침</span></button>
           {canEdit && <button type="button" className="md-button md-primary" disabled={!!busy || loading || !!loadError} onClick={() => void createCampaign()}><Plus size={16} />새 캠페인</button>}
         </div>
       </header>
 
       <div className="md-note"><span className="md-note-dot" />{api.mode === 'demo' ? '체험용 작업 공간 · 이 브라우저에 저장' : canEdit ? '회사 공용 작업 공간 · 관리자 작성 · 팀원 조회' : '회사 공용 작업 공간 · 읽기 전용'}<span>광고 등록과 결제는 각 광고 관리자에서 최종 실행합니다.</span></div>
 
-      {loadError && <div className="md-error" role="alert"><strong>공용 캠페인을 불러오지 못했습니다.</strong><p>{loadError}</p><p>저장소 연결과 접근 권한을 확인한 뒤 다시 시도해 주세요.</p><button type="button" className="md-button" disabled={loading} onClick={() => void load(draft?.id)}>다시 불러오기</button></div>}
+      {loadError && <div className="md-error" role="alert"><strong>공용 캠페인을 불러오지 못했습니다.</strong><p>{loadError}</p><p>저장소 연결과 접근 권한을 확인한 뒤 다시 시도해 주세요.</p><button type="button" className="md-button" disabled={loading} onClick={() => void load(draft?.id ?? initialCampaignId)}>다시 불러오기</button></div>}
       {actionError && <div id="md-action-error" className="md-error" role="alert"><strong>확인이 필요합니다.</strong><p>{actionError}</p><div className="md-actions">{draft && validation.errors.length > 0 && <button type="button" className="md-text-button" onClick={() => goToStep('handoff')}>검토할 항목 보기<ArrowRight size={13} /></button>}<button type="button" className="md-text-button" onClick={() => setActionError('')}>안내 닫기</button></div></div>}
 
       <section className={`md-library${libraryExpanded ? ' is-open' : ''}`} aria-label="캠페인 선택">

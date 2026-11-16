@@ -1,3 +1,5 @@
+import type { GrowthDocument } from './growth'
+
 export const SALES_STAGES = ['발굴', '접촉', '미팅', '제안', '협상', '수주', '실주', '보류'] as const
 export type SalesStage = typeof SALES_STAGES[number]
 export const SALES_SOURCES = ['직접 발굴', '홈페이지', '소개', 'SNS', '광고', '나라장터', '기타'] as const
@@ -38,9 +40,12 @@ export interface SalesActivity {
 export interface SalesFilter {
   page: number
   search?: string
+  source?: typeof SALES_SOURCES[number] | ''
   stage?: SalesStage | ''
   division?: keyof typeof SALES_COMPANIES | ''
   dueBefore?: string
+  ownerId?: string
+  work?: 'unscheduled' | 'handoff' | ''
 }
 export const SALES_PAGE_SIZE = 30
 export function newSalesDraft(ownerId: string): SalesDraft {
@@ -72,10 +77,23 @@ export function canEditSales(row: Pick<SalesOpportunity, 'owner_id'>, user: { id
 export function needsFollowup(row: Pick<SalesSummary, 'stage' | 'next_date'>, today: string): boolean {
   return !['수주', '실주', '보류'].includes(row.stage) && !!row.next_date && row.next_date <= today
 }
+export function validateSalesProject(draft: Pick<SalesDraft, 'project_id' | 'division' | 'client_id'>, projects: { id: string; division?: string; client_id: string | null }[]): string | null {
+  if (!draft.project_id) return null
+  const project = projects.find(p => p.id === draft.project_id)
+  if (!project) return '선택한 프로젝트를 확인하지 못했습니다. 목록을 새로고침하거나 연결을 해제해 주세요.'
+  if (project.division !== draft.division || project.client_id !== draft.client_id) return '선택한 프로젝트의 회사·거래처가 다릅니다. 같은 회사·거래처의 프로젝트를 다시 선택해 주세요.'
+  return null
+}
+export interface SalesOrigin {
+  id: string; kind: 'contact' | 'tender'; title: string; status: string; document: GrowthDocument; updated_at: string
+}
 export interface SalesApi {
+  listSalesOrigins(id: string): Promise<SalesOrigin[]>
+
   listSales(filter: SalesFilter): Promise<{ items: SalesSummary[]; hasMore: boolean }>
   getSales(id: string): Promise<SalesOpportunity>
   saveSales(id: string, draft: SalesDraft, expectedRevision: number): Promise<SalesOpportunity>
   listSalesActivities(id: string): Promise<SalesActivity[]>
-  addSalesActivity(id: string, opportunityId: string, kind: '메모' | '전화' | '메일' | '미팅', body: string): Promise<void>
+  addSalesActivity(id: string, opportunityId: string, kind: '메모' | '전화' | '메일' | '미팅', body: string, actorId?: string): Promise<void>
+  checkSalesActivity(id: string, opportunityId: string, kind: '메모' | '전화' | '메일' | '미팅', body: string, actorId: string): Promise<boolean>
 }

@@ -513,6 +513,52 @@ function DailyTable({ rows, days, platforms }: { rows: AdDaily[]; days: string[]
   )
 }
 
+/** 등록된 이미지가 없으면 링크한 페이지의 화면 미리보기를 대신 보여 준다 (무료 미리보기 · 공개 주소만 전달) */
+function pagePreview(link: string | null) {
+  try {
+    const u = new URL(link ?? '')
+    if (u.protocol !== 'https:' && u.protocol !== 'http:') return null
+    if (u.username || u.password) return null
+    return `https://s.wordpress.com/mshots/v1/${encodeURIComponent(u.origin + u.pathname)}?w=480&h=480`
+  } catch {
+    return null
+  }
+}
+function CreativeThumb({ image, link, alt }: { image: string | null; link: string | null; alt: string }) {
+  const sources = [image, pagePreview(link)].filter((v): v is string => !!v)
+  const [failed, setFailed] = useState(0)
+  // 미리보기는 처음 요청하면 '만드는 중' 그림(400x300)이 먼저 온다 → 잠시 뒤 다시 받는다 (최대 4번)
+  const [retry, setRetry] = useState(0)
+  const [pending, setPending] = useState(false)
+  const timer = useRef<number>()
+  useEffect(() => () => window.clearTimeout(timer.current), [])
+  const src = sources[failed]
+  if (!src) return <span className="t-cap">이미지 없음</span>
+  const preview = src !== image
+  return (
+    <>
+      <img
+        key={src}
+        src={preview && retry ? `${src}&r=${retry}` : src}
+        alt={alt}
+        loading="lazy"
+        referrerPolicy="no-referrer"
+        className={preview ? 'preview' : undefined}
+        hidden={pending}
+        onError={() => { setPending(false); setFailed(n => n + 1) }}
+        onLoad={e => {
+          const making = preview && e.currentTarget.naturalWidth === 400 && e.currentTarget.naturalHeight === 300
+          if (!making) return setPending(false)
+          if (retry >= 4) return setFailed(n => n + 1)
+          setPending(true)
+          timer.current = window.setTimeout(() => setRetry(n => n + 1), 6000)
+        }}
+      />
+      {pending && <span className="t-cap">미리보기 만드는 중…</span>}
+    </>
+  )
+}
+
 function Creatives({ list, rows, side }: { list: AdCreative[]; rows: AdDaily[]; side: '우리' | '경쟁사' | '해외' }) {
   const [onlyLive, setOnlyLive] = useState(side === '우리')
   const [camp, setCamp] = useState<string | null>(null)
@@ -545,7 +591,7 @@ function Creatives({ list, rows, side }: { list: AdCreative[]; rows: AdDaily[]; 
               {items.map(c => (
                 <a key={c.id} className="ad-creative" href={c.link ?? c.image_url ?? undefined} target="_blank" rel="noreferrer" title={c.note ?? c.name}>
                   <span className={`thumb${/스토리|9:16/.test(c.format ?? '') ? ' tall' : /가로/.test(c.format ?? '') ? ' wide' : ''}`}>
-                    {c.image_url ? <img src={c.image_url} alt={c.name} loading="lazy" referrerPolicy="no-referrer" /> : <span className="t-cap">이미지 없음</span>}
+                    <CreativeThumb image={c.image_url} link={c.link} alt={c.name} />
                   </span>
                   <span className="row" style={{ gap: 4 }}>
                     {c.platform && <i className="ad-dot" style={{ background: P_COLOR[(c.platform as AdPlatform) in P_COLOR ? (c.platform as AdPlatform) : '기타'] }} />}
