@@ -13,12 +13,14 @@ import { usePanelWide, useRightPanel } from '../components/RightPanel'
 import { PersonName } from '../components/Person'
 import { MyInfo } from '../components/MyInfo'
 import { LeaveSection } from '../components/Leave'
+import { WeeklyReportPane } from '../components/WeeklyReport'
 import { Badge, Button, Chip, Field, KindBadge, Linkify, SectionHead, StatusBadge, TodayBadge } from '../components/ui'
 import { AssignTaskButton } from '../components/AssignTask'
 
-type Tab = 'work' | 'attendance' | 'leave' | 'me'
+type Tab = 'work' | 'weekly' | 'attendance' | 'leave' | 'me'
 const TABS: [Tab, string][] = [
   ['work', '업무'],
+  ['weekly', '주간 보고'],
   ['attendance', '근태'],
   ['leave', '휴가'],
   ['me', '내 정보 · 연차'],
@@ -89,6 +91,7 @@ export default function Team() {
       ) : (
         <>
           {tabChips}
+          {tab === 'weekly' && <WeeklyReportPane />}
           {tab === 'leave' && <LeaveSection />}
           {tab === 'me' && (
             <>

@@ -149,3 +149,32 @@
   :where(.main, .dialog, .detail-body) .table-wrap:has(> table[data-stack]) { overflow-x: visible; }
   .dialog > .inner { padding: 12px; }
 }
+
+/* 주간 보고 · 업무 일지 구분 → 프로젝트별 (2026-11-16) */
+.weekly { padding: 2px 0 24px; min-width: 0; }
+.weekly-head { align-items: center; }
+.weekly-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); }
+.weekly-kpis span { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; background: var(--white); font-size: var(--fs-cap); color: var(--gray); }
+.weekly-kpis b { font-size: var(--fs-num); color: var(--ink); font-weight: 700; }
+.weekly-kpis .warn b { color: var(--alert); }
+.weekly-kpis .ok b { color: var(--green, #0b5a24); }
+.weekly-box { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--line); background: var(--white); }
+.weekly-gap { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 6px 0; border-bottom: 1px dashed var(--line); min-width: 0; }
+.weekly-gap .badge { flex-shrink: 0; }
+.weekly-gap .grow { min-width: 140px; }
+.weekly-sel { flex: 0 1 260px; min-width: 160px; }
+.weekly-fix { display: flex; flex-direction: column; gap: 8px; padding-top: 8px; }
+.weekly-div, .log-div { display: flex; flex-direction: column; gap: 8px; }
+.weekly-div-head, .log-div-head { display: flex; align-items: baseline; gap: 8px; padding: 4px 0 4px 8px; border-left: 4px solid var(--gray); border-bottom: 1px solid var(--line); }
+.weekly-proj { padding: 0 0 4px 12px; }
+.weekly-proj-head, .log-proj-head { align-items: baseline; flex-wrap: wrap; }
+.log-proj { padding-left: 12px; }
+.log-groups.nested .log-div-head { padding-top: 0; border-bottom: 0; }
+.weekly-logs { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; }
+.weekly-logs li { display: flex; align-items: baseline; gap: 8px; padding: 5px 0; border-bottom: 1px solid var(--line); min-width: 0; }
+.weekly-logs li:last-child { border-bottom: 0; }
+.weekly-day { flex: 0 0 84px; font-size: var(--fs-cap); color: var(--gray); text-align: left; white-space: nowrap; }
+.weekly-text { flex: 1; min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: var(--fs-body); }
+.weekly-fixed { font-size: var(--fs-cap); color: var(--pink); font-weight: 700; white-space: nowrap; }
+.weekly-read { white-space: pre-wrap; overflow-wrap: anywhere; padding: 6px 0; }
+@media (max-width: 640px) { .weekly-logs li { flex-wrap: wrap; } .weekly-day { flex-basis: 100%; } .weekly-proj, .log-proj { padding-left: 4px; } }
