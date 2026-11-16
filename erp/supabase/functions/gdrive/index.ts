@@ -174,6 +174,18 @@ async function syncAndSave(p: Proj) {
   return r
 }
 const PROJ_COLS = 'id,name,code,division,start_date,created_at,drive_url'
+/** 폴더 주소가 없는 새 프로젝트(이 기능을 넣은 2026-11-16 뒤 · 만든 지 2분~3일)에 폴더를 만들어 줌 — 예전 프로젝트는 건드리지 않음 · 2분은 화면에서 만들 때와 겹치지 않게 */
+const AUTO_FOLDER_FROM = '2026-11-16T00:00:00Z'
+async function ensureNewProjects(): Promise<number> {
+  const since = new Date(Math.max(Date.parse(AUTO_FOLDER_FROM), Date.now() - 3 * 86400_000)).toISOString()
+  const { data } = await sb.from('projects').select(PROJ_COLS).is('drive_url', null).gte('created_at', since).lte('created_at', new Date(Date.now() - 2 * 60_000).toISOString()).order('created_at').limit(3)
+  let n = 0
+  for (const p of (data ?? []) as Proj[]) {
+    const r = await syncAndSave(p).catch(() => null)
+    if (r?.url) n++
+  }
+  return n
+}
 
 // ---------------------------------------------------------------- 파일 목록 동기화 (읽기만)
 interface DFile {
@@ -503,10 +515,12 @@ Deno.serve(async req => {
     const want = await secret('GDRIVE_SYNC_KEY')
     if (!want || syncKey !== want) return json({ error: '열쇠가 맞지 않습니다.' }, 403)
     try {
+      // 화면 밖에서 만든 새 프로젝트(AI 비서 등)도 폴더를 자동으로 (대표 지시 2026-11-16) — 폴더 주소가 아직 없는 새 프로젝트만, 한 번에 3개
+      const made = await ensureNewProjects().catch(() => 0)
       // 수신방 정리를 먼저 (짧게) → 그다음 목록 동기화 (오래 걸릴 수 있음)
       const inbox = await fileInbox(Date.now() + 40_000).catch(e => ({ error: e instanceof Error ? e.message : '수신방 정리 실패' }))
       const r = await syncAll(false)
-      return json({ ...r, inbox })
+      return json({ ...r, inbox, made })
     } catch (e) {
       if (e instanceof NotConnected) return json({ error: e.message, not_connected: true }, 409)
       return json({ error: e instanceof Error ? e.message : '동기화 실패' }, 500)
