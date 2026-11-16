@@ -243,6 +243,8 @@ export interface Api extends SalesStrategyApi, SalesApi, GrowthApi, SalesReportA
   setRoomMembers(roomId: string, members: string[]): Promise<string[]>
   /** 팀원과 1:1 대화방 열기 (없으면 만듦) → 방 id */
   openDm(otherId: string): Promise<string>
+  /** 내 개인 AI 비서와의 1:1 대화방 (없으면 만든다 · 나만 보임) */
+  openMyAssistant(): Promise<{ agent_id: string; room_id: string }>
   listMessages(roomId: string, limit?: number): Promise<ChatMessage[]>
   /** parentId 가 있으면 그 메시지의 스레드 답글 */
   sendMessage(roomId: string, content: string, parentId?: number | null): Promise<ChatMessage>

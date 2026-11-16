@@ -27,7 +27,7 @@ import { Link, useRouter } from '../lib/router'
 import { TODAY_STATUSES, type TodayStatus } from '../lib/types'
 import { Presence, toneOf } from './ui'
 import { countedUnread, rememberRoomLevels, useChatTick } from '../lib/chat'
-import { QuickChat } from '../pages/Quick'
+import { QuickChat, QUICK_OPEN_ROOM } from '../pages/Quick'
 import { DockTodo } from './DockTodo'
 import type { ChatRoomSummary } from '../lib/types'
 import './ShellUsability.css'
@@ -199,7 +199,7 @@ const DOCK_W_KEY = 'wkly-chat-dock-w'
 const DOCK_MIN = 260
 const DOCK_MAX = 720
 function ChatDock() {
-  const { api, version } = useApp()
+  const { api, version, bump, toast } = useApp()
   const chatTick = useChatTick()
   const { data: rooms } = useAsync(() => api.listRooms(), [version, chatTick], [] as ChatRoomSummary[])
   const unread = rooms.reduce((s, r) => s + countedUnread(r), 0)
@@ -251,6 +251,17 @@ function ChatDock() {
       /* 무시 */
     }
   }
+  const openAssistant = async () => {
+    try {
+      const { room_id } = await api.openMyAssistant()
+      bump()
+      // 방 목록이 새로 읽힌 뒤 그 방을 고르게 함
+      window.setTimeout(() => window.dispatchEvent(new CustomEvent(QUICK_OPEN_ROOM, { detail: room_id })), 400)
+      window.dispatchEvent(new CustomEvent(QUICK_OPEN_ROOM, { detail: room_id }))
+    } catch (e) {
+      toast(friendlyError(e))
+    }
+  }
   const toggle = () => {
     setOpen(o => {
       try {
@@ -278,6 +289,9 @@ function ChatDock() {
         <b>채팅</b>
         {unread > 0 && <span className="side-n">{unread > 99 ? '99+' : unread}</span>}
         <span className="grow" />
+        <button type="button" className="chat-dock-full chat-dock-sec" onClick={openAssistant} title="나만 보는 개인 AI 비서 · 할 일 · 일정 · 업무 일지 · 주간 보고 초안">
+          <Bot size={13} aria-hidden="true" /> 내 비서
+        </button>
         <Link to="/chat" className="chat-dock-full" title="방 만들기 · 나중에 보기 · 스레드는 전체 화면에서">
           전체 화면
         </Link>

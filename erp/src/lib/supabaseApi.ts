@@ -338,6 +338,9 @@ export function createSupabaseApi(url: string, key: string): Api {
       const all = [...new Set([u.user?.id, ...members].filter((x): x is string => !!x))]
       return must(await sb.from('chat_rooms').insert({ name: `group:${Date.now().toString(36)}:${all.slice().sort().join(":")}`, members: all, created_by: u.user?.id }).select().single()) as ChatRoom
     },
+    async openMyAssistant() {
+      return must(await sb.rpc('my_assistant')) as { agent_id: string; room_id: string }
+    },
     async openDm(otherId) {
       return must(await sb.rpc('chat_open_dm', { p_other: otherId })) as string
     },
