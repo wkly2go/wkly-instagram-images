@@ -41,12 +41,15 @@ export function SalesStrategyDesk(){
   <header><div><p className="sales-strategy-eyebrow">AI SALES PLANNING</p><h1>AI 영업 기획실</h1><p>새로운 고객군과 상품·영업 방법을 기획하고, 대표님이 승인한 안을 실행 업무로 연결합니다.</p></div><div className="sales-strategy-schedule"><strong>{state.loading?'설정 확인 중':state.error?'자동 기획 상태 확인 필요':state.data.automatic?'자동 기획 켜짐':'자동 기획 꺼짐'}</strong><span>24시간 운영 · 뉴스 수집 3시간마다 · 새 기획 4시간마다 · 09:00 보고</span><small>하루 자동 기획 최대 6건 · 수동 포함 최대 12건 · 기존 AI 사용 한도 내 실행</small></div></header>
   <ol className="sales-strategy-howto" aria-label="사용 방법"><li><strong>① 편할 때 열기</strong><span>AI가 24시간 소식을 모아 4시간마다 기획안을 올려 둡니다.</span></li><li><strong>② 승인 또는 반려</strong><span>카드의 승인·반려만 누릅니다. 반려 사유는 다음 기획에 반영됩니다.</span></li><li><strong>③ 필요할 때만 지시</strong><span>궁금한 것은 아래 버튼이나 입력 칸으로 물어봅니다.</span></li></ol>
   {api.mode!=='demo'&&!events.loading&&!events.error&&events.data.brand_total>0&&<p className="sales-strategy-note" role="status"><strong>행사 참가 브랜드 자동 조사</strong> · {events.error?'현황을 불러오지 못했습니다(운영 반영 전일 수 있습니다).':eventBrandSummary(events.data)}</p>}
-  {me.role==='admin'&&<SalesMethodProposals api={api} canDecide={api.mode!=='demo'}/>}
-  {me.role==='admin'&&<SalesBidQualifications api={api} canEdit={api.mode!=='demo'}/>}
-  {me.role==='admin'&&api.mode!=='demo'&&<SalesRecipientScope api={api} canEdit/>}
-  {me.role==='admin'&&<SalesAdAudience api={api} enabled={api.mode!=='demo'}/>}
-  {me.role==='admin'&&api.mode!=='demo'&&<SalesInstagramConnect api={api}/>}
-  {me.role==='admin'&&api.mode!=='demo'&&<SalesOpsHealth api={api}/>}
+  {/* 디자인 v8 3단계 (2026-11-16): 설정 · 점검 칸은 한 묶음으로 접어 두고 기획 · 대화가 먼저 보이게 */}
+  {me.role==='admin'&&<details className="sales-settings"><summary><b>영업 설정 · 점검</b><span>영업 방법 제안 · 입찰 참가 자격 · 수신자 범위 · 광고 고객 목록 · Instagram DM · 운영 점검</span></summary><div className="sales-settings-body">
+  <SalesMethodProposals api={api} canDecide={api.mode!=='demo'}/>
+  <SalesBidQualifications api={api} canEdit={api.mode!=='demo'}/>
+  {api.mode!=='demo'&&<SalesRecipientScope api={api} canEdit/>}
+  <SalesAdAudience api={api} enabled={api.mode!=='demo'}/>
+  {api.mode!=='demo'&&<SalesInstagramConnect api={api}/>}
+  {api.mode!=='demo'&&<SalesOpsHealth api={api}/>}
+  </div></details>}
   <SalesDeskChat api={api} agents={profiles.filter(p=>p.is_agent&&p.active).map(p=>({id:p.id,name:p.name}))} canSubmit={me.role==='admin'} operational={api.mode!=='demo'} plans={{items:page===0&&!state.error?state.data.items:[],busy:busy||state.loading,error,onApprove:approve,loadExecution:row=>api.getSalesExecution(row.id),onApproveExecute:approveExecute,onReject:reject,onOpen:inspect,onPlan:direction=>generate(direction),execution:row=><SalesExecutionReview api={api} strategyId={row.id} revision={row.revision} canDecide={me.role==='admin'&&api.mode!=='demo'}/>}}/>
   <div className="sales-strategy-toolbar"><p>기획안 전체 목록입니다. 대화에서 승인·반려한 결과가 여기에도 기록됩니다.</p><div className="row wrap"><Button kind="outline" disabled={busy||state.loading} onClick={state.reload}>기획안 새로고침</Button>{state.data.items.some(r=>['수정 요청','보류'].includes(r.status))&&<Button kind="ghost" onClick={()=>setShowRejected(v=>!v)}>{showRejected?'반려한 안 숨기기':'반려한 안도 보기'}</Button>}{me.role==='admin'&&<><Button disabled={busy||pending||api.mode==='demo'} onClick={()=>generate()}>AI 새 영업안 기획</Button><Button kind="ghost" disabled={busy||state.loading||!!state.error||api.mode==='demo'} onClick={()=>void run(async()=>{await api.setSalesStrategyAutomatic(!state.data.automatic);state.reload()})}>{state.data.automatic?'자동 기획 끄기':'자동 기획 켜기'}</Button></>}</div></div>
   <p className="sales-strategy-note">AI가 제안한 수요·효과는 검증할 가설입니다. AI가 근거·대상 DB·제안 자료를 준비하고, 대표님은 준비된 기획을 검토합니다. 자료 검색·가공은 시스템 업무입니다. 외부 발송·게시·예약·견적 확정·계약은 실행하지 않습니다.</p>

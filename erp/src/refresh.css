@@ -408,3 +408,65 @@ html:not([data-theme="dark"]) .section-h::before { align-self: center; margin: 0
 .proj-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; padding: 6px 0 4px; }
 .proj-layout { flex: none; }
 .proj-layout button { padding: 2px 12px; }
+
+/* ================================================================================
+   디자인 v8 2단계 마무리 — 프로젝트 상세 · 옆 창 (2026-11-16)
+   ================================================================================ */
+html:not([data-theme="dark"]) .detail-head, html:not([data-theme="dark"]) .modal-col .detail-head { background: #fff; color: var(--v8-ink); border-bottom: 1px solid var(--v8-line); padding: 10px 10px 10px 16px; font-size: var(--fs-sub); }
+html:not([data-theme="dark"]) :is(.detail-head, .modal-col .detail-head) .icon-btn { color: var(--v8-sub); }
+html:not([data-theme="dark"]) .detail-col { background: #fff; }
+.proj-code { font-family: var(--font) !important; border-radius: 999px !important; padding: 3px 10px !important; font-weight: 700; letter-spacing: 0; }
+html:not([data-theme="dark"]) .proj-code:not([style]) { background: var(--v8-tint); color: var(--v8-green); }
+/* 오늘 할 일 요약 상자: 빨간 굵은 테두리 → 연한 바탕 + 왼쪽 강조선 */
+html:not([data-theme="dark"]) .brief { background: #fbfaf7; border: 1px solid var(--v8-line); border-left: 4px solid var(--v8-green); border-radius: var(--v8-r-card) !important; padding: 14px 16px; }
+html:not([data-theme="dark"]) .brief.has-red { background: #fff8f7; border-color: #f4d3cf; border-left-color: #d92d20; }
+html:not([data-theme="dark"]) .brief.has-red .brief-head { color: #b42318; }
+html:not([data-theme="dark"]) .brief-chip { background: #fff; border-color: var(--v8-line-2); color: var(--v8-text); }
+html:not([data-theme="dark"]) .brief-chip.red { background: #fff; border-color: #f0b4ad; color: #b42318; }
+/* 거래처 · 담당자 상자: 분홍 굵은 윗줄 → 일반 카드 */
+html:not([data-theme="dark"]) .pcl-box { border: 1px solid var(--v8-line); border-top: 1px solid var(--v8-line); border-radius: var(--v8-r-card) !important; padding: 12px 14px; }
+html:not([data-theme="dark"]) .board-wrap { border-top: 1px solid var(--v8-line); border-radius: var(--v8-r-card) !important; }
+html:not([data-theme="dark"]) .proj-detail .section, html:not([data-theme="dark"]) .proj-detail > .col, html:not([data-theme="dark"]) .proj-detail .pviz-card { border-color: var(--v8-line); }
+html:not([data-theme="dark"]) .proj-sticky { border-bottom: 1px solid var(--v8-line); }
+html:not([data-theme="dark"]) .drop-strip { border: 1px dashed #b9dbc6; border-radius: var(--v8-r-card) !important; background: #fbfdfb; color: var(--v8-green); }
+html:not([data-theme="dark"]) .pviz-alarm { border-radius: var(--v8-r-ctl) !important; padding: 7px 10px; font-weight: 600; }
+html:not([data-theme="dark"]) .pviz-alarm.red { background: #fff4f2; color: #b42318; box-shadow: inset 3px 0 0 #d92d20; }
+html:not([data-theme="dark"]) .pviz-alarm.amber { background: #fff9eb; color: #8a5a00; box-shadow: inset 3px 0 0 #e0a100; }
+
+/* 디자인 v8 3단계 — 영업 화면: 설정 · 점검 묶음 */
+.sales-settings { border: 1px solid var(--v8-line); border-radius: var(--v8-r-card) !important; background: #fbfaf7; }
+.sales-settings > summary { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; padding: 12px 16px; cursor: pointer; list-style: none; }
+.sales-settings > summary::-webkit-details-marker { display: none; }
+.sales-settings > summary::before { content: '▸'; color: var(--v8-sub); transition: transform .15s; }
+.sales-settings[open] > summary::before { transform: rotate(90deg); }
+.sales-settings > summary b { color: var(--v8-ink); font-size: var(--fs-sub); }
+.sales-settings > summary span { color: var(--v8-sub); font-size: var(--fs-cap); }
+.sales-settings-body { display: flex; flex-direction: column; gap: 12px; padding: 4px 16px 16px; }
+html:not([data-theme="dark"]) .sales-strategy-desk, html:not([data-theme="dark"]) .sales-development { border-top-width: 1px !important; border-color: var(--v8-line) !important; box-shadow: none; }
+
+/* ================================================================================
+   디자인 v8 4단계 — 휴대폰 · 태블릿(터치): 누르는 곳은 최소 40~44px, 카드 간격 12
+   ================================================================================ */
+@media (pointer: coarse) {
+  .btn, .chip, .seg button, .tab, .view-tab, .top-menu-btn, .rp-quiet, .home-focus-row { min-height: 44px; }
+  .btn.btn-sm, .chip.chip-sm { min-height: 40px; }
+  .input, .select { min-height: 44px; }
+  .icon-btn { min-width: 40px; min-height: 40px; }
+  .app-page .profile .side-item { min-height: 44px; }
+  .home-kpis, .home-projs, .proj-cards, .right-pgroups { gap: 12px; }
+  .task-ai-quick .chip, .ast-panel .chip { min-height: 40px; }
+  .tb-event { min-height: 32px; }
+}
+@media (max-width: 640px) {
+  .home-hero { margin: 8px 0 4px; border-radius: var(--v8-r-card) !important; }
+  .home-focus-row { min-height: 44px; }
+  .home-projs { grid-auto-columns: minmax(200px, 72vw); }
+  .sales-settings > summary span { display: none; }
+}
+/* 휴대폰: 섹션 제목의 초록 막대는 왼쪽에 따로(글자와 겹치지 않게) */
+@media (max-width: 640px) {
+  html:not([data-theme="dark"]) .section-h { position: relative; padding-left: 12px; }
+  html:not([data-theme="dark"]) .section-h::before { position: absolute; left: 0; top: 50%; transform: translateY(-50%); height: 16px !important; bottom: auto; }
+  html:not([data-theme="dark"]) .main-view > .section-h { padding-left: calc(var(--m-gut, 16px) + 12px); }
+  html:not([data-theme="dark"]) .main-view > .section-h::before { left: var(--m-gut, 16px); top: 50%; }
+}
