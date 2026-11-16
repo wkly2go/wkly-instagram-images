@@ -22,7 +22,7 @@ export function createSalesPlanner(deps: PlannerDependencies) {
     const work=async()=>{
       try {
         const preparing=job!.phase==='prepare'
-        const result=await deps.generate(job!,preparing?preparationPrompt(job!.plan!,job!.sources,job!.contact_evidence):strategyPrompt(job!))
+        const result=await deps.generate(job!,preparing?preparationPrompt(job!.plan!,job!.sources,job!.contact_evidence,job!.feedback??''):strategyPrompt(job!))
         if(result.error)throw new Error(result.error)
         if(result.status!=='completed'||typeof result.text!=='string')throw new Error('AI 결과가 확정되지 않았습니다. 사용 기록을 확인해 주세요.')
         const plan=preparing?parseStrategyPreparation(result.text):parseStrategyPlan(result.text,job!.sources)
