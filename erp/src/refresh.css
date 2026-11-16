@@ -292,3 +292,8 @@ html[data-topbar-event="holiday"] .tb-deco::after { background: linear-gradient(
 
 @media (prefers-reduced-motion: reduce) { .tb-deco::before, .tb-event { animation: none !important; } }
 @media (max-width: 640px) { .tb-deco::before { -webkit-mask-image: none; mask-image: none; opacity: .6; } }
+
+/* 받는 사람 칩: 내 AI 비서 (2026-11-16) */
+.chip.chip-ai { display: inline-flex; align-items: center; gap: 5px; border-style: dashed; }
+html:not([data-theme="dark"]) .chip.chip-ai { border-color: #c9b3f0; color: #5b3aa3; background: #faf7ff; }
+html:not([data-theme="dark"]) .chip.chip-ai.active { background: #efe7ff; border-style: solid; border-color: #9b7be0; color: #4a2a92; }
