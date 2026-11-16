@@ -1,0 +1,194 @@
+/* ================================================================================
+   WKLY 디자인 v8 (대표 지시 2026-11-16 '인트라넷 디자인 개선해' · Houzz Pro 스타일 계획)
+   - 따뜻한 미색 바탕 · 흰 카드 · 부드러운 둥근 모서리 · 테두리 줄이기 · 흰 위쪽 바
+   - styles.css · usability.css 다음에 읽음 (main.tsx 맨 끝). 이 파일 import 한 줄을 빼면 v7 로 돌아감
+   - 밝은 화면에만 색을 바꿈. '화면 어둡게'(짙은 초록 · data-theme=dark) 색은 그대로 두고 모양(모서리 · 글꼴)만 같이 씀
+   - 금액 끝자리 · 작은 아이콘 · 채팅 칸 왼쪽 고정 · 설계·견적 메뉴 묶음은 건드리지 않음
+   ================================================================================ */
+
+:root {
+  --v8-bg: #f6f4ef;          /* 바탕: 따뜻한 미색 */
+  --v8-card: #ffffff;
+  --v8-line: #ece9e2;        /* 카드 안 구분선 */
+  --v8-line-2: #e2ded5;      /* 입력칸 · 버튼 테두리 */
+  --v8-ink: #1f2a24;         /* 제목 글자 (진한 초록빛 회색 · 검정 아님) */
+  --v8-text: #333c36;        /* 본문 */
+  --v8-sub: #6b746e;         /* 보조 글자 */
+  --v8-green: #1f6b4a;       /* 주 버튼 · 선택 */
+  --v8-green-hover: #185a3d;
+  --v8-tint: #e8f3ec;        /* 고른 상태 바탕 */
+  --v8-hover: #f1efe9;
+  --v8-r-card: 12px;
+  --v8-r-ctl: 8px;
+  --v8-shadow: 0 1px 2px rgba(31, 42, 36, .05), 0 4px 16px rgba(31, 42, 36, .05);
+  --v8-shadow-pop: 0 8px 28px rgba(31, 42, 36, .14);
+  --font: 'Pretendard Variable', Pretendard, 'Noto Sans KR', system-ui, -apple-system, 'Apple SD Gothic Neo', sans-serif;
+}
+
+/* ---------- 색 토큰 (밝은 화면만) ---------- */
+html:not([data-theme="dark"]) {
+  --blue: var(--v8-green);
+  --blue-tint: var(--v8-tint);
+  --side-on: var(--v8-tint);
+  --side-hover: var(--v8-hover);
+  --ink: var(--v8-text);
+  --gray: var(--v8-sub);
+  --line: var(--v8-line);
+  --paper: #faf9f6;
+  --page-bg: var(--v8-bg);
+  --side-dark: var(--v8-bg);
+  --bg-bw: var(--v8-bg);
+}
+html:not([data-theme="dark"]), html:not([data-theme="dark"]) body { background: var(--v8-bg); }
+
+/* ---------- 글꼴: 숫자도 본문 글꼴의 고정폭 숫자 (코딩 글꼴은 코드 · 단축키만) ---------- */
+body { font-family: var(--font); font-feature-settings: 'tnum' 1; -webkit-font-smoothing: antialiased; letter-spacing: -0.1px; }
+.t-meta, .fin-num, .mflow-val, .mflow-grid dd, .rp-task em, .rp-dday, .side-n, .badge, .brief-nums td, .proj-overview > span,
+.board td.num, .pay-sheet .ps-in.num, .vendor-sheet .vs-rate, .pviz-dday, .proj-code, .mini-cal-title, .m-ver {
+  font-family: var(--font) !important; font-variant-numeric: tabular-nums; letter-spacing: -0.2px;
+}
+
+/* ---------- 모서리: 사각(v7) → 카드 12 · 버튼 · 입력 8 · 태그 둥근 알약 ---------- */
+:is(.box, .stat, .kpi, .card, .dialog, .modal, .notif-panel, .pick-list, .new-pop, .proj-group, .web-panel .pviz-card,
+  .right-pitem, .rd-box, .brief, .checkin-card, .bigcal, .sales-strategy-desk, .sales-desk-chat, .sales-development,
+  .lgf-upload, .lgf-other, .today-card, details.box, .proj-detail > .section, .proj-detail > .col) { border-radius: var(--v8-r-card) !important; }
+:is(.btn, .input, .select, .textarea, input[type="text"], input[type="search"], input[type="date"], input[type="number"], select, textarea,
+  .icon-btn, .quick-btn, .new-btn, .one-box, .top-ai, .web-search, .tab, .side-item, .new-pop button, .item, .today-ok,
+  .wk-head, .wk-span, .week-task, .cal-item, .g-bar, .dock-todo-h, .pick-chosen, .instr-res, .bubble, kbd) { border-radius: var(--v8-r-ctl) !important; }
+:is(.badge, .chip, .side-n, .board-count, .brief-chip, .mode-badge, .seg, .seg button, .meter, .meter > *, .avatar, .rd-ai) { border-radius: 999px !important; }
+.mini-cal-grid .day { border-radius: 6px !important; }
+.mini-cal-grid .day i, input[type="radio"] { border-radius: 50% !important; }
+.section-h { border-radius: 0 !important; }
+
+/* ---------- 위쪽 바: 진한 초록 띠 → 흰 바 (로고만 초록) ---------- */
+html:not([data-theme="dark"]) .book, html:not([data-theme="dark"]) .inner, html:not([data-theme="dark"]) .body { background: var(--v8-bg); }
+html:not([data-theme="dark"]) .app-page .topbar { background: #fff !important; border-bottom: 1px solid var(--v8-line); box-shadow: none; min-height: 52px; padding: 8px 16px; }
+html:not([data-theme="dark"]) .top-logo .logo-white { display: none; }
+html:not([data-theme="dark"]) .top-logo .logo-ink { display: block; filter: none; }
+html:not([data-theme="dark"]) .topbar .site-title { color: var(--v8-ink); font-weight: 700; }
+html:not([data-theme="dark"]) .topbar .mode-badge { background: var(--v8-tint); color: var(--v8-green); border: 0; }
+html:not([data-theme="dark"]) .topbar :is(.top-ai, .one-box) { background: var(--v8-bg); border: 1px solid transparent; color: var(--v8-sub); }
+html:not([data-theme="dark"]) .topbar :is(.top-ai, .one-box):hover { border-color: var(--v8-line-2); background: #fff; }
+html:not([data-theme="dark"]) .topbar :is(.top-ai, .one-box) svg { color: var(--v8-green); }
+html:not([data-theme="dark"]) .topbar .one-box-label { color: var(--v8-sub); font-weight: 500; }
+html:not([data-theme="dark"]) .topbar .one-box kbd { color: var(--v8-sub); border-color: var(--v8-line-2); background: #fff; font-family: var(--font); }
+html:not([data-theme="dark"]) .topbar .top-ai input::placeholder { color: var(--v8-sub); }
+html:not([data-theme="dark"]) .topbar :is(.quick-btn, .icon-btn, .main-nav .icon-btn) { background: #fff; border-color: var(--v8-line-2); color: var(--v8-ink); }
+html:not([data-theme="dark"]) .topbar :is(.quick-btn, .icon-btn):hover { background: var(--v8-hover); border-color: var(--v8-line-2); color: var(--v8-green); }
+html:not([data-theme="dark"]) .top-menu-btn { border-color: var(--v8-line-2); color: var(--v8-ink); border-radius: var(--v8-r-ctl) !important; }
+html:not([data-theme="dark"]) .top-menu-btn:hover, html:not([data-theme="dark"]) .top-menu-btn[aria-expanded='true'] { background: var(--v8-hover); color: var(--v8-green); }
+html:not([data-theme="dark"]) .top-menu-pop { border-color: var(--v8-line); border-radius: var(--v8-r-card) !important; box-shadow: var(--v8-shadow-pop); padding: 6px; }
+html:not([data-theme="dark"]) .top-menu-pop > :is(button, a) { color: var(--v8-text); border-radius: var(--v8-r-ctl) !important; }
+html:not([data-theme="dark"]) .top-menu-pop > :is(button, a):hover { background: var(--v8-hover); color: var(--v8-green); }
+.bell .count, .topbar .bell .count { border-radius: 999px !important; font-family: var(--font) !important; background: var(--pink); box-shadow: 0 0 0 2px var(--white); }
+.today-is .t-meta { letter-spacing: .3px; }
+@media (min-width: 901px) { .app-page .topbar .one-box { min-width: 360px; } }
+
+/* ---------- 본문 틀: 미색 바탕 위 흰 작업 칸 ---------- */
+html:not([data-theme="dark"]) .app-page .main { background: #fff; border-radius: var(--v8-r-card) !important; box-shadow: var(--v8-shadow); margin: 10px 10px 10px 0; }
+html:not([data-theme="dark"]) .app-page .web-panel { background: #fff; border: 0; border-radius: var(--v8-r-card) !important; box-shadow: var(--v8-shadow); margin: 10px 10px 10px 0; }
+
+/* ---------- 왼쪽 메뉴: 테두리 없는 글자 메뉴 · 고른 줄만 연한 초록 ---------- */
+html:not([data-theme="dark"]) .profile, html:not([data-theme="dark"]) .body > .profile { background: var(--v8-bg); border-right: 0; --line: var(--v8-line-2); }
+html:not([data-theme="dark"]) .app-page .profile .side-item { color: var(--v8-text); font-weight: 500; }
+html:not([data-theme="dark"]) .app-page .profile .side-item > svg { color: var(--v8-sub); }
+html:not([data-theme="dark"]) .app-page .profile .side-item:hover { background: var(--v8-hover); color: var(--v8-ink); }
+html:not([data-theme="dark"]) .app-page .profile .side-item.on { background: #fff; color: var(--v8-green); font-weight: 700; box-shadow: 0 1px 2px rgba(31, 42, 36, .08); }
+html:not([data-theme="dark"]) .app-page .profile .side-item.on > svg { color: var(--v8-green); }
+.app-page .profile .side-item.on::before, .side-item.on::before { display: none; }
+html:not([data-theme="dark"]) .app-page .profile .side-group-label { color: #8b928d; font-weight: 600; letter-spacing: 0; }
+html:not([data-theme="dark"]) .app-page .profile .new-btn { background: var(--v8-green); border-color: var(--v8-green); color: #fff; font-weight: 700; }
+html:not([data-theme="dark"]) .app-page .profile .new-btn:hover { background: var(--v8-green-hover); }
+html:not([data-theme="dark"]) .profile .side-n.soft { background: #ebe8e1; color: var(--v8-text); }
+.app-page .profile .side-item .side-n { padding: 0 6px; font-weight: 700; }
+html:not([data-theme="dark"]) .app-page .profile .side-item.sub { border-top-color: var(--v8-line-2); }
+html:not([data-theme="dark"]) .app-page .profile .mini-cal-grid .day.today, html:not([data-theme="dark"]) .app-page .profile .mini-cal-grid .day.on { background: var(--v8-green); color: #fff; }
+
+/* ---------- 채팅 칸: 흰 카드 (핑크 구분선 유지) ---------- */
+html:not([data-theme="dark"]) .chat-dock { background: #fbfaf7; border-color: var(--v8-line); }
+html:not([data-theme="dark"]) .chat-dock-h { background: #fff; border-bottom-color: var(--v8-line); color: var(--v8-ink); }
+html:not([data-theme="dark"]) .dock-todo { border-bottom: 1px solid var(--v8-line); }
+html:not([data-theme="dark"]) .dock-todo-h { background: var(--v8-tint); color: var(--v8-green); }
+html:not([data-theme="dark"]) .bubble { border-color: var(--v8-line); }
+
+/* ---------- 섹션 제목: 크고 진하게, 바탕 띠 없이 ---------- */
+html:not([data-theme="dark"]) .section-h { background: transparent; border: 0; border-bottom: 1px solid var(--v8-line); padding: 8px 2px 10px; margin-top: 8px; }
+html:not([data-theme="dark"]) .section-h :is(.t-bodyb, .t-sub) { color: var(--v8-ink) !important; font-size: var(--fs-sub); font-weight: 700; letter-spacing: -0.3px; }
+html:not([data-theme="dark"]) .section-h :is(.more, .more a, a:not(.btn)) { color: var(--v8-sub) !important; }
+html:not([data-theme="dark"]) .section-h :is(.more, a:not(.btn)):hover { color: var(--v8-green) !important; }
+html:not([data-theme="dark"]) .section-h::before { width: 4px !important; height: 16px !important; border-radius: 2px !important; background: var(--v8-green) !important; }
+html:not([data-theme="dark"]) .section-h .btn { background: #fff; color: var(--v8-ink); border-color: var(--v8-line-2); }
+html:not([data-theme="dark"]) .t-title { color: var(--v8-ink); font-weight: 700; letter-spacing: -0.4px; }
+
+/* ---------- 카드 · 숫자 상자 ---------- */
+html:not([data-theme="dark"]) :is(.box, .stat) { background: #fff; border: 1px solid var(--v8-line); box-shadow: 0 1px 2px rgba(31, 42, 36, .04); }
+html:not([data-theme="dark"]) .stat { border-left: 1px solid var(--v8-line); }
+html:not([data-theme="dark"]) .kpi { background: #fff; border-color: var(--v8-line); border-top-width: 3px; box-shadow: 0 1px 2px rgba(31, 42, 36, .04); padding: 12px 14px; }
+html:not([data-theme="dark"]) .kpi:hover { box-shadow: var(--v8-shadow); }
+html:not([data-theme="dark"]) :is(.box, .kpi, .checkin-card, .office-net, .rules-row) { border-color: var(--v8-line); }
+html:not([data-theme="dark"]) :is(.notif-panel, .pick-list, .new-pop, .dialog) { border-color: var(--v8-line); box-shadow: var(--v8-shadow-pop); }
+
+/* ---------- 버튼: 주 버튼 초록 1개, 나머지는 흰 바탕 + 연한 테두리 ---------- */
+.btn { font-weight: 600; transition: background-color .15s, border-color .15s, color .15s, box-shadow .15s; }
+html:not([data-theme="dark"]) :is(.btn-blue, .btn-yellow) { background: var(--v8-green); border-color: var(--v8-green); color: #fff; }
+html:not([data-theme="dark"]) :is(.btn-blue, .btn-yellow):not(:disabled):hover { background: var(--v8-green-hover); border-color: var(--v8-green-hover); color: #fff; filter: none; }
+html:not([data-theme="dark"]) .btn-outline { background: #fff; color: var(--v8-ink); border-color: var(--v8-line-2); }
+html:not([data-theme="dark"]) .btn-outline:not(:disabled):hover { background: var(--v8-hover); color: var(--v8-green); }
+html:not([data-theme="dark"]) .btn-ghost { color: var(--v8-sub); }
+html:not([data-theme="dark"]) .btn-ghost:not(:disabled):hover { background: var(--v8-hover); color: var(--v8-green); }
+.btn:focus-visible, .chip:focus-visible, .tab:focus-visible { outline: 2px solid var(--v8-green); outline-offset: 2px; }
+
+/* ---------- 입력칸 ---------- */
+html:not([data-theme="dark"]) :is(.input, .select, .textarea) { background: #fff; border-color: var(--v8-line-2); color: var(--v8-text); }
+html:not([data-theme="dark"]) :is(.input, .select, .textarea):hover { border-color: #cfcabf; }
+html:not([data-theme="dark"]) :is(.input, .select, .textarea):focus { border-color: var(--v8-green); box-shadow: 0 0 0 3px rgba(31, 107, 74, .12); outline: none; }
+
+/* ---------- 칩 · 배지: 연한 바탕 + 진한 글자 ---------- */
+html:not([data-theme="dark"]) .chip { background: #fff; border-color: var(--v8-line-2); color: var(--v8-text); }
+html:not([data-theme="dark"]) .chip:hover { background: var(--v8-hover); }
+html:not([data-theme="dark"]) :is(.chip.active, .chip.on, .on.chip) { background: var(--v8-tint); border-color: #b9dbc6; color: var(--v8-green); }
+html:not([data-theme="dark"]) :is(.chip.active, .chip.on) * { color: inherit; }
+html:not([data-theme="dark"]) .badge { border: 0; padding: 1px 8px; font-weight: 600; }
+html:not([data-theme="dark"]) :is(.badge.blue, .badge.green, .badge.yellow, .badge.acid) { background: var(--v8-tint); color: var(--v8-green); }
+html:not([data-theme="dark"]) .badge.red { background: #fdecec; color: #b42318; }
+html:not([data-theme="dark"]) .badge.pink { background: #ffe8f6; color: #b8137f; }
+
+/* ---------- 탭: 상자 → 밑줄 ---------- */
+html:not([data-theme="dark"]) .tab { background: transparent; border: 0; border-bottom: 2px solid transparent; box-shadow: none; color: var(--v8-sub); font-weight: 600; border-radius: 0 !important; }
+html:not([data-theme="dark"]) .tab:hover { background: transparent; color: var(--v8-ink); border-bottom-color: var(--v8-line-2); }
+html:not([data-theme="dark"]) :is(.tab.active, .app-page .tab.active) { background: transparent; color: var(--v8-green); border-bottom-color: var(--v8-green); }
+html:not([data-theme="dark"]) .app-page .tabs { border-color: var(--v8-line); }
+html:not([data-theme="dark"]) .seg { background: #f1efe9; border-color: transparent; padding: 2px; }
+html:not([data-theme="dark"]) .seg button.on { background: #fff; color: var(--v8-green); box-shadow: 0 1px 2px rgba(31, 42, 36, .1); }
+
+/* ---------- 표: 세로선 없이 가로선만 ---------- */
+html:not([data-theme="dark"]) .board th { background: transparent; color: var(--v8-sub); font-weight: 600; border-bottom: 1px solid var(--v8-line-2); }
+html:not([data-theme="dark"]) .board td { border-bottom: 1px solid var(--v8-line); color: var(--v8-text); }
+html:not([data-theme="dark"]) .board tbody tr:hover td { background: #faf9f6; }
+html:not([data-theme="dark"]) .board td.title :is(.t-smallb, a) { color: var(--v8-ink); }
+html:not([data-theme="dark"]) .board tbody tr.sel td { background: var(--v8-tint); }
+html:not([data-theme="dark"]) .board-count { border-color: var(--v8-line-2); color: var(--v8-sub); }
+
+/* ---------- 목록 줄 (메일 · 채팅방 · 결재) ---------- */
+html:not([data-theme="dark"]) :is(.item.active, .pane-list .item.active) { background: var(--v8-tint); color: var(--v8-green); }
+
+/* ---------- 월별 일정표: 연한 선 ---------- */
+html:not([data-theme="dark"]) .bigcal { border-color: var(--v8-line); overflow: hidden; }
+html:not([data-theme="dark"]) .bigcal :is(.day, .dow) { border-color: var(--v8-line); }
+
+/* ---------- 휴대폰: 아래 메뉴 · 카드 간격 그대로, 바탕만 미색 ---------- */
+@media (max-width: 640px) {
+  :root:not([data-theme="dark"]) { --page-bg: var(--v8-bg); }
+  html:not([data-theme="dark"]) .app-page .main, html:not([data-theme="dark"]) .app-page .web-panel { margin: 0; border-radius: 0 !important; box-shadow: none; }
+  html:not([data-theme="dark"]) .app-page .topbar { min-height: 48px; padding: 6px 12px; gap: 6px; }
+  .topbar .top-logo img { height: 24px !important; width: auto; }
+  .topbar .mode-badge { padding: 0 8px !important; }
+  .app-page .topbar .one-box { flex: 1 1 auto; min-width: 0; }
+}
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme="dark"]), html:not([data-theme="dark"]) body { background: var(--v8-bg); }
+}
+
+/* ---------- '화면 어둡게'(본인 선택): 색은 짙은 초록 그대로, 모양만 v8 ---------- */
+html[data-theme="dark"] .app-page .main { border-radius: var(--v8-r-card) !important; margin: 10px 10px 10px 0; }
+@media (max-width: 640px) { html[data-theme="dark"] .app-page .main { margin: 0; border-radius: 0 !important; } }
