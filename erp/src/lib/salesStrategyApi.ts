@@ -22,11 +22,12 @@ export function createSupabaseSalesStrategyApi(sb: SupabaseClient): SalesStrateg
   async getRecipientScope() { const r=await sb.rpc('sales_recipient_scope_get');if(r.error&&['PGRST202','42883'].includes(r.error.code??''))return '미정';fail(r.error);return r.data??'미정' },
   async setRecipientScope(scope) { const r=await sb.rpc('sales_recipient_scope_set',{p_scope:scope}).retry(false);fail(r.error) },
   async approveSalesStrategyAndExecute(id,revision,packageId,version,fingerprint) { const r=await sb.rpc('sales_strategy_approve_execute',{p_id:id,p_revision:revision,p_package:packageId,p_version:version,p_fingerprint:fingerprint}).retry(false);fail(r.error);return String(r.data??'') },
+  async getAdAudienceByPurpose() { const r=await sb.rpc('sales_ad_audience_by_purpose');if(r.error&&['PGRST202','42883'].includes(r.error.code??''))return [];fail(r.error);return r.data??[] },
   async getAdAudience() { const r=await sb.rpc('sales_ad_audience');fail(r.error);return r.data??[] },
   async decideSalesMethodProposal(id,decision) { const r=await sb.rpc('sales_method_decide',{p_id:id,p_decision:decision}).retry(false);fail(r.error) },
 } }
 export function createDemoSalesStrategyApi(): SalesStrategyApi { const unavailable=async()=>{throw new ApiError('운영 계정에서 AI 영업 기획과 승인을 사용할 수 있습니다.')};return {
   getSalesExecution:async()=>null,decideSalesExecution:unavailable,
   listSalesDesk:async()=>[],submitSalesDesk:unavailable,
-  async listSalesStrategies(){return {items:[],total:0,automatic:false}},requestSalesStrategy:unavailable,getSalesEventBrands:async()=>({scope:'',brand_total:0,events:[]}),decideSalesStrategy:unavailable,listStrategyTasks:async()=>[],updateStrategyTask:unavailable,setSalesStrategyAutomatic:unavailable,listSalesMethodProposals:async()=>[],decideSalesMethodProposal:unavailable,listBidQualifications:async()=>[],setBidQualification:unavailable,getAdAudience:unavailable,approveSalesStrategyAndExecute:unavailable,getRecipientScope:async()=>'미정' as const,setRecipientScope:unavailable,
+  async listSalesStrategies(){return {items:[],total:0,automatic:false}},requestSalesStrategy:unavailable,getSalesEventBrands:async()=>({scope:'',brand_total:0,events:[]}),decideSalesStrategy:unavailable,listStrategyTasks:async()=>[],updateStrategyTask:unavailable,setSalesStrategyAutomatic:unavailable,listSalesMethodProposals:async()=>[],decideSalesMethodProposal:unavailable,listBidQualifications:async()=>[],setBidQualification:unavailable,getAdAudience:unavailable,getAdAudienceByPurpose:unavailable,approveSalesStrategyAndExecute:unavailable,getRecipientScope:async()=>'미정' as const,setRecipientScope:unavailable,
 } }

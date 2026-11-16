@@ -66,7 +66,7 @@ test('drafts are written as customer-ready text and wording problems are listed 
 
 test('the Google customer list uses the required headers, one contact per line',async()=>{
  const {googleAudienceCsv}=await import('../src/lib/salesStrategy.ts')
- assert.equal(googleAudienceCsv([{email:'a@b.kr',phone:'+821012345678',segment:'거래처'},{email:'c@d.kr',phone:'',segment:'문의'}]),'Email,Phone,Country\r\na@b.kr,+821012345678,KR\r\nc@d.kr,,KR\r\n')
+ assert.equal(googleAudienceCsv([{email:'a@b.kr',phone:'+821012345678',segment:'거래처'},{email:'c@d.kr',phone:'',segment:'문의'}]),'Email,Phone\r\na@b.kr,+821012345678\r\nc@d.kr,\r\n')
 })
 
 test('too many or over-long checks are trimmed, and a preparation without any check is refused',()=>{
