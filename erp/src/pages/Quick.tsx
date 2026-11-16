@@ -18,6 +18,8 @@ import { Empty, KindBadge } from '../components/ui'
 type Mode = 'log' | 'chat' | 'menu'
 
 const ROOM_KEY = 'wkly-quick-room'
+/** 빠른 채팅에서 이 방을 열어 달라는 신호 (detail = 방 id) */
+export const QUICK_OPEN_ROOM = 'wkly-quick-open-room'
 
 /**
  * 빠른 창 방 고르기 묶음 (대표 지시 2026-11-10 "사람 팀원과 프로젝트 구분 · 프로젝트 성격에 따라 · 진행 중과 완료")
@@ -212,6 +214,17 @@ function QuickLog() {
 
 export function QuickChat({ rooms }: { rooms: ChatRoomSummary[] }) {
   const [chosen, setChosen] = useState(load(ROOM_KEY))
+  // 바깥(왼쪽 채팅 칸의 '내 비서' 등)에서 방을 골라 줄 때
+  useEffect(() => {
+    const on = (e: Event) => {
+      const id = (e as CustomEvent<string>).detail
+      if (typeof id !== 'string' || !id) return
+      setChosen(id)
+      save(ROOM_KEY, id)
+    }
+    window.addEventListener(QUICK_OPEN_ROOM, on)
+    return () => window.removeEventListener(QUICK_OPEN_ROOM, on)
+  }, [])
   const { api, me, profileName, profiles, version } = useApp()
   const { data: projects } = useAsync(() => api.listProjects(), [version], [] as Project[])
   const room = rooms.find(r => r.id === chosen) ?? rooms[0] ?? null

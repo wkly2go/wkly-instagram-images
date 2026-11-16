@@ -211,3 +211,6 @@
 .alarm-input { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; min-width: 0; }
 .alarm-input > .input { flex: 1 1 170px; min-width: 0; }
 .alarm-input > .alarm-preset { flex: 0 1 150px; min-width: 110px; }
+
+/* 채팅 칸 '내 비서' 버튼 (2026-11-16) */
+.chat-dock-sec { display: inline-flex; align-items: center; gap: 3px; border: 1px solid currentColor; background: none; cursor: pointer; font: inherit; }
