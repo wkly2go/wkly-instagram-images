@@ -51,12 +51,15 @@ var HEADS = {
   "\uC65C \uC9C0\uAE08": "why",
   "\uC218\uD589 \uBC29\uC2DD": "approach",
   "\uC9C4\uD589 \uACC4\uD68D": "steps",
+  "\uD568\uAED8\uD558\uBA74": "steps",
   "\uC5ED\uD560 \uBD84\uB2F4": "roles",
   "\uACAC\uC801 \uAE30\uC900": "budget",
-  "\uB2E4\uC74C \uB2E8\uACC4": "next"
+  "\uB2E4\uC74C \uB2E8\uACC4": "next",
+  "\uC774\uB7F0 \uC544\uC774\uB514\uC5B4": "ideas",
+  "\uC544\uC774\uB514\uC5B4": "ideas"
 };
 function parseProposal(md) {
-  const p = { title: "", summary: "", why: "", approach: "", steps: [], roles: [], budget: "", next: "", rest: "", structured: false };
+  const p = { title: "", summary: "", why: "", approach: "", steps: [], roles: [], budget: "", next: "", ideas: [], stepsTitle: "\uC9C4\uD589 \uACC4\uD68D", rest: "", structured: false };
   let current = null;
   const rest = [];
   for (const raw of md.replace(/\r\n?/g, "\n").split("\n")) {
@@ -75,6 +78,7 @@ function parseProposal(md) {
       if (key) {
         current = HEADS[key];
         p.structured = true;
+        if (current === "steps") p.stepsTitle = head[1].replace(/^\d+[.)]\s*/, "").slice(0, 30);
         continue;
       }
       if (!p.title) {
@@ -86,7 +90,7 @@ function parseProposal(md) {
       continue;
     }
     if (!line) {
-      if (current && current !== "steps" && current !== "roles") p[current] += "\n";
+      if (current && current !== "steps" && current !== "roles" && current !== "ideas") p[current] += "\n";
       else if (!current) rest.push("");
       continue;
     }
@@ -94,6 +98,13 @@ function parseProposal(md) {
       const cells = line.replace(/^(?:[-*]\s*|\d+[.)]\s+)/, "").split("|").map((c) => c.trim());
       if (cells.length >= 3) p.steps.push({ step: cells[0], period: cells[1] ?? "", work: cells[2] ?? "", output: cells[3] ?? "" });
       else if (p.steps.length) p.steps[p.steps.length - 1].work += " " + line;
+      continue;
+    }
+    if (current === "ideas") {
+      const m = /^[-*\d.)\s]*([^:：]{1,40})[:：]\s*(.+)$/.exec(line);
+      if (m) p.ideas.push({ name: m[1].trim(), text: m[2].trim() });
+      else if (p.ideas.length) p.ideas[p.ideas.length - 1].text += " " + line.replace(/^[-*]\s*/, "");
+      else p.ideas.push({ name: "", text: line.replace(/^[-*]\s*/, "") });
       continue;
     }
     if (current === "roles") {
@@ -120,7 +131,7 @@ function parseProposal(md) {
 var esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 var paras = (s, style) => s.split(/\n{2,}|\n/).map((t) => t.trim()).filter(Boolean).map((t) => `<p style="${style}">${esc(t)}</p>`).join("");
 var C = { bg: "#F6F4EF", card: "#FFFFFF", ink: "#1F2A24", sub: "#5F6A63", line: "#E7E3DA", green: "#1F6B4A", tint: "#EEF5F0", warm: "#F7F1E8", pink: "#FD37BE" };
-var OPT_OUT = /원치 않|수신을 원하지|받지 않으시려면|불필요하시면|그만 받/;
+var OPT_OUT = /원치 않|수신을 원하지|받지 않으시려면|불필요하시면|그만 받|편하게 (답장|회신)/;
 var FONT = "'Pretendard','Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif";
 var P = `margin:0 0 12px;font-size:15px;line-height:1.75;color:${C.ink};`;
 var H = (t) => `<tr><td style="padding:28px 40px 10px;"><div style="font-size:12px;letter-spacing:2px;color:${C.green};font-weight:700;">${esc(t)}</div></td></tr>`;
@@ -143,9 +154,13 @@ function renderSalesEmailHtml({ subject, body, proposal, sender }) {
       rows.push(H("\uC218\uD589 \uBC29\uC2DD"));
       rows.push(`<tr><td style="padding:0 40px;"><div style="background:${C.tint};padding:18px 20px;">${paras(pr.approach, P.replace("margin:0 0 12px", "margin:0 0 8px"))}</div></td></tr>`);
     }
+    if (pr.ideas.length) {
+      rows.push(H("\uC774\uB7F0 \uC544\uC774\uB514\uC5B4\uB294 \uC5B4\uB5A0\uC138\uC694"));
+      rows.push(`<tr><td style="padding:0 40px;">${pr.ideas.slice(0, 4).map((d, i) => `<div style="background:${i % 2 ? C.warm : C.tint};padding:16px 20px;margin:0 0 10px;">${d.name ? `<div style="font-size:16px;font-weight:700;color:${C.ink};"><span style="color:${C.pink};">\u25CF</span> ${esc(d.name)}</div>` : ""}<div style="margin-top:6px;font-size:15px;line-height:1.7;color:${C.ink};">${esc(d.text)}</div></div>`).join("")}</td></tr>`);
+    }
     if (pr.steps.length) {
-      rows.push(H("\uC9C4\uD589 \uACC4\uD68D"));
-      rows.push(`<tr><td style="padding:0 40px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">${pr.steps.map((s, i) => `<tr><td valign="top" style="width:36px;padding:12px 0;border-top:1px solid ${C.line};"><div style="width:26px;height:26px;line-height:26px;text-align:center;background:${C.green};color:#fff;font-size:13px;font-weight:700;">${i + 1}</div></td><td valign="top" style="padding:12px 0 12px 8px;border-top:1px solid ${C.line};"><div style="font-size:15px;font-weight:700;color:${C.ink};">${esc(s.step)}${s.period ? ` <span style="font-weight:400;color:${C.sub};font-size:13px;">\xB7 ${esc(s.period)}</span>` : ""}</div><div style="margin-top:4px;font-size:14px;line-height:1.65;color:${C.ink};">${esc(s.work)}</div>${s.output ? `<div style="margin-top:4px;font-size:13px;color:${C.green};">\uC0B0\uCD9C\uBB3C \xB7 ${esc(s.output)}</div>` : ""}</td></tr>`).join("")}</table></td></tr>`);
+      rows.push(H(pr.stepsTitle || "\uC9C4\uD589 \uACC4\uD68D"));
+      rows.push(`<tr><td style="padding:0 40px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">${pr.steps.map((s, i) => `<tr><td valign="top" style="width:36px;padding:12px 0;border-top:1px solid ${C.line};"><div style="width:26px;height:26px;line-height:26px;text-align:center;background:${C.green};color:#fff;font-size:13px;font-weight:700;">${i + 1}</div></td><td valign="top" style="padding:12px 0 12px 8px;border-top:1px solid ${C.line};"><div style="font-size:15px;font-weight:700;color:${C.ink};">${esc(s.step)}${s.period ? ` <span style="font-weight:400;color:${C.sub};font-size:13px;">\xB7 ${esc(s.period)}</span>` : ""}</div><div style="margin-top:4px;font-size:14px;line-height:1.65;color:${C.ink};">${esc(s.work)}</div>${s.output ? `<div style="margin-top:4px;font-size:13px;color:${C.green};">${pr.stepsTitle.startsWith("\uD568\uAED8") ? "\uACB0\uACFC\uBB3C" : "\uC0B0\uCD9C\uBB3C"} \xB7 ${esc(s.output)}</div>` : ""}</td></tr>`).join("")}</table></td></tr>`);
     }
     if (pr.roles.length) {
       rows.push(H("\uC5ED\uD560 \uBD84\uB2F4"));
@@ -159,7 +174,7 @@ function renderSalesEmailHtml({ subject, body, proposal, sender }) {
       rows.push(H("\uC81C\uC548 \uB0B4\uC6A9"));
       rows.push(`<tr><td style="padding:0 40px;">${paras(pr.rest, P)}</td></tr>`);
     }
-    rows.push(`<tr><td style="padding:24px 40px 8px;">${pr.next ? paras(pr.next, P) : ""}<a href="${esc(reply)}" style="display:inline-block;background:${C.green};color:#ffffff;text-decoration:none;font-size:15px;font-weight:700;padding:13px 22px;">\uD68C\uC2E0\uC73C\uB85C \uBBF8\uD305 \uC694\uCCAD\uD558\uAE30</a></td></tr>`);
+    rows.push(`<tr><td style="padding:24px 40px 8px;">${pr.next ? paras(pr.next, P) : ""}<a href="${esc(reply)}" style="display:inline-block;background:${C.green};color:#ffffff;text-decoration:none;font-size:15px;font-weight:700;padding:13px 22px;">\uD3B8\uD558\uAC8C \uB2F5\uC7A5\uD558\uAE30</a></td></tr>`);
   }
   if (closing.length) rows.push(`<tr><td style="padding:20px 40px 4px;">${paras(closing.join("\n"), P.replace(`color:${C.ink}`, `color:${C.sub}`).replace("font-size:15px", "font-size:14px"))}</td></tr>`);
   rows.push(`<tr><td style="padding:28px 40px 32px;border-top:1px solid ${C.line};font-size:12px;line-height:1.7;color:${C.sub};"><b style="color:${C.ink};">\uB354\uC704\uD074\uB9AC\uCEF4\uD37C\uB2C8</b> \xB7 \uD589\uC0AC \uAE30\uD68D\xB7\uC6B4\uC601\xB7\uD64D\uBCF4 \uCF58\uD150\uCE20 \xB7 \uACF5\uAC04 \uB514\uC790\uC778\xB7\uC81C\uC791\uC740 \uB354\uC704\uD074\uB9AC \uD06C\uB8E8\uAC00 \uD568\uAED8\uD569\uB2C8\uB2E4<br>\uC11C\uC6B8 \uB9C8\uD3EC\uAD6C \uC131\uC9C0\uAE38 25-11 \xB7 ${esc(sender)} \xB7 <a href="https://www.thewklyn.com" style="color:${C.green};">thewklyn.com</a></td></tr>`);

@@ -73,7 +73,7 @@ function StrategyReport({row,onClose,onDone,onReplan}:{row:SalesStrategy;onClose
    <h3>근거로 사용한 저장 자료</h3>{p.evidence_ids.length?<ul className="sales-strategy-evidence">{row.sources.filter(s=>p.evidence_ids.includes(s.id)).map(s=><li key={s.id}><strong>{s.name}</strong><small>{s.source} · {s.source_updated_at?time(s.source_updated_at):'자료 시각 미확인'}</small><p>{s.evidence}</p>{/^https?:\/\//i.test(s.source_url)&&<a href={s.source_url} target="_blank" rel="noopener noreferrer">등록 출처 확인 ↗</a>}</li>)}</ul>:<p>특정 회사의 수요를 뒷받침하는 근거가 없습니다. 고객군·수요 조사부터 진행하는 실험안입니다.</p>}
    <details><summary>자료 취합 범위와 한계</summary>{row.source_status.map(s=><p key={s.source}>{s.source} · {s.status} · {s.source_at?time(s.source_at):'수집 시각 미확인'}<br/>{s.note}</p>)}<p>연결된 자료 안에서 기획했습니다. 전국 행사 전체나 모든 참가 기업을 조회했다는 의미는 아닙니다.</p></details>
    <h3>시스템이 추가 검증할 사항</h3><ul>{p.questions.map((q,i)=><li key={i}>{q}</li>)}</ul>
-   <h3>시스템 후속 처리 계획</h3><ol>{p.steps.map((s,i)=><li key={i}><strong>{s.action}</strong> · 승인 {s.day===0?'당일':`${s.day}일 후`}<p>{s.output}</p></li>)}</ol>
+   <h3>영업 단계별 아이디어와 계획</h3><ol>{p.steps.map((s,i)=><li key={i}><strong>{s.action}</strong> · 승인 {s.day===0?'당일':`${s.day}일 후`}<p>{s.output}</p></li>)}</ol>
    <h3>성과 판단 기준</h3><ul>{p.metrics.map((m,i)=><li key={i}>{m}</li>)}</ul>
    <details><summary>첫 연락 문안 · 발송 전 초안</summary><p className="sales-strategy-message">{p.first_message}</p><p className="sales-strategy-note">실제 수신자와 제안 범위를 확인한 뒤 외부 연락을 승인합니다.</p></details>
   </>}

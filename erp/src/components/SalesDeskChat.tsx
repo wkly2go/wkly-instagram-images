@@ -79,6 +79,7 @@ function PlanProposal({row,plans,canDecide}:{row:SalesStrategy;plans:DeskPlans;c
   {row.status==='기획 중'?<p role="status">자료를 읽고 기획안을 작성하고 있습니다.</p>:!p?<p className="sales-desk-text">기획안을 완성하지 못했습니다. 아래에서 다시 지시하거나 ‘AI 새 영업안 기획’으로 새 안을 받을 수 있습니다.</p>:<>
    <h3>{p.title}</h3>
    <dl><div><dt>대상</dt><dd>{p.customer}</dd></div><div><dt>제안</dt><dd>{p.offer}</dd></div><div><dt>지금 하는 이유</dt><dd>{p.why_now}</dd></div></dl>
+   {!!p.steps?.length&&<details className="sales-desk-stages" open={row.status==='승인 대기'}><summary>영업 단계별 아이디어와 계획 · {p.steps.length}단계</summary><ol>{p.steps.map((s,i)=><li key={i}><strong>{s.action}</strong>{s.output&&<span> → {s.output}</span>}<small> · 승인 {s.day===0?'당일':`${s.day}일 뒤`}</small></li>)}</ol></details>}
   </>}
   {waiting&&!ready&&<p className="sales-desk-note">{row.preparation_status==='확인 필요'?(row.preparation_error||'자료 준비를 끝내지 못했습니다.')+' 반려하고 다시 기획할 수 있습니다.':'AI가 대상과 제안 자료를 준비하고 있습니다. 준비가 끝나면 승인할 수 있습니다.'}</p>}
   {waiting&&!row.preparation_before_approval&&<p className="sales-desk-note">승인하면 시스템이 이 기획으로 수행 계획과 디자인된 메일 초안을 작성합니다(2~3분). 메일은 미리보기를 보고 한 번 더 승인하셔야 나갑니다.</p>}
