@@ -81,7 +81,8 @@ function PlanProposal({row,plans,canDecide}:{row:SalesStrategy;plans:DeskPlans;c
    <dl><div><dt>대상</dt><dd>{p.customer}</dd></div><div><dt>제안</dt><dd>{p.offer}</dd></div><div><dt>지금 하는 이유</dt><dd>{p.why_now}</dd></div></dl>
   </>}
   {waiting&&!ready&&<p className="sales-desk-note">{row.preparation_status==='확인 필요'?(row.preparation_error||'자료 준비를 끝내지 못했습니다.')+' 반려하고 다시 기획할 수 있습니다.':'AI가 대상과 제안 자료를 준비하고 있습니다. 준비가 끝나면 승인할 수 있습니다.'}</p>}
-  {row.status==='승인'&&<p className="sales-desk-note">승인됨 · 실행 자료와 대상은 시스템이 이어서 준비합니다. 외부 발송은 아래 실행 묶음(수신자·문안·일정)을 승인한 범위에서만 진행됩니다.</p>}
+  {waiting&&!row.preparation_before_approval&&<p className="sales-desk-note">승인하면 시스템이 이 기획으로 수행 계획과 디자인된 메일 초안을 작성합니다(2~3분). 메일은 미리보기를 보고 한 번 더 승인하셔야 나갑니다.</p>}
+  {row.status==='승인'&&<p className="sales-desk-note">{row.preparation_status==='완료'?'승인됨 · 수행 계획과 메일 초안이 준비됐습니다. 아래 실행 묶음에서 메일 미리보기를 확인하고 보내기를 승인해 주세요.':row.preparation_status==='확인 필요'?`승인됨 · 초안 작성이 막혔습니다: ${row.preparation_error||'원인 확인 중'} (시스템이 자동으로 다시 시도합니다)`:'승인됨 · 시스템이 수행 계획과 디자인 메일 초안을 작성하고 있습니다. 끝나면 아래에 메일 미리보기와 보내기 승인 버튼이 나옵니다.'}</p>}
   {['수정 요청','보류'].includes(row.status)&&<p className="sales-desk-note">반려됨{row.feedback?` · ${row.feedback}`:''}</p>}
   {canDecide&&REJECTED.includes(row.status)&&p&&<p className="sales-desk-actions"><Button kind="outline" disabled={plans.busy} onClick={()=>plans.onPlan(`이전 안: ${p.title}. 수정 방향: ${row.feedback||'다른 대상과 방법으로 근거 중심 재기획'}`.slice(0,600))}>사유를 반영한 개선안 받기</Button></p>}
   {canDecide&&waiting&&ready&&pkg&&(sendable?<section className="sales-desk-send-summary" aria-label="승인하면 실행되는 내용"><strong>승인하면 이대로 실행됩니다</strong>
