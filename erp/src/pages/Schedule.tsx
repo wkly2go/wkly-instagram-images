@@ -587,8 +587,16 @@ export function MonthCalendar({ projects, tasks }: { projects: Project[]; tasks:
     return m
   }, [tasks, projects, leaves, personal, mine, me.id, month, today, profileName])
 
-  // 달력 한 칸에 보이는 일정 수 (대표 지시 2026-11-16 '더 크게 만들어서 잘 보이게' · 3 → 5)
-  const CELL_MAX = 5
+  // 달력 한 칸에 보이는 일정 수 (대표 지시 2026-11-16 '더 크게 · 화면을 넘어가지 않게'):
+  // 창 높이와 그 달의 주 수에 맞춰 2~5건 — 달력 전체가 한 화면에 들어오게
+  const weeks = Math.ceil(monthGrid(month).length / 7)
+  const [winH, setWinH] = useState(() => window.innerHeight)
+  useEffect(() => {
+    const on = () => setWinH(window.innerHeight)
+    window.addEventListener('resize', on)
+    return () => window.removeEventListener('resize', on)
+  }, [])
+  const CELL_MAX = Math.max(2, Math.min(5, Math.floor(((winH - 250) / weeks - 58) / 26)))
   const item = (it: CalItem) =>
     it.personal ? (
       <button key={it.key} type="button" className={`cal-item c-personal${it.personal.done ? ' p-done' : ''}`} onClick={() => setPEdit({ ev: it.personal })} title={`${it.label}${it.personal.memo ? `\n${it.personal.memo}` : ''}`}>
