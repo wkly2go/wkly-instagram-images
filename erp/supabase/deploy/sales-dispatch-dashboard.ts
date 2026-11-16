@@ -384,7 +384,7 @@ Deno.serve(async (req) => {
         const trial = await rpc("sales_dispatch_test_claim", { p_id: job });
         test = trial?.test === true;
         if (test) return trial;
-        const next = await rpc("sales_followup_claim", { p_id: job });
+        const next = await rpc("sales_followup_send_claim", { p_id: job });
         followup = next?.followup === true;
         return followup ? next : null;
       },
@@ -398,7 +398,7 @@ Deno.serve(async (req) => {
         return transmitGmail(lease, signal, cfg ? { ...cfg, enabled: cfg.enabled || test && lease.test === true } : null);
       },
       finish: async (job, token, outcome, providerId) => {
-        await rpc(test ? "sales_dispatch_test_finish" : followup ? "sales_followup_finish" : "sales_dispatch_finish", { p_id: job, p_token: token, p_outcome: outcome, p_provider_id: providerId });
+        await rpc(test ? "sales_dispatch_test_finish" : followup ? "sales_followup_send_finish" : "sales_dispatch_finish", { p_id: job, p_token: token, p_outcome: outcome, p_provider_id: providerId });
       }
     });
   })().then(() => void 0, () => void 0);
