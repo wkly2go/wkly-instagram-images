@@ -423,7 +423,7 @@ export interface Task {
   /** 자료실 리서치에서 만든 할 일 */
   source_research_id: string | null
   /** 메일 · 첨부자료에서 만든 일정 (사람이 직접 적은 것은 없음) · 출처 이름 (2026-11-01) */
-  origin?: '메일' | '첨부자료' | null
+  origin?: '메일' | '첨부자료' | '설계 공정' | null
   origin_ref?: string | null
   created_by: string | null
   created_at: string
