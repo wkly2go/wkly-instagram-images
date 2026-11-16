@@ -1,3 +1,4 @@
+import { AdTeamPlan } from '../components/AdTeamPlan'
 import { GrowthWorkspace } from '../components/GrowthWorkspace'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowRight, BarChart3, BookOpen, ChevronDown, ExternalLink, Images, Loader2, Megaphone, RefreshCw, Search, TriangleAlert } from 'lucide-react'
@@ -20,7 +21,7 @@ const num = (n: number) => Math.round(n).toLocaleString('ko-KR')
 const pct = (a: number, b: number) => (b ? `${((a / b) * 100).toFixed(2)}%` : '–')
 const shortNum = (n: number) => (n >= 10000 ? `${(n / 10000).toFixed(n >= 100000 ? 0 : 1)}만` : num(n))
 
-type Tab = 'content' | 'summary' | 'studio' | 'platform' | 'charts' | 'daily-table' | 'creatives' | 'competitors' | 'overseas' | 'daily' | 'seo'
+type Tab = 'content' | 'summary' | 'studio' | 'platform' | 'charts' | 'daily-table' | 'creatives' | 'competitors' | 'overseas' | 'daily' | 'seo' | 'team'
 const TABS: [Tab, string][] = [
   ['content', '콘텐츠·배포'],
   ['summary', '대시보드'],
@@ -33,6 +34,7 @@ const TABS: [Tab, string][] = [
   ['overseas', '해외 사례'],
   ['daily', '일일 보고'],
   ['seo', '검색 노출 (SEO · AEO · GEO)'],
+  ['team', '광고 운영팀'],
 ]
 const GROUPS = [
   { label: '콘텐츠·배포', icon: Images, tabs: ['content'] as Tab[], description: '네이버 블로그·인스타그램·유튜브 글을 작성하고, 검수·발행 기록과 연결 광고를 관리하세요.' },
@@ -40,6 +42,7 @@ const GROUPS = [
   { label: '소재 관리', icon: Images, tabs: ['creatives'] as Tab[], description: '등록된 광고 소재와 성과를 확인하세요. 새 문구와 이미지는 캠페인 준비에서 관리합니다.' },
   { label: '성과·보고서', icon: BarChart3, tabs: ['summary', 'platform', 'charts', 'daily-table', 'daily'] as Tab[], description: '대시보드에서 광고 현황을 확인하고, 매체별 성과·추이·일일 보고를 살펴보세요.' },
   { label: '리서치·검색', icon: Search, tabs: ['competitors', 'overseas', 'seo'] as Tab[], description: '경쟁사·해외 광고 사례와 검색·AI 답변의 브랜드 노출을 확인하세요.' },
+  { label: '광고 운영팀', icon: Megaphone, tabs: ['team'] as Tab[], description: '광고 기획 · 퍼포먼스 · 콘텐츠 · UI·UX·AX · 영상이 한 팀으로 움직이는 운영 기획입니다. 결재는 대표가 합니다.' },
 ]
 const NUMBER_TABS: Tab[] = ['summary', 'platform', 'charts', 'daily-table']
 type Period = ReturnType<typeof adPeriod>
@@ -100,7 +103,7 @@ export default function Ads() {
         </nav>}
         <section className="ads-content" aria-label={TABS.find(([key]) => key === tab)![1]}>
           <p className="ads-help">{group.description}</p>
-          {tab === 'content' ? <GrowthWorkspace kind="content" /> : tab === 'studio' ? <MarketingDesk key={query.get('id')??'default'} initialCampaignId={query.get('id')??undefined} /> : NUMBER_TABS.includes(tab) ? <NumbersWorkspace tab={tab} range={range} platform={platform} period={period} setRange={setRange} setPlatform={setPlatform} goTab={setTab} />
+          {tab === 'team' ? <AdTeamPlan /> : tab === 'content' ? <GrowthWorkspace kind="content" /> : tab === 'studio' ? <MarketingDesk key={query.get('id')??'default'} initialCampaignId={query.get('id')??undefined} /> : NUMBER_TABS.includes(tab) ? <NumbersWorkspace tab={tab} range={range} platform={platform} period={period} setRange={setRange} setPlatform={setPlatform} goTab={setTab} />
             : tab === 'creatives' ? <CreativeWorkspace period={period} />
             : tab === 'seo' ? <SearchWorkspace />
             : <ReportWorkspace key={tab} kind={tab === 'competitors' ? '경쟁사 분석' : tab === 'overseas' ? '해외 사례' : '일일 보고'} />}

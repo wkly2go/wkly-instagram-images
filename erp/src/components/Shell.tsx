@@ -301,7 +301,7 @@ function ChatDock() {
         <Link to="/chat" className="chat-dock-full" title="방 만들기 · 나중에 보기 · 스레드는 전체 화면에서">
           전체 화면
         </Link>
-        <button type="button" className="icon-btn sm" onClick={toggle} aria-label="채팅 접기" title="채팅 접기">
+        <button type="button" className="icon-btn sm dock-fold" onClick={toggle} aria-label="채팅 접기" title="채팅 접기">
           <ChevronLeft size={15} />
         </button>
       </div>

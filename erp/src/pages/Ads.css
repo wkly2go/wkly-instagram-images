@@ -156,3 +156,24 @@ details[open] > summary > .ads-details-chevron { transform: rotate(180deg); }
 @media (max-width: 800px) { .seo-detail dl { grid-template-columns: 1fr; gap: 2px; } .seo-detail dd { margin-bottom: 6px; } }
 /* 소재 이미지가 없을 때의 페이지 미리보기: 화면 위쪽부터 보이게 */
 .ad-creative img.preview { object-position: top center; }
+
+/* 광고 운영팀 기획 (2026-11-16) */
+.adteam { display: flex; flex-direction: column; gap: 18px; max-width: 1080px; }
+.adteam-state { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; padding: 10px 14px; border: 1px solid #ead9a8; background: #fffbea; border-radius: 10px; font-size: var(--fs-sm); }
+.adteam-sec h2 { margin: 0 0 8px; font-size: var(--fs-title); }
+.adteam-list { margin: 0; padding-left: 18px; display: grid; gap: 5px; line-height: 1.6; }
+.adteam-roles { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
+.adteam-role { border: 1px solid var(--line); background: var(--white); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
+.adteam-role h3 { margin: 0; font-size: var(--fs-sub); }
+.adteam-role p { margin: 0; font-size: var(--fs-sm); line-height: 1.55; color: var(--gray); }
+.adteam-role .adteam-out { margin-top: auto; padding-top: 6px; border-top: 1px dashed var(--line); }
+.adteam-role .adteam-out b { color: var(--blue); margin-right: 4px; }
+.adteam-code { align-self: flex-start; font-size: var(--fs-cap); font-weight: 700; padding: 1px 8px; border-radius: 999px; background: var(--blue-tint); color: var(--blue); }
+.adteam-table td:first-child { white-space: nowrap; font-weight: 700; }
+.adteam-table td:nth-child(2) { white-space: nowrap; }
+.adteam-table tr.gate td { background: #fffbea; }
+.adteam-gate { margin-left: 8px; font-size: var(--fs-cap); font-weight: 700; padding: 1px 8px; border-radius: 999px; background: var(--pink); color: #fff; white-space: nowrap; }
+.adteam-note { margin: 8px 0 0; font-size: var(--fs-sm); color: var(--gray); line-height: 1.6; }
+.adteam-two { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px; }
+.adteam-steps { margin: 0; padding-left: 20px; display: grid; gap: 6px; line-height: 1.55; }
+.adteam-steps span { display: block; font-size: var(--fs-cap); color: var(--gray); }

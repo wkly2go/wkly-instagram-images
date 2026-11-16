@@ -225,6 +225,14 @@ export function createSupabaseApi(url: string, key: string): Api {
     },
     async signOut() {
       setReadScope(null)
+      // 로그아웃하면 이 브라우저의 PC 알림 등록도 지움 — 다음 사람이 쓰는 PC 에 내 알림이 뜨지 않게 (대표 지시 2026-11-16 '알람은 해당 팀원에게만')
+      try {
+        const reg = await navigator.serviceWorker?.getRegistration('/')
+        const sub = await reg?.pushManager.getSubscription()
+        if (sub) await sb.from('push_subscriptions').delete().eq('endpoint', sub.endpoint)
+      } catch {
+        /* 알림을 안 쓰는 브라우저 */
+      }
       await sb.auth.signOut()
     },
     async changePassword(password) {
