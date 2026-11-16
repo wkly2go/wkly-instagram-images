@@ -17,7 +17,9 @@ before(async()=>{
  create table private.test_material(payload jsonb,blockers jsonb);
  insert into private.test_material values('${JSON.stringify({messages:[{recipient:'Deal@Client.co.kr'},{recipient:'ask@brand.com'},{recipient:'staff@wkly.test'}],targets:[{source_id:'1',email:'deal@client.co.kr',email_origin:'거래처 DB'},{source_id:'2',email:'ask@brand.com',email_origin:'공식 사이트 공개 주소'},{source_id:'3',email:'staff@wkly.test',email_origin:'연결 없음'}],schedule:{expires_at:'2026-11-17T05:00:00+00:00'},sender:null,transport_enabled:false})}','${JSON.stringify([...stub,'다른 차단 사유'])}');
  create function private.sales_execution_material(p_id uuid) returns jsonb language sql stable as $$select case when p_id='${plan}' then jsonb_build_object('payload',payload,'blockers',blockers,'fingerprint','old') end from private.test_material$$;`)
+ await db.exec(`create table sales_execution_packages(strategy_id uuid,version integer,payload jsonb)`)
  await db.exec(await readFile(new URL('../supabase/migrations/20261115090137_sales_send_gate.sql',import.meta.url),'utf8'))
+ await db.exec(await readFile(new URL('../supabase/migrations/20261115090139_sales_test_package_schedule.sql',import.meta.url),'utf8'))
 })
 test('with no rule chosen and no send permission nothing can go out, and the placeholders are replaced by real reasons',async()=>{
  const m=await material()
@@ -57,4 +59,15 @@ test('a test send goes once, only to a named test address, with the fixed text',
  await db.exec("update private.sales_dispatch_tests set created_at=now()-interval '11 minutes';update private.sales_sender_readiness set code='read_only',can_send=false")
  const stale=(await one("select private.sales_dispatch_test_start('staff@wkly.test') id")).id
  assert.equal((await one('select public.sales_dispatch_test_claim($1) l',[stale])).l,null);assert.equal((await one('select state from private.sales_dispatch_tests where id=$1',[stale])).state,'expired')
+})
+test('a package addressed only to test addresses is scheduled for the next full hour and keeps that hour',async()=>{
+ await db.exec(`update private.sales_sender_readiness set code='ready',can_send=true;update private.test_material set payload=jsonb_set(payload,'{messages}','[{"recipient":"staff@wkly.test"}]')`)
+ const m=await material(),at=new Date(m.payload.schedule.at)
+ assert.equal(m.payload.test_run,true);assert.equal(at.getUTCMinutes(),0);assert.ok(at.getTime()>Date.now()&&at.getTime()-Date.now()<=3600_000)
+ assert.equal(new Date(m.payload.schedule.expires_at).getTime()-at.getTime(),4*3600_000);assert.deepEqual(m.blockers,['다른 차단 사유'])
+ const kept=new Date(at.getTime()-3*3600_000).toISOString()
+ await db.query('insert into sales_execution_packages values($1,1,$2)',[plan,JSON.stringify({test_run:true,schedule:{at:kept,expires_at:new Date(at.getTime()+3600_000).toISOString()}})])
+ assert.equal(new Date((await material()).payload.schedule.at).toISOString(),kept)
+ await db.exec(`update private.test_material set payload=jsonb_set(payload,'{messages}','[{"recipient":"staff@wkly.test"},{"recipient":"deal@client.co.kr"}]')`)
+ const mixed=await material();assert.equal(mixed.payload.test_run,undefined);assert.equal(mixed.payload.schedule.expires_at,'2026-11-17T05:00:00+00:00')
 })
