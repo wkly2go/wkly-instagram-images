@@ -206,3 +206,8 @@
   .wp-empty { color: #555; }
   .wp-foot { margin-top: 5mm; font-size: 8pt; color: #666; text-align: right; }
 }
+
+/* 알람 입력: 직접 지정 + 빠른 선택 (2026-11-16) */
+.alarm-input { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; min-width: 0; }
+.alarm-input > .input { flex: 1 1 170px; min-width: 0; }
+.alarm-input > .alarm-preset { flex: 0 1 150px; min-width: 110px; }

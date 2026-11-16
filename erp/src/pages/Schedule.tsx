@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { ProjectOptions } from '../components/ProjectOptions'
 import { TextLinks } from '../components/ui'
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
@@ -120,13 +121,7 @@ export function TaskAssignModal({ task, projects, tasks, presetProject, presetAs
         <Field label="프로젝트">
           <select className="select" value={f.project_id} onChange={e => setF({ ...f, project_id: e.target.value })}>
             <option value="">없음</option>
-            {projects
-              .filter(p => p.status !== '완료' || p.id === f.project_id)
-              .map(p => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
+            <ProjectOptions projects={projects.filter(p => p.status !== '완료' || p.id === f.project_id)} />
           </select>
         </Field>
         <Field label="단계 (일정표 묶음)">
@@ -254,12 +249,7 @@ export function Gantt({ projects, tasks }: { projects: Project[]; tasks: Task[] 
             const list = active.filter(p => p.status === st)
             return list.length ? (
               <optgroup key={st} label={st === 'NIC' ? `NIC (계약 전) ${list.length}` : `${st} ${list.length}`}>
-                {list.map(p => (
-                  <option key={p.id} value={p.id}>
-                    {p.code ? `${p.code} ` : ''}
-                    {p.name}
-                  </option>
-                ))}
+                <ProjectOptions projects={list} />
               </optgroup>
             ) : null
           })}

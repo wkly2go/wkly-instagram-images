@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { ProjectOptions } from './ProjectOptions'
 import { TextLinks } from './ui'
 import { useAction, useApp } from '../lib/app'
 import { manwon, nextMonday, shortDate, todayKey, weekday } from '../lib/date'
@@ -162,11 +163,7 @@ export function PaymentForm({
             <Field label="프로젝트 (현장)">
               <select className="select" value={f.project_id ?? ''} onChange={e => set({ project_id: e.target.value || null, budget_line_id: null })}>
                 <option value="">없음</option>
-                {projects.map(p => (
-                  <option key={p.id} value={p.id}>
-                    {[p.code, p.name].filter(Boolean).join(' ')}
-                  </option>
-                ))}
+                <ProjectOptions projects={projects} />
               </select>
             </Field>
             )}

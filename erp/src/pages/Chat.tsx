@@ -1,4 +1,5 @@
 import { UserPic } from '../components/UserPic'
+import { ProjectOptions } from '../components/ProjectOptions'
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { Linkify } from '../components/ui'
 import { RoomMembersModal } from '../components/RoomMembers'
@@ -749,11 +750,7 @@ function NewRoom({ onClose, onCreated }: { onClose: () => void; onCreated: (id: 
       <Field label="연결할 프로젝트 (선택)">
         <select className="select" value={projectId} onChange={e => setProjectId(e.target.value)}>
           <option value="">없음</option>
-          {projects.map(p => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
+          <ProjectOptions projects={projects} />
         </select>
       </Field>
       <span className="t-cap">모든 팀원이 볼 수 있는 방입니다.</span>

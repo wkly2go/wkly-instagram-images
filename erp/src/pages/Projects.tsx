@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { AlarmInput } from '../components/AlarmInput'
 import { ChevronDown, AlarmClock, ArrowLeft, Building2, CalendarDays, CalendarRange, GanttChart, LayoutDashboard, ListChecks, Network, Repeat, Users, Wallet, Plus, CheckCircle2, ChevronLeft, ChevronRight, CircleSlash, FolderOpen, Pencil, Search, Trash2, Mail, Copy } from 'lucide-react'
 import { ProjectMaterials } from '../components/ProjectMaterials'
 import { SiteSurveySection } from '../components/SiteSurvey'
@@ -562,7 +563,7 @@ function TaskAdder({ projectId, defaultAssignee }: { projectId: string | null; d
       <input className="input" style={{ width: 132 }} type="date" value={due} onChange={e => setDue(e.target.value)} aria-label="마감일" title="마감일" />
       <label className="row" style={{ gap: 4 }} title="이 시각에 알림 (PC 알림을 켜면 화면 밖에서도 알려 줘요)">
         <AlarmClock size={15} className="t-blue" />
-        <input className="input" style={{ width: 178 }} type="datetime-local" value={alarm} onChange={e => setAlarm(e.target.value)} aria-label="알람 시각" />
+        <AlarmInput value={alarm} onChange={setAlarm} width={178} />
       </label>
       <Button onClick={add} disabled={busy || !title.trim()}>
         추가

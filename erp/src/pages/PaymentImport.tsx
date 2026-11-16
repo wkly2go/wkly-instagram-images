@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
+import { ProjectOptions } from '../components/ProjectOptions'
 import { FileSpreadsheet } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { manwon, shortDate } from '../lib/date'
@@ -187,11 +188,7 @@ export function PaymentImport({ projects, existing, onDone }: { projects: Projec
           <div className="row wrap">
             <select className="select" style={{ flex: '1 1 220px' }} value={target} onChange={e => setTarget(e.target.value)} aria-label="가져올 프로젝트">
               <option value="new">새 프로젝트 만들기</option>
-              {projects.map(p => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
+              <ProjectOptions projects={projects} />
             </select>
             {target === 'new' && (
               <Field label="새 프로젝트 이름" className="grow">

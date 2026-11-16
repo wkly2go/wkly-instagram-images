@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
+import { ProjectOptions } from './ProjectOptions'
 import { FileSpreadsheet } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { manwon, shortDate } from '../lib/date'
@@ -148,11 +149,7 @@ export function TaxInvoices({ projects }: { projects: Project[] }) {
                           title={x.project_id ? pName.get(x.project_id) : '프로젝트 연결'}
                         >
                           <option value="">— 연결 안 함</option>
-                          {projects.map(p => (
-                            <option key={p.id} value={p.id}>
-                              {pName.get(p.id)}
-                            </option>
-                          ))}
+                          <ProjectOptions projects={projects} />
                         </select>
                       </td>
                     </tr>
