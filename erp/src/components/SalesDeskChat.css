@@ -26,3 +26,8 @@
 .sales-desk-summary{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:16px 0 0;padding:10px 14px;background:#fdf1f5;border:1px solid #f1c7d6}
 .sales-desk-chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}.sales-desk-chips .btn,.sales-desk-chips button{white-space:normal;text-align:left}
 .sales-desk-more{margin:8px 0 0}.sales-desk-more>summary{cursor:pointer;color:#4d5a50;font-size:13px}.sales-desk-more .sales-desk-options{margin-top:10px}
+
+.sales-desk-send-summary{margin:12px 0 0;padding:12px 14px;background:#f6faf6;border:1px solid #cfe0d0}
+.sales-desk-send-summary dl{display:grid;gap:6px;margin:8px 0 0}.sales-desk-send-summary dl div{display:grid;grid-template-columns:76px 1fr;gap:8px}
+.sales-desk-send-summary dt{color:#4d5a50;font-size:13px}.sales-desk-send-summary dd{margin:0;overflow-wrap:anywhere}
+.sales-desk-send-summary details{margin:8px 0 0}.sales-desk-send-summary summary{cursor:pointer;color:#0d5a2e}

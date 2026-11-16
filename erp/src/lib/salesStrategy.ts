@@ -36,6 +36,8 @@ export interface SalesStrategyApi extends SalesExecutionApi {
   setBidQualification(kind: BidQualification['kind'], name: string, status: BidQualification['status']): Promise<void>;
   /** 광고 고객 목록 (관리자만): 직접 거래 · 연락한 상대의 메일과 전화 */
   getAdAudience(): Promise<AdAudienceRow[]>;
+  /** 기획과 화면에 보인 실행 묶음을 한 번에 승인. 승인 뒤 다시 만든 묶음의 내용이 다르면 기획만 승인된다. */
+  approveSalesStrategyAndExecute(id: string, revision: number, packageId: string, version: number, fingerprint: string): Promise<string>;
   /** 승인된 영업 메일을 보낼 수 있는 수신자 범위 (관리자만) */
   getRecipientScope(): Promise<RecipientScope>;
   setRecipientScope(scope: RecipientScope): Promise<void>;
@@ -106,7 +108,7 @@ export function draftIssues(p:Pick<StrategyPreparation,'proposal'|'contact_draft
   }
   if(p.contact_draft.length<120)issues.push('연락 문안이 너무 짧음')
   if(!/더위클리|아트리어/.test(p.contact_draft))issues.push('연락 문안에 보내는 회사 이름이 없음')
-  if(!/원치 않|수신을 원하지|받지 않으시려면/.test(p.contact_draft))issues.push('연락 문안에 수신 거부 안내가 없음')
+  if(!/원치 않|수신을 원하지|받지 않으시려면|불필요하시면|그만 받/.test(p.contact_draft))issues.push('연락 문안에 수신 거부 안내가 없음')
   return [...new Set(issues)]
 }
 export function parseStrategyPreparation(text:string):StrategyPreparation {

@@ -3,7 +3,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.117.3";
 
 // supabase/functions/sales-brand-site/handler.ts
-var OTHER = /(^|\.)(instagram|facebook|youtube|x|twitter|tiktok|threads|linkedin|pinterest|naver|daum|kakao|tistory|google|coupang|11st|gmarket|auction|ssg|musinsa|29cm|oliveyoung|wikipedia|namu|wadiz|tumblbug|saramin|jobkorea|wanted|greetinghr|catch|blind|brunch|medium|notion|linktr|apple|amazon)\.[a-z.]+$|(news|press|times|daily|ilbo|sinmun|herald|biz|media|journal|tv|magazine|blog|wiki|review)\b|(^|\.)xn--/i;
+var OTHER = /(^|\.)(instagram|facebook|youtube|x|twitter|tiktok|threads|linkedin|pinterest|naver|daum|kakao|tistory|google|coupang|11st|gmarket|auction|ssg|musinsa|29cm|oliveyoung|wikipedia|namu|wadiz|tumblbug|saramin|jobkorea|wanted|greetinghr|catch|blind|brunch|medium|notion|linktr|apple|amazon)\.[a-z.]+$|(news|press|times|daily|ilbo|sinmun|herald|biz|media|journal|tv|magazine|blog|wiki|review)\b|(^|\.)xn--|^(www\.)?(cafe24\.com|imweb\.me|sixshop\.com|shopify\.com|myshopify\.com|wix\.com|wixsite\.com|modoo\.at|godo\.co\.kr|makeshop\.co\.kr|smartstore\.naver\.com|github\.io)$/i;
 var squash = (v) => v.toLowerCase().replace(/<[^>]*>/g, "").replace(/[\s·.,'"()\[\]㈜]|주식회사|\(주\)/g, "");
 function origin(value) {
   if (typeof value !== "string" || value.length > 1e3) return "";
@@ -15,13 +15,18 @@ function origin(value) {
     return "";
   }
 }
+function variants(brand) {
+  const out = [brand, brand.replace(/[(（\[][^)）\]]*[)）\]]/g, " "), ...[...brand.matchAll(/[(（\[]([^)）\]]+)[)）\]]/g)].map((m) => m[1])].map((v) => squash(v)).filter((v) => v.length >= 2);
+  return [...new Set(out)];
+}
 function candidates(input, brand) {
   if (!Array.isArray(input)) throw new Error("format");
-  const key = squash(brand), out = [];
+  const keys = variants(brand), out = [];
   for (const r of input) {
     const site2 = origin(r?.url);
     if (!site2 || out.includes(site2)) continue;
-    if (!squash(String(r?.title ?? "") + " " + String(r?.description ?? "")).includes(key)) continue;
+    const shown = squash(String(r?.title ?? "") + " " + String(r?.description ?? ""));
+    if (!keys.some((k) => shown.includes(k))) continue;
     out.push(site2);
     if (out.length === 3) break;
   }
@@ -29,7 +34,7 @@ function candidates(input, brand) {
 }
 function titled(input, brand) {
   if (!Array.isArray(input)) return [];
-  const key = squash(brand), out = [];
+  const keys = variants(brand), out = [];
   for (const r of input) {
     const site2 = origin(r?.url);
     if (!site2 || out.includes(site2)) continue;
@@ -38,7 +43,8 @@ function titled(input, brand) {
     } catch {
       continue;
     }
-    if (key.length >= 2 && squash(String(r?.title ?? "")).startsWith(key)) out.push(site2);
+    const title = squash(String(r?.title ?? ""));
+    if (keys.some((k) => title.startsWith(k))) out.push(site2);
   }
   return out;
 }
@@ -84,9 +90,10 @@ var meta = (html, name) => {
   return "";
 };
 function inspect(html, site2, brand) {
-  const body = text(html), key = squash(brand), host = new URL(site2).hostname.replace(/^www\./, "");
+  const body = text(html), host = new URL(site2).hostname.replace(/^www\./, "");
   const identity = [html.match(/<title[^>]*>([^<]{0,200})/i)?.[1] ?? "", meta(html, "og:site_name"), meta(html, "og:title"), meta(html, "application-name"), ...[...body.matchAll(/(?:©|ⓒ|\(c\)|copyright)[^|]{0,80}/gi)].slice(0, 3).map((m) => m[0])].join(" ");
-  const named = key.length >= 2 && (squash(identity).includes(key) || /^[a-z0-9]{3,}$/.test(key) && host.replace(/[^a-z0-9]/g, "").includes(key));
+  const shown = squash(identity), plain = host.replace(/[^a-z0-9]/g, "");
+  const named = variants(brand).some((k) => shown.includes(k) || /^[a-z0-9]{3,}$/.test(k) && plain.includes(k));
   let contact_page = "";
   const more = [];
   for (const m of html.matchAll(/<a\b[^>]*href\s*=\s*["']([^"'#]{1,500})["'][^>]*>([\s\S]{0,200}?)<\/a>/gi)) {
@@ -139,7 +146,7 @@ function createBrandSiteHandler(d) {
           search: for (const provider of d.providers) {
             let rows;
             try {
-              rows = await provider.search(job.brand + " \uACF5\uC2DD \uD648\uD398\uC774\uC9C0");
+              rows = await provider.search(job.brand.replace(/[(（\[][^)）\]]*[)）\]]/g, " ").replace(/\s+/g, " ").trim() + " \uACF5\uC2DD \uD648\uD398\uC774\uC9C0");
             } catch (error) {
               const reason = error instanceof Error ? error.message : "";
               failure = `${provider.name} ${reason === "auth" ? "\uAC80\uC0C9 \uD0A4 \uC778\uC99D \uC2E4\uD328" : reason === "quota" ? "\uAC80\uC0C9 \uD55C\uB3C4 \uB3C4\uB2EC" : "\uAC80\uC0C9 \uC751\uB2F5 \uC2E4\uD328"}`;
