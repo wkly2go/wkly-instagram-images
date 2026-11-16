@@ -46,7 +46,136 @@ async function runSalesDispatch(id, d) {
   return { state: outcome, recorded: false };
 }
 
+// src/lib/salesEmail.ts
+var HEADS = {
+  "\uC65C \uC9C0\uAE08": "why",
+  "\uC218\uD589 \uBC29\uC2DD": "approach",
+  "\uC9C4\uD589 \uACC4\uD68D": "steps",
+  "\uC5ED\uD560 \uBD84\uB2F4": "roles",
+  "\uACAC\uC801 \uAE30\uC900": "budget",
+  "\uB2E4\uC74C \uB2E8\uACC4": "next"
+};
+function parseProposal(md) {
+  const p = { title: "", summary: "", why: "", approach: "", steps: [], roles: [], budget: "", next: "", rest: "", structured: false };
+  let current = null;
+  const rest = [];
+  for (const raw of md.replace(/\r\n?/g, "\n").split("\n")) {
+    const line = raw.trim();
+    const head = /^#{1,3}\s*(.+?)\s*$/.exec(line);
+    if (/^제목\s*[:：]/.test(line)) {
+      p.title = line.replace(/^제목\s*[:：]\s*/, "");
+      continue;
+    }
+    if (/^요약\s*[:：]/.test(line)) {
+      p.summary = line.replace(/^요약\s*[:：]\s*/, "");
+      continue;
+    }
+    if (head) {
+      const key = Object.keys(HEADS).find((k) => head[1].replace(/^\d+[.)]\s*/, "").startsWith(k));
+      if (key) {
+        current = HEADS[key];
+        p.structured = true;
+        continue;
+      }
+      if (!p.title) {
+        p.title = head[1];
+        continue;
+      }
+      current = null;
+      rest.push(head[1]);
+      continue;
+    }
+    if (!line) {
+      if (current && current !== "steps" && current !== "roles") p[current] += "\n";
+      else if (!current) rest.push("");
+      continue;
+    }
+    if (current === "steps") {
+      const cells = line.replace(/^(?:[-*]\s*|\d+[.)]\s+)/, "").split("|").map((c) => c.trim());
+      if (cells.length >= 3) p.steps.push({ step: cells[0], period: cells[1] ?? "", work: cells[2] ?? "", output: cells[3] ?? "" });
+      else if (p.steps.length) p.steps[p.steps.length - 1].work += " " + line;
+      continue;
+    }
+    if (current === "roles") {
+      const m = /^[-*]?\s*([^:：]{1,30})[:：]\s*(.+)$/.exec(line);
+      if (m) p.roles.push({ who: m[1].trim(), text: m[2].trim() });
+      else if (p.roles.length) p.roles[p.roles.length - 1].text += " " + line.replace(/^[-*]\s*/, "");
+      continue;
+    }
+    if (current) {
+      const k = current;
+      p[k] += (p[k] && !p[k].endsWith("\n") ? "\n" : "") + line;
+      continue;
+    }
+    if (!p.title) {
+      p.title = line;
+      continue;
+    }
+    rest.push(line);
+  }
+  for (const k of ["why", "approach", "budget", "next"]) p[k] = p[k].trim();
+  p.rest = rest.join("\n").trim();
+  return p;
+}
+var esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+var paras = (s, style) => s.split(/\n{2,}|\n/).map((t) => t.trim()).filter(Boolean).map((t) => `<p style="${style}">${esc(t)}</p>`).join("");
+var C = { bg: "#F6F4EF", card: "#FFFFFF", ink: "#1F2A24", sub: "#5F6A63", line: "#E7E3DA", green: "#1F6B4A", tint: "#EEF5F0", warm: "#F7F1E8", pink: "#FD37BE" };
+var OPT_OUT = /원치 않|수신을 원하지|받지 않으시려면|불필요하시면|그만 받/;
+var FONT = "'Pretendard','Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif";
+var P = `margin:0 0 12px;font-size:15px;line-height:1.75;color:${C.ink};`;
+var H = (t) => `<tr><td style="padding:28px 40px 10px;"><div style="font-size:12px;letter-spacing:2px;color:${C.green};font-weight:700;">${esc(t)}</div></td></tr>`;
+function renderSalesEmailHtml({ subject, body, proposal, sender }) {
+  const pr = proposal?.trim() ? parseProposal(proposal) : null;
+  const reply = `mailto:${encodeURIComponent(sender)}?subject=${encodeURIComponent("Re: " + subject)}`;
+  const rows = [];
+  rows.push(`<tr><td style="padding:28px 40px 0;"><div style="font-size:12px;letter-spacing:3px;color:${C.sub};font-weight:700;">THE WKLY <span style="color:${C.pink};">\xD7</span> ARTERIOR</div></td></tr>`);
+  rows.push(`<tr><td style="padding:14px 40px 8px;"><div style="font-size:22px;line-height:1.4;font-weight:700;color:${C.ink};">${esc(pr?.title || subject)}</div>${pr?.summary ? `<div style="margin-top:8px;font-size:15px;line-height:1.6;color:${C.sub};">${esc(pr.summary)}</div>` : ""}<div style="margin-top:18px;width:40px;height:3px;background:${C.green};"></div></td></tr>`);
+  const blocks = body.replace(/\r\n?/g, "\n").split(/\n{2,}|\n/).map((t) => t.trim()).filter(Boolean);
+  const closing = pr ? blocks.filter((t, i) => OPT_OUT.test(t) || i === blocks.length - 1 && t.length <= 40 && /더위클리|아트리어/.test(t)) : [];
+  const opening = blocks.filter((t) => !closing.includes(t));
+  rows.push(`<tr><td style="padding:18px 40px 4px;">${paras(opening.join("\n"), P)}</td></tr>`);
+  if (pr) {
+    if (pr.why) {
+      rows.push(H("\uC65C \uC9C0\uAE08"));
+      rows.push(`<tr><td style="padding:0 40px;">${paras(pr.why, P)}</td></tr>`);
+    }
+    if (pr.approach) {
+      rows.push(H("\uC218\uD589 \uBC29\uC2DD"));
+      rows.push(`<tr><td style="padding:0 40px;"><div style="background:${C.tint};padding:18px 20px;">${paras(pr.approach, P.replace("margin:0 0 12px", "margin:0 0 8px"))}</div></td></tr>`);
+    }
+    if (pr.steps.length) {
+      rows.push(H("\uC9C4\uD589 \uACC4\uD68D"));
+      rows.push(`<tr><td style="padding:0 40px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">${pr.steps.map((s, i) => `<tr><td valign="top" style="width:36px;padding:12px 0;border-top:1px solid ${C.line};"><div style="width:26px;height:26px;line-height:26px;text-align:center;background:${C.green};color:#fff;font-size:13px;font-weight:700;">${i + 1}</div></td><td valign="top" style="padding:12px 0 12px 8px;border-top:1px solid ${C.line};"><div style="font-size:15px;font-weight:700;color:${C.ink};">${esc(s.step)}${s.period ? ` <span style="font-weight:400;color:${C.sub};font-size:13px;">\xB7 ${esc(s.period)}</span>` : ""}</div><div style="margin-top:4px;font-size:14px;line-height:1.65;color:${C.ink};">${esc(s.work)}</div>${s.output ? `<div style="margin-top:4px;font-size:13px;color:${C.green};">\uC0B0\uCD9C\uBB3C \xB7 ${esc(s.output)}</div>` : ""}</td></tr>`).join("")}</table></td></tr>`);
+    }
+    if (pr.roles.length) {
+      rows.push(H("\uC5ED\uD560 \uBD84\uB2F4"));
+      rows.push(`<tr><td style="padding:0 40px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>${pr.roles.slice(0, 2).map((r, i) => `<td valign="top" width="50%" style="padding:${i ? "0 0 0 6px" : "0 6px 0 0"};"><div style="background:${i ? C.warm : C.tint};padding:16px 18px;"><div style="font-size:13px;font-weight:700;color:${C.ink};">${esc(r.who)}</div><div style="margin-top:6px;font-size:14px;line-height:1.65;color:${C.ink};">${esc(r.text)}</div></div></td>`).join("")}</tr></table></td></tr>`);
+    }
+    if (pr.budget) {
+      rows.push(H("\uACAC\uC801 \uAE30\uC900"));
+      rows.push(`<tr><td style="padding:0 40px;">${paras(pr.budget, P)}</td></tr>`);
+    }
+    if (pr.rest) {
+      rows.push(H("\uC81C\uC548 \uB0B4\uC6A9"));
+      rows.push(`<tr><td style="padding:0 40px;">${paras(pr.rest, P)}</td></tr>`);
+    }
+    rows.push(`<tr><td style="padding:24px 40px 8px;">${pr.next ? paras(pr.next, P) : ""}<a href="${esc(reply)}" style="display:inline-block;background:${C.green};color:#ffffff;text-decoration:none;font-size:15px;font-weight:700;padding:13px 22px;">\uD68C\uC2E0\uC73C\uB85C \uBBF8\uD305 \uC694\uCCAD\uD558\uAE30</a></td></tr>`);
+  }
+  if (closing.length) rows.push(`<tr><td style="padding:20px 40px 4px;">${paras(closing.join("\n"), P.replace(`color:${C.ink}`, `color:${C.sub}`).replace("font-size:15px", "font-size:14px"))}</td></tr>`);
+  rows.push(`<tr><td style="padding:28px 40px 32px;border-top:1px solid ${C.line};font-size:12px;line-height:1.7;color:${C.sub};"><b style="color:${C.ink};">\uB354\uC704\uD074\uB9AC\uCEF4\uD37C\uB2C8</b> \xB7 \uD589\uC0AC \uAE30\uD68D\xB7\uC6B4\uC601\xB7\uD64D\uBCF4 \uCF58\uD150\uCE20 \xB7 \uC11C\uC6B8 \uB9C8\uD3EC\uAD6C \uC131\uC9C0\uAE38 25-11<br><b style="color:${C.ink};">\uC544\uD2B8\uB9AC\uC5B4\uB514\uC790\uC778\uC2A4\uD29C\uB514\uC624</b> \xB7 \uACF5\uAC04 \uB514\uC790\uC778\xB7\uC81C\uC791\xB7\uC124\uCE58 \xB7 \uC11C\uC6B8 \uB9C8\uD3EC\uAD6C \uC591\uD654\uB85C 50, 4\uCE35 402\uD638<br>${esc(sender)} \xB7 <a href="https://www.thewklyn.com" style="color:${C.green};">thewklyn.com</a></td></tr>`);
+  return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(subject)}</title></head><body style="margin:0;padding:0;background:${C.bg};"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${C.bg};"><tr><td align="center" style="padding:24px 12px;"><table role="presentation" width="640" cellpadding="0" cellspacing="0" style="width:100%;max-width:640px;background:${C.card};font-family:${FONT};">${rows.join("")}</table></td></tr></table></body></html>`;
+}
+function salesEmailText({ body, proposal }) {
+  const plan = (proposal ?? "").replace(/\r\n?/g, "\n").split("\n").map((l) => l.replace(/^#{1,3}\s*/, "\u25A0 ").replace(/^(제목|요약)\s*[:：]\s*/, "")).join("\n").trim();
+  return plan ? `${body.trim()}
+
+\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+${plan}
+` : body.trim() + "\n";
+}
+
 // supabase/functions/sales-dispatch/gmail.ts
+var INLINE_PROPOSAL = "proposal.md";
 var email = /^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+$/;
 var uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var encoder = new TextEncoder();
@@ -78,14 +207,21 @@ function dispatchMessageId(lease) {
 function approvedMime(lease, sentAt = Date.now()) {
   if (!email.test(lease.sender) || lease.sender.length > 254 || !email.test(lease.message.recipient) || lease.message.recipient.length > 254 || !uuid.test(lease.id) || !lease.message.subject.trim() || lease.message.subject.length > 200 || /[\x00-\x1f\x7f]/.test(lease.message.subject) || !lease.message.body.trim() || lease.message.body.length > 5e4 || lease.attachments.length > 5) throw new Error("Invalid approved material");
   if (!Number.isFinite(new Date(sentAt).getTime())) throw new Error("Invalid message date");
-  const boundary = "wkly_" + lease.id.toLowerCase(), names = /* @__PURE__ */ new Set();
-  const lines = [`From: ${lease.sender}`, `To: ${lease.message.recipient}`, `Subject: ${encodedSubject(lease.message.subject)}`, `Message-ID: ${dispatchMessageId(lease)}`, `Date: ${new Date(sentAt).toUTCString()}`, "MIME-Version: 1.0", `Content-Type: multipart/mixed; boundary="${boundary}"`, "", `--${boundary}`, "Content-Type: text/plain; charset=UTF-8", "Content-Transfer-Encoding: base64", "", foldedBase64(lease.message.body.replace(/\r\n|\r|\n/g, "\r\n"))];
-  let total = encoder.encode(lease.message.body).length;
+  const boundary = "wkly_" + lease.id.toLowerCase(), alt = "wkly_alt_" + lease.id.toLowerCase(), names = /* @__PURE__ */ new Set();
+  const proposal = lease.attachments.find((f) => f.name === INLINE_PROPOSAL && /^text\/(?:plain|markdown)(?:; charset=utf-8)?$/i.test(f.mime))?.content ?? null;
+  const text = salesEmailText({ body: lease.message.body, proposal }).replace(/\r\n|\r|\n/g, "\r\n");
+  const html = renderSalesEmailHtml({ subject: lease.message.subject, body: lease.message.body, proposal, sender: lease.sender });
+  const lines = [`From: ${lease.sender}`, `To: ${lease.message.recipient}`, `Subject: ${encodedSubject(lease.message.subject)}`, `Message-ID: ${dispatchMessageId(lease)}`, `Date: ${new Date(sentAt).toUTCString()}`, "MIME-Version: 1.0", `Content-Type: multipart/mixed; boundary="${boundary}"`, "", `--${boundary}`, `Content-Type: multipart/alternative; boundary="${alt}"`, "", `--${alt}`, "Content-Type: text/plain; charset=UTF-8", "Content-Transfer-Encoding: base64", "", foldedBase64(text), `--${alt}`, "Content-Type: text/html; charset=UTF-8", "Content-Transfer-Encoding: base64", "", foldedBase64(html), `--${alt}--`];
+  let total = encoder.encode(lease.message.body).length + encoder.encode(html).length;
   for (const file of lease.attachments) {
+    if (file.name === INLINE_PROPOSAL && /^text\/(?:plain|markdown)(?:; charset=utf-8)?$/i.test(file.mime) && typeof file.content === "string" && file.content.length <= 5e4) {
+      names.add(file.name);
+      continue;
+    }
     if (!/^[A-Za-z0-9][A-Za-z0-9_.-]{0,79}$/.test(file.name) || names.has(file.name) || !/^text\/(?:plain|markdown)(?:; charset=utf-8)?$/i.test(file.mime) || typeof file.content !== "string" || file.content.length > 5e4) throw new Error("Unsupported approved attachment");
     names.add(file.name);
     total += encoder.encode(file.content).length;
-    if (total > 25e4) throw new Error("Approved material limit");
+    if (total > 4e5) throw new Error("Approved material limit");
     lines.push(`--${boundary}`, `Content-Type: ${file.mime}`, `Content-Disposition: attachment; filename="${file.name}"`, "Content-Transfer-Encoding: base64", "", foldedBase64(file.content));
   }
   lines.push(`--${boundary}--`, "");

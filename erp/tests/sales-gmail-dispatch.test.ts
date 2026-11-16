@@ -5,9 +5,12 @@ import {runSalesDispatch,type DispatchLease} from '../supabase/functions/sales-d
 const lease:DispatchLease={id:'10000000-0000-4000-8000-000000000001',token:'claim',fingerprint:'reviewed',sender:'sender@example.com',message:{recipient:'person@example.com',subject:'팝업 행사 운영 제안 · 검토 문안',body:'안녕하세요.\n확인한 행사 제안입니다.'},attachments:[{name:'proposal.md',mime:'text/markdown; charset=utf-8',content:'# 승인된 제안\n확인한 범위'}],expires_at:'2026-11-16T04:00:00Z'}
 const now=()=>Date.parse('2026-11-16T01:00:00Z'),config={enabled:true,clientId:'client',clientSecret:'secret',refreshToken:'refresh',expectedEmail:lease.sender},token={access_token:'token',scope:'https://www.googleapis.com/auth/gmail.modify',expires_in:3600}
 const signal=()=>new AbortController().signal
-test('MIME has exactly one recipient, stable reconciliation ID and original Unicode attachment',()=>{
+test('MIME has exactly one recipient, stable reconciliation ID, a plain and a designed HTML part with the plan inside',()=>{
  const mime=approvedMime(lease,now());assert.match(mime,/^From: sender@example.com\r\nTo: person@example.com\r\n/);assert.equal((mime.match(/^To:/gm)??[]).length,1);assert.doesNotMatch(mime,/^Bcc:|^Cc:/m);assert.ok(mime.includes(dispatchMessageId(lease)))
- assert.ok(mime.includes(Buffer.from(lease.attachments[0].content).toString('base64')));assert.ok(mime.includes(Buffer.from(lease.message.body.replace(/\n/g,'\r\n')).toString('base64')))
+ assert.match(mime,/multipart\/alternative/);assert.match(mime,/Content-Type: text\/html; charset=UTF-8/);assert.doesNotMatch(mime,/filename="proposal.md"/)
+ const parts=[...mime.matchAll(/Content-Transfer-Encoding: base64\r\n\r\n([A-Za-z0-9+/=\r\n]+?)\r\n--/g)].map(m=>Buffer.from(m[1].replace(/\r\n/g,''),'base64').toString('utf8'))
+ assert.ok(parts[0].includes('확인한 행사 제안입니다.')&&parts[0].includes('확인한 범위'))
+ assert.ok(parts[1].includes('<!doctype html>')&&parts[1].includes('확인한 범위')&&parts[1].includes('확인한 행사 제안입니다.'))
  const subject=mime.match(/Subject: ([\s\S]*?)\r\nMessage-ID:/)![1];const decoded=[...subject.matchAll(/=\?UTF-8\?B\?([^?]+)\?=/g)].map(m=>Buffer.from(m[1],'base64').toString('utf8')).join('');assert.equal(decoded,lease.message.subject)
 })
 test('invalid headers, multi-recipient addresses and unreviewed attachment formats are rejected',()=>{
