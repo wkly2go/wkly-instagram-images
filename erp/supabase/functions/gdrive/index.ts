@@ -136,39 +136,86 @@ async function syncProject(p: Proj): Promise<{ url: string; action: 'created' | 
 /**
  * 새 프로젝트 폴더를 샘플 폴더와 같은 구성으로 (대표 지시 2026-11-16 '샘플 폴더와 같은 구성으로 만들어')
  *  - 샘플: app_settings 'drive_project_template'(폴더 id) · 없으면 'AR0000 샘플 폴더'
- *  - 하위 폴더를 끝까지(5단계 · 120개까지) 같은 이름으로 만들고, 샘플 안 양식 파일은 사본을 넣음(40개까지)
- *  - 샘플 폴더 자체는 읽기만 · 방금 만든 빈 폴더에만 씀
+ *  - 위에서부터 한 층씩: 그 층의 폴더를 먼저 모두 만들고 파일 사본을 넣은 뒤 아래 층으로 (6단계 · 폴더 300 · 파일 300)
+ *  - 이미 있는 이름은 건너뜀 → 시간이 모자라 끊겨도 다음 예약 실행이 이어서 채움 (app_settings 'drive_template_pending')
+ *  - 샘플 폴더 자체는 읽기만 · 방금 만든 프로젝트 폴더에만 씀
+ *  - 넣은 사본은 drive_index 에 '예전 파일'로 먼저 적어 수신방 새 자료로 올라가지 않게 함
  */
 const TEMPLATE_DEFAULT = '1CfWhonQkGenxrpoEKJLJ9rakhWnrOwVN'
-async function cloneTemplate(target: string): Promise<{ folders: number; files: number }> {
-  const { data } = await sb.from('app_settings').select('value').eq('key', 'drive_project_template').maybeSingle()
-  const src = (typeof data?.value === 'string' && idOf(data.value)) || (typeof data?.value === 'string' && /^[A-Za-z0-9_-]{10,}$/.test(data.value) ? data.value : TEMPLATE_DEFAULT)
-  const out = { folders: 0, files: 0 }
-  const end = Date.now() + 45_000
-  const walk = async (from: string, to: string, depth: number): Promise<void> => {
-    const q = `'${from}' in parents and trashed = false`
-    const r = await drive<{ files?: { id: string; name: string; mimeType: string }[] }>(`files?${new URLSearchParams({ q, fields: 'files(id,name,mimeType)', pageSize: '200', orderBy: 'name', supportsAllDrives: 'true', includeItemsFromAllDrives: 'true' })}`)
-    for (const f of r.files ?? []) {
-      if (Date.now() > end) return
-      if (f.mimeType === FOLDER) {
-        if (out.folders >= 120) continue
-        const made = await create(f.name, to)
-        out.folders++
-        if (depth < 5) await walk(f.id, made.id, depth + 1)
-      } else if (out.files < 40 && f.mimeType !== 'application/vnd.google-apps.shortcut') {
-        await drive(`files/${encodeURIComponent(f.id)}/copy?supportsAllDrives=true&fields=id`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: f.name, parents: [to] }) }).then(() => out.files++).catch(() => null)
-      }
-    }
-  }
-  if (src !== target) await walk(src, target, 1)
+const PENDING_KEY = 'drive_template_pending'
+interface Pending { project: string; folder: string; at: string }
+type Kid = { id: string; name: string; mimeType: string }
+async function kids(parent: string): Promise<Kid[]> {
+  const out: Kid[] = []
+  let pageToken: string | undefined
+  do {
+    const r = await drive<{ nextPageToken?: string; files?: Kid[] }>(`files?${new URLSearchParams({ q: `'${parent}' in parents and trashed = false`, fields: 'nextPageToken,files(id,name,mimeType)', pageSize: '200', orderBy: 'name', supportsAllDrives: 'true', includeItemsFromAllDrives: 'true', ...(pageToken ? { pageToken } : {}) })}`)
+    out.push(...(r.files ?? []))
+    pageToken = r.nextPageToken
+  } while (pageToken && out.length < 600)
   return out
 }
-async function syncAndSave(p: Proj) {
+async function cloneTemplate(project: string, target: string, deadline: number): Promise<{ folders: number; files: number; done: boolean }> {
+  const { data } = await sb.from('app_settings').select('value').eq('key', 'drive_project_template').maybeSingle()
+  const src = (typeof data?.value === 'string' && idOf(data.value)) || (typeof data?.value === 'string' && /^[A-Za-z0-9_-]{10,}$/.test(data.value) ? data.value : TEMPLATE_DEFAULT)
+  const out = { folders: 0, files: 0, done: true }
+  if (src === target) return out
+  const now = new Date().toISOString()
+  let seenFolders = 0
+  let seenFiles = 0
+  let level: [string, string][] = [[src, target]]
+  for (let depth = 1; depth <= 6 && level.length; depth++) {
+    const next: [string, string][] = []
+    for (const [from, to] of level) {
+      if (Date.now() > deadline) return { ...out, done: false }
+      const [want, have] = await Promise.all([kids(from), kids(to)])
+      const norm = (x: string) => x.normalize('NFC')
+      const byName = new Map(have.map(h => [norm(h.name), h]))
+      // 폴더 먼저
+      for (const f of want.filter(x => x.mimeType === FOLDER)) {
+        if (++seenFolders > 300) break
+        if (Date.now() > deadline) return { ...out, done: false }
+        const had = byName.get(norm(f.name))
+        const id = had && had.mimeType === FOLDER ? had.id : (await create(f.name, to)).id
+        if (!had) out.folders++
+        next.push([f.id, id])
+      }
+      for (const f of want.filter(x => x.mimeType !== FOLDER && x.mimeType !== 'application/vnd.google-apps.shortcut')) {
+        if (++seenFiles > 300) break
+        if (byName.has(norm(f.name))) continue
+        if (Date.now() > deadline) return { ...out, done: false }
+        const made = await drive<{ id: string }>(`files/${encodeURIComponent(f.id)}/copy?supportsAllDrives=true&fields=id`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: f.name, parents: [to] }) }).catch(() => null)
+        if (!made) continue
+        out.files++
+        await sb.from('drive_index').upsert({ id: made.id, project_id: project, name: f.name, mime_type: f.mimeType, parent_id: to, synced_at: now, first_seen_at: '2000-01-01T00:00:00Z' }, { onConflict: 'id', ignoreDuplicates: true })
+      }
+    }
+    level = next
+  }
+  return out
+}
+async function readPending(): Promise<Pending[]> {
+  const { data } = await sb.from('app_settings').select('value').eq('key', PENDING_KEY).maybeSingle()
+  return Array.isArray(data?.value) ? (data.value as Pending[]) : []
+}
+async function writePending(list: Pending[]) {
+  await sb.from('app_settings').upsert({ key: PENDING_KEY, value: list, updated_at: new Date().toISOString() })
+}
+/** 샘플 구성 채우기 · 다 못 채우면 이어 할 목록에 남김 (3일 지나면 그만둠) */
+async function fillTemplate(project: string, folder: string, deadline: number) {
+  const r = await cloneTemplate(project, folder, deadline).catch(() => ({ folders: 0, files: 0, done: false }))
+  const rest = (await readPending()).filter(x => x.folder !== folder)
+  const before = (await readPending()).find(x => x.folder === folder)
+  if (!r.done && Date.now() - Date.parse(before?.at ?? new Date().toISOString()) < 3 * 86400_000) rest.push({ project, folder, at: before?.at ?? new Date().toISOString() })
+  await writePending(rest)
+  return r
+}
+async function syncAndSave(p: Proj, deadline = Date.now() + 50_000) {
   const r = await syncProject(p)
   if (r.url && r.url !== p.drive_url) await sb.from('projects').update({ drive_url: r.url }).eq('id', p.id)
   if (r.action === 'created') {
     const id = idOf(r.url)
-    const template = id ? await cloneTemplate(id).catch(() => null) : null
+    const template = id ? await fillTemplate(p.id, id, deadline) : null
     return { ...r, template }
   }
   return r
@@ -177,13 +224,17 @@ const PROJ_COLS = 'id,name,code,division,start_date,created_at,drive_url'
 /** 폴더 주소가 없는 새 프로젝트(이 기능을 넣은 2026-11-16 뒤 · 만든 지 2분~3일)에 폴더를 만들어 줌 — 예전 프로젝트는 건드리지 않음 · 2분은 화면에서 만들 때와 겹치지 않게 */
 const AUTO_FOLDER_FROM = '2026-11-16T00:00:00Z'
 async function ensureNewProjects(): Promise<number> {
+  const deadline = Date.now() + 40_000
   const since = new Date(Math.max(Date.parse(AUTO_FOLDER_FROM), Date.now() - 3 * 86400_000)).toISOString()
   const { data } = await sb.from('projects').select(PROJ_COLS).is('drive_url', null).gte('created_at', since).lte('created_at', new Date(Date.now() - 2 * 60_000).toISOString()).order('created_at').limit(3)
   let n = 0
   for (const p of (data ?? []) as Proj[]) {
-    const r = await syncAndSave(p).catch(() => null)
+    const r = await syncAndSave(p, deadline).catch(() => null)
     if (r?.url) n++
   }
+  // 덜 채운 샘플 구성 이어서 (오래 기다린 것부터 하나)
+  const next = (await readPending()).sort((a, b) => a.at.localeCompare(b.at))[0]
+  if (next && Date.now() < deadline - 5_000) await fillTemplate(next.project, next.folder, deadline)
   return n
 }
 
