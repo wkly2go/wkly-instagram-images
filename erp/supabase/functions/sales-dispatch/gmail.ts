@@ -1,6 +1,9 @@
 // Disabled-by-default provider adapter. Only the approval-bound dispatcher may supply a lease.
 import type {DispatchLease} from './worker.ts'
 import type {SenderConfig} from '../sales-readiness/handler.ts'
+import {renderSalesEmailHtml,salesEmailText} from '../../../src/lib/salesEmail.ts'
+/** The approved execution plan is shown inside the designed mail, not attached as a file. */
+export const INLINE_PROPOSAL='proposal.md'
 const email=/^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+$/
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const encoder=new TextEncoder()
@@ -11,12 +14,16 @@ export function dispatchMessageId(lease:DispatchLease){if(!uuid.test(lease.id)||
 export function approvedMime(lease:DispatchLease,sentAt=Date.now()):string{
  if(!email.test(lease.sender)||lease.sender.length>254||!email.test(lease.message.recipient)||lease.message.recipient.length>254||!uuid.test(lease.id)||!lease.message.subject.trim()||lease.message.subject.length>200||/[\x00-\x1f\x7f]/.test(lease.message.subject)||!lease.message.body.trim()||lease.message.body.length>50000||lease.attachments.length>5)throw new Error('Invalid approved material')
  if(!Number.isFinite(new Date(sentAt).getTime()))throw new Error('Invalid message date')
- const boundary='wkly_'+lease.id.toLowerCase(),names=new Set<string>()
- const lines=[`From: ${lease.sender}`,`To: ${lease.message.recipient}`,`Subject: ${encodedSubject(lease.message.subject)}`,`Message-ID: ${dispatchMessageId(lease)}`,`Date: ${new Date(sentAt).toUTCString()}`,'MIME-Version: 1.0',`Content-Type: multipart/mixed; boundary="${boundary}"`,'',`--${boundary}`,'Content-Type: text/plain; charset=UTF-8','Content-Transfer-Encoding: base64','',foldedBase64(lease.message.body.replace(/\r\n|\r|\n/g,'\r\n'))]
- let total=encoder.encode(lease.message.body).length
+ const boundary='wkly_'+lease.id.toLowerCase(),alt='wkly_alt_'+lease.id.toLowerCase(),names=new Set<string>()
+ const proposal=lease.attachments.find(f=>f.name===INLINE_PROPOSAL&&/^text\/(?:plain|markdown)(?:; charset=utf-8)?$/i.test(f.mime))?.content??null
+ const text=salesEmailText({body:lease.message.body,proposal}).replace(/\r\n|\r|\n/g,'\r\n')
+ const html=renderSalesEmailHtml({subject:lease.message.subject,body:lease.message.body,proposal,sender:lease.sender})
+ const lines=[`From: ${lease.sender}`,`To: ${lease.message.recipient}`,`Subject: ${encodedSubject(lease.message.subject)}`,`Message-ID: ${dispatchMessageId(lease)}`,`Date: ${new Date(sentAt).toUTCString()}`,'MIME-Version: 1.0',`Content-Type: multipart/mixed; boundary="${boundary}"`,'',`--${boundary}`,`Content-Type: multipart/alternative; boundary="${alt}"`,'',`--${alt}`,'Content-Type: text/plain; charset=UTF-8','Content-Transfer-Encoding: base64','',foldedBase64(text),`--${alt}`,'Content-Type: text/html; charset=UTF-8','Content-Transfer-Encoding: base64','',foldedBase64(html),`--${alt}--`]
+ let total=encoder.encode(lease.message.body).length+encoder.encode(html).length
  for(const file of lease.attachments){
+  if(file.name===INLINE_PROPOSAL&&/^text\/(?:plain|markdown)(?:; charset=utf-8)?$/i.test(file.mime)&&typeof file.content==='string'&&file.content.length<=50000){names.add(file.name);continue}
   if(!/^[A-Za-z0-9][A-Za-z0-9_.-]{0,79}$/.test(file.name)||names.has(file.name)||!/^text\/(?:plain|markdown)(?:; charset=utf-8)?$/i.test(file.mime)||typeof file.content!=='string'||file.content.length>50000)throw new Error('Unsupported approved attachment')
-  names.add(file.name);total+=encoder.encode(file.content).length;if(total>250000)throw new Error('Approved material limit')
+  names.add(file.name);total+=encoder.encode(file.content).length;if(total>400000)throw new Error('Approved material limit')
   lines.push(`--${boundary}`,`Content-Type: ${file.mime}`,`Content-Disposition: attachment; filename="${file.name}"`,'Content-Transfer-Encoding: base64','',foldedBase64(file.content))
  }
  lines.push(`--${boundary}--`,'');return lines.join('\r\n')
