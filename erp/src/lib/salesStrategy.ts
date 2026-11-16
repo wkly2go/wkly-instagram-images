@@ -44,8 +44,8 @@ export interface SalesStrategyApi extends SalesExecutionApi {
 }
 export type RecipientScope='미정'|'거래·문의'|'공개 창구 포함'
 export interface AdAudienceRow {email: string; phone: string; segment: string}
-/** Google Ads Customer Match upload: English headers, E.164 phones, ISO country. */
-export const googleAudienceCsv=(rows:AdAudienceRow[])=>['Email,Phone,Country',...rows.map(r=>`${r.email},${r.phone},KR`)].join('\r\n')+'\r\n'
+/** Google Ads Customer Match upload: English headers and E.164 phones. No Country column: Google accepts it only together with first name, last name and postcode (confirmed on upload 2026-11-16). */
+export const googleAudienceCsv=(rows:AdAudienceRow[])=>['Email,Phone',...rows.map(r=>`${r.email},${r.phone}`)].join('\r\n')+'\r\n'
 export interface BidQualification {kind: '업종' | '지역'; name: string; status: '보유' | '미보유' | '확인 필요'}
 export interface SalesMethodProposal {id: string; action: '추가' | '수정' | '중지'; name: string; signal: string; offer: string; first_step: string; reason: string; created_at: string}
 

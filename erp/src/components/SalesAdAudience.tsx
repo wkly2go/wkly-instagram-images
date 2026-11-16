@@ -24,7 +24,7 @@ export function SalesAdAudience({api,enabled}:{api:Api;enabled:boolean}){
     <Button kind="outline" disabled={!rows.length} onClick={()=>save(`naver-email-${day}.txt`,rows.map(r=>r.email).join('\r\n')+'\r\n','text/plain;charset=utf-8')}>네이버용 메일 목록</Button>
     <Button kind="outline" disabled={!phones.length} onClick={()=>save(`naver-phone-${day}.txt`,phones.map(r=>'0'+r.phone.slice(3)).join('\r\n')+'\r\n','text/plain;charset=utf-8')}>네이버용 전화 목록</Button>
    </div>
-   <p>구글: 잠재고객 관리자 › 고객 목록에 CSV를 올립니다(머리글 Email · Phone · Country). 네이버: 업로드 화면의 양식과 암호화 안내에 맞춰 올려 주세요.</p>
+   <p>구글: 잠재고객 관리자 › 고객 목록에 CSV를 올립니다(머리글 Email · Phone). 네이버: 업로드 화면의 양식과 암호화 안내에 맞춰 올려 주세요.</p>
   </>}
  </details>
 }
