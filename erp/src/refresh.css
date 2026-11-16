@@ -11,9 +11,9 @@
   --v8-card: #ffffff;
   --v8-line: #ece9e2;        /* 카드 안 구분선 */
   --v8-line-2: #e2ded5;      /* 입력칸 · 버튼 테두리 */
-  --v8-ink: #1f2a24;         /* 제목 글자 (진한 초록빛 회색 · 검정 아님) */
-  --v8-text: #333c36;        /* 본문 */
-  --v8-sub: #6b746e;         /* 보조 글자 */
+  --v8-ink: #151d18;         /* 제목 글자 (진한 초록빛 회색 · 검정 아님) */
+  --v8-text: #222a25;        /* 본문 (2026-11-16 대표 지시 '글자색을 더 진하게') */
+  --v8-sub: #4e5751;         /* 보조 글자 */
   --v8-green: #1f6b4a;       /* 주 버튼 · 선택 */
   --v8-green-hover: #185a3d;
   --v8-tint: #e8f3ec;        /* 고른 상태 바탕 */
@@ -42,7 +42,7 @@ html:not([data-theme="dark"]) {
 html:not([data-theme="dark"]), html:not([data-theme="dark"]) body { background: var(--v8-bg); }
 
 /* ---------- 글꼴: 숫자도 본문 글꼴의 고정폭 숫자 (코딩 글꼴은 코드 · 단축키만) ---------- */
-body { font-family: var(--font); font-feature-settings: 'tnum' 1; -webkit-font-smoothing: antialiased; letter-spacing: -0.1px; }
+body { font-family: var(--font); font-feature-settings: 'tnum' 1; letter-spacing: -0.1px; }
 .t-meta, .fin-num, .mflow-val, .mflow-grid dd, .rp-task em, .rp-dday, .side-n, .badge, .brief-nums td, .proj-overview > span,
 .board td.num, .pay-sheet .ps-in.num, .vendor-sheet .vs-rate, .pviz-dday, .proj-code, .mini-cal-title, .m-ver {
   font-family: var(--font) !important; font-variant-numeric: tabular-nums; letter-spacing: -0.2px;
@@ -70,7 +70,7 @@ html:not([data-theme="dark"]) .topbar .mode-badge { background: var(--v8-tint); 
 html:not([data-theme="dark"]) .topbar :is(.top-ai, .one-box) { background: var(--v8-bg); border: 1px solid transparent; color: var(--v8-sub); }
 html:not([data-theme="dark"]) .topbar :is(.top-ai, .one-box):hover { border-color: var(--v8-line-2); background: #fff; }
 html:not([data-theme="dark"]) .topbar :is(.top-ai, .one-box) svg { color: var(--v8-green); }
-html:not([data-theme="dark"]) .topbar .one-box-label { color: var(--v8-sub); font-weight: 500; }
+html:not([data-theme="dark"]) .topbar .one-box-label { color: var(--v8-sub); font-weight: 600; }
 html:not([data-theme="dark"]) .topbar .one-box kbd { color: var(--v8-sub); border-color: var(--v8-line-2); background: #fff; font-family: var(--font); }
 html:not([data-theme="dark"]) .topbar .top-ai input::placeholder { color: var(--v8-sub); }
 html:not([data-theme="dark"]) .topbar :is(.quick-btn, .icon-btn, .main-nav .icon-btn) { background: #fff; border-color: var(--v8-line-2); color: var(--v8-ink); }
@@ -90,13 +90,13 @@ html:not([data-theme="dark"]) .app-page .web-panel { background: #fff; border: 0
 
 /* ---------- 왼쪽 메뉴: 테두리 없는 글자 메뉴 · 고른 줄만 연한 초록 ---------- */
 html:not([data-theme="dark"]) .profile, html:not([data-theme="dark"]) .body > .profile { background: var(--v8-bg); border-right: 0; --line: var(--v8-line-2); }
-html:not([data-theme="dark"]) .app-page .profile .side-item { color: var(--v8-text); font-weight: 500; }
-html:not([data-theme="dark"]) .app-page .profile .side-item > svg { color: var(--v8-sub); }
+html:not([data-theme="dark"]) .app-page .profile .side-item { color: var(--v8-text); font-weight: 600; }
+html:not([data-theme="dark"]) .app-page .profile .side-item > svg { color: var(--v8-text); }
 html:not([data-theme="dark"]) .app-page .profile .side-item:hover { background: var(--v8-hover); color: var(--v8-ink); }
 html:not([data-theme="dark"]) .app-page .profile .side-item.on { background: #fff; color: var(--v8-green); font-weight: 700; box-shadow: 0 1px 2px rgba(31, 42, 36, .08); }
 html:not([data-theme="dark"]) .app-page .profile .side-item.on > svg { color: var(--v8-green); }
 .app-page .profile .side-item.on::before, .side-item.on::before { display: none; }
-html:not([data-theme="dark"]) .app-page .profile .side-group-label { color: #8b928d; font-weight: 600; letter-spacing: 0; }
+html:not([data-theme="dark"]) .app-page .profile .side-group-label { color: #5d665f; font-weight: 600; letter-spacing: 0; }
 html:not([data-theme="dark"]) .app-page .profile .new-btn { background: var(--v8-green); border-color: var(--v8-green); color: #fff; font-weight: 700; }
 html:not([data-theme="dark"]) .app-page .profile .new-btn:hover { background: var(--v8-green-hover); }
 html:not([data-theme="dark"]) .profile .side-n.soft { background: #ebe8e1; color: var(--v8-text); }
@@ -206,3 +206,8 @@ html[data-theme="dark"] .app-page .main { border-radius: var(--v8-r-card) !impor
   .app-page .profile :is(.mini-cal, .my-counts, .status-msg, .new-menu) { flex-basis: auto; }
   .app-page .body > .main { flex: 1 1 auto; min-width: 0; }
 }
+
+/* ---------- 글자 진하게 (대표 지시 2026-11-16 '글자색을 더 진하게'): 본문 · 표 · 캡션까지 같은 진한 색 ---------- */
+html:not([data-theme="dark"]) body { color: var(--v8-text); }
+html:not([data-theme="dark"]) :is(.t-body, .t-small, .t-smallb, .t-bodyb, .board td, .cell-pre, p, li, dd) { color: var(--v8-text); }
+html:not([data-theme="dark"]) :is(.t-cap, .t-meta, .cap, .cell-sub, .filter-label, .label > span) { color: var(--v8-sub); }
