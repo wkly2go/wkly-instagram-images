@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
+import { ProjectOptions } from './ProjectOptions'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { shortDate, timeLabel, todayKey } from '../lib/date'
 import { Link } from '../lib/router'
@@ -163,11 +164,7 @@ function ExchangeFileEdit({ f, projects, onDone }: { f: ExchangeFile; projects: 
         <Field label="프로젝트" className="grow">
           <select className="select" value={d.project} onChange={e => setD({ ...d, project: e.target.value })}>
             <option value="">없음</option>
-            {projects.map(p => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
+            <ProjectOptions projects={projects} />
           </select>
         </Field>
       </div>
@@ -233,11 +230,7 @@ function ExchangeFileForm({ clientId, contactId, projectId, contacts, projects, 
           <Field label="프로젝트">
             <select className="input" value={f.project} onChange={e => setF({ ...f, project: e.target.value })}>
               <option value="">선택 안 함</option>
-              {projects.filter(p => !clientId || !p.client_id || p.client_id === clientId).map(p => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
+              <ProjectOptions projects={projects.filter(p => !clientId || !p.client_id || p.client_id === clientId)} />
             </select>
           </Field>
         )}
@@ -385,11 +378,7 @@ export function ContactProjectsSection({ contact, projects, logs, files }: { con
       <div className="row wrap" style={{ gap: 6 }}>
         <select className="input" style={{ width: 240 }} value={pick} onChange={e => setPick(e.target.value)} aria-label="프로젝트 선택">
           <option value="">프로젝트에 연결…</option>
-          {candidates.map(p => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
+          <ProjectOptions projects={candidates} />
         </select>
         <Button size="sm" kind="outline" disabled={busy || !pick} onClick={async () => (await run(() => api.linkProjectContact(pick, contact.id), '연결했습니다.')) && setPick('')}>
           연결

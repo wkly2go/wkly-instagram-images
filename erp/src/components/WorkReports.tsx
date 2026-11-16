@@ -1,4 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react'
+import { projectPickItems } from './ProjectOptions'
 import { CheckSquare, ChevronDown, ChevronRight, Folder, Pencil, Plus, Square } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { addDays, shortDate, todayKey } from '../lib/date'
@@ -108,7 +109,7 @@ export function WorkTodo({ projects, clients, tasks, userId }: { projects: Proje
                 placeholder="프로젝트 검색"
                 value={projectId}
                 onChange={setPick}
-                items={projects.filter(p => p.status !== '완료').map(p => ({ id: p.id, label: p.name }))}
+                items={projectPickItems(projects.filter(p => p.status !== '완료'))}
               />
             </div>
             <button type="button" className="icon-btn" onClick={add} disabled={busy} aria-label="할 일 추가">

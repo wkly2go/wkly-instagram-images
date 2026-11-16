@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { ProjectOptions } from './ProjectOptions'
 import { createPortal } from 'react-dom'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { addDays, minutesLabel, shortDate, todayKey, weekday } from '../lib/date'
@@ -95,11 +96,7 @@ export function WeeklyReportPane() {
   const projSelect = (value: string, onChange: (v: string) => void, label: string) => (
     <select className="input" value={value} onChange={e => onChange(e.target.value)} aria-label={label}>
       <option value="">프로젝트 미지정 (공통 업무)</option>
-      {projectOpts.map(p => (
-        <option key={p.id} value={p.id}>
-          [{DIVISIONS[p.division ?? (p.code?.startsWith('TW') ? 'TW' : p.code?.startsWith('RS') ? 'RS' : 'AR')].label}] {projLabel(p)}
-        </option>
-      ))}
+      <ProjectOptions projects={projectOpts} />
     </select>
   )
 

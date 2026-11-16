@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { ProjectOptions } from '../components/ProjectOptions'
 import { Linkify } from '../components/ui'
 import { ArrowLeft, FileText, Filter, Inbox, List, MessageSquare, NotebookPen, Plus, Send } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
@@ -688,13 +689,7 @@ export function NewApproval({ onClose, onCreated, preset }: { onClose: () => voi
             <Field label="프로젝트 (현장)">
               <select className="select" value={pay.project_id} onChange={e => setPay({ ...pay, project_id: e.target.value })}>
                 <option value="">없음</option>
-                {extra.projects
-                  .filter(p => p.status !== '완료')
-                  .map(p => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
+                <ProjectOptions projects={extra.projects.filter(p => p.status !== '완료')} />
               </select>
             </Field>
             <Field label="사용처 (업체·성명)">

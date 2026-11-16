@@ -6,6 +6,7 @@
 //  - 기록: field_uploads (폴더 1곳 = 1줄, 같은 날 · 같은 장소면 같은 폴더에 더함)
 //  - 에이전트(콘텐츠 제작 팀)는 status='새 자료' 를 읽어 분류 · 기획에 쓰고 결과를 agent_note 에 남김 → 아래 목록에 보임
 import { useMemo, useRef, useState } from 'react'
+import { ProjectOptions } from './ProjectOptions'
 import { Camera, ExternalLink, UploadCloud } from 'lucide-react'
 import { useApp, useAsync } from '../lib/app'
 import { ensureDriveFolder, folderUrl, isHiddenName, uploadLarge } from '../lib/gdrive'
@@ -137,11 +138,7 @@ export function FieldUploadBox() {
               <input className="input" style={{ flex: '3 1 220px' }} value={memo} onChange={e => setMemo(e.target.value)} placeholder="메모 (선택, 예: 대표 인터뷰 15분 · 릴스용 세로 영상 3개)" maxLength={300} aria-label="메모" />
               <select className="input" style={{ flex: '1 1 160px' }} value={project} onChange={e => setProject(e.target.value)} aria-label="프로젝트">
                 <option value="">프로젝트 (선택)</option>
-                {open.map(p => (
-                  <option key={p.id} value={p.id}>
-                    {[p.code, p.name].filter(Boolean).join(' ')}
-                  </option>
-                ))}
+                <ProjectOptions projects={open} />
               </select>
             </div>
           )}
