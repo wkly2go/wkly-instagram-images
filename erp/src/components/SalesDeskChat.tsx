@@ -2,6 +2,7 @@ import {useEffect,useRef,useState,type ReactNode} from 'react'
 import {useAsync} from '../lib/app'
 import {useDraftNavigation} from '../lib/useDraftNavigation'
 import type {SalesStrategy,SalesStrategyApi} from '../lib/salesStrategy'
+import {parseStageQuestion} from '../lib/salesStrategy'
 import type {SalesDeskAction,SalesDeskMessage} from '../lib/salesDesk'
 import type {SalesExecutionPackage} from '../lib/salesExecution'
 import {Button,Field} from './ui'
@@ -13,7 +14,7 @@ const REASONS=['대상이 너무 넓다. 더 좁고 구체적으로','근거가 
 const QUICK=['이번 주 새로 확인된 팝업·매장 오픈 브랜드와 접근 방법','참여 가능한 나라장터 용역 공고 정리','승인 대기 중인 기획안 요약과 우선순위']
 const time=(v:string)=>new Date(v).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'})
 /** Plans join the conversation as proposals the administrator approves or rejects in place. */
-export interface DeskPlans {items:SalesStrategy[];busy:boolean;error:string;onApprove:(row:SalesStrategy)=>void;/** The prepared execution package of a plan, for one-step approval. */loadExecution?:(row:SalesStrategy)=>Promise<SalesExecutionPackage|null>;onApproveExecute?:(row:SalesStrategy,pkg:SalesExecutionPackage)=>void;onReject:(row:SalesStrategy,reason:string,replan:boolean)=>void;onOpen:(row:SalesStrategy)=>void;onPlan:(direction:string)=>void;execution?:(row:SalesStrategy)=>ReactNode}
+export interface DeskPlans {items:SalesStrategy[];busy:boolean;error:string;onApprove:(row:SalesStrategy,feedback?:string)=>void;/** The prepared execution package of a plan, for one-step approval. */loadExecution?:(row:SalesStrategy)=>Promise<SalesExecutionPackage|null>;onApproveExecute?:(row:SalesStrategy,pkg:SalesExecutionPackage)=>void;onReject:(row:SalesStrategy,reason:string,replan:boolean)=>void;onOpen:(row:SalesStrategy)=>void;onPlan:(direction:string)=>void;execution?:(row:SalesStrategy)=>ReactNode}
 export function SalesDeskChat({api,agents,canSubmit,operational,plans}:{api:SalesStrategyApi;agents:{id:string;name:string}[];canSubmit:boolean;operational:boolean;plans?:DeskPlans}){
  const [instruction,setInstruction]=useState(''),[agent,setAgent]=useState(''),[action,setAction]=useState<SalesDeskAction>('보고서'),[busy,setBusy]=useState(false),[error,setError]=useState(''),[cursors,setCursors]=useState<(number|null)[]>([null])
  const before=cursors[cursors.length-1],state=useAsync(()=>api.listSalesDesk(before),[api,before],[])
@@ -79,6 +80,7 @@ function PlanProposal({row,plans,canDecide}:{row:SalesStrategy;plans:DeskPlans;c
   {row.status==='기획 중'?<p role="status">자료를 읽고 기획안을 작성하고 있습니다.</p>:!p?<p className="sales-desk-text">기획안을 완성하지 못했습니다. 아래에서 다시 지시하거나 ‘AI 새 영업안 기획’으로 새 안을 받을 수 있습니다.</p>:<>
    <h3>{p.title}</h3>
    <dl><div><dt>대상</dt><dd>{p.customer}</dd></div><div><dt>제안</dt><dd>{p.offer}</dd></div><div><dt>지금 하는 이유</dt><dd>{p.why_now}</dd></div></dl>
+   {canDecide&&waiting&&!rejecting&&!!p.questions?.some(q=>q.includes('|'))&&<PlanQuestions key={row.id+':'+row.revision} questions={p.questions} busy={plans.busy} onRevise={text=>plans.onReject(row,text,true)} onApprove={text=>plans.onApprove(row,text)}/>}
    {!!p.steps?.length&&<details className="sales-desk-stages" open={row.status==='승인 대기'}><summary>영업 단계별 아이디어와 계획 · {p.steps.length}단계</summary><ol>{p.steps.map((s,i)=><li key={i}><strong>{s.action}</strong>{s.output&&<span> → {s.output}</span>}<small> · 승인 {s.day===0?'당일':`${s.day}일 뒤`}</small></li>)}</ol></details>}
   </>}
   {waiting&&!ready&&<p className="sales-desk-note">{row.preparation_status==='확인 필요'?(row.preparation_error||'자료 준비를 끝내지 못했습니다.')+' 반려하고 다시 기획할 수 있습니다.':'AI가 대상과 제안 자료를 준비하고 있습니다. 준비가 끝나면 승인할 수 있습니다.'}</p>}
@@ -99,4 +101,23 @@ function PlanProposal({row,plans,canDecide}:{row:SalesStrategy;plans:DeskPlans;c
 function PlanExecution({open,children}:{open:boolean;children:()=>ReactNode}){
  const [shown,setShown]=useState(open)
  return <details open={shown} onToggle={e=>setShown(e.currentTarget.open)}><summary>실행 묶음 · 수신자·문안·발송 승인</summary>{shown&&children()}</details>
+}
+
+/** Planning as a conversation: the AI asks one question per sales stage, the administrator taps an option or writes
+ * a line, then either gets a revised plan or approves with these answers (drafting follows them first). */
+function PlanQuestions({questions,busy,onRevise,onApprove}:{questions:string[];busy:boolean;onRevise:(text:string)=>void;onApprove:(text:string)=>void}){
+ const items=questions.slice(0,5).map(parseStageQuestion)
+ const [answers,setAnswers]=useState<string[]>(()=>items.map(()=>''))
+ const set=(i:number,v:string)=>setAnswers(a=>a.map((x,k)=>k===i?v:x))
+ const text=items.map((q,i)=>answers[i].trim()?`${q.stage||q.question.slice(0,20)}: ${answers[i].trim()}`:'').filter(Boolean).join(' / ').slice(0,600)
+ return <section className="sales-desk-ask" aria-label="대표님 의견을 여쭤요">
+  <strong>기획을 같이 정해요 · 단계별로 의견을 여쭤요</strong>
+  {items.map((q,i)=><div key={i} className="sales-desk-q">
+   <p>{q.stage&&<b>{q.stage}</b>} {q.question}</p>
+   {!!q.options.length&&<div className="sales-desk-chips">{q.options.map(o=><Button key={o} kind={answers[i]===o?'blue':'outline'} aria-pressed={answers[i]===o} onClick={()=>set(i,answers[i]===o?'':o)}>{o}</Button>)}</div>}
+   <input className="input" maxLength={160} placeholder="직접 쓰기 (선택)" value={q.options.includes(answers[i])?'':answers[i]} onChange={e=>set(i,e.target.value)} aria-label={`${q.stage||'질문'} 직접 답하기`}/>
+  </div>)}
+  <p className="sales-desk-actions"><Button kind="outline" disabled={busy||!text} onClick={()=>onRevise(text)}>이 의견으로 다시 기획</Button><Button disabled={busy||!text} onClick={()=>onApprove(text)}>이 의견으로 승인</Button></p>
+  {!text&&<small>하나 이상 고르거나 적으시면 버튼이 켜집니다. 그대로 괜찮으면 아래 '승인'을 누르세요.</small>}
+ </section>
 }

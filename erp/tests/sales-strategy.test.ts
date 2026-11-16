@@ -81,3 +81,12 @@ test('an over-long research section is cut instead of failing the whole preparat
  assert.equal(p.research.length,3000)
  assert.throws(()=>parseStrategyPreparation(JSON.stringify({research:' ',proposal:'제목',contact_draft:good,checks:['x']})),/부족/)
 })
+test('the planner asks the administrator one choice per sales stage, and approval answers lead the drafting',async()=>{
+ const {parseStageQuestion}=await import('../src/lib/salesStrategy.ts')
+ {
+  assert.deepEqual(parseStageQuestion('첫 연락 | 어떻게 다가갈까요? | 매거진 취재 요청 / 아이디어 제안'),{stage:'첫 연락',question:'어떻게 다가갈까요?',options:['매거진 취재 요청','아이디어 제안']})
+  assert.deepEqual(parseStageQuestion('예산은?'),{stage:'',question:'예산은?',options:[]})
+ }
+ const prompt=preparationPrompt(plan,sources,undefined,'첫 연락: 매거진 취재 요청')
+ assert.match(prompt,/^대표가 기획을 승인하며 단계별로 답한 의견이다/);assert.match(prompt,/매거진 취재 요청/)
+})

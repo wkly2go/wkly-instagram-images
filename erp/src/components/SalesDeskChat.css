@@ -32,3 +32,4 @@
 .sales-desk-send-summary dt{color:#4d5a50;font-size:13px}.sales-desk-send-summary dd{margin:0;overflow-wrap:anywhere}
 .sales-desk-send-summary details{margin:8px 0 0}.sales-desk-send-summary summary{cursor:pointer;color:#0d5a2e}
 .sales-desk-stages{margin:8px 0}.sales-desk-stages summary{cursor:pointer;font-weight:600}.sales-desk-stages ol{margin:6px 0 0;padding-left:20px;display:grid;gap:6px}.sales-desk-stages li span{color:#4d5a50}.sales-desk-stages li small{color:#7a847d}
+.sales-desk-ask{margin:12px 0;padding:14px 16px;background:#f3f8f4;border:1px solid #d6e6da;display:grid;gap:10px}.sales-desk-q p{margin:0 0 6px}.sales-desk-q .input{margin-top:6px;width:100%}
