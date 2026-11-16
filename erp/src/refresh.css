@@ -107,6 +107,10 @@ html:not([data-theme="dark"]) .app-page .profile .mini-cal-grid .day.today, html
 /* ---------- 채팅 칸: 흰 카드 (핑크 구분선 유지) ---------- */
 html:not([data-theme="dark"]) .chat-dock { background: #fbfaf7; border-color: var(--v8-line); }
 html:not([data-theme="dark"]) .chat-dock-h { background: #fff; border-bottom-color: var(--v8-line); color: var(--v8-ink); }
+/* 흰 머리줄에서 버튼이 흰 글자로 남아 안 보이던 것 (대표 지시 2026-11-16 '채팅창을 접을 수 있게'): 내 비서 · 설정 · 전체 화면 · 접기 */
+html:not([data-theme="dark"]) .chat-dock-h :is(.chat-dock-full, .icon-btn, .icon-btn.sm) { color: var(--v8-sub); }
+html:not([data-theme="dark"]) .chat-dock-h :is(.chat-dock-full, .icon-btn, .icon-btn.sm):hover { color: var(--v8-green); background: var(--v8-tint); }
+html:not([data-theme="dark"]) .chat-dock-h .dock-fold { border: 1px solid var(--v8-line); border-radius: 6px; width: 26px; height: 26px; color: var(--v8-ink); }
 html:not([data-theme="dark"]) .dock-todo { border-bottom: 1px solid var(--v8-line); }
 html:not([data-theme="dark"]) .dock-todo-h { background: var(--v8-tint); color: var(--v8-green); }
 html:not([data-theme="dark"]) .bubble { border-color: var(--v8-line); }
