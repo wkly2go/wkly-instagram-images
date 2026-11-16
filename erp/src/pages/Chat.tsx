@@ -14,6 +14,7 @@ import { dateTimeLabel, relativeLabel, todayKey } from '../lib/date'
 import { Link, normalizePath, useRouter, withQuery } from '../lib/router'
 import type { AppNotification, ChatRoomSummary, NotificationKind, Project, SavedItem } from '../lib/types'
 import { Shell } from '../components/Shell'
+import { AssistantSettingsButton } from '../components/AssistantSettings'
 import { Badge, Button, Empty, Field, Modal } from '../components/ui'
 import { AssignTaskButton } from '../components/AssignTask'
 import { CardDataProvider } from '../components/ChatCards'
@@ -236,6 +237,7 @@ export default function Chat() {
               >
                 내 비서
               </button>
+              <AssistantSettingsButton />
               <button type="button" className="quick-btn" onClick={() => setDmPicking(true)} title="팀원과 둘이서만 보는 대화">
                 1:1 대화
               </button>

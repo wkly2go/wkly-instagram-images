@@ -13,6 +13,7 @@ import { addDays, nextMonday, toDateKey, todayKey } from './date'
 import { DEFAULT_REPORT_BODY } from './reports'
 
 const demoSlack: { links: SlackLink[]; messages: SlackMessage[] } = { links: [], messages: [] }
+const demoAssistantNotes = new Map<string, string>()
 import type {
   Subscription,
   PersonalEvent,
@@ -1042,9 +1043,10 @@ export function createDemoApi(): Api {
       const self = requireMe()
       const mine = store.profiles.find(p => p.id === self)!
       const name = `${mine.name} 비서`
-      let agent = store.profiles.find(p => p.is_agent && p.name === name)
+      const mail = `ai-secretary-${self.slice(0, 6)}@ai.thewklyn.com`
+      let agent = store.profiles.find(p => p.is_agent && p.email === mail)
       if (!agent) {
-        agent = { id: uid(), email: `ai-secretary-${self.slice(0, 6)}@ai.thewklyn.com`, name, role: 'member', active: true, title: '개인 비서', today_status: '출근', status_message: null, status_updated_at: null, is_agent: true, created_at: now() }
+        agent = { id: uid(), email: mail, name, role: 'member', active: true, title: '개인 비서', today_status: '출근', status_message: null, status_updated_at: null, is_agent: true, created_at: now() }
         store.profiles.push(agent)
       }
       const key = [self, agent.id].sort().join(':')
@@ -1056,6 +1058,20 @@ export function createDemoApi(): Api {
       persist()
       emit('chat_rooms')
       return { agent_id: agent.id, room_id: room.id }
+    },
+    async assistantSettings(patch) {
+      const { agent_id } = await this.openMyAssistant()
+      const agent = store.profiles.find(p => p.id === agent_id)!
+      if (patch?.name !== undefined) {
+        const n = patch.name.replace(/\s+/g, ' ').trim()
+        if (!n || n.length > 20) throw new ApiError('이름은 1~20자로 적어 주세요.')
+        if (store.profiles.some(p => p.id !== agent_id && p.name.toLowerCase() === n.toLowerCase())) throw new ApiError('이미 쓰는 이름입니다. 다른 이름을 골라 주세요.')
+        agent.name = n
+      }
+      if (patch?.instructions !== undefined) demoAssistantNotes.set(agent_id, patch.instructions.trim())
+      persist()
+      emit('profiles')
+      return { agent_id, name: agent.name, instructions: demoAssistantNotes.get(agent_id) ?? '' }
     },
     async openDm(otherId) {
       const self = requireMe()
