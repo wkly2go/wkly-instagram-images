@@ -4,7 +4,7 @@ import { countedUnread } from '../lib/chat'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { addDays, dateLabel, dateTimeLabel, relativeLabel, shortDate, todayKey } from '../lib/date'
 import { Link } from '../lib/router'
-import { DIVISIONS, projectBrand, type Approval, type ApprovalSummary, type ChatMessage, type ChatRoomSummary, type Project, type Task, type WorkLog } from '../lib/types'
+import { type Approval, type ApprovalSummary, type ChatMessage, type ChatRoomSummary, type Project, type Task, type WorkLog } from '../lib/types'
 import { CheckInCard } from '../components/CheckIn'
 import { Shell } from '../components/Shell'
 import { AgentDesk } from '../components/AgentDesk'
@@ -12,6 +12,7 @@ import { PushSetupCard } from '../components/PushSetup'
 import { KindTag, Button, Empty, Modal, SectionHead, StatusBadge } from '../components/ui'
 import { DailyReport, DecideButtons, reportSections } from './Approvals'
 import { MonthCalendar } from './Schedule'
+import { ProjectCards } from '../components/ProjectCards'
 
 interface HomeData {
   approvals: ApprovalSummary[]
@@ -119,33 +120,7 @@ export default function Home() {
       {active.length > 0 && (
         <section className="section" aria-label="진행 프로젝트">
           <SectionHead title="진행 프로젝트" count={active.length} right={<Link to="/projects?view=list">전체 보기 ›</Link>} />
-          <div className="home-projs">
-            {active.slice(0, 12).map(p => {
-              const div = projectBrand(p)
-              const left = open.filter(t => t.project_id === p.id)
-              const late = left.filter(t => t.due_date && t.due_date < today).length
-              const start = p.start_date, end = p.end_date ?? p.start_date
-              const days = (a: string, b: string) => Math.round((Date.parse(b) - Date.parse(a)) / 864e5)
-              const label = !end ? '기간 미정' : today > end ? `종료 후 ${days(end, today)}일` : today < (start ?? end) ? `시작 D-${days(today, start ?? end)}` : `종료 D-${days(today, end)}`
-              const prog = start && end && end > start ? Math.max(0, Math.min(100, (days(start, today) / days(start, end)) * 100)) : null
-              return (
-                <Link key={p.id} to={`/projects?id=${p.id}`} className="home-proj" style={{ ['--div' as string]: DIVISIONS[div].color }}>
-                  <span className="home-proj-top">
-                    <span className="home-proj-div">{DIVISIONS[div].label}</span>
-                    <span className={`home-proj-d${late ? ' late' : ''}`}>{late ? `지연 ${late}` : label}</span>
-                  </span>
-                  <b className="home-proj-name">{p.name}</b>
-                  <span className="t-cap">{[p.code, p.location].filter(Boolean).join(' · ') || ' '}</span>
-                  {prog != null && (
-                    <span className="home-proj-bar" aria-label={`기간 ${Math.round(prog)}% 지남`}>
-                      <i style={{ width: `${prog}%` }} />
-                    </span>
-                  )}
-                  <span className="t-cap">남은 할 일 {left.length}건</span>
-                </Link>
-              )
-            })}
-          </div>
+          <ProjectCards projects={active} tasks={data.tasks} scroll limit={12} />
         </section>
       )}
 
