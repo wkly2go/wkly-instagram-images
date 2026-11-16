@@ -33,3 +33,20 @@
 .sales-desk-send-summary details{margin:8px 0 0}.sales-desk-send-summary summary{cursor:pointer;color:#0d5a2e}
 .sales-desk-stages{margin:8px 0}.sales-desk-stages summary{cursor:pointer;font-weight:600}.sales-desk-stages ol{margin:6px 0 0;padding-left:20px;display:grid;gap:6px}.sales-desk-stages li span{color:#4d5a50}.sales-desk-stages li small{color:#7a847d}
 .sales-desk-ask{margin:12px 0;padding:14px 16px;background:#f3f8f4;border:1px solid #d6e6da;display:grid;gap:10px}.sales-desk-q p{margin:0 0 6px}.sales-desk-q .input{margin-top:6px;width:100%}
+
+/* 접힌 대화 · 기획 한 줄 + 보관함 (2026-11-16) */
+.sales-desk-compact { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--white); }
+.sales-desk-compact-open { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 10px; padding: 4px 2px; border: 0; background: none; text-align: left; font: inherit; cursor: pointer; color: inherit; }
+.sales-desk-compact-open:hover .sales-desk-compact-what { color: var(--blue); text-decoration: underline; text-underline-offset: 3px; }
+.sales-desk-compact-what { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.sales-desk-compact-open small { flex: none; color: var(--gray); }
+.sales-desk-exchange header .btn-ghost { margin-left: 4px; padding: 2px 8px; }
+.sales-desk-archive { border: 1px dashed var(--line); border-radius: 10px; padding: 8px 12px; background: var(--paper); }
+.sales-desk-archive > summary { cursor: pointer; font-weight: 700; }
+.sales-desk-archive > summary small { font-weight: 400; color: var(--gray); margin-left: 6px; }
+.sales-desk-archive ul { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.sales-desk-archive li { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 6px 8px; border-radius: 8px; background: var(--white); }
+.sales-desk-archive-kind { flex: none; padding: 0 8px; border-radius: 999px; background: var(--blue-tint); color: var(--blue); font-size: var(--fs-cap); font-weight: 700; }
+.sales-desk-archive-label { flex: 1 1 240px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sales-desk-archive li small { color: var(--gray); }
+.sales-desk-archive-actions { display: flex; gap: 4px; flex-wrap: wrap; }
