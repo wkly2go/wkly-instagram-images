@@ -32,6 +32,7 @@ import type {
   Department,
   WorkPlan,
   Note,
+  WeeklyReport,
   AgentToken,
   AppNotification,
   Approval,
@@ -129,6 +130,7 @@ interface Store {
   attendance?: Attendance[]
   access_log?: AccessLog[]
   notes?: Note[]
+  weekly_reports?: WeeklyReport[]
   report_templates?: ReportTemplate[]
   agent_jobs?: AgentJob[]
   agent_reports?: AgentReport[]
@@ -2126,6 +2128,26 @@ export function createDemoApi(): Api {
     async listAttendance(day) {
       requireMe()
       return clone((store.attendance ?? []).filter(a => a.day === day))
+    },
+    async listWeeklyReports(weekStart) {
+      requireMe()
+      return clone((store.weekly_reports ?? []).filter(r => r.week_start === weekStart))
+    },
+    async saveWeeklyReport(r) {
+      const self = requireMe()
+      const list = (store.weekly_reports ??= [])
+      let row = list.find(x => x.user_id === self && x.week_start === r.week_start)
+      if (!row) {
+        row = { id: uid(), user_id: self, week_start: r.week_start, summary: null, next_plan: null, submitted_at: null, created_at: now(), updated_at: now() }
+        list.push(row)
+      }
+      row.summary = r.summary
+      row.next_plan = r.next_plan
+      if (r.submit !== undefined) row.submitted_at = r.submit ? now() : null
+      row.updated_at = now()
+      persist()
+      emit('weekly_reports')
+      return clone(row)
     },
     async listNotes() {
       const self = requireMe()

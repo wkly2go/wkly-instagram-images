@@ -41,6 +41,7 @@ import type {
   Department,
   WorkPlan,
   Note,
+  WeeklyReport,
   AdminOverview,
   AgentToken,
   AppNotification,
@@ -982,6 +983,16 @@ export function createSupabaseApi(url: string, key: string): Api {
     },
     async punchAttendance(kind, source) {
       return must(await sb.rpc('attendance_punch', { p_kind: kind, p_source: source, p_device: desktop()?.deviceId ?? null })) as { kind: string; at: string }
+    },
+    async listWeeklyReports(weekStart) {
+      const { data, error } = await sb.from('weekly_reports').select('*').eq('week_start', weekStart)
+      return error ? [] : (data as WeeklyReport[])
+    },
+    async saveWeeklyReport(r) {
+      const { data } = await sb.auth.getSession()
+      const row: Record<string, unknown> = { user_id: data.session?.user.id, week_start: r.week_start, summary: r.summary, next_plan: r.next_plan, updated_at: new Date().toISOString() }
+      if (r.submit !== undefined) row.submitted_at = r.submit ? new Date().toISOString() : null
+      return must(await sb.from('weekly_reports').upsert(row, { onConflict: 'user_id,week_start' }).select().single()) as WeeklyReport
     },
     async listNotes() {
       const { data, error } = await sb.from('notes').select('*').order('pinned', { ascending: false }).order('updated_at', { ascending: false })

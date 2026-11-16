@@ -41,6 +41,7 @@ import type { LedgerEntry, LedgerFile, LedgerRecurring, LedgerStatus, MaterialIt
   WorkPlan,
   WorkPlanKind,
   Note,
+  WeeklyReport,
   AdminOverview,
   AgentScope,
   AgentToken,
@@ -455,6 +456,10 @@ export interface Api extends SalesStrategyApi, SalesApi, GrowthApi, SalesReportA
   punchAttendance(kind: '출근' | '외근' | '재택' | '현장 직출' | '퇴근', source: AccessSource): Promise<{ kind: string; at: string }>
   listAttendance(day: string): Promise<Attendance[]>
   // 개인 메모장 (본인 것만)
+  /** 주간 보고: 그 주(월요일)의 팀 전체 보고 (총평 · 계획 · 제출 여부) */
+  listWeeklyReports(weekStart: string): Promise<WeeklyReport[]>
+  /** 내 주간 보고 저장 (그 주에 한 건 · submit 이면 제출 시각 기록, false 면 제출 취소) */
+  saveWeeklyReport(r: { week_start: string; summary: string | null; next_plan: string | null; submit?: boolean }): Promise<WeeklyReport>
   listNotes(): Promise<Note[]>
   saveNote(n: { id?: string; content: string; pinned?: boolean }): Promise<Note>
   deleteNote(id: string): Promise<void>
