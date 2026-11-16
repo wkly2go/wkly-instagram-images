@@ -2,7 +2,7 @@ import {test} from 'node:test'
 import assert from 'node:assert/strict'
 import {readFile} from 'node:fs/promises'
 import {PGlite} from '@electric-sql/pglite'
-const sql=await readFile(new URL('../supabase/migrations/20261116110000_sales_ops_pulse.sql',import.meta.url),'utf8')
+const sql=await readFile(new URL('../supabase/migrations/20261116120000_sales_ops_pulse.sql',import.meta.url),'utf8')
 const names=['sales_receive','sales_desk_watchdog','sales_g2b_watchdog','sales_dispatch_tick','sales_dispatch_watchdog','sales_execution_schedule','sales_strategy_receive','sales_contact_evidence_tick','sales_followup_research_tick','sales_reply_tick','sales_brand_site_tick','sales_contact_discovery_tick','sales_news_brands_tick','sales_ai_budget_roll','sales_news_queue','sales_collect','sales_brief','sales_strategy_brief','sales_strategy_schedule','sales_method_review_tick']
 const base=`create role anon;create role authenticated;create schema private;create schema cron;create schema auth;
  create function auth.uid() returns uuid language sql as $$select current_setting('t.uid',true)::uuid$$;

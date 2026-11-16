@@ -2,7 +2,7 @@ import {test} from 'node:test'
 import assert from 'node:assert/strict'
 import {readFile} from 'node:fs/promises'
 import {PGlite} from '@electric-sql/pglite'
-const sql=await readFile(new URL('../supabase/migrations/20261116110100_sales_instagram_dm.sql',import.meta.url),'utf8')
+const sql=await readFile(new URL('../supabase/migrations/20261116120100_sales_instagram_dm.sql',import.meta.url),'utf8')
 const S='11111111-1111-4111-8111-111111111111',P='22222222-2222-4222-8222-222222222222',A='00000000-0000-0000-0000-000000000001'
 const base=`create role anon;create role authenticated;create role service_role;create schema private;create schema vault;create schema auth;
  create function auth.uid() returns uuid language sql as $$select current_setting('t.uid',true)::uuid$$;

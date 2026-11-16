@@ -76,3 +76,12 @@
   .app-page .profile .side-brief .sb-row { min-height: 44px; }
 }
 @media (prefers-reduced-motion: reduce) { .app-page .profile .side-brief > summary svg { transition: none; } }
+
+/* 메뉴 묶음 접기 · 달력을 메뉴 위로 (대표 지시 2026-11-16) */
+.app-page button.side-group-label { display: flex; align-items: center; gap: 4px; width: 100%; border: 0; background: none; text-align: left; font-family: inherit; cursor: pointer; }
+.app-page button.side-group-label:hover { color: var(--blue); }
+.app-page button.side-group-label > svg { flex: none; transition: transform .15s; }
+.app-page .side-nav-group.shut > .side-group-label > svg { transform: rotate(-90deg); }
+html:not(.side-rail) .app-page .side-nav-group.shut > .side-item:not(.on) { display: none; }
+html.side-rail .app-page button.side-group-label { display: none; }
+@media (prefers-reduced-motion: reduce) { .app-page button.side-group-label > svg { transition: none; } }
