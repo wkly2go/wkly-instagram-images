@@ -74,7 +74,7 @@ export function useProjectFolderSync() {
         await api.saveProject({ id: p.id, drive_url: r.url });
     }
     return r.action === "created"
-      ? "드라이브 폴더를 만들었습니다."
+      ? "드라이브 폴더를 샘플 폴더와 같은 구성으로 만들었습니다."
       : r.action === "linked"
         ? "같은 연번의 드라이브 폴더를 연결했습니다."
         : r.action === "renamed"

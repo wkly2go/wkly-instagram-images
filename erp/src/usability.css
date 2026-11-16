@@ -241,8 +241,11 @@ svg.lucide:is([width="27"], [width="28"], [width="30"], [width="32"]) { width: 2
 @media (pointer: coarse) { .icon-btn { width: 32px; height: 32px; } .quick-btn { height: 32px; } }
 
 /* 채팅: 고른 부분(하이라이트)에 댓글 · 질문 */
-.quote-pick { position: fixed; z-index: 400; transform: translateX(-50%); display: inline-flex; align-items: center; gap: 4px; height: 28px; padding: 0 10px; border: 1px solid var(--blue); background: var(--white); color: var(--blue); font-size: var(--fs-cap); font-family: inherit; font-weight: 600; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,.14); white-space: nowrap; }
-.quote-pick:hover { background: var(--blue-tint); }
+.quote-pick { position: fixed; z-index: 400; transform: translateX(-50%); display: inline-flex; border: 1px solid var(--blue); background: var(--white); box-shadow: 0 2px 8px rgba(0,0,0,.14); white-space: nowrap; }
+.quote-pick > button { display: inline-flex; align-items: center; gap: 4px; height: 28px; padding: 0 10px; border: 0; background: none; color: var(--blue); font-size: var(--fs-cap); font-family: inherit; font-weight: 600; cursor: pointer; }
+.quote-pick > button + button { border-left: 1px solid var(--line); }
+.quote-pick > button:hover { background: var(--blue-tint); }
+.bubble { user-select: text; -webkit-user-select: text; }
 .msg-quote { display: block; margin: 0 0 4px; padding: 2px 0 2px 8px; border-left: 3px solid var(--blue); color: var(--gray); font-size: var(--fs-sm); white-space: pre-wrap; }
 .chat-list .pane-head .row > .t-bodyb { white-space: nowrap; }
 .chat-list .pane-head .row { gap: 4px; }

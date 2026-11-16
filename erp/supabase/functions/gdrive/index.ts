@@ -10,7 +10,7 @@
 //  actions
 //   - status            : 연결 여부 (팀원 누구나)
 //   - connect {code}    : 관리자 · 구글 로그인 코드(팝업, redirect 'postmessage') → 갱신 토큰을 Vault 에 보관
-//   - ensure {project_id}: 팀원 · 프로젝트 폴더 만들기 · 맞추기
+//   - ensure {project_id}: 팀원 · 프로젝트 폴더 만들기 · 맞추기 (새로 만들면 샘플 폴더와 같은 하위 구성 · 양식 사본)
 //   - ensure_all        : 관리자 · 모든 프로젝트
 //   - token             : 팀원 · 회사 계정 드라이브 접근 토큰(1시간) → 인트라넷 탐색기가 개인 구글 로그인 없이 회사 드라이브를 다룸
 //                         ("구글 계정은 회사 계정을 모두 공유" 결정에 따름 · 갱신 토큰 · 비밀번호는 서버에만)
@@ -133,9 +133,44 @@ async function syncProject(p: Proj): Promise<{ url: string; action: 'created' | 
   }
   return { url: folderUrl((await create(want, group)).id), action: 'created' }
 }
+/**
+ * 새 프로젝트 폴더를 샘플 폴더와 같은 구성으로 (대표 지시 2026-11-16 '샘플 폴더와 같은 구성으로 만들어')
+ *  - 샘플: app_settings 'drive_project_template'(폴더 id) · 없으면 'AR0000 샘플 폴더'
+ *  - 하위 폴더를 끝까지(5단계 · 120개까지) 같은 이름으로 만들고, 샘플 안 양식 파일은 사본을 넣음(40개까지)
+ *  - 샘플 폴더 자체는 읽기만 · 방금 만든 빈 폴더에만 씀
+ */
+const TEMPLATE_DEFAULT = '1CfWhonQkGenxrpoEKJLJ9rakhWnrOwVN'
+async function cloneTemplate(target: string): Promise<{ folders: number; files: number }> {
+  const { data } = await sb.from('app_settings').select('value').eq('key', 'drive_project_template').maybeSingle()
+  const src = (typeof data?.value === 'string' && idOf(data.value)) || (typeof data?.value === 'string' && /^[A-Za-z0-9_-]{10,}$/.test(data.value) ? data.value : TEMPLATE_DEFAULT)
+  const out = { folders: 0, files: 0 }
+  const end = Date.now() + 45_000
+  const walk = async (from: string, to: string, depth: number): Promise<void> => {
+    const q = `'${from}' in parents and trashed = false`
+    const r = await drive<{ files?: { id: string; name: string; mimeType: string }[] }>(`files?${new URLSearchParams({ q, fields: 'files(id,name,mimeType)', pageSize: '200', orderBy: 'name', supportsAllDrives: 'true', includeItemsFromAllDrives: 'true' })}`)
+    for (const f of r.files ?? []) {
+      if (Date.now() > end) return
+      if (f.mimeType === FOLDER) {
+        if (out.folders >= 120) continue
+        const made = await create(f.name, to)
+        out.folders++
+        if (depth < 5) await walk(f.id, made.id, depth + 1)
+      } else if (out.files < 40 && f.mimeType !== 'application/vnd.google-apps.shortcut') {
+        await drive(`files/${encodeURIComponent(f.id)}/copy?supportsAllDrives=true&fields=id`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: f.name, parents: [to] }) }).then(() => out.files++).catch(() => null)
+      }
+    }
+  }
+  if (src !== target) await walk(src, target, 1)
+  return out
+}
 async function syncAndSave(p: Proj) {
   const r = await syncProject(p)
   if (r.url && r.url !== p.drive_url) await sb.from('projects').update({ drive_url: r.url }).eq('id', p.id)
+  if (r.action === 'created') {
+    const id = idOf(r.url)
+    const template = id ? await cloneTemplate(id).catch(() => null) : null
+    return { ...r, template }
+  }
   return r
 }
 const PROJ_COLS = 'id,name,code,division,start_date,created_at,drive_url'
