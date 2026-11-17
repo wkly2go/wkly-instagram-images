@@ -4,7 +4,11 @@
 //   - 사진 실측: 찍기(휴대폰 카메라) · 앨범 → 사진을 누르면 두 점을 찍어 치수 선 · 값(mm) 입력 · 메모 · 체크리스트 항목 연결
 //   - 도면: 도면 이미지 올리기 → 사진을 골라 도면 위를 누르면 그 자리에 핀 · 핀을 누르면 사진 · 치수
 //   - 체크리스트: 프로젝트의 현장 실측 체크리스트 (구분별)
-import { useEffect, useMemo, useRef, useState } from 'react'
+//   2026-11-17 대표 지시 '실측사진들이 미리보기가 안 떠있으니까 떠있게끔 · 치수랑 치수선이 너무 커서 사진이 가려지니까 절반 사이즈로'
+//   - 목록 미리보기: 올릴 때 미리보기를 만들지 못한 사진(예전 사진 · 아이폰 · 사파리에서 올린 사진 등)은
+//     화면에 보일 때 한 번 만들어 저장소에 넣음 (useSignedUrl · lib/imagePreview.ts)
+//   - 치수 선 · 점: 어느 화면에서나 예전의 절반. 글자는 절반이되 휴대폰에서는 8px 아래로 줄이지 않음 (MarkLayer · lib/siteMarks.ts)
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { ProjectOptions } from '../components/ProjectOptions'
 import { createPortal } from 'react-dom'
 import { Camera, Check, ImagePlus, ListChecks, MapPin, Trash2, Upload, X } from 'lucide-react'
@@ -12,6 +16,7 @@ import { Shell } from '../components/Shell'
 import { SiteSurveySection } from '../components/SiteSurvey'
 import { Button, SectionHead } from '../components/ui'
 import { useAction, useApp, useAsync } from '../lib/app'
+import { MARK_VIEW_WIDTH, markSizes, markTag } from '../lib/siteMarks'
 import type { Project, SiteMark, SitePlan, SiteShot, SiteSurveyItem } from '../lib/types'
 
 type Tab = 'photo' | 'plan' | 'check'
@@ -25,24 +30,123 @@ const readLast = () => {
   }
 }
 
-/** 저장소 경로 → 볼 수 있는 주소 (API의 사용자별 서명 캐시 공유) */
+type Connection = { saveData?: boolean; type?: string; addEventListener?(type: 'change', on: () => void): void; removeEventListener?(type: 'change', on: () => void): void }
+const connectionOf = () => (typeof navigator === 'undefined' ? undefined : (navigator as Navigator & { connection?: Connection }).connection)
+
+/** 데이터 절약 모드 · 휴대폰 데이터 연결에서는 미리보기를 만들려고 원본 사진을 받지 않는다 (누르면 열리는 것은 그대로) */
+function savingData() {
+  const connection = connectionOf()
+  return connection?.saveData === true || connection?.type === 'cellular'
+}
+
+/** 와이파이로 바뀌면(데이터 절약을 끄면) 한 번 알려 준다. 알 수 없는 브라우저는 아무것도 하지 않음 */
+function whenDataAllowed(run: () => void) {
+  const connection = connectionOf()
+  if (!connection?.addEventListener || !connection.removeEventListener) return () => undefined
+  const changed = () => {
+    if (savingData()) return
+    connection.removeEventListener?.('change', changed)
+    run()
+  }
+  connection.addEventListener('change', changed)
+  return () => connection.removeEventListener?.('change', changed)
+}
+
+/** 데이터를 아끼느라 미리보기를 만들지 않은 사진이 있으면 목록마다 한 줄로 알려 준다 */
+const savingSkips = new Set<() => void>()
+function useSavingDataHint() {
+  const [skipped, setSkipped] = useState(false)
+  useEffect(() => {
+    const skip = () => setSkipped(true)
+    savingSkips.add(skip)
+    return () => {
+      savingSkips.delete(skip)
+    }
+  }, [])
+  // 와이파이로 바뀌면 안내를 내린다 (다시 데이터로 바뀌어 건너뛰면 또 보임)
+  useEffect(() => (skipped ? whenDataAllowed(() => setSkipped(false)) : undefined), [skipped])
+  return skipped && savingData()
+}
+const SAVING_DATA_HINT = '모바일 데이터에서는 미리보기를 만들지 않습니다. 와이파이에서 열면 만들어집니다.'
+
+/** 칸이 화면에 실제로 보이면 한 번 알려 준다. 지켜보는 장치 하나를 같이 써서 화면에 놓인 순서(위 → 아래)대로 알린다 */
+const seenRuns = new WeakMap<Element, () => void>()
+let seenWatcher: IntersectionObserver | null = null
+function whenSeen(el: Element, run: () => void) {
+  if (typeof IntersectionObserver === 'undefined') {
+    run()
+    return () => undefined
+  }
+  seenWatcher ??= new IntersectionObserver(entries => {
+    for (const entry of entries) {
+      if (!entry.isIntersecting) continue
+      const seen = seenRuns.get(entry.target)
+      seenWatcher?.unobserve(entry.target)
+      seenRuns.delete(entry.target)
+      seen?.()
+    }
+  })
+  seenRuns.set(el, run)
+  seenWatcher.observe(el)
+  return () => {
+    seenRuns.delete(el)
+    seenWatcher?.unobserve(el)
+  }
+}
+
+/** ready 보여 줄 주소 있음 · missing 미리보기가 아직 없음 · making 미리보기 만드는 중 · failed 열 수 없음 */
+type Shown = { key: string; url: string | null; state: 'ready' | 'missing' | 'making' | 'failed' }
+
+/** 저장소 경로 → 볼 수 있는 주소 (API의 사용자별 서명 캐시 공유)
+ *  preview: 목록용 작은 미리보기. 미리보기가 아직 없는 예전 사진은 watch 로 지켜보는 칸이 화면에 보일 때 한 번 만들어 저장한다 */
 function useSignedUrl(path: string | null | undefined, preview = false) {
   const { api, me } = useApp()
   const key = JSON.stringify([me.id, path, preview])
-  const [image, setImage] = useState<{ key: string; url: string } | null>(null)
-  const attempt = useRef<{ key: string; active: boolean; retried: boolean; loading: boolean } | null>(null)
+  const [image, setImage] = useState<Shown | null>(null)
+  const [target, setTarget] = useState<HTMLElement | null>(null)
+  const attempt = useRef<{ key: string; active: boolean; retried: boolean; loading: boolean; making: boolean } | null>(null)
   useEffect(() => {
-    const current = { key, active: true, retried: false, loading: true }
+    const current = { key, active: true, retried: false, loading: true, making: false }
     attempt.current = current
     if (!path) return
     ;(preview ? api.sitePhotoPreviewUrl(path) : api.sitePhotoUrl(path))
-      .then(url => current.active && setImage(url ? { key, url } : null))
-      .catch(() => current.active && setImage(null))
+      .then(url => current.active && setImage(url ? { key, url, state: 'ready' } : { key, url: null, state: preview ? 'missing' : 'failed' }))
+      .catch(() => current.active && setImage({ key, url: null, state: 'failed' }))
       .finally(() => { current.loading = false })
     return () => {
       current.active = false
     }
   }, [api, path, key, preview])
+  const shown = image?.key === key ? image : null
+  const missing = shown?.state === 'missing'
+  useEffect(() => {
+    const current = attempt.current
+    if (!missing || !path || !target || !current || current.key !== key) return
+    let waiting: (() => void) | null = null
+    const make = () => {
+      if (!current.active || current.making) return
+      if (savingData()) {
+        // 와이파이로 바뀌면 그 자리에서 이어서 만든다 (화면을 다시 열지 않아도)
+        for (const skip of savingSkips) skip()
+        waiting ??= whenDataAllowed(() => {
+          waiting = null
+          make()
+        })
+        return
+      }
+      current.making = true
+      setImage({ key, url: null, state: 'making' })
+      void api.ensureSitePhotoPreview(path)
+        .then(url => current.active && setImage(url ? { key, url, state: 'ready' } : { key, url: null, state: 'failed' }))
+        .catch(() => current.active && setImage({ key, url: null, state: 'failed' }))
+    }
+    // 화면에 실제로 보이는 사진만 (긴 목록에서 안 보이는 사진의 원본까지 받지 않게)
+    const stopSeen = whenSeen(target, make)
+    return () => {
+      stopSeen()
+      waiting?.()
+    }
+  }, [api, path, key, missing, target])
   const retry = () => {
     const current = attempt.current
     if (!path || !current?.active || current.key !== key || current.loading) return
@@ -52,11 +156,11 @@ function useSignedUrl(path: string | null | undefined, preview = false) {
     current.retried = true
     current.loading = true
     void (preview ? api.sitePhotoPreviewUrl(path, true) : api.sitePhotoUrl(path, true))
-      .then(url => current.active && setImage(url ? { key, url } : null))
-      .catch(() => current.active && setImage(null))
+      .then(url => current.active && setImage(url ? { key, url, state: 'ready' } : { key, url: null, state: 'failed' }))
+      .catch(() => current.active && setImage({ key, url: null, state: 'failed' }))
       .finally(() => { current.loading = false })
   }
-  return { url: image?.key === key ? image.url : null, retry }
+  return { url: shown?.url ?? null, retry, making: shown?.state === 'making', watch: setTarget }
 }
 
 /** 프로젝트 고르기: 상태별로 묶어서 (대표 지시 2026-11-06 "프로젝트를 구분해줘") · 묶음 안은 연번 최신순 */
@@ -198,6 +302,7 @@ function PhotoTab({ project, projects }: { project: Project; projects: Project[]
     if (s.length === 1) setOpenId(s[0].id)
   })
   const open = shots.find(s => s.id === openId) ?? null
+  const savingHint = useSavingDataHint()
   return (
     <section className="section">
       <div className="site-upload">
@@ -245,6 +350,7 @@ function PhotoTab({ project, projects }: { project: Project; projects: Project[]
           ))}
         </div>
       )}
+      {savingHint && shots.length > 0 && <span className="t-cap site-thumb-note">{SAVING_DATA_HINT}</span>}
       {/* 화면 전체를 덮는 편집 창은 맨 바깥(body)에 (부모 칸에 잘리지 않게) */}
       {open && createPortal(<MeasureEditor key={open.id} shot={open} items={items} onClose={() => setOpenId(null)} onSaved={reload} />, document.body)}
     </section>
@@ -252,11 +358,11 @@ function PhotoTab({ project, projects }: { project: Project; projects: Project[]
 }
 
 function Thumb({ shot, item, onOpen, picked }: { shot: SiteShot; item?: SiteSurveyItem; onOpen: () => void; picked?: boolean }) {
-  const { url, retry } = useSignedUrl(shot.path, true)
+  const { url, retry, making, watch } = useSignedUrl(shot.path, true)
   return (
-    <button type="button" className={`site-thumb${picked ? ' picked' : ''}`} onClick={onOpen} aria-pressed={picked}>
+    <button ref={watch} type="button" className={`site-thumb${picked ? ' picked' : ''}`} onClick={onOpen} aria-pressed={picked}>
       {picked !== undefined && <span className={`site-pick-box${picked ? ' on' : ''}`}>{picked ? <Check size={14} /> : null}</span>}
-      {url ? <img src={url} alt="현장 사진" loading="lazy" decoding="async" onError={retry} /> : <span className="site-thumb-ph t-cap">사진 열기</span>}
+      {url ? <img src={url} alt="현장 사진" loading="lazy" decoding="async" onError={retry} /> : <span className="site-thumb-ph t-cap">{making ? '미리보기 만드는 중…' : '사진 열기'}</span>}
       <span className="site-thumb-meta">
         {shot.marks.length ? <b>치수 {shot.marks.length}</b> : <span>치수 없음</span>}
         {item ? <span className="truncate">{item.item}</span> : shot.memo ? <span className="truncate">{shot.memo}</span> : null}
@@ -265,34 +371,53 @@ function Thumb({ shot, item, onOpen, picked }: { shot: SiteShot; item?: SiteSurv
   )
 }
 
-/** 치수 선 그리기 · 값 */
+/** 치수 선 그리기 · 값
+ *  크기는 사진이 화면에 보이는 폭에 맞춰 정한다 (lib/siteMarks.ts): 선 · 점은 늘 예전의 절반, 글자는 절반이되 8px 아래로는 안 줄임
+ *  (도면 핀 미리보기 PinPeek 도 같은 크기 규칙) */
 function MarkLayer({ marks, draft, aspect }: { marks: SiteMark[]; draft?: { x: number; y: number } | null; aspect: number }) {
   // viewBox: 가로 1000 · 세로 1000/aspect (사진 비율 그대로)
-  const H = 1000 / aspect
+  const W = MARK_VIEW_WIDTH
+  const H = W / aspect
+  const layer = useRef<SVGSVGElement>(null)
+  // 0 = 아직 재지 않음 (넓은 화면 기준). 그리기 전에 재므로 크기가 바뀌어 보이지 않는다
+  const [width, setWidth] = useState(0)
+  useLayoutEffect(() => {
+    const el = layer.current
+    if (!el) return
+    const measure = () => setWidth(el.getBoundingClientRect().width)
+    measure()
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', measure)
+      return () => window.removeEventListener('resize', measure)
+    }
+    const watching = new ResizeObserver(measure)
+    watching.observe(el)
+    return () => watching.disconnect()
+  }, [])
+  const size = markSizes(width)
   return (
-    <svg className="site-svg" viewBox={`0 0 1000 ${H}`} preserveAspectRatio="none" aria-hidden="true">
+    <svg ref={layer} className="site-svg" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden="true">
       {marks.map((m, i) => {
-        const x1 = m.x1 * 1000
+        const x1 = m.x1 * W
         const y1 = m.y1 * H
-        const x2 = m.x2 * 1000
+        const x2 = m.x2 * W
         const y2 = m.y2 * H
-        const mx = (x1 + x2) / 2
-        const my = (y1 + y2) / 2
         const label = m.value ? `${m.value}` : `#${i + 1}`
+        const tag = markTag(label, (x1 + x2) / 2, (y1 + y2) / 2, size)
         return (
           <g key={i}>
-            <line x1={x1} y1={y1} x2={x2} y2={y2} className="mk-line-bg" />
-            <line x1={x1} y1={y1} x2={x2} y2={y2} className="mk-line" />
-            <circle cx={x1} cy={y1} r={9} className="mk-end" />
-            <circle cx={x2} cy={y2} r={9} className="mk-end" />
-            <rect x={mx - label.length * 13 - 10} y={my - 24} width={label.length * 26 + 20} height={48} className="mk-tag" />
-            <text x={mx} y={my + 12} className="mk-text">
+            <line x1={x1} y1={y1} x2={x2} y2={y2} className="mk-line-bg" style={{ strokeWidth: size.halo }} />
+            <line x1={x1} y1={y1} x2={x2} y2={y2} className="mk-line" style={{ strokeWidth: size.line }} />
+            <circle cx={x1} cy={y1} r={size.endRadius} className="mk-end" style={{ strokeWidth: size.endStroke }} />
+            <circle cx={x2} cy={y2} r={size.endRadius} className="mk-end" style={{ strokeWidth: size.endStroke }} />
+            <rect x={tag.x} y={tag.y} width={tag.width} height={tag.height} rx={tag.rx} className="mk-tag" />
+            <text x={tag.textX} y={tag.textY} className="mk-text" style={{ fontSize: size.text }}>
               {label}
             </text>
           </g>
         )
       })}
-      {draft && <circle cx={draft.x * 1000} cy={draft.y * H} r={14} className="mk-draft" />}
+      {draft && <circle cx={draft.x * W} cy={draft.y * H} r={size.draftRadius} className="mk-draft" style={{ strokeWidth: size.draftStroke }} />}
     </svg>
   )
 }
@@ -399,6 +524,7 @@ function MeasureEditor({ shot, items, onClose, onSaved }: { shot: SiteShot; item
 function PlanTab({ project, projects }: { project: Project; projects: Project[] }) {
   const { api, version } = useApp()
   const { busy, run } = useAction()
+  const savingHint = useSavingDataHint()
   const { data, reload } = useAsync(
     async () => {
       const [plans, shots] = await Promise.all([api.listSitePlans(project.id).catch(() => [] as SitePlan[]), api.listSitePhotos(project.id).catch(() => [] as SiteShot[])])
@@ -523,6 +649,7 @@ function PlanTab({ project, projects }: { project: Project; projects: Project[] 
               ))}
             </div>
           )}
+          {savingHint && loose.length > 0 && <span className="t-cap site-thumb-note">{SAVING_DATA_HINT}</span>}
         </>
       )}
     </section>
@@ -530,23 +657,30 @@ function PlanTab({ project, projects }: { project: Project; projects: Project[] 
 }
 
 function PickThumb({ shot, on, onPick }: { shot: SiteShot; on: boolean; onPick: () => void }) {
-  const { url, retry } = useSignedUrl(shot.path, true)
+  const { url, retry, making, watch } = useSignedUrl(shot.path, true)
   return (
-    <button type="button" className={`site-pick-thumb ${on ? 'on' : ''}`} onClick={onPick} aria-pressed={on}>
-      {url ? <img src={url} alt="현장 사진" loading="lazy" decoding="async" onError={retry} /> : <span className="site-thumb-ph t-cap">{shot.memo || "사진 선택"}</span>}
+    <button ref={watch} type="button" className={`site-pick-thumb ${on ? 'on' : ''}`} onClick={onPick} aria-pressed={on}>
+      {/* 96×72 칸이라 짧게 (글자가 낱말 중간에서 끊기지 않게) */}
+      {url ? <img src={url} alt="현장 사진" loading="lazy" decoding="async" onError={retry} /> : <span className="site-thumb-ph t-cap">{making ? '만드는 중…' : shot.memo || '사진 선택'}</span>}
       {shot.marks.length > 0 && <b>{shot.marks.length}</b>}
     </button>
   )
 }
+
+/** 핀을 눌렀을 때 보이는 사진 칸의 최대 높이 (styles.css .ms-photo.small 의 max-height 와 같게) */
+const PEEK_HEIGHT = 260
 
 function PinPeek({ shot, onMove, onClose }: { shot: SiteShot; onMove: () => void; onClose: () => void }) {
   const { url, retry } = useSignedUrl(shot.path)
   const [aspect, setAspect] = useState(4 / 3)
   return (
     <div className="site-peek">
-      <div className="ms-photo small">
-        {url && <img src={url} alt="현장 사진" onError={retry} onLoad={e => setAspect(e.currentTarget.naturalWidth / e.currentTarget.naturalHeight || 4 / 3)} />}
-        <MarkLayer marks={shot.marks} aspect={aspect} />
+      <div className="ms-photo small" style={{ background: 'none' }}>
+        {/* 사진 전체가 칸 높이(PEEK_HEIGHT) 안에 들어오게 폭을 맞춘다 — 넓은 화면에서 사진 아래가 잘리고 치수 선이 눌려 엉뚱한 자리에 그려지던 것 */}
+        <div style={{ position: 'relative', width: `min(100%, ${Math.floor(PEEK_HEIGHT * aspect)}px)`, margin: '0 auto' }}>
+          {url && <img src={url} alt="현장 사진" onError={retry} onLoad={e => setAspect(e.currentTarget.naturalWidth / e.currentTarget.naturalHeight || 4 / 3)} />}
+          <MarkLayer marks={shot.marks} aspect={aspect} />
+        </div>
       </div>
       <div className="row" style={{ gap: 8 }}>
         <span className="t-small grow">{shot.memo || (shot.marks.length ? `치수 ${shot.marks.map(m => m.value || '?').join(' · ')}` : '치수 없음')}</span>

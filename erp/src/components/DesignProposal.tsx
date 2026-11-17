@@ -1,6 +1,6 @@
 // Proposal step: left table of contents with per-section status, body + sourced figures, 16:9 slide preview,
 // PDF print and SVG export for Figma (Figma imports SVG as editable layers). Figures without a source are flagged, never guessed.
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { zipSync, strToU8 } from 'fflate'
 import { Badge, Button, Empty, Field } from './ui'
 import { useAction, useApp, useAsync } from '../lib/app'
@@ -77,7 +77,7 @@ function Slide({ project, index, total, title, eyebrow, sec, kind = 'content', i
   )
 }
 
-export function DesignProposal({ project }: { project: DesignProject }) {
+function ProposalOutline({ project }: { project: DesignProject }) {
   const { api, version, toast } = useApp()
   const { run, busy } = useAction()
   const { data: tpl } = useAsync(() => api.getProposalTemplate(project.space_type), [project.space_type], [] as ProposalTemplateSection[])
@@ -167,6 +167,22 @@ export function DesignProposal({ project }: { project: DesignProject }) {
         {finals.map(r => <Slide key={r.id} kind="render" project={project} index={0} total={0} title={r.title} eyebrow={r.no} image={r.data} />)}
         <Slide kind="closing" project={project} index={0} total={0} title="맺음" />
       </div>
+    </div>
+  )
+}
+
+// 제안 보드 (2026-11-17 대표 지시 '제안서는 피그마와 같은 환경에 houzz의 스팩 기능을 합쳐'): 보드가 기본, 예전 항목별 글 편집은 '구성안 (글)'에 그대로 둔다.
+const DesignBoard = lazy(() => import('./DesignBoard'))
+export function DesignProposal({ project }: { project: DesignProject }) {
+  const [mode, setMode] = useState<'board' | 'outline'>('board')
+  return (
+    <div className="design-block">
+      <div className="row wrap" role="tablist" aria-label="제안서 보기">
+        <button type="button" role="tab" aria-selected={mode === 'board'} className={`chip${mode === 'board' ? ' active' : ''}`} onClick={() => setMode('board')}>보드</button>
+        <button type="button" role="tab" aria-selected={mode === 'outline'} className={`chip${mode === 'outline' ? ' active' : ''}`} onClick={() => setMode('outline')}>구성안 (글)</button>
+        <span className="t-cap">{mode === 'board' ? '넓은 판 위에 페이지를 늘어놓고 글 · 스펙 카드 · 마감 견본 · 투시도를 놓습니다. 고치면 자동으로 저장되고 같이 보는 사람에게 알려집니다.' : '항목별 글과 수치를 적는 곳입니다. 보드의 \'구성안에서 페이지 만들기\'가 이 내용을 가져갑니다.'}</span>
+      </div>
+      {mode === 'board' ? <Suspense fallback={<Empty>보드를 불러오는 중…</Empty>}><DesignBoard project={project} /></Suspense> : <ProposalOutline project={project} />}
     </div>
   )
 }

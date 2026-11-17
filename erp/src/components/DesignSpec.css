@@ -1,0 +1,37 @@
+/* 스펙북 제품 사진 (2026-11-17 '스팩북 제품 사진 넣는거는 어디갔어?' · Houzz Pro 식 사진 먼저) */
+.dsp-tip { margin: 0; color: var(--tx-sub, var(--gray)); font-size: var(--fs-body); }
+.dsp-count { color: var(--tx-sub, var(--gray)); font-size: var(--fs-body); padding: 2px 8px; border-radius: 999px; background: var(--paper); }
+
+.dsp-photo { position: relative; flex: none; overflow: hidden; border-radius: 8px; background: var(--paper); border: 1px dashed var(--line); }
+.dsp-photo.has { border-style: solid; background: var(--white); }
+.dsp-photo.sm { width: 72px; height: 72px; }
+.dsp-photo.lg { width: 100%; aspect-ratio: 4 / 3; border-radius: 10px; }
+.dsp-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.dsp-photo-img { display: block; width: 100%; height: 100%; padding: 0; border: 0; background: none; cursor: pointer; }
+.dsp-photo-add { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 4px; border: 0; background: none; cursor: pointer; color: var(--tx-key, var(--blue)); font-size: var(--fs-body); font-weight: 400; line-height: 1.2; text-align: center; }
+.dsp-photo-add:hover, .dsp-photo-add:focus-visible { background: var(--white); }
+.dsp-photo-add:disabled { cursor: progress; opacity: .6; }
+.dsp-photo-acts { position: absolute; left: 0; right: 0; bottom: 0; display: none; gap: 2px; padding: 3px; justify-content: center; flex-wrap: wrap; background: linear-gradient(180deg, transparent, rgba(255, 255, 255, .92) 35%); }
+.dsp-photo:hover .dsp-photo-acts, .dsp-photo:focus-within .dsp-photo-acts { display: flex; }
+.dsp-photo-acts button { border: 1px solid var(--line); background: var(--white); color: var(--tx-body, #222a25); border-radius: 8px; padding: 1px 6px; font-size: var(--fs-body); font-weight: 400; line-height: 1.4; cursor: pointer; }
+.dsp-photo-acts button:hover { border-color: var(--blue); color: var(--blue); }
+.dsp-photo-acts button:last-child:hover { border-color: var(--red); color: var(--red); }
+.dsp-photo.sm .dsp-photo-acts { flex-direction: column; align-items: stretch; top: 0; justify-content: center; background: rgba(255, 255, 255, .78); }
+.dsp-photo-busy, .dsp-photo-drop { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; text-align: center; padding: 4px; font-size: var(--fs-body); font-weight: 700; color: var(--blue); background: rgba(255, 255, 255, .96); }
+.dsp-photo.busy { border-color: var(--blue); }
+.dsp-photo.over { border: 2px dashed var(--blue); }
+
+.dsp-table .dsp-photo-col { width: 84px; padding-top: 6px; padding-bottom: 6px; }
+.dsp-row { outline: none; }
+.dsp-row:focus-visible td { box-shadow: inset 0 2px 0 var(--blue), inset 0 -2px 0 var(--blue); }
+.dsp-table tr.dsp-row.dsp-over > td { background: #eef3ee; }
+.dsp-table td { vertical-align: middle; }
+.dsp-detail { outline: none; }
+.dsp-detail > td { background: var(--paper); }
+.dsp-ident { padding-bottom: 6px; margin-bottom: 6px; border-bottom: 1px solid var(--line); }
+
+.dsp-cards { grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 12px; }
+.dsp-cards > li { border-radius: 12px; padding: 10px; gap: 6px; outline: none; }
+.dsp-cards > li:focus-visible { box-shadow: 0 0 0 2px var(--blue); }
+.dsp-cards > li.dsp-over { border-color: var(--blue); box-shadow: 0 0 0 2px var(--blue); }
+.dsp-cards > li .row { align-items: center; gap: 6px; }

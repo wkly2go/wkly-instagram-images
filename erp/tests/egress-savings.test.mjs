@@ -87,8 +87,10 @@ test('썸네일은 비율을 유지하며 작은 사진을 확대하지 않고 �
   assert.deepEqual(previewSize(4000, 3000), { width: 640, height: 480 })
   assert.deepEqual(previewSize(100, 200), { width: 100, height: 200 })
   assert.throws(() => previewSize(0, 500))
-  assert.equal(sitePreviewPath('project/legacy.jpg'), null)
+  // 2026-11-17: 예전 사진도 같은 규칙의 미리보기 자리를 가진다 (목록에서 처음 보일 때 만들어 넣음 · tests/site-preview.test.ts)
+  assert.equal(sitePreviewPath('project/legacy.jpg'), 'project/legacy.jpg.preview.webp')
   assert.equal(sitePreviewPath('project/preview-v1-test.jpg'), 'project/preview-v1-test.jpg.preview.webp')
+  assert.equal(sitePreviewPath('project/legacy.jpg.preview.webp'), null)
 })
 test('사진 미리보기 생성은 원본 파일을 바꾸지 않고 최대 크기 이하로 재시도한다', async () => {
   globalThis.window = { setTimeout, clearTimeout }
@@ -114,6 +116,11 @@ test('실제 API는 목록 본문을 요청하지 않고 상세 ID·본문 검�
     calls.push({ path: url.pathname, query: url.searchParams, method: request.method })
     if (url.pathname === '/auth/v1/token') return respond({ access_token: 'fixture-token', refresh_token: 'fixture-refresh', expires_in: 3600, token_type: 'bearer', user: { id: 'fixture-user', aud: 'authenticated', role: 'authenticated' } })
     if (url.pathname === '/auth/v1/logout') return respond({})
+    // 현장 사진 미리보기가 있는지 묻는 요청: 예전 사진은 아직 없다고 답한다
+    if (url.pathname === '/storage/v1/object/sign/site-photos') {
+      const { paths } = calls.at(-1).body = await request.json()
+      return respond(paths.map(path => ({ path, signedURL: null, error: 'Either the object does not exist or you do not have access to it' })))
+    }
     if (url.pathname.startsWith('/storage/v1/object/sign/')) return respond({ signedURL: '/object/sign/fixture?token=fake' })
     if (url.pathname.endsWith('/approvals')) return respond(url.searchParams.has('id') ? { id: 'a', content: 'detail', payload: {} } : [{ id: 'a', approval_activity: [{ count: 2 }] }])
     if (url.pathname.endsWith('/research_items')) return respond(url.searchParams.has('body') ? [{ id: 'r', client_id: 'c' }] : url.searchParams.has('id') ? { id: 'r', body: 'detail' } : [{ id: 'r', title: 'summary' }])
@@ -136,8 +143,13 @@ test('실제 API는 목록 본문을 요청하지 않고 상세 ID·본문 검�
   const before = calls.length, att = { path: 'room/file.png', name: 'photo.png', type: 'image/png', size: 1000 }
   assert.equal(await api.filePreviewUrl(att), null)
   assert.equal(await api.filePreviewUrl({ ...att, preview_path: 'another/private.png' }), null)
-  assert.equal(await api.sitePhotoPreviewUrl('project/legacy.jpg'), null)
   assert.equal(calls.length, before, '기존 원본은 미리보기 때문에 자동 다운로드하지 않는다')
+  // 2026-11-17: 예전 현장 사진은 미리보기가 있는지만 묻는다 (작은 요청 1건). 원본은 서명하지도 내려받지도 않는다.
+  assert.equal(await api.sitePhotoPreviewUrl('project/legacy.jpg'), null)
+  assert.equal(calls.length, before + 1)
+  assert.equal(calls.at(-1).path, '/storage/v1/object/sign/site-photos')
+  assert.deepEqual(calls.at(-1).body.paths, ['project/legacy.jpg.preview.webp'])
+  assert.ok(!calls.some(c => c.path.endsWith('/project/legacy.jpg')), '기존 원본은 미리보기 확인만으로는 내려받지 않는다')
   await api.filePreviewUrl({ ...att, preview_path: att.path+'.preview.webp' })
   assert.ok(calls.at(-1).path.endsWith('/room/file.png.preview.webp'))
   await api.fileUrl(att)
