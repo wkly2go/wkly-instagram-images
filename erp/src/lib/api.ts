@@ -221,6 +221,8 @@ export interface Api extends SalesStrategyApi, SalesApi, GrowthApi, SalesReportA
 
   // 프로젝트·할 일
   listProjects(): Promise<Project[]>
+  /** 프로젝트 대표 사진 (드라이브 사진의 작은 미리보기 · 프로젝트 id → 잠시 쓰는 주소) · 없으면 빈 객체 */
+  projectCovers(): Promise<Record<string, string>>
   saveProject(p: Draft<Project>): Promise<Project>
   deleteProject(id: string): Promise<void>
   listTasks(filter?: TaskFilter): Promise<Task[]>

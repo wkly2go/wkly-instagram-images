@@ -502,3 +502,41 @@ li.right-pitem .rp-top { gap: 4px; }
 .right-pitem.shut { padding-top: 6px; padding-bottom: 6px; }
 .right-pitem .rp-bar { margin-left: 22px; }
 @media (prefers-reduced-motion: reduce) { .right-pitem .rp-fold, .right-pgroup > summary .rp-chev { transition: none; } }
+
+/* Houzz Pro 식 사진 카드 (2026-11-17 대표 우선순위 1 · 디자인 계획 '사진이 앞에 오는 카드')
+   맨 위 대표 사진(16:10) · 사진 위 구분 알약 / 남은 기간 · 사진이 없으면 구분 색을 옅게 깐 바탕에 연번 */
+.home-proj { padding: 0; gap: 0; }
+.home-proj::before { display: none; }
+.home-proj-cover { position: relative; display: block; aspect-ratio: 16 / 10; overflow: hidden; background: #ece8df; border-bottom: 1px solid var(--v8-line); }
+.home-proj-cover img { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform .25s ease; }
+.home-proj:hover .home-proj-cover img { transform: scale(1.03); }
+.home-proj-cover.empty { background: color-mix(in srgb, var(--div, var(--v8-green)) 12%, #fbfaf7); display: flex; align-items: center; justify-content: center; }
+.home-proj-mono { font-size: var(--fs-title); font-weight: 800; letter-spacing: .02em; color: color-mix(in srgb, var(--div, var(--v8-green)) 70%, #1b211d); opacity: .55; font-variant-numeric: tabular-nums; }
+.home-proj-cover .home-proj-div, .home-proj-cover .home-proj-d { position: absolute; top: 8px; padding: 2px 9px; border-radius: 999px !important; background: rgba(255, 255, 255, .94); box-shadow: 0 1px 3px rgba(31, 42, 36, .12); line-height: 1.5; }
+.home-proj-cover .home-proj-div { left: 8px; color: var(--div, var(--v8-green)); }
+.home-proj-cover .home-proj-d { right: 8px; }
+.home-proj-cover .home-proj-d.late { color: #b42318; }
+.home-proj-body { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px 12px; min-width: 0; }
+.home-projs { grid-auto-columns: minmax(220px, 248px); }
+.proj-cards { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
+html[data-theme="dark"] .home-proj-cover { background: #1c3324; border-color: var(--line); }
+html[data-theme="dark"] .home-proj-cover.empty { background: color-mix(in srgb, var(--div, #4caf7d) 22%, #15291c); }
+html[data-theme="dark"] .home-proj-mono { color: var(--ink); opacity: .45; }
+html[data-theme="dark"] .home-proj-cover :is(.home-proj-div, .home-proj-d) { background: rgba(21, 41, 28, .92); }
+@media (prefers-reduced-motion: reduce) { .home-proj-cover img { transition: none; } }
+.proj-cover { position: relative; margin: 10px 0 4px; height: 168px; border-radius: var(--v8-r-card) !important; overflow: hidden; background: #ece8df; border: 1px solid var(--v8-line); }
+.proj-cover img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.proj-cover::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 5px; background: var(--div, var(--v8-green)); }
+.proj-cover figcaption { position: absolute; right: 10px; bottom: 8px; padding: 2px 9px; border-radius: 999px !important; background: rgba(255, 255, 255, .92); color: var(--v8-sub); }
+@media (max-width: 640px) { .proj-cover { height: 132px; } }
+html[data-theme="dark"] .proj-cover figcaption { background: rgba(21, 41, 28, .9); color: var(--ink); }
+
+/* 홈 숫자 카드 아이콘 타일 (2026-11-17 Houzz Pro 식 · 연한 색 네모 안 작은 선 아이콘) — 카드: 왼쪽 타일 · 오른쪽 이름 / 숫자 / 설명 */
+.home-kpi { display: grid; grid-template-columns: 30px minmax(0, 1fr); grid-template-rows: auto auto auto; column-gap: 10px; row-gap: 1px; align-items: center; }
+.home-kpi > :not(.home-kpi-tile) { grid-column: 2; }
+.home-kpi-tile { grid-column: 1; grid-row: 1 / span 3; align-self: start; display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; margin-top: 2px; border-radius: 10px !important; }
+.home-kpi-tile.k-approve { background: #fdf3df; color: #9a5b00; }
+.home-kpi-tile.k-due { background: #fde9e7; color: #b42318; }
+.home-kpi-tile.k-proj { background: var(--v8-tint); color: var(--v8-green); }
+.home-kpi-tile.k-chat { background: #fde7f5; color: #b0207f; }
+html[data-theme="dark"] .home-kpi-tile { background: rgba(255, 255, 255, .08) !important; color: var(--ink) !important; }

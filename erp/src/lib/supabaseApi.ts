@@ -281,6 +281,16 @@ export function createSupabaseApi(url: string, key: string): Api {
     async listProjects() {
       return reads.run('projects', async () => must(await sb.from('projects').select('*').order('start_date', { ascending: false, nullsFirst: false })) as Project[])
     },
+    async projectCovers() {
+      const rows = await reads.run('project_covers', async () => must(await sb.from('project_covers').select('project_id, path')) as { project_id: string; path: string }[])
+      if (!rows.length) return {}
+      const urls = await signedUrls.getMany(rows.map(r => ({ bucket: 'project-covers', path: r.path })), async missing => {
+        const r = await sb.storage.from('project-covers').createSignedUrls(missing.map(m => m.path), 3600)
+        if (r.error) throw r.error
+        return missing.map(m => r.data.find(d => d.path === m.path)?.signedUrl ?? '')
+      }).catch(() => [] as string[])
+      return Object.fromEntries(rows.map((r, i) => [r.project_id, urls[i] ?? '']).filter(([, u]) => u))
+    },
     saveProject: p => save('projects', p) as Promise<Project>,
     deleteProject: id => remove('projects', id),
     async listTasks(filter = {}) {

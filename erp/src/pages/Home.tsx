@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { CalendarClock, FileCheck2, FolderKanban, MessageCircle } from 'lucide-react'
 import { Linkify } from '../components/ui'
 import { countedUnread } from '../lib/chat'
 import { useAction, useApp, useAsync } from '../lib/app'
@@ -93,16 +94,19 @@ export default function Home() {
         </div>
         <div className="home-kpis">
           <Link to="/approvals" className={`home-kpi${toDecide.length ? ' warn' : ''}`}>
+            <span className="home-kpi-tile k-approve" aria-hidden="true"><FileCheck2 size={16} /></span>
             <span className="t-cap">승인 대기</span>
             <b>{toDecide.length}</b>
             <span className="t-cap">{toDecide.length ? '내가 처리할 결재' : '처리할 결재 없음'}</span>
           </Link>
           <Link to="/projects?view=tasks" className={`home-kpi${overdue.length ? ' bad' : ''}`}>
+            <span className="home-kpi-tile k-due" aria-hidden="true"><CalendarClock size={16} /></span>
             <span className="t-cap">오늘 마감</span>
             <b>{dueToday.length}</b>
             <span className={`t-cap ${overdue.length ? 't-red' : ''}`}>{overdue.length ? `팀 지연 ${overdue.length}건` : '지연 없음'}</span>
           </Link>
           <Link to="/projects?view=list" className="home-kpi">
+            <span className="home-kpi-tile k-proj" aria-hidden="true"><FolderKanban size={16} /></span>
             <span className="t-cap">진행 프로젝트</span>
             <b>{count('진행')}</b>
             <span className="t-cap">
@@ -110,6 +114,7 @@ export default function Home() {
             </span>
           </Link>
           <Link to="/chat" className="home-kpi">
+            <span className="home-kpi-tile k-chat" aria-hidden="true"><MessageCircle size={16} /></span>
             <span className="t-cap">안 읽은 채팅</span>
             <b>{unread}</b>
             <span className="t-cap">{unreadRooms.length ? `채팅방 ${unreadRooms.length}곳` : `오늘 업무 기록 ${data.logs.length}건`}</span>

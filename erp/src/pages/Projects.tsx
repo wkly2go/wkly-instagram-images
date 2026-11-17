@@ -31,7 +31,7 @@ import { Gantt, MonthCalendar, SentTasks, TaskAssignModal, WeekView } from './Sc
 import { OverdueCleanup, PendingReports, useWorkReports } from '../components/WorkReports'
 import { ask } from '../components/Ask'
 import { TaskDetailPage } from '../components/TaskDetailPage'
-import { ProjectCards } from '../components/ProjectCards'
+import { ProjectCards, ProjectCoverBanner } from '../components/ProjectCards'
 import { NEXT_TASK_STATUS, TaskBoard, alarmLabel } from '../components/TaskBoard'
 
 interface Data {
@@ -827,6 +827,8 @@ function ProjectDetail({ project: p, data, onEdit, onBack, panel = false }: { pr
         )}
       </nav>
       </div>
+      {/* 표지 사진 (2026-11-17 Houzz Pro 식 · 드라이브 사진에서 자동) */}
+      <ProjectCoverBanner key={p.id} project={p} />
       {/* 순서 (대표 지시 2026-10-31): ① 할 일 · 프로젝트 개요 · 입출금 알람 (한 줄) ② 재무 ③ 프로젝트 일정 ④ 협력업체 관리 ⑤ 현장 작업일지 */}
       {/* 현장 브리핑: 기입된 자료로 자동 분석 · 해석, [보고서]로 전체 펼침 (대표 지시 2026-10-31) */}
       <ProjectBrief project={p} />
