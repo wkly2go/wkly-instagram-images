@@ -66,7 +66,7 @@ export function CollabSection({ project }: { project: Project }) {
       />
       {!rooms.length ? (
         <div className="cl-empty">
-          <Lock size={18} />
+          <Lock size={16} />
           <div>
             <b>발주처 · 협력사와 함께 쓰는 방</b>
             <p>대화 · 자료(드라이브 01.협의자료/03.외부공유) · 공유 일정을 이 프로젝트 안에서 나눕니다. 초대받은 사람은 그 방 하나만 볼 수 있고, 링크는 처음 연 기기에서만 열립니다.</p>
@@ -404,7 +404,7 @@ function StaffChat({ room, guests }: { room: CollabRoom; guests: CollabGuest[] }
             {room.drive_folder_id && (
               <>
                 <button type="button" className="cl-icon" aria-label="파일 붙이기" onClick={() => pick.current?.click()}>
-                  <Paperclip size={16} />
+                  <Paperclip size={14} />
                 </button>
                 <input
                   ref={pick}
@@ -434,7 +434,7 @@ function StaffChat({ room, guests }: { room: CollabRoom; guests: CollabGuest[] }
               }}
             />
             <button type="button" className="cl-send" aria-label="보내기" disabled={sending || uploading || (!text.trim() && !ready.length)} onClick={() => void send()}>
-              <ArrowUp size={16} />
+              <ArrowUp size={14} />
             </button>
           </div>
         </div>

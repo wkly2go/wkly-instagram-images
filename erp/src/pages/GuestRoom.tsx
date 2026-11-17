@@ -120,7 +120,7 @@ function GuestApp({ invite, badLink, roomParam }: { invite: string | null; badLi
     <div className="gr gr-center">
       <div className="gr-card gr-gate">
         <div className="gr-gate-icon">
-          <Lock size={20} />
+          <Lock size={18} />
         </div>
         {phase.kind === 'loading' && <p className="gr-muted">협업방을 여는 중…</p>}
         {phase.kind === 'confirm' && (
@@ -156,7 +156,7 @@ function GuestApp({ invite, badLink, roomParam }: { invite: string | null; badLi
             <div className="gr-pick">
               {phase.keys.map(k => (
                 <button key={k.room_id} type="button" className="gr-pick-row" onClick={() => setPhase({ kind: 'room', key: k })}>
-                  <MessageSquare size={16} />
+                  <MessageSquare size={13} />
                   <span>{k.title ?? '협업방'}</span>
                 </button>
               ))}
@@ -289,9 +289,9 @@ function Room({ k, others, onLost, onSwitch }: { k: GuestKey; others: boolean; o
           {period && <span> · {period}</span>}
         </div>
         <nav className="gr-tabs" role="tablist">
-          <TabBtn on={tab === 'chat'} onClick={() => setTab('chat')} icon={<MessageSquare size={15} />} label="대화" badge={tab !== 'chat' && unread ? unread : 0} />
-          <TabBtn on={tab === 'files'} onClick={() => setTab('files')} icon={<Folder size={15} />} label="자료" />
-          <TabBtn on={tab === 'events'} onClick={() => setTab('events')} icon={<CalendarDays size={15} />} label="일정" count={upcoming} />
+          <TabBtn on={tab === 'chat'} onClick={() => setTab('chat')} icon={<MessageSquare size={13} />} label="대화" badge={tab !== 'chat' && unread ? unread : 0} />
+          <TabBtn on={tab === 'files'} onClick={() => setTab('files')} icon={<Folder size={13} />} label="자료" />
+          <TabBtn on={tab === 'events'} onClick={() => setTab('events')} icon={<CalendarDays size={13} />} label="일정" count={upcoming} />
         </nav>
       </header>
       {offline && <div className="gr-banner">연결이 끊겼습니다 · 다시 연결하는 중…</div>}
@@ -458,7 +458,7 @@ function Chat({ k, s, onSent }: { k: GuestKey; s: State; onSent: (m: CollabMessa
           {s.me.can_upload && s.room.files && (
             <>
               <button type="button" className="gr-icon" aria-label="파일 붙이기" onClick={() => pick.current?.click()}>
-                <Paperclip size={18} />
+                <Paperclip size={14} />
               </button>
               <input
                 ref={pick}
@@ -492,7 +492,7 @@ function Chat({ k, s, onSent }: { k: GuestKey; s: State; onSent: (m: CollabMessa
             }}
           />
           <button type="button" className="gr-send" aria-label="보내기" disabled={sending || uploading || (!text.trim() && !ready.length)} onClick={() => void send()}>
-            <ArrowUp size={18} />
+            <ArrowUp size={14} />
           </button>
         </div>
       </div>
@@ -528,7 +528,7 @@ function FileChip({ k, f }: { k: GuestKey; f: CollabFileRef }) {
   const { open } = useOpener(k, f.id)
   return (
     <div className="gr-chip">
-      <Icon size={16} />
+      <Icon size={13} />
       <span className="gr-ell">{f.name}</span>
       <span className="gr-chip-size">{sizeLabel(f.size)}</span>
       {canView(f.mime) && (
@@ -629,7 +629,7 @@ function Files({ k, s, onPosted }: { k: GuestKey; s: State; onPosted: (m: Collab
             const Icon = iconOf(f.mime)
             return (
               <div key={f.id} className="gr-file">
-                <Icon size={18} className="gr-file-icon" />
+                <Icon size={14} className="gr-file-icon" />
                 <div className="gr-file-main">
                   <div className="gr-ell gr-file-name">{f.name}</div>
                   <div className="gr-muted gr-file-meta">
