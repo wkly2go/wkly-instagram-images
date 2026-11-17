@@ -146,6 +146,7 @@ export interface PriceRef {
   region: string
   notice_date: string | null
 }
+export interface PriceRefSuggestion { ref_id: number; source_name: string; item: string; spec: string; unit: string; price: number; material: number | null; labor: number | null; expense: number | null; notice_date: string | null; score: number }
 export interface PriceRefMatch { unit_price_id: string; ref_id: number; score: number; source_name: string; item: string; spec: string; unit: string; price: number; notice_date: string | null }
 export interface UnitCost {
   id: string
@@ -284,6 +285,10 @@ export interface DesignApi {
   listPriceRefs(search: string): Promise<{ rows: PriceRef[]; total: number }>
   /** 판매 단가마다 가장 비슷한 물가 기준 (단위 같고 글 비슷함 0.3 이상) */
   comparePriceRefs(ids: string[]): Promise<PriceRefMatch[]>
+  /** 견적 '단가 없음' 줄에 물가 기준 후보 3개 */
+  suggestPriceRefs(item: string, spec: string, unit: string): Promise<PriceRefSuggestion[]>
+  /** 관리자: 판매 단가 한 줄 넣기 (견적에 바로 쓰이게 승인 상태로) */
+  addUnitPrice(row: { trade_code: string; item: string; spec: string; unit: string; sell_price: number; source_doc: string; notes?: string }): Promise<void>
   /** 관리자만 내용이 보인다 (팀원은 빈 목록) */
   listUnitCosts(search: string, trade: string | null): Promise<UnitCost[]>
   listDesignVendors(): Promise<DesignVendor[]>

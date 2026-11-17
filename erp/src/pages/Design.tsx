@@ -19,6 +19,7 @@ import { DesignDrawings } from '../components/DesignDrawings'
 import { DesignSpec } from '../components/DesignSpec'
 import { DesignProposal } from '../components/DesignProposal'
 import { DesignDelivery } from '../components/DesignDelivery'
+import { DesignPriceSuggest } from '../components/DesignPriceSuggest'
 import './Design.css'
 
 type Tab = 'projects' | 'cards' | 'prices' | 'vendors' | 'materials' | 'knowledge'
@@ -347,6 +348,7 @@ function EstimateView({ project, base }: { project: DesignProject; base: DesignB
     : base.trades.map(t => ({ key: t.code, name: t.name, rows: lines.filter(l => l.trade_code === t.code) })).filter(g => g.rows.length)
   const files = docs.filter(d => d.version === revision)
   const missing = lines.filter(l => l.unit_price == null).length
+  const [suggest, setSuggest] = useState<string | null>(null)
   return (
     <div className="design-block">
       <SectionHead title="견적" count={revisions.length ? `${revisions[0]}차` : undefined} right={
@@ -378,7 +380,7 @@ function EstimateView({ project, base }: { project: DesignProject; base: DesignB
           <div className="total"><dt>합계</dt><dd>{won(num(est.totals.total))}</dd></div>
         </dl>
         {(missing > 0 || est.warnings.length > 0) && <ul className="design-warns">
-          {missing > 0 && <li className="red">단가가 없는 항목 {missing}개는 금액에서 빠졌습니다. '단가' 탭에서 승인된 판매 단가를 넣은 뒤 다시 계산하세요.</li>}
+          {missing > 0 && <li className="red">단가가 없는 항목 {missing}개는 금액에서 빠졌습니다. 각 줄의 '물가 기준'에서 조달청 단가를 골라 넣거나 '단가' 탭에서 판매 단가를 넣은 뒤 다시 계산하세요.</li>}
           {est.warnings.filter(w => w.level !== 'info').map((w, i) => <li key={i} className={w.level === 'error' ? 'red' : ''}>{w.message}</li>)}
         </ul>}
         {files.length > 0 && <ul className="design-files" aria-label="만들어진 파일">
@@ -388,11 +390,13 @@ function EstimateView({ project, base }: { project: DesignProject; base: DesignB
         <div className="table-wrap"><table className="table">
           <thead><tr><th>{bySection ? '구분' : '공종'}</th><th>품목</th><th>규격</th><th className="num">수량</th><th>단위</th><th className="num">단가</th><th className="num">금액</th></tr></thead>
           <tbody>{groups.flatMap(g => [
-            ...g.rows.map((l, i) => (
+            ...g.rows.flatMap((l, i) => [
               <tr key={l.id}><td className="nowrap strong">{i === 0 ? g.name : ''}</td><td>{l.item}</td><td className="max">{l.spec}</td>
                 <td className="num">{l.qty.toLocaleString('ko-KR')}</td><td>{l.unit}</td>
-                <td className={`num${l.unit_price == null ? ' red' : ''}`}>{l.unit_price == null ? '단가 없음' : l.unit_price.toLocaleString('ko-KR')}</td>
-                <td className="num">{l.amount == null ? '' : l.amount.toLocaleString('ko-KR')}</td></tr>)),
+                <td className={`num${l.unit_price == null ? ' red' : ''}`}>{l.unit_price == null ? <>단가 없음 <button type="button" className="design-ref-find" onClick={() => setSuggest(suggest === l.id ? null : l.id)}>물가 기준</button></> : l.unit_price.toLocaleString('ko-KR')}</td>
+                <td className="num">{l.amount == null ? '' : l.amount.toLocaleString('ko-KR')}</td></tr>,
+              ...(suggest === l.id ? [<tr key={`${l.id}-ref`} className="design-suggest-row"><td colSpan={7}><DesignPriceSuggest line={l} onAdded={() => undefined} /></td></tr>] : []),
+            ]),
             <tr key={`${g.key}-sum`} className="design-sub"><td colSpan={6}>{g.name} 소계</td><td className="num">{g.rows.reduce((s, l) => s + (l.amount ?? 0), 0).toLocaleString('ko-KR')}</td></tr>,
           ])}</tbody>
         </table></div>
