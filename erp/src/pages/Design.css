@@ -161,3 +161,6 @@
 .design-ref-gap { color: var(--tx-sub, #535c56); font-weight: 400; }
 .design-ref-gap.far { color: #b3412f; font-weight: 700; }
 .design-ref-find { border: 0; background: none; padding: 0; color: var(--tx-key, #1f6b4a); font: inherit; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.design-suggest-row > td { background: #fbfaf6; }
+.design-suggest ul { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 6px; }
+.design-suggest li { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; align-items: baseline; }
