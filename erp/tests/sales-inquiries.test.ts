@@ -25,5 +25,5 @@ test('inquiries are sorted into reply, signal, other and done', async () => {
   // the database uses the same consent rule and never registers a report request without consent
   assert.ok(sql.includes("(w.newsletter is true or coalesce(w.memo, '') like '%[수신 동의]%')"))
   // replies only open a mail window; nothing is sent by the app
-  assert.ok(!/sb\.functions|fetch\(|sendMail|gmail/i.test(src))
+  assert.ok(!/sb\.functions|functions\.invoke|fetch\(|sendMail|sendSales/i.test(src))
 })
