@@ -14,7 +14,7 @@ export interface CollabApi {
   postCollabMessage(roomId: string, body: string, files?: CollabFileRef[]): Promise<CollabMessage>
   hideCollabMessage(id: number): Promise<void>
   createCollabRoom(projectId: string, title: string, intro?: string): Promise<{ room: CollabRoom; folder_error: string | null }>
-  updateCollabRoom(id: string, patch: Partial<Pick<CollabRoom, 'title' | 'intro' | 'closed_at'>>): Promise<void>
+  updateCollabRoom(id: string, patch: Partial<Pick<CollabRoom, 'title' | 'intro' | 'closed_at' | 'company'>>): Promise<void>
   /** 초대: 링크(token)는 이때 한 번만 보임 */
   inviteCollabGuest(roomId: string, g: { name: string; org?: string; role: CollabRole; days: number; can_upload: boolean }): Promise<{ guest: CollabGuest; token: string }>
   relinkCollabGuest(guestId: string): Promise<string>
@@ -65,7 +65,7 @@ export function createSupabaseCollabApi(sb: SupabaseClient): CollabApi {
   }
   return {
     async listCollab(projectId) {
-      const rooms = must(await sb.from('collab_rooms').select('id,project_id,title,intro,drive_folder_id,closed_at,created_by,created_at').eq('project_id', projectId).order('created_at')) as CollabRoom[]
+      const rooms = must(await sb.from('collab_rooms').select('id,project_id,title,intro,drive_folder_id,closed_at,created_by,created_at,company').eq('project_id', projectId).order('created_at')) as CollabRoom[]
       if (!rooms.length) return { rooms, guests: [], events: [] }
       const ids = rooms.map(r => r.id)
       const [guests, events] = await Promise.all([

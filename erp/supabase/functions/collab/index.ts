@@ -105,10 +105,12 @@ async function folder(t: string, name: string, parent: string, skip: Set<string>
 }
 
 // ── 방 · 프로젝트 ────────────────────────────────────────────────────────
-interface Room { id: string; project_id: string; title: string; intro: string | null; drive_folder_id: string | null; closed_at: string | null; created_by: string | null }
+interface Room { id: string; project_id: string; title: string; intro: string | null; drive_folder_id: string | null; closed_at: string | null; created_by: string | null; company: string | null }
 interface Proj { id: string; name: string; code: string | null; division: string | null; drive_url: string | null; start_date: string | null; end_date: string | null; owner_id: string | null }
 interface Guest { id: string; room_id: string; name: string; org: string | null; role: string; can_upload: boolean; expires_at: string; revoked_at: string | null; last_seen_at: string | null; read_upto: number; invited_by: string | null }
-const ROOM_COLS = 'id,project_id,title,intro,drive_folder_id,closed_at,created_by'
+const ROOM_COLS = 'id,project_id,title,intro,drive_folder_id,closed_at,created_by,company'
+/** 외부인에게 보이는 회사 이름: 방에 정한 이름 → 프로젝트 구분 */
+const companyOf = (room: Room, proj: Proj) => room.company?.trim() || (COMPANY[proj.division ?? 'AR'] ?? COMPANY.AR)
 async function roomOf(id: string): Promise<{ room: Room; proj: Proj }> {
   if (!UUID_RE.test(id)) throw new Fail(400, '방을 찾을 수 없습니다.')
   const { data: room } = await sb.from('collab_rooms').select(ROOM_COLS).eq('id', id).maybeSingle()
@@ -216,8 +218,7 @@ const deviceOf = (ua: string) => {
   const os = /iPhone|iPad/.test(ua) ? '아이폰' : /Android/.test(ua) ? '안드로이드' : /Windows/.test(ua) ? '윈도' : /Mac OS X/.test(ua) ? '맥' : ''
   return [os, app].filter(Boolean).join(' · ').slice(0, 80)
 }
-async function people(userIds: string[], guestIds: string[], division: string | null) {
-  const company = COMPANY[division ?? 'AR'] ?? COMPANY.AR
+async function people(userIds: string[], guestIds: string[], company: string) {
   const us = userIds.length ? ((await sb.from('profiles').select('id,name,title').in('id', userIds)).data ?? []) : []
   const gs = guestIds.length ? ((await sb.from('collab_guests').select('id,name,org,role').in('id', guestIds)).data ?? []) : []
   return {
@@ -293,14 +294,14 @@ async function guestAction(action: string, b: Record<string, unknown>, key: stri
         const { data: gs } = await sb.from('collab_guests').select('id').eq('room_id', room.id).is('revoked_at', null)
         allGuests = [...new Set([...guestIds, ...(gs ?? []).map(x => x.id as string)])]
       }
-      const who = await people([...new Set(msgs.map(m => m.user_id).filter(Boolean))] as string[], allGuests, proj.division)
+      const who = await people([...new Set(msgs.map(m => m.user_id).filter(Boolean))] as string[], allGuests, companyOf(room, proj))
       return {
         me,
         messages: msgs,
         people: who,
         ...(full
           ? {
-              room: { id: room.id, title: room.title, intro: room.intro, company: COMPANY[proj.division ?? 'AR'] ?? COMPANY.AR, division: proj.division ?? 'AR', project: { name: proj.name, start_date: proj.start_date, end_date: proj.end_date }, files: !!room.drive_folder_id || !!proj.drive_url },
+              room: { id: room.id, title: room.title, intro: room.intro, company: companyOf(room, proj), division: proj.division ?? 'AR', project: { name: proj.name, start_date: proj.start_date, end_date: proj.end_date }, files: !!room.drive_folder_id || !!proj.drive_url },
               events: ev ?? [],
             }
           : {}),

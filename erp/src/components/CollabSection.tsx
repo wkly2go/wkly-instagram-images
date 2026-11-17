@@ -733,7 +733,7 @@ function InviteModal({ room, onClose, onDone }: { room: CollabRoom; onClose: () 
 function LinkModal({ project, room, guest, token, onClose }: { project: Project; room: CollabRoom; guest: CollabGuest; token: string; onClose: () => void }) {
   const { me, toast } = useApp()
   const url = collabInviteUrl(token)
-  const company = COMPANY[projectBrand(project)]
+  const company = room.company?.trim() || COMPANY[projectBrand(project)]
   const message = `안녕하세요, ${company} ${me.name}입니다.\n${room.title} 초대 링크를 보내 드립니다. 아래 링크를 누르시면 로그인 없이 대화 · 자료 · 일정을 함께 보실 수 있습니다.\n(이 링크는 처음 여신 기기에서만 열립니다. 다른 기기에서 보시려면 말씀해 주세요.)\n\n${url}`
   return (
     <Modal
@@ -889,12 +889,13 @@ function RoomSettings({ room, onClose, onDone }: { room: CollabRoom; onClose: ()
   const { api, toast } = useApp()
   const [title, setTitle] = useState(room.title)
   const [intro, setIntro] = useState(room.intro ?? '')
+  const [company, setCompany] = useState(room.company ?? '')
   const [busy, setBusy] = useState(false)
   const save = async (closed?: string | null) => {
     if (!title.trim()) return toast('방 이름을 적어 주세요.')
     setBusy(true)
     try {
-      await api.updateCollabRoom(room.id, { title: title.trim(), intro: intro.trim() || null, ...(closed !== undefined ? { closed_at: closed } : {}) })
+      await api.updateCollabRoom(room.id, { title: title.trim(), intro: intro.trim() || null, company: company.trim() || null, ...(closed !== undefined ? { closed_at: closed } : {}) })
       toast(closed === undefined ? '저장했습니다.' : closed ? '방을 닫았습니다. 외부인이 더는 들어올 수 없습니다.' : '방을 다시 열었습니다.')
       onDone()
     } catch (e) {
@@ -929,6 +930,9 @@ function RoomSettings({ room, onClose, onDone }: { room: CollabRoom; onClose: ()
       </Field>
       <Field label="첫 화면 안내 (외부인에게 보임)">
         <textarea className="textarea" rows={3} maxLength={1000} value={intro} onChange={e => setIntro(e.target.value)} />
+      </Field>
+      <Field label="외부인에게 보이는 회사 이름 (비우면 프로젝트 구분: 아트리어디자인스튜디오 · 더위클리컴퍼니)">
+        <input className="input" value={company} maxLength={40} onChange={e => setCompany(e.target.value)} placeholder="예: 더위클리 (아트리어 일을 더위클리로 소개한 거래처)" />
       </Field>
     </Modal>
   )

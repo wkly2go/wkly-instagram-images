@@ -105,7 +105,7 @@
 /* 들어오기 · 오류 */
 .gr-gate { max-width: 420px; width: 100%; padding: 28px 24px; text-align: center; }
 .gr-gate h1 { font-size: var(--fs-title); font-weight: 800; margin: 12px 0 8px; color: var(--tx-title); }
-.gr-gate p { font-size: var(--fs-body); line-height: 1.6; margin: 0 0 10px; color: var(--tx-body); }
+.gr-gate p { font-size: var(--fs-body); line-height: 1.6; margin: 0 0 10px; color: var(--tx-body); word-break: keep-all; text-wrap: pretty; }
 .gr-gate p.gr-muted { font-size: var(--fs-body); color: var(--tx-sub); }
 .gr-gate-icon { width: 44px; height: 44px; border-radius: 50% !important; background: var(--v8-tint); color: var(--tx-key); display: grid; place-items: center; margin: 0 auto; }
 .gr-row { display: flex; gap: 8px; justify-content: center; margin-top: 14px; }

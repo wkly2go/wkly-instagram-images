@@ -1502,6 +1502,8 @@ export interface CollabRoom {
   closed_at: string | null
   created_by: string | null
   created_at: string
+  /** 외부인에게 보이는 회사 이름 (비우면 프로젝트 구분으로) */
+  company?: string | null
 }
 export interface CollabGuest {
   id: string

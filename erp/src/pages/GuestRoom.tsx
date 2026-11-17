@@ -69,7 +69,7 @@ export function mountGuestRoom(el: HTMLElement) {
 
 type Phase =
   | { kind: 'loading' }
-  | { kind: 'confirm'; invite: string }
+  | { kind: 'confirm'; invite: string; staff: boolean }
   | { kind: 'error'; message: string; code: string }
   | { kind: 'pick'; keys: GuestKey[] }
   | { kind: 'room'; key: GuestKey }
@@ -91,8 +91,9 @@ function GuestApp({ invite, badLink, roomParam }: { invite: string | null; badLi
     void (async () => {
       if (badLink) return setPhase({ kind: 'error', code: 'bad', message: '초대 링크가 올바르지 않습니다. 받은 링크 전체를 눌러 열어 주세요.' })
       if (invite) {
-        if (staffSignedIn() && !(await inviteKnown(invite))) return setPhase({ kind: 'confirm', invite })
-        return enter(invite)
+        // 이 기기에서 이미 연 링크면 바로 · 처음이면 버튼을 눌러야 씀 (메일 보안 검사기 · 미리보기가 링크를 써 버리지 않게)
+        if (await inviteKnown(invite)) return enter(invite)
+        return setPhase({ kind: 'confirm', invite, staff: staffSignedIn() })
       }
       const keys = loadKeys()
       const hit = roomParam ? keys.find(k => k.room_id === roomParam) : null
@@ -123,7 +124,19 @@ function GuestApp({ invite, badLink, roomParam }: { invite: string | null; badLi
           <Lock size={18} />
         </div>
         {phase.kind === 'loading' && <p className="gr-muted">협업방을 여는 중…</p>}
-        {phase.kind === 'confirm' && (
+        {phase.kind === 'confirm' && !phase.staff && (
+          <>
+            <h1>협업방 초대</h1>
+            <p>아래 버튼을 누르면 이 기기에서 협업방이 열립니다.</p>
+            <p className="gr-muted">초대 링크는 처음 연 기기 한 대에서만 쓸 수 있습니다. 다음에도 같은 기기에서 이 링크를 누르시면 바로 들어옵니다.</p>
+            <div className="gr-row">
+              <button type="button" className="gr-btn gr-primary" onClick={() => void enter(phase.invite)}>
+                협업방 들어가기
+              </button>
+            </div>
+          </>
+        )}
+        {phase.kind === 'confirm' && phase.staff && (
           <>
             <h1>팀원 계정으로 로그인된 기기입니다</h1>
             <p>이 초대 링크는 처음 연 기기에서만 열립니다. 여기서 열면 초대받은 분은 이 링크로 들어올 수 없게 됩니다.</p>
