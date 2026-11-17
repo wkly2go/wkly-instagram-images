@@ -1,5 +1,6 @@
 import { createSupabaseSalesStrategyApi } from './salesStrategyApi'
 import { createSupabaseDesignApi } from './designApi'
+import { createSupabaseCollabApi } from './collabApi'
 import { createSupabaseSalesReportApi } from './salesReport'
 import { createSupabaseGrowthApi } from './growthApi'
 import { createSupabaseSalesApi } from './salesApi'
@@ -208,6 +209,7 @@ export function createSupabaseApi(url: string, key: string): Api {
     ...createSupabaseSalesApi(sb),
     ...createSupabaseSalesStrategyApi(sb),
     ...createSupabaseDesignApi(sb),
+    ...createSupabaseCollabApi(sb),
     ...createSupabaseSalesReportApi(sb),
     ...createSupabaseGrowthApi(sb),
     ...createSupabaseMarketingApi(sb, signedUrls),
