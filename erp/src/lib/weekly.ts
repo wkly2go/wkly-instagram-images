@@ -64,6 +64,8 @@ export function findWeeklyGaps(a: { monday: string; today: string; userId: strin
     if (t.assignee_id !== a.userId || t.status !== '완료' || !t.completed_at) return false
     const d = kstDay(t.completed_at)
     if (d < a.monday || d > sunday) return false
+    // 할 일에서 자동으로 적힌(또는 연결된) 기록이 이번 주에 있으면 이미 일지에 있는 것 (20261117150000 · work_logs.task_id)
+    if (a.logs.some(l => l.task_id === t.id && l.log_date >= a.monday && l.log_date <= sunday)) return false
     const head = t.title.trim().slice(0, 12)
     return !a.logs.some(l => l.log_date === d && (l.project_id ?? null) === (t.project_id ?? null) && (!head || l.content.includes(head) || !!t.project_id))
   })

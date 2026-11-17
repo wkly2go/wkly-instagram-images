@@ -138,7 +138,7 @@ export function WorkPane({ tabs }: { tabs?: ReactNode }) {
       kind: 'title',
       cell: l => (
         <>
-          <span className="cell-pre t-small t-blue"><Linkify text={l.content} /></span>
+          <span className="cell-pre t-small t-blue"><Linkify text={l.content} />{l.task_id && <> <Badge tone="outline" title="할 일에서 자동으로 적힌 기록입니다">할 일</Badge></>}</span>
           {l.memo && (
             <span className="log-memo cell-pre" title="메모">
               <StickyNote size={12} style={{ verticalAlign: -2 }} aria-hidden="true" /> <Linkify text={l.memo} />

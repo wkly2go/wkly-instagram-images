@@ -11,6 +11,7 @@ import type { MaterialMove, MaterialStockRow, SlackLink, SlackMessage } from './
 import { ApiError, groupIps, type Api, type DriveFolder, type ImportResult, type MessageEvent } from './api'
 import { addDays, nextMonday, toDateKey, todayKey } from './date'
 import { DEFAULT_REPORT_BODY } from './reports'
+import { isTaskLogText, taskLogText } from './taskLog'
 
 const demoSlack: { links: SlackLink[]; messages: SlackMessage[] } = { links: [], messages: [] }
 const demoAssistantNotes = new Map<string, string>()
@@ -805,6 +806,28 @@ export function createDemoApi(): Api {
       if (saved.assignee_id && saved.assignee_id !== self && saved.assignee_id !== prev?.assignee_id) {
         notify(saved.assignee_id, '할 일', `새 할 일 배정 · ${saved.title}`, `${nameOf(self)}님이 배정했어요`, '/projects?view=mine')
         persist()
+      }
+      // 서버 tasks_work_log 와 같게: 진행 중 · 완료로 바꾸면 그날 업무 일지에 한 줄, 다시 '할 일'이면 그날 자동 기록만 지움 (20261117150000)
+      const owner = saved.assignee_id ?? saved.created_by
+      if (owner && saved.title.trim() && !store.profiles.some(p => p.id === owner && p.is_agent) && (!prev || prev.status !== saved.status)) {
+        const day = todayKey()
+        const mineToday = (l: WorkLog) => l.task_id === saved.id && l.user_id === owner && l.log_date === day
+        const auto = (l: WorkLog) => isTaskLogText(l.content, saved.title) || (!!prev && isTaskLogText(l.content, prev.title))
+        if (saved.status === '할 일') {
+          const before = store.work_logs.length
+          store.work_logs = store.work_logs.filter(l => !(mineToday(l) && auto(l)))
+          if (store.work_logs.length !== before) { persist(); emit('work_logs') }
+        } else {
+          const text = taskLogText(saved.title, saved.status)
+          const memo = saved.memo?.trim().slice(0, 1000) || null
+          const cur = store.work_logs.find(mineToday)
+          const written = cur ? undefined : saved.title.trim().length >= 4 ? [...store.work_logs].reverse().find(l => l.user_id === owner && l.log_date === day && !l.task_id && l.content.toLowerCase().includes(saved.title.trim().toLowerCase())) : undefined
+          if (cur) { if (auto(cur)) cur.content = text; cur.project_id = cur.project_id ?? saved.project_id; cur.memo = cur.memo ?? memo; cur.updated_at = now() }
+          else if (written) { written.task_id = saved.id; written.project_id = written.project_id ?? saved.project_id }
+          else store.work_logs.push({ id: uid(), user_id: owner, log_date: day, kind: '업무', content: text, email_counterpart: null, email_subject: null, client_id: null, project_id: saved.project_id, minutes: null, memo, task_id: saved.id, created_at: now(), updated_at: now() })
+          persist()
+          emit('work_logs')
+        }
       }
       // 서버 tasks_card 와 같게: 프로젝트 할 일은 그 프로젝트 방에 카드로
       const projRoom = !prev && saved.project_id ? store.chat_rooms.find(r => r.project_id === saved.project_id && !r.members && !r.is_archived) : undefined
