@@ -1,0 +1,67 @@
+/* 글자 위계 (2026-11-17 대표 지시 '전체 공통사항 · 글자 크기는 타이틀 · 본문 · 강조 3가지만 · 색 구분과 볼드 규칙')
+   main.tsx 맨 끝에서 읽음 → 앞의 styles.css · usability.css · refresh.css 의 글자 크기 단계를 모두 덮어씀.
+
+   크기 3단계 (사용자 글자 배율 --fs-k · --fs-m 은 그대로 곱함)
+   - 타이틀 --t-title 18px : 화면 · 섹션 · 카드 제목, 큰 숫자(KPI)
+   - 강조   --t-em    15.5px : 소제목 · 목록의 이름 줄 · 표 머리 · 버튼 안 핵심 글
+   - 본문   --t-body  14px : 그 밖의 모든 글 (설명 · 날짜 · 메타 · 배지 · 표 칸 · 입력)
+   예전 단계 → 새 단계: cap · sm · small · body → 본문 / sub → 강조 / title · num · hero → 타이틀
+
+   굵기 3단계: 800 타이틀 · 700 강조(이름 · 숫자 · 상태 · 눌러야 할 것) · 400 본문. 500 · 600 · 650 · 750 은 쓰지 않음.
+
+   색 4가지 (밝은 화면 · 검정 쓰지 않음)
+   - --tx-title #151d18 제목 · 강조 글
+   - --tx-body  #222a25 본문
+   - --tx-sub   #535c56 보조(날짜 · 담당 · 건수 · 설명) — 크기로 줄이지 않고 색으로만 낮춤
+   - --tx-key   #1f6b4a 누를 수 있는 글 · 지금 고른 것 / --red 지연 · 경고만 */
+:root {
+  --t-title: calc(18px * var(--fs-k) * var(--fs-m, 1));
+  --t-em: calc(15.5px * var(--fs-k) * var(--fs-m, 1));
+  --t-body: calc(14px * var(--fs-k) * var(--fs-m, 1));
+  --fs-cap: var(--t-body);
+  --fs-sm: var(--t-body);
+  --fs-small: var(--t-body);
+  --fs-body: var(--t-body);
+  --fs-sub: var(--t-em);
+  --fs-title: var(--t-title);
+  --fs-num: var(--t-title);
+  --fs-hero: var(--t-title);
+  --tx-title: #151d18;
+  --tx-body: #222a25;
+  --tx-sub: #535c56;
+  --tx-key: #1f6b4a;
+}
+@media (pointer: coarse) {
+  :root {
+    --t-title: calc(18.5px * var(--fs-k) * var(--fs-m, 1));
+    --t-em: calc(16px * var(--fs-k) * var(--fs-m, 1));
+    --t-body: calc(15px * var(--fs-k) * var(--fs-m, 1));
+  }
+}
+html:not([data-theme="dark"]) {
+  --gray: var(--tx-sub);
+  --v8-sub: var(--tx-sub);
+}
+
+/* 기본 요소 — 제목은 타이틀 · 소제목은 강조, 작게(small)는 본문 크기 + 보조 색 */
+.app-page h1, .app-page h2 { font-size: var(--t-title); font-weight: 800; line-height: 1.35; letter-spacing: -0.01em; }
+.app-page h3, .app-page h4, .app-page h5 { font-size: var(--t-em); font-weight: 700; line-height: 1.4; }
+.app-page small { font-size: var(--t-body); }
+.app-page th { font-weight: 700; }
+html:not([data-theme="dark"]) .app-page :is(h1, h2, h3, h4) { color: var(--tx-title); }
+html:not([data-theme="dark"]) .app-page :is(.t-cap, .t-meta, .t-small) { color: var(--tx-sub); }
+.app-page :is(b, strong) { font-weight: 700; }
+
+/* 새 화면에서 쓸 이름 (크기 · 굵기 · 색을 한 번에) */
+.tx-title { font-size: var(--t-title); font-weight: 800; color: var(--tx-title); }
+.tx-em { font-size: var(--t-em); font-weight: 700; color: var(--tx-title); }
+.tx-body { font-size: var(--t-body); font-weight: 400; color: var(--tx-body); }
+.tx-sub { font-size: var(--t-body); font-weight: 400; color: var(--tx-sub); }
+.tx-key { font-weight: 700; color: var(--tx-key); }
+
+/* 숫자만 담는 작은 동그라미(알림 수 · 메뉴 숫자)는 글이 아니라 표시라서 예외 — 원 크기에 맞춤 */
+.app-page :is(.side-n, .q2-badge, .bell .count) { font-size: 12px; }
+
+/* 주간 일정표 줄: 칸 폭을 다 써서 제목이 덜 잘리게 (글자가 커진 만큼) */
+.week-entry > .week-item { width: 100%; }
+.week-item .t-meta { max-width: 40%; }

@@ -10,6 +10,9 @@ import {
   patchMarketingCampaign, validateMarketingCampaign, type MarketingAsset, type MarketingCampaign,
 } from '../lib/marketing'
 import { ask } from './Ask'
+import { AiAssist } from './GrowthAi'
+import { AdCreativeMaker } from './AdCreativeMaker'
+import { adCopyRequest, parseAdCopyVariants, type AdCopyVariant } from '../lib/adCopy'
 import './MarketingDesk.css'
 
 type Step = 'plan' | 'creative' | 'handoff'
@@ -80,6 +83,7 @@ export function MarketingDesk({ onDirtyChange, initialCampaignId }: { onDirtyCha
   const [importJobs, setImportJobs] = useState<ImportJob[]>([])
   const [importWarnings, setImportWarnings] = useState<string[]>([])
   const [importDone, setImportDone] = useState(0)
+  const [copyVariants, setCopyVariants] = useState<AdCopyVariant[]>([])
   const imageInput = useRef<HTMLInputElement>(null)
   const backupInput = useRef<HTMLInputElement>(null)
   const toolbar = useRef<HTMLDivElement>(null)
@@ -290,6 +294,10 @@ export function MarketingDesk({ onDirtyChange, initialCampaignId }: { onDirtyCha
   const uploadImages = async (event: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? [])
     event.target.value = ''
+    await uploadFiles(files)
+  }
+
+  const uploadFiles = async (files: File[]) => {
     if (!draft || !canEdit || busy || !files.length) return
     const invalid = files.find(file => !MARKETING_ASSET_MIME_TYPES.some(mime => mime === file.type) || file.size <= 0 || file.size > MARKETING_ASSET_MAX_BYTES)
     if (invalid) { setActionError(`${invalid.name}: 8MB 이하의 JPEG·PNG·WebP 이미지만 올릴 수 있습니다.`); return }
@@ -509,6 +517,8 @@ export function MarketingDesk({ onDirtyChange, initialCampaignId }: { onDirtyCha
             {step === 'creative' && <div id="md-panel-creative" role="tabpanel" aria-labelledby="md-tab-creative">
               <div className="md-section-title"><h4>광고 문구를 다듬으세요</h4><span>소재 제작</span></div>
               <div className="md-copy-tools"><button type="button" className="md-button" onClick={() => void generateCopy()}><FileText size={14} />문구 초안 채우기</button><small>선택한 브랜드·목표에 맞는 고정 문구 예시입니다.</small></div>
+              {canEdit && <AiAssist task="write" context={adCopyRequest(draft, buildMarketingAIPrompt(draft))} resultScope={draft.id} onResult={text => { const v = parseAdCopyVariants(text); if (v.length) setCopyVariants(v); else toast('결과에서 제목 · 본문을 찾지 못했습니다. 결과 글을 직접 옮겨 주세요.') }} />}
+              {copyVariants.length > 0 && <div className="md-variants" role="group" aria-label="AI 문구 안">{copyVariants.map((v, i) => <article key={i} className="md-variant"><b>{i + 1}안 · {v.headline}</b><p>{v.primaryText}</p>{v.description && <small>{v.description}</small>}<div className="md-actions"><span className="t-cap">버튼: {v.cta || '–'}</span><button type="button" className="md-text-button" onClick={() => change({ headline: v.headline, primaryText: v.primaryText || draft.primaryText, description: v.description || draft.description, cta: v.cta || draft.cta })}>이 안 적용</button></div></article>)}<button type="button" className="md-text-button" onClick={() => setCopyVariants([])}>안 닫기</button></div>}
               <div className="md-form-grid">
                 <FormField label="제목" hint={`${draft.headline.length}자 · 매체의 최종 글자 수 제한은 등록 화면에서 확인하세요.`} wide><input id="md-headline" value={draft.headline} onChange={event => change({ headline: event.target.value })} maxLength={300} placeholder="고객의 관심을 끌 핵심 한 문장" /></FormField>
                 <FormField label="본문" wide><textarea id="md-primary-text" value={draft.primaryText} onChange={event => change({ primaryText: event.target.value })} rows={4} maxLength={10000} placeholder="대상 고객 · 제안 · 문의 방법을 명확하게 적어 주세요." /></FormField>
@@ -518,6 +528,7 @@ export function MarketingDesk({ onDirtyChange, initialCampaignId }: { onDirtyCha
               <div className="md-section-title"><h4>광고 이미지를 연결하세요</h4><span>{assets.length}개 소재</span></div>
               <div className="md-upload" id="md-images" tabIndex={-1}><ImagePlus size={24} /><div><strong>JPEG · PNG · WebP</strong><p>파일당 최대 8MB · 원본과 캠페인을 함께 보관합니다.</p></div><button type="button" className="md-button" disabled={!!busy || !!assetError || assetsLoading} onClick={() => imageInput.current?.click()}><Plus size={15} />이미지 선택</button><input ref={imageInput} className="md-file-input" tabIndex={-1} type="file" multiple accept="image/jpeg,image/png,image/webp" aria-label="광고 이미지 파일" onChange={event => void uploadImages(event)} /></div>
               {!isSaved && <p className="md-help">이미지를 올리면 현재 기획을 먼저 저장합니다.</p>}
+              <AdCreativeMaker draft={draft} assets={assets} disabled={!canEdit || !!busy || !!assetError || assetsLoading} onSave={uploadFiles} />
               {draft.platform === 'naver' && <label className="md-review"><input type="checkbox" checked={draft.textAdConfirmed} onChange={event => change({ textAdConfirmed: event.target.checked })} /><span><strong>이미지 없이 텍스트 검색광고로 준비합니다</strong><small>실제 매체 상품의 소재 조건을 확인했습니다.</small></span></label>}
               <p className="md-help">소재를 추가하거나 삭제하면 문구·권리 확인 항목이 해제됩니다.</p>
             </div>}

@@ -7,6 +7,7 @@ import './styles.css'
 import './usability.css'
 // 디자인 v8 (2026-11-16 · Houzz Pro 스타일). 이 줄을 빼면 v7 로 돌아감
 import './refresh.css'
+import './type.css'
 import { startStackTables } from './lib/stackTables'
 import { startFoldLong } from './lib/foldLong'
 

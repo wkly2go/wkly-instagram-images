@@ -29,11 +29,11 @@
 }
 .section-h > .more { display: inline-flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
 :where(.main, .dialog, .detail-body) :is(.t-small, .t-meta, .note) { line-height: 1.6; }
-:where(.main, .dialog, .detail-body) .t-meta { font-weight: 600; }
+:where(.main, .dialog, .detail-body) .t-meta { font-weight: 700; }
 :where(.main, .dialog, .detail-body) .empty { opacity: 1; line-height: 1.65; }
 
 /* 공통 컨트롤만 보강한다. 날짜 선택기·작업표의 전용 크기는 우선 유지한다. */
-:where(.main, .dialog, .detail-body) .btn { font-weight: 600; }
+:where(.main, .dialog, .detail-body) .btn { font-weight: 700; }
 @media (pointer: fine) {
   :where(.main, .dialog, .detail-body) .btn { min-height: 34px; padding: 6px 12px; }
   :where(.main, .dialog, .detail-body) .btn-sm { min-height: 28px; padding: 3px 9px; }
@@ -42,7 +42,7 @@
 :where(.main, .dialog, .detail-body) .textarea::placeholder { color: var(--gray); opacity: 1; }
 :where(.main, .dialog, .detail-body) .textarea { line-height: 1.6; }
 :where(.main, .dialog, .detail-body) .label { gap: 6px; }
-:where(.main, .dialog, .detail-body) .label > span { color: var(--ink); font-weight: 600; }
+:where(.main, .dialog, .detail-body) .label > span { color: var(--ink); font-weight: 700; }
 :where(.main, .dialog, .detail-body) .filters { gap: 8px; }
 :where(.main, .dialog, .detail-body) .filter-group { gap: 8px; }
 
@@ -213,7 +213,7 @@
 .alarm-input > .alarm-preset { flex: 0 1 150px; min-width: 110px; }
 
 /* 채팅 칸 '내 비서' 버튼 (2026-11-16) */
-.chat-dock-sec { display: inline-flex; align-items: center; gap: 3px; border: 0; background: none; cursor: pointer; font-family: inherit; font-weight: 600; }
+.chat-dock-sec { display: inline-flex; align-items: center; gap: 3px; border: 0; background: none; cursor: pointer; font-family: inherit; font-weight: 700; }
 .chat-dock-h .icon-btn.sm { color: rgba(255,255,255,.85); }
 .chat-dock-h .icon-btn.sm:hover { color: #fff; background: rgba(255,255,255,.12); }
 
@@ -242,7 +242,7 @@ svg.lucide:is([width="27"], [width="28"], [width="30"], [width="32"]) { width: 2
 
 /* 채팅: 고른 부분(하이라이트)에 댓글 · 질문 */
 .quote-pick { position: fixed; z-index: 400; transform: translateX(-50%); display: inline-flex; border: 1px solid var(--blue); background: var(--white); box-shadow: 0 2px 8px rgba(0,0,0,.14); white-space: nowrap; }
-.quote-pick > button { display: inline-flex; align-items: center; gap: 4px; height: 28px; padding: 0 10px; border: 0; background: none; color: var(--blue); font-size: var(--fs-cap); font-family: inherit; font-weight: 600; cursor: pointer; }
+.quote-pick > button { display: inline-flex; align-items: center; gap: 4px; height: 28px; padding: 0 10px; border: 0; background: none; color: var(--blue); font-size: var(--fs-cap); font-family: inherit; font-weight: 700; cursor: pointer; }
 .quote-pick > button + button { border-left: 1px solid var(--line); }
 .quote-pick > button:hover { background: var(--blue-tint); }
 .bubble { user-select: text; -webkit-user-select: text; }
