@@ -53,9 +53,7 @@ export function ProjectHead({ project, payments, lines, finance, tasks, only }: 
   // 할 일과 프로젝트 일정을 하나로 (대표 지시 2026-11-01): 날짜 있는 것 전부 · 날짜 없는 것은 맨 아래
   const rows = [...withDates].sort((a, b) => (a.start_date ?? a.due_date ?? '').localeCompare(b.start_date ?? b.due_date ?? ''))
   const undated = tasks.filter(t => !t.due_date && !t.start_date)
-  // 설계 공정은 공정마다 ref(id)가 달라 한 줄로 묶음 ('설계·견적 공정표 · n건')
-  const refOf = (t: Task) => (t.origin === '설계 공정' ? '설계·견적 공정표' : t.origin_ref ?? '')
-  const origins = [...new Map(tasks.filter(t => t.origin).map(t => [`${t.origin}|${refOf(t)}`, { origin: t.origin!, ref: refOf(t), n: tasks.filter(x => x.origin === t.origin && refOf(x) === refOf(t)).length }])).values()]
+  const origins = [...new Map(tasks.filter(t => t.origin).map(t => [`${t.origin}|${t.origin_ref ?? ''}`, { origin: t.origin!, ref: t.origin_ref ?? '', n: tasks.filter(x => x.origin === t.origin && (x.origin_ref ?? '') === (t.origin_ref ?? '')).length }])).values()]
 
   // 입출금 알람
   type Alarm = { key: string; level: 'red' | 'amber' | 'ok'; text: string; to: string }
