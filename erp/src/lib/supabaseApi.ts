@@ -917,6 +917,12 @@ export function createSupabaseApi(url: string, key: string): Api {
     async cancelAgentJobRequest(id) {
       must(await sb.from('agent_job_requests').delete().eq('id', id))
     },
+    async importAdDaily(rows) {
+      const { data, error } = await sb.rpc('ad_daily_import', { p_rows: rows })
+      if (error) throw new Error(error.message)
+      const r = (data ?? {}) as { saved?: number; skipped?: number }
+      return { saved: r.saved ?? 0, skipped: r.skipped ?? 0 }
+    },
     async listAdDaily(from, to) {
       const r = await sb.from('ad_daily').select('*').gte('date', from).lte('date', to).order('date').limit(5000)
       return must(r) as AdDaily[]

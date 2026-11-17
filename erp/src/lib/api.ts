@@ -423,6 +423,8 @@ export interface Api extends SalesStrategyApi, SalesApi, GrowthApi, SalesReportA
   cancelAgentJobRequest(id: string): Promise<void>
   // 광고 대시보드 (관리자)
   listAdDaily(from: string, to: string): Promise<AdDaily[]>
+  /** 매체에서 내려받은 일별 · 캠페인별 수치 올리기 (관리자 · 같은 날 · 캠페인은 덮어씀) */
+  importAdDaily(rows: { date: string; platform: string; campaign: string; impressions: number; clicks: number; cost: number; conversions: number | null }[]): Promise<{ saved: number; skipped: number }>
   listAdCampaigns(): Promise<AdCampaign[]>
   /** 캠페인 준비: 팀원 조회 · 관리자 작성, 실제 광고 집행과 별도 */
   listMarketingCampaigns(): Promise<MarketingCampaign[]>
