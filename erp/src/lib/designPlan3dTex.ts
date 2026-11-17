@@ -97,7 +97,7 @@ function tiles(nx: number, ny: number, soft = false) {
       for (let m = 0; m < 3; m++) {
         const mx = x + rnd() * w, my = y + rnd() * h, mr = Math.max(cw, ch) * (0.2 + rnd() * 0.3)
         const grad = c.createRadialGradient(mx, my, 0, mx, my, mr)
-        grad.addColorStop(0, `rgba(120,115,105,${0.03 + rnd() * 0.03})`)
+        grad.addColorStop(0, `rgba(120,115,105,${0.012 + rnd() * 0.02})`)
         grad.addColorStop(1, 'rgba(120,115,105,0)')
         c.fillStyle = grad
         c.fillRect(mx - mr, my - mr, mr * 2, mr * 2)
@@ -128,7 +128,7 @@ function stone(slabs: number, terrazzo: boolean) {
   return (c: CanvasRenderingContext2D, S: number, rnd: () => number) => {
     c.fillStyle = tone(0.965, 0.012)
     c.fillRect(0, 0, S, S)
-    clouds(c, S, rnd, 26, 1)
+    clouds(c, S, rnd, 16, 0.5)
     if (terrazzo) {
       const chips = ['rgba(96,94,90,.55)', 'rgba(160,156,148,.55)', 'rgba(150,120,96,.5)', 'rgba(255,255,255,.75)', 'rgba(120,128,126,.5)']
       for (let i = 0; i < 950; i++) {
@@ -148,7 +148,7 @@ function stone(slabs: number, terrazzo: boolean) {
         const pts: [number, number][] = [[x, y]]
         const steps = 8 + Math.floor(rnd() * 8), step = S * (0.03 + rnd() * 0.04)
         for (let k = 0; k < steps; k++) { a += (rnd() - 0.5) * 0.9; x += Math.cos(a) * step; y += Math.sin(a) * step; pts.push([x, y]) }
-        const alpha = 0.07 + rnd() * 0.09, lw = 0.8 + rnd() * 1.4
+        const alpha = 0.11 + rnd() * 0.13, lw = 0.8 + rnd() * 1.6
         wrap(S, (dx, dy) => {
           for (const [w, al] of [[lw * 5, alpha * 0.25], [lw, alpha]] as const) {
             c.strokeStyle = `rgba(104,98,90,${al})`

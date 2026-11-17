@@ -3,7 +3,7 @@ import { createSupabaseDesignApi } from './designApi'
 import { createSupabaseSalesReportApi } from './salesReport'
 import { createSupabaseGrowthApi } from './growthApi'
 import { createSupabaseSalesApi } from './salesApi'
-import { makeImagePreview, sitePreviewPath } from './imagePreview'
+import { createSitePreviewBackfill, makeImagePreview, sitePreviewPath } from './imagePreview'
 import { APPROVAL_LIST_COLUMNS, RESEARCH_LIST_COLUMNS, bodySearchPattern } from './reportReads'
 import { searchSupabaseProspectingClients } from './prospectingClientSearch'
 import type { ApprovalSummary, ResearchSummary } from './types'
@@ -195,6 +195,14 @@ export function createSupabaseApi(url: string, key: string): Api {
     if ((data as { error?: string })?.error) throw new ApiError((data as { error: string }).error)
     return (data as { id?: string } | null) ?? null
   }
+
+  // 현장 사진 미리보기: 예전 사진(미리보기 없이 올린 것)은 목록에서 처음 보일 때 만들어 저장소에 넣는다 (lib/imagePreview.ts)
+  const sitePreviews = createSitePreviewBackfill({
+    bucket: () => sb.storage.from('site-photos'),
+    signed: (path, load) => signedUrls.get({ bucket: 'site-photos', path }, load),
+    invalidate: path => signedUrls.invalidate('site-photos', path, { keepPending: true }),
+    scope: () => activeUserId,
+  })
 
   return {
     ...createSupabaseSalesApi(sb),
@@ -702,7 +710,8 @@ export function createSupabaseApi(url: string, key: string): Api {
       const ext = (file.name.match(/\.[A-Za-z0-9]{1,5}$/)?.[0] ?? '.jpg').toLowerCase()
       const id = crypto.randomUUID()
       let path = `${projectId}/${id}${ext}`
-      const preview = await makeImagePreview(file)
+      // 아이폰 · 사파리처럼 WebP 로 저장하지 못하는 브라우저에서도 올릴 때 미리보기를 만든다 (JPEG)
+      const preview = await makeImagePreview(file, { compatible: true })
       const previewOriginal = `${projectId}/preview-v1-${id}${ext}`
       const previewPath = sitePreviewPath(previewOriginal)!
       if (preview) {
@@ -716,19 +725,14 @@ export function createSupabaseApi(url: string, key: string): Api {
         if (path === previewOriginal) await removeStoredObject(sb, 'site-photos', previewPath)
         throw new ApiError(`사진을 올리지 못했습니다: ${up.error.message}`)
       }
+      // 이 브라우저가 읽지 못하는 사진: 목록에서 미리보기를 만들려고 원본을 다시 받지 않게 기억해 둔다
+      if (!preview) sitePreviews.remember(path)
       const signed = await sb.storage.from('site-photos').createSignedUrl(path, 60 * 60 * 24 * 30)
       return { path, url: signed.data?.signedUrl ?? '' }
     },
-    async sitePhotoPreviewUrl(original, refresh) {
-      const path = sitePreviewPath(original)
-      if (!path) return null
-      if (refresh) signedUrls.invalidate('site-photos', path, { keepPending: true })
-      return signedUrls.get({ bucket: 'site-photos', path }, async () => {
-        const r = await sb.storage.from('site-photos').createSignedUrl(path, 3600)
-        if (r.error || !r.data) throw new ApiError('사진 미리보기를 열 수 없습니다.')
-        return r.data.signedUrl
-      })
-    },
+    // 미리보기가 아직 없는 예전 사진은 null → 화면에 보일 때 ensureSitePhotoPreview 로 한 번 만들어 넣는다
+    sitePhotoPreviewUrl: (original, refresh) => sitePreviews.previewUrl(original, refresh),
+    ensureSitePhotoPreview: original => sitePreviews.ensure(original),
     async sitePhotoUrl(path, refresh) {
       if (refresh) signedUrls.invalidate('site-photos', path, { keepPending: true })
       return signedUrls.get({ bucket: 'site-photos', path }, async () => {

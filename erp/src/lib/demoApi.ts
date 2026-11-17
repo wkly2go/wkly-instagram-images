@@ -1686,6 +1686,8 @@ export function createDemoApi(): Api {
       return { path: url, url }
     },
     async sitePhotoPreviewUrl(path) { return path.startsWith('data:') ? path : null },
+    // 체험용 사진은 이 브라우저 안의 주소라 따로 만들어 둘 미리보기가 없음 (운영은 예전 사진의 미리보기를 한 번 만들어 저장)
+    async ensureSitePhotoPreview(path) { return path.startsWith('data:') ? path : null },
     async sitePhotoUrl(path) {
       return path
     },

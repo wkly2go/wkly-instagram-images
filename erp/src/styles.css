@@ -3831,12 +3831,13 @@ body, .book, .inner { background: var(--page-bg); }
 .ms-photo img { width: 100%; height: auto; display: block; pointer-events: none; }
 .ms-photo.small { cursor: default; max-height: 260px; overflow: hidden; }
 .site-svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
-.mk-line-bg { stroke: #fff; stroke-width: 10; stroke-linecap: round; opacity: .85; }
-.mk-line { stroke: #ffef00; stroke-width: 5; stroke-linecap: round; }
-.mk-end { fill: #ffef00; stroke: #0b5a24; stroke-width: 4; }
-.mk-tag { fill: #0b5a24; rx: 6; }
-.mk-text { fill: #fff; font: 700 36px/1 var(--mono, monospace); text-anchor: middle; }
-.mk-draft { fill: #ffef00; stroke: #e5002b; stroke-width: 5; }
+/* 치수 선 · 점 · 글자의 크기는 사진이 보이는 폭에 맞춰 화면에서 정함 (Site.tsx MarkLayer · lib/siteMarks.ts · 2026-11-17 예전의 절반) — 여기는 색만 */
+.mk-line-bg { stroke: #fff; stroke-linecap: round; opacity: .85; }
+.mk-line { stroke: #ffef00; stroke-linecap: round; }
+.mk-end { fill: #ffef00; stroke: #0b5a24; }
+.mk-tag { fill: #0b5a24; }
+.mk-text { fill: #fff; font-family: var(--mono, monospace); font-weight: 700; text-anchor: middle; }
+.mk-draft { fill: #ffef00; stroke: #e5002b; }
 .site-marks { display: flex; flex-direction: column; gap: 6px; }
 .site-mark-row { display: flex; align-items: center; gap: 8px; }
 .site-mark-no { flex: none; width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center; background: var(--blue); color: #fff; font: 700 var(--fs-cap)/1 var(--mono); }
@@ -3856,6 +3857,8 @@ body, .book, .inner { background: var(--page-bg); }
 .site-pick-thumb img, .site-pick-thumb .site-thumb-ph { width: 100%; height: 100%; object-fit: cover; display: block; }
 .site-pick-thumb.on { border-color: var(--blue); }
 .site-pick-thumb b { position: absolute; right: 2px; bottom: 2px; background: var(--blue); color: #fff; font: 700 var(--fs-cap)/1 var(--mono); padding: 2px 5px; }
+/* 미리보기가 아직 없는 사진 자리의 글('사진 열기' · '미리보기 만드는 중…')은 칸 가운데에 (2026-11-17) */
+.site-thumb-ph, .site-pick-thumb .site-thumb-ph { display: flex; align-items: center; justify-content: center; box-sizing: border-box; padding: 6px; overflow: hidden; text-align: center; line-height: 1.35; }
 .site-peek { display: flex; flex-direction: column; gap: 8px; padding: 10px; border: 1px solid var(--line); background: #fafaf7; }
 @media (max-width: 640px) {
   .site-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }

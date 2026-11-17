@@ -4,6 +4,8 @@
 import { api } from '../lib/app'
 import type { DesignBase, DesignProject, SpecItem } from '../lib/design'
 import type { PlanGeometry } from '../lib/designPlan'
+import type { LibraryEntry } from '../lib/designLibrary'
+import type { ProposalBoard } from '../lib/designBoard'
 
 const project: DesignProject = {
   id: 'harness-1', code: 'AR0000-00', name: '시험 현장 (개발 서버 전용)', address: '서울 성동구', client_name: '시험 거래처', space_type: 'popup', area_m2: 24, budget: null,
@@ -30,8 +32,25 @@ let plan: PlanGeometry | null = {
 const spec = (code: string, name: string, s: string): SpecItem => ({ id: `s-${code}`, project_id: project.id, book: 'materials', code, name, spec: s, location: null, maker: null, material_id: null, status: 'selected' } as unknown as SpecItem)
 const specs = [spec('PT-01', '수성 페인트', '백색 무광'), spec('PT-02', '수성 페인트', '세이지 그린'), spec('WP-01', '실크 벽지', '아이보리'), spec('WF-01', '원목 마루', '오크 내추럴'), spec('MT-01', '스테인리스 걸레받이', '헤어라인 실버')]
 
+const library: LibraryEntry[] = []
+let board: { board: ProposalBoard; updated_at: string; updated_by: string | null } | null = null
+const renders = [
+  { id: 'rd-1', project_id: project.id, no: 'P-01', title: '홀 투시도', data: null, original_url: null, status: 'draft', note: null, sort: 1 },
+  { id: 'rd-2', project_id: project.id, no: 'P-02', title: '카운터 투시도', data: null, original_url: null, status: 'draft', note: null, sort: 2 },
+]
+
 export function installDesignHarness() {
   Object.assign(api, {
+    listPlanLibrary: async () => [...library],
+    savePlanLibrary: async (e: Pick<LibraryEntry, 'kind' | 'group' | 'name' | 'data'>) => { const row: LibraryEntry = { ...e, id: `h-${Date.now().toString(36)}`, builtin: false, created_by: 'harness', created_at: new Date().toISOString() }; library.unshift(row); return row },
+    deletePlanLibrary: async (id: string) => { const i = library.findIndex(x => x.id === id); if (i >= 0) library.splice(i, 1) },
+    watchDesignPlan: (_key: string, who: { id: string; name: string }, on: { peers(list: { id: string; name: string }[]): void }) => { queueMicrotask(() => on.peers([who, { id: 'peer-1', name: '김하늘' }])); return { saved() {}, close() {} } },
+    getProposalBoard: async () => (board ? (JSON.parse(JSON.stringify(board)) as typeof board) : null),
+    saveProposalBoard: async (_id: string, b: ProposalBoard) => { board = { board: JSON.parse(JSON.stringify(b)) as ProposalBoard, updated_at: new Date().toISOString(), updated_by: 'harness' }; return { updated_at: board.updated_at } },
+    listRenders: async () => renders,
+    listSpecImages: async () => ({}),
+    listProposalSections: async () => [],
+
     listDesignProjects: async () => [project],
     getDesignBase: async () => base,
     getDesignPlan: async () => (plan ? (JSON.parse(JSON.stringify(plan)) as PlanGeometry) : null),

@@ -133,6 +133,7 @@ export function ItemSymbol({ item, color, selected }: { item: PlanItem; /** 마�
   return (
     <g className={`dps dps-${shape}${itemLayer(shape) === 2 ? ' ceil' : ''}${selected ? ' sel' : ''}`} data-hit="item" data-id={item.id} style={vars}
       transform={item.rot === 90 ? `translate(${item.x + f.w} ${item.y}) rotate(90)` : `translate(${item.x} ${item.y})`}>
+      <title>{`${item.name} · W${item.w} D${item.d} H${item.h}${item.finish?.trim() ? ` · ${item.finish.trim()}` : ''}`}</title>
       <rect className="h" width={item.w} height={item.d} />
       {glyph(shape, item.w, item.d)}
       {selected && <rect className="o" width={item.w} height={item.d} />}

@@ -19,6 +19,13 @@ import { DesignDrawings } from '../components/DesignDrawings'
 import { DesignSpec } from '../components/DesignSpec'
 import { DesignProposal } from '../components/DesignProposal'
 import { DesignDelivery } from '../components/DesignDelivery'
+import { ChevronDown, ChevronUp, Maximize2, Minimize2 } from 'lucide-react'
+import { ask } from '../components/Ask'
+import {
+  DesignJobStrip, DesignStepBar, DesignStepNav, LoadError, confirmDelete, confirmLeave, useDesignJobs, useDesignWide, useStoredFlag, useUnsaved,
+  type StepInfo, type StepState,
+} from '../components/DesignWorkspace'
+import type { DesignJob } from '../lib/design'
 import './Design.css'
 
 type Tab = 'projects' | 'cards' | 'prices' | 'vendors' | 'materials' | 'knowledge'
@@ -65,25 +72,38 @@ export default function Design() {
 function ProjectsTab({ base, mode }: { base: DesignBase; mode: 'design' | 'orders' }) {
   const { api, version } = useApp()
   const { query, navigate, path } = useRouter()
-  const { data: projects, loading } = useAsync(() => api.listDesignProjects(), [version], [] as DesignProject[])
+  const { data: projects, loading, error, reload } = useAsync(() => api.listDesignProjects(), [version], [] as DesignProject[])
   const [starting, setStarting] = useState(false)
   const selected = projects.find(p => p.id === query.get('id')) ?? projects[0] ?? null
+  const pickProject = async (id: string) => { if (await confirmLeave()) navigate(withQuery(path, query, { id, view: null })) }
   // 프로젝트 고르기는 위쪽 한 줄 (작업 칸을 넓게 — 오른쪽 일정 칸과 함께 써도 표가 잘리지 않게)
+  const pick = (
+    <label className="design-pick-select">
+      <span>프로젝트</span>
+      <select className="select" value={selected?.id ?? ''} onChange={e => void pickProject(e.target.value)} disabled={!projects.length}>
+        {projects.length === 0 && <option value="">설계를 시작한 프로젝트가 없습니다</option>}
+        {projects.map(p => <option key={p.id} value={p.id}>{[p.code, p.name].filter(Boolean).join(' ')} · {STAGE_LABELS[p.stage]}</option>)}
+      </select>
+    </label>
+  )
+  const startBtn = mode === 'design' ? <Button size="sm" kind="outline" onClick={() => setStarting(v => !v)}>{starting ? '닫기' : '설계 시작'}</Button> : null
+  const startForm = starting ? <StartDesign onDone={id => { setStarting(false); navigate(withQuery(path, query, { id })) }} /> : null
+  // 설계 프로젝트가 열려 있으면 고르기 · 요약 · 넓게 보기를 한 줄로 (작업 칸 높이를 아낌)
+  if (selected && mode === 'design') return (
+    <div className="design-main">
+      <ProjectView key={selected.id} project={selected} base={base} pick={pick} count={projects.length} startBtn={startBtn} startForm={startForm} />
+    </div>
+  )
   return (
     <div className="design-main">
       <div className="design-pick">
-        <label className="design-pick-select">
-          <span>프로젝트</span>
-          <select className="select" value={selected?.id ?? ''} onChange={e => navigate(withQuery(path, query, { id: e.target.value, view: null }))} disabled={!projects.length}>
-            {projects.length === 0 && <option value="">설계를 시작한 프로젝트가 없습니다</option>}
-            {projects.map(p => <option key={p.id} value={p.id}>{[p.code, p.name].filter(Boolean).join(' ')} · {STAGE_LABELS[p.stage]}</option>)}
-          </select>
-        </label>
+        {pick}
         <span className="t-cap">설계 중 {projects.length}건</span>
-        {mode === 'design' && <Button size="sm" kind="outline" onClick={() => setStarting(v => !v)}>{starting ? '닫기' : '설계 시작'}</Button>}
+        {startBtn}
       </div>
-      {starting && <StartDesign onDone={id => { setStarting(false); navigate(withQuery(path, query, { id })) }} />}
-      {selected ? (mode === 'orders' ? <><ProjectHead project={selected} /><CostView key={selected.id} project={selected} /></> : <ProjectView key={selected.id} project={selected} base={base} />)
+      {startForm}
+      {selected ? <><ProjectHead project={selected} /><CostView key={selected.id} project={selected} /></>
+        : error ? <LoadError message="설계 프로젝트를 불러오지 못했습니다." error={error} onRetry={reload} />
         : !loading && <Empty>아직 설계를 시작한 프로젝트가 없습니다. '설계 시작'에서 인트라넷 프로젝트를 고르세요.</Empty>}
     </div>
   )

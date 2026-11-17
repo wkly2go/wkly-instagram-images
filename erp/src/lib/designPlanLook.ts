@@ -12,12 +12,13 @@ const CODE_KIND: Record<string, FinishKind> = {
 }
 const KIND_WORDS: [RegExp, FinishKind][] = [
   [/원목|우드|목재|합판|마루|오크|월넛|애쉬|티크|자작|무늬목|wood|oak|walnut/i, 'wood'],
+  [/카펫|carpet|러그/i, 'carpet'],
+  [/데코타일|lvt/i, 'vinyl'],
   [/타일|tile|포세린|자기질/i, 'tile'],
   [/대리석|마블|화강|석재|테라조|인조석|stone|marble|terrazzo/i, 'stone'],
-  [/카펫|carpet|러그/i, 'carpet'],
   [/스테인리스|스텐|sus|금속|메탈|철판|알루미늄|황동|브라스|갈바|metal|steel/i, 'metal'],
   [/유리|글라스|glass|미러|거울/i, 'glass'],
-  [/패브릭|원단|천|가죽|fabric|leather/i, 'fabric'],
+  [/패브릭|원단|직물|가죽|fabric|leather/i, 'fabric'],
   [/콘크리트|노출|몰탈|에폭시|concrete|mortar/i, 'concrete'],
   [/벽지|도배|wallpaper/i, 'wallpaper'],
   [/장판|데코타일|비닐|시트|필름|pvc|lvt/i, 'vinyl'],
@@ -48,7 +49,7 @@ export function finishLook(text?: string | null, fallback: FinishKind = 'plain')
   const word = COLOR_WORDS.find(([re]) => re.test(t))
   const base = KIND_BASE[kind]
   // 금속 색 낱말(골드 · 실버)은 금속으로 본다
-  const metal = kind === 'metal' || (!!word && /골드|금색|황동|브라스|gold|brass|실버|은색|스테인리스|스텐|sus|silver/i.test(t) && !KIND_WORDS.slice(0, 4).some(([re]) => re.test(t)))
+  const metal = kind === 'metal' || (!!word && /골드|금색|황동|브라스|gold|brass|실버|은색|스테인리스|스텐|sus|silver/i.test(t) && !KIND_WORDS.slice(0, 5).some(([re]) => re.test(t)))
   return { kind: metal ? 'metal' : kind, color: word?.[1] ?? base.color, roughness: metal ? 0.35 : base.roughness, metalness: metal ? 0.85 : base.metalness, label: [code || null, word ? word[0].source.split('|')[0].replace(/\\s\*/g, ' ') : null].filter(Boolean).join(' · ') }
 }
 
@@ -81,10 +82,21 @@ const SHAPE_WORDS: [RegExp, ItemShape][] = [
   [/단상|무대|스테이지|플랫폼|포디움|데크|platform|stage|podium/i, 'platform'],
   [/파티션|포토월|배너|현수막|사인|사이니지|스크린|패널|그래픽|월$|wall|sign|screen|panel/i, 'screen'],
 ]
-/** 부품 이름 → 모양. 모르면 상자 */
+/** 부품 이름 → 모양. 모르면 상자. 낱말이 여럿 맞으면 이름에서 가장 뒤에 나온 것을 따른다 ('소파 테이블' → 테이블 · '카운터 의자' → 의자) */
 export function itemShape(name: string, explicit?: string | null): ItemShape {
   if (explicit && ITEM_SHAPES.some(([k]) => k === explicit)) return explicit as ItemShape
-  return SHAPE_WORDS.find(([re]) => re.test(name))?.[1] ?? 'box'
+  // 맞은 낱말의 끝 자리가 가장 뒤인 것. 같으면 더 긴 낱말(더 구체적인 것: '원형 테이블' > '테이블')
+  let best: ItemShape = 'box', end = -1, len = 0
+  for (const [re, shape] of SHAPE_WORDS) {
+    const g = new RegExp(re.source, 'gi')
+    let m: RegExpExecArray | null
+    while ((m = g.exec(name))) {
+      if (m[0] === '') { g.lastIndex++; continue }
+      const e = m.index + m[0].length
+      if (e > end || (e === end && m[0].length > len)) { end = e; len = m[0].length; best = shape }
+    }
+  }
+  return best
 }
 /** 모양별 기본 색 (3D · 평면 기호). UI 색(초록 · 분홍)과 겹치지 않는 가구 색 */
 export const SHAPE_COLOR: Record<ItemShape, string> = {

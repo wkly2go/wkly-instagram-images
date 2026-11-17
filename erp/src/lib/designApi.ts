@@ -1,6 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { ApiError } from './api'
 import type { PlanGeometry } from './designPlan'
+import { validLibraryData, type LibraryEntry, type LibraryFinish, type LibraryFixture, type LibraryKind } from './designLibrary'
+import { readBoard } from './designBoard'
 import type {
   CostLine, DesignApi, DesignRender, ModelVersion, ProposalSection, ProposalTemplateSection, SpecItem, DesignCard, DesignDocument, DesignJob, PoLine, PurchaseOrder, DesignMaterial, DesignProject, DesignTrade, DesignVendor, Estimate, EstimateLine,
   Knowledge, Placement, PriceRef, PriceRefMatch, ScheduleTask, UnitCost, UnitPrice,
@@ -264,6 +266,54 @@ export function createSupabaseDesignApi(sb: SupabaseClient): DesignApi {
     async decideDesignCard(id, approve, comment) {
       fail((await sb.rpc('design_decide', { p_id: id, p_approve: approve, p_comment: comment }).retry(false)).error)
     },
+    async listPlanLibrary() {
+      const r = await sb.from('design_plan_library').select('id,kind,group_name,name,data,created_by,created_at').order('created_at', { ascending: false }).limit(500)
+      fail(r.error)
+      return ((r.data ?? []) as { id: string; kind: LibraryKind; group_name: string; name: string; data: unknown; created_by: string | null; created_at: string }[])
+        .filter(x => validLibraryData(x.kind, x.data))
+        .map(x => ({ id: x.id, kind: x.kind, group: x.group_name, name: x.name, data: x.data as LibraryFinish | LibraryFixture, builtin: false, created_by: x.created_by, created_at: x.created_at }))
+    },
+    async savePlanLibrary(entry) {
+      if (!entry.name.trim()) throw new ApiError('이름을 적어 주세요.')
+      if (!validLibraryData(entry.kind, entry.data)) throw new ApiError('저장할 내용을 확인해 주세요.')
+      const r = await sb.from('design_plan_library').insert({ kind: entry.kind, group_name: entry.group.trim() || '내 저장', name: entry.name.trim().slice(0, 80), data: entry.data }).select('id,kind,group_name,name,data,created_by,created_at').single()
+      fail(r.error)
+      const x = r.data as { id: string; kind: LibraryKind; group_name: string; name: string; data: LibraryFinish | LibraryFixture; created_by: string | null; created_at: string }
+      return { id: x.id, kind: x.kind, group: x.group_name, name: x.name, data: x.data, builtin: false, created_by: x.created_by, created_at: x.created_at } satisfies LibraryEntry
+    },
+    async deletePlanLibrary(id) { fail((await sb.from('design_plan_library').delete().eq('id', id)).error) },
+    watchDesignPlan(key, who, on) {
+      // 비공개 방송 · 접속 표시: 팀원만 (realtime.messages 정책 design_plan_live_*). 실패하면 조용히 '혼자 보기'로.
+      try {
+        const ch = sb.channel(`design-plan:${key}`, { config: { private: true, presence: { key: who.id } } })
+        const peers = () => {
+          const seen = new Map<string, { id: string; name: string }>()
+          for (const list of Object.values(ch.presenceState() as Record<string, { id?: string; name?: string }[]>)) for (const p of list) if (p.id && p.name) seen.set(p.id, { id: p.id, name: p.name })
+          on.peers([...seen.values()])
+        }
+        ch.on('presence', { event: 'sync' }, peers)
+          .on('broadcast', { event: 'saved' }, ({ payload }) => { const p = payload as { id?: string; name?: string; at?: number }; if (p?.id && p.id !== who.id) on.saved({ id: p.id, name: p.name ?? '팀원', at: p.at ?? Date.now() }) })
+          .subscribe(status => { if (status === 'SUBSCRIBED') void ch.track({ id: who.id, name: who.name }).catch(() => undefined) })
+        return {
+          saved: () => { void ch.send({ type: 'broadcast', event: 'saved', payload: { id: who.id, name: who.name, at: Date.now() } }).catch(() => undefined) },
+          close: () => { void sb.removeChannel(ch) },
+        }
+      } catch {
+        on.peers([who])
+        return { saved() {}, close() {} }
+      }
+    },
+    async getProposalBoard(projectId) {
+      const r = await sb.from('design_proposal_boards').select('data,updated_at,updated_by').eq('project_id', projectId).maybeSingle()
+      fail(r.error)
+      const board = r.data ? readBoard(r.data.data) : null
+      return board ? { board, updated_at: r.data!.updated_at as string, updated_by: (r.data!.updated_by as string | null) ?? null } : null
+    },
+    async saveProposalBoard(projectId, board) {
+      const r = await sb.from('design_proposal_boards').upsert({ project_id: projectId, data: board }, { onConflict: 'project_id' }).select('updated_at').single()
+      fail(r.error)
+      return { updated_at: (r.data as { updated_at: string }).updated_at }
+    },
   }
 }
 
@@ -308,5 +358,18 @@ export function createDemoDesignApi(): DesignApi {
     async listKnowledge() { return [] },
     async listDesignCards() { return [] },
     decideDesignCard: none,
+    // 라이브러리는 체험 모드에서도 써 볼 수 있게 메모리에만 둔다 (가짜 자료는 넣지 않음)
+    async listPlanLibrary() { return [...demoLibrary] },
+    async savePlanLibrary(entry) {
+      const row: LibraryEntry = { id: `d-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, kind: entry.kind, group: entry.group.trim() || '내 저장', name: entry.name.trim().slice(0, 80), data: entry.data, builtin: false, created_by: null, created_at: new Date().toISOString() }
+      demoLibrary.unshift(row)
+      return row
+    },
+    async deletePlanLibrary(id) { const i = demoLibrary.findIndex(x => x.id === id); if (i >= 0) demoLibrary.splice(i, 1) },
+    watchDesignPlan(_key, who, on) { queueMicrotask(() => on.peers([who])); return { saved() {}, close() {} } },
+    async getProposalBoard() { return null },
+    saveProposalBoard: none,
   }
 }
+const demoLibrary: LibraryEntry[] = []
+

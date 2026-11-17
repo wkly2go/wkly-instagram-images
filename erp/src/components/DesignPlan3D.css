@@ -1,0 +1,81 @@
+/* 평면을 세운 3D 보기 (components/DesignPlan3D.tsx)
+   칸의 크기 · 자리는 바깥(평면 화면)이 정하고, 여기서는 그 안쪽만 꾸민다. 화면은 늘 밝게.
+   모서리는 styles.css 의 '모두 사각' 규칙(!important)을 넘어야 해서 여기서도 !important 로 둥글린다. */
+.design-plan-3d.dp3 {
+  --dp3-ground: #efece5;
+  --dp3-glass: color-mix(in srgb, var(--white) 90%, transparent);
+  position: relative; display: block; overflow: hidden; outline: none;
+  container-type: size;
+  border-radius: var(--v8-r-card, 12px) !important;
+  background: linear-gradient(180deg, var(--white) 0%, var(--paper) 55%, var(--v8-bg, var(--paper)) 100%);
+}
+html[data-theme="dark"] .design-plan-3d.dp3 { --dp3-ground: #2a4433; }
+.design-plan-3d.dp3:focus-visible { box-shadow: inset 0 0 0 2px var(--blue); }
+.dp3-stage { position: absolute; inset: 0; }
+.dp3-stage canvas { display: block; width: 100%; height: 100%; touch-action: none; user-select: none; -webkit-user-select: none; }
+
+/* 위쪽 도구 줄: 왼쪽은 보는 방법, 오른쪽은 보기 설정 · 파일 */
+.dp3-bar { position: absolute; top: 8px; left: 8px; right: 8px; z-index: 2; display: flex; flex-wrap: wrap; gap: 6px; align-items: flex-start; justify-content: space-between; pointer-events: none; }
+.dp3-seg { display: inline-flex; align-items: center; gap: 2px; padding: 2px; pointer-events: auto;
+  background: var(--dp3-glass); border: 1px solid var(--v8-line-2, var(--line)); border-radius: var(--v8-r-ctl, 8px) !important; box-shadow: var(--v8-shadow, 0 1px 3px rgba(31, 42, 36, .08)); }
+.dp3-chip { display: inline-flex; align-items: center; justify-content: center; gap: 4px; height: 26px; min-width: 26px; padding: 0 8px; border: 0; border-radius: 6px !important;
+  background: none; color: var(--gray); font: inherit; font-size: var(--fs-body); font-weight: 400; line-height: 1; white-space: nowrap; cursor: pointer; }
+.dp3-chip svg { flex: none; }
+.dp3-chip:hover { background: var(--blue-tint); color: var(--blue); }
+.dp3-chip:focus-visible { outline: 2px solid var(--blue); outline-offset: 1px; }
+.dp3-chip[aria-pressed="true"] { background: var(--blue); color: #fff; font-weight: 700; }
+html[data-theme="dark"] .dp3-chip[aria-pressed="true"] { color: #13261a; }
+.dp3-tools .dp3-chip { padding: 0 7px; }
+.dp3-tools .dp3-chip[aria-pressed="true"], html[data-theme="dark"] .dp3-tools .dp3-chip[aria-pressed="true"] { background: var(--blue-tint); color: var(--blue); }
+
+/* 파일 메뉴 */
+.dp3-file { position: relative; display: inline-flex; }
+.dp3-menu { position: absolute; top: calc(100% + 6px); right: -2px; z-index: 3; display: flex; flex-direction: column; gap: 2px; width: max-content; max-width: min(300px, calc(100cqw - 16px)); max-height: calc(100cqh - 56px); overflow: auto; padding: 6px;
+  background: var(--white); border: 1px solid var(--v8-line-2, var(--line)); border-radius: var(--v8-r-card, 12px) !important; box-shadow: var(--v8-shadow-pop, 0 8px 28px rgba(31, 42, 36, .14)); }
+.dp3-menu > * { flex: none; }
+.dp3-menu button { display: flex; align-items: center; gap: 7px; min-height: 32px; padding: 5px 9px; border: 0; border-radius: 8px !important; background: none; color: var(--ink); font: inherit; font-size: var(--fs-body); font-weight: 400; text-align: left; cursor: pointer; }
+.dp3-menu button svg { flex: none; color: var(--blue); }
+.dp3-menu button:hover:not(:disabled) { background: var(--blue-tint); color: var(--blue); }
+.dp3-menu button:disabled { color: var(--gray); opacity: .55; cursor: default; }
+.dp3-menu p { margin: 4px 0 0; padding: 7px 9px 3px; border-top: 1px solid var(--line); color: var(--gray); font-size: var(--fs-body); line-height: 1.5; white-space: normal; }
+
+/* 아래쪽: 알림 · 열어 본 모델 · 조작 안내 · 걷기 단추 */
+.dp3-foot { position: absolute; left: 8px; right: 8px; bottom: 8px; z-index: 1; display: flex; flex-wrap: wrap; gap: 6px; align-items: flex-end; pointer-events: none; }
+.dp3-foot > * { pointer-events: auto; }
+.dp3-hint, .dp3-note, .dp3-model { margin: 0; padding: 4px 9px; border-radius: 8px !important; background: var(--dp3-glass); color: var(--gray); font-size: var(--fs-body); line-height: 1.4; }
+.dp3-hint { pointer-events: none; }
+.dp3-note { flex: 1 1 100%; border: 1px solid var(--v8-line-2, var(--line)); background: var(--white); color: var(--ink); box-shadow: var(--v8-shadow, 0 1px 3px rgba(31, 42, 36, .08)); }
+.dp3-note.bad { color: var(--red); border-color: var(--red); }
+.dp3-model { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; border: 1px solid var(--v8-line-2, var(--line)); color: var(--ink); }
+.dp3-model span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 180px; }
+.dp3-model button { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; padding: 0; border: 0; border-radius: 6px !important; background: none; color: var(--gray); cursor: pointer; }
+.dp3-model button:hover { background: var(--blue-tint); color: var(--blue); }
+.dp3-walk { display: inline-flex; gap: 2px; margin-left: auto; padding: 2px; background: var(--dp3-glass); border: 1px solid var(--v8-line-2, var(--line)); border-radius: var(--v8-r-ctl, 8px) !important; box-shadow: var(--v8-shadow, 0 1px 3px rgba(31, 42, 36, .08)); }
+
+/* 가운데 안내 글 (빈 평면 · 3D 를 못 쓸 때) */
+.dp3-msg { position: absolute; left: 50%; top: 50%; z-index: 1; width: max-content; max-width: calc(100% - 32px); margin: 0; padding: 10px 14px; transform: translate(-50%, -50%);
+  background: var(--white); border: 1px solid var(--v8-line-2, var(--line)); border-radius: var(--v8-r-card, 12px) !important; color: var(--ink); font-size: var(--fs-body); line-height: 1.55; text-align: center; box-shadow: var(--v8-shadow, 0 1px 3px rgba(31, 42, 36, .08)); }
+.dp3-msg.dp3-soft { background: var(--dp3-glass); border: 0; box-shadow: none; color: var(--gray); pointer-events: none; }
+
+/* 좁은 칸: 설정 단추는 그림만 (도구 줄이 한 줄에 들어가게), 더 좁으면 조작 안내도 숨긴다 */
+@container (max-width: 560px) {
+  .dp3-tools .dp3-chip span { display: none; }
+  .dp3-tools .dp3-chip { padding: 0; }
+}
+@container (max-width: 430px) {
+  /* 파일 메뉴는 도구 줄 아래에 칸 폭만큼 */
+  .dp3-file { position: static; }
+  .dp3-menu { left: 0; right: 0; width: auto; max-width: none; max-height: calc(100cqh - 96px); }
+}
+@container (max-width: 330px) {
+  .dp3-hint { display: none; }
+  .dp3-seg .dp3-chip { padding: 0 6px; }
+}
+/* 터치 화면: 누르는 곳을 크게 */
+@media (pointer: coarse) {
+  .dp3-chip { height: 36px; min-width: 36px; padding: 0 10px; }
+  .dp3-tools .dp3-chip { padding: 0 9px; }
+  .dp3-menu button { min-height: 42px; }
+  .dp3-model button { width: 30px; height: 30px; }
+}
+@media (pointer: coarse) { @container (max-width: 560px) { .dp3-tools .dp3-chip { padding: 0; } } }

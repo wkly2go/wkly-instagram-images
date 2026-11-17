@@ -2,7 +2,7 @@
 // 레퍼런스: Houzz Pro(한 화면 작업 공간 · 물량 → 견적) · 피그마(같이 보기 · 댓글 핀 · 자동 저장) · 캐드(되돌리기 · 길이 입력 · 모서리 끌기)
 // 이 파일은 자료와 상태(되돌리기 · 자동 저장 · 같이 보기)를 맡고, 그리기는 DesignPlanCanvas, 기호는 DesignPlanSymbols, 댓글은 DesignPlanNotes 가 맡는다.
 // 정밀 모델 · 렌더(Enscape)는 스케치업에서 한다. 여기서는 블록 수준 배치와 수량까지.
-import { lazy, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from 'react'
+import { Component, lazy, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from 'react'
 import { AppWindow, Armchair, BrickWall, Columns2, Cuboid, DoorOpen, FileUp, Maximize2, MessageSquarePlus, Minimize2, MousePointer2, Redo2, Scan, SeparatorVertical, Square, Undo2, Users, ZoomIn, ZoomOut, type LucideIcon } from 'lucide-react'
 import { Button, Empty } from './ui'
 import { useAction, useApp, useAsync } from '../lib/app'
@@ -12,8 +12,9 @@ import { EMPTY_PLAN, floorArea, keepLights, mergeNotes, planQuantities, wallLeng
 import { setWallLength, type Pt } from '../lib/designPlanDraw'
 import { finishLook, ITEM_SHAPES, itemShape, resolveFinish, type FinishKind } from '../lib/designPlanLook'
 import { fixtureToItem, type LibraryFixture } from '../lib/designLibrary'
-import { DesignPlanCanvas, GRID, uid, type PlanCanvasHandle, type PlanTool } from './DesignPlanCanvas'
+import { closedShell, DesignPlanCanvas, GRID, uid, type PlanCanvasHandle, type PlanTool } from './DesignPlanCanvas'
 import { DesignPlanNoteComposer, DesignPlanNotes } from './DesignPlanNotes'
+import { ShapeIcon } from './DesignPlanSymbols'
 import { DesignPlanLibrary } from './DesignPlanLibrary'
 import { DesignPlanCadImport, DesignPlanExport } from './DesignPlanCad'
 import './DesignPlan.css'
@@ -42,6 +43,15 @@ const digits = (v: string) => Number(v.replace(/\D/g, '')) || 0
 const hhmm = (d: Date) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 const holds = (g: PlanGeometry, id: string) => g.walls.some(w => w.id === id) || g.openings.some(o => o.id === id) || g.items.some(i => i.id === id)
 
+/** 한 칸(3D · 라이브러리 · 내보내기)이 고장 나도 평면 그리기는 계속 쓸 수 있게 막아 둔다 */
+class Guard extends Component<{ what?: string; children: ReactNode }, { failed: boolean }> {
+  state = { failed: false }
+  static getDerivedStateFromError() { return { failed: true } }
+  render() {
+    if (!this.state.failed) return this.props.children
+    return this.props.what ? <p className="dpw-broken" role="status">{this.props.what} 칸을 표시하지 못했습니다. 평면은 그대로 고칠 수 있습니다. 화면을 새로 고치면 다시 나옵니다.</p> : null
+  }
+}
 function IconBtn({ label, children, ...rest }: { label: string; children: ReactNode } & ButtonHTMLAttributes<HTMLButtonElement>) {
   return <button type="button" className="dpw-icon" aria-label={label} title={label} {...rest}>{children}</button>
 }
@@ -65,7 +75,10 @@ export function DesignPlan({ project, base }: { project: DesignProject; base: De
   const [, setHistTick] = useState(0)
   const [loading, setLoading] = useState(true)
   const [loadFailed, setLoadFailed] = useState(false)
+  const [loadTick, setLoadTick] = useState(0)
   const ready = useRef(false)
+  // 프로젝트를 바꾸거나 다시 불러올 때마다 올린다 — 그 전에 시작한 저장 · 불러오기가 새 평면을 건드리지 않게
+  const epoch = useRef(0)
   const [dirty, setDirtyState] = useState(false)
   const dirtyRef = useRef(false)
   const rev = useRef(0)
@@ -94,15 +107,25 @@ export function DesignPlan({ project, base }: { project: DesignProject; base: De
   const [fitKey, setFitKey] = useState(0)
   const [layout, setLayoutState] = useState<Layout>(() => { try { const v = localStorage.getItem(LAYOUT_KEY); return v === 'plan' || v === 'split' || v === '3d' ? v : 'split' } catch { return 'split' } })
   const [full, setFull] = useState<false | 'native' | 'css'>(false)
-  const [wide, setWide] = useState(false)
+  const fullRef = useRef(full)
+  fullRef.current = full
+  const [cols, setCols] = useState<'slim' | 'mid' | 'wide'>('mid')
   const [cadOpen, setCadOpen] = useState(false)
   const [peers, setPeers] = useState<Peer[]>([])
   const [remote, setRemote] = useState<{ name: string } | null>(null)
+  const [notice, setNotice] = useState<{ text: string; n: number } | null>(null)
   const root = useRef<HTMLDivElement>(null)
   const canvas = useRef<PlanCanvasHandle>(null)
   const clip = useRef<{ items: PlanItem[]; n: number }>({ items: [], n: 0 })
   const watch = useRef<{ saved(): void; close(): void } | null>(null)
 
+  /** 알림: 보통은 인트라넷 공통 알림으로, 전체 화면에서는 그 알림이 화면 밖이라 보이지 않으므로 작업 공간 안에 직접 띄운다 */
+  const say = (text: string) => { if (fullRef.current) setNotice(n => ({ text, n: (n?.n ?? 0) + 1 })); else toast(text) }
+  useEffect(() => {
+    if (!notice) return
+    const t = window.setTimeout(() => setNotice(null), 4200)
+    return () => window.clearTimeout(t)
+  }, [notice])
   const put = (next: PlanGeometry) => { planRef.current = next; setPlanState(next) }
   const touch = () => { rev.current += 1; dirtyRef.current = true; setDirtyState(true); setRevTick(rev.current) }
   /** 한 번의 고침 = 되돌리기 한 단계. tag 가 같은 고침이 잇따르면(글자 입력 · 방향키) 한 단계로 묶는다 */
@@ -120,6 +143,7 @@ export function DesignPlan({ project, base }: { project: DesignProject; base: De
     if (!snap) return
     const cur = planRef.current
     to.push(cur); h.tag = ''
+    canvas.current?.cancel()
     const next = { ...snap, notes: cur.notes }
     put(next); touch(); setHistTick(n => n + 1)
     setSel(ids => ids.filter(id => holds(next, id)))
@@ -139,11 +163,13 @@ export function DesignPlan({ project, base }: { project: DesignProject; base: De
   // ── 불러오기 ─────────────────────────────────────────────
   const adopt = (g: PlanGeometry) => {
     hist.current = { past: [], future: [], tag: '', at: 0 }
+    canvas.current?.cancel()
     put(g); setHistTick(n => n + 1)
     setSel(ids => ids.filter(id => holds(g, id)))
   }
   useEffect(() => {
     let alive = true
+    epoch.current += 1
     ready.current = false; setLoading(true); setLoadFailed(false); setRemote(null); setSel([]); setNoteSel(null); setNoteDraft(null)
     noteTouched.current.clear(); noteRemoved.current.clear()
     dirtyRef.current = false; setDirtyState(false); setSavedAt(null); setSaveState('idle')
@@ -154,7 +180,7 @@ export function DesignPlan({ project, base }: { project: DesignProject; base: De
       setFitKey(k => k + 1)
     }).catch(() => { if (alive) setLoadFailed(true) }).finally(() => { if (alive) setLoading(false) })
     return () => { alive = false }
-  }, [api, project.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [api, project.id, loadTick]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── 저장 (자동 저장 · 지금 저장 · 수량표에 반영) ──────────
   /** 저장할 내용: 내 평면 + 서버의 최신 조명 수량(스펙북에서 고침) + 최신 댓글(다른 사람이 남긴 것) */
@@ -169,15 +195,17 @@ export function DesignPlan({ project, base }: { project: DesignProject; base: De
     return out
   }
   const save = (apply = false): Promise<boolean> => {
-    const pid = project.id
+    const pid = project.id, ep = epoch.current
     const job = (async () => {
       if (inflight.current) await inflight.current.catch(() => false)
-      if (!ready.current) return false
+      if (!ready.current || ep !== epoch.current) return false
       setSaveState('saving')
       const startRev = rev.current
       let ok = false
       try {
         const out = await persist(pid, planRef.current, apply)
+        // 저장하는 사이에 다른 프로젝트로 넘어갔으면 저장만 하고 화면은 건드리지 않는다
+        if (ep !== epoch.current) return true
         for (const [id, r] of noteTouched.current) if (r <= startRev) noteTouched.current.delete(id)
         for (const [id, r] of noteRemoved.current) if (r <= startRev) noteRemoved.current.delete(id)
         // 저장하는 사이에 들어온 다른 사람의 댓글 · 조명 수량을 화면에도 반영한다 (되돌리기 단계는 만들지 않는다)
@@ -191,8 +219,8 @@ export function DesignPlan({ project, base }: { project: DesignProject; base: De
         setSavedAt(new Date()); setSaveState('idle')
         try { watch.current?.saved() } catch { /* 알림을 못 보내도 저장은 된 것 */ }
         ok = true
-      } catch { setSaveState('error') }
-      if (!ok || rev.current !== startRev) setNudge(n => n + 1)
+      } catch { if (ep === epoch.current) setSaveState('error') }
+      if (ep === epoch.current && (!ok || rev.current !== startRev)) setNudge(n => n + 1)
       return ok
     })()
     inflight.current = job
@@ -224,8 +252,10 @@ export function DesignPlan({ project, base }: { project: DesignProject; base: De
 
   // ── 같이 보기: 지금 보는 사람 · 다른 사람이 저장하면 알림 ──
   const reload = async (force: boolean, by = '') => {
+    const ep = epoch.current
     try {
       const latest = await api.getDesignPlan(project.id)
+      if (ep !== epoch.current) return
       // 불러오는 사이에 내가 고쳤으면 덮어쓰지 않고 알림으로 바꾼다
       if (!force && (dirtyRef.current || dragging.current)) { setRemote({ name: by || '다른 사람' }); return }
       const notes = mergeNotes((planRef.current.notes ?? []).filter(n => noteTouched.current.has(n.id)), latest?.notes, noteRemoved.current.keys())
@@ -236,7 +266,7 @@ export function DesignPlan({ project, base }: { project: DesignProject; base: De
       dirtyRef.current = mine; setDirtyState(mine)
       if (mine) setNudge(n => n + 1)
       setRemote(null)
-    } catch { toast('평면을 다시 불러오지 못했습니다') }
+    } catch { say('평면을 다시 불러오지 못했습니다') }
   }
   const reloadRef = useRef(reload)
   reloadRef.current = reload
@@ -262,7 +292,7 @@ export function DesignPlan({ project, base }: { project: DesignProject; base: De
   useEffect(() => {
     const el = root.current
     if (!el) return
-    const ro = new ResizeObserver(() => setWide(el.clientWidth >= 980))
+    const ro = new ResizeObserver(() => setCols(el.clientWidth >= 980 ? 'wide' : el.clientWidth < 700 ? 'slim' : 'mid'))
     ro.observe(el)
     return () => ro.disconnect()
   }, [])
@@ -271,7 +301,12 @@ export function DesignPlan({ project, base }: { project: DesignProject; base: De
     const el = root.current
     if (!el) return
     if (full) { exitFull(); return }
-    try { await el.requestFullscreen(); setFull('native') } catch { setFull('css') }
+    try {
+      await el.requestFullscreen()
+      setFull('native')
+      // 전체 화면에서 Esc 는 보통 브라우저가 가져가 전체 화면을 닫는다. 그리기를 끝내는 데 Esc 를 쓰므로, 되는 브라우저에서는 화면이 먼저 받게 한다
+      try { await (navigator as Navigator & { keyboard?: { lock?(keys: string[]): Promise<void> } }).keyboard?.lock?.(['Escape']) } catch { /* 지원하지 않으면 Esc 가 전체 화면을 닫는다 */ }
+    } catch { setFull('css') }
   }
   useEffect(() => {
     const on = () => setFull(f => (document.fullscreenElement === root.current ? 'native' : f === 'native' ? false : f))
@@ -281,10 +316,10 @@ export function DesignPlan({ project, base }: { project: DesignProject; base: De
   // 전체 화면에서는 이 칸 밖에 뜨는 창(옆 창 · 확인 창)이 보이지 않는다 → 그런 창이 뜨면 전체 화면을 먼저 닫는다
   useEffect(() => {
     if (!full) return
-    const check = () => { if ([...document.querySelectorAll('[role="dialog"], [role="alertdialog"]')].some(d => !root.current?.contains(d))) exitFull() }
-    const mo = new MutationObserver(check)
+    const all = () => [...document.querySelectorAll('[role="dialog"], [role="alertdialog"]')]
+    const before = new Set(all())
+    const mo = new MutationObserver(() => { if (all().some(d => !before.has(d) && !root.current?.contains(d))) exitFull() })
     mo.observe(document.body, { childList: true, subtree: true })
-    check()
     return () => mo.disconnect()
   }, [full, exitFull])
   const setLayout = (v: Layout) => { setLayoutState(v); try { localStorage.setItem(LAYOUT_KEY, v) } catch { /* 저장소를 못 써도 보기는 바뀐다 */ } }
@@ -308,6 +343,8 @@ export function DesignPlan({ project, base }: { project: DesignProject; base: De
     change(cur => ({ ...cur, items: [...cur.items, ...made] }))
     setSel(made.map(i => i.id))
   }
+  /** 좁은 화면에서는 라이브러리 · 댓글 목록이 평면 아래에 있다 → 평면에서 이어서 할 일이면 평면이 보이게 올린다 */
+  const revealCanvas = () => root.current?.querySelector('.dpw-pane-2d')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
   const pickTool = (k: PlanTool) => { setTool(k); setNoteDraft(null); if (k !== 'item') setPlacing(null) }
   const select = (ids: string[]) => { setSel(ids); if (ids.length && tab === 'notes') setTab('sel') }
 
@@ -318,19 +355,23 @@ export function DesignPlan({ project, base }: { project: DesignProject; base: De
       const t = e.target, active = document.activeElement
       if (t instanceof Element && t.closest('[role="dialog"], [role="alertdialog"]')) return
       const inside = !!active && !!root.current?.contains(active)
+      // 평면을 고치는 글쇠(지우기 · 방향키 · 복사 · 하나 더)는 초점이 평면 쪽에 있을 때만 — 3D 칸(걷기 글쇠)과 오른쪽 칸(목록 고르기)에서는 받지 않는다
+      const editing = inside && !active.closest('.dpw-side, .dpw-pane-3d')
       const typing = t instanceof HTMLElement && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))
+      // 작업 공간 안에서 누른 글쇠만 받는다 (그리는 중의 숫자 · Esc 는 아무 데도 초점이 없을 때도 받는다)
       if (typing || !(inside || active === document.body || !active)) return
       const mod = e.ctrlKey || e.metaKey, k = e.key.toLowerCase()
-      if (mod && !e.altKey && k === 'z') { e.preventDefault(); step(e.shiftKey ? 'redo' : 'undo'); return }
-      if (mod && !e.altKey && k === 'y') { e.preventDefault(); step('redo'); return }
-      if (canvas.current?.key(e)) { e.preventDefault(); return }
+      if (inside && mod && !e.altKey && k === 'z') { e.preventDefault(); step(e.shiftKey ? 'redo' : 'undo'); return }
+      if (inside && mod && !e.altKey && k === 'y') { e.preventDefault(); step('redo'); return }
+      if ((editing || !inside) && canvas.current?.key(e)) { e.preventDefault(); return }
       if (e.key === 'Escape') {
         if (noteDraft) setNoteDraft(null)
         else if (placing || tool !== 'select') { setPlacing(null); setTool('select') }
-        else { setSel([]); setNoteSel(null) }
+        else if (sel.length || noteSel) { setSel([]); setNoteSel(null) }
+        else if (full) exitFull()
         return
       }
-      if (!inside) return
+      if (!editing) return
       if ((e.key === 'Delete' || e.key === 'Backspace') && sel.length) { e.preventDefault(); removeSel(); return }
       if (e.key.startsWith('Arrow') && selItems.length && !mod && !e.altKey) {
         e.preventDefault()
@@ -352,7 +393,7 @@ export function DesignPlan({ project, base }: { project: DesignProject; base: De
   const applyFinish = (text: string) => {
     if (target === 'wall') {
       const ids = selWalls.map(w => w.id)
-      if (!ids.length) { toast('먼저 평면에서 마감을 넣을 벽을 골라 주세요'); return }
+      if (!ids.length) { say('먼저 평면에서 마감을 넣을 벽을 골라 주세요'); return }
       patchWalls(ids, { finish: text })
       return
     }
@@ -372,9 +413,9 @@ export function DesignPlan({ project, base }: { project: DesignProject; base: De
   const place = (at: Pt) => {
     let made: PlanItem
     if (placing) {
-      try { made = { ...fixtureToItem(placing, at, base.trades, uid()), x: at.x, y: at.y } } catch { toast('이 부품을 놓지 못했습니다. 다시 골라 주세요'); return }
+      try { made = { ...fixtureToItem(placing, at, base.trades, uid()), x: at.x, y: at.y } } catch { say('이 부품을 놓지 못했습니다. 다시 골라 주세요'); return }
     } else {
-      if (!preset.name.trim() || !preset.trade_code) { toast('놓을 부품의 이름과 공종을 먼저 정해 주세요'); return }
+      if (!preset.name.trim() || !preset.trade_code) { say('놓을 부품의 이름과 공종을 먼저 정해 주세요'); return }
       made = { id: uid(), x: at.x, y: at.y, w: Number(preset.w) || 600, d: Number(preset.d) || 600, h: Number(preset.h) || 900, rot: 0, name: preset.name.trim(), trade_code: preset.trade_code, spec: '', unit: preset.unit, measure: preset.measure, section: preset.section.trim() || null }
     }
     const it = made
@@ -406,16 +447,16 @@ export function DesignPlan({ project, base }: { project: DesignProject; base: De
       return { ...cur, walls: [...cur.walls, ...walls.map(w => (used.has(w.id) ? { ...w, id: uid() } : w))] }
     })
     setSel([]); setTool('select'); setFitKey(k => k + 1)
-    toast(mode === 'replace' ? `캐드 도면의 벽 ${walls.length}개로 바꿨습니다` : `캐드 도면의 벽 ${walls.length}개를 더했습니다`)
+    say(mode === 'replace' ? `캐드 도면의 벽 ${walls.length}개로 바꿨습니다. 되돌리기로 돌아갈 수 있습니다` : `캐드 도면의 벽 ${walls.length}개를 더했습니다`)
   }
 
   const lines = useMemo(() => planQuantities(plan), [plan])
-  const area = useMemo(() => floorArea(plan.walls.filter(w => w.kind === 'existing')), [plan.walls])
+  const area = useMemo(() => floorArea(closedShell(plan.walls.filter(w => w.kind === 'existing')) ?? []), [plan.walls])
   const plan3d = useDeferredValue(plan)
   const tname = (c: string) => base.trades.find(t => t.code === c)?.name ?? c
   const matNames = useMemo(() => [...new Set([...specs.filter(x => x.book === 'materials' && x.status !== 'dropped').map(x => [x.code, x.name].filter(Boolean).join(' ')), ...plan.walls.map(w => w.finish?.trim())].filter(Boolean))] as string[], [specs, plan.walls])
   const openNotes = (plan.notes ?? []).filter(n => !n.done).length
-  const status = loading ? '불러오는 중…' : loadFailed ? '평면을 불러오지 못했습니다' : saveState === 'saving' ? '저장 중…' : saveState === 'error' ? '저장하지 못했습니다' : dirty ? '고친 내용을 곧 저장합니다' : savedAt ? `저장됨 ${hhmm(savedAt)}` : '저장됨'
+  const status = loading ? '불러오는 중…' : loadFailed ? '평면을 불러오지 못했습니다' : saveState === 'saving' ? '저장 중…' : saveState === 'error' ? '저장하지 못했습니다' : dirty ? (remote ? '저장을 잠시 멈췄습니다' : '고친 내용을 곧 저장합니다') : savedAt ? `저장됨 ${hhmm(savedAt)}` : '저장됨'
 
   const inspector = () => {
     if (sel.length > 1) {
@@ -423,8 +464,8 @@ export function DesignPlan({ project, base }: { project: DesignProject; base: De
       return <div className="dpw-form">
         <p className="dpw-form-title">{allWalls ? `벽 ${sel.length}개` : selItems.length === sel.length ? `부품 ${sel.length}개` : `${sel.length}개`}를 골랐습니다</p>
         {allWalls && <>
-          <label className="dpw-f wide"><span>마감</span><input className="input" list="design-wall-finishes" placeholder="예: PT-01 수성 페인트 백색" onChange={e => patchWalls(sel, { finish: e.target.value }, `walls:${sel.join(',')}:finish`)} /></label>
-          <label className="dpw-f"><span>두께</span><input className="input xs" inputMode="numeric" placeholder={String(selWalls[0].t)} onChange={e => { const t = digits(e.target.value); if (t > 0) patchWalls(sel, { t }, `walls:${sel.join(',')}:t`) }} /></label>
+          <label className="dpw-f wide"><span>마감</span><input key={`f${sel.join(',')}`} className="input" list="design-wall-finishes" placeholder="예: PT-01 수성 페인트 백색" onChange={e => patchWalls(sel, { finish: e.target.value }, `walls:${sel.join(',')}:finish`)} /></label>
+          <label className="dpw-f"><span>두께</span><input key={`t${sel.join(',')}`} className="input xs" inputMode="numeric" placeholder={String(selWalls[0].t)} onChange={e => { const t = digits(e.target.value); if (t > 0) patchWalls(sel, { t }, `walls:${sel.join(',')}:t`) }} /></label>
         </>}
         <p className="dpw-form-note">Shift 를 누른 채 누르면 여러 개를 고릅니다.{selItems.length > 0 ? ' 부품은 방향키로 50mm(Shift 500mm)씩 옮기고, D 로 하나 더 만듭니다.' : ''}{allWalls ? ' 라이브러리에서 마감을 누르면 고른 벽 모두에 들어갑니다.' : ''}</p>
         <div className="dpw-form-acts">
@@ -476,7 +517,7 @@ export function DesignPlan({ project, base }: { project: DesignProject; base: De
       return <div className="dpw-form">
         <label className="dpw-f wide"><span>이름</span><input className="input" value={it.name} onChange={e => patchItems([it.id], { name: e.target.value }, tag('name'))} /></label>
         <label className="dpw-f wide"><span>모양</span><select className="input" value={it.shape ?? ''} title="평면 기호와 3D 모양. 비워 두면 이름으로 알아봅니다" onChange={e => patchItems([it.id], { shape: e.target.value || undefined })}>
-          <option value="">이름으로 알아보기 ({auto})</option>{ITEM_SHAPES.map(([k, label]) => <option key={k} value={k}>{label}</option>)}</select></label>
+          <option value="">이름으로 알아보기 ({auto})</option>{ITEM_SHAPES.map(([k, label]) => <option key={k} value={k}>{label}</option>)}</select><ShapeIcon shape={itemShape(it.name, it.shape)} /></label>
         {(['w', 'd', 'h'] as const).map(k => <label key={k} className="dpw-f"><span>{{ w: '가로', d: '세로', h: '높이' }[k]}</span><input className="input xs" inputMode="numeric" value={it[k]} onChange={e => patchItems([it.id], { [k]: digits(e.target.value) }, tag(k))} /><em>mm</em></label>)}
         <label className="dpw-f"><span>바닥에서 높이</span><input className="input xs" inputMode="numeric" placeholder="0" value={it.z ?? ''} title="벽걸이 TV · 상부장처럼 바닥에서 띄운 높이" onChange={e => patchItems([it.id], { z: digits(e.target.value) || undefined }, tag('z'))} /><em>mm</em></label>
         <label className="dpw-f wide"><span>마감</span><input className="input" list="design-wall-finishes" placeholder="예: WD-01 오크 무늬목" title="재료 번호나 색 낱말을 적으면 평면과 3D 의 색이 바뀝니다" value={it.finish ?? ''} onChange={e => patchItems([it.id], { finish: e.target.value || undefined }, tag('finish'))} /></label>
@@ -505,10 +546,10 @@ export function DesignPlan({ project, base }: { project: DesignProject; base: De
 
   return (
     <div className="design-block">
-      <div ref={root} className={`dpw${wide ? ' wide' : ' narrow'}${full ? ' full' : ''}${full === 'css' ? ' full-css' : ''}`}>
+      <div ref={root} tabIndex={-1} className={`dpw ${cols}${full ? ' full' : ''}${full === 'css' ? ' full-css' : ''}`}>
         <div className="dpw-bar" role="toolbar" aria-label="평면 도구">
           <div className="dpw-tools">
-            {TOOLS.map(t => <button type="button" key={t.key} title={t.tip} className={`dpw-tool${tool === t.key ? ' on' : ''}`} aria-pressed={tool === t.key} onClick={() => pickTool(t.key)}><t.icon size={13} /><span>{t.label}</span></button>)}
+            {TOOLS.map(t => <button type="button" key={t.key} title={`${t.label} — ${t.tip}`} aria-label={t.label} className={`dpw-tool${tool === t.key ? ' on' : ''}`} aria-pressed={tool === t.key} onClick={() => pickTool(t.key)}><t.icon size={13} /><span>{t.label}</span></button>)}
           </div>
           <span className="dpw-sep" />
           <div className="dpw-group">
@@ -525,14 +566,13 @@ export function DesignPlan({ project, base }: { project: DesignProject; base: De
           <div className="dpw-seg" role="group" aria-label="보기">
             {LAYOUTS.map(([k, label, Icon]) => <button type="button" key={k} className={layout === k ? 'on' : ''} aria-pressed={layout === k} onClick={() => setLayout(k)}><Icon size={13} />{label}</button>)}
           </div>
-          <button type="button" className="dpw-text" aria-pressed={!!full} title="작업 공간을 화면 가득 넓힙니다" onClick={() => void toggleFull()}>{full ? <Minimize2 size={13} /> : <Maximize2 size={13} />}{full ? '전체 화면 닫기' : '전체 화면'}</button>
+          <button type="button" className="dpw-text" aria-pressed={!!full} title={full ? '전체 화면을 닫습니다 (Esc)' : '작업 공간을 화면 가득 넓힙니다'} onClick={() => void toggleFull()}>{full ? <Minimize2 size={13} /> : <Maximize2 size={13} />}전체 화면</button>
           <span className="dpw-sep" />
           <button type="button" className="dpw-text" title="캐드 도면(DXF)의 벽을 평면으로 가져옵니다" onClick={() => setCadOpen(true)}><FileUp size={13} />캐드 가져오기</button>
-          <DesignPlanExport plan={plan} name={project.name} look={look} />
-          <label className="dpw-h">천장 높이 <input className="input xs" inputMode="numeric" value={plan.height} onChange={e => change({ ...plan, height: digits(e.target.value) }, 'height')} /> mm</label>
+          <Guard><DesignPlanExport plan={plan} name={project.name} look={look} /></Guard>
           <span className="dpw-gap" />
           {peers.length > 0 && <span className="dpw-peers" title={peers.map(p => p.name).join(', ')}><Users size={13} />지금 보는 사람{peers.slice(0, 4).map(p => <i key={p.id}>{p.name}</i>)}{peers.length > 4 && <i>+{peers.length - 4}</i>}</span>}
-          <span className={`dpw-status${saveState === 'error' || loadFailed ? ' err' : ''}`} role="status">{status}{saveState === 'error' && <> — <button type="button" className="dpw-link" onClick={() => void save()}>다시 시도</button></>}{loadFailed && <> — <button type="button" className="dpw-link" onClick={() => window.location.reload()}>새로 고침</button></>}</span>
+          <span className={`dpw-status${saveState === 'error' || loadFailed ? ' err' : ''}`} role="status">{status}{saveState === 'error' && <> — <button type="button" className="dpw-link" onClick={() => void save()}>다시 시도</button></>}{loadFailed && <> — <button type="button" className="dpw-link" onClick={() => setLoadTick(n => n + 1)}>다시 불러오기</button></>}</span>
           <Button size="sm" kind="outline" disabled={!dirty || loading || loadFailed || saveState === 'saving'} onClick={() => void save()}>지금 저장</Button>
         </div>
 
@@ -556,6 +596,8 @@ export function DesignPlan({ project, base }: { project: DesignProject; base: De
           </div>}
           {tool === 'note' && <span>평면의 한 자리를 누르면 번호 핀이 꽂히고 댓글을 남길 수 있습니다 · 같이 보는 사람에게도 보입니다</span>}
           {tool === 'select' && <span>눌러서 고르고(Shift 로 여러 개), 부품 · 문 · 창은 끌어서 옮깁니다 · 빈 곳을 끌면 화면 이동 · 휠로 확대 · 격자 {GRID}mm · 치수는 mm</span>}
+          <span className="dpw-gap" />
+          <label className="dpw-h" title="벽을 세우는 높이. 3D 와 가벽 · 벽 마감 수량(㎡)에 쓰입니다">천장 높이 <input className="input xs" inputMode="numeric" value={plan.height} onChange={e => change({ ...plan, height: digits(e.target.value) }, 'height')} /> mm</label>
         </div>
 
         {remote && <div className="dpw-banner" role="status">
@@ -567,13 +609,14 @@ export function DesignPlan({ project, base }: { project: DesignProject; base: De
         <div className="dpw-body">
           <div className={`dpw-stage is-${layout}`}>
             <div className="dpw-pane dpw-pane-2d">
+              {(loading || loadFailed) && <div className="dpw-veil" role="status">{loading ? '평면을 불러오는 중…' : <>평면을 불러오지 못했습니다. 저장된 평면을 덮어쓰지 않도록 고치기를 막아 두었습니다. <button type="button" className="dpw-link" onClick={() => setLoadTick(n => n + 1)}>다시 불러오기</button></>}</div>}
               <DesignPlanCanvas ref={canvas} plan={plan} tool={tool} sel={sel} look={look} wallT={tool === 'newwall' ? wallT.newwall : wallT.wall} openW={tool === 'window' ? openW.window : openW.door}
                 ghost={ghost} noteSel={noteSel} fitKey={fitKey} onSelect={select} onPickNote={id => { setNoteSel(id); setTab('notes') }}
-                onChange={next => change(next)} onDragStart={onDragStart} onDrag={put} onDragEnd={onDragEnd} onPlace={place} onNote={at => { setNoteDraft(at); setNoteSel(null) }}
+                onChange={next => change(next)} onDragStart={onDragStart} onDrag={next => put(next(planRef.current))} onDragEnd={onDragEnd} onPlace={place} onNote={at => { setNoteDraft(at); setNoteSel(null) }}
                 overlay={(toScreen, size) => { if (!noteDraft) return null; const q = toScreen(noteDraft); return <><span className="dpn-draft-pin" style={{ left: q.x, top: q.y }} aria-hidden="true" /><DesignPlanNoteComposer x={q.x} y={q.y} maxX={size.w} maxY={size.h} onSubmit={addNote} onCancel={() => setNoteDraft(null)} /></> }} />
             </div>
             {layout !== 'plan' && <div className="dpw-pane dpw-pane-3d">
-              <Suspense fallback={<div className="dpw-wait">3D 를 준비하는 중…</div>}><Plan3D plan={plan3d} selected={sel[0] ?? null} look={look} name={project.name} /></Suspense>
+              <Guard what="3D"><Suspense fallback={<div className="dpw-wait">3D 를 준비하는 중…</div>}><Plan3D plan={plan3d} selected={sel[0] ?? null} look={look} name={project.name} /></Suspense></Guard>
             </div>}
           </div>
 
@@ -584,13 +627,14 @@ export function DesignPlan({ project, base }: { project: DesignProject; base: De
             </div>
             <div className="dpw-panel" role="tabpanel">
               {tab === 'sel' && inspector()}
-              {tab === 'lib' && <DesignPlanLibrary specs={specs} trades={base.trades} target={target} onTarget={setTarget} canApplyWall={selWalls.length > 0} selectedItem={selItem ?? null} selectedFinish={selectedFinish}
-                onFinish={text => applyFinish(text)} onFixture={f => { setPlacing(f); setTool('item'); setNoteDraft(null) }} placing={tool === 'item' && placing ? placing.name : null} />}
-              {tab === 'notes' && <DesignPlanNotes notes={plan.notes ?? []} active={noteSel} me={me.name} onPick={setNoteSel} onToggle={toggleNote} onRemove={removeNote} onStart={() => pickTool('note')} />}
+              {tab === 'lib' && <Guard what="라이브러리"><DesignPlanLibrary specs={specs} trades={base.trades} target={target} onTarget={setTarget} canApplyWall={selWalls.length > 0} selectedItem={selItem ?? null} selectedFinish={selectedFinish}
+                onFinish={(text: string) => applyFinish(text)} onFixture={(f: LibraryFixture) => { setPlacing(f); setTool('item'); setNoteDraft(null); revealCanvas() }} placing={tool === 'item' && placing ? placing.name : null} /></Guard>}
+              {tab === 'notes' && <DesignPlanNotes notes={plan.notes ?? []} active={noteSel} me={me.name} onPick={id => { setNoteSel(id); const n = (plan.notes ?? []).find(x => x.id === id); if (n) canvas.current?.show(n); revealCanvas() }} onToggle={toggleNote} onRemove={removeNote} onStart={() => { pickTool('note'); revealCanvas() }} />}
             </div>
           </aside>
         </div>
-        {cadOpen && <DesignPlanCadImport onImport={importCad} onClose={() => setCadOpen(false)} />}
+        {notice && <p key={notice.n} className="dpw-toast" role="status">{notice.text}</p>}
+        {cadOpen && <Guard what="캐드 가져오기"><DesignPlanCadImport onImport={importCad} onClose={() => setCadOpen(false)} /></Guard>}
         <datalist id="design-wall-finishes">{matNames.map(v => <option key={v} value={v} />)}</datalist>
         <datalist id="design-door-kinds">{['여닫이 도어', '히든 여닫이 도어', '양개 여닫이 도어', '미닫이 도어', '유리 도어'].map(v => <option key={v} value={v} />)}</datalist>
         <datalist id="design-mat-codes">{specs.filter(x => x.book === 'materials' && x.status !== 'dropped' && x.code).map(x => <option key={x.id} value={x.code!}>{x.name}</option>)}</datalist>
