@@ -26,6 +26,7 @@ import {
   type StepInfo, type StepState,
 } from '../components/DesignWorkspace'
 import type { DesignJob } from '../lib/design'
+import { DesignPriceSuggest } from '../components/DesignPriceSuggest'
 import './Design.css'
 
 type Tab = 'projects' | 'cards' | 'prices' | 'vendors' | 'materials' | 'knowledge'
@@ -400,6 +401,7 @@ function EstimateView({ project, base, jobs, jobTick }: { project: DesignProject
     : base.trades.map(t => ({ key: t.code, name: t.name, rows: shown.filter(l => l.trade_code === t.code) })).filter(g => g.rows.length)
   const files = docs.filter(d => d.version === revision)
   const missing = lines.filter(l => l.unit_price == null).length
+  const [suggest, setSuggest] = useState<string | null>(null)
   return (
     <div className="design-block">
       <SectionHead title="견적" count={revisions.length ? `${revisions[0]}차` : undefined} right={
@@ -431,7 +433,7 @@ function EstimateView({ project, base, jobs, jobTick }: { project: DesignProject
           <div className="total"><dt>합계</dt><dd>{won(num(est.totals.total))}</dd></div>
         </dl>
         {(missing > 0 || est.warnings.length > 0) && <ul className="design-warns">
-          {missing > 0 && <li className="red">단가가 없는 항목 {missing}개는 금액에서 빠졌습니다. '단가' 탭에서 승인된 판매 단가를 넣은 뒤 다시 계산하세요.</li>}
+          {missing > 0 && <li className="red">단가가 없는 항목 {missing}개는 금액에서 빠졌습니다. 각 줄의 '물가 기준'에서 조달청 단가를 골라 넣거나 '단가' 탭에서 판매 단가를 넣은 뒤 다시 계산하세요.</li>}
           {est.warnings.filter(w => w.level !== 'info').map((w, i) => <li key={i} className={w.level === 'error' ? 'red' : ''}>{w.message}</li>)}
         </ul>}
         {files.length > 0 && <ul className="design-files" aria-label="만들어진 파일">
@@ -443,11 +445,13 @@ function EstimateView({ project, base, jobs, jobTick }: { project: DesignProject
         <div className="table-wrap design-table-fix"><table className="table">
           <thead><tr><th>{bySection ? '구분' : '공종'}</th><th>품목</th><th>규격</th><th className="num">수량</th><th>단위</th><th className="num">단가</th><th className="num">금액</th></tr></thead>
           <tbody>{groups.flatMap(g => [
-            ...g.rows.map((l, i) => (
+            ...g.rows.flatMap((l, i) => [
               <tr key={l.id}><td className="nowrap strong">{i === 0 ? g.name : ''}</td><td>{l.item}</td><td className="max">{l.spec}</td>
                 <td className="num">{l.qty.toLocaleString('ko-KR')}</td><td>{l.unit}</td>
-                <td className={`num${l.unit_price == null ? ' red' : ''}`}>{l.unit_price == null ? '단가 없음' : l.unit_price.toLocaleString('ko-KR')}</td>
-                <td className="num">{l.amount == null ? '' : l.amount.toLocaleString('ko-KR')}</td></tr>)),
+                <td className={`num${l.unit_price == null ? ' red' : ''}`}>{l.unit_price == null ? <>단가 없음 <button type="button" className="design-ref-find" onClick={() => setSuggest(suggest === l.id ? null : l.id)}>물가 기준</button></> : l.unit_price.toLocaleString('ko-KR')}</td>
+                <td className="num">{l.amount == null ? '' : l.amount.toLocaleString('ko-KR')}</td></tr>,
+              ...(suggest === l.id ? [<tr key={`${l.id}-ref`} className="design-suggest-row"><td colSpan={7}><DesignPriceSuggest line={l} onAdded={() => undefined} /></td></tr>] : []),
+            ]),
             <tr key={`${g.key}-sum`} className="design-sub"><td colSpan={6}>{g.name} 소계{word ? ' (찾은 줄만)' : ''}</td><td className="num">{g.rows.reduce((s, l) => s + (l.amount ?? 0), 0).toLocaleString('ko-KR')}</td></tr>,
           ])}</tbody>
         </table></div>)}
@@ -728,8 +732,8 @@ function CardsTab() {
 
 // ─────────────────────────────── 단가
 /** 판매 단가 옆 물가 기준: 금액 · 차이(%) · 마우스를 올리면 어떤 품목과 견줬는지 */
-function RefCell({ price, m }: { price: number; m?: PriceRefMatch }) {
-  if (!m) return <span className="t-cap">-</span>
+function RefCell({ price, m, onFind }: { price: number; m?: PriceRefMatch; onFind: () => void }) {
+  if (!m) return <button type="button" className="design-ref-find" onClick={onFind} title="물가 기준에서 이 품목 찾기">찾기</button>
   const gap = m.price > 0 ? Math.round(((price - m.price) / m.price) * 100) : 0
   return <span title={`${m.source_name} · ${m.item} ${m.spec} (${m.unit}) · ${m.notice_date ?? ''} · 비슷함 ${Math.round(m.score * 100)}%`}>
     {Math.round(m.price).toLocaleString('ko-KR')}<small className={`design-ref-gap${Math.abs(gap) >= 30 ? ' far' : ''}`}> {gap > 0 ? '+' : ''}{gap}%</small>
@@ -776,7 +780,7 @@ function PricesTab({ base }: { base: DesignBase }) {
         <div className="table-wrap"><table className="table">
           <thead><tr><th>공종</th><th>품목</th><th>규격</th><th>단위</th>{kind === 'sell' && <th>안</th>}<th className="num">{kind === 'sell' ? '판매 단가' : '실행 단가'}</th>{kind === 'sell' && <th className="num">물가 기준</th>}{kind === 'cost' && <th>협력사</th>}<th>기준일</th><th>출처</th><th>상태</th></tr></thead>
           <tbody>{kind === 'sell'
-            ? prices.map(p => <tr key={p.id}><td className="nowrap">{tradeName(base, p.trade_code)}</td><td>{p.item}</td><td className="max">{p.spec}</td><td>{p.unit}</td><td>{VARIANT_LABELS[p.variant]}</td><td className="num">{p.sell_price.toLocaleString('ko-KR')}</td><td className="num"><RefCell price={p.sell_price} m={refOf.get(p.id)} /></td><td className="nowrap">{p.effective_date}</td><td className="max t-cap">{p.source_doc}</td><td>{p.approved ? <Badge tone="blue">승인</Badge> : <Badge>대기</Badge>}</td></tr>)
+            ? prices.map(p => <tr key={p.id}><td className="nowrap">{tradeName(base, p.trade_code)}</td><td>{p.item}</td><td className="max">{p.spec}</td><td>{p.unit}</td><td>{VARIANT_LABELS[p.variant]}</td><td className="num">{p.sell_price.toLocaleString('ko-KR')}</td><td className="num"><RefCell price={p.sell_price} m={refOf.get(p.id)} onFind={() => { setKind('ref'); setSearch(p.item.replace(/[^\p{L}\p{N} ]/gu, ' ').trim().split(/\s+/).slice(0, 2).join(' ')) }} /></td><td className="nowrap">{p.effective_date}</td><td className="max t-cap">{p.source_doc}</td><td>{p.approved ? <Badge tone="blue">승인</Badge> : <Badge>대기</Badge>}</td></tr>)
             : costs.map(p => <tr key={p.id}><td className="nowrap">{tradeName(base, p.trade_code)}</td><td>{p.item}</td><td className="max">{p.spec}</td><td>{p.unit}</td><td className="num">{p.cost_price.toLocaleString('ko-KR')}</td><td>{vname(p.vendor_id)}</td><td className="nowrap">{p.effective_date}</td><td className="max t-cap">{p.source_doc}</td><td>{p.approved ? <Badge tone="blue">승인</Badge> : <Badge>대기</Badge>}</td></tr>)}</tbody>
         </table></div>
       )}

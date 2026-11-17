@@ -247,3 +247,7 @@
 @media (min-width: 761px) { .design-steps { margin-top: 2px; box-shadow: 0 -14px 0 0 var(--white), 0 2px 8px rgba(21, 29, 24, 0.07); } }
 /* 1400px 이하: 프로젝트 한 줄이 두 줄로 넘어가지 않게 덜 중요한 글은 감춤 (프로젝트 고르기 칸에 이름이 있음) */
 @media (max-width: 1400px) and (min-width: 761px) { html[data-design-wide] .design-top-count, html[data-design-wide] .design-facts-who { display: none; } html[data-design-wide] .design-top .design-pick-select { flex-basis: 300px; } }
+.design-ref-find { border: 0; background: none; padding: 0; color: var(--tx-key, #1f6b4a); font: inherit; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.design-suggest-row > td { background: #fbfaf6; }
+.design-suggest ul { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 6px; }
+.design-suggest li { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; align-items: baseline; }

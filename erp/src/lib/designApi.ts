@@ -5,7 +5,7 @@ import { validLibraryData, type LibraryEntry, type LibraryFinish, type LibraryFi
 import { readBoard } from './designBoard'
 import type {
   CostLine, DesignApi, DesignRender, ModelVersion, ProposalSection, ProposalTemplateSection, SpecItem, DesignCard, DesignDocument, DesignJob, PoLine, PurchaseOrder, DesignMaterial, DesignProject, DesignTrade, DesignVendor, Estimate, EstimateLine,
-  Knowledge, Placement, PriceRef, PriceRefMatch, ScheduleTask, UnitCost, UnitPrice,
+  Knowledge, Placement, PriceRef, PriceRefMatch, PriceRefSuggestion, ScheduleTask, UnitCost, UnitPrice,
 } from './design'
 
 const fail = (e: { message: string; code?: string } | null) => {
@@ -218,7 +218,8 @@ export function createSupabaseDesignApi(sb: SupabaseClient): DesignApi {
     },
     async listPriceRefs(search) {
       let q = sb.from('design_price_refs').select('id,source_name,category,item,spec,unit,price,material,labor,expense,region,notice_date', { count: 'exact' })
-      if (search.trim()) q = q.or(`item.ilike.${like(search)},spec.ilike.${like(search)}`)
+      // 낱말마다 품명 또는 규격에 들어 있어야 함 (예: 'SUS 재료분리대')
+      for (const w of search.trim().split(/\s+/).filter(Boolean).slice(0, 4)) q = q.or(`item.ilike.${like(w)},spec.ilike.${like(w)}`)
       const r = await q.order('item').order('notice_date', { ascending: false }).limit(400)
       if (r.error && ['42P01', 'PGRST205'].includes(r.error.code ?? '')) return { rows: [], total: 0 }
       fail(r.error)
@@ -229,6 +230,15 @@ export function createSupabaseDesignApi(sb: SupabaseClient): DesignApi {
       const r = await sb.rpc('design_price_ref_compare', { p_ids: ids.slice(0, 400) })
       if (r.error) return []
       return (r.data ?? []) as PriceRefMatch[]
+    },
+    async suggestPriceRefs(item, spec, unit) {
+      const r = await sb.rpc('design_price_ref_suggest', { p_item: item, p_spec: spec, p_unit: unit })
+      if (r.error) return []
+      return (r.data ?? []) as PriceRefSuggestion[]
+    },
+    async addUnitPrice(row) {
+      const { data: { user } } = await sb.auth.getUser()
+      fail((await sb.from('design_unit_prices').insert({ ...row, variant: 'standard', effective_date: new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10), approved: true, approved_by: user?.id ?? null })).error)
     },
     async listUnitCosts(search, trade) {
       let q = sb.from('design_unit_costs').select('id,trade_code,item,spec,unit,cost_price,vendor_id,effective_date,source_doc,approved')
@@ -352,6 +362,8 @@ export function createDemoDesignApi(): DesignApi {
     async listUnitPrices() { return [] },
     async listPriceRefs() { return { rows: [], total: 0 } },
     async comparePriceRefs() { return [] },
+    async suggestPriceRefs() { return [] },
+    addUnitPrice: none,
     async listUnitCosts() { return [] },
     async listDesignVendors() { return [] },
     async listDesignMaterials() { return [] },
