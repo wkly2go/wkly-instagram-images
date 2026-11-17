@@ -3,19 +3,27 @@
 // 여기서 만드는 것은 수량(개수 · 면적 · 길이)뿐이다. 금액은 견적 엔진(작업 처리기)만 계산한다.
 
 export interface PlanWall { id: string; x1: number; y1: number; x2: number; y2: number; /** 두께 mm */ t: number; /** existing: 기존 벽(수량 없음) · new: 새로 세우는 가벽(수량에 들어감) */ kind: 'existing' | 'new'; /** 이 벽의 마감 (입면도 · 마감표에 적힘) */ finish?: string; /** 벽체 유형 기호 (W1~W30 · 벽체 상세도에 쓰임) */ type?: string }
-export interface PlanOpening { id: string; wall: string; /** 벽 시작점에서 중심까지 mm */ pos: number; width: number; kind: 'door' | 'window'; /** 문 높이 mm (없으면 2100) */ height?: number; /** 도어 리스트: 어느 실로 들어가는 문인지 */ to?: string; /** 도어 리스트: 종류 (여닫이 도어 · 히든 여닫이 도어 …) */ type?: string; /** 문짝 마감 (재료 번호) */ finish?: string; /** 프레임 마감 (재료 번호) */ frame?: string }
+export interface PlanOpening { id: string; wall: string; /** 벽 시작점에서 중심까지 mm */ pos: number; width: number; kind: 'door' | 'window'; /** 문 높이 mm (없으면 2100) */ height?: number; /** 도어 리스트: 어느 실로 들어가는 문인지 */ to?: string; /** 도어 리스트: 종류 (여닫이 도어 · 히든 여닫이 도어 …) */ type?: string; /** 문짝 마감 (재료 번호) */ finish?: string; /** 프레임 마감 (재료 번호) */ frame?: string; /** 경첩 쪽 — start: 벽 시작점 쪽(기본) · end: 끝점 쪽 */ hinge?: 'start' | 'end'; /** 열리는 쪽 — 벽 진행 방향의 왼쪽 1(기본) · 오른쪽 -1 */ side?: 1 | -1 }
 export interface PlanItem {
   id: string; x: number; y: number; w: number; d: number; h: number; rot: 0 | 90
   name: string; trade_code: string; spec: string; unit: string
   /** 수량 세는 법 — count: 개수 · area: 바닥 면적(㎡) · length: 긴 변 길이(m) */
   measure: 'count' | 'area' | 'length'
   section: string | null
+  /** 모양(평면 기호 · 3D) — 비우면 이름으로 알아본다 (lib/designPlanLook itemShape) */
+  shape?: string
+  /** 바닥에서 띄운 높이 mm (벽걸이 TV · 상부장). 펜던트 · 매입등은 천장에 붙는다 */
+  z?: number
+  /** 이 부품의 마감 (재료 번호 · 색 낱말) — 3D 색에 쓰인다 */
+  finish?: string
 }
 /** One part of a room's finish: material number (PT-01) and, where it applies, the detail type (F/B/W). */
 export interface RoomPart { mat?: string; detail?: string }
 /** A room row of the finish schedule (sample set I-008: 실번호 · 실명 · 바닥 · 걸레받이 · 벽 · 천장). */
 export interface PlanRoom { id: string; no: string; name: string; floor: RoomPart; base: RoomPart; wall: RoomPart; ceiling: RoomPart; /** 천장 높이 mm */ ch?: number; /** 바닥 면적 ㎡ (바닥 · 천장 수량) */ area?: number; /** 걸레받이 길이 m */ perimeter?: number; /** 조명 수량표: 조명 기호(DL-01) → 수량 */ lights?: Record<string, number> }
-export interface PlanGeometry { unit: 'mm'; height: number; walls: PlanWall[]; openings: PlanOpening[]; items: PlanItem[]; rooms?: PlanRoom[] }
+/** 도면 위 댓글 핀 (피그마식 협업 · 2026-11-17). 평면 자료와 함께 저장한다 */
+export interface PlanNote { id: string; x: number; y: number; text: string; by: string; at: string; done?: boolean }
+export interface PlanGeometry { unit: 'mm'; height: number; walls: PlanWall[]; openings: PlanOpening[]; items: PlanItem[]; rooms?: PlanRoom[]; notes?: PlanNote[] }
 export const EMPTY_PLAN: PlanGeometry = { unit: 'mm', height: 2700, walls: [], openings: [], items: [] }
 
 export interface PlanLine { trade: string; item: string; spec: string; unit: string; qty: number; section: string | null; count: number }
@@ -30,8 +38,8 @@ export function snapPoint(x: number, y: number, grid: number, from?: { x: number
   return { x: sx, y: sy }
 }
 
-/** 벽이 이어져 닫힌 방이면 바닥 면적(㎡). 닫히지 않았으면 null — 추정하지 않는다 */
-export function floorArea(walls: PlanWall[]): number | null {
+/** 벽이 이어져 닫힌 방이면 그 바닥 꼭짓점(mm)을 차례로. 닫히지 않았으면 null — 추정하지 않는다 */
+export function floorOutline(walls: PlanWall[]): { x: number; y: number }[] | null {
   if (walls.length < 3) return null
   const key = (x: number, y: number) => `${Math.round(x)},${Math.round(y)}`
   const next = new Map<string, { x: number; y: number }[]>()
@@ -51,10 +59,25 @@ export function floorArea(walls: PlanWall[]): number | null {
     const nx = key(p.x, p.y) === key(prev.x, prev.y) ? q : p
     prev = cur; cur = nx
   }
-  if (pts.length !== walls.length) return null
+  return pts.length === walls.length ? pts : null
+}
+
+/** 벽이 이어져 닫힌 방이면 바닥 면적(㎡). 닫히지 않았으면 null — 추정하지 않는다 */
+export function floorArea(walls: PlanWall[]): number | null {
+  const pts = floorOutline(walls)
+  if (!pts) return null
   let s = 0
   for (let i = 0; i < pts.length; i++) { const a = pts[i], b = pts[(i + 1) % pts.length]; s += a.x * b.y - b.x * a.y }
   return round3(Math.abs(s) / 2 / 1e6)
+}
+
+/** 댓글 핀 합치기: 저장 직전 서버의 최신 핀과 내 핀을 id 로 합친다. 내가 지운 것(removed)은 빼고, 같은 id 는 내 것이 이긴다 */
+export function mergeNotes(mine: PlanNote[] | undefined, latest: PlanNote[] | undefined, removed: Iterable<string> = []): PlanNote[] {
+  const gone = new Set(removed)
+  const out = new Map<string, PlanNote>()
+  for (const n of latest ?? []) if (!gone.has(n.id)) out.set(n.id, n)
+  for (const n of mine ?? []) out.set(n.id, n)
+  return [...out.values()].sort((a, b) => a.at.localeCompare(b.at))
 }
 
 const FINISH_TRADE: Record<string, string> = { PT: 'T06', SH: 'T07', WC: 'T07', TL: 'T08', ST: 'T08', AS: 'T08', MT: 'T04', GL: 'T05', WP: 'T03', AC: 'T03', FB: 'T03', LE: 'T03', VS: 'T09', WF: 'T09' }

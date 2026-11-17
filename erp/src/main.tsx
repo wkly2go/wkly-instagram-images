@@ -11,14 +11,18 @@ import './type.css'
 import { startStackTables } from './lib/stackTables'
 import { startFoldLong } from './lib/foldLong'
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <RouterProvider>
-      <App />
-      <UpdateBanner />
-    </RouterProvider>
-  </StrictMode>,
-)
+const start = () =>
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      <RouterProvider>
+        <App />
+        <UpdateBanner />
+      </RouterProvider>
+    </StrictMode>,
+  )
+// 설계 화면 시험용 자료는 개발 서버에서 따로 켰을 때만 (운영 · 체험 모드 배포에는 들어가지 않음 · src/dev/designHarness.ts)
+if (import.meta.env.DEV && import.meta.env.VITE_DESIGN_HARNESS) void import('./dev/designHarness').then(m => { m.installDesignHarness(); start() })
+else start()
 
 // PWA: 오프라인 캐시 없이 설치만 가능하게
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
