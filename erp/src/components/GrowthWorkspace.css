@@ -175,3 +175,12 @@
 .growth-contact-kind{display:inline-block;margin-top:4px;padding:1px 6px;border:1px solid #cfdbd1;background:#f3f6f0;color:#31503b;font-size:var(--fs-body)}
 .growth-contact-kind[data-kind='서비스 알림']{border-color:#e6c9c9;background:#fbf1f1;color:#8a2f2f}
 .growth-contact-kind[data-kind='미분류']{border-color:#e3d9b8;background:#fbf7e8;color:#6b5a16}
+
+/* 인스타그램 바로 게시 (InstagramPublish) */
+.ig-publish { display: grid; gap: 10px; padding: 14px 16px; border: 1px solid var(--line, #e3e0d8); background: #fbfaf6; margin: 4px 0 8px; }
+.ig-publish header { gap: 10px; align-items: baseline; }
+.ig-publish header strong { color: var(--tx-title, #151d18); }
+.ig-publish-thumbs { display: flex; gap: 6px; flex-wrap: wrap; }
+.ig-publish-thumbs img { width: 72px; height: 90px; object-fit: cover; border: 1px solid var(--line, #e3e0d8); background: #fff; }
+.ig-publish-preview { display: grid; gap: 6px; }
+.ig-publish-preview pre, .ig-publish-caption { margin: 0; white-space: pre-wrap; word-break: break-word; font: inherit; color: var(--tx-body, #222a25); background: #fff; border: 1px solid var(--line, #e3e0d8); padding: 10px 12px; max-height: 260px; overflow: auto; }
