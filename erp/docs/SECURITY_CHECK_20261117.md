@@ -26,6 +26,8 @@
 
 1. Supabase › Authentication › Sign In / Providers › **Email** › '유출된 비밀번호 막기(Prevent use of leaked passwords)' 켜기 · 최소 길이 8자 이상 (Pro 요금제라 추가 비용 없음)
 2. GitHub 저장소 `wkly2go/wkly-instagram-images` 를 **비공개**로 바꿀지 결정 (지금 공개라 인트라넷 코드 · DB 구조가 누구에게나 보임. 비밀 키는 없음)
+   - **바로 바꾸면 안 됨**: 이 저장소의 공개 주소를 쓰는 곳이 있음 — PC 프로그램 자동 업데이트(releases), 안드로이드 APK 내려받기(releases/android), 영업 '서울 행사' 자료(`data` 브랜치 raw 주소 · `seoulEventClient.ts` · `ProspectSearchResults.tsx`)
+   - 비공개로 하려면 먼저 이 세 가지를 공개용 별도 저장소나 Supabase 공개 보관함으로 옮긴 뒤 바꿈 (11/17 22시 확인 · 아직 공개)
 3. 예전 현장 실측 링크(`/field/fossil-1103`)를 계속 쓸지 — 안 쓰면 로그인 없는 접근을 닫음
 
 ## 남겨 둔 것
