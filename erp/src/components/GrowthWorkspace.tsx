@@ -9,6 +9,7 @@ import { contactImportIdentity, saveContactImportBatch, type ContactImportCandid
 import { Button, Field, Modal } from './ui'
 import { AiAssist } from './GrowthAi'
 import { InstagramContacts } from './InstagramContacts'
+import { InstagramPublish } from './InstagramPublish'
 import { TenderSearch } from './TenderSearch'
 import { DiscoveryIntake } from './DiscoveryIntake'
 import { CHANNELS, GROWTH_LABELS, GROWTH_STATUSES, koreaDateTimeInput, appendGrowthNote, changeChannel, patchGrowthDocument, contactCandidates, newGrowth, safeWebUrl, validateGrowth, type GrowthDraft, type GrowthItem, type GrowthKind, type GrowthDocument, type ChannelDraft } from '../lib/growth'
@@ -285,6 +286,7 @@ function GrowthEditor({kind,initial,seed,channel,onChannelChange,onClose,onSaved
       <fieldset id={`${channelId}-panel`} role="tabpanel" aria-labelledby={`${channelId}-${channel}`} className="growth-fieldset form-grid" disabled={working||!editable||linkNeedsRefresh}>
       {v&&<><Field label="채널 제목" className="full"><input className="input" maxLength={300} value={v.title} onChange={e=>channelPatch({title:e.target.value})}/></Field><Field label="채널 본문" className="full"><textarea className="textarea" rows={7} maxLength={10000} value={v.body} onChange={e=>channelPatch({body:e.target.value})}/></Field><Field label="태그"><input className="input" maxLength={500} value={v.tags} onChange={e=>channelPatch({tags:e.target.value})}/></Field><Field label="채널 상태"><select className="select" value={v.status} onChange={e=>channelPatch({status:e.target.value as ChannelDraft['status']})}>{['초안','검수','승인','발행'].map(s=><option key={s} disabled={s==='승인'&&me.role!=='admin'}>{s}</option>)}</select></Field><label className="full row"><input type="checkbox" checked={v.rights} onChange={e=>channelPatch({rights:e.target.checked})}/>이미지·영상·문구 사용 권리 확인</label><Field label="실제 발행 주소"><input className="input" type="url" maxLength={2000} value={v.publication_url} onChange={e=>channelPatch({publication_url:e.target.value})}/></Field><Field label="외부 게시물 ID"><input className="input" maxLength={300} value={v.external_id} onChange={e=>channelPatch({external_id:e.target.value})}/></Field><p className="full t-cap">내용·수행 회사·출처 수정 시 승인이 해제됩니다. 초안 저장 → 관리자 승인 → 실제 게시 후 발행 주소를 기록해 주세요. 게시 승인과 광고비 승인은 별개입니다.</p></>}
       </fieldset>
+      {initial&&me.role==='admin'&&v?.channel==='인스타그램'&&<InstagramPublish item={initial} dirty={dirty} onPublished={onSaved}/>}
     </>}
     <fieldset className="growth-fieldset form-grid" disabled={working||!editable||linkNeedsRefresh}>
       {input(kind==='contact'?'연락 맥락·확인할 사항':'메모·체크리스트','note',{area:true})}

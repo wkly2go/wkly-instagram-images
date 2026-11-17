@@ -10,7 +10,7 @@ import { readXlsx } from '../lib/xlsx'
 import { parseCostSheet } from '../lib/designCost'
 import {
   CARD_LABELS, DOC_LABELS, PO_STATUS, SPACE_LABELS, STAGE_LABELS, VARIANT_LABELS,
-  type DesignBase, type DesignCard, type DesignProject, type Estimate, type EstimateRules, type Knowledge, type SpaceType,
+  type DesignBase, type DesignCard, type DesignProject, type Estimate, type EstimateRules, type Knowledge, type PriceRefMatch, type SpaceType,
 } from '../lib/design'
 import { SiteBody } from './Site'
 import { DesignPlan } from '../components/DesignPlan'
@@ -652,10 +652,19 @@ function CardsTab() {
 }
 
 // ─────────────────────────────── 단가
+/** 판매 단가 옆 물가 기준: 금액 · 차이(%) · 마우스를 올리면 어떤 품목과 견줬는지 */
+function RefCell({ price, m }: { price: number; m?: PriceRefMatch }) {
+  if (!m) return <span className="t-cap">-</span>
+  const gap = m.price > 0 ? Math.round(((price - m.price) / m.price) * 100) : 0
+  return <span title={`${m.source_name} · ${m.item} ${m.spec} (${m.unit}) · ${m.notice_date ?? ''} · 비슷함 ${Math.round(m.score * 100)}%`}>
+    {Math.round(m.price).toLocaleString('ko-KR')}<small className={`design-ref-gap${Math.abs(gap) >= 30 ? ' far' : ''}`}> {gap > 0 ? '+' : ''}{gap}%</small>
+  </span>
+}
+
 function PricesTab({ base }: { base: DesignBase }) {
   const { api, me, version } = useApp()
   const admin = me.role === 'admin'
-  const [kind, setKind] = useState<'sell' | 'cost'>('sell')
+  const [kind, setKind] = useState<'sell' | 'cost' | 'ref'>('sell')
   const [search, setSearch] = useState('')
   const [q, setQ] = useState('')
   const [trade, setTrade] = useState('')
@@ -663,25 +672,36 @@ function PricesTab({ base }: { base: DesignBase }) {
   const { data: prices } = useAsync(() => (kind === 'sell' ? api.listUnitPrices(q, trade || null) : Promise.resolve([])), [kind, q, trade, version], [])
   const { data: costs } = useAsync(() => (kind === 'cost' && admin ? api.listUnitCosts(q, trade || null) : Promise.resolve([])), [kind, q, trade, version, admin], [])
   const { data: vendors } = useAsync(() => (kind === 'cost' && admin ? api.listDesignVendors() : Promise.resolve([])), [kind, admin], [])
+  const { data: refs } = useAsync(() => (kind === 'ref' ? api.listPriceRefs(q) : Promise.resolve({ rows: [], total: 0 })), [kind, q, version], { rows: [], total: 0 })
+  const { data: matches } = useAsync(() => (kind === 'sell' ? api.comparePriceRefs(prices.map(p => p.id)) : Promise.resolve([])), [kind, prices], [])
+  const refOf = new Map(matches.map(m => [m.unit_price_id, m]))
   const vname = (id: string | null) => vendors.find(v => v.id === id)?.name ?? ''
-  const count = kind === 'sell' ? prices.length : costs.length
+  const count = kind === 'sell' ? prices.length : kind === 'cost' ? costs.length : refs.rows.length
   return (
     <div className="design-block">
       <div className="row wrap">
         <button type="button" className={`chip${kind === 'sell' ? ' active' : ''}`} onClick={() => setKind('sell')}>판매 단가 (견적용)</button>
         {admin && <button type="button" className={`chip${kind === 'cost' ? ' active' : ''}`} onClick={() => setKind('cost')}>실행 단가 (발주용 · 관리자만)</button>}
+        <button type="button" className={`chip${kind === 'ref' ? ' active' : ''}`} onClick={() => setKind('ref')}>물가 기준 (조달청)</button>
         <span className="design-gap" />
         <select className="select design-filter" value={trade} onChange={e => setTrade(e.target.value)} aria-label="공종으로 거르기">
           <option value="">모든 공종</option>{base.trades.map(t => <option key={t.code} value={t.code}>{t.name}</option>)}
         </select>
         <input className="input design-filter" type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder="품목 · 규격 찾기" aria-label="품목 · 규격 찾기" />
       </div>
-      <p className="t-cap">{count >= 400 ? '400건까지만 보입니다. 공종이나 낱말로 좁혀 보세요.' : `${count}건`} · 견적에는 '승인'된 단가 중 가장 최근 것만 쓰입니다.</p>
-      {count === 0 ? <Empty>맞는 단가가 없습니다.</Empty> : (
+      {kind === 'ref'
+        ? <p className="t-cap">조달청 가격정보(시설자재 · 시장시공가격) {refs.total.toLocaleString('ko-KR')}건을 익혀 둡니다 · 판매 단가 표의 '물가 기준' 칸이 단위가 같고 이름이 비슷한 것과 견줍니다. 우리 단가는 바꾸지 않습니다.</p>
+        : <p className="t-cap">{count >= 400 ? '400건까지만 보입니다. 공종이나 낱말로 좁혀 보세요.' : `${count}건`} · 견적에는 '승인'된 단가 중 가장 최근 것만 쓰입니다.{kind === 'sell' && matches.length > 0 ? ` · 물가 기준과 견준 것 ${matches.length}건` : ''}</p>}
+      {kind === 'ref' ? (refs.rows.length === 0 ? <Empty>아직 받은 물가 기준이 없습니다. 조달청 가격정보를 받는 대로 여기에 쌓입니다.</Empty> : (
         <div className="table-wrap"><table className="table">
-          <thead><tr><th>공종</th><th>품목</th><th>규격</th><th>단위</th>{kind === 'sell' && <th>안</th>}<th className="num">{kind === 'sell' ? '판매 단가' : '실행 단가'}</th>{kind === 'cost' && <th>협력사</th>}<th>기준일</th><th>출처</th><th>상태</th></tr></thead>
+          <thead><tr><th>출처</th><th>품명</th><th>규격</th><th>단위</th><th className="num">단가</th><th className="num">재료 · 노무 · 경비</th><th>지역</th><th>기준일</th></tr></thead>
+          <tbody>{refs.rows.map(r => <tr key={r.id}><td className="nowrap t-cap">{r.source_name}</td><td>{r.item}</td><td className="max">{r.spec}</td><td>{r.unit}</td><td className="num">{Math.round(r.price).toLocaleString('ko-KR')}</td><td className="num t-cap">{[r.material, r.labor, r.expense].some(x => x != null) ? [r.material, r.labor, r.expense].map(x => (x == null ? '-' : Math.round(x).toLocaleString('ko-KR'))).join(' · ') : ''}</td><td className="nowrap">{r.region}</td><td className="nowrap">{r.notice_date ?? ''}</td></tr>)}</tbody>
+        </table></div>
+      )) : count === 0 ? <Empty>맞는 단가가 없습니다.</Empty> : (
+        <div className="table-wrap"><table className="table">
+          <thead><tr><th>공종</th><th>품목</th><th>규격</th><th>단위</th>{kind === 'sell' && <th>안</th>}<th className="num">{kind === 'sell' ? '판매 단가' : '실행 단가'}</th>{kind === 'sell' && <th className="num">물가 기준</th>}{kind === 'cost' && <th>협력사</th>}<th>기준일</th><th>출처</th><th>상태</th></tr></thead>
           <tbody>{kind === 'sell'
-            ? prices.map(p => <tr key={p.id}><td className="nowrap">{tradeName(base, p.trade_code)}</td><td>{p.item}</td><td className="max">{p.spec}</td><td>{p.unit}</td><td>{VARIANT_LABELS[p.variant]}</td><td className="num">{p.sell_price.toLocaleString('ko-KR')}</td><td className="nowrap">{p.effective_date}</td><td className="max t-cap">{p.source_doc}</td><td>{p.approved ? <Badge tone="blue">승인</Badge> : <Badge>대기</Badge>}</td></tr>)
+            ? prices.map(p => <tr key={p.id}><td className="nowrap">{tradeName(base, p.trade_code)}</td><td>{p.item}</td><td className="max">{p.spec}</td><td>{p.unit}</td><td>{VARIANT_LABELS[p.variant]}</td><td className="num">{p.sell_price.toLocaleString('ko-KR')}</td><td className="num"><RefCell price={p.sell_price} m={refOf.get(p.id)} /></td><td className="nowrap">{p.effective_date}</td><td className="max t-cap">{p.source_doc}</td><td>{p.approved ? <Badge tone="blue">승인</Badge> : <Badge>대기</Badge>}</td></tr>)
             : costs.map(p => <tr key={p.id}><td className="nowrap">{tradeName(base, p.trade_code)}</td><td>{p.item}</td><td className="max">{p.spec}</td><td>{p.unit}</td><td className="num">{p.cost_price.toLocaleString('ko-KR')}</td><td>{vname(p.vendor_id)}</td><td className="nowrap">{p.effective_date}</td><td className="max t-cap">{p.source_doc}</td><td>{p.approved ? <Badge tone="blue">승인</Badge> : <Badge>대기</Badge>}</td></tr>)}</tbody>
         </table></div>
       )}
