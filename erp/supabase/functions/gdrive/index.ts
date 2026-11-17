@@ -184,7 +184,8 @@ async function cloneTemplate(project: string, target: string, deadline: number):
       for (const f of want.filter(x => x.mimeType !== FOLDER && x.mimeType !== 'application/vnd.google-apps.shortcut')) {
         // 이미 있는 것은 한도에 세지 않음 (이어 채울 때 한도가 먼저 차서 아래 층이 빠지던 것 · 2026-11-17)
         if (byName.has(norm(f.name))) continue
-        if (seenFiles >= 300) break
+        // 한 번에 300개까지 · 남은 것은 다음 예약 실행이 이어서
+        if (seenFiles >= 300) { out.done = false; break }
         seenFiles++
         if (Date.now() > deadline) return { ...out, done: false }
         const made = await drive<{ id: string }>(`files/${encodeURIComponent(f.id)}/copy?supportsAllDrives=true&fields=id`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: f.name, parents: [to] }) }).catch(() => null)
