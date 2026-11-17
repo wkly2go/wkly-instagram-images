@@ -96,7 +96,10 @@ html:not([data-theme="dark"]) .app-page .profile .side-item:hover { background: 
 html:not([data-theme="dark"]) .app-page .profile .side-item.on { background: #fff; color: var(--v8-green); font-weight: 700; box-shadow: 0 1px 2px rgba(31, 42, 36, .08); }
 html:not([data-theme="dark"]) .app-page .profile .side-item.on > svg { color: var(--v8-green); }
 .app-page .profile .side-item.on::before, .side-item.on::before { display: none; }
-html:not([data-theme="dark"]) .app-page .profile .side-group-label { color: #5d665f; font-weight: 600; letter-spacing: 0; }
+/* 주 메뉴 묶음 이름 (2026-11-17 대표 지시 '주 메뉴가 더 볼드하게 다른 색으로'): 짙은 초록 · 가장 굵게 · 한 단계 크게 → 아래 메뉴 줄(먹색 보통 굵기)과 구분 */
+html:not([data-theme="dark"]) .app-page .profile .side-group-label { color: #155338; font-weight: 800; font-size: var(--fs-sm); letter-spacing: -0.01em; padding-top: 6px; }
+html:not([data-theme="dark"]) .app-page .profile button.side-group-label > svg { color: #155338; stroke-width: 2.6; }
+html:not([data-theme="dark"]) .app-page .profile button.side-group-label:hover { color: var(--v8-green); }
 html:not([data-theme="dark"]) .app-page .profile .new-btn { background: var(--v8-green); border-color: var(--v8-green); color: #fff; font-weight: 700; }
 html:not([data-theme="dark"]) .app-page .profile .new-btn:hover { background: var(--v8-green-hover); }
 html:not([data-theme="dark"]) .profile .side-n.soft { background: #ebe8e1; color: var(--v8-text); }
@@ -474,3 +477,26 @@ html:not([data-theme="dark"]) .sales-strategy-desk, html:not([data-theme="dark"]
   html:not([data-theme="dark"]) .main-view > .section-h { padding-left: calc(var(--m-gut, 16px) + 12px); }
   html:not([data-theme="dark"]) .main-view > .section-h::before { left: var(--m-gut, 16px); top: 50%; }
 }
+
+/* 오른쪽 '프로젝트 일정' 스크롤 · 가까운 일정 순 · 카드 접기 (2026-11-17) */
+.right-sched { flex: 1 1 auto; min-height: 0; }
+.right-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-right: 2px; }
+.right-ptools { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 2px; }
+.right-pgroup > summary .rp-chev { flex: none; color: var(--v8-sub); transition: transform .15s; }
+.right-pgroup:not([open]) > summary .rp-chev { transform: rotate(-90deg); }
+li.right-pitem { cursor: default; }
+li.right-pitem .rp-top { gap: 4px; }
+.right-pitem button { font: inherit; color: inherit; background: none; border: 0; padding: 0; text-align: left; cursor: pointer; }
+.right-pitem .rp-fold { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; margin-left: -4px; border-radius: 6px !important; color: var(--v8-sub); transition: transform .15s; }
+.right-pitem .rp-fold:hover { background: var(--v8-hover); color: var(--v8-green); }
+.right-pitem.shut .rp-fold { transform: rotate(-90deg); }
+.right-pitem .rp-name { flex: 1; min-width: 0; font-weight: 700; color: var(--v8-ink); }
+.right-pitem .rp-name:hover { color: var(--v8-green); text-decoration: underline; text-underline-offset: 3px; }
+.right-pitem .rp-next { flex: none; font-variant-numeric: tabular-nums; }
+.right-pitem .rp-task { display: block; width: 100%; padding: 2px 0 2px 22px; border-radius: 6px !important; }
+.right-pitem .rp-task:hover { background: var(--v8-hover); }
+.right-pitem .rp-task.late em { color: var(--red, #c0392b); font-weight: 700; }
+.right-pitem .rp-more { padding-left: 22px; }
+.right-pitem.shut { padding-top: 6px; padding-bottom: 6px; }
+.right-pitem .rp-bar { margin-left: 22px; }
+@media (prefers-reduced-motion: reduce) { .right-pitem .rp-fold, .right-pgroup > summary .rp-chev { transition: none; } }

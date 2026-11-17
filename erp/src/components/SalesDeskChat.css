@@ -50,3 +50,38 @@
 .sales-desk-archive-label { flex: 1 1 240px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sales-desk-archive li small { color: var(--gray); }
 .sales-desk-archive-actions { display: flex; gap: 4px; flex-wrap: wrap; }
+
+/* 기획안 구분 (2026-11-17 대표 지시 '기획안은 구분을 해줘'): 대화와 다른 카드 · 머리 띠 · 공공/민간 · 영업 방식 · 우선순위 · 상태 색 */
+.sales-desk-plan:not(.sales-desk-compact) { margin-top: 18px; }
+.sales-desk-plan .sales-desk-answer { border: 1px solid #e9cfd9; border-left: 4px solid #e2578a; border-radius: 12px !important; padding: 0 18px 14px; box-shadow: 0 1px 3px rgba(60, 20, 40, .06); }
+.sales-desk-plan.plan-ok .sales-desk-answer { border-color: #cfe3d6; border-left-color: #1f6b4a; }
+.sales-desk-plan.plan-off .sales-desk-answer { border-color: #e4e2dc; border-left-color: #b9b5ab; background: #fbfaf7; }
+.sales-desk-plan.plan-prep .sales-desk-answer { border-left-color: #c9a227; }
+.sales-desk-answer > header.sales-plan-head { margin: 0 -18px; padding: 10px 18px; background: #fdf3f7; border-bottom: 1px solid #f1dde5; border-radius: 8px 11px 0 0 !important; align-items: center; justify-content: flex-start; }
+.sales-desk-plan.plan-ok header.sales-plan-head { background: #eef6f1; border-bottom-color: #d8e8de; }
+.sales-desk-plan.plan-off header.sales-plan-head { background: #f3f1ec; border-bottom-color: #e6e3dc; }
+.sales-desk-plan.plan-prep header.sales-plan-head { background: #fbf6e6; border-bottom-color: #efe4c0; }
+.sales-plan-head .sales-plan-when { margin-left: auto; color: #6b746d; }
+.sales-plan-badge { flex: none; display: inline-flex; align-items: center; padding: 2px 9px; border-radius: 999px !important; background: #e2578a; color: #fff; font-size: 12px; font-weight: 800; letter-spacing: -0.01em; }
+.plan-ok .sales-plan-badge { background: #1f6b4a; }
+.plan-off .sales-plan-badge { background: #9a958a; }
+.plan-prep .sales-plan-badge { background: #b8901a; }
+.sales-plan-tags { display: inline-flex; flex-wrap: wrap; gap: 5px; align-items: center; min-width: 0; }
+.sales-plan-tag { display: inline-flex; align-items: center; padding: 1px 8px; border-radius: 999px !important; font-size: 12px; font-weight: 600; line-height: 1.6; border: 1px solid transparent; white-space: nowrap; }
+.sales-plan-tag.sector-private { background: #e8f0fb; color: #1f4f8f; border-color: #cfdcf1; }
+.sales-plan-tag.sector-public { background: #f1ebfa; color: #5b3a8f; border-color: #ddd0f0; }
+.sales-plan-tag.cat { background: #fff; color: #3d453f; border-color: #dcd8cf; }
+.sales-plan-tag.pri-high { background: #fde8e6; color: #a8322a; }
+.sales-plan-tag.pri-mid { background: #fdf3dc; color: #8a6510; }
+.sales-plan-tag.pri-low { background: #f0efea; color: #6b675e; }
+.sales-plan-tag.state-wait { background: #fff1d6; color: #8a5a00; border-color: #f2d9a6; }
+.sales-plan-tag.state-prep { background: #fbf6e6; color: #7a6211; border-color: #efe4c0; }
+.sales-plan-tag.state-ok { background: #e3f1e8; color: #1f6b4a; border-color: #c7e1d1; }
+.sales-plan-tag.state-off { background: #f0efea; color: #6b675e; border-color: #e1ded6; }
+.sales-desk-plan h3 { font-size: 18px; margin: 14px 0 10px; line-height: 1.4; }
+.sales-desk-compact.sales-desk-plan { border-left: 4px solid #e2578a; flex-wrap: wrap; }
+.sales-desk-compact.sales-desk-plan.plan-ok { border-left-color: #1f6b4a; }
+.sales-desk-compact.sales-desk-plan.plan-off { border-left-color: #b9b5ab; }
+.sales-desk-compact .sales-desk-compact-open { flex-wrap: wrap; align-items: center; row-gap: 4px; }
+.sales-desk-compact .sales-desk-compact-what { flex: 1 1 240px; }
+@media (max-width: 700px) { .sales-desk-answer > header.sales-plan-head { margin: 0 -10px; padding: 8px 10px; } .sales-desk-plan .sales-desk-answer { padding: 0 10px 12px; } .sales-plan-head .sales-plan-when { margin-left: 0; width: 100%; } }

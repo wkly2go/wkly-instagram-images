@@ -1472,7 +1472,7 @@ test('AI sales planning accepts new business categories, retains decision drafts
  api.listStrategyTasks=async()=>structuredClone(tasks)
  const s=await mount('admin'),url=location.href,desk=within(s.getByRole('article',{name:'AI 영업 기획실'}))
  assert.ok(document.querySelector('.sales-page.sales-wide'));await click(s.getByRole('button',{name:'일정 펼치기'}));assert.equal(document.querySelector('.sales-wide'),null);await click(s.getByRole('button',{name:'본문 넓게 보기'}));assert.ok(document.querySelector('.sales-wide'))
- assert.ok(desk.getByText(/상권 연합 영업/));await click(desk.getByRole('button',{name:'기획 보고서'}));let report=panel('영업 기획 보고서')
+ assert.ok(desk.getAllByText(/상권 연합 영업/).length>0);await click(desk.getByRole('button',{name:'기획 보고서'}));let report=panel('영업 기획 보고서')
  assert.ok(report.getByText(/특정 회사의 수요를 뒷받침하는 근거가 없습니다/))
  await type(report.getByLabelText('수정·보류 의견'),'대표 의견 유지');await click(report.getByRole('button',{name:'기획 보고서 닫기'}));assert.equal(report.getByLabelText('수정·보류 의견').value,'대표 의견 유지')
  await click(report.getByRole('button',{name:'기획 승인·실행 준비'}));assert.equal(decisions.length,1);assert.equal(decisions[0][1],2);assert.equal(decisions[0][3],'대표 의견 유지')
