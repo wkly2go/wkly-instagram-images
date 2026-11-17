@@ -68,6 +68,7 @@ import type {
   AdCampaign,
   AdCreative,
   AdReport,
+  WebInquiry,
   AdDaily,
   SeoCheck,
   AgentJob,
@@ -916,6 +917,16 @@ export function createSupabaseApi(url: string, key: string): Api {
     },
     async cancelAgentJobRequest(id) {
       must(await sb.from('agent_job_requests').delete().eq('id', id))
+    },
+    async listWebInquiries() {
+      const r = await sb.from('web_inquiries').select('id,site,site_name,kind,category,org_type,submitted_at,brand,title,detail,email,phone,newsletter,utm_source,utm_campaign,is_ad,status,memo')
+        .or('is_test.is.null,is_test.eq.false').order('submitted_at', { ascending: false, nullsFirst: false }).limit(300)
+      if (r.error) throw new Error(r.error.message)
+      return r.data as WebInquiry[]
+    },
+    async updateWebInquiry(id, patch) {
+      const { error } = await sb.from('web_inquiries').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', id)
+      if (error) throw new Error(error.message)
     },
     async importAdDaily(rows) {
       const { data, error } = await sb.rpc('ad_daily_import', { p_rows: rows })

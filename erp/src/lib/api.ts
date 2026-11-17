@@ -58,6 +58,7 @@ import type { LedgerEntry, LedgerFile, LedgerRecurring, LedgerStatus, MaterialIt
   AdCampaign,
   AdCreative,
   AdReport,
+  WebInquiry,
   AdDaily,
   SeoCheck,
   AgentAction,
@@ -422,6 +423,9 @@ export interface Api extends SalesStrategyApi, SalesApi, GrowthApi, SalesReportA
   requestAgentJob(r: { trigger_id: string; action: AgentAction; detail?: string | null }): Promise<void>
   cancelAgentJobRequest(id: string): Promise<void>
   // 광고 대시보드 (관리자)
+  /** 홈페이지 문의함 (시험 접수 제외 · 최근 300건) */
+  listWebInquiries(): Promise<WebInquiry[]>
+  updateWebInquiry(id: string, patch: { status?: string; memo?: string | null }): Promise<void>
   listAdDaily(from: string, to: string): Promise<AdDaily[]>
   /** 매체에서 내려받은 일별 · 캠페인별 수치 올리기 (관리자 · 같은 날 · 캠페인은 덮어씀) */
   importAdDaily(rows: { date: string; platform: string; campaign: string; impressions: number; clicks: number; cost: number; conversions: number | null }[]): Promise<{ saved: number; skipped: number }>

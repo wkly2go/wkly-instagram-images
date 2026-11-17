@@ -1,4 +1,5 @@
 import { SalesStrategyDesk } from '../components/SalesStrategyDesk'
+import { SalesInquiries } from '../components/SalesInquiries'
 import { SalesDevelopmentProgress } from '../components/SalesDevelopmentProgress'
 import { showPanel } from '../components/WebSearch'
 import { SalesReport } from '../components/SalesReport'
@@ -72,6 +73,7 @@ export default function Sales() {
   return <Shell active="sales"><div className={`sales-page${wide?' sales-wide':''}`}>
     {me.role==='admin'&&<SalesDevelopmentProgress />}
     <div className="sales-page-tools"><Button kind="outline" aria-expanded={!wide} onClick={()=>{setWide(!wide);if(wide)showPanel()}}>{wide?'일정 펼치기':'본문 넓게 보기'}</Button></div>
+    <SalesInquiries />
     <SalesStrategyDesk />
     {/* 2026-11-15 대표 지시: 사람 팀원에게는 기획 화면과 대화만 보이고, 저장 DB 는 관리자 점검용으로만 둔다. */}
     {me.role==='admin'&&<details className="sales-db-browser" open={showDatabase} onToggle={e=>setDbOpen(e.currentTarget.open)}>

@@ -998,6 +998,12 @@ export interface AgentJobRequest {
 }
 export const AD_PLATFORMS = ['Google', 'Meta', 'Naver', '기타'] as const
 export type AdPlatform = (typeof AD_PLATFORMS)[number]
+/** 홈페이지에서 들어온 문의 · 리포트 신청 · 구독 (표 web_inquiries) */
+export interface WebInquiry {
+  id: string; site: 'TW' | 'AR'; site_name: string | null; kind: string | null; category: string | null; org_type: string | null
+  submitted_at: string | null; brand: string | null; title: string | null; detail: string | null; email: string | null; phone: string | null
+  newsletter: boolean | null; utm_source: string | null; utm_campaign: string | null; is_ad: boolean | null; status: string | null; memo: string | null
+}
 export interface AdDaily {
   date: string
   platform: AdPlatform
