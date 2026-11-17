@@ -52,8 +52,8 @@ Deno.serve(async req => {
   for (const src of SOURCES) {
     const st = plan.find(p => p.source === src.source)
     if (!body.force && st?.done_at && Date.now() - Date.parse(st.done_at) < REFRESH_DAYS * 86400_000 && st.next_page === 1) continue
-    // 키가 이 서비스에 등록되지 않았으면 6시간에 한 번만 다시 확인
-    if (!body.force && st?.last_error?.includes('SERVICE_KEY') && Date.now() - Date.parse(st.updated_at) < 6 * 3600_000) { report.push({ source: src.source, skipped: 'key' }); continue }
+    // 키가 이 서비스에 등록되지 않았으면 1시간에 한 번만 다시 확인
+    if (!body.force && st?.last_error?.includes('SERVICE_KEY') && Date.now() - Date.parse(st.updated_at) < 3600_000) { report.push({ source: src.source, skipped: 'key' }); continue }
     let page = st?.next_page ?? 1
     let saved = 0
     while (Date.now() - started < BUDGET_MS) {
