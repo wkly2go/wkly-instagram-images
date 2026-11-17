@@ -216,7 +216,8 @@ export function createSupabaseDesignApi(sb: SupabaseClient): DesignApi {
     },
     async listPriceRefs(search) {
       let q = sb.from('design_price_refs').select('id,source_name,category,item,spec,unit,price,material,labor,expense,region,notice_date', { count: 'exact' })
-      if (search.trim()) q = q.or(`item.ilike.${like(search)},spec.ilike.${like(search)}`)
+      // 낱말마다 품명 또는 규격에 들어 있어야 함 (예: 'SUS 재료분리대')
+      for (const w of search.trim().split(/\s+/).filter(Boolean).slice(0, 4)) q = q.or(`item.ilike.${like(w)},spec.ilike.${like(w)}`)
       const r = await q.order('item').order('notice_date', { ascending: false }).limit(400)
       if (r.error && ['42P01', 'PGRST205'].includes(r.error.code ?? '')) return { rows: [], total: 0 }
       fail(r.error)

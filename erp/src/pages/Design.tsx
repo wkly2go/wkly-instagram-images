@@ -653,8 +653,8 @@ function CardsTab() {
 
 // ─────────────────────────────── 단가
 /** 판매 단가 옆 물가 기준: 금액 · 차이(%) · 마우스를 올리면 어떤 품목과 견줬는지 */
-function RefCell({ price, m }: { price: number; m?: PriceRefMatch }) {
-  if (!m) return <span className="t-cap">-</span>
+function RefCell({ price, m, onFind }: { price: number; m?: PriceRefMatch; onFind: () => void }) {
+  if (!m) return <button type="button" className="design-ref-find" onClick={onFind} title="물가 기준에서 이 품목 찾기">찾기</button>
   const gap = m.price > 0 ? Math.round(((price - m.price) / m.price) * 100) : 0
   return <span title={`${m.source_name} · ${m.item} ${m.spec} (${m.unit}) · ${m.notice_date ?? ''} · 비슷함 ${Math.round(m.score * 100)}%`}>
     {Math.round(m.price).toLocaleString('ko-KR')}<small className={`design-ref-gap${Math.abs(gap) >= 30 ? ' far' : ''}`}> {gap > 0 ? '+' : ''}{gap}%</small>
@@ -701,7 +701,7 @@ function PricesTab({ base }: { base: DesignBase }) {
         <div className="table-wrap"><table className="table">
           <thead><tr><th>공종</th><th>품목</th><th>규격</th><th>단위</th>{kind === 'sell' && <th>안</th>}<th className="num">{kind === 'sell' ? '판매 단가' : '실행 단가'}</th>{kind === 'sell' && <th className="num">물가 기준</th>}{kind === 'cost' && <th>협력사</th>}<th>기준일</th><th>출처</th><th>상태</th></tr></thead>
           <tbody>{kind === 'sell'
-            ? prices.map(p => <tr key={p.id}><td className="nowrap">{tradeName(base, p.trade_code)}</td><td>{p.item}</td><td className="max">{p.spec}</td><td>{p.unit}</td><td>{VARIANT_LABELS[p.variant]}</td><td className="num">{p.sell_price.toLocaleString('ko-KR')}</td><td className="num"><RefCell price={p.sell_price} m={refOf.get(p.id)} /></td><td className="nowrap">{p.effective_date}</td><td className="max t-cap">{p.source_doc}</td><td>{p.approved ? <Badge tone="blue">승인</Badge> : <Badge>대기</Badge>}</td></tr>)
+            ? prices.map(p => <tr key={p.id}><td className="nowrap">{tradeName(base, p.trade_code)}</td><td>{p.item}</td><td className="max">{p.spec}</td><td>{p.unit}</td><td>{VARIANT_LABELS[p.variant]}</td><td className="num">{p.sell_price.toLocaleString('ko-KR')}</td><td className="num"><RefCell price={p.sell_price} m={refOf.get(p.id)} onFind={() => { setKind('ref'); setSearch(p.item.replace(/[^\p{L}\p{N} ]/gu, ' ').trim().split(/\s+/).slice(0, 2).join(' ')) }} /></td><td className="nowrap">{p.effective_date}</td><td className="max t-cap">{p.source_doc}</td><td>{p.approved ? <Badge tone="blue">승인</Badge> : <Badge>대기</Badge>}</td></tr>)
             : costs.map(p => <tr key={p.id}><td className="nowrap">{tradeName(base, p.trade_code)}</td><td>{p.item}</td><td className="max">{p.spec}</td><td>{p.unit}</td><td className="num">{p.cost_price.toLocaleString('ko-KR')}</td><td>{vname(p.vendor_id)}</td><td className="nowrap">{p.effective_date}</td><td className="max t-cap">{p.source_doc}</td><td>{p.approved ? <Badge tone="blue">승인</Badge> : <Badge>대기</Badge>}</td></tr>)}</tbody>
         </table></div>
       )}
