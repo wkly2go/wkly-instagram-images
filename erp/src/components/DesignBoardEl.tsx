@@ -85,12 +85,14 @@ function SpecCard({ el }: { el: BoardEl }) {
 
 function Swatch({ el }: { el: BoardEl }) {
   const { specs } = useContext(BoardDataContext)
-  const look = swatchLook(el.finish, specs)
-  const full = resolveFinish(el.finish, specs)
+  const look = swatchLook(el.finish, specs), t = (el.finish ?? '').trim()
+  // 번호만 적힌 마감(PT-01)이면 스펙북의 이름 · 규격을 아래 줄에 붙여 준다
+  const more = /^[A-Za-z]{2,3}[-\s]?\d+$/.test(t) ? resolveFinish(t, specs).slice(t.length).trim() : ''
+  const sub = [more, KIND_LABEL[look.kind]].filter(Boolean).join(' · ')
   return (
     <div className="dbd-swatch">
       <div className="dbd-swatch-chip" style={swatchStyle(look)} />
-      <div className="dbd-swatch-cap"><b>{el.finish?.trim() || '마감을 골라 주세요'}</b>{(full !== (el.finish ?? '').trim() || KIND_LABEL[look.kind]) && <span>{[full !== (el.finish ?? '').trim() ? full.replace((el.finish ?? '').trim(), '').trim() : '', KIND_LABEL[look.kind]].filter(Boolean).join(' · ')}</span>}</div>
+      <div className="dbd-swatch-cap"><b>{t || '마감을 골라 주세요'}</b>{sub && <span>{sub}</span>}</div>
     </div>
   )
 }

@@ -93,6 +93,12 @@ export function DesignStepNav<K extends string>({ steps, current, onGo }: { step
 // ─────────────────────────────── 작업 진행 (작업 처리기에 맡긴 일)
 const JOB_NAMES: Record<string, string> = { 'estimate.build': '견적 계산', 'po.build': '발주서 초안 만들기' }
 export const jobName = (kind: string) => JOB_NAMES[kind] ?? '자동 작업'
+/** 받침에 따라 조사 고르기 — '견적 계산이' · '발주서 초안 만들기가' */
+const josa = (word: string, withFinal: string, without: string) => {
+  const c = word.charCodeAt(word.length - 1)
+  return c >= 0xac00 && c <= 0xd7a3 && (c - 0xac00) % 28 === 0 ? without : withFinal
+}
+const nameWith = (kind: string, withFinal: string, without: string) => `${jobName(kind)}${josa(jobName(kind), withFinal, without)}`
 const jobActive = (j: DesignJob) => j.status === 'queued' || j.status === 'running'
 const STUCK_MS = 120_000
 const CLOSED_KEY = 'wkly-design-job-closed'
@@ -124,6 +130,8 @@ export function useDesignJobs(projectId: string, onSettled: (job: DesignJob) => 
   const opened = useRef(Date.now())
   const settled = useRef(onSettled)
   settled.current = onSettled
+  const say = useRef(toast)
+  say.current = toast
   const alive = useRef(true)
   useEffect(() => { alive.current = true; return () => { alive.current = false } }, [])
   const load = useCallback(async () => {
@@ -142,13 +150,13 @@ export function useDesignJobs(projectId: string, onSettled: (job: DesignJob) => 
         const was = before.get(j.id)
         const fresh = was === undefined && Date.parse(j.created_at) >= opened.current - 5000
         if (was === 'queued' || was === 'running' || fresh) {
-          toast(j.status === 'failed' ? `${jobName(j.kind)}을(를) 끝내지 못했습니다. 위쪽 작업 띠의 '자세히'에서 이유를 볼 수 있습니다` : `${jobName(j.kind)}이(가) 끝났습니다`)
+          say.current(j.status === 'failed' ? `${nameWith(j.kind, '을', '를')} 끝내지 못했습니다. 위쪽 작업 띠의 '자세히'에서 이유를 볼 수 있습니다` : `${nameWith(j.kind, '이', '가')} 끝났습니다`)
           settled.current(j)
         }
       }
     }
     setJobs(list)
-  }, [api, projectId, toast])
+  }, [api, projectId])
   const active = jobs.some(jobActive)
   useEffect(() => { void load() }, [load, version])
   useEffect(() => {
@@ -183,7 +191,7 @@ export function DesignJobStrip({ jobs }: { jobs: DesignJob[] }) {
       ))}
       {stuck && <span className="design-job-warn" role="alert"><AlertTriangle size={13} aria-hidden="true" /> 작업 처리기(맥)가 응답하지 않습니다. 맥에서 작업 처리기가 켜져 있는지 확인해 주세요.</span>}
       {failed && <>
-        <span className="design-job-warn" role="alert"><AlertTriangle size={13} aria-hidden="true" /> <b>{jobName(failed.kind)}을(를) 끝내지 못했습니다.</b> {plainJobError(failed.kind, failed.error)}</span>
+        <span className="design-job-warn" role="alert"><AlertTriangle size={13} aria-hidden="true" /> <b>{nameWith(failed.kind, '을', '를')} 끝내지 못했습니다.</b> {plainJobError(failed.kind, failed.error)}</span>
         {failed.error && <details className="design-job-more"><summary>자세히</summary><pre>{failed.error}</pre></details>}
         <button type="button" className="btn btn-ghost btn-sm design-job-close" onClick={() => close(failed.id)}>닫기</button>
       </>}

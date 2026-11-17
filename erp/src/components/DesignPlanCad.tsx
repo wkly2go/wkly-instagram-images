@@ -41,7 +41,7 @@ export function DesignPlanCadImport({ onImport, onClose }: { onImport(walls: Pla
   const [over, setOver] = useState(false)
   const input = useRef<HTMLInputElement | null>(null)
   const alive = useRef(true)
-  useEffect(() => () => { alive.current = false }, [])
+  useEffect(() => { alive.current = true; return () => { alive.current = false } }, [])
 
   const read = async (f: File | null | undefined) => {
     if (!f) return
@@ -102,7 +102,7 @@ export function DesignPlanCadImport({ onImport, onClose }: { onImport(walls: Pla
   return (
     <Modal title="캐드 도면 가져오기" onClose={onClose} wide actions={<>
       <Button kind="outline" onClick={onClose}>닫기</Button>
-      <Button disabled={!count} onClick={() => { if (result?.walls.length) onImport(result.walls, mode) }}>{count ? `벽 ${comma(count)}개 ${mode === 'replace' ? '로 바꾸기' : '더하기'}` : '가져오기'}</Button>
+      <Button disabled={!count} onClick={() => { if (result?.walls.length) onImport(result.walls, mode) }}>{count ? `벽 ${comma(count)}개${mode === 'replace' ? '로 바꾸기' : ' 더하기'}` : '가져오기'}</Button>
     </>}>
       <div className="dpk">
         <div className={`dpk-drop${over ? ' over' : ''}`} onDragOver={e => { e.preventDefault(); setOver(true) }} onDragLeave={() => setOver(false)} onDrop={e => { e.preventDefault(); setOver(false); void read(e.dataTransfer.files?.[0]) }}>
@@ -184,27 +184,29 @@ export function DesignPlanExport({ plan, name, look }: { plan: PlanGeometry; nam
   const [open, setOpen] = useState(false)
   const [done, setDone] = useState<{ kind: 'dxf' | 'rb'; file: string } | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [at, setAt] = useState<{ left: number; top: number; width: number }>({ left: 0, top: 0, width: 300 })
+  const [at, setAt] = useState<{ left: number; width: number }>({ left: 0, width: 320 })
   const root = useRef<HTMLSpanElement | null>(null)
   const empty = !plan.walls.length && !plan.items.length
 
+  // 단추 아래에 펴되 작업 공간(화면) 밖으로 나가지 않게 왼쪽 위치를 맞춘다. 위치는 단추 기준이라 화면을 굴려도 따라간다.
   const place = () => {
-    const r = root.current?.getBoundingClientRect()
-    if (!r) return
-    const width = Math.min(340, window.innerWidth - 16)
-    setAt({ left: Math.max(8, Math.min(r.left, window.innerWidth - width - 8)), top: r.bottom + 6, width })
+    const el = root.current
+    if (!el) return
+    const r = el.getBoundingClientRect()
+    const host = el.closest('.dpw')?.getBoundingClientRect()
+    const lo = Math.max(8, (host?.left ?? 0) + 4), hi = Math.min(window.innerWidth - 8, (host?.right ?? window.innerWidth) - 4)
+    const width = Math.max(200, Math.min(340, hi - lo))
+    setAt({ left: Math.max(lo, Math.min(r.left, hi - width)) - r.left, width })
   }
   useEffect(() => {
     if (!open) return
     place()
     const onDown = (e: PointerEvent) => { if (root.current && !root.current.contains(e.target as Node)) setOpen(false) }
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopPropagation(); setOpen(false) } }
-    const onMove = () => place()
     window.addEventListener('pointerdown', onDown, true)
     window.addEventListener('keydown', onKey, true)
-    window.addEventListener('resize', onMove)
-    window.addEventListener('scroll', onMove, true)
-    return () => { window.removeEventListener('pointerdown', onDown, true); window.removeEventListener('keydown', onKey, true); window.removeEventListener('resize', onMove); window.removeEventListener('scroll', onMove, true) }
+    window.addEventListener('resize', place)
+    return () => { window.removeEventListener('pointerdown', onDown, true); window.removeEventListener('keydown', onKey, true); window.removeEventListener('resize', place) }
   }, [open])
 
   const run = (kind: 'dxf' | 'rb') => {
@@ -219,7 +221,7 @@ export function DesignPlanExport({ plan, name, look }: { plan: PlanGeometry; nam
   return (
     <span className="dpk-export" ref={root}>
       <button type="button" className="dpw-text dpk-export-btn" aria-haspopup="menu" aria-expanded={open} title="평면을 캐드 파일이나 스케치업 스크립트로 내려받습니다" onClick={() => { setOpen(v => !v); setDone(null); setError(null) }}><Download size={13} />내보내기</button>
-      {open && <div className="dpk-menu" role="menu" style={{ left: at.left, top: at.top, width: at.width }}>
+      {open && <div className="dpk-menu" role="menu" style={{ left: at.left, width: at.width }}>
         <button type="button" role="menuitem" disabled={empty} onClick={() => run('dxf')}><b>캐드 파일 (.dxf)</b><span>벽 · 문 · 창 · 부품을 레이어로 나눈 도면입니다. 캐드와 스케치업 Pro 에서 엽니다.</span></button>
         <button type="button" role="menuitem" disabled={empty} onClick={() => run('rb')}><b>스케치업 스크립트 (.rb)</b><span>스케치업에서 벽을 세우고 마감 색 · 부품까지 3D 로 만들어 줍니다.</span></button>
         {empty && <p className="dpk-how">평면에 벽이나 부품을 먼저 그려 주세요.</p>}

@@ -1,6 +1,6 @@
 // 제안 보드의 판 — 넓은 바탕 위에 16:9 페이지를 옆으로 늘어놓고, 휠로 옮기고 Ctrl+휠로 커서 자리를 확대한다.
 // 고르기 · 옮기기 · 크기 바꾸기 · 끌어서 여러 개 고르기 · 붙기 안내선을 맡는다. 자료를 바꾸는 일은 부모(DesignBoard)가 한다.
-import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, type CSSProperties, type DragEvent, type PointerEvent as RPointerEvent } from 'react'
+import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, type CSSProperties, type DragEvent, type MouseEvent as RMouseEvent, type PointerEvent as RPointerEvent } from 'react'
 import { boundsOf, boxesTouch, pageLeft, resizeBox, snapMove, snapTargets, snapValue, type BoardComment, type BoardEl, type BoardHandle, type BoardPage, type Box } from '../lib/designBoard'
 import { BoardElView, elBox, textStyle } from './DesignBoardEl'
 
@@ -50,7 +50,9 @@ export const DesignBoardCanvas = forwardRef<BoardCanvasHandle, Props>(function D
   const [marquee, setMarquee] = useState<({ page: string } & Box) | null>(null)
   const props = useRef(p)
   props.current = p
-  const setView = (v: View) => { viewRef.current = v; setViewState(v); props.current.onZoom(v.k) }
+  /** 사람이 직접 판을 옮기거나 확대하기 전까지는 판 크기가 바뀔 때마다 다시 맞춘다 */
+  const moved = useRef(false)
+  const setView = (v: View, auto = false) => { if (!auto) moved.current = true; viewRef.current = v; setViewState(v); props.current.onZoom(v.k) }
 
   const fit = (pageId?: string) => {
     const el = vp.current, { pages, cur } = props.current
@@ -59,7 +61,8 @@ export const DesignBoardCanvas = forwardRef<BoardCanvasHandle, Props>(function D
     const w = el.clientWidth, h = el.clientHeight
     if (w < 40 || h < 40) return
     const k = clamp(Math.min((w - 64) / pg.w, (h - 96) / pg.h), 0.05, 4)
-    setView({ k, x: (w - pg.w * k) / 2 - pageLeft(pages, i) * k, y: (h - pg.h * k) / 2 + 12 })
+    setView({ k, x: (w - pg.w * k) / 2 - pageLeft(pages, i) * k, y: (h - pg.h * k) / 2 + 12 }, true)
+    moved.current = false
   }
   const zoomAround = (k: number, px?: number, py?: number) => {
     const el = vp.current, v = viewRef.current
@@ -80,7 +83,7 @@ export const DesignBoardCanvas = forwardRef<BoardCanvasHandle, Props>(function D
   useLayoutEffect(() => {
     const el = vp.current
     if (!el) return
-    const ro = new ResizeObserver(() => { if (!fitted.current && el.clientWidth > 40 && el.clientHeight > 40) { fitted.current = true; fit() } })
+    const ro = new ResizeObserver(() => { if ((!fitted.current || !moved.current) && el.clientWidth > 40 && el.clientHeight > 40) { fitted.current = true; fit() } })
     ro.observe(el)
     return () => ro.disconnect()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -222,9 +225,10 @@ export const DesignBoardCanvas = forwardRef<BoardCanvasHandle, Props>(function D
     if ((d.kind === 'move' || d.kind === 'resize') && d.moved) props.current.onEnd()
     setGuides(null)
   }
-  const dbl = (e: React.MouseEvent<HTMLDivElement>) => {
+  const dbl = (e: RMouseEvent<HTMLDivElement>) => {
     if (props.current.readOnly || props.current.tool !== 'select') return
-    const hit = (e.target as HTMLElement).closest<HTMLElement>('[data-el]')
+    // 누른 채 끌 수 있게 포인터를 판이 잡고 있어 e.target 은 판이다 — 그 자리의 요소를 직접 찾는다
+    const hit = (document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null)?.closest<HTMLElement>('[data-el]')
     if (!hit) return
     const page = props.current.pages.find(x => x.id === hit.dataset.page), el = page?.els.find(q => q.id === hit.dataset.el)
     if (el && !el.locked && (el.type === 'text' || el.type === 'note' || el.type === 'rect')) props.current.onEditing(el.id)

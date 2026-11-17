@@ -125,3 +125,12 @@ export function cloneEls(src: BoardEl[], onto: BoardEl[], shift = 24): BoardEl[]
   let z = topZ(onto)
   return [...src].sort((a, b) => a.z - b.z).map(e => ({ ...e, style: e.style ? { ...e.style } : undefined, id: uid(), x: e.x + shift, y: e.y + shift, z: z++, locked: undefined }))
 }
+/** 옆 칸에서 넣을 때의 빈 자리: 같은 종류의 마지막 것 오른쪽 → 왼쪽 위부터 겹치지 않는 첫 자리 → 없으면 가운데에서 조금씩 비켜서 */
+export function freeSpot(els: Box[], w: number, h: number, page: { w: number; h: number }, near?: Box | null, gap = 24): { x: number; y: number } {
+  const free = (x: number, y: number) => x >= 0 && y >= 0 && x + w <= page.w && y + h <= page.h && !els.some(e => boxesTouch(e, { x: x - gap / 2, y: y - gap / 2, w: w + gap, h: h + gap }))
+  if (near) { const x = near.x + near.w + gap; if (free(x, near.y)) return { x, y: near.y } }
+  const left = Math.min(80, Math.max(0, (page.w - w) / 2)), top = Math.min(140, Math.max(0, (page.h - h) / 2))
+  for (let x = left; x + w <= page.w - left; x += 20) for (let y = top; y + h <= page.h - 40; y += 20) if (free(x, y)) return { x, y }
+  const n = els.length % 8
+  return { x: Math.round(Math.max(0, (page.w - w) / 2) + n * 24), y: Math.round(Math.max(0, (page.h - h) / 2) + n * 24) }
+}

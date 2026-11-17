@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { PAGE_W, PAGE_H, PAGE_GAP, readBoard, emptyBoard, mergeBoardComments, snapValue, snapMove, resizeBox, cardGrid, chunk, boxesTouch, boundsOf, restack, topZ, cloneEls, pageLeft, type BoardComment, type BoardEl } from '../src/lib/designBoard.ts'
+import { PAGE_W, PAGE_H, PAGE_GAP, readBoard, emptyBoard, mergeBoardComments, snapValue, snapMove, resizeBox, cardGrid, chunk, boxesTouch, boundsOf, restack, topZ, cloneEls, pageLeft, freeSpot, type BoardComment, type BoardEl } from '../src/lib/designBoard.ts'
 
 const el = (id: string, z: number, more: Partial<BoardEl> = {}): BoardEl => ({ id, type: 'rect', x: 0, y: 0, w: 100, h: 100, z, ...more })
 const note = (id: string, at: string, more: Partial<BoardComment> = {}): BoardComment => ({ id, page: 'p', x: 1, y: 1, text: id, by: '가', at, ...more })
@@ -85,4 +85,21 @@ test('restack · topZ · cloneEls · boundsOf · pageLeft', () => {
   assert.equal(boundsOf([]), null)
   const pages = [{ w: PAGE_W }, { w: PAGE_W }, { w: PAGE_W }]
   assert.equal(pageLeft(pages, 0), 0); assert.equal(pageLeft(pages, 2), (PAGE_W + PAGE_GAP) * 2)
+})
+test('freeSpot: 빈 페이지는 왼쪽 위, 같은 종류는 옆으로, 자리가 없으면 겹치지 않는 곳을 찾는다', () => {
+  const page = { w: PAGE_W, h: PAGE_H }
+  assert.deepEqual(freeSpot([], 330, 400, page), { x: 80, y: 140 })
+  const first = { x: 80, y: 140, w: 330, h: 400 }
+  assert.deepEqual(freeSpot([first], 330, 400, page, first), { x: 434, y: 140 })
+  const title = { x: 80, y: 90, w: 700, h: 80 }
+  const under = freeSpot([title], 330, 400, page)
+  assert.equal(boxesTouch(title, { ...under, w: 330, h: 400 }), false)
+  assert.equal(under.x, 80); assert.ok(under.y >= 170)
+  // 오른쪽 끝이라 옆에 못 놓으면 다른 빈 자리
+  const last = { x: 1200, y: 140, w: 330, h: 400 }
+  const other = freeSpot([last], 330, 400, page, last)
+  assert.equal(boxesTouch(last, { ...other, w: 330, h: 400 }), false)
+  // 꽉 찼으면 가운데 근처 (페이지 안)
+  const full = freeSpot([{ x: 0, y: 0, w: PAGE_W, h: PAGE_H }], 330, 400, page)
+  assert.ok(full.x >= 0 && full.x + 330 <= PAGE_W && full.y >= 0 && full.y + 400 <= PAGE_H)
 })
