@@ -588,6 +588,7 @@ function ScheduleView({ project, base }: { project: DesignProject; base: DesignB
   return (
     <div className="design-block">
       <SectionHead title="공정표" count={tasks.length} />
+      <p className="t-cap">넣은 공정은 이 프로젝트의 할 일(일정 · 달력)로 자동으로 들어가고, 구글 캘린더 구독에도 보입니다. 인트라넷에서 그 할 일을 끝내면 여기 완료 표시도 같이 바뀝니다.</p>
       {tasks.length === 0 ? <Empty>아직 공정이 없습니다. 아래에서 공정을 넣으세요.</Empty> : (
         <div className="design-gantt" role="table" aria-label="공정표">
           <div className="design-gantt-scale t-cap"><span>{min}</span><span>{max} · {span}일</span></div>
