@@ -6,9 +6,10 @@ import { Component, lazy, Suspense, useCallback, useDeferredValue, useEffect, us
 import { AppWindow, Armchair, BrickWall, Columns2, Cuboid, DoorOpen, FileUp, Maximize2, MessageSquarePlus, Minimize2, MousePointer2, Redo2, Scan, SeparatorVertical, Square, Undo2, Users, ZoomIn, ZoomOut, type LucideIcon } from 'lucide-react'
 import { Button, Empty } from './ui'
 import { useAction, useApp, useAsync } from '../lib/app'
-import type { DesignBase, DesignProject, SpecItem } from '../lib/design'
+import type { DesignBase, DesignJob, DesignProject, SpecItem } from '../lib/design'
+import { friendlyError } from '../lib/api'
 import { BASE_TYPES, CEILING_TYPES, FLOOR_TYPES, WALL_TYPES } from '../lib/designWallTypes'
-import { clampSize, EMPTY_PLAN, ITEM_MAX, keepLights, mergeNotes, planCanon, planQuantities, roomArea, wallLength, type PlanGeometry, type PlanItem, type PlanNote, type PlanOpening, type PlanRoom, type PlanWall } from '../lib/designPlan'
+import { AUTO_APPLY_MS, clampSize, EMPTY_PLAN, ITEM_MAX, keepLights, mergeNotes, modelLines, planCanon, planQuantities, quantitiesSignature, roomArea, wallLength, type PlanGeometry, type PlanItem, type PlanNote, type PlanOpening, type PlanRoom, type PlanWall } from '../lib/designPlan'
 import { reseatOpenings, seatOpening, setWallLength, type Pt } from '../lib/designPlanDraw'
 import { finishLook, ITEM_SHAPES, itemShape, resolveFinish, type FinishKind } from '../lib/designPlanLook'
 import { fixtureToItem, type LibraryFixture } from '../lib/designLibrary'
@@ -44,6 +45,11 @@ const hhmm = (d: Date) => `${String(d.getHours()).padStart(2, '0')}:${String(d.g
 const holds = (g: PlanGeometry, id: string) => g.walls.some(w => w.id === id) || g.openings.some(o => o.id === id) || g.items.some(i => i.id === id)
 /** 저장하려는데 서버의 평면이 내가 불러온(저장한) 것과 다를 때 — 덮어쓰지 않고 알림을 띄운다 */
 class StalePlan extends Error {}
+/** 수량표 자동 반영 상태: wait(마지막 고침 뒤 기다리는 중) · running · done(반영함) · error(서버가 준 까닭) */
+type Link = { kind: 'idle' } | { kind: 'wait'; due: number } | { kind: 'running' } | { kind: 'done'; at: Date; note?: string } | { kind: 'error'; msg: string }
+/** 다른 곳에서 바뀐 평면을 불러온 뒤: 마지막으로 반영한 수량을 모르므로 다음 고침 때 한 번 반영한다 */
+const UNKNOWN_BASE = '\u0000'
+const estimateBusy = (jobs: DesignJob[]) => jobs.some(j => j.kind === 'estimate.build' && (j.status === 'queued' || j.status === 'running'))
 /** 불러온 평면 다듬기: 터무니없이 큰 부품 치수는 한도로, 길이가 없는 벽과 벽 밖으로 나간 문 · 창은 맞춘다 (평소 평면은 그대로) */
 function tidy(g: PlanGeometry): PlanGeometry {
   const big = (n: number) => !Number.isFinite(n) || n > ITEM_MAX
@@ -125,6 +131,8 @@ export function DesignPlan({ project, base }: { project: DesignProject; base: De
   const [peers, setPeers] = useState<Peer[]>([])
   // 다른 사람(또는 내 다른 창)이 저장한 것이 있을 때의 알림. name 을 모르면 null
   const [remote, setRemote] = useState<{ name: string | null } | null>(null)
+  const remoteRef = useRef(remote)
+  remoteRef.current = remote
   // 프로젝트마다 마지막으로 불러오거나 저장한 서버 평면(댓글 · 조명 수량 뺀 글). 저장 직전 서버 것이 이와 다르면 덮어쓰지 않는다
   const bases = useRef(new Map<string, string>())
   // 평면 그리기 칸이 고장 나면 그 평면을 저장하지 않는다 (다시 열 때마다 고장 나지 않게)
@@ -134,6 +142,19 @@ export function DesignPlan({ project, base }: { project: DesignProject; base: De
   const canvas = useRef<PlanCanvasHandle>(null)
   const clip = useRef<{ items: PlanItem[]; n: number }>({ items: [], n: 0 })
   const watch = useRef<{ saved(): void; close(): void } | null>(null)
+  // ── 수량표 자동 반영 (평면 → 수량표 → 견적) ──
+  // 프로젝트마다 마지막으로 수량표에 반영한 수량의 글(quantitiesSignature). 모르면 자동으로 반영하지 않는다
+  const applied = useRef(new Map<string, string>())
+  // 반영할 때마다 올린다 — 그 전에 시작한 수량표 읽기가 방금 반영한 것을 덮어쓰지 않게
+  const appliedGen = useRef(0)
+  const [baseTick, setBaseTick] = useState(0)
+  // 서버에 있는 평면. auto 는 이 창에서 고쳐 저장한 것 — 그때만 저절로 반영한다 (열기만 하거나 남이 고친 것을 불러온 때는 하지 않는다)
+  const lastSaved = useRef<{ pid: string; plan: PlanGeometry; auto: boolean } | null>(null)
+  const [savedTick, setSavedTick] = useState(0)
+  const lastEdit = useRef(0)
+  const applying = useRef<Promise<unknown> | null>(null)
+  const [link, setLink] = useState<Link>({ kind: 'idle' })
+  const [, setClock] = useState(0)
 
   /** 알림: 보통은 인트라넷 공통 알림으로, 전체 화면에서는 그 알림이 화면 밖이라 보이지 않으므로 작업 공간 안에 직접 띄운다 */
   const say = (text: string) => { if (fullRef.current) setNotice(n => ({ text, n: (n?.n ?? 0) + 1 })); else toast(text) }
@@ -143,7 +164,7 @@ export function DesignPlan({ project, base }: { project: DesignProject; base: De
     return () => window.clearTimeout(t)
   }, [notice])
   const put = (next: PlanGeometry) => { planRef.current = next; setPlanState(next) }
-  const touch = () => { rev.current += 1; dirtyRef.current = true; setDirtyState(true); setRevTick(rev.current) }
+  const touch = () => { rev.current += 1; lastEdit.current = Date.now(); dirtyRef.current = true; setDirtyState(true); setRevTick(rev.current) }
   /** 한 번의 고침 = 되돌리기 한 단계. tag 가 같은 고침이 잇따르면(글자 입력 · 방향키) 한 단계로 묶는다 */
   const change = (next: PlanGeometry | ((cur: PlanGeometry) => PlanGeometry), tag = '') => {
     // 불러오는 중 · 불러오지 못했을 때는 고치지 않는다 (불러오면 버려질 고침이다)
@@ -204,8 +225,10 @@ export function DesignPlan({ project, base }: { project: DesignProject; base: De
     const pid = project.id
     api.getDesignPlan(pid).then(saved => {
       if (!alive) return
-      adopt(tidy({ ...EMPTY_PLAN, ...(saved ?? {}) }))
+      const g = tidy({ ...EMPTY_PLAN, ...(saved ?? {}) })
+      adopt(g)
       bases.current.set(pid, planCanon(saved))
+      lastSaved.current = { pid, plan: g, auto: false }
       dirtyRef.current = false; setDirtyState(false)
       ready.current = true
       setFitKey(k => k + 1)
@@ -226,7 +249,32 @@ export function DesignPlan({ project, base }: { project: DesignProject; base: De
     if (!notes.length) delete out.notes
     await api.saveDesignPlan(pid, out)
     bases.current.set(pid, planCanon(out))
+    lastSaved.current = { pid, plan: out, auto: true }
     return out
+  }
+  /** 수량표에 반영하고(새 모델 버전) 견적 계산을 작업 처리기에 맡긴다. 반영한 수량의 글을 기억해 두어 같은 수량이면 다시 반영하지 않는다.
+   *  반영이 안 되면 서버가 준 까닭을 그대로 던진다. 반영은 됐는데 견적을 못 맡겼으면 그 까닭을 돌려준다 */
+  const applyPlan = async (pid: string, out: PlanGeometry): Promise<string | null> => {
+    if (applying.current) await applying.current.catch(() => undefined)
+    const lines = planQuantities(out), sig = quantitiesSignature(lines)
+    const job = api.applyDesignPlan(pid, out, lines)
+    applying.current = job
+    try { await job } finally { if (applying.current === job) applying.current = null }
+    appliedGen.current += 1
+    applied.current.set(pid, sig)
+    try {
+      // 이미 계산이 기다리거나 도는 중이면 그것을 쓴다 (끝난 뒤에도 수량과 다르면 견적 단계가 한 번 더 맡긴다)
+      const jobs = await api.listDesignJobs(pid).catch(() => [] as DesignJob[])
+      if (!estimateBusy(jobs)) await api.requestDesignJob(pid, 'estimate.build')
+      return null
+    } catch (e) { return friendlyError(e) }
+  }
+  /** 이 평면(서버에 저장된 것)을 저절로 반영할 때인지: 이 창에서 고쳐 저장했고 · 수량이 있고 · 마지막으로 반영한 수량과 다를 때 */
+  const autoDue = (pid: string) => {
+    const s = lastSaved.current, base = applied.current.get(pid)
+    if (!s || s.pid !== pid || !s.auto || base === undefined || crashed.current) return null
+    const sig = quantitiesSignature(planQuantities(s.plan))
+    return sig && sig !== base ? s.plan : null
   }
   /** 저장 (apply 면 이어서 수량표에 반영 — 반영이 안 되면 그 까닭을 그대로 알린다). force 는 '내 작업 유지': 서버가 바뀌었어도 덮어쓴다 */
   const save = (apply = false, force = false): Promise<boolean> => {
@@ -248,7 +296,7 @@ export function DesignPlan({ project, base }: { project: DesignProject; base: De
       }
       {
         // 저장하는 사이에 다른 프로젝트로 넘어갔으면 저장만 하고 화면은 건드리지 않는다
-        if (ep !== epoch.current) { if (apply) await api.applyDesignPlan(pid, out, planQuantities(out)); return true }
+        if (ep !== epoch.current) { if (apply) await applyPlan(pid, out); return true }
         for (const [id, r] of noteTouched.current) if (r <= startRev) noteTouched.current.delete(id)
         for (const [id, r] of noteRemoved.current) if (r <= startRev) noteRemoved.current.delete(id)
         // 저장하는 사이에 들어온 다른 사람의 댓글 · 조명 수량을 화면에도 반영한다 (되돌리기 단계는 만들지 않는다)
@@ -261,9 +309,16 @@ export function DesignPlan({ project, base }: { project: DesignProject; base: De
         setSavedAt(new Date()); setSaveState('idle')
         try { watch.current?.saved() } catch { /* 알림을 못 보내도 저장은 된 것 */ }
         if (rev.current !== startRev) setNudge(n => n + 1)
+        setSavedTick(n => n + 1)
       }
       // 수량표 반영은 저장과 따로: 반영이 안 되어도 평면은 저장된 것이고, 서버가 준 까닭(없는 공종 · 권한 등)이 그대로 보인다
-      if (apply) await api.applyDesignPlan(pid, out, planQuantities(out))
+      if (apply) {
+        setLink({ kind: 'running' })
+        try {
+          const note = await applyPlan(pid, out)
+          if (ep === epoch.current) setLink({ kind: 'done', at: new Date(), note: note ?? undefined })
+        } catch (e) { if (ep === epoch.current) setLink({ kind: 'error', msg: friendlyError(e) }); throw e }
+      }
       return true
     })()
     inflight.current = job
@@ -289,17 +344,78 @@ export function DesignPlan({ project, base }: { project: DesignProject; base: De
   }, [dirty])
   // 다른 단계로 넘어갈 때 저장하지 않은 것이 있으면 마저 저장한다
   // 돌고 있는 저장이 있으면 그 뒤에 잇고, 끝나면 다른 단계(도면 · 스펙북)가 새 평면을 다시 읽게 한다
+  // 기다리던 수량표 반영도 그 저장 뒤에 바로 한다 (다른 사람이 고쳤다는 알림이 떠 있으면 하지 않는다)
   useEffect(() => {
     const pid = project.id
     return () => {
-      if (!dirtyRef.current || !ready.current || crashed.current) return
+      if (!ready.current || crashed.current) return
+      const save = dirtyRef.current, conflict = !!remoteRef.current
+      if (!save && (conflict || !autoDue(pid))) return
       const prev = inflight.current, mine = planRef.current
       void (async () => {
         if (prev) await prev.catch(() => false)
-        try { await persist(pid, mine, false); bump() } catch (e) { if (e instanceof StalePlan) toast('다른 곳에서 평면이 바뀌어 마지막 고침은 저장하지 않았습니다. 평면 · 3D 를 다시 열어 확인해 주세요') }
+        if (save) {
+          try { await persist(pid, mine, false) } catch (e) {
+            if (e instanceof StalePlan) toast('다른 곳에서 평면이 바뀌어 마지막 고침은 저장하지 않았습니다. 평면 · 3D 를 다시 열어 확인해 주세요')
+            return
+          }
+        }
+        const due = conflict ? null : autoDue(pid)
+        if (due) {
+          try { const note = await applyPlan(pid, due); if (note) toast(`수량표에 반영했습니다. 견적 계산은 맡기지 못했습니다: ${note}`) } catch (e) { toast(`평면은 저장했지만 수량표에 반영하지 못했습니다: ${friendlyError(e)}`) }
+        }
+        bump()
       })()
     }
   }, [project.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 수량표에 마지막으로 반영한 수량: 지금 모델 버전의 모델 줄 (평면 · 스케치업이 넣은 것). 모델이 없으면 빈 글
+  useEffect(() => {
+    if (loading || loadFailed) return
+    let alive = true
+    const pid = project.id, mv = project.model_version, gen = appliedGen.current
+    ;(mv > 0 ? api.listPlacements(pid, mv) : Promise.resolve([])).then(rows => {
+      if (!alive || gen !== appliedGen.current) return
+      applied.current.set(pid, quantitiesSignature(modelLines(rows)))
+      setBaseTick(n => n + 1)
+    }).catch(() => { /* 모르면 저절로 반영하지 않는다 ('지금 반영'은 그대로 된다) */ })
+    return () => { alive = false }
+  }, [api, project.id, project.model_version, loading, loadFailed])
+
+  // 고쳐 저장한 평면의 수량이 수량표와 다르면, 마지막으로 고친 뒤 15초가 지나면 수량표에 반영하고 견적 계산을 맡긴다.
+  // 고칠 때마다 다시 세고, 끄는 중 · 저장 중 · 다른 사람이 고쳤다는 알림이 떠 있을 때 · 불러오기 전에는 하지 않는다
+  const autoRun = async () => {
+    const pid = project.id, ep = epoch.current, plan = autoDue(pid)
+    if (!plan || !ready.current || remoteRef.current) return
+    setLink({ kind: 'running' })
+    try {
+      const note = await applyPlan(pid, plan)
+      if (ep !== epoch.current) return
+      setLink({ kind: 'done', at: new Date(), note: note ?? undefined })
+      bump()
+    } catch (e) {
+      if (ep === epoch.current) setLink({ kind: 'error', msg: friendlyError(e) })
+    }
+  }
+  const autoRef = useRef(autoRun)
+  autoRef.current = autoRun
+  useEffect(() => {
+    if (loading || loadFailed || remote) { setLink(l => (l.kind === 'wait' ? { kind: 'idle' } : l)); return }
+    if (!autoDue(project.id)) { setLink(l => (l.kind === 'wait' ? { kind: 'idle' } : l)); return }
+    const due = lastEdit.current + AUTO_APPLY_MS
+    setLink({ kind: 'wait', due })
+    let t = window.setTimeout(function tick() {
+      if (dragging.current || dirtyRef.current || inflight.current || applying.current) { t = window.setTimeout(tick, 1000); return }
+      void autoRef.current()
+    }, Math.max(300, due - Date.now()))
+    return () => window.clearTimeout(t)
+  }, [savedTick, revTick, baseTick, loading, loadFailed, remote, project.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  // 기다리는 동안 남은 초를 보여 준다
+  useEffect(() => {
+    if (link.kind !== 'wait') return
+    const t = window.setInterval(() => setClock(n => n + 1), 1000)
+    return () => window.clearInterval(t)
+  }, [link.kind])
 
   // ── 같이 보기: 지금 보는 사람 · 다른 사람이 저장하면 알림 ──
   /** 서버의 최신 평면 확인. force 면 그대로 불러온다(내 고침은 버림). 아니면: 벽 · 부품이 그대로면 댓글 · 조명 수량만 합치고,
@@ -327,6 +443,10 @@ export function DesignPlan({ project, base }: { project: DesignProject; base: De
       if (!notes.length) delete g.notes
       adopt(g)
       bases.current.set(pid, planCanon(latest))
+      // 다른 곳에서 고친 평면: 그쪽이 수량표에 반영한다. 여기서는 기다리던 반영을 거두고, 다음에 여기서 고치면 한 번 반영한다
+      lastSaved.current = { pid, plan: g, auto: false }
+      if (applied.current.has(pid)) applied.current.set(pid, UNKNOWN_BASE)
+      setSavedTick(n => n + 1)
       const mine = noteTouched.current.size > 0 || noteRemoved.current.size > 0
       dirtyRef.current = mine; setDirtyState(mine)
       if (mine) setNudge(n => n + 1)
