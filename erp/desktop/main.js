@@ -9,6 +9,7 @@ const path = require('path')
 const fs = require('fs')
 const crypto = require('crypto')
 const { autoUpdater } = require('electron-updater')
+const { GITHUB_FEED, SUPABASE_FEED, fetchFeed, macZipUrl } = require('./update-feed')
 
 // 개발 시험용: 설치본이 아닐 때만 WKLY_APP_URL 로 주소를 바꿀 수 있음
 const APP_URL = (!app.isPackaged && process.env.WKLY_APP_URL) || 'https://wkly-erp.pages.dev'
@@ -259,7 +260,7 @@ function updateTrayMenu() {
       {
         label: updateReady ? `새 버전 ${updateVersion || ''} 설치하고 다시 시작` : '새 버전 확인',
         enabled: app.isPackaged,
-        click: () => (updateReady ? installUpdate() : isMac ? checkMacUpdate() : autoUpdater.checkForUpdates().catch(() => undefined)),
+        click: () => (updateReady ? installUpdate() : isMac ? checkMacUpdate() : checkWindowsUpdate().catch(() => undefined)),
       },
       {
         label: loggedIn ? '종료' : '종료 (로그인 후 가능)',
@@ -287,7 +288,7 @@ function watchIdle() {
 }
 
 /**
- * 자동 업데이트 (GitHub 릴리스)
+ * 자동 업데이트 (Supabase 공개 보관함 desktop-releases → 없으면 GitHub 릴리스 · update-feed.js · 2026-11-18 저장소 비공개 대비)
  *  - 윈도우: 새 버전을 저절로 받아 둠 (electron-updater)
  *  - 맥: 서명이 없어 기본 방식은 안 되므로, 30분마다 latest-mac.yml 을 직접 확인해 새 버전 zip 을 받아 풀어 둠
  *  - 30분마다 · 컴퓨터를 깨울 때 확인, 받아 둔 새 버전은 손대지 않을 때(로그인 화면 1분 · 사용 중 5분 · 3시간 지나면 1분) · 끌 때 ·
@@ -295,7 +296,18 @@ function watchIdle() {
  */
 let macUpdateApp = null // 맥: 풀어 둔 새 .app 경로
 let updateVersion = null
-const RELEASE_BASE = 'https://github.com/wkly2go/wkly-instagram-images/releases/download'
+/** 표 받기 (Chromium 네트워크 · 회사망 프록시에서도 동작) */
+const fetchText = async url => {
+  const r = await net.fetch(url, { cache: 'no-store' })
+  return { ok: r.ok, text: r.ok ? await r.text() : '' }
+}
+
+/** 윈도우: 받을 곳을 고른 뒤 electron-updater 로 확인 (표가 있는 곳 · 둘 다 안 되면 예전 GitHub) */
+async function checkWindowsUpdate() {
+  const feed = await fetchFeed('latest.yml', fetchText).catch(() => null)
+  autoUpdater.setFeedURL({ provider: 'generic', url: feed ? feed.base : GITHUB_FEED })
+  return autoUpdater.checkForUpdates()
+}
 
 function sendUpdateState() {
   updateTrayMenu()
@@ -316,8 +328,8 @@ function setupUpdates() {
     powerMonitor.on('resume', () => setTimeout(checkMacUpdate, 15_000))
     return
   }
-  // 최신 릴리스 파일 주소를 바로 봄 (GitHub 목록 · API 를 거치지 않아 회사망 · 요청 한도에도 안정적)
-  autoUpdater.setFeedURL({ provider: 'generic', url: `https://github.com/wkly2go/wkly-instagram-images/releases/latest/download` })
+  // 최신 표 주소를 바로 봄 (GitHub 목록 · API 를 거치지 않아 회사망 · 요청 한도에도 안정적) · 확인할 때마다 받을 곳을 다시 고름
+  autoUpdater.setFeedURL({ provider: 'generic', url: GITHUB_FEED })
   autoUpdater.autoDownload = true
   autoUpdater.autoInstallOnAppQuit = true
   autoUpdater.on('update-downloaded', info => {
@@ -329,7 +341,7 @@ function setupUpdates() {
   autoUpdater.on('error', () => {
     /* 네트워크 오류 등: 다음 확인 때 다시 */
   })
-  const check = () => autoUpdater.checkForUpdates().catch(() => undefined)
+  const check = () => checkWindowsUpdate().catch(() => undefined)
   setTimeout(check, 10_000)
   setInterval(check, 30 * 60_000)
   powerMonitor.on('resume', () => setTimeout(check, 15_000))
@@ -386,14 +398,14 @@ async function checkMacUpdate() {
   if (macChecking || macUpdateApp) return
   macChecking = true
   try {
-    const res = await net.fetch(`https://github.com/wkly2go/wkly-instagram-images/releases/latest/download/latest-mac.yml?t=${Date.now()}`, { cache: 'no-store' })
-    if (!res.ok) throw new Error(`latest-mac.yml ${res.status}`)
-    const yml = await res.text()
+    const feed = await fetchFeed('latest-mac.yml', fetchText)
+    if (!feed) throw new Error('latest-mac.yml unavailable')
+    const yml = feed.text
     const m = /^version:\s*['"]?([\d.]+)/m.exec(yml)
     const latest = m && m[1]
     if (latest && newer(latest, app.getVersion())) {
-      updateLog(`found ${latest} (now ${app.getVersion()})`)
-      await prepareMacUpdate(latest, zipSha512(yml))
+      updateLog(`found ${latest} (now ${app.getVersion()}) via ${feed.base === SUPABASE_FEED ? 'supabase' : 'github'}`)
+      await prepareMacUpdate(latest, zipSha512(yml), macZipUrl(yml, feed.base, latest))
     }
   } catch (e) {
     updateLog(`check failed: ${e && e.message}`)
@@ -413,7 +425,7 @@ function zipSha512(yml) {
  * (1.21~1.25 에서 이 함수가 빠져 맥 자동 업데이트가 멈췄던 것을 되살림 · 2026-10-23 "자동 내려받기 오류 수정")
  *  - Chromium 네트워크(net.fetch)로 받아 회사망 · 프록시에서도 동작, 받은 파일은 sha512 로 확인
  */
-async function prepareMacUpdate(version, sha512) {
+async function prepareMacUpdate(version, sha512, zipUrl) {
   if (macUpdateApp || !/^\d+\.\d+\.\d+$/.test(version)) return
   const { execFile } = require('child_process')
   const crypto = require('crypto')
@@ -421,7 +433,7 @@ async function prepareMacUpdate(version, sha512) {
   const dir = fs.mkdtempSync(path.join(app.getPath('temp'), `wkly-update-${version}-`))
   const zip = path.join(dir, 'update.zip')
   updateLog(`download ${version}`)
-  const res = await net.fetch(`${RELEASE_BASE}/v${version}/WKLY-Intranet.zip`, { cache: 'no-store' })
+  const res = await net.fetch(zipUrl, { cache: 'no-store' })
   if (!res.ok) throw new Error(`download ${res.status}`)
   const buf = Buffer.from(await res.arrayBuffer())
   if (sha512) {

@@ -1,4 +1,4 @@
-# WKLY 인트라넷 PC 프로그램: 윈도우(.exe) · 맥(.dmg/.zip) 설치 파일을 만들어 GitHub 릴리스에 올림
+# WKLY 인트라넷 PC 프로그램: 윈도우(.exe) · 맥(.dmg/.zip) 설치 파일을 만들어 GitHub 릴리스에 올림 (+ Supabase 공개 보관함 desktop-releases)
 #  - 대표 지시 2026-10-23 "자동 업데이트 가능하게 · 주기적으로 설치하는 번거로움을 없애"
 #    → main 에 PC 프로그램(erp/desktop) 변경이 들어오고 package.json 의 version 이 새 번호면 저절로 만들어 공개
 #    → 설치된 PC 프로그램이 30분마다 확인해 받아 두고, 손대지 않을 때 저절로 설치 (사람이 다시 설치할 일 없음)
@@ -17,6 +17,7 @@ on:
 
 permissions:
   contents: write
+  id-token: write # Supabase 공개 보관함에 올릴 때 서버 함수가 이 작업임을 확인 (OIDC)
 
 concurrency:
   group: desktop-app
@@ -82,5 +83,12 @@ jobs:
       - uses: actions/checkout@v4
       - name: 윈도우 · 맥 파일이 다 올라간 초안 릴리스를 공개
         run: gh release edit "v$(node -p "require('./erp/desktop/package.json').version")" --draft=false --latest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # 저장소를 비공개로 바꾸면 GitHub 릴리스 주소는 로그인 없이 못 받음 → 같은 파일을 Supabase 공개 보관함에도 (PC 프로그램 1.29 부터 여기를 먼저 봄)
+      # 실패해도 GitHub 릴리스는 이미 공개됐으므로 업데이트는 그대로 (경고만) · 나중에 desktop-mirror 작업으로 다시 올릴 수 있음
+      - name: Supabase 공개 보관함에도 올리기
+        continue-on-error: true
+        run: node erp/desktop/scripts/mirror-release.mjs "v$(node -p "require('./erp/desktop/package.json').version")"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

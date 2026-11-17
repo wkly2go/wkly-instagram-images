@@ -34,6 +34,10 @@
      ③ **PC 프로그램(데스크톱) 업데이트 파일은 남음**: 설치 파일이 78~171MB 라 Supabase 보관함 기본 한도(50MB)를 넘음. 방법 둘 —
        (가) 대표님이 Supabase › Storage › Settings 에서 '업로드 파일 크기 한도'를 500MB 로 올림 → 데스크톱 작업이 보관함에도 올리고, 새 버전부터 업데이트 주소를 보관함으로 (기존 설치본이 새 버전을 한 번 받은 뒤 비공개 전환)
        (나) 공개용 저장소를 따로 만들어 릴리스만 둠 (GitHub 토큰을 대표님이 만들어 넣어야 함)
+     **11/18 (가)로 결정 · 준비 완료** — 보관함 `desktop-releases`(20261118110000 · 공개 읽기 · 300MB) · 함수 `public-files` v2(POST ?op=sign → 서명 올리기 주소 · ?op=promote → 표를 맨 위에 · 첫 설치용 `latest/` 사본) ·
+       desktop.yml 이 릴리스 공개 뒤 `erp/desktop/scripts/mirror-release.mjs` 로 보관함에도 올림(실패해도 릴리스는 그대로) · 수동 다시 올리기 `desktop-mirror.yml` ·
+       PC 프로그램 1.29.0 부터 보관함 표를 먼저 보고 없으면 GitHub(`desktop/update-feed.js` · 시험 tests/desktop-update-feed.test.ts).
+       남은 순서: ① 프로젝트 전체 업로드 한도를 500MB 로(Storage › Settings — 브라우저가 연결된 때 처리, 지금 한도로는 82~180MB 파일이 막힘) → ② desktop-mirror 로 v1.29.0 올림 → ③ 인트라넷 'PC 프로그램' 내려받기 링크를 보관함 `latest/` 로 → ④ 모든 PC 가 1.29 이상인지 확인(접속 기록) → ⑤ 저장소 비공개
 3. 예전 현장 실측 링크(`/field/fossil-1103`)를 계속 쓸지 — 안 쓰면 로그인 없는 접근을 닫음
 
 ## 남겨 둔 것
