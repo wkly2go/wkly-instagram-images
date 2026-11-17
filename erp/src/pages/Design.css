@@ -156,3 +156,7 @@
 .design-renders .input { min-width: 0; flex: 1 1 auto; }
 .design-render-img { aspect-ratio: 16 / 9; display: grid; place-items: center; background: var(--bg); border: 1px dashed var(--line); overflow: hidden; }
 .design-render-img img { width: 100%; height: 100%; object-fit: cover; }
+
+/* 물가 기준(조달청) 대비 판매 단가 차이 */
+.design-ref-gap { color: var(--tx-sub, #535c56); font-weight: 400; }
+.design-ref-gap.far { color: #b3412f; font-weight: 700; }
