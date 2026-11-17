@@ -1,4 +1,4 @@
-.sales-development{position:sticky;top:0;z-index:15;flex-shrink:0;border:1px solid #a4bbaa;border-top:3px solid #14552f;background:#fffef9;color:#263c33;font-size:13px;line-height:1.5;box-shadow:0 3px 8px #163d2312}
+.sales-development{position:sticky;top:0;z-index:15;flex-shrink:0;border:1px solid #a4bbaa;border-top:3px solid #14552f;background:#fffef9;color:#263c33;font-size:var(--fs-body);line-height:1.5;box-shadow:0 3px 8px #163d2312}
 .sales-development summary{display:flex;align-items:center;gap:12px;flex-wrap:wrap;cursor:pointer;padding:10px 14px;list-style:none;min-height:44px;box-sizing:border-box}
 .sales-development summary::-webkit-details-marker{display:none}
 .sales-development summary:focus-visible{outline:3px solid #14552f;outline-offset:-3px}
