@@ -12,7 +12,7 @@ import {
 import { ask } from './Ask'
 import { AiAssist } from './GrowthAi'
 import { AdCreativeMaker } from './AdCreativeMaker'
-import { adCopyRequest, parseAdCopyVariants, type AdCopyVariant } from '../lib/adCopy'
+import { adCopyRequest, adPlanRequest, lintAdCopy, parseAdCopyVariants, parseAdPlan, type AdCopyVariant, type AdPlanDraft } from '../lib/adCopy'
 import './MarketingDesk.css'
 
 type Step = 'plan' | 'creative' | 'handoff'
@@ -60,6 +60,12 @@ function validationTarget(message: string): { step: Step; field: string } {
   return { step: 'plan', field: 'md-title' }
 }
 
+/** 회사 카피 규칙 검사 결과 (lintAdCopy) — 쓰는 동안 바로 보임 */
+function CopyCheck({ issues }: { issues: ReturnType<typeof lintAdCopy> }) {
+  if (!issues.length) return <p className="md-copy-ok"><Check size={13} /> 회사 카피 규칙 · 매체 글자 기준을 지켰습니다.</p>
+  return <ul className="md-copy-check" aria-label="카피 규칙 검사">{issues.map((x, i) => <li key={i} className={x.level}>{x.message}</li>)}</ul>
+}
+
 export function MarketingDesk({ onDirtyChange, initialCampaignId }: { onDirtyChange?: (dirty: boolean) => void; initialCampaignId?: string }) {
   const { api, me, toast, profileName } = useApp()
   const canEdit = me.active && me.role === 'admin'
@@ -84,6 +90,7 @@ export function MarketingDesk({ onDirtyChange, initialCampaignId }: { onDirtyCha
   const [importWarnings, setImportWarnings] = useState<string[]>([])
   const [importDone, setImportDone] = useState(0)
   const [copyVariants, setCopyVariants] = useState<AdCopyVariant[]>([])
+  const [planDraft, setPlanDraft] = useState<AdPlanDraft | null>(null)
   const imageInput = useRef<HTMLInputElement>(null)
   const backupInput = useRef<HTMLInputElement>(null)
   const toolbar = useRef<HTMLDivElement>(null)
@@ -487,6 +494,12 @@ export function MarketingDesk({ onDirtyChange, initialCampaignId }: { onDirtyCha
           <fieldset className="md-fields" aria-label="캠페인 설정" disabled={!canEdit || !!busy}>
             {step === 'plan' && <div id="md-panel-plan" role="tabpanel" aria-labelledby="md-tab-plan">
               <div className="md-section-title"><h4>무엇을, 누구에게 알릴까요?</h4><span>기획</span></div>
+              {canEdit && <AiAssist task="write" context={adPlanRequest(buildMarketingAIPrompt(draft))} resultScope={draft.id + ':plan'} onResult={text => { const d = parseAdPlan(text); if (d) setPlanDraft(d); else toast('결과에서 타깃 · 약속을 찾지 못했습니다. 결과 글을 직접 옮겨 주세요.') }} />}
+              {planDraft && <div className="md-plan-draft" role="group" aria-label="AI 캠페인 기획안">
+                <dl>{([['타깃', planDraft.audience], ['인사이트', planDraft.insight], ['약속', planDraft.promise], ['앵글', planDraft.angles], ['매체 · 예산', planDraft.channel], ['시험', planDraft.test], ['중단 기준', planDraft.stop], ['시즌', planDraft.season], ['검토할 사실', planDraft.check]] as [string, string][]).filter(([, v]) => v.trim()).map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}</dl>
+                <div className="md-actions"><button type="button" className="md-text-button" onClick={() => change({ audience: [planDraft.audience, planDraft.insight].filter(Boolean).join(' / ').slice(0, 1000), ...(planDraft.season && !/^없음/.test(planDraft.season) ? { seasonNote: planDraft.season.slice(0, 500) } : {}) })}>타깃 · 시즌을 기획에 넣기</button><button type="button" className="md-text-button" onClick={() => setPlanDraft(null)}>닫기</button></div>
+                <small>약속 · 혜택은 사실을 확인한 뒤 직접 '핵심 제안·혜택'에 적어 주세요. [NEED: 근거] 는 채우기 전에 쓰지 않습니다.</small>
+              </div>}
               <div className="md-form-grid">
                 <FormField label="캠페인 이름" wide><input id="md-title" value={draft.title} onChange={event => change({ title: event.target.value })} placeholder="예: 연말 브랜드 행사 공간 대관" maxLength={160} /></FormField>
                 <FormField label="브랜드"><select value={draft.brand} onChange={event => change({ brand: event.target.value as MarketingCampaign['brand'] })}>{MARKETING_BRANDS.map(item => <option key={item.value} value={item.value}>{item.label}</option>)}</select></FormField>
@@ -518,13 +531,14 @@ export function MarketingDesk({ onDirtyChange, initialCampaignId }: { onDirtyCha
               <div className="md-section-title"><h4>광고 문구를 다듬으세요</h4><span>소재 제작</span></div>
               <div className="md-copy-tools"><button type="button" className="md-button" onClick={() => void generateCopy()}><FileText size={14} />문구 초안 채우기</button><small>선택한 브랜드·목표에 맞는 고정 문구 예시입니다.</small></div>
               {canEdit && <AiAssist task="write" context={adCopyRequest(draft, buildMarketingAIPrompt(draft))} resultScope={draft.id} onResult={text => { const v = parseAdCopyVariants(text); if (v.length) setCopyVariants(v); else toast('결과에서 제목 · 본문을 찾지 못했습니다. 결과 글을 직접 옮겨 주세요.') }} />}
-              {copyVariants.length > 0 && <div className="md-variants" role="group" aria-label="AI 문구 안">{copyVariants.map((v, i) => <article key={i} className="md-variant"><b>{i + 1}안 · {v.headline}</b><p>{v.primaryText}</p>{v.description && <small>{v.description}</small>}<div className="md-actions"><span className="t-cap">버튼: {v.cta || '–'}</span><button type="button" className="md-text-button" onClick={() => change({ headline: v.headline, primaryText: v.primaryText || draft.primaryText, description: v.description || draft.description, cta: v.cta || draft.cta })}>이 안 적용</button></div></article>)}<button type="button" className="md-text-button" onClick={() => setCopyVariants([])}>안 닫기</button></div>}
+              {copyVariants.length > 0 && <div className="md-variants" role="group" aria-label="AI 문구 안">{copyVariants.map((v, i) => <article key={i} className="md-variant">{v.angle && <span className="md-variant-angle">{v.angle}</span>}<b>{i + 1}안 · {v.headline}</b><p>{v.primaryText}</p>{v.proof && <small className="md-variant-proof">근거 · {v.proof}</small>}{v.description && <small>{v.description}</small>}<div className="md-actions"><span className="t-cap">버튼: {v.cta || '–'}</span><button type="button" className="md-text-button" onClick={() => change({ headline: v.headline, primaryText: v.primaryText || draft.primaryText, description: v.description || draft.description, cta: v.cta || draft.cta })}>이 안 적용</button></div></article>)}<button type="button" className="md-text-button" onClick={() => setCopyVariants([])}>안 닫기</button></div>}
               <div className="md-form-grid">
                 <FormField label="제목" hint={`${draft.headline.length}자 · 매체의 최종 글자 수 제한은 등록 화면에서 확인하세요.`} wide><input id="md-headline" value={draft.headline} onChange={event => change({ headline: event.target.value })} maxLength={300} placeholder="고객의 관심을 끌 핵심 한 문장" /></FormField>
                 <FormField label="본문" wide><textarea id="md-primary-text" value={draft.primaryText} onChange={event => change({ primaryText: event.target.value })} rows={4} maxLength={10000} placeholder="대상 고객 · 제안 · 문의 방법을 명확하게 적어 주세요." /></FormField>
                 <FormField label="보조 설명" wide><input value={draft.description} onChange={event => change({ description: event.target.value })} maxLength={2000} placeholder="광고 아래 덧붙일 짧은 설명" /></FormField>
                 <FormField label="행동 유도 문구"><input id="md-cta" value={draft.cta} onChange={event => change({ cta: event.target.value })} maxLength={80} placeholder="예: 대관 문의하기" /></FormField>
               </div>
+              <CopyCheck issues={lintAdCopy(draft)} />
               <div className="md-section-title"><h4>광고 이미지를 연결하세요</h4><span>{assets.length}개 소재</span></div>
               <div className="md-upload" id="md-images" tabIndex={-1}><ImagePlus size={24} /><div><strong>JPEG · PNG · WebP</strong><p>파일당 최대 8MB · 원본과 캠페인을 함께 보관합니다.</p></div><button type="button" className="md-button" disabled={!!busy || !!assetError || assetsLoading} onClick={() => imageInput.current?.click()}><Plus size={15} />이미지 선택</button><input ref={imageInput} className="md-file-input" tabIndex={-1} type="file" multiple accept="image/jpeg,image/png,image/webp" aria-label="광고 이미지 파일" onChange={event => void uploadImages(event)} /></div>
               {!isSaved && <p className="md-help">이미지를 올리면 현재 기획을 먼저 저장합니다.</p>}
