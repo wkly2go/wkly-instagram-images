@@ -140,7 +140,7 @@ export const isWallLayer = (name: string) => {
 export const layerKind = (name: string, fallback: PlanWall['kind'] = 'existing'): PlanWall['kind'] => (/(^|[^A-Z])NEW([^A-Z]|$)|가벽|신설/i.test(name) ? 'new' : fallback)
 const GLAZ_LAYER = /glaz|window|(^|[^a-z])win([^a-z]|$)|창호|유리|창(?!고)/i
 
-interface Axis { ax: number; ay: number; ux: number; uy: number; len: number; th: number; kind: PlanWall['kind'] }
+interface Axis { ax: number; ay: number; ux: number; uy: number; len: number; th: number; kind: PlanWall['kind']; /** 원점에서 본 간격 · 거리 (빠른 거르기용) */ c: number; R: number }
 function mkAxis(x1: number, y1: number, x2: number, y2: number, kind: PlanWall['kind']): Axis | null {
   let ux = x2 - x1, uy = y2 - y1
   const len = Math.hypot(ux, uy)
@@ -150,8 +150,10 @@ function mkAxis(x1: number, y1: number, x2: number, y2: number, kind: PlanWall['
   if (uy < -1e-9 || (Math.abs(uy) <= 1e-9 && ux < 0)) { ux = -ux; uy = -uy; sx = x2; sy = y2 }
   let th = Math.atan2(uy, ux)
   if (th >= Math.PI - 0.01) th -= Math.PI
-  return { ax: sx, ay: sy, ux, uy, len, th, kind }
+  return { ax: sx, ay: sy, ux, uy, len, th, kind, c: -uy * sx + ux * sy, R: Math.hypot(sx, sy) + len }
 }
+/** 두 선의 간격이 lim 을 확실히 넘으면 true (relate 전에 싸게 거른다) */
+const farApart = (A: Axis, B: Axis, lim: number) => (A.ux * B.ux + A.uy * B.uy > 0 ? Math.abs(A.c - B.c) : Math.abs(A.c + B.c)) > lim + 0.03 * (A.R + B.R)
 const nearAngle = (a: Axis, b: Axis) => { const d = Math.abs(a.th - b.th); return d < 0.025 || Math.PI - d < 0.025 }
 /** B 를 A 의 축(A 시작점 기준 · A 방향)으로 본 값: 가운데 간격(왼쪽 +) · 구간 · 같은 방향인지 */
 function relate(A: Axis, B: Axis) {
@@ -212,7 +214,7 @@ export function dxfToWalls(d: DxfDrawing, o: DxfWallOptions): DxfWallResult {
   const find = (i: number): number => { while (parent[i] !== i) { parent[i] = parent[parent[i]]; i = parent[i] } return i }
   if (o.pair !== false) for (let i = 0; i < segs.length; i++) for (let j = i + 1; j < segs.length; j++) {
     const A = segs[i], B = segs[j]
-    if (A.kind !== B.kind || !nearAngle(A, B)) continue
+    if (A.kind !== B.kind || !nearAngle(A, B) || farApart(A, B, 40)) continue
     const r = relate(A, B)
     if (!r || Math.abs(r.off) >= 40) continue
     const over = Math.min(A.len, r.b1) - Math.max(0, r.b0)
@@ -221,7 +223,7 @@ export function dxfToWalls(d: DxfDrawing, o: DxfWallOptions): DxfWallResult {
     if (a !== b) parent[Math.max(a, b)] = Math.min(a, b)
   }
   const groups = new Map<number, number[]>()
-  segs.forEach((_, i) => { const r = find(i); groups.set(r, [...(groups.get(r) ?? []), i]) })
+  segs.forEach((_, i) => { const r = find(i), g = groups.get(r); if (g) g.push(i); else groups.set(r, [i]) })
   const bands: Band[] = []
   for (const [root, ids] of groups) {
     const A = segs[root]
@@ -233,7 +235,8 @@ export function dxfToWalls(d: DxfDrawing, o: DxfWallOptions): DxfWallResult {
       const oa = (B.ax - A.ax) * nx + (B.ay - A.ay) * ny, ob = (B.ax + B.ux * B.len - A.ax) * nx + (B.ay + B.uy * B.len - A.ay) * ny
       lo = Math.min(lo, oa, ob); hi = Math.max(hi, oa, ob); s0 = Math.min(s0, r.b0); s1 = Math.max(s1, r.b1)
     }
-    bands.push({ ...A, ax: A.ax + A.ux * s0, ay: A.ay + A.uy * s0, len: s1 - s0, lo, hi, members: ids.length, used: [] })
+    const bx = A.ax + A.ux * s0, by = A.ay + A.uy * s0
+    bands.push({ ...A, ax: bx, ay: by, len: s1 - s0, R: Math.hypot(bx, by) + (s1 - s0), lo, hi, members: ids.length, used: [] })
   }
   // 2) 두 면 짝짓기: 얇은 벽부터, 한 면의 같은 구간은 한 번만
   type Near = { k: number; mid: number; b0: number; b1: number; t1: number; t2: number }
@@ -242,7 +245,7 @@ export function dxfToWalls(d: DxfDrawing, o: DxfWallOptions): DxfWallResult {
   if (o.pair !== false) for (let i = 0; i < bands.length; i++) for (let j = 0; j < bands.length; j++) {
     if (i === j) continue
     const A = bands[i], B = bands[j]
-    if (A.kind !== B.kind || !nearAngle(A, B)) continue
+    if (A.kind !== B.kind || !nearAngle(A, B) || farApart(A, B, 470 + Math.abs(A.lo) + A.hi + Math.abs(B.lo) + B.hi)) continue
     const r = relate(A, B)
     if (!r || Math.abs(r.off) > 470) continue
     const bl = r.same ? B.lo : -B.hi, bh = r.same ? B.hi : -B.lo
