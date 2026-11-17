@@ -1,4 +1,6 @@
 import type { PlanGeometry, PlanLine } from './designPlan'
+import type { LibraryEntry, LibraryFinish, LibraryFixture, LibraryKind } from './designLibrary'
+import type { ProposalBoard } from './designBoard'
 // 설계·견적 (인테리어 디자인 자동화) — 인트라넷 DB 의 design 구역을 public.design_* 보기로 읽고 쓴다 (0125~0127)
 // 금액 계산은 작업 처리기(맥)의 견적 엔진만 한다. 화면은 수량 · 단가를 입력하고 결과를 보여 주기만 한다.
 
@@ -234,6 +236,8 @@ export interface DesignApi {
   startDesign(projectId: string, spaceType: SpaceType, areaM2: number | null): Promise<void>
   updateDesignProject(projectId: string, patch: { space_type?: SpaceType; area_m2?: number | null; budget?: number | null; work_start?: string | null; estimate_rules?: EstimateRules }): Promise<void>
   listPlacements(projectId: string, modelVersion: number): Promise<Placement[]>
+  /** 이 모델 버전이 인트라넷 평면에서 반영한 것인지 (스케치업 '수량 보내기'로 만든 버전이면 false) */
+  planVersionIsWeb(projectId: string, version: number): Promise<boolean>
   addPlacement(row: PlacementDraft): Promise<void>
   updatePlacementQty(id: string, qty: number): Promise<void>
   deletePlacement(id: string): Promise<void>
@@ -296,4 +300,13 @@ export interface DesignApi {
   listKnowledge(): Promise<Knowledge[]>
   listDesignCards(status: 'pending' | 'done', projectId?: string | null): Promise<DesignCard[]>
   decideDesignCard(id: string, approve: boolean, comment: string): Promise<void>
+  /** 마감재 · 기구 라이브러리: 회사가 저장한 항목 (기본 제공은 lib/designLibrary BUILTIN_LIBRARY) */
+  listPlanLibrary(): Promise<LibraryEntry[]>
+  savePlanLibrary(entry: { kind: LibraryKind; group: string; name: string; data: LibraryFinish | LibraryFixture }): Promise<LibraryEntry>
+  deletePlanLibrary(id: string): Promise<void>
+  /** 같이 보기: 지금 보는 사람(peers)과 다른 사람이 저장했다는 알림(saved). 실패해도 던지지 않는다. key 는 프로젝트 id (제안 보드는 '<id>:board') */
+  watchDesignPlan(key: string, who: { id: string; name: string }, on: { peers(list: { id: string; name: string }[]): void; saved(by: { id: string; name: string; at: number }): void }): { saved(): void; close(): void }
+  /** 제안 보드 (피그마식 판 + 스펙 카드). 없으면 null */
+  getProposalBoard(projectId: string): Promise<{ board: ProposalBoard; updated_at: string; updated_by: string | null } | null>
+  saveProposalBoard(projectId: string, board: ProposalBoard): Promise<{ updated_at: string }>
 }
