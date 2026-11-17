@@ -74,7 +74,8 @@ export function AdCreativeMaker({ draft, assets, disabled, onSave }: {
     for (const s of chosen) {
       const c = canvases.current[s.key]
       if (!c) continue
-      const type = img ? 'image/jpeg' : 'image/png'
+      // 인스타그램 게시는 JPG 만 받으므로 사진이 없는 소재도 JPG 로 저장
+      const type = 'image/jpeg'
       const blob = await new Promise<Blob | null>((resolve, reject) => {
         try { c.toBlob(resolve, type, 0.9) } catch (err) { reject(err) }
       })

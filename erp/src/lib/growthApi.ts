@@ -29,6 +29,12 @@ export function createSupabaseGrowthApi(sb: SupabaseClient): GrowthApi {
       if(!data||typeof data.hasMore!=='boolean'||(action==='status'&&typeof data.configured!=='boolean')||(action==='sync'&&(!Number.isSafeInteger(data.inserted)||data.inserted<0||!Number.isSafeInteger(data.kept)||data.kept<0)))throw new ApiError('수집 결과를 확인하지 못했습니다. 상태를 다시 확인해 주세요.')
       return data
     },
+    async instagramPublish(action, id, revision) {
+      const { data, error } = await sb.functions.invoke('instagram-publish', { body: { action, id, revision } })
+      if (error) { let message = '인스타그램 게시 서버에 연결하지 못했습니다. 잠시 뒤 다시 시도해 주세요.'; if (error.context instanceof Response) { try { const body = await error.context.clone().json(); if (typeof body?.error === 'string') message = body.error.slice(0, 500) } catch { /* keep guidance */ } } throw new ApiError(message) }
+      if (typeof data?.error === 'string') throw new ApiError(data.error.slice(0, 500))
+      return data
+    },
     async searchTenders(query) {
       const invalid = validateTenderQuery(query); if (invalid) throw new ApiError(invalid)
       const { data, error } = await sb.functions.invoke('g2b-search', { body: query })
@@ -75,6 +81,7 @@ export function createDemoGrowthApi(viewer:()=>Profile|undefined,sales:SalesApi)
   const user=()=>{const u=viewer();if(!u?.active)throw new ApiError('로그인이 필요합니다.');return u}
   return {
     async instagramContacts(action){user();if(action==='sync')throw new ApiError('체험 모드에서는 실제 인스타그램을 조회하지 않습니다.');return {configured:false,hasMore:false,lastSyncedAt:null,lastCompletedAt:null}},
+    async instagramPublish(){user();throw new ApiError('체험 모드에서는 실제 인스타그램에 게시하지 않습니다.')},
     async searchTenders(){user();throw new ApiError('체험 모드에서는 실제 나라장터 공고를 조회하지 않습니다. 운영 계정의 서버 함수·공공데이터포털 API 설정 후 사용할 수 있습니다.')},
     async listGrowth(f){user();const a=get().filter(x=>x.kind===f.kind&&(!f.status||x.status===f.status)&&matchesGrowthSearch(x,f.search)).sort((a,b)=>b.updated_at.localeCompare(a.updated_at));return {items:a.slice(f.page*30,f.page*30+30).map(summary),hasMore:a.length>f.page*30+30}},
     async getGrowth(id){user();const r=get().find(x=>x.id===id);if(!r)throw new ApiError('자료를 찾을 수 없습니다.');return r},
