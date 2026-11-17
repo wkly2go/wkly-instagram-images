@@ -28,6 +28,12 @@
 2. GitHub 저장소 `wkly2go/wkly-instagram-images` 를 **비공개**로 바꿀지 결정 (지금 공개라 인트라넷 코드 · DB 구조가 누구에게나 보임. 비밀 키는 없음)
    - **바로 바꾸면 안 됨**: 이 저장소의 공개 주소를 쓰는 곳이 있음 — PC 프로그램 자동 업데이트(releases), 안드로이드 APK 내려받기(releases/android), 영업 '서울 행사' 자료(`data` 브랜치 raw 주소 · `seoulEventClient.ts` · `ProspectSearchResults.tsx`)
    - 비공개로 하려면 먼저 이 세 가지를 공개용 별도 저장소나 Supabase 공개 보관함으로 옮긴 뒤 바꿈 (11/17 22시 확인 · 아직 공개)
+   - **11/18 진행**: Supabase 공개 보관함 `public-data`(20261118090000 · 읽기 누구나 · 쓰기는 함수 `public-files` 만 — GitHub Actions OIDC · 이 저장소 main · 정해진 이름 3개만) 를 만들고
+     ① 서울 · 코엑스 행사 스냅샷: 매일 작업(seoul-event-snapshot.yml)이 GitHub data 브랜치와 함께 보관함에도 올림 · 화면은 보관함 → GitHub → 배포 파일 순서로 읽음 ✅
+     ② 안드로이드 APK: android.yml 이 릴리스와 함께 보관함(`public-data/android/wkly-erp.apk`)에도 올림 → 올라간 것 확인 뒤 내려받기 링크를 보관함으로 바꿈
+     ③ **PC 프로그램(데스크톱) 업데이트 파일은 남음**: 설치 파일이 78~171MB 라 Supabase 보관함 기본 한도(50MB)를 넘음. 방법 둘 —
+       (가) 대표님이 Supabase › Storage › Settings 에서 '업로드 파일 크기 한도'를 500MB 로 올림 → 데스크톱 작업이 보관함에도 올리고, 새 버전부터 업데이트 주소를 보관함으로 (기존 설치본이 새 버전을 한 번 받은 뒤 비공개 전환)
+       (나) 공개용 저장소를 따로 만들어 릴리스만 둠 (GitHub 토큰을 대표님이 만들어 넣어야 함)
 3. 예전 현장 실측 링크(`/field/fossil-1103`)를 계속 쓸지 — 안 쓰면 로그인 없는 접근을 닫음
 
 ## 남겨 둔 것
