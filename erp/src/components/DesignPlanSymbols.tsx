@@ -7,7 +7,8 @@ import { itemShape, mix, SHAPE_COLOR, type ItemShape } from '../lib/designPlanLo
 
 const INK = '#3b413c'
 const poly = (a: Pt[]) => a.map(p => `${p.x},${p.y}`).join(' ')
-const range = (n: number) => Array.from({ length: Math.max(0, n) }, (_, i) => i)
+// 칸 수에 한도를 둔다: 치수가 아무리 커도(붙여 넣은 글 등) 기호 하나가 수십 개 넘는 선을 그리지 않게
+const range = (n: number) => Array.from({ length: Number.isFinite(n) ? Math.max(0, Math.min(48, Math.floor(n))) : 0 }, (_, i) => i)
 
 /** 천장에 붙는 것(펜던트 · 매입등)은 점선으로, 바닥에 깔리는 것(러그 · 단상)은 맨 아래에 그린다 */
 export const itemLayer = (shape: ItemShape) => (shape === 'rug' || shape === 'platform' ? 0 : shape === 'pendant' || shape === 'downlight' ? 2 : 1)

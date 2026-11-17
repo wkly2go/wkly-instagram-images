@@ -37,6 +37,16 @@ test('mergeBoardComments: 남의 댓글은 지키고, 내가 지운 것은 빼�
   // 답글 수가 같으면 내 것
   assert.equal(mergeBoardComments([note('a', '2026-11-17T01:00:00Z', { text: '고침' })], latest).find(c => c.id === 'a')!.text, '고침')
 })
+test('mergeBoardComments: 두 사람이 같은 댓글에 동시에 단 답글은 둘 다 남는다', () => {
+  const base = note('x', '2026-11-17T01:00:00Z')
+  const mine = [{ ...base, replies: [{ by: '나', at: '2026-11-17T01:05:00Z', text: '좋아요' }] }]
+  const latest = [{ ...base, replies: [{ by: '다', at: '2026-11-17T01:04:00Z', text: '색만 바꿔 주세요' }] }]
+  const out = mergeBoardComments(mine, latest)[0]
+  assert.deepEqual(out.replies?.map(r => r.text), ['색만 바꿔 주세요', '좋아요'])
+  // 같은 답글은 하나로
+  assert.equal(mergeBoardComments(mine, mine)[0].replies?.length, 1)
+  assert.equal(mergeBoardComments([base], [base])[0].replies, undefined)
+})
 test('snapValue · snapMove: 페이지 가운데와 다른 요소 가장자리에 붙고, 멀면 그대로', () => {
   assert.deepEqual(snapValue(103, [0, 100, 200], 6), { v: 100, hit: 100 })
   assert.deepEqual(snapValue(120, [0, 100, 200], 6), { v: 120, hit: null })

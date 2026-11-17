@@ -726,7 +726,7 @@ export function createSupabaseApi(url: string, key: string): Api {
         throw new ApiError(`사진을 올리지 못했습니다: ${up.error.message}`)
       }
       // 이 브라우저가 읽지 못하는 사진: 목록에서 미리보기를 만들려고 원본을 다시 받지 않게 기억해 둔다
-      if (!preview) sitePreviews.remember(path)
+      if (!preview) sitePreviews.remember(path, file)
       const signed = await sb.storage.from('site-photos').createSignedUrl(path, 60 * 60 * 24 * 30)
       return { path, url: signed.data?.signedUrl ?? '' }
     },

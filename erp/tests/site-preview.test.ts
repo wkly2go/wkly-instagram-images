@@ -5,8 +5,8 @@ import { build } from 'esbuild'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { MARK_VIEW_WIDTH, markSizes, markTag, markTagWidth } from '../src/lib/siteMarks.ts'
-import { PREVIEW_MAX_BYTES, PREVIEW_MISS_KEY, PREVIEW_MISS_MAX, PREVIEW_MISS_RETRY_MS, createPreviewMissStore, createSitePreviewBackfill, makeImagePreview, sitePreviewPath } from '../src/lib/imagePreview.ts'
+import { MARK_TEXT_MIN_PX, MARK_VIEW_WIDTH, OLD_MARK_SIZES, markSizes, markTag, markTagWidth } from '../src/lib/siteMarks.ts'
+import { PREVIEW_MAX_BYTES, PREVIEW_MISS_KEY, PREVIEW_MISS_MAX, PREVIEW_MISS_RETRY_MS, PREVIEW_RETRY_KEY, PREVIEW_RETRY_MS, createPreviewMissStore, createSitePreviewBackfill, makeImagePreview, previewFailure, sitePreviewPath } from '../src/lib/imagePreview.ts'
 import { createSignedUrlCache } from '../src/lib/signedUrlCache.ts'
 
 const globals = globalThis as Record<string, any>
@@ -22,46 +22,71 @@ const settle = () => new Promise(resolve => setImmediate(resolve))
 const near = (actual: number, expected: number) => assert.ok(Math.abs(actual - expected) < 1e-9, `${actual} ≈ ${expected}`)
 
 // ---------------------------------------------------------------- 치수 선 · 글자 크기
+const OLD = { text: 36, line: 5, halo: 10, endRadius: 9, endStroke: 4, draftRadius: 14, draftStroke: 5, tagHeight: 48, tagRadius: 6, textDy: 12 }
+const oldTagWidth = (label: string) => label.length * 26 + 20
+
 test('치수 크기: 사진이 넓게 보이면(PC) 선 · 점 · 글자 · 이름표가 예전의 정확히 절반이다', () => {
-  // 예전 값: 글자 36 · 선 5 · 흰 테두리 10 · 끝 점 9(테두리 4) · 시작점 14(테두리 5) · 이름표 높이 48 · 모서리 6 · 글자 밑선 +12
+  assert.deepEqual(OLD_MARK_SIZES, { ...OLD, tagChar: 26, tagPad: 20 })
   const half = { text: 18, line: 2.5, halo: 5, endRadius: 4.5, endStroke: 2, draftRadius: 7, draftStroke: 2.5, tagHeight: 24, tagRadius: 3, textDy: 6 }
-  for (const width of [1000, 868, 720]) {
-    const { unit, ...sizes } = markSizes(width)
+  for (const width of [1400, 1000, 868, 720]) {
+    const { unit, tagChar, tagPad, ...sizes } = markSizes(width)
     assert.deepEqual(sizes, half, `사진 폭 ${width}px`)
     near(unit, MARK_VIEW_WIDTH / width)
+    for (const label of ['900', '2100', '#12', '12345.5']) near(markTagWidth(label, { tagChar, tagPad }), oldTagWidth(label) / 2)
   }
-  // 이름표: 예전 (글자 수 × 26 + 20) × 48 → 절반, 선 가운데에 맞춤
-  for (const label of ['900', '2100', '#12', '12345.5']) assert.equal(markTagWidth(label, 18), (label.length * 26 + 20) / 2)
   assert.deepEqual(markTag('2100', 500, 300, markSizes(1000)), { x: 500 - 31, y: 300 - 12, width: 62, height: 24, rx: 3, textX: 500, textY: 306 })
 })
 
-test('치수 크기: 사진이 좁게 보이면(휴대폰 358px) 읽을 수 있는 최소 크기에서 멈춘다', () => {
-  const s = markSizes(358)
+test('치수 크기: 선 · 흰 테두리 · 끝 점 · 시작점은 휴대폰(366px)과 아주 좁은 미리보기에서도 정확히 절반이다', () => {
+  for (const width of [868, 366, 336, 296, 195, 120]) {
+    const s = markSizes(width)
+    for (const key of ['line', 'halo', 'endRadius', 'endStroke', 'draftRadius', 'draftStroke'] as const) assert.equal(s[key], OLD[key] / 2, `${key} @${width}px`)
+  }
+})
+
+test('치수 크기: 휴대폰(366px)에서는 글자가 8px 에서 멈추고, 이름표가 가리는 넓이는 예전의 3분의 1 아래다', () => {
+  const s = markSizes(366)
   const onScreen = (value: number) => value / s.unit
-  near(onScreen(s.text), 10.5)
-  near(onScreen(s.line), 1.5)
-  near(onScreen(s.halo), 3)
-  near(onScreen(s.endRadius), 3)
-  near(onScreen(s.endStroke), 1)
-  near(onScreen(s.draftRadius), 5)
-  near(onScreen(s.draftStroke), 1.2)
-  // 그래도 예전(글자 36칸 · 선 5칸)보다는 작다
-  assert.ok(s.text < 36 && s.line < 5 && s.halo < 10 && s.endRadius < 9 && s.draftRadius < 14)
-  // 이름표는 글자 크기를 따라간다
-  near(s.tagHeight, (s.text * 4) / 3)
+  near(onScreen(s.text), MARK_TEXT_MIN_PX)
+  assert.equal(MARK_TEXT_MIN_PX, 8)
+  assert.ok(s.text < OLD.text && s.text > OLD.text / 2)
+  // 이름표는 글자를 따라가고 가운데에 맞춤
   near(s.tagRadius, s.text / 6)
+  near(s.textDy, s.text / 3)
   const tag = markTag('2100', 500, 300, s)
   near(tag.x + tag.width / 2, 500)
   near(tag.y + tag.height / 2, 300)
-  near(tag.textY, 300 + s.text / 3)
+  // 글자가 이름표 안에 들어간다 (숫자 한 자 폭은 글자 크기의 0.62배 이하)
+  for (const label of ['45', '2100', '12500', '#12']) assert.ok(markTagWidth(label, s) >= label.length * s.text * 0.62, label)
+  assert.ok(s.tagHeight >= s.text * 1.15)
+  for (const label of ['45', '2100', '12500']) {
+    const covered = (markTagWidth(label, s) * s.tagHeight) / (oldTagWidth(label) * OLD.tagHeight)
+    assert.ok(covered <= 1 / 3, `${label}: ${covered}`)
+  }
+  // 갤럭시(사진 폭 336px)도 3분의 1쯤
+  const g = markSizes(336)
+  near(g.text / g.unit, MARK_TEXT_MIN_PX)
+  assert.ok((markTagWidth('2100', g) * g.tagHeight) / (oldTagWidth('2100') * OLD.tagHeight) < 0.35)
 })
 
-test('치수 크기: 폭을 아직 모르면 넓은 화면 기준이고, 폭이 좁아질수록 칸 단위 크기는 줄지 않는다', () => {
+test('치수 크기: 200 ~ 1400px 어느 폭에서도 예전보다 큰 것이 없고, 글자는 예전이 8px 보다 클 때 8px 아래로 안 내려간다', () => {
+  for (let width = 200; width <= 1400; width += 2) {
+    const s = markSizes(width)
+    for (const key of Object.keys(OLD) as (keyof typeof OLD)[]) assert.ok(s[key] <= OLD[key] + 1e-9, `${key} @${width}px`)
+    for (const label of ['7', '45', '2100', '12500', '#12', '12345.5']) assert.ok(markTagWidth(label, s) <= oldTagWidth(label) + 1e-9, `${label} @${width}px`)
+    const oldPx = OLD.text / s.unit
+    const px = s.text / s.unit
+    assert.ok(px >= Math.min(oldPx, MARK_TEXT_MIN_PX) - 1e-9, `글자 @${width}px: ${px}`)
+    assert.ok(px <= Math.max(oldPx / 2, MARK_TEXT_MIN_PX) + 1e-9, `글자 @${width}px: ${px}`)
+  }
+})
+
+test('치수 크기: 폭을 아직 모르면 넓은 화면 기준이고, 폭이 좁아질수록 칸 단위 글자는 줄지 않는다', () => {
   for (const unknown of [0, -5, Number.NaN, Number.POSITIVE_INFINITY]) assert.deepEqual(markSizes(unknown), markSizes(MARK_VIEW_WIDTH))
   let last = markSizes(1400)
-  for (const width of [1000, 868, 700, 600, 500, 390, 358, 320]) {
+  for (const width of [1000, 868, 700, 600, 500, 444, 390, 366, 336, 320, 296, 250, 200]) {
     const next = markSizes(width)
-    for (const key of ['text', 'line', 'halo', 'endRadius', 'endStroke', 'draftRadius', 'draftStroke'] as const) assert.ok(next[key] >= last[key], `${key} @${width}`)
+    assert.ok(next.text >= last.text, `text @${width}`)
     last = next
   }
 })
@@ -218,7 +243,7 @@ const legacyPreview = `${legacy}.preview.webp`
 const signedUrlOf = (path: string) => `https://files.example.invalid/storage/v1/object/sign/site-photos/${path}?token=fixture`
 const pathOf = (url: string) => decodeURIComponent(new URL(url).pathname.split('/site-photos/')[1])
 
-function setup(options: { objects?: Record<string, Blob>; concurrency?: number } = {}) {
+function setup(options: { objects?: Record<string, Blob>; concurrency?: number; retryStorage?: ReturnType<typeof memoryStorage>; makePreview?: (original: Blob) => Promise<Blob | null> } = {}) {
   const objects = new Map<string, Blob>(Object.entries(options.objects ?? { [legacy]: new Blob([new Uint8Array(2_500_000)], { type: 'image/jpeg' }) }))
   type Failure = { message: string; status?: number; statusCode?: string }
   const state = { time: 1_800_000_000_000, signFailure: false, signError: null as null | Failure, missingAsError: false, uploadFailure: null as null | Failure, downloadFailure: false, user: 'user-a' as string | null }
@@ -251,6 +276,7 @@ function setup(options: { objects?: Record<string, Blob>; concurrency?: number }
   const cache = createSignedUrlCache({ now: () => state.time })
   cache.setScope(state.user)
   const storage = memoryStorage()
+  const retryStorage = options.retryStorage ?? memoryStorage()
   const backfill = createSitePreviewBackfill({
     bucket: () => bucket,
     signed: (path, load) => cache.get({ bucket: 'site-photos', path }, load),
@@ -258,6 +284,7 @@ function setup(options: { objects?: Record<string, Blob>; concurrency?: number }
     scope: () => state.user,
     now: () => state.time,
     misses: createPreviewMissStore({ storage, now: () => state.time }),
+    retries: createPreviewMissStore({ storage: retryStorage, kind: 'session', key: PREVIEW_RETRY_KEY, retryMs: PREVIEW_RETRY_MS, now: () => state.time }),
     concurrency: options.concurrency,
     async fetchBlob(url) {
       calls.downloads.push(pathOf(url))
@@ -270,11 +297,12 @@ function setup(options: { objects?: Record<string, Blob>; concurrency?: number }
     },
     async makePreview(original) {
       calls.made++
+      if (options.makePreview) return options.makePreview(original)
       // 이 브라우저가 읽지 못하는 형식
       return original.type === 'image/heic' ? null : new Blob([new Uint8Array(48_000)], { type: 'image/webp' })
     },
   })
-  return { backfill, objects, state, calls, gate, storage, cache }
+  return { backfill, objects, state, calls, gate, storage, retryStorage, cache }
 }
 
 test('미리보기 주소: 아직 없는 예전 사진은 조용히 null 이고 원본은 건드리지 않는다', async () => {
@@ -579,4 +607,93 @@ test('실제 API: 예전 사진은 원본을 한 번만 받아 미리보기를 s
 
   restoreBrowser()
   await api.signOut()
+})
+
+// ---------------------------------------------------------------- 실패를 나눠 세기 (2026-11-17 점검 뒤 보강)
+const jpegOf = (size = 1000) => new Blob([new Uint8Array(size)], { type: 'image/jpeg' })
+
+test('미리보기 만들기: 원본이 없는 사진 · 내려받다 끊긴 사진은 그 사진만 건너뛰고 다른 사진은 계속 만든다', async () => {
+  const good = Array.from({ length: 5 }, (_, i) => `project-4/good-${i}.jpg`)
+  const gone = Array.from({ length: 3 }, (_, i) => `project-4/gone-${i}.jpg`)
+  const f = setup({ concurrency: 1, objects: Object.fromEntries(good.map(path => [path, jpegOf()])) })
+  const shown = await Promise.all([...gone, ...good].map(path => f.backfill.ensure(path)))
+  assert.deepEqual(shown, [...gone.map(() => null), ...good.map(path => signedUrlOf(`${path}.preview.webp`))], '맨 위의 없는 사진 3장 때문에 쉬지 않는다')
+  assert.deepEqual(f.calls.downloads, good)
+  // 약한 연결에서 내려받다 3번 끊겨도 쉬지 않는다
+  const more = Array.from({ length: 4 }, (_, i) => `project-4/more-${i}.jpg`)
+  for (const path of more) f.objects.set(path, jpegOf())
+  f.state.downloadFailure = true
+  assert.deepEqual(await Promise.all(more.slice(0, 3).map(path => f.backfill.ensure(path))), [null, null, null])
+  f.state.downloadFailure = false
+  assert.equal(await f.backfill.ensure(more[3]), signedUrlOf(`${more[3]}.preview.webp`))
+  // 끊긴 사진은 10분 뒤에 다시
+  assert.equal(await f.backfill.ensure(more[0]), null)
+  f.state.time += PREVIEW_RETRY_MS
+  assert.equal(await f.backfill.ensure(more[0]), signedUrlOf(`${more[0]}.preview.webp`))
+})
+
+test('미리보기 만들기: 잠깐의 실패(시간 초과 · 캔버스)는 7일 기억에 넣지 않고 이 창에 10분만 기억한다', async () => {
+  let broken = true
+  const f = setup({ makePreview: async () => { if (broken) throw new Error('캔버스를 만들지 못했습니다.'); return new Blob([new Uint8Array(48_000)], { type: 'image/webp' }) } })
+  assert.equal(await f.backfill.ensure(legacy), null)
+  assert.equal(f.storage.data.has(PREVIEW_MISS_KEY), false, '7일 기억에는 없다')
+  assert.ok(f.retryStorage.data.has(PREVIEW_RETRY_KEY), '이 창의 짧은 기억에 있다')
+  broken = false
+  assert.equal(await f.backfill.ensure(legacy), null)
+  assert.equal(f.calls.downloads.length, 1, '10분 안에는 다시 받지 않는다')
+  f.state.time += PREVIEW_RETRY_MS
+  assert.equal(await f.backfill.ensure(legacy), signedUrlOf(legacyPreview))
+  assert.equal(f.calls.downloads.length, 2)
+})
+
+test('미리보기 만들기: 읽지 못하는 사진과 잠깐의 실패를 구분해 알려 준다', async () => {
+  const jpeg = jpegOf()
+  fakeBrowser({ decodes: false })
+  assert.equal(await makeImagePreview(jpeg, { compatible: true }), null)
+  assert.equal(previewFailure(jpeg), 'unsupported')
+  const pdf = new Blob(['%PDF'], { type: 'application/pdf' })
+  assert.equal(await makeImagePreview(pdf, { compatible: true }), null)
+  assert.equal(previewFailure(pdf), 'unsupported')
+  // 캔버스를 쓰지 못함 (휴대폰 메모리 부족 등)
+  fakeBrowser()
+  const make = globals.document.createElement
+  globals.document.createElement = () => ({ ...make(), getContext: () => null })
+  const second = jpegOf(2000)
+  assert.equal(await makeImagePreview(second, { compatible: true }), null)
+  assert.equal(previewFailure(second), 'transient')
+  assert.equal(previewFailure(), 'transient', '파일을 주지 않으면 마지막 까닭')
+  fakeBrowser()
+  const third = jpegOf(3000)
+  assert.ok(await makeImagePreview(third, { compatible: true }))
+  assert.equal(previewFailure(third), null)
+  assert.equal(previewFailure(), null)
+  restoreBrowser()
+  // 올릴 때의 실패도 같은 규칙: 잠깐의 실패는 10분, 읽지 못하는 사진은 7일
+  const f = setup()
+  f.backfill.remember(legacy, second)
+  assert.equal(f.storage.data.has(PREVIEW_MISS_KEY), false)
+  assert.equal(await f.backfill.ensure(legacy), null)
+  assert.deepEqual(f.calls.downloads, [])
+  f.state.time += PREVIEW_RETRY_MS
+  assert.equal(await f.backfill.ensure(legacy), signedUrlOf(legacyPreview))
+  const g = setup()
+  g.backfill.remember(legacy, jpeg)
+  assert.ok(g.storage.data.has(PREVIEW_MISS_KEY))
+  g.state.time += PREVIEW_RETRY_MS
+  assert.equal(await g.backfill.ensure(legacy), null)
+  assert.deepEqual(g.calls.downloads, [])
+})
+
+test('미리보기 만들기: 쉬는 중은 새로 고쳐도(같은 창) 10분 동안 이어진다', async () => {
+  const paths = Array.from({ length: 4 }, (_, i) => `project-5/photo-${i}.jpg`)
+  const objects = Object.fromEntries(paths.map(path => [path, jpegOf()]))
+  const f = setup({ concurrency: 1, objects })
+  f.state.uploadFailure = { message: 'Bucket not found', status: 400, statusCode: '404' }
+  assert.deepEqual(await Promise.all(paths.slice(0, 3).map(path => f.backfill.ensure(path))), [null, null, null])
+  // 새로 고침: 새 작업기 · 같은 창의 기억
+  const g = setup({ concurrency: 1, objects, retryStorage: f.retryStorage })
+  assert.equal(await g.backfill.ensure(paths[3]), null)
+  assert.deepEqual(g.calls.downloads, [], '쉬는 중에는 원본을 받지 않는다')
+  g.state.time += PREVIEW_RETRY_MS
+  assert.equal(await g.backfill.ensure(paths[3]), signedUrlOf(`${paths[3]}.preview.webp`))
 })

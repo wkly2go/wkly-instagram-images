@@ -5,8 +5,9 @@
 //   - 도면: 도면 이미지 올리기 → 사진을 골라 도면 위를 누르면 그 자리에 핀 · 핀을 누르면 사진 · 치수
 //   - 체크리스트: 프로젝트의 현장 실측 체크리스트 (구분별)
 //   2026-11-17 대표 지시 '실측사진들이 미리보기가 안 떠있으니까 떠있게끔 · 치수랑 치수선이 너무 커서 사진이 가려지니까 절반 사이즈로'
-//   - 목록 미리보기: 미리보기 없이 올린 예전 사진은 화면에 보일 때 한 번 만들어 저장소에 넣음 (useSignedUrl · lib/imagePreview.ts)
-//   - 치수 선 · 글자: 예전의 절반 크기, 휴대폰처럼 사진이 좁게 보이면 읽을 수 있는 크기까지만 (MarkLayer · lib/siteMarks.ts)
+//   - 목록 미리보기: 올릴 때 미리보기를 만들지 못한 사진(예전 사진 · 아이폰 · 사파리에서 올린 사진 등)은
+//     화면에 보일 때 한 번 만들어 저장소에 넣음 (useSignedUrl · lib/imagePreview.ts)
+//   - 치수 선 · 점: 어느 화면에서나 예전의 절반. 글자는 절반이되 휴대폰에서는 8px 아래로 줄이지 않음 (MarkLayer · lib/siteMarks.ts)
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { ProjectOptions } from '../components/ProjectOptions'
 import { createPortal } from 'react-dom'
@@ -29,11 +30,44 @@ const readLast = () => {
   }
 }
 
+type Connection = { saveData?: boolean; type?: string; addEventListener?(type: 'change', on: () => void): void; removeEventListener?(type: 'change', on: () => void): void }
+const connectionOf = () => (typeof navigator === 'undefined' ? undefined : (navigator as Navigator & { connection?: Connection }).connection)
+
 /** 데이터 절약 모드 · 휴대폰 데이터 연결에서는 미리보기를 만들려고 원본 사진을 받지 않는다 (누르면 열리는 것은 그대로) */
 function savingData() {
-  const connection = (navigator as Navigator & { connection?: { saveData?: boolean; type?: string } }).connection
+  const connection = connectionOf()
   return connection?.saveData === true || connection?.type === 'cellular'
 }
+
+/** 와이파이로 바뀌면(데이터 절약을 끄면) 한 번 알려 준다. 알 수 없는 브라우저는 아무것도 하지 않음 */
+function whenDataAllowed(run: () => void) {
+  const connection = connectionOf()
+  if (!connection?.addEventListener || !connection.removeEventListener) return () => undefined
+  const changed = () => {
+    if (savingData()) return
+    connection.removeEventListener?.('change', changed)
+    run()
+  }
+  connection.addEventListener('change', changed)
+  return () => connection.removeEventListener?.('change', changed)
+}
+
+/** 데이터를 아끼느라 미리보기를 만들지 않은 사진이 있으면 목록마다 한 줄로 알려 준다 */
+const savingSkips = new Set<() => void>()
+function useSavingDataHint() {
+  const [skipped, setSkipped] = useState(false)
+  useEffect(() => {
+    const skip = () => setSkipped(true)
+    savingSkips.add(skip)
+    return () => {
+      savingSkips.delete(skip)
+    }
+  }, [])
+  // 와이파이로 바뀌면 안내를 내린다 (다시 데이터로 바뀌어 건너뛰면 또 보임)
+  useEffect(() => (skipped ? whenDataAllowed(() => setSkipped(false)) : undefined), [skipped])
+  return skipped && savingData()
+}
+const SAVING_DATA_HINT = '모바일 데이터에서는 미리보기를 만들지 않습니다. 와이파이에서 열면 만들어집니다.'
 
 /** 칸이 화면에 실제로 보이면 한 번 알려 준다. 지켜보는 장치 하나를 같이 써서 화면에 놓인 순서(위 → 아래)대로 알린다 */
 const seenRuns = new WeakMap<Element, () => void>()
@@ -88,8 +122,18 @@ function useSignedUrl(path: string | null | undefined, preview = false) {
   useEffect(() => {
     const current = attempt.current
     if (!missing || !path || !target || !current || current.key !== key) return
+    let waiting: (() => void) | null = null
     const make = () => {
-      if (!current.active || current.making || savingData()) return
+      if (!current.active || current.making) return
+      if (savingData()) {
+        // 와이파이로 바뀌면 그 자리에서 이어서 만든다 (화면을 다시 열지 않아도)
+        for (const skip of savingSkips) skip()
+        waiting ??= whenDataAllowed(() => {
+          waiting = null
+          make()
+        })
+        return
+      }
       current.making = true
       setImage({ key, url: null, state: 'making' })
       void api.ensureSitePhotoPreview(path)
@@ -97,7 +141,11 @@ function useSignedUrl(path: string | null | undefined, preview = false) {
         .catch(() => current.active && setImage({ key, url: null, state: 'failed' }))
     }
     // 화면에 실제로 보이는 사진만 (긴 목록에서 안 보이는 사진의 원본까지 받지 않게)
-    return whenSeen(target, make)
+    const stopSeen = whenSeen(target, make)
+    return () => {
+      stopSeen()
+      waiting?.()
+    }
   }, [api, path, key, missing, target])
   const retry = () => {
     const current = attempt.current
@@ -254,6 +302,7 @@ function PhotoTab({ project, projects }: { project: Project; projects: Project[]
     if (s.length === 1) setOpenId(s[0].id)
   })
   const open = shots.find(s => s.id === openId) ?? null
+  const savingHint = useSavingDataHint()
   return (
     <section className="section">
       <div className="site-upload">
@@ -301,6 +350,7 @@ function PhotoTab({ project, projects }: { project: Project; projects: Project[]
           ))}
         </div>
       )}
+      {savingHint && shots.length > 0 && <span className="t-cap site-thumb-note">{SAVING_DATA_HINT}</span>}
       {/* 화면 전체를 덮는 편집 창은 맨 바깥(body)에 (부모 칸에 잘리지 않게) */}
       {open && createPortal(<MeasureEditor key={open.id} shot={open} items={items} onClose={() => setOpenId(null)} onSaved={reload} />, document.body)}
     </section>
@@ -322,7 +372,8 @@ function Thumb({ shot, item, onOpen, picked }: { shot: SiteShot; item?: SiteSurv
 }
 
 /** 치수 선 그리기 · 값
- *  크기는 사진이 화면에 보이는 폭에 맞춰 정한다 (lib/siteMarks.ts): PC 는 예전의 절반, 휴대폰은 읽을 수 있는 크기까지만 줄임 */
+ *  크기는 사진이 화면에 보이는 폭에 맞춰 정한다 (lib/siteMarks.ts): 선 · 점은 늘 예전의 절반, 글자는 절반이되 8px 아래로는 안 줄임
+ *  (도면 핀 미리보기 PinPeek 도 같은 크기 규칙) */
 function MarkLayer({ marks, draft, aspect }: { marks: SiteMark[]; draft?: { x: number; y: number } | null; aspect: number }) {
   // viewBox: 가로 1000 · 세로 1000/aspect (사진 비율 그대로)
   const W = MARK_VIEW_WIDTH
@@ -473,6 +524,7 @@ function MeasureEditor({ shot, items, onClose, onSaved }: { shot: SiteShot; item
 function PlanTab({ project, projects }: { project: Project; projects: Project[] }) {
   const { api, version } = useApp()
   const { busy, run } = useAction()
+  const savingHint = useSavingDataHint()
   const { data, reload } = useAsync(
     async () => {
       const [plans, shots] = await Promise.all([api.listSitePlans(project.id).catch(() => [] as SitePlan[]), api.listSitePhotos(project.id).catch(() => [] as SiteShot[])])
@@ -597,6 +649,7 @@ function PlanTab({ project, projects }: { project: Project; projects: Project[] 
               ))}
             </div>
           )}
+          {savingHint && loose.length > 0 && <span className="t-cap site-thumb-note">{SAVING_DATA_HINT}</span>}
         </>
       )}
     </section>
@@ -607,7 +660,8 @@ function PickThumb({ shot, on, onPick }: { shot: SiteShot; on: boolean; onPick: 
   const { url, retry, making, watch } = useSignedUrl(shot.path, true)
   return (
     <button ref={watch} type="button" className={`site-pick-thumb ${on ? 'on' : ''}`} onClick={onPick} aria-pressed={on}>
-      {url ? <img src={url} alt="현장 사진" loading="lazy" decoding="async" onError={retry} /> : <span className="site-thumb-ph t-cap">{making ? '미리보기 만드는 중…' : shot.memo || '사진 선택'}</span>}
+      {/* 96×72 칸이라 짧게 (글자가 낱말 중간에서 끊기지 않게) */}
+      {url ? <img src={url} alt="현장 사진" loading="lazy" decoding="async" onError={retry} /> : <span className="site-thumb-ph t-cap">{making ? '만드는 중…' : shot.memo || '사진 선택'}</span>}
       {shot.marks.length > 0 && <b>{shot.marks.length}</b>}
     </button>
   )

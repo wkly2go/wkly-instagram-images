@@ -1,9 +1,10 @@
 // 설계·견적 — 인테리어 디자인 자동화 (2026-11-15 통합 1차): 프로젝트별 수량표 → 견적 → 공정, 검토함, 단가 · 협력사 · 자재 · 학습 자료
 // 금액 계산은 작업 처리기(견적 엔진)만 한다. 실행 단가 · 발주는 관리자에게만 보인다 (DB 정책 0125).
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Shell, type TabKey } from '../components/Shell'
 import { Badge, Button, Empty, Field, SectionHead } from '../components/ui'
 import { useAction, useApp, useAsync } from '../lib/app'
+import { friendlyError } from '../lib/api'
 import { won } from '../lib/date'
 import { useRouter, withQuery } from '../lib/router'
 import { readXlsx } from '../lib/xlsx'
@@ -157,6 +158,69 @@ function ProjectHead({ project }: { project: DesignProject }) {
   )
 }
 
+// ─────────────────────────────── 견적 자동 다시 계산 (2026-11-17 대표 지시 '견적 · 도면 · 스펙을 모두 연동 · 하나만 고쳐도 모두 연동')
+// 수량표가 견적과 달라지면(직접 고침 · 평면 자동 반영 · 스케치업 수량 보내기) 15초 기다렸다가 작업 처리기에 견적 계산을 맡긴다.
+// 같은 수량 상태(모델 번호 | 줄 수 | 수량 합)로는 딱 한 번만 맡긴다 — 계산 뒤에도 차이가 남으면 다시 맡기지 않고 사람이 확인 (되풀이 금지)
+const AUTO_EST_WAIT = 15_000
+const autoEstKey = (projectId: string) => `wkly-design-auto-est:${projectId}`
+const readAutoEst = (projectId: string): string[] => {
+  try {
+    const v: unknown = JSON.parse(localStorage.getItem(autoEstKey(projectId)) ?? '[]')
+    return Array.isArray(v) ? v.filter((s): s is string => typeof s === 'string') : []
+  } catch {
+    return []
+  }
+}
+const writeAutoEst = (projectId: string, list: string[]) => {
+  try {
+    localStorage.setItem(autoEstKey(projectId), JSON.stringify(list.slice(-30)))
+  } catch {
+    /* 이 기기에 기억하지 못해도 이 화면이 열린 동안은 다시 맡기지 않는다 */
+  }
+}
+const estJobActive = (jobs: DesignJob[]) => jobs.some(j => j.kind === 'estimate.build' && (j.status === 'queued' || j.status === 'running'))
+
+/** want: 견적이 수량과 다르고 · 수량이 있고 · 견적 계산이 대기 · 진행 중이 아님. 반환: 'wait'(곧 맡김) · 'sent'(이 수량 상태로 맡겼음) · null */
+function useAutoEstimate(projectId: string, want: boolean, sig: string, onSent: () => void): 'wait' | 'sent' | null {
+  const { api, toast } = useApp()
+  const asked = useRef<Set<string> | null>(null)
+  if (asked.current === null) asked.current = new Set(readAutoEst(projectId))
+  const [sent, setSent] = useState<string | null>(null)
+  const say = useRef(toast)
+  say.current = toast
+  const after = useRef(onSent)
+  after.current = onSent
+  useEffect(() => {
+    const seen = asked.current
+    if (!want || !seen || seen.has(sig)) return
+    let live = true
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        for (const s of readAutoEst(projectId)) seen.add(s) // 같은 기기의 다른 창이 이미 맡겼으면 건너뜀
+        if (seen.has(sig)) { if (live) setSent(sig); return }
+        try {
+          // 다른 사람 · 다른 창이 방금 맡긴 계산이 있으면 그것을 기다린다 (끝난 뒤에도 다르면 그때 한 번)
+          if (estJobActive(await api.listDesignJobs(projectId))) { after.current(); return }
+        } catch { /* 확인하지 못해도 맡긴다 */ }
+        if (!live) return
+        seen.add(sig)
+        writeAutoEst(projectId, [...seen])
+        try {
+          await api.requestDesignJob(projectId, 'estimate.build')
+          say.current('수량이 바뀌어 견적을 다시 계산합니다')
+        } catch (e) {
+          say.current(`견적 자동 계산을 맡기지 못했습니다. 견적에서 '견적 다시 계산'을 눌러 주세요. (${friendlyError(e)})`)
+        }
+        if (live) setSent(sig)
+        after.current()
+      })()
+    }, AUTO_EST_WAIT)
+    return () => { live = false; window.clearTimeout(timer) }
+  }, [api, projectId, want, sig])
+  if (want && asked.current && !asked.current.has(sig)) return 'wait'
+  return sent === sig ? 'sent' : null
+}
+
 type StepKey = 'survey' | 'proposal' | 'model' | 'qty' | 'estimate' | 'drawings' | 'spec' | 'schedule' | 'delivery'
 /** 작업 칸을 통째로 쓰는 단계 — '확인할 것'은 기본으로 접어 둔다 */
 const WIDE_STEPS: StepKey[] = ['model', 'drawings', 'proposal', 'spec', 'delivery']
@@ -174,7 +238,7 @@ function ProjectView({ project, base, pick, count, startBtn, startForm }: { proj
   const [wide, setWide] = useDesignWide(true)
   // 작업 처리기에 맡긴 일이 끝나면 견적 · 파일 · 검토함만 다시 읽는다 (평면처럼 고치고 있는 화면은 건드리지 않음)
   const [jobTick, setJobTick] = useState(0)
-  const { jobs } = useDesignJobs(project.id, () => setJobTick(t => t + 1))
+  const { jobs, reload: reloadJobs } = useDesignJobs(project.id, () => setJobTick(t => t + 1))
   const wideStep = WIDE_STEPS.includes(view)
   const [infoNormal, setInfoNormal] = useStoredFlag('wkly-design-info', true)
   const [infoWide, setInfoWide] = useStoredFlag('wkly-design-info-wide', false)
@@ -193,6 +257,9 @@ function ProjectView({ project, base, pick, count, startBtn, startForm }: { proj
   const confirmed = est ? decided.some(c => c.kind === 'estimate' && c.ref_id === est.id && c.status === 'approved') : false
   const qtySum = rows.reduce((s, r) => s + r.qty, 0), lineSum = lines.reduce((s, l) => s + l.qty, 0)
   const stale = !!est && lines.length > 0 && (est.model_version !== project.model_version || rows.length !== lines.length || Math.abs(qtySum - lineSum) > 0.0005)
+  // 수량이 바뀌면 견적을 저절로 다시 계산 (수동 '견적 다시 계산' 버튼은 그대로)
+  const estBusy = estJobActive(jobs)
+  const auto = useAutoEstimate(project.id, stale && rows.length > 0 && !estBusy, `${project.model_version}|${rows.length}|${qtySum.toFixed(3)}`, () => void reloadJobs())
   const surveyDone = survey.filter(i => i.status === '확인' || i.status === '해당없음').length
   const missing = lines.filter(l => l.unit_price == null).length
   const state: Record<StepKey, StepState> = {
@@ -220,6 +287,9 @@ function ProjectView({ project, base, pick, count, startBtn, startForm }: { proj
   const next: { text: string; to: StepKey } | null =
     rows.length === 0 ? { text: "수량을 넣으세요. '평면 · 3D'에서 그려 반영하거나, 스케치업에서 '수량 보내기', 또는 수량표에서 직접 넣습니다.", to: 'model' }
     : !est ? { text: "수량표에서 '이 수량으로 견적 계산'을 누르세요.", to: 'qty' }
+    : stale && estBusy ? { text: '수량이 바뀌어 견적을 다시 계산하고 있습니다. 끝나면 견적 · 견적서 파일이 새로 바뀝니다.', to: 'estimate' }
+    : stale && auto === 'wait' ? { text: '수량이 바뀌었습니다. 잠시 뒤 견적을 자동으로 다시 계산합니다.', to: 'estimate' }
+    : stale && auto === 'sent' ? { text: "자동으로 다시 계산했지만 견적이 수량과 아직 다릅니다. 견적에서 확인하고 필요하면 '견적 다시 계산'을 누르세요.", to: 'estimate' }
     : stale ? { text: "수량이 견적과 다릅니다. 견적에서 '견적 다시 계산'을 누르세요.", to: 'estimate' }
     : missing ? { text: `단가 없는 항목 ${missing}개에 판매 단가를 넣고 다시 계산하세요.`, to: 'estimate' }
     : !confirmed ? { text: '견적 초안을 검토함에서 확인(확정)하세요.', to: 'estimate' }

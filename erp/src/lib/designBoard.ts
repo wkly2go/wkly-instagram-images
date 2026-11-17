@@ -38,12 +38,25 @@ export function readBoard(data: unknown): ProposalBoard | null {
   return { v: 1, pages: pages.length ? pages : [newPage('표지')], comments: Array.isArray(d.comments) ? (d.comments as BoardComment[]).filter(c => c && typeof c.id === 'string') : [] }
 }
 
-/** 댓글 합치기: 저장 직전 서버의 최신 댓글과 내 댓글을 id 로 합친다 (내가 지운 것은 빼고, 같은 id 는 답글이 많은 쪽 · 같으면 내 것) */
+/** 답글 합치기: 두 쪽의 답글을 모두 남긴다 (같은 사람 · 시각 · 글은 하나로) · 시각 순서 */
+export function mergeReplies(a: BoardComment['replies'], b: BoardComment['replies']): BoardComment['replies'] {
+  const out = new Map<string, NonNullable<BoardComment['replies']>[number]>()
+  for (const r of [...(a ?? []), ...(b ?? [])]) if (r && typeof r.text === 'string') out.set(`${r.at}|${r.by}|${r.text}`, r)
+  const list = [...out.values()].sort((x, y) => String(x.at).localeCompare(String(y.at)))
+  return list.length ? list : undefined
+}
+/** 댓글 합치기: 저장 직전 서버의 최신 댓글과 내 댓글을 id 로 합친다 (내가 지운 것은 빼고, 같은 id 는 내 것 + 두 쪽 답글 모두 —
+ *  두 사람이 같은 댓글에 동시에 답글을 달아도 하나를 잃지 않는다) */
 export function mergeBoardComments(mine: BoardComment[], latest: BoardComment[], removed: Iterable<string> = []): BoardComment[] {
   const gone = new Set(removed)
   const out = new Map<string, BoardComment>()
   for (const c of latest) if (!gone.has(c.id)) out.set(c.id, c)
-  for (const c of mine) { const o = out.get(c.id); out.set(c.id, o && (o.replies?.length ?? 0) > (c.replies?.length ?? 0) ? { ...c, replies: o.replies } : c) }
+  for (const c of mine) {
+    const o = out.get(c.id)
+    if (!o) { out.set(c.id, c); continue }
+    const replies = mergeReplies(c.replies, o.replies)
+    out.set(c.id, replies ? { ...c, replies } : c)
+  }
   return [...out.values()].sort((a, b) => a.at.localeCompare(b.at))
 }
 

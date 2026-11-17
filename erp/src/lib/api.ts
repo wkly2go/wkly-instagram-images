@@ -361,7 +361,7 @@ export interface Api extends SalesStrategyApi, SalesApi, GrowthApi, SalesReportA
   deleteSiteLog(id: string): Promise<void>
   /** 현장 사진 올리기 (휴대폰 카메라 · 앨범). url 은 드라이브 저장 작업용 30일 서명 링크 */
   uploadSitePhoto(projectId: string, file: File): Promise<{ path: string; url: string }>
-  /** 화면에 보일 사진 링크 (1시간). 목록용 작은 미리보기는 아직 없는 사진(2026-11-12 전에 올린 것)이면 null */
+  /** 화면에 보일 사진 링크 (1시간). 목록용 작은 미리보기가 아직 없는 사진(올릴 때 미리보기를 못 만든 것 — 예전 사진 · 아이폰 사파리)이면 null */
   sitePhotoPreviewUrl(path: string, refresh?: boolean): Promise<string | null>
   /** 미리보기가 없는 예전 사진: 원본을 한 번 받아 작은 미리보기를 만들어 저장하고 그 링크를 돌려준다 (원본은 그대로).
    *  만들 수 없으면(브라우저가 읽지 못하는 형식 · 연결 오류) null — 오류를 던지지 않는다 */

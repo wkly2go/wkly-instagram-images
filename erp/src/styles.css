@@ -3858,7 +3858,9 @@ body, .book, .inner { background: var(--page-bg); }
 .site-pick-thumb.on { border-color: var(--blue); }
 .site-pick-thumb b { position: absolute; right: 2px; bottom: 2px; background: var(--blue); color: #fff; font: 700 var(--fs-cap)/1 var(--mono); padding: 2px 5px; }
 /* 미리보기가 아직 없는 사진 자리의 글('사진 열기' · '미리보기 만드는 중…')은 칸 가운데에 (2026-11-17) */
-.site-thumb-ph, .site-pick-thumb .site-thumb-ph { display: flex; align-items: center; justify-content: center; box-sizing: border-box; padding: 6px; overflow: hidden; text-align: center; line-height: 1.35; }
+.site-thumb-ph, .site-pick-thumb .site-thumb-ph { display: flex; align-items: center; justify-content: center; box-sizing: border-box; padding: 6px; overflow: hidden; text-align: center; line-height: 1.35; word-break: keep-all; overflow-wrap: anywhere; }
+/* 데이터 절약 중이라 미리보기를 만들지 않았다는 한 줄 (목록마다 한 번) */
+.site-thumb-note { display: block; color: var(--gray); }
 .site-peek { display: flex; flex-direction: column; gap: 8px; padding: 10px; border: 1px solid var(--line); background: #fafaf7; }
 @media (max-width: 640px) {
   .site-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }

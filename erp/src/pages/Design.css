@@ -70,7 +70,15 @@
 /* 단계 표시줄 (2026-11-17 작업 환경): 늘 한 줄 · 넘치면 옆으로 밀기 · 스크롤해도 위에 붙음 */
 .design-steps { display: flex; flex-wrap: nowrap; gap: 0; border: 1px solid var(--line); border-radius: 12px; background: var(--white); overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; overscroll-behavior-x: contain; position: sticky; top: var(--design-stick, 0px); z-index: 6; box-shadow: 0 2px 8px rgba(21, 29, 24, 0.07); flex: none; }
 .design-step { flex: 1 0 auto; display: flex; align-items: center; gap: 6px; padding: 5px 8px 3px; background: none; border: 0; border-right: 1px solid var(--line); border-bottom: 3px solid transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; min-width: 0; white-space: nowrap; }
-.design-step:last-child { border-right: 0; }
+.design-step:last-of-type { border-right: 0; }
+/* 옆에 단계가 더 있을 때: 그쪽 끝에 흐림 + 화살표 (폭 0 · 붙어 있는 칸이라 단계 자리를 밀지 않음 · 누르면 한 칸씩 밀림) */
+.design-steps-more { position: sticky; z-index: 2; flex: 0 0 0; width: 0; align-self: stretch; cursor: pointer; }
+.design-steps-more.l { left: 0; }
+.design-steps-more.r { right: 0; }
+.design-steps-more i { position: absolute; top: 0; bottom: 0; width: 34px; display: flex; align-items: center; color: var(--blue); font-style: normal; }
+.design-steps-more.l i { left: 0; justify-content: flex-start; padding-left: 4px; background: linear-gradient(to right, var(--white) 45%, rgba(255, 255, 255, 0)); }
+.design-steps-more.r i { right: 0; justify-content: flex-end; padding-right: 4px; background: linear-gradient(to left, var(--white) 45%, rgba(255, 255, 255, 0)); }
+.design-steps-more:hover i { color: var(--tx-key, #1f6b4a); }
 .design-step:hover { background: var(--paper); }
 .design-step:focus-visible { outline: 2px solid var(--blue); outline-offset: -2px; }
 .design-step.on { border-bottom-color: var(--blue); background: var(--v8-accent-soft, var(--paper)); }
@@ -218,6 +226,16 @@
 .design-step-nav { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-top: 10px; margin-top: 4px; border-top: 1px solid var(--line); }
 .design-step-nav .btn { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
 @media (max-width: 760px) { .design-step-nav .t-cap { display: none; } }
+/* 오른쪽 아래 보라 '비서' 단추(화면에 떠 있음 · 높이 40~44px)가 맨 아래 단계 이동 · 입력 칸을 가리지 않게 자리를 비워 둔다
+   PC: 단추는 오른쪽 아래 18px — 맨 끝까지 내리면 단계 이동 줄이 단추 위로 올라오고, 다음 단계 버튼은 단추 왼쪽에 놓임
+   휴대폰 · 터치: 단추는 아래 메뉴 위(92px) — 내용 끝에 단추 높이만큼 더 비움 */
+.design-work-main { padding-bottom: 60px; }
+.design-step-nav { padding-right: 96px; }
+body:has(.modal-col) .design-step-nav { padding-right: 0; padding-left: 96px; }
+@media (pointer: coarse), (max-width: 640px) {
+  .design-work-main { padding-bottom: 72px; }
+  .design-step-nav, body:has(.modal-col) .design-step-nav { padding-left: 0; padding-right: 0; }
+}
 
 /* 불러오지 못함 · 다시 시도 */
 .design-load-error { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 12px; border: 1px solid var(--line); border-left: 3px solid var(--red); border-radius: 8px; background: var(--paper); color: var(--gray); font-size: var(--fs-body); }

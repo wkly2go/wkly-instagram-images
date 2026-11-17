@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { floorOutline, mergeNotes, type PlanGeometry, type PlanWall } from '../src/lib/designPlan.ts'
+import { floorOutline, mergeNotes, planQuantities, type PlanGeometry, type PlanWall } from '../src/lib/designPlan.ts'
 import { doorSymbol, dimLine, moveCorner, outwardSides, scaleBarLength, setWallLength, wallPieces, wallSolids } from '../src/lib/designPlanDraw.ts'
 import { finishLook, itemShape, resolveFinish } from '../src/lib/designPlanLook.ts'
 import { dxfScale, dxfToWalls, parseDxf, planToDxf } from '../src/lib/designDxf.ts'
@@ -67,13 +67,67 @@ test('평면을 DXF 로 내보내고, 그 DXF 를 다시 읽으면 벽의 두 �
   const d = parseDxf(dxf)
   assert.ok(d.layers.some(l => l.name === 'A-WALL' && l.count >= 16))
   assert.equal(d.skipped.ARC, 1)
-  assert.deepEqual(dxfScale(d), { scale: 1, guessed: true })
-  assert.deepEqual(dxfScale({ units: 6, bounds: d.bounds }), { scale: 1000, guessed: false })
+  assert.deepEqual(dxfScale(d), { scale: 1, guessed: false }) // 내보낸 파일은 mm 표시 글을 넣는다
+  assert.deepEqual(dxfScale({ units: 6, bounds: { x0: 0, y0: 0, x1: 6.2, y1: 4.2 } }), { scale: 1000, guessed: false })
+  assert.equal(dxfScale({ units: 6, bounds: d.bounds }).guessed, true) // m 라고 적혔는데 6km 면 짐작으로
   const r = dxfToWalls(d, { layers: ['A-WALL'], scale: 1 })
-  // 문 · 창으로 끊긴 조각까지: 위(2) · 오른쪽(1) · 아래(2) · 왼쪽(1) = 6 벽, 두께 100
-  assert.equal(r.walls.length, 6)
+  // 문 · 창 자리를 건너 이어 붙여 원래 네 벽 · 닫힌 방, 빈칸은 문 · 창으로
+  assert.equal(r.walls.length, 4)
   assert.ok(r.walls.every(w => w.t === 100))
+  assert.equal(floorOutline(r.walls)?.length, 4)
+  assert.deepEqual(r.openings.map(o => [o.kind, o.width, o.pos]).sort(), [['door', 900, 1500], ['window', 1200, 3000]])
   assert.equal(Math.max(...r.walls.flatMap(w => [w.x1, w.x2])) - Math.min(...r.walls.flatMap(w => [w.x1, w.x2])), 6000)
+})
+
+test('내보낸 DXF 를 바꾸기로 다시 읽으면 같은 크기의 닫힌 방, 가벽 레이어는 새 가벽 · 나눠 가져와도 같은 자리', () => {
+  const g: PlanGeometry = { ...plan, walls: [...room, wall('p', 3800, 0, 3800, 2400, 'new')] }
+  const d = parseDxf(planToDxf(g))
+  const r = dxfToWalls(d, { layers: ['A-WALL', 'A-WALL-NEW'], scale: dxfScale(d).scale })
+  const ex = r.walls.filter(w => w.kind === 'existing')
+  assert.equal(ex.length, 4)
+  assert.deepEqual(floorOutline(ex)?.map(p => [p.x, p.y]).sort(), [[0, 0], [0, 4000], [6000, 0], [6000, 4000]])
+  assert.deepEqual(r.walls.filter(w => w.kind === 'new').map(w => [w.x1, w.y1, w.x2, w.y2]), [[3800, 0, 3800, 2400]])
+  const second = dxfToWalls(d, { layers: ['A-WALL-NEW'], scale: 1 })
+  assert.deepEqual(second.walls.map(w => [w.x1, w.y1, w.x2, w.y2, w.kind]), [[3800, 0, 3800, 2400, 'new']])
+})
+
+const dxfOf = (lines: number[][], layer = 'WALL') => ['0', 'SECTION', '2', 'ENTITIES', ...lines.flatMap(([a, b, c, e]) => ['0', 'LINE', '8', layer, '10', a, '20', b, '11', c, '21', e].map(String)), '0', 'ENDSEC', '0', 'EOF'].join('\n')
+test('겹친 벽을 만들지 않는다: 보드 네 줄 벽 · 12mm 유리 · 가운데 선 · 사각 기둥 · 한 줄 더 있는 벽', () => {
+  const walls = (lines: number[][]) => dxfToWalls(parseDxf(dxfOf(lines)), { layers: ['WALL'], scale: 1, kind: 'new' }).walls
+  const stud = walls([[0, 0, 4000, 0], [0, 12.5, 4000, 12.5], [0, 87.5, 4000, 87.5], [0, 100, 4000, 100]])
+  assert.deepEqual(stud.map(w => w.t), [100])
+  assert.equal(walls([[0, 0, 4000, 0], [0, 12, 4000, 12]]).map(w => w.t).join(), '12')
+  assert.deepEqual(walls([[0, 0, 4000, 0], [0, 75, 4000, 75], [0, 150, 4000, 150]]).map(w => w.t), [150])
+  assert.equal(walls([[0, 0, 400, 0], [400, 0, 400, 400], [400, 400, 0, 400], [0, 400, 0, 0]]).length, 1)
+  const extra = walls([[0, 0, 4000, 0], [0, 200, 4000, 200], [0, 500, 4000, 500]])
+  assert.ok(extra.some(w => w.t === 200) && !extra.some(w => w.t === 300))
+  const q = planQuantities({ unit: 'mm', height: 2700, walls: stud, openings: [], items: [] })
+  assert.equal(q[0].qty, 10.8)
+})
+
+test('T 자 벽은 가운데 선에 붙고, 6,000 줄 넘는 선은 짧은 것부터 빼고 알린다', () => {
+  // 두 방: 바깥 6200 × 4200 (두께 100), 가운데 칸막이 x 3100~3200
+  const lines = [[0, 0, 6200, 0], [0, 4200, 6200, 4200], [0, 0, 0, 4200], [6200, 0, 6200, 4200], [100, 100, 3100, 100], [3200, 100, 6100, 100], [100, 4100, 3100, 4100], [3200, 4100, 6100, 4100], [100, 100, 100, 4100], [6100, 100, 6100, 4100], [3100, 100, 3100, 4100], [3200, 100, 3200, 4100]]
+  const r = dxfToWalls(parseDxf(dxfOf(lines)), { layers: ['WALL'], scale: 1 })
+  const mid = r.walls.find(w => w.x1 === w.x2 && w.x1 === 3150)
+  assert.ok(mid, '칸막이')
+  // 캐드는 y 가 위쪽이라 화면에서는 음수 — 칸막이 끝이 위 · 아래 벽의 가운데 선(-50 · -4150)에 붙는다
+  assert.deepEqual([Math.min(mid!.y1, mid!.y2), Math.max(mid!.y1, mid!.y2)], [-4150, -50])
+  assert.equal(r.walls.filter(w => w.y1 === w.y2 && w.y1 === -50).length, 1) // 칸막이 자리에서 끊긴 벽도 한 벽으로
+  assert.equal(r.walls.length, 5)
+  const many = Array.from({ length: 6100 }, (_, i) => [0, i * 1000, 500 + (i % 7) * 100, i * 1000])
+  const m = dxfToWalls(parseDxf(dxfOf(many)), { layers: ['WALL'], scale: 1, pair: false })
+  assert.equal(m.truncated, 100)
+})
+
+test('DXF 읽기: 어긋난 줄 · 뒤집힌 폴리선 · \\U+ 레이어 이름 · 내보내기 글 줄바꿈', () => {
+  const text = ['', '0', 'SECTION', '2', 'ENTITIES', '0', 'LWPOLYLINE', '8', '\\U+BCBD\\U+CCB4', '230', '-1', '70', '0', '10', '1000', '20', '0', '10', '5000', '20', '0', '0', 'ENDSEC', '0', 'EOF'].join('\n')
+  const d = parseDxf(text)
+  assert.equal(d.layers[0].name, '벽체')
+  assert.deepEqual([d.segments[0].x1, d.segments[0].x2], [-1000, -5000])
+  const out = planToDxf({ ...plan, items: [{ ...plan.items[0], name: '소파\n둘' }] })
+  assert.ok(!/\n[^\r]/.test(out.replace(/\r\n/g, '')))
+  assert.ok(out.includes('\\U+C18C\\U+D30C \\U+B458'))
 })
 
 test('캐드에서 그린 겹선 벽(두 줄)을 가운데 선과 두께로 읽는다', () => {
@@ -97,4 +151,20 @@ test('스케치업 루비 스크립트: 벽 조각 · 바닥 · 집기를 만들
   assert.equal(s.split('\n').filter(l => l.includes("'WKLY-벽'") && l.includes('box.call')).length, 3 + 1 + 4 + 1)
   assert.match(s, /3인 소파 \\'A\\'/)
   assert.match(s, /WKLY 평면 · 테스트 \\'현장\\'/)
+})
+
+test('스케치업 스크립트: 두께 0 벽 · 크기 0 부품도 멈추지 않고, 상부장 · 벽걸이 TV · 매입등 · 펜던트는 높이에 놓는다', () => {
+  const base = plan.items[0]
+  const g: PlanGeometry = { ...plan, height: 0, walls: [...room.slice(0, 3), { ...room[3], t: 0 }, wall('z', 100, 100, 100, 100)],
+    items: [{ ...base, id: 'u', name: '상부장', z: 1500, h: 700 }, { ...base, id: 't', name: '벽걸이 TV', shape: 'tv', h: 600 }, { ...base, id: 'l', name: '매입등', shape: 'downlight', w: 100, d: 100, h: 80 }, { ...base, id: 'p', name: '펜던트', shape: 'pendant', h: 300 }, { ...base, id: 'x', name: '빈 상자', w: 0, d: 0 }, { ...base, id: 'n', name: '잘못', w: NaN }] }
+  const s = planToSketchupRuby(g, '시험')
+  assert.match(s, /# 벽 5: 길이가 없어 건너뜀/)
+  assert.match(s, /# 잘못: 크기가 비어 있어 건너뜀/)
+  assert.ok(!/\[(\[[-\d.]+, [-\d.]+\]), \1/.test(s.replace(/\s/g, ' '))) // 같은 점이 이어지는 면 없음
+  const z = (name: string) => s.split('\n').find(l => l.includes('box.call') && l.includes(`'${name}'`))!.match(/\]\], ([-\d.]+), ([-\d.]+), '/)!.slice(1).map(Number)
+  assert.deepEqual(z('상부장'), [1500, 2200])
+  assert.deepEqual(z('벽걸이 TV'), [900, 1500])
+  assert.deepEqual(z('매입등'), [2620, 2700])
+  assert.equal(z('펜던트')[1] <= 2700 && z('펜던트')[0] > 1500, true)
+  assert.match(s, /skipped \+= 1/); assert.match(s, /made\.to_s/)
 })

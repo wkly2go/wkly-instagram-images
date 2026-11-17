@@ -1,8 +1,8 @@
 // 평면 그리기 판 — 도면처럼 그리고(벽 몸통 · 문 열림 호 · 창 · 가구 기호 · 바깥 치수선 · 축척 막대),
 // 캐드처럼 다룬다(휠 확대 · 끌어서 이동 · 길이 숫자 입력 · 모서리 끌기 · 문 · 창 끌기). 자료(평면)는 바깥(DesignPlan)이 들고 있다.
 import { forwardRef, memo, useEffect, useImperativeHandle, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
-import { floorArea, floorOutline, snapPoint, wallLength, type PlanGeometry, type PlanNote, type PlanOpening, type PlanWall } from '../lib/designPlan'
-import { dimLine, moveCorner, outwardSides, pieceCorners, planBounds, scaleBarLength, wallFrame, wallSolids, type Pt } from '../lib/designPlanDraw'
+import { closedShell, floorArea, floorOutline, snapPoint, wallLength, type PlanGeometry, type PlanNote, type PlanOpening, type PlanWall } from '../lib/designPlan'
+import { dimLine, MIN_WALL, moveCorner, openingOverlaps, outwardSides, pieceCorners, planBounds, scaleBarLength, wallFrame, wallSolids, type Pt } from '../lib/designPlanDraw'
 import { mix, type FinishKind, type FinishLook } from '../lib/designPlanLook'
 import { footprint, ItemSymbol, itemLayer, OpeningSymbol, shapeOf } from './DesignPlanSymbols'
 
@@ -48,6 +48,8 @@ interface Props {
   /** 부품 놓기: 자리의 왼쪽 위 (격자에 맞춘 값) */
   onPlace(at: Pt): void
   onNote(at: Pt): void
+  /** 짧은 알림 (문 · 창을 겹쳐 내려 할 때 등) */
+  onNotice?(text: string): void
   /** 판 위에 얹는 것 (댓글 쓰는 칸). 평면 좌표 → 화면 좌표 함수를 받는다 */
   overlay?: (toScreen: (p: Pt) => Pt, size: { w: number; h: number }) => ReactNode
 }
@@ -61,39 +63,22 @@ const same = (a: Pt, b: Pt) => Math.abs(a.x - b.x) < 1 && Math.abs(a.y - b.y) < 
 
 /** 벽 끝이 다른 벽 끝과 만나는 모서리면 그 벽 두께의 반만큼 늘려 모서리를 채운다 */
 function cornerFill(walls: PlanWall[]): Map<string, [number, number]> {
-  const out = new Map<string, [number, number]>()
-  for (const w of walls) {
-    const ext = (x: number, y: number) => walls.reduce((m, o) => (o.id !== w.id && (same({ x: o.x1, y: o.y1 }, { x, y }) || same({ x: o.x2, y: o.y2 }, { x, y })) ? Math.max(m, o.t / 2) : m), 0)
-    out.set(w.id, [ext(w.x1, w.y1), ext(w.x2, w.y2)])
+  // 끝점마다 가장 두꺼운 벽 둘(자기 자신을 빼고 고르려고)을 한 번에 모은다 — 캐드에서 가져온 큰 평면도 끌기가 끊기지 않게
+  const key = (x: number, y: number) => `${Math.round(x)},${Math.round(y)}`
+  const top = new Map<string, { a: number; aid: string; b: number }>()
+  const put = (k: string, id: string, h: number) => {
+    const c = top.get(k)
+    if (!c) top.set(k, { a: h, aid: id, b: 0 })
+    else if (h > c.a) { c.b = c.a; c.a = h; c.aid = id } else if (h > c.b) c.b = h
   }
+  for (const w of walls) { put(key(w.x1, w.y1), w.id, w.t / 2); if (key(w.x2, w.y2) !== key(w.x1, w.y1)) put(key(w.x2, w.y2), w.id, w.t / 2) }
+  const ext = (k: string, id: string) => { const c = top.get(k); return !c ? 0 : c.aid === id ? c.b : c.a }
+  const out = new Map<string, [number, number]>()
+  for (const w of walls) out.set(w.id, [ext(key(w.x1, w.y1), w.id), ext(key(w.x2, w.y2), w.id)])
   return out
 }
-/** 닫힌 방을 이루는 기존 벽만 고른다: 한쪽 끝이 떠 있는 벽(그리다 만 벽 · 덧댄 벽)을 걷어 낸 뒤, 이어진 묶음 가운데 닫힌 것(여럿이면 가장 넓은 것) */
-export function closedShell(walls: PlanWall[]): PlanWall[] | null {
-  const key = (x: number, y: number) => `${Math.round(x)},${Math.round(y)}`
-  let live = walls.filter(w => wallLength(w) > 0)
-  for (;;) {
-    const deg = new Map<string, number>()
-    for (const w of live) for (const k of [key(w.x1, w.y1), key(w.x2, w.y2)]) deg.set(k, (deg.get(k) ?? 0) + 1)
-    const next = live.filter(w => (deg.get(key(w.x1, w.y1)) ?? 0) > 1 && (deg.get(key(w.x2, w.y2)) ?? 0) > 1)
-    if (next.length === live.length) break
-    live = next
-  }
-  if (live.length < 3) return null
-  if (floorOutline(live)) return live
-  const groups: PlanWall[][] = [], seen = new Set<string>()
-  for (const w of live) {
-    if (seen.has(w.id)) continue
-    const g = [w]
-    seen.add(w.id)
-    for (let i = 0; i < g.length; i++) {
-      const ends = new Set([key(g[i].x1, g[i].y1), key(g[i].x2, g[i].y2)])
-      for (const o of live) if (!seen.has(o.id) && (ends.has(key(o.x1, o.y1)) || ends.has(key(o.x2, o.y2)))) { seen.add(o.id); g.push(o) }
-    }
-    groups.push(g)
-  }
-  return groups.filter(g => floorOutline(g)).sort((a, b) => (floorArea(b) ?? 0) - (floorArea(a) ?? 0))[0] ?? null
-}
+/** 닫힌 방 규칙은 lib/designPlan 의 것 하나만 쓴다 (예전에 여기서 가져가던 곳을 위해 그대로 내보낸다) */
+export { closedShell }
 function centroid(pts: Pt[]): Pt {
   let a = 0, cx = 0, cy = 0
   for (let i = 0; i < pts.length; i++) { const p = pts[i], q = pts[(i + 1) % pts.length], k = p.x * q.y - q.x * p.y; a += k; cx += (p.x + q.x) * k; cy += (p.y + q.y) * k }
@@ -244,10 +229,10 @@ export const DesignPlanCanvas = forwardRef<PlanCanvasHandle, Props>(function Des
     return { x: v.cx + (e.clientX - r.left - z.w / 2) * v.s, y: v.cy + (e.clientY - r.top - z.h / 2) * v.s }
   }
   /** 벽 그리기 · 모서리 끌기의 맞춤: 가까운 벽 끝에 먼저 붙고, 아니면 격자(직전 점 기준으로 곧게) */
-  const snapDraw = (p: Pt, from: Pt | null, free: boolean, skip?: Pt, walls = live.current.plan.walls): Pt & { snap?: boolean } => {
+  const snapDraw = (p: Pt, from: Pt | null, free: boolean, skip: Pt[] = [], walls = live.current.plan.walls): Pt & { snap?: boolean } => {
     let best: Pt | null = null, bd = 10 * live.current.view.s
     for (const w of walls) for (const c of [{ x: w.x1, y: w.y1 }, { x: w.x2, y: w.y2 }]) {
-      if (skip && same(c, skip)) continue
+      if (skip.some(k => same(c, k))) continue
       const d = Math.hypot(c.x - p.x, c.y - p.y)
       if (d < bd) { bd = d; best = c }
     }
@@ -405,7 +390,8 @@ export const DesignPlanCanvas = forwardRef<PlanCanvasHandle, Props>(function Des
     }
     const L = live.current, P = L.props, d = drag.current, p = worldOf(e)
     if (d && d.id === e.pointerId) {
-      if (Math.hypot(e.clientX - d.sx, e.clientY - d.sy) > 3) d.moved = true
+      // 손가락 · 펜은 누르는 사이에도 조금 움직인다 → 마우스보다 넉넉하게 봐야 누른 것이 끌기로 바뀌지 않는다
+      if (Math.hypot(e.clientX - d.sx, e.clientY - d.sy) > (e.pointerType === 'mouse' ? 3 : 9)) d.moved = true
       if (d.kind === 'pan' || ((d.kind === 'empty' || d.kind === 'wall') && d.moved)) {
         setPanning(true)
         auto.current = false
@@ -413,7 +399,8 @@ export const DesignPlanCanvas = forwardRef<PlanCanvasHandle, Props>(function Des
         return
       }
       if (!d.moved || d.kind === 'click' || d.kind === 'empty' || d.kind === 'wall') return
-      if (!d.started) { d.started = true; P.onDragStart() }
+      // 끌기를 시작하는 때의 평면을 바탕으로 (누르는 순간 칸을 벗어나며 반영된 길이 입력이 되돌아가지 않게)
+      if (!d.started) { d.started = true; P.onDragStart(); d.base = live.current.plan }
       if (d.kind === 'items') {
         const one = d.ids.length === 1
         const dx = Math.round((p.x - d.p0.x) / GRID) * GRID, dy = Math.round((p.y - d.p0.y) / GRID) * GRID
@@ -425,13 +412,18 @@ export const DesignPlanCanvas = forwardRef<PlanCanvasHandle, Props>(function Des
           return q.x === i.x && q.y === i.y ? i : { ...i, x: q.x, y: q.y }
         }) }))
       } else if (d.kind === 'corner') {
-        const to = snapDraw(p, e.shiftKey ? d.corner : null, !e.shiftKey, d.corner, d.base.walls)
+        // 이 모서리에 닿은 벽의 맞은편 끝에는 붙지 않는다 (붙으면 벽 길이가 0 이 된다)
+        const far = d.base.walls.flatMap(w => (same({ x: w.x1, y: w.y1 }, d.corner) ? [{ x: w.x2, y: w.y2 }] : same({ x: w.x2, y: w.y2 }, d.corner) ? [{ x: w.x1, y: w.y1 }] : []))
+        const to = snapDraw(p, e.shiftKey ? d.corner : null, !e.shiftKey, [d.corner, ...far], d.base.walls)
+        if (far.some(f => Math.hypot(f.x - to.x, f.y - to.y) < MIN_WALL)) return
         P.onDrag(cur => ({ ...cur, walls: moveCorner(d.base.walls, d.corner, { x: to.x, y: to.y }) }))
       } else if (d.kind === 'opening') {
         const o = d.base.openings.find(x => x.id === d.openingId), w = o && d.base.walls.find(x => x.id === o.wall)
         if (!o || !w) return
         const f = wallFrame(w)
         const at = seat((p.x - w.x1) * f.ux + (p.y - w.y1) * f.uy, o.width, f.len)
+        // 같은 벽의 다른 문 · 창 위로는 옮기지 않는다
+        if (openingOverlaps(d.base.openings, o.wall, at.pos, o.width, o.id)) return
         P.onDrag(cur => ({ ...cur, openings: cur.openings.map(x => (x.id !== o.id || x.pos === at.pos ? x : { ...x, pos: at.pos })) }))
       }
       return
@@ -461,6 +453,8 @@ export const DesignPlanCanvas = forwardRef<PlanCanvasHandle, Props>(function Des
       const hit = nearestWall(p)
       if (!hit) return
       const at = seat(hit.pos, P.openW > 0 ? P.openW : L.tool === 'door' ? 900 : 1200, hit.len)
+      const clash = openingOverlaps(L.plan.openings, hit.w.id, at.pos, at.width)
+      if (clash) { P.onNotice?.(`이 자리에는 이미 ${clash.kind === 'door' ? '문' : '창'}이 있습니다. 비어 있는 벽 부분을 눌러 주세요`); return }
       const o: PlanOpening = { id: uid(), wall: hit.w.id, pos: at.pos, width: at.width, kind: L.tool }
       P.onChange(cur => ({ ...cur, openings: [...cur.openings, o] }))
       P.onSelect([o.id])

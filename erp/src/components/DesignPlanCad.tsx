@@ -4,8 +4,8 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { Download, FileUp } from 'lucide-react'
 import { Button, Modal } from './ui'
-import type { PlanGeometry, PlanWall } from '../lib/designPlan'
-import { dxfScale, dxfToWalls, isWallLayer, parseDxf, planToDxf, type DxfDrawing } from '../lib/designDxf'
+import type { PlanGeometry, PlanOpening, PlanWall } from '../lib/designPlan'
+import { DXF_MAX_LINES, dxfScale, dxfToWalls, isWallLayer, layerKind, parseDxf, planToDxf, type DxfDrawing } from '../lib/designDxf'
 import { planToSketchupRuby } from '../lib/designSketchup'
 import type { FinishKind, FinishLook } from '../lib/designPlanLook'
 import './DesignPlanLibrary.css'
@@ -27,7 +27,8 @@ function decode(buf: ArrayBuffer): string {
 
 type Loaded = { name: string; drawing: DxfDrawing }
 
-export function DesignPlanCadImport({ onImport, onClose }: { onImport(walls: PlanWall[], mode: 'replace' | 'add'): void; onClose(): void }) {
+/** onImport 의 openings: 이어 붙인 벽 사이 빈칸(문 · 창 자리) — 벽 id 로 이어진다 */
+export function DesignPlanCadImport({ onImport, onClose }: { onImport(walls: PlanWall[], mode: 'replace' | 'add', openings?: PlanOpening[]): void; onClose(): void }) {
   const [file, setFile] = useState<Loaded | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -59,8 +60,9 @@ export function DesignPlanCadImport({ onImport, onClose }: { onImport(walls: Pla
       if (!alive.current) return
       if (!drawing.segments.length) { setFile(null); setError('이 파일에서 선을 찾지 못했습니다. 벽이 블록으로 묶여 있으면 캐드에서 분해한 뒤 다시 저장해 주세요.'); return }
       const walls = drawing.layers.filter(l => isWallLayer(l.name)).map(l => l.name)
-      const s = dxfScale(drawing)
-      setFile({ name: f.name, drawing }); setLayers(walls.length ? walls : drawing.layers.map(l => l.name)); setScale(s.scale); setGuessed(s.guessed)
+      const pick = walls.length ? walls : drawing.layers.map(l => l.name)
+      const s = dxfScale(drawing, pick)
+      setFile({ name: f.name, drawing }); setLayers(pick); setScale(s.scale); setGuessed(s.guessed)
     } catch (e) {
       if (!alive.current) return
       setFile(null)
@@ -95,14 +97,15 @@ export function DesignPlanCadImport({ onImport, onClose }: { onImport(walls: Pla
   }, [drawing])
 
   const count = result?.walls.length ?? 0
-  const odd = size ? Math.max(size.w, size.h) < 1000 || Math.max(size.w, size.h) > 300000 : false
+  const newLayers = layers.filter(l => layerKind(l) === 'new')
+  const odd = size ? Math.max(size.w, size.h) < 1000 || Math.max(size.w, size.h) > 500000 : false
   const toggle = (name: string) => setLayers(cur => (cur.includes(name) ? cur.filter(x => x !== name) : [...cur, name]))
   const all = drawing?.layers.map(l => l.name) ?? []
 
   return (
     <Modal title="캐드 도면 가져오기" onClose={onClose} wide actions={<>
       <Button kind="outline" onClick={onClose}>닫기</Button>
-      <Button disabled={!count} onClick={() => { if (result?.walls.length) onImport(result.walls, mode) }}>{count ? `벽 ${comma(count)}개${mode === 'replace' ? '로 바꾸기' : ' 더하기'}` : '가져오기'}</Button>
+      <Button disabled={!count} onClick={() => { if (result?.walls.length) onImport(result.walls, mode, result.openings) }}>{count ? `벽 ${comma(count)}개${mode === 'replace' ? '로 바꾸기' : ' 더하기'}` : '가져오기'}</Button>
     </>}>
       <div className="dpk">
         <div className={`dpk-drop${over ? ' over' : ''}`} onDragOver={e => { e.preventDefault(); setOver(true) }} onDragLeave={() => setOver(false)} onDrop={e => { e.preventDefault(); setOver(false); void read(e.dataTransfer.files?.[0]) }}>
@@ -134,7 +137,7 @@ export function DesignPlanCadImport({ onImport, onClose }: { onImport(walls: Pla
                 <input inputMode="numeric" value={thickness} onChange={e => setThickness(e.target.value.replace(/\D/g, '').slice(0, 4))} />
               </label>
             </div>
-            <p className={`dpk-size${odd ? ' warn' : ''}`}>{size ? <>전체 크기 약 <b>{meters(size.w)} m × {meters(size.h)} m</b>{odd ? ' — 크기가 실제와 다르면 도면 단위를 바꿔 주세요.' : guessed ? ' — 단위가 적혀 있지 않아 크기로 짐작했습니다. 실제와 맞는지 확인해 주세요.' : ''}</> : '레이어를 하나 이상 골라 주세요.'}</p>
+            <p className={`dpk-size${odd ? ' warn' : ''}`}>{size ? <>전체 크기 약 <b>{meters(size.w)} m × {meters(size.h)} m</b>{odd ? ' — 크기가 실제와 다르면 도면 단위를 바꿔 주세요.' : guessed ? ' — 도면에 단위가 없거나 크기와 맞지 않아 벽 두께로 짐작했습니다. 실제와 맞는지 확인해 주세요.' : ''}</> : '레이어를 하나 이상 골라 주세요.'}</p>
 
             <div className="dpk-row"><span className="dpk-label">벽 종류</span>
               <div className="dpk-seg" role="group" aria-label="벽 종류">
@@ -142,13 +145,14 @@ export function DesignPlanCadImport({ onImport, onClose }: { onImport(walls: Pla
                 <button type="button" className={kind === 'new' ? 'on' : ''} aria-pressed={kind === 'new'} onClick={() => setKind('new')}>새 가벽</button>
               </div>
             </div>
+            {newLayers.length > 0 && <p className="dpk-note">{newLayers.join(' · ')} 레이어는 이름에 NEW · 가벽이 있어 늘 새 가벽으로 가져옵니다.</p>}
             <div className="dpk-row"><span className="dpk-label">넣는 방법</span>
               <div className="dpk-seg" role="group" aria-label="넣는 방법">
                 <button type="button" className={mode === 'replace' ? 'on' : ''} aria-pressed={mode === 'replace'} onClick={() => setMode('replace')}>바꾸기</button>
                 <button type="button" className={mode === 'add' ? 'on' : ''} aria-pressed={mode === 'add'} onClick={() => setMode('add')}>더하기</button>
               </div>
             </div>
-            <p className="dpk-note">{mode === 'replace' ? '지금 평면의 벽을 이 도면의 벽으로 바꿉니다. 지워진 벽에 있던 문 · 창도 함께 빠지고, 부품과 댓글은 그대로 둡니다. 되돌리기로 돌아갈 수 있습니다.' : '지금 평면은 그대로 두고 이 도면의 벽을 더합니다.'}</p>
+            <p className="dpk-note">{mode === 'replace' ? '지금 평면의 벽을 이 도면의 벽으로 바꿉니다. 지워진 벽에 있던 문 · 창도 함께 빠지고, 부품과 댓글은 그대로 둡니다. 되돌리기로 돌아갈 수 있습니다.' : '지금 평면은 그대로 두고 이 도면의 벽을 더합니다.'} 벽은 도면에 적힌 좌표 그대로 놓습니다 — 같은 도면을 레이어별로 나눠 가져와도 같은 자리에 겹칩니다{result && (result.shift.x || result.shift.y) ? ' (도면이 원점에서 아주 멀어 도면 전체의 왼쪽 위 모서리를 기준으로 옮겼습니다)' : ''}.</p>
             <label className="dpk-check"><input type="checkbox" checked={pair} onChange={e => setPair(e.target.checked)} /><span><b>겹선 벽을 한 벽으로 묶기</b> — 캐드는 벽을 두 줄(양쪽 면)로 그립니다. 나란히 가까운 두 선을 가운데 선 하나와 두께로 묶습니다.</span></label>
           </div>
 
@@ -161,8 +165,9 @@ export function DesignPlanCadImport({ onImport, onClose }: { onImport(walls: Pla
                 </svg>
                 : <span>{layers.length ? '벽으로 만들 선이 없습니다. 다른 레이어를 골라 보세요.' : '레이어를 고르면 벽이 보입니다.'}</span>}
             </div>
-            <p className="dpk-sum" role="status">{result ? <>벽 <b>{comma(count)}개</b> (묶음 {comma(result.paired)} · 한 줄 {comma(result.single)} · 버림 {comma(result.dropped)})</> : '벽 0개'}</p>
-            <p className="dpk-note">묶음은 두 줄을 한 벽으로 합친 것, 한 줄은 짝이 없어 적어 주신 두께로 만든 벽, 버림은 너무 짧아 벽으로 보지 않은 선입니다.</p>
+            <p className="dpk-sum" role="status">{result ? <>벽 <b>{comma(count)}개</b> (묶음 {comma(result.paired)} · 한 줄 {comma(result.single)} · 버림 {comma(result.dropped)}){result.openings.length > 0 && <> · 문 · 창 자리 {comma(result.openings.length)}곳</>}</> : '벽 0개'}</p>
+            {result && result.truncated > 0 && <p className="dpk-error" role="alert">선이 너무 많아 긴 선부터 {comma(DXF_MAX_LINES)}줄만 읽었습니다. 짧은 선 {comma(result.truncated)}줄은 빠졌습니다 — 벽 레이어만 고르거나, 캐드에서 층 · 구역별로 나눠 저장해 주세요.</p>}
+            <p className="dpk-note">묶음은 두 줄(양쪽 면)을 한 벽으로 합친 것, 한 줄은 짝이 없어 적어 주신 두께로 만든 벽, 버림은 너무 짧아 벽으로 보지 않은 선입니다. 문 · 창 자리처럼 끊긴 같은 벽은 2.4m 까지 이어 붙이고, 그 자리는 문 · 창으로 표시합니다.</p>
             {skipped.length > 0 && <p className="dpk-note">읽지 않은 것: {skipped.map(([word, n]) => `${word} ${comma(n)}개`).join(' · ')}. 호 · 블록 · 글 등은 읽지 않습니다 — 블록 안의 벽은 캐드에서 분해한 뒤 저장해 주세요.</p>}
           </div>
         </div>}

@@ -222,3 +222,6 @@
 .dpn-compose textarea { width: 100%; min-height: 66px; resize: none; font-size: var(--fs-body); }
 .dpn-compose-acts { display: flex; justify-content: flex-end; gap: 6px; }
 .dpn-draft-pin { position: absolute; z-index: 4; width: 14px; height: 14px; margin: -7px 0 0 -7px; border: 2px solid var(--white); border-radius: 50% !important; background: var(--pink); box-shadow: 0 1px 4px rgba(31, 42, 36, 0.3); pointer-events: none; }
+
+/* 휴대폰 '화면 어둡게'(짙은 초록): 글자 색 토큰(--tx-*)은 밝은 화면 값뿐이라 작업 공간 안에서만 밝은 글자로 바꾼다 (평면 판 · 3D 의 그림 색은 그대로) */
+html[data-theme="dark"] .dpw, html[data-theme="dark"] .design-plan-qty { --tx-title: var(--ink); --tx-body: var(--ink); --tx-sub: var(--gray); --tx-key: var(--blue); }

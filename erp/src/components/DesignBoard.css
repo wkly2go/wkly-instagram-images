@@ -228,3 +228,15 @@
 /* 구성안 (글) | 보드 전환 */
 .dbd-switch { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-bottom: 8px; }
 .dbd-switch .dbd-hint { flex: 1 1 240px; }
+
+/* 제품 사진 (속성 탭 · 판의 카드에 사진 끌어 놓기) — 사진은 스펙북에 저장한다 */
+.dbd-photo-box { display: flex; flex-direction: column; gap: 6px; }
+.dbd-photo { position: relative; width: 100%; aspect-ratio: 4 / 3; overflow: hidden; border-radius: 10px !important; background: var(--v8-bg, #f6f4ef); border: 1px dashed var(--line); }
+.dbd-photo.has { border-style: solid; background: var(--white); }
+.dbd-photo img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.dbd-photo .dbd-photo-swatch { width: 100%; height: 100%; border-radius: 0 !important; box-shadow: none; }
+.dbd-photo-none { position: absolute; left: 8px; bottom: 8px; padding: 2px 8px; border-radius: 999px !important; background: rgba(255, 255, 255, .9); color: var(--gray); font-size: var(--fs-body); }
+.dbd-photo-busy { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, .85); color: var(--blue); font-size: var(--fs-body); font-weight: 700; }
+.dbd-photo.busy { border-color: var(--blue); }
+.dbd-el.drop-ok::after { content: '제품 사진으로 넣기'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(232, 243, 236, .82); box-shadow: inset 0 0 0 calc(4px * var(--ik, 1)) var(--blue); color: var(--blue); font-size: calc(var(--fs-sub) * var(--ik, 1)); font-weight: 700; border-radius: 12px; pointer-events: none; }
+.dbd-el.drop-no::after { content: '여기에는 사진을 둘 수 없습니다 · 스펙 카드 위에 놓아 주세요'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; text-align: center; padding: 12px; background: rgba(255, 255, 255, .75); box-shadow: inset 0 0 0 calc(3px * var(--ik, 1)) var(--line); color: var(--gray); font-size: calc(var(--fs-body) * var(--ik, 1)); font-weight: 400; pointer-events: none; }

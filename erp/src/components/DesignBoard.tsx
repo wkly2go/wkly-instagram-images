@@ -7,12 +7,14 @@ import { createPortal } from 'react-dom'
 import { AlignCenter, AlignLeft, AlignRight, ArrowDown, ArrowUp, Bold, BringToFront, Copy, ExternalLink, Image as ImageIcon, LayoutGrid, Lock, Maximize2, MessageCircle, Minimize2, Minus, MousePointer2, Palette, Play, Plus, Printer, Redo2, SendToBack, Square, StickyNote, Table2, Trash2, Type, Undo2, Unlock, Users, Wand2 } from 'lucide-react'
 import { Button } from './ui'
 import { useApp, useAsync } from '../lib/app'
+import { friendlyError } from '../lib/api'
 import { useRouter } from '../lib/router'
 import { SPEC_BOOKS, SPEC_STATUS, type DesignProject, type DesignRender, type ProposalSection, type ProposalTemplateSection, type SpecBook, type SpecItem } from '../lib/design'
 import { BUILTIN_LIBRARY, finishText, type LibraryFinish } from '../lib/designLibrary'
 import { boundsOf, cardGrid, chunk, cloneEls, emptyBoard, freeSpot, mergeBoardComments, newPage, readBoard, restack, topZ, uid, type BoardComment, type BoardEl, type BoardElType, type BoardPage, type BoardStyle, type ProposalBoard } from '../lib/designBoard'
 import { DesignBoardCanvas, type BoardCanvasHandle, type BoardTool, type Pin } from './DesignBoardCanvas'
 import { BoardDataContext, BoardPageView, STATUS_KEYS, SpecThumb, elLabel, scheduleRows, type BoardData } from './DesignBoardEl'
+import { imageFileOf, specPhotoData } from './DesignSpec'
 import './DesignBoard.css'
 
 type Peer = { id: string; name: string }
@@ -36,7 +38,7 @@ function Num({ label, value, onCommit, min = -9999 }: { label: string; value: nu
   const [t, setT] = useState(String(Math.round(value)))
   useEffect(() => setT(String(Math.round(value))), [value])
   const commit = () => { const n = Number(t); if (Number.isFinite(n) && Math.round(n) !== Math.round(value)) onCommit(Math.max(min, Math.round(n))); else setT(String(Math.round(value))) }
-  return <label className="dbd-num"><span>{label}</span><input className="input xs" inputMode="numeric" value={t} onChange={e => setT(e.target.value.replace(/[^\d-]/g, ''))} onBlur={commit} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); commit() } }} /></label>
+  return <label className="dbd-num"><span>{label}</span><input className="input xs" inputMode="numeric" value={t} onChange={e => setT(e.target.value.replace(/[^\d-]/g, ''))} onBlur={commit} onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); commit() } }} /></label>
 }
 function Swatches({ label, colors, value, onPick, none }: { label: string; colors: string[]; value?: string; onPick(c: string | undefined): void; none?: string }) {
   return <div className="dbd-field"><span className="dbd-label">{label}</span><div className="dbd-colors">
@@ -143,6 +145,9 @@ export default function DesignBoard({ project }: { project: DesignProject }) {
   const canvas = useRef<BoardCanvasHandle>(null)
   const clip = useRef<{ els: BoardEl[]; page: string; n: number }>({ els: [], page: '', n: 0 })
   const watch = useRef<{ saved(): void; close(): void } | null>(null)
+  const [photoBusy, setPhotoBusy] = useState<string | null>(null)
+  const photoInput = useRef<HTMLInputElement>(null)
+  const pasteSeen = useRef(false)
 
   const put = (next: ProposalBoard) => { boardRef.current = next; setBoardState(next) }
   const touch = () => { rev.current += 1; dirtyRef.current = true; setDirtyState(true); setRevTick(rev.current) }
@@ -192,10 +197,11 @@ export default function DesignBoard({ project }: { project: DesignProject }) {
 
   // ── 저장 (자동 저장 · 지금 저장) ─────────────────────────
   /** 저장할 내용: 내 페이지 + 서버의 최신 댓글에 내 댓글을 합친 것 (다른 사람의 댓글을 잃지 않게) */
-  const persist = async (pid: string, mine: ProposalBoard): Promise<ProposalBoard> => {
+  // 내가 고친 · 지운 댓글 목록은 부르는 순간에 떠 둔다 (기다리는 사이 다른 프로젝트로 넘어가 목록이 비어도 잃지 않게)
+  const persist = async (pid: string, mine: ProposalBoard, touched = new Set(cTouched.current.keys()), removed = [...cRemoved.current.keys()]): Promise<ProposalBoard> => {
     const row = await api.getProposalBoard(pid)
     const latest = row ? readBoard(row.board) : null
-    const comments = mergeBoardComments(mine.comments.filter(c => cTouched.current.has(c.id)), latest?.comments ?? [], cRemoved.current.keys())
+    const comments = mergeBoardComments(mine.comments.filter(c => touched.has(c.id)), latest?.comments ?? [], removed)
     const out: ProposalBoard = { v: 1, pages: mine.pages, comments }
     await api.saveProposalBoard(pid, out)
     return out
@@ -204,6 +210,8 @@ export default function DesignBoard({ project }: { project: DesignProject }) {
     const pid = project.id, ep = epoch.current
     const job = (async () => {
       if (inflight.current) await inflight.current.catch(() => false)
+      // 끄는 중에는 반쯤 옮긴 자리를 저장하지 않는다 (놓으면 그때 저장)
+      while (dragging.current && ep === epoch.current) await new Promise(r => window.setTimeout(r, 200))
       if (!ready.current || ep !== epoch.current) return false
       setSaveState('saving')
       const startRev = rev.current
@@ -466,6 +474,32 @@ export default function DesignBoard({ project }: { project: DesignProject }) {
     catch { toast('상태를 바꾸지 못했습니다') } finally { setBusy(false) }
   }
 
+  // ── 제품 사진: 스펙북의 사진을 그대로 쓴다 (보드에는 파일을 두지 않는다) ──
+  const specOfEl = (e: BoardEl | null | undefined): SpecItem | null => {
+    const id = !e ? null : e.type === 'spec' ? e.spec_id : e.type === 'image' && e.src?.startsWith('spec:') ? e.src.slice(5) : null
+    return id ? specs.find(s => s.id === id) ?? null : null
+  }
+  const setSpecPhoto = async (item: SpecItem, file: File | null) => {
+    if (photoBusy) { toast('앞의 사진을 넣는 중입니다. 잠시 뒤에 다시 해 주세요'); return }
+    setPhotoBusy(item.id)
+    try {
+      const data = file ? await specPhotoData(file) : null
+      await api.setSpecImage(project.id, item.id, data)
+      bump()
+      toast(file ? `${item.code ?? item.name} 제품 사진을 넣었습니다 · 이 항목의 카드와 스펙북에 모두 나옵니다` : `${item.code ?? item.name} 제품 사진을 지웠습니다`)
+    } catch (e) { toast(friendlyError(e)) } finally { setPhotoBusy(null) }
+  }
+  const NO_FILE = '사진은 스펙 카드 위에 놓거나, 스펙 카드를 고른 뒤 붙여 넣어 주세요. 보드에는 파일을 따로 두지 않습니다 — 스펙북에서 넣어도 됩니다'
+  const dropFile = (file: File, pageId: string, elId: string | null) => {
+    if (locked) return
+    const el = elId ? boardRef.current.pages.find(p => p.id === pageId)?.els.find(e => e.id === elId) ?? null : null
+    const item = specOfEl(el)
+    if (!el || !item) { toast(NO_FILE); return }
+    if (pageId !== curRef.current) setCur(pageId)
+    setSel([el.id]); setTab('props')
+    void setSpecPhoto(item, file)
+  }
+
   // ── 댓글 ─────────────────────────────────────────────────
   const editComments = (fn: (list: BoardComment[]) => BoardComment[], touched?: string, removed?: string) => {
     if (!ready.current) return
@@ -490,12 +524,18 @@ export default function DesignBoard({ project }: { project: DesignProject }) {
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return
       const a = document.activeElement
       if (a && a !== document.body && !root.current?.contains(a)) return
-      const mod = e.ctrlKey || e.metaKey, k = e.key.toLowerCase()
+      if (e.isComposing || e.keyCode === 229) return
+      // 끄는 중에는 되돌리기 · 지우기 등이 끄는 자료와 엇갈리지 않게 단축키를 쉰다
+      if (dragging.current) return
+      // 한글 자판일 때도 단축키가 듣게: 글자 대신 눌린 자리(KeyT 등)를 본다
+      const mod = e.ctrlKey || e.metaKey, k0 = e.key.toLowerCase(), at = /^Key[A-Z]$/.test(e.code) ? e.code.slice(3).toLowerCase() : ''
+      const k = at && k0.length === 1 && !/^[ -~]$/.test(k0) ? at : k0
       if (mod && !e.altKey && k === 'z') { e.preventDefault(); step(e.shiftKey ? 'redo' : 'undo'); return }
       if (mod && !e.altKey && k === 'y') { e.preventDefault(); step('redo'); return }
       if (mod && k === 'd') { e.preventDefault(); duplicate(); return }
       if (mod && k === 'c') { if (selEls.length) { e.preventDefault(); copy() } return }
-      if (mod && k === 'v') { if (clip.current.els.length) { e.preventDefault(); paste() } return }
+      // 붙여 넣기는 paste 이벤트가 맡는다 (사진 붙여 넣기와 같이 처리) — 그 이벤트가 오지 않는 브라우저면 잠시 뒤 보드 안 복사본을 붙인다
+      if (mod && k === 'v') { pasteSeen.current = false; window.setTimeout(() => { if (!pasteSeen.current && clip.current.els.length) paste() }, 80); return }
       if (mod && k === 'a') { e.preventDefault(); setSel(page.els.map(x => x.id)); return }
       if (mod || e.altKey) return
       if (k === 'delete' || k === 'backspace') { if (selEls.length) { e.preventDefault(); removeSel() } return }
@@ -515,6 +555,31 @@ export default function DesignBoard({ project }: { project: DesignProject }) {
     return () => window.removeEventListener('keydown', key)
   })
 
+  // 붙여 넣기: 사진이면 고른 스펙 카드의 제품 사진으로, 아니면 보드 안에서 복사한 것
+  const onPaste = useRef<(e: ClipboardEvent) => void>(() => undefined)
+  onPaste.current = (e: ClipboardEvent) => {
+    if (present !== null || locked) return
+    const t = e.target as HTMLElement | null
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return
+    const a = document.activeElement
+    if (a && a !== document.body && !root.current?.contains(a)) return
+    pasteSeen.current = true
+    const file = imageFileOf(e.clipboardData)
+    if (file) {
+      e.preventDefault()
+      const item = selEls.length === 1 ? specOfEl(selEls[0]) : null
+      if (item) void setSpecPhoto(item, file)
+      else toast(selEls.length ? '사진은 스펙 카드 한 장만 고른 뒤 붙여 넣어 주세요. 보드에는 파일을 따로 두지 않습니다' : NO_FILE)
+      return
+    }
+    if (clip.current.els.length) { e.preventDefault(); paste() }
+  }
+  useEffect(() => {
+    const fn = (e: ClipboardEvent) => onPaste.current(e)
+    document.addEventListener('paste', fn)
+    return () => document.removeEventListener('paste', fn)
+  }, [])
+
   // ── 인쇄 · PDF: 페이지마다 가로 16:9 한 장 ───────────────
   useEffect(() => {
     if (!printing) return
@@ -529,6 +594,7 @@ export default function DesignBoard({ project }: { project: DesignProject }) {
 
   const status = loading ? '불러오는 중…' : loadFailed ? '보드를 불러오지 못했습니다' : saveState === 'saving' ? '저장 중…' : saveState === 'error' ? '저장하지 못했습니다' : dirty ? (remote ? '저장을 잠시 멈췄습니다' : '고친 내용을 곧 저장합니다') : savedAt ? `저장됨 ${hhmm(savedAt)}` : '고치면 자동으로 저장됩니다'
   const specOf = one?.type === 'spec' ? specs.find(s => s.id === one.spec_id) ?? null : null
+  const photoItem = one ? specOfEl(one) : null, photoSrc = photoItem ? images[photoItem.id] : undefined
   const books = [...new Set(specs.map(s => s.book))]
   const shown = specs.filter(s => (!bookF || s.book === bookF) && (!q.trim() || [s.code, s.name, s.spec, s.maker, s.location].filter(Boolean).join(' ').toLowerCase().includes(q.trim().toLowerCase())))
   const textual = !!one && (one.type === 'text' || one.type === 'note' || one.type === 'rect')
@@ -545,8 +611,22 @@ export default function DesignBoard({ project }: { project: DesignProject }) {
       </>}
       {selEls.length > 1 && <b className="dbd-h">{selEls.length}개를 골랐습니다</b>}
       {one && <b className="dbd-h">{elLabel(one, specs, renders)}</b>}
+      {photoItem && <div className="dbd-photo-box" onDragOver={e => { if (Array.from(e.dataTransfer.types).includes('Files')) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy' } }} onDrop={e => { const f = imageFileOf(e.dataTransfer); if (f) { e.preventDefault(); void setSpecPhoto(photoItem, f) } }}>
+        <span className="dbd-label">제품 사진 · 스펙북과 같은 사진이라 이 항목의 카드에 모두 나옵니다</span>
+        <div className={`dbd-photo${photoSrc ? ' has' : ''}${photoBusy === photoItem.id ? ' busy' : ''}`}>
+          {photoSrc ? <img src={photoSrc} alt={`${photoItem.name} 제품 사진`} draggable={false} /> : <SpecThumb item={photoItem} className="dbd-photo-swatch" />}
+          {!photoSrc && photoBusy !== photoItem.id && <span className="dbd-photo-none">사진 없음 · 마감 색으로 보여 줍니다</span>}
+          {photoBusy === photoItem.id && <span className="dbd-photo-busy" role="status">사진을 넣는 중…</span>}
+        </div>
+        <div className="dbd-acts">
+          <button type="button" className="dbd-tb" disabled={!!photoBusy || locked} onClick={() => photoInput.current?.click()}><ImageIcon size={13} />{photoSrc ? '바꾸기' : '제품 사진 넣기'}</button>
+          {photoSrc && <button type="button" className="dbd-tb danger" disabled={!!photoBusy || locked} onClick={() => { if (window.confirm('이 제품 사진을 지울까요? 스펙북의 사진도 함께 지워집니다.')) void setSpecPhoto(photoItem, null) }}><Trash2 size={13} />지우기</button>}
+        </div>
+        <input ref={photoInput} type="file" accept="image/*" hidden onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void setSpecPhoto(photoItem, f) }} />
+        <p className="dbd-hint">사진 파일을 판의 카드 위에 끌어 놓거나, 카드를 고른 채 Ctrl+V 로 붙여 넣어도 됩니다.</p>
+      </div>}
       {specOf && <div className="dbd-spec-detail">
-        <div className="dbd-spec-head"><SpecThumb item={specOf} className="lg" /><div><b>{[specOf.code, specOf.name].filter(Boolean).join(' ')}</b><span>{bookName(specOf.book)}</span></div></div>
+        <div className="dbd-spec-head"><div><b>{[specOf.code, specOf.name].filter(Boolean).join(' ')}</b><span>{bookName(specOf.book)}</span></div></div>
         <dl>
           {([['규격', specOf.spec], ['마감 · 색', specOf.finish], ['크기', specOf.size], ['제조사', specOf.maker], ['위치', specOf.location], ['수량', specOf.qty != null ? `${specOf.qty}${specOf.unit ?? ''}` : null], ['납기', specOf.delivery], ['비고', specOf.note]] as [string, string | null | undefined][]).filter(r => r[1]).map(r => <div key={r[0]}><dt>{r[0]}</dt><dd>{r[1]}</dd></div>)}
         </dl>
@@ -617,14 +697,14 @@ export default function DesignBoard({ project }: { project: DesignProject }) {
       <b className="dbd-h">투시도 넣기</b>
       <div className="dbd-acts">{renders.map(r => <button type="button" key={r.id} className="dbd-tb" disabled={locked} onClick={() => addImage(`render:${r.id}`)}><ImageIcon size={13} />{r.no} {r.title}</button>)}{!renders.length && <span className="dbd-hint">평면 · 3D 에서 투시도 장면을 만들면 여기에 나타납니다.</span>}</div>
       {specs.some(s => images[s.id]) && <><b className="dbd-h">스펙북 사진 넣기</b><div className="dbd-acts">{specs.filter(s => images[s.id]).map(s => <button type="button" key={s.id} className="dbd-tb" disabled={locked} onClick={() => addImage(`spec:${s.id}`)}><ImageIcon size={13} />{[s.code, s.name].filter(Boolean).join(' ')}</button>)}</div></>}
-      <p className="dbd-hint">카드 · 일람표 · 사진은 스펙북과 투시도를 그대로 비춥니다. 스펙북을 고치면 보드도 함께 바뀝니다. 이 판에서는 파일을 따로 올리지 않습니다 — 사진은 스펙북 · 투시도에 올려 주세요.</p>
+      <p className="dbd-hint">카드 · 일람표 · 사진은 스펙북과 투시도를 그대로 비춥니다. 스펙북을 고치면 보드도 함께 바뀝니다. 제품 사진은 사진 파일을 판의 스펙 카드 위에 끌어 놓거나, 카드를 고른 뒤 붙여 넣거나, 속성 탭의 '제품 사진 넣기'로 넣습니다 — 스펙북에 저장되어 어디서나 같은 사진이 나옵니다.</p>
     </div>
   )
   const notesTab = (
     <div className="dbd-pane">
       {draftPin && <div className="dbd-note-form">
         <b className="dbd-h">새 댓글</b>
-        <textarea className="textarea" rows={3} autoFocus value={draftText} onChange={e => setDraftText(e.target.value)} placeholder="이 자리에 남길 말을 적어 주세요" aria-label="새 댓글" onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); postDraft() } }} />
+        <textarea className="textarea" rows={3} autoFocus value={draftText} onChange={e => setDraftText(e.target.value)} placeholder="이 자리에 남길 말을 적어 주세요" aria-label="새 댓글" onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !e.nativeEvent.isComposing) { e.preventDefault(); postDraft() } }} />
         <div className="dbd-row"><Button size="sm" disabled={!draftText.trim()} onClick={postDraft}>남기기</Button><Button size="sm" kind="ghost" onClick={() => { setDraftPin(null); setDraftText('') }}>취소</Button></div>
       </div>}
       {!draftPin && <button type="button" className={`dbd-tb${tool === 'comment' ? ' on' : ''}`} disabled={locked} onClick={() => setTool('comment')}><MessageCircle size={13} />{tool === 'comment' ? '댓글을 남길 자리를 페이지에서 눌러 주세요' : '댓글 남기기'}</button>}
@@ -636,7 +716,7 @@ export default function DesignBoard({ project }: { project: DesignProject }) {
           <p>{c.text}</p>
           {(c.replies ?? []).map((r, i) => <p key={i} className="dbd-reply"><b>{r.by}</b> · {when(r.at)}<br />{r.text}</p>)}
           {pinSel === c.id && <>
-            <div className="dbd-row"><input className="input" value={reply} onChange={e => setReply(e.target.value)} placeholder="답글" aria-label="답글" onKeyDown={e => { if (e.key === 'Enter' && reply.trim()) { e.preventDefault(); editComments(l => l.map(x => (x.id === c.id ? { ...x, replies: [...(x.replies ?? []), { by: me.name, at: new Date().toISOString(), text: reply.trim() }] } : x)), c.id); setReply('') } }} />
+            <div className="dbd-row"><input className="input" value={reply} onChange={e => setReply(e.target.value)} placeholder="답글" aria-label="답글" onKeyDown={e => { if (e.key === 'Enter' && reply.trim() && !e.nativeEvent.isComposing && e.keyCode !== 229) { e.preventDefault(); editComments(l => l.map(x => (x.id === c.id ? { ...x, replies: [...(x.replies ?? []), { by: me.name, at: new Date().toISOString(), text: reply.trim() }] } : x)), c.id); setReply('') } }} />
               <Button size="sm" kind="outline" disabled={!reply.trim()} onClick={() => { editComments(l => l.map(x => (x.id === c.id ? { ...x, replies: [...(x.replies ?? []), { by: me.name, at: new Date().toISOString(), text: reply.trim() }] } : x)), c.id); setReply('') }}>답글</Button></div>
             <div className="dbd-row">
               <button type="button" className="dbd-tb" onClick={() => editComments(l => l.map(x => (x.id === c.id ? { ...x, done: !c.done || undefined } : x)), c.id)}>{c.done ? '다시 열기' : '해결'}</button>
@@ -651,7 +731,9 @@ export default function DesignBoard({ project }: { project: DesignProject }) {
 
   // '넓게 보기'는 창 전체를 덮어야 해서 body 에 바로 붙인다 (메뉴 칸의 틀 안에서는 창 전체로 못 나간다)
   const ui = (
-      <div ref={root} className={`dbd dbd-${cols}${full ? ' dbd-full' : ''}`}>
+      <div ref={root} className={`dbd dbd-${cols}${full ? ' dbd-full' : ''}`}
+        onDragOver={e => { if (Array.from(e.dataTransfer.types).includes('Files')) e.preventDefault() }}
+        onDrop={e => { if (Array.from(e.dataTransfer.types).includes('Files') && !e.isDefaultPrevented()) { e.preventDefault(); toast(NO_FILE) } }}>
         <div className="dbd-bar" role="toolbar" aria-label="제안 보드 도구">
           <div className="dbd-tools">
             {TOOLS.map(t => <button type="button" key={t.key} className={`dbd-tb${tool === t.key ? ' on' : ''}`} aria-pressed={tool === t.key} disabled={locked} title={`${t.label} (${t.hint})`} onClick={() => { setTool(t.key); if (t.key !== 'comment') setDraftPin(null); else setTab('notes') }}>{t.icon}<span>{t.label}</span>{t.key === 'comment' && open > 0 && <i className="dbd-count" title={`해결 안 된 댓글 ${open}개`}>{open}</i>}</button>)}
@@ -688,7 +770,7 @@ export default function DesignBoard({ project }: { project: DesignProject }) {
               <ol className="dbd-pages">
                 {pages.map((p, i) => <li key={p.id} className={p.id === page.id ? 'on' : ''}>
                   {renaming === p.id
-                    ? <input className="input xs" autoFocus defaultValue={p.name} aria-label="페이지 이름" onBlur={e => { renamePage(p.id, e.target.value.trim() || p.name); setRenaming(null) }} onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') e.currentTarget.blur() }} />
+                    ? <input className="input xs" autoFocus defaultValue={p.name} aria-label="페이지 이름" onBlur={e => { renamePage(p.id, e.target.value.trim() || p.name); setRenaming(null) }} onKeyDown={e => { if (e.nativeEvent.isComposing) return; if (e.key === 'Enter' || e.key === 'Escape') e.currentTarget.blur() }} />
                     : <button type="button" className="dbd-page-name" aria-current={p.id === page.id ? 'true' : undefined} onClick={() => go(p.id)} onDoubleClick={() => setRenaming(p.id)} title="누르면 이 페이지로 갑니다. 두 번 누르면 이름을 고칩니다."><i>{i + 1}</i><span>{p.name || '이름 없는 페이지'}</span></button>}
                   {p.id === page.id && renaming !== p.id && <span className="dbd-page-acts">
                     <button type="button" className="dbd-ib sm" title="위로" aria-label="위로" disabled={i === 0} onClick={() => movePage(p.id, -1)}><ArrowUp size={12} /></button>
@@ -719,7 +801,7 @@ export default function DesignBoard({ project }: { project: DesignProject }) {
             <DesignBoardCanvas ref={canvas} pages={pages} pins={pins} cur={page.id} sel={sel} tool={tool} editing={editing} pinSel={pinSel} draftPin={draftPin} readOnly={locked}
               onCur={id => { setCur(id); setSel([]) }} onSel={ids => { setSel(ids); if (ids.length) setTab('props') }} onEditing={setEditing} onCreate={create}
               onPin={(pg, x, y) => { setDraftPin({ page: pg, x, y }); setDraftText(''); setTab('notes'); if (pg !== curRef.current) setCur(pg) }} onPickPin={pickPin}
-              onDropSpec={(id, pg, x, y) => addSpec(id, { page: pg, x, y })}
+              onDropSpec={(id, pg, x, y) => addSpec(id, { page: pg, x, y })} onDropFile={dropFile}
               onBegin={() => { dragging.current = true; dragBase.current = boardRef.current.pages }}
               onLive={ps => put({ ...boardRef.current, pages: ps })}
               onEnd={() => { dragging.current = false; const base = dragBase.current; dragBase.current = null; if (base && base !== boardRef.current.pages) { const h = hist.current; h.past.push(base); if (h.past.length > 100) h.past.shift(); h.future = []; h.tag = ''; touch(); setHistTick(n => n + 1) } }}

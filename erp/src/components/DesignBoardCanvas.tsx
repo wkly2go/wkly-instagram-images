@@ -14,6 +14,8 @@ interface Props {
   onCreate(tool: 'text' | 'rect' | 'note', pageId: string, x: number, y: number): void
   onPin(pageId: string, x: number, y: number): void; onPickPin(id: string): void
   onDropSpec(specId: string, pageId: string, x: number, y: number): void
+  /** 사진 파일을 판에 놓았을 때: 놓은 자리의 요소(없으면 null) */
+  onDropFile(file: File, pageId: string, elId: string | null): void
   onBegin(): void; onLive(pages: BoardPage[]): void; onEnd(): void
   onText(id: string, text: string): void
   onZoom(k: number): void
@@ -28,6 +30,9 @@ const HANDLES: BoardHandle[] = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w']
 const HANDLE_AT: Record<BoardHandle, [number, number]> = { nw: [0, 0], n: [50, 0], ne: [100, 0], e: [100, 50], se: [100, 100], s: [50, 100], sw: [0, 100], w: [0, 50] }
 const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v))
 const typing = (t: EventTarget | null) => t instanceof HTMLElement && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)
+const hasFiles = (dt: DataTransfer | null) => !!dt && Array.from(dt.types ?? []).includes('Files')
+/** 화면 좌표 아래의 보드 요소 */
+const elAt = (x: number, y: number) => (document.elementFromPoint(x, y) as HTMLElement | null)?.closest<HTMLElement>('[data-el]') ?? null
 
 function InlineEdit({ el, onDone }: { el: BoardEl; onDone(text: string): void }) {
   const [t, setT] = useState(el.text ?? '')
@@ -35,7 +40,7 @@ function InlineEdit({ el, onDone }: { el: BoardEl; onDone(text: string): void })
   useEffect(() => { const a = ref.current; if (a) { a.focus(); a.select() } }, [])
   return <textarea ref={ref} className={`dbd-inline dbd-inline-${el.type}`} style={{ ...textStyle(el), background: el.type === 'note' ? el.style?.fill ?? '#fff3bf' : el.type === 'rect' ? el.style?.fill ?? '#eef3ee' : el.style?.fill }} value={t} aria-label="글 고치기"
     onChange={e => setT(e.target.value)} onBlur={() => onDone(t)} onPointerDown={e => e.stopPropagation()} onDoubleClick={e => e.stopPropagation()}
-    onKeyDown={e => { if (e.key === 'Escape' || (e.key === 'Enter' && (e.ctrlKey || e.metaKey))) { e.preventDefault(); e.currentTarget.blur() } }} />
+    onKeyDown={e => { if (e.nativeEvent.isComposing || e.keyCode === 229) return; if (e.key === 'Escape' || (e.key === 'Enter' && (e.ctrlKey || e.metaKey))) { e.preventDefault(); e.currentTarget.blur() } }} />
 }
 
 export const DesignBoardCanvas = forwardRef<BoardCanvasHandle, Props>(function DesignBoardCanvas(p, ref) {
@@ -51,6 +56,8 @@ export const DesignBoardCanvas = forwardRef<BoardCanvasHandle, Props>(function D
   const [spaceOn, setSpaceOn] = useState(false)
   const [guides, setGuides] = useState<{ page: string; gx: number | null; gy: number | null } | null>(null)
   const [marquee, setMarquee] = useState<({ page: string } & Box) | null>(null)
+  /** 사진 파일을 끌고 있을 때 그 아래의 요소 (스펙 카드면 놓을 수 있다고 표시) */
+  const [dropOn, setDropOn] = useState<string | null>(null)
   const props = useRef(p)
   props.current = p
   /** 사람이 직접 판을 옮기거나 확대하기 전까지는 판 크기가 바뀔 때마다 다시 맞춘다 */
@@ -261,6 +268,14 @@ export const DesignBoardCanvas = forwardRef<BoardCanvasHandle, Props>(function D
     if (el && !el.locked && (el.type === 'text' || el.type === 'note' || el.type === 'rect')) props.current.onEditing(el.id)
   }
   const drop = (e: DragEvent<HTMLDivElement>) => {
+    setDropOn(null)
+    if (hasFiles(e.dataTransfer)) {
+      e.preventDefault()
+      const file = [...Array.from(e.dataTransfer.files ?? [])].find(f => f.type.startsWith('image/'))
+      const hit = elAt(e.clientX, e.clientY), at = locate(e.clientX, e.clientY)
+      if (file) props.current.onDropFile(file, hit?.dataset.page ?? at.page.id, hit?.dataset.el ?? null)
+      return
+    }
     const raw = e.dataTransfer.getData('text/plain')
     if (!raw.startsWith('dbd-spec:')) return
     e.preventDefault()
@@ -273,7 +288,12 @@ export const DesignBoardCanvas = forwardRef<BoardCanvasHandle, Props>(function D
   return (
     <div ref={vp} className={`dbd-viewport tool-${tool}${panning ? ' panning' : spaceOn ? ' can-pan' : ''}`} tabIndex={0} aria-label="제안 보드 판"
       onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up} onDoubleClick={dbl}
-      onDragOver={e => { if (e.dataTransfer.types.includes('text/plain')) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy' } }} onDrop={drop} onAuxClick={e => e.preventDefault()}>
+      onDragOver={e => {
+        if (hasFiles(e.dataTransfer)) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; const id = elAt(e.clientX, e.clientY)?.dataset.el ?? null; if (id !== dropOn) setDropOn(id); return }
+        if (e.dataTransfer.types.includes('text/plain')) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy' }
+      }}
+      onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDropOn(null) }}
+      onDrop={drop} onAuxClick={e => e.preventDefault()}>
       <div className="dbd-world" style={world}>
         {pages.map((pg, i) => {
           const mine = pg.id === cur, picked = mine ? pg.els.filter(q => sel.includes(q.id)) : []
@@ -282,7 +302,7 @@ export const DesignBoardCanvas = forwardRef<BoardCanvasHandle, Props>(function D
               <div className="dbd-frame-name">{i + 1}. {pg.name || '이름 없는 페이지'}</div>
               <div className="dbd-page" style={{ width: pg.w, height: pg.h, background: pg.bg ?? '#fff' }}>
                 {[...pg.els].sort((a, b) => a.z - b.z).map(q => (
-                  <div key={q.id} data-el={q.id} data-page={pg.id} className={`dbd-el dbd-el-${q.type}${q.locked ? ' locked' : ''}`} style={elBox(q)}>
+                  <div key={q.id} data-el={q.id} data-page={pg.id} className={`dbd-el dbd-el-${q.type}${q.locked ? ' locked' : ''}${dropOn === q.id ? (q.type === 'spec' || q.src?.startsWith('spec:') ? ' drop-ok' : ' drop-no') : ''}`} style={elBox(q)}>
                     {editing === q.id ? <InlineEdit el={q} onDone={t => { props.current.onText(q.id, t); props.current.onEditing(null) }} /> : <BoardElView el={q} />}
                   </div>
                 ))}

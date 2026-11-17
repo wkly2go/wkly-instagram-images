@@ -51,15 +51,39 @@ export interface StepInfo<K extends string> { key: K; label: string; note: strin
 
 export function DesignStepBar<K extends string>({ steps, current, onGo, admin, onOrders }: { steps: StepInfo<K>[]; current: K; onGo: (k: K) => void; admin: boolean; onOrders: () => void }) {
   const ref = useRef<HTMLElement>(null)
+  // 넘쳐서 옆에 단계가 더 있으면 그쪽 끝에 흐림 + 화살표 (휴대폰은 스크롤 막대가 안 보여 더 있는지 모름)
+  const [more, setMore] = useState({ l: false, r: false })
+  const measure = useCallback(() => {
+    const nav = ref.current
+    if (!nav) return
+    const l = nav.scrollLeft > 2
+    const r = nav.scrollLeft + nav.clientWidth < nav.scrollWidth - 2
+    setMore(m => (m.l === l && m.r === r ? m : { l, r }))
+  }, [])
+  useEffect(() => {
+    const nav = ref.current
+    if (!nav) return
+    measure()
+    nav.addEventListener('scroll', measure, { passive: true })
+    window.addEventListener('resize', measure)
+    const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure)
+    ro?.observe(nav)
+    return () => { nav.removeEventListener('scroll', measure); window.removeEventListener('resize', measure); ro?.disconnect() }
+  }, [measure])
   // 좁아서 한 줄에 다 안 들어가면 지금 단계가 가운데 오게 옆으로만 민다 (화면 위아래는 건드리지 않음)
   useEffect(() => {
     const nav = ref.current
     const el = nav?.querySelector<HTMLElement>('[aria-current="step"]')
-    if (!nav || !el || nav.scrollWidth <= nav.clientWidth) return
-    nav.scrollLeft = Math.max(0, el.offsetLeft - (nav.clientWidth - el.offsetWidth) / 2)
-  }, [current, steps.length])
+    if (nav && el && nav.scrollWidth > nav.clientWidth) nav.scrollLeft = Math.max(0, el.offsetLeft - (nav.clientWidth - el.offsetWidth) / 2)
+    measure()
+  }, [current, steps.length, measure])
+  const nudge = (dir: 1 | -1) => {
+    const nav = ref.current
+    if (nav) nav.scrollBy({ left: dir * Math.max(140, nav.clientWidth * 0.6), behavior: 'smooth' })
+  }
   return (
-    <nav className="design-steps" aria-label="프로젝트 단계" ref={ref}>
+    <nav className={`design-steps${more.l ? ' more-l' : ''}${more.r ? ' more-r' : ''}`} aria-label="프로젝트 단계" ref={ref}>
+      {more.l && <span className="design-steps-more l" aria-hidden="true" title="앞 단계 보기" onClick={() => nudge(-1)}><i><ChevronLeft size={13} /></i></span>}
       {steps.map((s, i) => (
         <button type="button" key={s.key} className={`design-step ${s.state}${current === s.key ? ' on' : ''}`} aria-current={current === s.key ? 'step' : undefined}
           title={`${i + 1}. ${s.label} · ${STEP_STATE[s.state]}${s.note ? ` · ${s.note}` : ''}`} onClick={() => onGo(s.key)}>
@@ -72,6 +96,7 @@ export function DesignStepBar<K extends string>({ steps, current, onGo, admin, o
           <span className="n">{steps.length + 1}</span><span className="l"><b>실행 · 발주</b><small>관리자 화면</small></span>
         </button>
       )}
+      {more.r && <span className="design-steps-more r" aria-hidden="true" title="뒤 단계 보기" onClick={() => nudge(1)}><i><ChevronRight size={13} /></i></span>}
     </nav>
   )
 }

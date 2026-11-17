@@ -1,6 +1,6 @@
 // 평면을 도면처럼 그리기 위한 계산 (2026-11-17 '평면을 더욱 현실에 맞게')
 // 문 열림 호 · 창 기호 · 바깥 치수선 · 축척 막대 · 벽 모서리 끌기. 화면(SVG)과 DXF 내보내기가 같은 값을 쓴다.
-import { floorOutline, wallLength, type PlanGeometry, type PlanOpening, type PlanWall } from './designPlan.ts'
+import { closedShell, floorOutline, wallLength, type PlanGeometry, type PlanOpening, type PlanWall } from './designPlan.ts'
 
 export interface Pt { x: number; y: number }
 export interface WallFrame { len: number; ux: number; uy: number; /** 벽 진행 방향의 왼쪽 (화면 좌표 · y 아래) */ nx: number; ny: number }
@@ -45,8 +45,8 @@ export const arcPath = (l: DoorSymbol['leaves'][number]) => `M${l.shut.x} ${l.sh
 /** 닫힌 평면이면 바깥쪽이 어느 쪽인지(왼쪽 1 · 오른쪽 -1). 닫히지 않았으면 왼쪽 */
 export function outwardSides(g: Pick<PlanGeometry, 'walls'>): Map<string, 1 | -1> {
   const out = new Map<string, 1 | -1>()
-  const shell = g.walls.filter(w => w.kind === 'existing')
-  const pts = floorOutline(shell)
+  // 닫힌 방 규칙은 평면 · 3D · 스케치업이 같이 쓴다 (designPlan closedShell: 떠 있는 벽 · 안쪽 칸막이는 빼고 본다)
+  const pts = floorOutline(closedShell(g.walls.filter(w => w.kind === 'existing')) ?? [])
   let cx = 0, cy = 0
   if (pts) { for (const p of pts) { cx += p.x; cy += p.y } cx /= pts.length; cy /= pts.length }
   for (const w of g.walls) {
@@ -84,9 +84,44 @@ export function moveCorner(walls: PlanWall[], from: Pt, to: Pt): PlanWall[] {
 /** 벽 길이를 숫자로 맞춘다: 시작점은 두고 끝점을 방향대로 옮기며, 그 끝에 닿은 다른 벽도 함께 */
 export function setWallLength(walls: PlanWall[], id: string, length: number): PlanWall[] {
   const w = walls.find(x => x.id === id)
-  if (!w || !(length > 0)) return walls
+  // 길이가 없는 벽은 방향을 알 수 없다 → 바꾸지 않는다
+  if (!w || !(length >= MIN_WALL) || wallLength(w) < MIN_WALL) return walls
   const f = wallFrame(w)
   return moveCorner(walls, { x: w.x2, y: w.y2 }, { x: Math.round(w.x1 + f.ux * length), y: Math.round(w.y1 + f.uy * length) })
+}
+
+/** 이보다 짧은 벽(mm)은 벽으로 보지 않는다: 모서리를 맞은편 끝에 겹쳐 길이가 없어진 벽 */
+export const MIN_WALL = 10
+/** 문 · 창을 벽 안에 앉힌다: 가운데를 [폭/2, 길이 - 폭/2] 안으로. 벽이 폭보다 짧으면 null (맞지 않음) */
+export function seatOpening(pos: number, width: number, len: number): { pos: number; width: number } | null {
+  if (!(len >= MIN_WALL) || !(width > 0) || width > len + 0.5) return null
+  const w = Math.min(width, len)
+  return { width: w, pos: Math.round(Math.min(len - w / 2, Math.max(w / 2, pos))) }
+}
+/** 같은 벽의 다른 문 · 창과 겹치는지 (새로 낼 때 · 옮길 때) */
+export function openingOverlaps(openings: PlanOpening[], wall: string, pos: number, width: number, except?: string): PlanOpening | null {
+  return openings.find(o => o.wall === wall && o.id !== except && Math.abs(o.pos - pos) < (o.width + width) / 2 - 0.5) ?? null
+}
+/** 벽 모양을 바꾼 뒤(모서리 끌기 · 길이 입력): 그 벽의 문 · 창을 평면 위 같은 자리에 다시 앉히고(벽 안으로 맞춤), 벽보다 넓어 맞지 않는 것은 뺀다.
+ *  길이가 없어진 벽(MIN_WALL 미만)도 그 문 · 창과 함께 뺀다. 모양이 그대로인 벽의 문 · 창은 건드리지 않는다. 바뀐 것이 없으면 g 를 그대로 돌려준다 */
+export function reseatOpenings(g: PlanGeometry, before: PlanWall[]): { plan: PlanGeometry; dropped: number; collapsed: number } {
+  const old = new Map(before.map(w => [w.id, w]))
+  const gone = new Set(g.walls.filter(w => wallLength(w) < MIN_WALL).map(w => w.id))
+  let dropped = 0, changed = gone.size > 0
+  const openings: PlanOpening[] = []
+  for (const o of g.openings) {
+    if (gone.has(o.wall)) { dropped++; continue }
+    const w = g.walls.find(x => x.id === o.wall), b = old.get(o.wall)
+    if (!w || !b || (b.x1 === w.x1 && b.y1 === w.y1 && b.x2 === w.x2 && b.y2 === w.y2)) { openings.push(o); continue }
+    const fb = wallFrame(b), f = wallFrame(w)
+    // 바꾸기 전 평면 위의 자리를 새 벽에 내린 거리 (시작점을 옮겨도 문은 제자리에 남는다)
+    const cx = b.x1 + fb.ux * o.pos, cy = b.y1 + fb.uy * o.pos
+    const at = seatOpening((cx - w.x1) * f.ux + (cy - w.y1) * f.uy, o.width, f.len)
+    if (!at) { dropped++; changed = true; continue }
+    if (at.pos !== o.pos || at.width !== o.width) { changed = true; openings.push({ ...o, pos: at.pos, width: at.width }) } else openings.push(o)
+  }
+  if (!changed) return { plan: g, dropped: 0, collapsed: 0 }
+  return { plan: { ...g, walls: gone.size ? g.walls.filter(w => !gone.has(w.id)) : g.walls, openings }, dropped, collapsed: gone.size }
 }
 
 /** 그려진 것 전체의 범위 */

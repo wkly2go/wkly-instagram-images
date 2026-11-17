@@ -20,6 +20,8 @@ const FOV = 40, EYE_FOV = 64, EYE_H = 1.6
 /** 해가 떠 있는 쪽: 조감에서 보는 쪽(오른쪽 앞 위) — 안쪽 벽면이 밝게 보이고 그림자는 짧게 */
 const SUN = new THREE.Vector3(0.45, 1.6, 0.68).normalize()
 const rad = THREE.MathUtils.degToRad
+/** 열어 보는 3D 모델의 한도 — 이보다 크면 화면이 멈추거나 꺼질 수 있어 열지 않는다 */
+export const MODEL_MAX_BYTES = 50 * 1024 * 1024, MODEL_MAX_TRIANGLES = 500000
 
 export class PlanEngine {
   private host: HTMLElement
@@ -159,6 +161,8 @@ export class PlanEngine {
 
   setMode(next: ViewMode) {
     if (next === this.mode) return
+    // 눈높이에서 끌던 손가락이 남아 있으면 놓는다 (다른 보기에서 눈높이 카메라로 돌아가지 않게)
+    if (this.drag) { try { this.canvas.releasePointerCapture(this.drag.id) } catch { /* 이미 놓음 */ } this.drag = null }
     const from = this.currentPose()
     if (this.mode === 'orbit' && !this.tween) this.savedOrbit = { pos: this.persp.position.clone(), target: this.controls.target.clone() }
     this.tween = null
@@ -213,6 +217,7 @@ export class PlanEngine {
   async exportGlb(name: string): Promise<Blob> {
     if (this.dirty) this.applyPlan()
     const { GLTFExporter } = await import('three/examples/jsm/exporters/GLTFExporter.js')
+    if (this.disposed) throw new Error('3D 화면이 닫혀 파일을 만들지 못했습니다. 다시 열고 눌러 주세요.')
     const root = this.plan3.exportRoot(name)
     root.updateMatrixWorld(true)
     const out = await new GLTFExporter().parseAsync(root, { binary: true, onlyVisible: true })
@@ -223,17 +228,20 @@ export class PlanEngine {
   async loadModel(files: File[]): Promise<ModelInfo> {
     const main = files.find(f => /\.(glb|gltf)$/i.test(f.name))
     if (!main) throw new Error('3D 파일(.glb 또는 .gltf)을 골라 주세요.')
+    const total = files.reduce((n, f) => n + (f.size || 0), 0)
+    if (total > MODEL_MAX_BYTES) throw new Error(`3D 파일이 너무 큽니다 (고른 파일 모두 ${Math.round(total / 1048576)}MB · ${MODEL_MAX_BYTES / 1048576}MB 까지). 스케치업에서 보이지 않는 부분을 지우거나 그림 크기를 줄여 다시 저장해 주세요.`)
     const { GLTFLoader } = await import('three/examples/jsm/loaders/GLTFLoader.js')
     const urls = new Map<string, string>()
     for (const f of files) urls.set(f.name.toLowerCase(), URL.createObjectURL(f))
     const known = new Set(urls.values())
     const manager = new THREE.LoadingManager()
     // 함께 고른 파일(.bin · 그림)은 이름으로 찾아 준다
+    // 파일 안의 바깥 주소(http 등)는 부르지 않는다 — 이 기기에서 고른 파일과 파일 안에 든 자료만 쓴다
     manager.setURLModifier(u => {
-      if (known.has(u) || u.startsWith('data:')) return u
+      if (known.has(u) || u.startsWith('data:') || u.startsWith('blob:')) return u
       let base = u.split(/[\\/]/).pop()?.split(/[?#]/)[0] ?? ''
       try { base = decodeURIComponent(base) } catch { /* 이름 그대로 */ }
-      return urls.get(base.toLowerCase()) ?? u
+      return urls.get(base.toLowerCase()) ?? 'data:,'
     })
     const loader = new GLTFLoader(manager)
     try { loader.setMeshoptDecoder((await import('three/examples/jsm/libs/meshopt_decoder.module.js')).MeshoptDecoder) } catch { /* 압축 풀기 없이 계속 */ }
@@ -249,6 +257,9 @@ export class PlanEngine {
       for (const u of known) URL.revokeObjectURL(u)
     }
     if (this.disposed) { disposeTree(obj); throw new Error('화면이 닫혔습니다.') }
+    let tris = 0
+    obj.traverse(o => { const g = (o as THREE.Mesh).isMesh ? (o as THREE.Mesh).geometry : null; if (g) tris += (g.index ? g.index.count : (g.attributes.position?.count ?? 0)) / 3 })
+    if (tris > MODEL_MAX_TRIANGLES) { disposeTree(obj); throw new Error(`3D 모델의 면이 너무 많습니다 (약 ${Math.round(tris / 10000).toLocaleString('ko-KR')}만 개 · 50만 개까지). 가구 등 자세한 부품을 빼거나 단순하게 만들어 다시 저장해 주세요.`) }
     obj.updateMatrixWorld(true)
     let box = new THREE.Box3().setFromObject(obj)
     if (box.isEmpty()) { disposeTree(obj); throw new Error('이 파일에는 보여 줄 모양이 없습니다.') }
@@ -647,6 +658,7 @@ export class PlanEngine {
   private onMove = (e: PointerEvent) => {
     const d = this.drag
     if (!d || d.id !== e.pointerId) return
+    if (this.mode !== 'eye') { this.drag = null; return }
     const dx = e.clientX - d.x, dy = e.clientY - d.y
     d.x = e.clientX; d.y = e.clientY; d.moved += Math.abs(dx) + Math.abs(dy)
     // 화면을 잡아끄는 느낌: 오른쪽으로 끌면 왼쪽을 본다

@@ -113,10 +113,13 @@ export function createSupabaseDesignApi(sb: SupabaseClient): DesignApi {
       return { name: f.name, blob: new Blob([bytes], { type: f.mime }) }
     },
     async getDesignPlan(projectId) {
-      const r = await sb.from('design_spaces').select('version,geometry').eq('project_id', projectId).eq('source', 'manual').order('version', { ascending: false }).limit(20)
+      // 작업 중인 평면(version 0)을 바로 읽는다. 아직 없을 때만 마지막으로 반영한 판을 읽는다 (반영한 판이 쌓여도 한 줄만 받는다)
+      const r = await sb.from('design_spaces').select('geometry').eq('project_id', projectId).eq('source', 'manual').eq('version', 0).maybeSingle()
       fail(r.error)
-      const rows = r.data ?? []
-      return ((rows.find(x => x.version === 0) ?? rows[0])?.geometry ?? null) as PlanGeometry | null
+      if (r.data) return ((r.data as { geometry?: unknown }).geometry ?? null) as PlanGeometry | null
+      const last = await sb.from('design_spaces').select('geometry').eq('project_id', projectId).eq('source', 'manual').order('version', { ascending: false }).limit(1)
+      fail(last.error)
+      return (((last.data ?? [])[0] as { geometry?: unknown } | undefined)?.geometry ?? null) as PlanGeometry | null
     },
     async saveDesignPlan(projectId, plan) {
       fail((await sb.from('design_spaces').upsert({ project_id: projectId, version: 0, source: 'manual', geometry: plan, approved: false }, { onConflict: 'project_id,version' })).error)
@@ -302,7 +305,8 @@ export function createSupabaseDesignApi(sb: SupabaseClient): DesignApi {
           on.peers([...seen.values()])
         }
         ch.on('presence', { event: 'sync' }, peers)
-          .on('broadcast', { event: 'saved' }, ({ payload }) => { const p = payload as { id?: string; name?: string; at?: number }; if (p?.id && p.id !== who.id) on.saved({ id: p.id, name: p.name ?? '팀원', at: p.at ?? Date.now() }) })
+          // 같은 사람의 다른 창(PC · 휴대폰)이 저장한 것도 알린다. 보낸 창 자신에게는 방송이 돌아오지 않는다
+          .on('broadcast', { event: 'saved' }, ({ payload }) => { const p = payload as { id?: string; name?: string; at?: number }; if (p?.id) on.saved({ id: p.id, name: p.name ?? '팀원', at: p.at ?? Date.now() }) })
           .subscribe(status => { if (status === 'SUBSCRIBED') void ch.track({ id: who.id, name: who.name }).catch(() => undefined) })
         return {
           saved: () => { void ch.send({ type: 'broadcast', event: 'saved', payload: { id: who.id, name: who.name, at: Date.now() } }).catch(() => undefined) },

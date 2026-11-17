@@ -71,6 +71,51 @@ export function floorArea(walls: PlanWall[]): number | null {
   return round3(Math.abs(s) / 2 / 1e6)
 }
 
+/** 닫힌 방을 이루는 벽만 고른다: 한쪽 끝이 떠 있는 벽(그리다 만 벽 · 덧댄 벽 · 안쪽 칸막이)을 걷어 낸 뒤, 이어진 묶음 가운데 닫힌 것(여럿이면 가장 넓은 것).
+ *  평면(바닥 · 면적 · 치수선 방향) · 수량 칸의 면적 · 3D · 스케치업 · 납품이 모두 이 규칙 하나를 쓴다 */
+export function closedShell(walls: PlanWall[]): PlanWall[] | null {
+  const key = (x: number, y: number) => `${Math.round(x)},${Math.round(y)}`
+  let live = walls.filter(w => wallLength(w) > 0)
+  for (;;) {
+    const deg = new Map<string, number>()
+    for (const w of live) for (const k of [key(w.x1, w.y1), key(w.x2, w.y2)]) deg.set(k, (deg.get(k) ?? 0) + 1)
+    const next = live.filter(w => (deg.get(key(w.x1, w.y1)) ?? 0) > 1 && (deg.get(key(w.x2, w.y2)) ?? 0) > 1)
+    if (next.length === live.length) break
+    live = next
+  }
+  if (live.length < 3) return null
+  if (floorOutline(live)) return live
+  const groups: PlanWall[][] = [], seen = new Set<string>()
+  for (const w of live) {
+    if (seen.has(w.id)) continue
+    const g = [w]
+    seen.add(w.id)
+    for (let i = 0; i < g.length; i++) {
+      const ends = new Set([key(g[i].x1, g[i].y1), key(g[i].x2, g[i].y2)])
+      for (const o of live) if (!seen.has(o.id) && (ends.has(key(o.x1, o.y1)) || ends.has(key(o.x2, o.y2)))) { seen.add(o.id); g.push(o) }
+    }
+    groups.push(g)
+  }
+  return groups.filter(g => floorOutline(g)).sort((a, b) => (floorArea(b) ?? 0) - (floorArea(a) ?? 0))[0] ?? null
+}
+/** 기존 벽 가운데 닫힌 방을 이루는 벽 (없으면 빈 목록) */
+export const roomShell = (walls: PlanWall[]): PlanWall[] => closedShell(walls.filter(w => w.kind === 'existing')) ?? []
+/** 닫힌 방의 바닥 꼭짓점 · 면적 (기존 벽 기준). 닫히지 않았으면 null */
+export const roomOutline = (walls: PlanWall[]) => floorOutline(roomShell(walls))
+export const roomArea = (walls: PlanWall[]) => floorArea(roomShell(walls))
+
+/** 부품 치수(mm)의 범위: 붙여 넣은 글(W1200 D600 H900)이 한 숫자로 붙어 터무니없이 커지지 않게 */
+export const ITEM_MIN = 10, ITEM_MAX = 20000
+export const clampSize = (n: number) => Math.min(ITEM_MAX, Math.max(ITEM_MIN, Math.round(Number.isFinite(n) ? n : ITEM_MIN)))
+
+/** 같은 평면인지 견주는 글: 댓글과 조명 수량(스펙북에서 고침)은 빼고, 키 순서(서버가 바꿀 수 있음)와 상관없이 같은 글이 나온다 */
+export function planCanon(g: PlanGeometry | null | undefined): string {
+  if (!g) return 'null'
+  const { notes: _n, ...rest } = g
+  const body = { ...rest, ...(rest.rooms ? { rooms: rest.rooms.map(({ lights: _l, ...r }) => r) } : {}) }
+  return JSON.stringify(body, (_k, v) => (v && typeof v === 'object' && !Array.isArray(v) ? Object.fromEntries(Object.entries(v as Record<string, unknown>).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) : v))
+}
+
 /** 댓글 핀 합치기: 저장 직전 서버의 최신 핀과 내 핀을 id 로 합친다. 내가 지운 것(removed)은 빼고, 같은 id 는 내 것이 이긴다 */
 export function mergeNotes(mine: PlanNote[] | undefined, latest: PlanNote[] | undefined, removed: Iterable<string> = []): PlanNote[] {
   const gone = new Set(removed)
