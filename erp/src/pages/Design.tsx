@@ -217,8 +217,9 @@ function useAutoEstimate(projectId: string, want: boolean, sig: string, onSent: 
     }, AUTO_EST_WAIT)
     return () => { live = false; window.clearTimeout(timer) }
   }, [api, projectId, want, sig])
-  if (want && asked.current && !asked.current.has(sig)) return 'wait'
-  return sent === sig ? 'sent' : null
+  // sent 는 맡긴 뒤 화면을 다시 그리게 하는 용도 — 이 기기에서 전에 맡긴 수량 상태면 다시 열어도 'sent'
+  if (asked.current?.has(sig) || sent === sig) return 'sent'
+  return want ? 'wait' : null
 }
 
 type StepKey = 'survey' | 'proposal' | 'model' | 'qty' | 'estimate' | 'drawings' | 'spec' | 'schedule' | 'delivery'

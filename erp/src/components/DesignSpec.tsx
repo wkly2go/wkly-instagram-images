@@ -8,7 +8,8 @@ import { Badge, Button, Empty } from './ui'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { friendlyError } from '../lib/api'
 import { SPEC_BOOKS, SPEC_STATUS, type DesignMaterial, type DesignProject, type SpecBook, type SpecItem } from '../lib/design'
-import type { PlanGeometry } from '../lib/designPlan'
+import { planQuantities, type PlanGeometry } from '../lib/designPlan'
+import { confirmDelete } from './DesignWorkspace'
 import { readBoard } from '../lib/designBoard'
 import { normCode, renameBoardFinishRefs, renameFinishRefs } from '../lib/designSpecSync'
 import { makeImagePreview } from '../lib/imagePreview'
@@ -125,17 +126,28 @@ export function DesignSpec({ project }: { project: DesignProject }) {
     const next = { code: i.code, name: i.name, spec: i.spec, [k]: v }
     void run(async () => {
       await api.updateSpecItem(i.id, { [k]: v })
-      let n = 0, m = 0
+      let n = 0, m = 0, q = ''
+      let renamed: PlanGeometry | null = null, before: PlanGeometry | null = null
       try {
         const p = await api.getDesignPlan(project.id)
-        if (p) { const r = renameFinishRefs(p, i, next); if (r.changed) { await api.saveDesignPlan(project.id, r.plan); n = r.changed } }
+        if (p) { const r = renameFinishRefs(p, i, next); if (r.changed) { await api.saveDesignPlan(project.id, r.plan); n = r.changed; renamed = r.plan; before = p } }
       } catch { throw new Error('스펙은 바꿨지만 평면의 마감 번호는 바꾸지 못했습니다. 평면 · 3D 에서 확인해 주세요') }
+      // 수량표 · 견적까지 잇기 (대표 지시 2026-11-17 '하나만 수정해도 모두 연동'): 이미 수량을 쓰는 프로젝트이고 수량 줄의 이름이 바뀌었으면
+      // 새 모델 버전으로 반영한다. 견적은 수량이 견적과 달라지면 작업 공간(Design.tsx useAutoEstimate)이 자동으로 다시 계산을 요청한다.
+      if (renamed && before && project.model_version > 0) {
+        const lines = planQuantities(renamed)
+        if (lines.length && JSON.stringify(lines) !== JSON.stringify(planQuantities(before))) {
+          try { await api.applyDesignPlan(project.id, renamed, lines); q = '수량표에도 반영했습니다' }
+          catch (e) { q = `수량표에는 반영하지 못했습니다 (${friendlyError(e)})` }
+        }
+      }
       try {
         const row = await api.getProposalBoard(project.id), b = row ? readBoard(row.board) : null
         if (b) { const r = renameBoardFinishRefs(b, i, next); if (r.changed) { await api.saveProposalBoard(project.id, r.board); m = r.changed } }
       } catch { /* 보드는 없어도 된다 · 견본 글은 보드에서 다시 고를 수 있다 */ }
       const label = { code: '코드', name: '품명', spec: '규격' }[k]
-      toast([`${label}를 바꿨습니다`, n ? `평면의 마감 ${n}곳도 바꿨습니다` : '', m ? `제안 보드 견본 ${m}곳도 바꿨습니다` : ''].filter(Boolean).join(' · '))
+      toast([`${label}를 바꿨습니다`, n ? `평면의 마감 ${n}곳도 바꿨습니다` : '', q, m ? `제안 보드 견본 ${m}곳도 바꿨습니다` : ''].filter(Boolean).join(' · '))
+      if (q === '수량표에도 반영했습니다') bump()
     })
   }
 
@@ -203,7 +215,7 @@ export function DesignSpec({ project }: { project: DesignProject }) {
                 <td>{by === 'book' ? <input className="input xs design-sec" defaultValue={i.location ?? ''} aria-label={`${i.name} 위치`} onBlur={e => { const v = e.target.value.trim() || null; if (v !== i.location) run(() => api.updateSpecItem(i.id, { location: v })) }} /> : SPEC_BOOKS[i.book]}</td>
                 <td>{i.maker}</td>
                 <td><button type="button" className="design-status" disabled={busy} title="눌러서 다음 상태로" onClick={() => run(() => api.updateSpecItem(i.id, { status: next[i.status] }))}><Badge tone={tone(i.status)}>{SPEC_STATUS[i.status]}</Badge></button></td>
-                <td className="nowrap">{i.status !== 'dropped' && <Button size="sm" kind="ghost" disabled={busy} onClick={() => run(() => api.updateSpecItem(i.id, { status: 'dropped' }))}>제외</Button>}<Button size="sm" kind="ghost" aria-expanded={open === i.id} onClick={() => setOpen(open === i.id ? null : i.id)}>상세</Button><Button size="sm" kind="ghost" disabled={busy} onClick={() => run(() => api.deleteSpecItem(i.id))} aria-label={`${i.name} 지우기`}>지우기</Button></td>
+                <td className="nowrap">{i.status !== 'dropped' && <Button size="sm" kind="ghost" disabled={busy} onClick={() => run(() => api.updateSpecItem(i.id, { status: 'dropped' }))}>제외</Button>}<Button size="sm" kind="ghost" aria-expanded={open === i.id} onClick={() => setOpen(open === i.id ? null : i.id)}>상세</Button><Button size="sm" kind="ghost" disabled={busy} onClick={async () => { if (await confirmDelete(`스펙북의 '${i.name}' 항목을`)) void run(() => api.deleteSpecItem(i.id)) }} aria-label={`${i.name} 지우기`}>지우기</Button></td>
               </tr>).flatMap((tr, n) => { const i = rows[n]; return open === i.id ? [tr, <tr key={`${i.id}-d`} className="dsp-detail" {...target(i)} tabIndex={-1}><td colSpan={8}>
                 <div className="design-add dsp-ident" aria-label={`${i.name} 번호 · 이름 고치기`}>{IDENT.map(([k, label]) => <label key={k} className="design-spec-f"><span className="t-cap">{label}{k === 'code' ? ' (고치면 평면 · 3D · 수량의 마감 번호도 함께 바뀝니다)' : ''}</span><input key={`${i.id}-${k}-${i[k] ?? ''}`} className="input" defaultValue={i[k] ?? ''} aria-label={`${i.name} ${label}`} disabled={busy}
                   onBlur={e => rename(i, k, e.target.value, e.target)} onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); e.currentTarget.blur() } }} /></label>)}</div>

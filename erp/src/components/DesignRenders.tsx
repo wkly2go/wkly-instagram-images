@@ -6,6 +6,7 @@ import { useAction, useApp, useAsync } from '../lib/app'
 import type { DesignProject, DesignRender, ModelVersion } from '../lib/design'
 import type { PlanGeometry } from '../lib/designPlan'
 import { makeImagePreview } from '../lib/imagePreview'
+import { confirmDelete } from './DesignWorkspace'
 
 const pad = (n: number) => String(n).padStart(2, '0')
 
@@ -54,7 +55,7 @@ export function DesignRenders({ project }: { project: DesignProject }) {
           <input className="input" type="url" defaultValue={s.original_url ?? ''} placeholder="원본 파일 주소 (드라이브 링크)" aria-label={`${s.no} 원본 주소`} onBlur={e => { const v = e.target.value.trim() || null; if (v !== s.original_url) run(() => api.updateRender(s.id, { original_url: v })) }} />
           <div className="row wrap"><input type="file" accept="image/*" aria-label={`${s.no} 그림 올리기`} disabled={busy} onChange={e => { pick(s, e.target.files?.[0]); e.target.value = '' }} />
             {s.original_url && <a href={s.original_url} target="_blank" rel="noreferrer">원본 열기</a>}<span className="design-gap" />
-            <Button size="sm" kind="ghost" disabled={busy} onClick={() => run(() => api.deleteRender(s.id))} aria-label={`${s.no} 장면 지우기`}>지우기</Button></div>
+            <Button size="sm" kind="ghost" disabled={busy} onClick={async () => { if (await confirmDelete(`${s.no} 장면을`)) void run(() => api.deleteRender(s.id)) }} aria-label={`${s.no} 장면 지우기`}>지우기</Button></div>
         </li>)}</ul>
       )}
       <p className="t-cap">여기에는 작게 줄인 미리보기만 보관합니다. 큰 원본은 드라이브에 두고 주소를 적어 주세요.</p>

@@ -162,6 +162,27 @@ export function planQuantities(g: PlanGeometry, wallTrade = 'T03'): PlanLine[] {
   return [...out.values()]
 }
 
+/** 수량 줄 하나 (평면 수량 · 수량표의 모델 줄 모두) — 견주기에 쓰는 칸만 */
+export interface QtyLike { trade: string; item: string; spec?: string | null; unit: string; section?: string | null; qty: number | string }
+/** 수량을 견주는 글: 줄 순서와 상관없이 같은 수량이면 같은 글이 나온다 (공종|품목|규격|단위|견적 구분|수량 소수 셋째 자리).
+ *  같은 줄이 여럿이면 더하고, 0 이하인 줄은 뺀다(수량표에 들어가지 않는다). 품목 · 규격은 수량표처럼 200자까지, 빈 견적 구분은 없음과 같다.
+ *  평면을 고칠 때 이 글이 마지막으로 수량표에 반영한 것과 다를 때만 수량표 · 견적에 다시 반영한다 (부품만 옮기면 그대로) */
+export function quantitiesSignature(lines: readonly QtyLike[]): string {
+  const sum = new Map<string, number>()
+  for (const l of lines) {
+    const k = [l.trade ?? '', (l.item ?? '').trim().slice(0, 200), (l.spec ?? '').trim().slice(0, 200), l.unit ?? '', (l.section ?? '').trim()].map(s => String(s).trim()).join('|')
+    sum.set(k, (sum.get(k) ?? 0) + (Number(l.qty) || 0))
+  }
+  const out: string[] = []
+  for (const [k, q] of sum) { const r = round3(q); if (r > 0) out.push(`${k}|${r}`) }
+  return out.sort().join('\n')
+}
+/** 수량표 줄(design_placements)에서 평면 · 스케치업이 넣은 모델 줄만 견주기 꼴로 (직접 넣은 줄은 반영할 때 그대로 옮겨지므로 뺀다) */
+export const modelLines = (rows: readonly { trade_code: string; item: string; spec: string | null; unit: string; qty: number | string; section: string | null; source: string | null }[]): QtyLike[] =>
+  rows.filter(r => r.source === 'model').map(r => ({ trade: r.trade_code, item: r.item, spec: r.spec, unit: r.unit, section: r.section, qty: r.qty }))
+/** 평면을 마지막으로 고친 뒤 이만큼 지나면 수량표 · 견적에 저절로 반영한다 */
+export const AUTO_APPLY_MS = 15000
+
 /** Lighting counts are edited in the spec book, everything else in the plan editor. Each side keeps the other's part
  *  when it saves: take `lights` from `from` (the latest saved plan) into the rooms of `into`. */
 export function keepLights(into: PlanGeometry, from: PlanGeometry | null): PlanGeometry {
