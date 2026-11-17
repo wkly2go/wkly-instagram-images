@@ -112,6 +112,12 @@ export function createSupabaseDesignApi(sb: SupabaseClient): DesignApi {
       for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
       return { name: f.name, blob: new Blob([bytes], { type: f.mime }) }
     },
+    async planVersionIsWeb(projectId, version) {
+      if (!(version > 0)) return true
+      const r = await sb.from('design_spaces').select('version').eq('project_id', projectId).eq('version', version).eq('source', 'manual').limit(1)
+      fail(r.error)
+      return (r.data ?? []).length > 0
+    },
     async getDesignPlan(projectId) {
       // 작업 중인 평면(version 0)을 바로 읽는다. 아직 없을 때만 마지막으로 반영한 판을 읽는다 (반영한 판이 쌓여도 한 줄만 받는다)
       const r = await sb.from('design_spaces').select('geometry').eq('project_id', projectId).eq('source', 'manual').eq('version', 0).maybeSingle()
@@ -341,6 +347,7 @@ export function createDemoDesignApi(): DesignApi {
     async listDesignCandidates() { return [] },
     startDesign: none, updateDesignProject: none,
     async listPlacements() { return [] },
+    async planVersionIsWeb() { return true },
     addPlacement: none, updatePlacementQty: none, deletePlacement: none,
     async listEstimates() { return [] },
     async listEstimateLines() { return [] },

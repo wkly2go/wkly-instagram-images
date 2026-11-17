@@ -98,6 +98,7 @@ export function DesignPlan({ project, base }: { project: DesignProject; base: De
   // 프로젝트를 바꾸거나 다시 불러올 때마다 올린다 — 그 전에 시작한 저장 · 불러오기가 새 평면을 건드리지 않게
   const epoch = useRef(0)
   const [dirty, setDirtyState] = useState(false)
+  const [fromSketch, setFromSketch] = useState(false)
   const dirtyRef = useRef(false)
   const rev = useRef(0)
   const [revTick, setRevTick] = useState(0)
@@ -349,12 +350,12 @@ export function DesignPlan({ project, base }: { project: DesignProject; base: De
     const pid = project.id
     return () => {
       if (!ready.current || crashed.current) return
-      const save = dirtyRef.current, conflict = !!remoteRef.current
-      if (!save && (conflict || !autoDue(pid))) return
+      const unsaved = dirtyRef.current, conflict = !!remoteRef.current
+      if (!unsaved && (conflict || !autoDue(pid))) return
       const prev = inflight.current, mine = planRef.current
       void (async () => {
         if (prev) await prev.catch(() => false)
-        if (save) {
+        if (unsaved) {
           try { await persist(pid, mine, false) } catch (e) {
             if (e instanceof StalePlan) toast('다른 곳에서 평면이 바뀌어 마지막 고침은 저장하지 않았습니다. 평면 · 3D 를 다시 열어 확인해 주세요')
             return
@@ -374,9 +375,12 @@ export function DesignPlan({ project, base }: { project: DesignProject; base: De
     if (loading || loadFailed) return
     let alive = true
     const pid = project.id, mv = project.model_version, gen = appliedGen.current
-    ;(mv > 0 ? api.listPlacements(pid, mv) : Promise.resolve([])).then(rows => {
+    // 지금 수량이 스케치업 '수량 보내기'로 들어온 것이면 평면 수량으로 저절로 바꾸지 않는다 ('지금 반영'을 눌러야 바뀜)
+    Promise.all([mv > 0 ? api.listPlacements(pid, mv) : Promise.resolve([]), api.planVersionIsWeb(pid, mv)]).then(([rows, web]) => {
       if (!alive || gen !== appliedGen.current) return
-      applied.current.set(pid, quantitiesSignature(modelLines(rows)))
+      setFromSketch(!web)
+      if (web) applied.current.set(pid, quantitiesSignature(modelLines(rows)))
+      else applied.current.delete(pid)
       setBaseTick(n => n + 1)
     }).catch(() => { /* 모르면 저절로 반영하지 않는다 ('지금 반영'은 그대로 된다) */ })
     return () => { alive = false }
@@ -489,9 +493,24 @@ export function DesignPlan({ project, base }: { project: DesignProject; base: De
   useEffect(() => {
     const el = root.current
     if (!el) return
-    const ro = new ResizeObserver(() => setCols(el.clientWidth >= 980 ? 'wide' : el.clientWidth < 700 ? 'slim' : 'mid'))
+    // 판의 높이를 창 안에 맞춘다: 판 위쪽이 페이지 맨 위에서 얼마나 떨어져 있는지(스크롤과 상관없이) 재서 CSS 변수로 (DesignPlan.css --dpw-top)
+    const seat = () => {
+      setCols(el.clientWidth >= 980 ? 'wide' : el.clientWidth < 700 ? 'slim' : 'mid')
+      const stage = el.querySelector<HTMLElement>('.dpw-stage')
+      const r = stage?.getBoundingClientRect()
+      if (!r || (!r.height && !r.width)) return
+      let top = r.top + window.scrollY
+      for (let p = stage!.parentElement; p && p !== document.body; p = p.parentElement) {
+        const oy = getComputedStyle(p).overflowY
+        if (oy === 'auto' || oy === 'scroll') top += p.scrollTop
+      }
+      const v = `${Math.round(Math.min(640, Math.max(0, top)))}px`
+      if (el.style.getPropertyValue('--dpw-top') !== v) el.style.setProperty('--dpw-top', v)
+    }
+    const ro = new ResizeObserver(seat)
     ro.observe(el)
-    return () => ro.disconnect()
+    window.addEventListener('resize', seat)
+    return () => { ro.disconnect(); window.removeEventListener('resize', seat) }
   }, [])
   const exitFull = useCallback(() => { if (document.fullscreenElement) void document.exitFullscreen().catch(() => undefined); setFull(false) }, [])
   const toggleFull = async () => {
@@ -637,16 +656,57 @@ export function DesignPlan({ project, base }: { project: DesignProject; base: De
     setNotes((planRef.current.notes ?? []).filter(n => n.id !== id))
     if (noteSel === id) setNoteSel(null)
   }
-  const importCad = (walls: PlanWall[], mode: 'replace' | 'add') => {
+  // 캐드 가져오기: 바꾸기는 도면의 벽 · 문 · 창으로 통째로, 더하기는 이미 있는 벽(양 끝이 5mm 안에서 같은 벽)을 건너뛰고 새 벽만 더한다.
+  // 문 · 창은 가져온 벽 id 로 이어지므로, 벽 id 를 새로 줄 때 문 · 창의 벽 id 도 함께 바꾼다.
+  const importCad = (walls: PlanWall[], mode: 'replace' | 'add', openings?: PlanOpening[]) => {
     setCadOpen(false)
     if (!walls?.length) return
+    const incoming = openings ?? []
+    let addedWalls = 0, addedOpenings = 0, skipped = 0
     change(cur => {
-      if (mode === 'replace') return { ...cur, walls, openings: cur.openings.filter(o => walls.some(w => w.id === o.wall)) }
-      const used = new Set(cur.walls.map(w => w.id))
-      return { ...cur, walls: [...cur.walls, ...walls.map(w => (used.has(w.id) ? { ...w, id: uid() } : w))] }
+      if (mode === 'replace') {
+        const ids = new Set(walls.map(w => w.id))
+        const keep = incoming.filter(o => ids.has(o.wall))
+        addedWalls = walls.length; addedOpenings = keep.length
+        return { ...cur, walls, openings: keep }
+      }
+      const NEAR = 5
+      const same = (ax: number, ay: number, bx: number, by: number) => Math.abs(ax - bx) <= NEAR && Math.abs(ay - by) <= NEAR
+      const used = new Set([...cur.walls.map(w => w.id), ...cur.openings.map(o => o.id)])
+      const fresh = (id: string) => { let v = id; while (used.has(v)) v = uid(); used.add(v); return v }
+      const all = [...cur.walls]
+      // 가져온 벽 id → 평면의 벽 id (건너뛴 벽은 이미 있던 벽으로, 방향이 반대면 flip)
+      const map = new Map<string, { id: string; flip: boolean }>()
+      const added: PlanWall[] = []
+      for (const w of walls) {
+        const twin = all.find(o => (same(o.x1, o.y1, w.x1, w.y1) && same(o.x2, o.y2, w.x2, w.y2)) || (same(o.x1, o.y1, w.x2, w.y2) && same(o.x2, o.y2, w.x1, w.y1)))
+        if (twin) { skipped++; map.set(w.id, { id: twin.id, flip: !same(twin.x1, twin.y1, w.x1, w.y1) }); continue }
+        const nw = { ...w, id: fresh(w.id) }
+        map.set(w.id, { id: nw.id, flip: false })
+        all.push(nw); added.push(nw)
+      }
+      // 문 · 창: 이어진 벽으로 옮기고, 같은 벽에 이미 있는 문 · 창과 겹치면 건너뛴다
+      const outOpen: PlanOpening[] = [...cur.openings]
+      const wallOf = new Map(all.map(w => [w.id, w]))
+      for (const o of incoming) {
+        const to = map.get(o.wall)
+        const host = to && wallOf.get(to.id)
+        if (!to || !host) continue
+        const pos = to.flip ? Math.round(wallLength(host) - o.pos) : o.pos
+        const hit = outOpen.some(p => p.wall === host.id && Math.abs(p.pos - pos) < (p.width + o.width) / 2)
+        if (hit) continue
+        outOpen.push({ ...o, id: fresh(o.id), wall: host.id, pos })
+        addedOpenings++
+      }
+      addedWalls = added.length
+      if (!added.length && outOpen.length === cur.openings.length) return cur
+      return { ...cur, walls: all, openings: outOpen }
     })
+    const doors = addedOpenings ? ` · 문 · 창 ${addedOpenings}개` : ''
+    const skip = skipped ? ` 이미 있는 벽 ${skipped}개는 건너뛰었습니다.` : ''
+    if (mode === 'add' && !addedWalls && !addedOpenings) { say(`더할 새 벽이 없습니다.${skip}`); return }
     setSel([]); setTool('select'); setFitKey(k => k + 1)
-    say(mode === 'replace' ? `캐드 도면의 벽 ${walls.length}개로 바꿨습니다. 되돌리기로 돌아갈 수 있습니다` : `캐드 도면의 벽 ${walls.length}개를 더했습니다`)
+    say(mode === 'replace' ? `캐드 도면의 벽 ${addedWalls}개${doors}로 바꿨습니다. 되돌리기로 돌아갈 수 있습니다` : `캐드 도면의 벽 ${addedWalls}개${doors}를 더했습니다.${skip}`)
   }
 
   const lines = useMemo(() => planQuantities(plan), [plan])
@@ -656,6 +716,16 @@ export function DesignPlan({ project, base }: { project: DesignProject; base: De
   const tname = (c: string) => base.trades.find(t => t.code === c)?.name ?? c
   const matNames = useMemo(() => [...new Set([...specs.filter(x => x.book === 'materials' && x.status !== 'dropped').map(x => [x.code, x.name].filter(Boolean).join(' ')), ...plan.walls.map(w => w.finish?.trim())].filter(Boolean))] as string[], [specs, plan.walls])
   const openNotes = (plan.notes ?? []).filter(n => !n.done).length
+  // 수량표와 이어진 상태 (저장 상태 옆에 보인다)
+  const linkBase = applied.current.get(project.id)
+  const sketchNote = fromSketch && link.kind !== 'wait' && link.kind !== 'running' && link.kind !== 'done' && link.kind !== 'error' ? "스케치업에서 보낸 수량이라 저절로 바꾸지 않습니다 · '지금 반영'을 누르면 평면 수량으로 바꿉니다" : ''
+  const linkText = link.kind === 'wait' ? `수량 반영 대기 · ${Math.max(1, Math.ceil((link.due - Date.now()) / 1000))}초`
+    : link.kind === 'running' ? '수량표에 반영하는 중…'
+    : link.kind === 'done' ? `수량표 · 견적에 반영함 ${hhmm(link.at)}${link.note ? ' (견적 계산은 맡기지 못했습니다)' : ''}`
+    : link.kind === 'error' ? `수량표에 반영하지 못했습니다 — ${link.msg}`
+    : sketchNote ? sketchNote
+    : loading || loadFailed || linkBase === undefined || linkBase === UNKNOWN_BASE ? ''
+    : quantitiesSignature(lines) === linkBase ? '수량표와 같음' : lines.length ? '수량표에 아직 반영하지 않은 수량이 있습니다' : ''
   const status = loading ? '불러오는 중…' : loadFailed ? '평면을 불러오지 못했습니다' : saveState === 'saving' ? '저장 중…' : saveState === 'error' ? '저장하지 못했습니다' : dirty ? (remote ? '저장을 잠시 멈췄습니다' : '고친 내용을 곧 저장합니다') : savedAt ? `저장됨 ${hhmm(savedAt)}` : '저장됨'
 
   const inspector = () => {
@@ -780,6 +850,7 @@ export function DesignPlan({ project, base }: { project: DesignProject; base: De
           <span className="dpw-gap" />
           {peers.length > 0 && <span className="dpw-peers" title={peers.map(p => p.name).join(', ')}><Users size={13} />지금 보는 사람{peers.slice(0, 4).map(p => <i key={p.id}>{p.name}</i>)}{peers.length > 4 && <i>+{peers.length - 4}</i>}</span>}
           <span className={`dpw-status${saveState === 'error' || loadFailed ? ' err' : ''}`} role="status">{status}{saveState === 'error' && <> — <button type="button" className="dpw-link" onClick={() => void save()}>다시 시도</button></>}{loadFailed && <> — <button type="button" className="dpw-link" onClick={() => setLoadTick(n => n + 1)}>다시 불러오기</button></>}</span>
+          {linkText && <span className={`dpw-status dpw-link-state${link.kind === 'error' ? ' err' : ''}`} style={{ whiteSpace: 'normal', minWidth: 0 }} role="status" title={link.kind === 'done' && link.note ? link.note : '평면의 수량이 바뀌면 마지막으로 고친 뒤 15초 지나 수량표에 반영하고 견적을 다시 계산합니다'}>{linkText}</span>}
           <Button size="sm" kind="outline" disabled={!dirty || loading || loadFailed || saveState === 'saving'} onClick={() => void save()}>지금 저장</Button>
         </div>
 
@@ -878,7 +949,7 @@ export function DesignPlan({ project, base }: { project: DesignProject; base: De
           <b className="t-bodyb">이 평면의 수량</b>
           <span className="t-cap">{area != null ? `바닥 ${area}㎡ (${(area / 3.3058).toFixed(1)}평)` : '기존 벽이 닫힌 방이 되면 바닥 면적이 나옵니다'}</span>
           <span className="design-gap" />
-          <Button size="sm" disabled={busy || loading || loadFailed || lines.length === 0} onClick={() => void run(async () => { if (!(await save(true))) throw new Error('평면을 아직 저장할 수 없어 수량표에 반영하지 못했습니다. 잠시 뒤 다시 눌러 주세요') }, '수량표에 반영했습니다. 새 모델 버전이 만들어졌습니다')}>수량표에 반영</Button>
+          <Button size="sm" title="15초를 기다리지 않고 지금 수량표에 반영하고 견적을 다시 계산합니다" disabled={busy || loading || loadFailed || lines.length === 0 || link.kind === 'running'} onClick={() => void run(async () => { if (!(await save(true))) throw new Error('평면을 아직 저장할 수 없어 수량표에 반영하지 못했습니다. 잠시 뒤 다시 눌러 주세요') }, '수량표에 반영했습니다. 견적도 다시 계산합니다')}>지금 반영</Button>
         </div>
         {lines.length === 0 ? <Empty>새 가벽이나 부품을 그리면 여기에 수량이 모입니다. 기존 벽은 수량에 들어가지 않습니다.</Empty> : (
           <div className="table-wrap"><table className="table">
@@ -886,7 +957,7 @@ export function DesignPlan({ project, base }: { project: DesignProject; base: De
             <tbody>{lines.map((l, i) => <tr key={i}><td className="nowrap strong">{tname(l.trade)}</td><td>{l.item}</td><td className="max">{l.spec}</td><td className="num">{l.qty.toLocaleString('ko-KR')}</td><td>{l.unit}</td><td>{l.section}</td></tr>)}</tbody>
           </table></div>
         )}
-        <p className="t-cap">평면은 고칠 때마다 자동으로 저장됩니다. '수량표에 반영'을 누르면 스케치업에서 '수량 보내기'를 한 것과 같이 새 모델 버전이 되고, 직접 넣은 수량은 그대로 남습니다. {area != null && project.area_m2 == null ? '면적은 프로젝트에 자동으로 넣지 않습니다(확인 후 직접 입력).' : ''}</p>
+        <p className="t-cap">평면은 고칠 때마다 자동으로 저장되고, 수량이 바뀌면 마지막으로 고친 뒤 15초가 지나 수량표에 반영되어(새 모델 버전) 견적도 다시 계산됩니다. 부품을 옮기기만 하면 수량이 그대로이므로 반영하지 않습니다. '지금 반영'은 기다리지 않고 바로 반영하며, 직접 넣은 수량은 그대로 남습니다. {area != null && project.area_m2 == null ? '면적은 프로젝트에 자동으로 넣지 않습니다(확인 후 직접 입력).' : ''}</p>
       </div>
     </div>
   )

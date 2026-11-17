@@ -10,7 +10,7 @@
     "typecheck": "tsc -b",
     "test:marketing": "node --experimental-strip-types --test tests/ad-workspace.test.ts tests/ad-team.test.ts tests/marketing.test.ts tests/marketing-save.test.ts tests/marketing-db.test.mjs",
     "test:efficiency": "node --experimental-strip-types --test tests/navigation-counts.test.ts tests/pending-reads.test.ts tests/signed-url-cache.test.ts tests/collaboration-polling.test.ts tests/upload-record.test.ts tests/storage-removal.test.ts tests/meeting-cleanup.test.mjs tests/supabase-storage-flow.test.mjs tests/egress-savings.test.mjs",
-    "test:design": "node --experimental-strip-types --test tests/design-plan.test.ts tests/design-plan-real.test.ts tests/design-library.test.ts tests/design-board.test.ts tests/design-drawings.test.ts tests/design-price-refs.test.ts",
+    "test:design": "node --experimental-strip-types --test tests/design-autolink.test.ts tests/design-board.test.ts tests/design-drawings.test.ts tests/design-library.test.ts tests/design-plan-editor.test.ts tests/design-plan-real.test.ts tests/design-plan.test.ts tests/design-price-refs.test.ts tests/design-spec-sync.test.ts",
     "test:site": "node --experimental-strip-types --test tests/site-preview.test.ts",
     "test:tasks": "node --experimental-strip-types --test tests/task-worklog.test.ts",
     "test:sales": "node --experimental-strip-types --test tests/sales.test.ts tests/sales-inquiries.test.ts tests/prospecting.test.ts tests/sales-navigation.test.ts tests/sales-db.test.mjs",

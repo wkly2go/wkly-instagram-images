@@ -1,6 +1,6 @@
 /* 평면 · 3D 작업 공간 (2026-11-17) — 밝은 바탕, v8 둥근 모서리(칸 12 · 버튼 8), 글자 크기는 본문 · 강조 토큰만.
    dpw = 작업 공간(도구 줄 · 보기 전환 · 오른쪽 칸), dpc = 평면 그리기 판, dps = 부품 기호, dpo = 문 · 창 기호, dpn = 댓글 */
-.dpw { display: flex; flex-direction: column; gap: 8px; min-width: 0; --dpw-green: var(--v8-green, var(--blue)); --dpw-h: max(420px, calc(100vh - 250px)); }
+.dpw { display: flex; flex-direction: column; gap: 8px; min-width: 0; --dpw-green: var(--v8-green, var(--blue)); --dpw-h: max(420px, calc(100vh - var(--dpw-top, 234px) - 16px)); }
 
 .dpw:focus { outline: none; }
 .dpw > * { flex-shrink: 0; }

@@ -6,7 +6,7 @@ import * as THREE from 'three'
 import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js'
 import { LineSegments2 } from 'three/examples/jsm/lines/LineSegments2.js'
 import { LineSegmentsGeometry } from 'three/examples/jsm/lines/LineSegmentsGeometry.js'
-import { floorOutline, wallLength, type PlanGeometry, type PlanOpening, type PlanWall } from './designPlan.ts'
+import { roomOutline, wallLength, type PlanGeometry, type PlanOpening, type PlanWall } from './designPlan.ts'
 import { along, doorStyle, planBounds, wallFrame, wallPieces, DOOR_H, HEAD_H, SILL_H, type Pt, type WallPiece } from './designPlanDraw.ts'
 import { itemShape, mix, SHAPE_COLOR, type FinishKind, type FinishLook, type ItemShape } from './designPlanLook.ts'
 import { buildItem, buildPerson, Kit, type Tone } from './designPlan3dParts.ts'
@@ -209,7 +209,8 @@ export class PlanScene {
     const ok = (...v: unknown[]) => v.every(n => typeof n === 'number' && Number.isFinite(n))
     const walls = g.walls.filter(w => ok(w.x1, w.y1, w.x2, w.y2) && wallLength(w) > 1).map(w => (w.t >= 10 ? w : { ...w, t: 10 }))
     const byId = new Map(walls.map(w => [w.id, w]))
-    const outline = floorOutline(walls.filter(w => w.kind === 'existing'))
+    // 닫힌 방 규칙은 평면 · 납품 · 스케치업과 같은 것 (lib/designPlan roomOutline)
+    const outline = roomOutline(walls)
     const corners = wallCorners(walls)
     const room = (k: 'floor' | 'wall' | 'ceiling' | 'base') => g.rooms?.find(r => r[k]?.mat?.trim())?.[k]?.mat?.trim() ?? ''
     let changed = false

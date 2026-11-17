@@ -42,6 +42,7 @@ const renders = [
 
 export function installDesignHarness() {
   Object.assign(api, {
+    planVersionIsWeb: async () => true,
     listPlanLibrary: async () => [...library],
     savePlanLibrary: async (e: Pick<LibraryEntry, 'kind' | 'group' | 'name' | 'data'>) => { const row: LibraryEntry = { ...e, id: `h-${Date.now().toString(36)}`, builtin: false, created_by: 'harness', created_at: new Date().toISOString() }; library.unshift(row); return row },
     deletePlanLibrary: async (id: string) => { const i = library.findIndex(x => x.id === id); if (i >= 0) library.splice(i, 1) },

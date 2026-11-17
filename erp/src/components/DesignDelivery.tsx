@@ -5,7 +5,7 @@ import { Badge, Button } from './ui'
 import { useApp, useAsync } from '../lib/app'
 import { useRouter, withQuery } from '../lib/router'
 import { DOC_LABELS, SPACE_LABELS, SPEC_BOOKS, type DesignBase, type DesignProject, type SpecBook } from '../lib/design'
-import { floorArea, type PlanGeometry } from '../lib/designPlan'
+import { roomArea, type PlanGeometry } from '../lib/designPlan'
 import { sheetList } from '../lib/designDrawings'
 
 const won = (v: string | undefined) => (v ? `${Number(v).toLocaleString('ko-KR')}원` : '')
@@ -26,7 +26,7 @@ export function DesignDelivery({ project, base }: { project: DesignProject; base
   const est = estimates.find(e => e.variant === 'standard')
   const liveSpecs = specs.filter(s => s.status !== 'dropped')
   const sheets = plan ? sheetList(plan).length : 0
-  const area = plan ? floorArea(plan.walls.filter(w => w.kind === 'existing')) : null
+  const area = plan ? roomArea(plan.walls) : null
   const go = (view: string) => navigate(withQuery('/design', query, { view }))
   const latest = (kind: string) => docs.find(d => d.kind === kind)
   const items: { name: string; ready: boolean; state: string; view: string; action: string }[] = [

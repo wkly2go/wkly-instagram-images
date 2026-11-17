@@ -236,6 +236,8 @@ export interface DesignApi {
   startDesign(projectId: string, spaceType: SpaceType, areaM2: number | null): Promise<void>
   updateDesignProject(projectId: string, patch: { space_type?: SpaceType; area_m2?: number | null; budget?: number | null; work_start?: string | null; estimate_rules?: EstimateRules }): Promise<void>
   listPlacements(projectId: string, modelVersion: number): Promise<Placement[]>
+  /** 이 모델 버전이 인트라넷 평면에서 반영한 것인지 (스케치업 '수량 보내기'로 만든 버전이면 false) */
+  planVersionIsWeb(projectId: string, version: number): Promise<boolean>
   addPlacement(row: PlacementDraft): Promise<void>
   updatePlacementQty(id: string, qty: number): Promise<void>
   deletePlacement(id: string): Promise<void>

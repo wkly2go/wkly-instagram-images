@@ -1,7 +1,7 @@
 // 스케치업 활용 (2026-11-17 대표 지시 '캐드와 스케치업을 활용 가능하게')
 // 평면을 스케치업에서 그대로 세우는 루비 스크립트를 만든다 — 스케치업 › 확장 프로그램 › 개발자 › Ruby 콘솔에서 load '파일 경로'.
 // 벽(문 · 창 자리 비움) · 바닥 · 집기를 태그별 그룹으로 만들고, 마감 색을 재질로 넣는다. 정밀 모델 · 렌더는 그 위에서 이어 간다.
-import { floorOutline, type PlanGeometry } from './designPlan.ts'
+import { roomOutline, type PlanGeometry } from './designPlan.ts'
 import { pieceCorners, wallPieces } from './designPlanDraw.ts'
 import { finishLook, itemShape, SHAPE_COLOR, type FinishLook } from './designPlanLook.ts'
 
@@ -35,7 +35,8 @@ export function planToSketchupRuby(g: PlanGeometry, name: string, look: (finish?
   L.push('  made = 0', '  skipped = 0', '  box = lambda do |points, z0, z1, label, tag, material|', '    grp = nil', '    begin', '      grp = ents.add_group', '      grp.name = label', '      face = grp.entities.add_face(points.map { |x, y| Geom::Point3d.new(x.mm, y.mm, z0.mm) })', '      if face', '        face.reverse! if face.normal.z < 0', '        face.pushpull((z1 - z0).mm)', '      end', '      grp.layer = tags[tag]', '      grp.material = material if material', '      made += 1', '      grp', '    rescue StandardError', '      grp.erase! if grp && grp.valid?', '      skipped += 1', '      nil', '    end', '  end', '')
   // 천장 높이가 비어 있으면(0) 2,700 으로 — 벽이 하나도 안 생기는 일을 막는다
   const H = g.height > 0 ? g.height : 2700
-  const floor = floorOutline(g.walls.filter(w => w.kind === 'existing'))
+  // 닫힌 방 규칙은 평면 · 3D 와 같은 것 (lib/designPlan roomOutline)
+  const floor = roomOutline(g.walls)
   if (floor) {
     const fl = look(g.rooms?.[0]?.floor.mat, 'wood')
     L.push(`  fg = ents.add_group`, `  fg.name = '바닥'`, `  ff = fg.entities.add_face(${pts(floor)}.map { |x, y| Geom::Point3d.new(x.mm, y.mm, 0) })`, '  ff.reverse! if ff && ff.normal.z < 0', "  fg.layer = tags['WKLY-바닥']", `  fg.material = mat.call(${rb(`WKLY 바닥 ${g.rooms?.[0]?.floor.mat?.trim() || '기본'}`)}, ${rgb(fl.color)})`, '')
