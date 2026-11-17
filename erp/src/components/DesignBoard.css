@@ -31,11 +31,11 @@
 .dbd-mid .dbd-body { grid-template-columns: 168px minmax(0, 1fr) 244px; }
 .dbd-slim .dbd-body { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: minmax(400px, 62vh) minmax(0, auto); height: auto; }
 .dbd-slim .dbd-stage { grid-column: 1 / -1; grid-row: 1; }
-.dbd-slim .dbd-left { grid-column: 1; grid-row: 2; max-height: 440px; }
-.dbd-slim .dbd-right { grid-column: 2; grid-row: 2; max-height: 440px; }
+.dbd-slim .dbd-left { grid-column: 1; grid-row: 2; height: 400px; }
+.dbd-slim .dbd-right { grid-column: 2; grid-row: 2; height: 400px; }
 .dbd-full .dbd-body { flex: 1; height: auto; min-height: 0; }
 .dbd-left, .dbd-right { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; background: var(--white); border: 1px solid var(--line); border-radius: 12px !important; }
-.dbd-sec { display: flex; flex-direction: column; gap: 6px; min-height: 0; padding: 8px; border-bottom: 1px solid var(--line); flex: 0 1 auto; max-height: 58%; }
+.dbd-sec { display: flex; flex-direction: column; gap: 6px; min-height: 0; padding: 8px; border-bottom: 1px solid var(--line); flex: 0 1 auto; max-height: 60%; overflow: hidden; }
 .dbd-sec.grow { flex: 1 1 0; max-height: none; border-bottom: 0; }
 .dbd-sec-h { display: flex; align-items: center; justify-content: space-between; min-height: 28px; flex: none; }
 .dbd-sec-h b { font-size: var(--fs-body); font-weight: 700; color: var(--v8-ink, #151d18); }
@@ -145,7 +145,7 @@
 .dbd-el { position: absolute; }
 .dbd-viewport.tool-select .dbd-el { cursor: move; }
 .dbd-viewport.tool-select .dbd-el.locked { cursor: default; }
-.dbd-text { width: 100%; height: 100%; overflow: hidden; white-space: pre-wrap; overflow-wrap: anywhere; }
+.dbd-text { width: 100%; height: 100%; white-space: pre-wrap; overflow-wrap: anywhere; }
 .dbd-note { width: 100%; height: 100%; padding: 18px 20px; overflow: hidden; white-space: pre-wrap; overflow-wrap: anywhere; border-radius: 4px !important; box-shadow: 0 6px 16px rgba(21, 29, 24, .14); }
 .dbd-rect { display: flex; align-items: center; width: 100%; height: 100%; overflow: hidden; white-space: pre-wrap; overflow-wrap: anywhere; border-radius: 10px !important; }
 .dbd-rect span { width: 100%; padding: 8px 14px; }

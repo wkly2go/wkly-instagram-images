@@ -314,10 +314,11 @@ export default function DesignBoard({ project }: { project: DesignProject }) {
   }, [cols, full, remote, loading])
   useEffect(() => {
     if (!full) return
-    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape' && !(e.target instanceof HTMLTextAreaElement) && !(e.target instanceof HTMLInputElement) && present === null) setFull(false) }
+    // Esc: 고른 것 · 도구가 있으면 그것부터 풀고, 아무것도 없을 때 원래 크기로 돌아간다
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape' && !(e.target instanceof HTMLTextAreaElement) && !(e.target instanceof HTMLInputElement) && present === null && !sel.length && tool === 'select' && !editing && !draftPin) setFull(false) }
     window.addEventListener('keydown', esc)
     return () => window.removeEventListener('keydown', esc)
-  }, [full, present])
+  }, [full, present, sel.length, tool, editing, draftPin])
 
   // ── 지금 페이지 · 고른 것 ────────────────────────────────
   const pages = board.pages
@@ -706,7 +707,7 @@ export default function DesignBoard({ project }: { project: DesignProject }) {
               <div className="dbd-sec-h"><b>레이어 {page.els.length}</b></div>
               <ul className="dbd-layers">
                 {[...page.els].sort((a, b) => b.z - a.z).map(e => <li key={e.id} className={sel.includes(e.id) ? 'on' : ''}>
-                  <button type="button" onClick={ev => setSel(ev.shiftKey ? (sel.includes(e.id) ? sel.filter(x => x !== e.id) : [...sel, e.id]) : [e.id])}>{elLabel(e, specs, renders)}</button>
+                  <button type="button" title={elLabel(e, specs, renders)} onClick={ev => { setSel(ev.shiftKey ? (sel.includes(e.id) ? sel.filter(x => x !== e.id) : [...sel, e.id]) : [e.id]); setTab('props') }}>{elLabel(e, specs, renders)}</button>
                   {e.locked && <Lock size={12} aria-label="잠김" />}
                 </li>)}
                 {!page.els.length && <li className="none">아직 놓은 것이 없습니다. 위의 도구나 오른쪽 스펙 탭에서 넣어 보세요.</li>}
@@ -715,7 +716,7 @@ export default function DesignBoard({ project }: { project: DesignProject }) {
           </aside>
           <div className="dbd-stage">
             <DesignBoardCanvas ref={canvas} pages={pages} pins={pins} cur={page.id} sel={sel} tool={tool} editing={editing} pinSel={pinSel} draftPin={draftPin} readOnly={locked}
-              onCur={id => { setCur(id); setSel([]) }} onSel={ids => { setSel(ids); if (ids.length) setTab(t => (t === 'notes' ? 'props' : t)) }} onEditing={setEditing} onCreate={create}
+              onCur={id => { setCur(id); setSel([]) }} onSel={ids => { setSel(ids); if (ids.length) setTab('props') }} onEditing={setEditing} onCreate={create}
               onPin={(pg, x, y) => { setDraftPin({ page: pg, x, y }); setDraftText(''); setTab('notes'); if (pg !== curRef.current) setCur(pg) }} onPickPin={pickPin}
               onDropSpec={(id, pg, x, y) => addSpec(id, { page: pg, x, y })}
               onBegin={() => { dragging.current = true; dragBase.current = boardRef.current.pages }}
