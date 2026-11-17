@@ -2,30 +2,13 @@ import { useEffect, useState } from 'react'
 import { desktop } from './desktop'
 
 /**
- * 자동 업데이트: 새로 배포되면 열려 있는 창이 스스로 새 버전으로 바뀐다.
- *  - 3분마다 · 창으로 돌아올 때 /version.json 을 확인
- *  - 새 버전이면: 창이 가려져 있거나 1분 넘게 손대지 않았으면 바로 새로고침
- *    (글을 쓰는 중이면 기다렸다가), 아니면 위에 '새 버전' 띠를 띄움
- *  - 휴대폰 앱 · 탭을 다시 열었을 때(화면으로 돌아온 순간) 새 버전이면 곧바로 새로고침
- *    (휴대폰은 앱을 닫아도 뒤에 살아 있어 예전 화면이 계속 보이던 문제)
+ * 새 버전 알림: 새로 배포되면 위에 '새 버전' 띠만 띄운다. 저절로 새로고침하지 않는다
+ * (대표 지시 2026-11-17 '업데이트를 자동으로 하지 말고 필요한 사람만 할 수 있게 표시만').
+ *  - 휴대폰 30초 · PC 1분마다, 창으로 돌아올 때 /version.json 을 확인
+ *  - 띠의 '업데이트'를 누르면 그때 새 버전으로 바뀜
  */
-// 휴대폰은 30초마다 확인하고 새 버전이면 바로(3초 뒤) 바꿈 (대표 지시 2026-11-04 "실시간으로 반영") · PC 는 1분마다
 const PHONE = typeof window !== 'undefined' && (window.matchMedia?.('(pointer: coarse)').matches || window.matchMedia?.('(max-width: 640px)').matches)
 const CHECK_MS = PHONE ? 30 * 1000 : 60 * 1000
-const IDLE_MS = 60 * 1000
-
-let lastInput = Date.now()
-if (typeof window !== 'undefined') {
-  for (const ev of ['keydown', 'pointerdown', 'wheel', 'touchstart'])
-    window.addEventListener(ev, () => (lastInput = Date.now()), { passive: true, capture: true })
-}
-
-/** 입력칸에 쓰다 만 글이 있으면 자동 새로고침을 미룸 */
-function typing(): boolean {
-  const el = document.activeElement as HTMLInputElement | HTMLTextAreaElement | null
-  if (el && (el.tagName === 'TEXTAREA' || (el.tagName === 'INPUT' && !['checkbox', 'radio', 'button'].includes(el.type)))) return !!el.value
-  return [...document.querySelectorAll('textarea')].some(t => t.value.trim())
-}
 
 async function latestId(): Promise<string | null> {
   try {
@@ -51,43 +34,31 @@ export function UpdateBanner() {
   useEffect(() => {
     if (!import.meta.env.PROD) return
     let found = false
-    let soon = 0
-    const tryApply = (resumed = false) => {
-      if (!found) return
-      if (document.visibilityState === 'hidden' || ((resumed || Date.now() - lastInput > IDLE_MS) && !typing())) return reload()
-      // 휴대폰: 글을 쓰는 중이 아니면 띠를 3초 보여 주고 바로 새로고침
-      if (PHONE && !typing() && !soon) soon = window.setTimeout(() => (typing() ? (soon = 0) : reload()), 3000)
-    }
-    const check = async (resumed = false) => {
-      if (!found) {
-        const id = await latestId()
-        if (id && id !== __BUILD_ID__) {
-          found = true
-          setReady(true)
-        }
+    const check = async () => {
+      if (found) return
+      const id = await latestId()
+      if (id && id !== __BUILD_ID__) {
+        found = true
+        setReady(true)
       }
-      tryApply(resumed)
     }
     check()
     const timer = window.setInterval(() => check(), CHECK_MS)
-    const idle = window.setInterval(() => tryApply(), 20 * 1000)
-    const onVis = () => (document.visibilityState === 'visible' ? check(true) : tryApply())
+    const onVis = () => document.visibilityState === 'visible' && check()
     const onFocus = () => check()
     // 뒤로 가기 캐시(bfcache)에서 되살아난 화면도 확인
-    const onShow = (e: PageTransitionEvent) => e.persisted && check(true)
+    const onShow = (e: PageTransitionEvent) => e.persisted && check()
     document.addEventListener('visibilitychange', onVis)
     window.addEventListener('focus', onFocus)
     window.addEventListener('pageshow', onShow)
-    const onOnline = () => check(true)
+    const onOnline = () => check()
     window.addEventListener('online', onOnline)
     return () => {
       window.clearInterval(timer)
-      window.clearInterval(idle)
       document.removeEventListener('visibilitychange', onVis)
       window.removeEventListener('focus', onFocus)
       window.removeEventListener('pageshow', onShow)
       window.removeEventListener('online', onOnline)
-      window.clearTimeout(soon)
     }
   }, [])
   const app = useDesktopUpdate()
@@ -118,9 +89,9 @@ export function UpdateBanner() {
   if (!ready) return null
   return (
     <div className="update-bar" role="status">
-      <span>{PHONE ? '새 버전으로 바꾸는 중입니다…' : '인트라넷이 새 버전으로 바뀌었습니다. 잠시 손을 떼면 저절로 새로고침돼요.'}</span>
+      <span>인트라넷 새 버전이 있습니다. 필요하실 때 눌러서 바꾸세요.</span>
       <button type="button" onClick={reload}>
-        지금 새로고침
+        업데이트
       </button>
     </div>
   )
