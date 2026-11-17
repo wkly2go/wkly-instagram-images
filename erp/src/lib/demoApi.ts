@@ -1977,6 +1977,17 @@ export function createDemoApi(): Api {
       persist()
       emit('agent_job_requests')
     },
+    async importAdDaily(rows) {
+      if (!store.ad_daily) seedAds()
+      const list = store.ad_daily ?? (store.ad_daily = [])
+      for (const r of rows) {
+        const i = list.findIndex(x => x.date === r.date && x.platform === r.platform && x.campaign === r.campaign)
+        const row = { ...r, note: '파일 올리기', updated_at: new Date().toISOString() } as AdDaily
+        if (i >= 0) list[i] = row
+        else list.push(row)
+      }
+      return { saved: rows.length, skipped: 0 }
+    },
     async listAdDaily(from, to) {
       if (!store.ad_daily) seedAds()
       return clone((store.ad_daily ?? []).filter(r => r.date >= from && r.date <= to))

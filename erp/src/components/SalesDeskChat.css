@@ -85,3 +85,6 @@
 .sales-desk-compact .sales-desk-compact-open { flex-wrap: wrap; align-items: center; row-gap: 4px; }
 .sales-desk-compact .sales-desk-compact-what { flex: 1 1 240px; }
 @media (max-width: 700px) { .sales-desk-answer > header.sales-plan-head { margin: 0 -10px; padding: 8px 10px; } .sales-desk-plan .sales-desk-answer { padding: 0 10px 12px; } .sales-plan-head .sales-plan-when { margin-left: 0; width: 100%; } }
+.sales-desk-detail { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+/* 대화도 페이지 전체 폭 (대표 지시 2026-11-17) */
+.sales-desk-chat .sales-desk-mine, .sales-desk-chat .sales-desk-answer { max-width: none; margin-left: 0; }

@@ -177,3 +177,41 @@ details[open] > summary > .ads-details-chevron { transform: rotate(180deg); }
 .adteam-two { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px; }
 .adteam-steps { margin: 0; padding-left: 20px; display: grid; gap: 6px; line-height: 1.55; }
 .adteam-steps span { display: block; font-size: var(--fs-cap); color: var(--gray); }
+
+/* 광고 운영팀 현황판 (2026-11-17): 이번 주 진행 · 결재 · 수치 올리기 · 판정표 */
+.adteam-state.live { background: #edf6f0; border-color: #cfe3d6; }
+.adteam-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+.adteam-head h2 { margin: 0; }
+.adteam-head h2 small, .adteam-sub small { margin-left: 8px; font-size: var(--fs-body); font-weight: 400; color: var(--gray); }
+.adteam-flow { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.adteam-step { border: 1px solid var(--line); border-left: 4px solid #cfd6d0; background: var(--white); border-radius: 12px; padding: 10px 14px; }
+.adteam-step.ok { border-left-color: #1f6b4a; }
+.adteam-step.wait { border-left-color: #c9a227; background: #fffdf4; }
+.adteam-step.off { border-left-color: #c0392b; }
+.adteam-step-top { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.adteam-step-top small { color: var(--gray); }
+.adteam-step-top .btn { margin-left: auto; }
+.adteam-chip { display: inline-block; padding: 1px 10px; border-radius: 999px; font-size: var(--fs-body); font-weight: 700; background: #eef0ec; color: #535c56; white-space: nowrap; }
+.adteam-chip.ok { background: #e3f1e8; color: #1f6b4a; }
+.adteam-chip.wait { background: #fbf0c9; color: #7a5b00; }
+.adteam-chip.off { background: #fbe6e2; color: #a5281b; }
+.adteam-sum { margin: 6px 0 0; white-space: pre-line; color: var(--gray); line-height: 1.6; }
+.adteam-body { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line); overflow-wrap: anywhere; }
+.adteam-decide { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+.adteam-decide .input { flex: 1 1 240px; min-width: 0; }
+.adteam-note.warn { color: #a5281b; }
+.adteam-upload { display: grid; gap: 6px; border: 1px dashed #b9c9bd; background: #f7faf7; border-radius: 12px; padding: 12px 14px; line-height: 1.6; }
+.adteam-upload-row, .adteam-parsed { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.adteam-upload-row .input { width: auto; }
+.adteam-parsed { padding-top: 8px; border-top: 1px solid var(--line); }
+.adteam-sub { margin: 14px 0 6px; font-size: var(--fs-sub); }
+.adteam-scroll { overflow-x: auto; }
+.adteam-verdict td.n { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.adteam-verdict { min-width: 760px; table-layout: auto; }
+.adteam-verdict th, .adteam-verdict td { white-space: nowrap; }
+.adteam-verdict td.what { white-space: normal; min-width: 220px; }
+.adteam-verdict td.what small { display: block; font-weight: 400; color: var(--gray); line-height: 1.5; }
+.adteam-how { border: 1px solid var(--line); background: var(--white); border-radius: 12px; padding: 10px 14px; }
+.adteam-how > summary { cursor: pointer; font-weight: 700; }
+.adteam-how[open] > summary { margin-bottom: 10px; }
+.adteam-how .adteam-list { margin-top: 12px; }

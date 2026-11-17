@@ -90,10 +90,10 @@ html:not([data-theme="dark"]) .app-page .web-panel { background: #fff; border: 0
 
 /* ---------- 왼쪽 메뉴: 테두리 없는 글자 메뉴 · 고른 줄만 연한 초록 ---------- */
 html:not([data-theme="dark"]) .profile, html:not([data-theme="dark"]) .body > .profile { background: var(--v8-bg); border-right: 0; --line: var(--v8-line-2); }
-html:not([data-theme="dark"]) .app-page .profile .side-item { color: var(--v8-text); font-weight: 700; }
+html:not([data-theme="dark"]) .app-page .profile .side-item { color: var(--v8-text); font-weight: 400; }
 html:not([data-theme="dark"]) .app-page .profile .side-item > svg { color: var(--v8-text); }
 html:not([data-theme="dark"]) .app-page .profile .side-item:hover { background: var(--v8-hover); color: var(--v8-ink); }
-html:not([data-theme="dark"]) .app-page .profile .side-item.on { background: #fff; color: var(--v8-green); font-weight: 700; box-shadow: 0 1px 2px rgba(31, 42, 36, .08); }
+html:not([data-theme="dark"]) .app-page .profile .side-item.on { background: #fff; color: var(--v8-green); font-weight: 400; box-shadow: 0 1px 2px rgba(31, 42, 36, .08); }
 html:not([data-theme="dark"]) .app-page .profile .side-item.on > svg { color: var(--v8-green); }
 .app-page .profile .side-item.on::before, .side-item.on::before { display: none; }
 /* 주 메뉴 묶음 이름 (2026-11-17 대표 지시 '주 메뉴가 더 볼드하게 다른 색으로'): 짙은 초록 · 가장 굵게 · 한 단계 크게 → 아래 메뉴 줄(먹색 보통 굵기)과 구분 */
@@ -153,7 +153,9 @@ html:not([data-theme="dark"]) :is(.input, .select, .textarea):focus { border-col
 /* ---------- 칩 · 배지: 연한 바탕 + 진한 글자 ---------- */
 html:not([data-theme="dark"]) .chip { background: #fff; border-color: var(--v8-line-2); color: var(--v8-text); }
 html:not([data-theme="dark"]) .chip:hover { background: var(--v8-hover); }
-html:not([data-theme="dark"]) :is(.chip.active, .chip.on, .on.chip) { background: var(--v8-tint); border-color: #b9dbc6; color: var(--v8-green); }
+/* 고른 칩은 짙은 초록 바탕 + 흰 글자로 또렷하게 (대표 지시 2026-11-17 '더욱 선명하게 구별되게') */
+html:not([data-theme="dark"]) :is(.chip.active, .chip.on, .on.chip), html:not([data-theme="dark"]) .main .chips[role="tablist"]:not(.one-line) > .chip.active { background: var(--v8-green); border-color: var(--v8-green); color: #fff; font-weight: 700; box-shadow: 0 1px 3px rgba(31, 107, 74, .28); }
+html:not([data-theme="dark"]) .chips[role="tablist"] > .chip:not(.active) { color: var(--v8-sub); font-weight: 500; }
 html:not([data-theme="dark"]) :is(.chip.active, .chip.on) * { color: inherit; }
 html:not([data-theme="dark"]) .badge { border: 0; padding: 1px 8px; font-weight: 700; }
 html:not([data-theme="dark"]) :is(.badge.blue, .badge.green, .badge.yellow, .badge.acid) { background: var(--v8-tint); color: var(--v8-green); }
