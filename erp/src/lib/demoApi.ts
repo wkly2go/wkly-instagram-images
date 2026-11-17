@@ -763,6 +763,10 @@ export function createDemoApi(): Api {
     async listProjects() {
       return clone([...store.projects].sort((a, b) => (b.start_date ?? '').localeCompare(a.start_date ?? '')))
     },
+    // 체험 모드에는 사진을 두지 않음 (대표 지시 '목업은 올리지 마') → 카드는 구분 색 바탕
+    async projectCovers() {
+      return {}
+    },
     async saveProject(p) {
       // 연번 (0046): 구분 + 시작 연월 + '-' + 그달 일련번호, 구분을 바꾸면 새 번호
       const prev = p.id ? store.projects.find(x => x.id === p.id) : undefined
