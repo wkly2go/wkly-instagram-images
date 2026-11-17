@@ -173,19 +173,24 @@ async function cloneTemplate(project: string, target: string, deadline: number):
       const byName = new Map(have.map(h => [norm(h.name), h]))
       // 폴더 먼저
       for (const f of want.filter(x => x.mimeType === FOLDER)) {
-        if (++seenFolders > 300) break
+        if (seenFolders >= 300) break
         if (Date.now() > deadline) return { ...out, done: false }
         const had = byName.get(norm(f.name))
+        seenFolders++
         const id = had && had.mimeType === FOLDER ? had.id : (await create(f.name, to)).id
         if (!had) out.folders++
         next.push([f.id, id])
       }
       for (const f of want.filter(x => x.mimeType !== FOLDER && x.mimeType !== 'application/vnd.google-apps.shortcut')) {
-        if (++seenFiles > 300) break
+        // 이미 있는 것은 한도에 세지 않음 (이어 채울 때 한도가 먼저 차서 아래 층이 빠지던 것 · 2026-11-17)
         if (byName.has(norm(f.name))) continue
+        // 한 번에 300개까지 · 남은 것은 다음 예약 실행이 이어서
+        if (seenFiles >= 300) { out.done = false; break }
+        seenFiles++
         if (Date.now() > deadline) return { ...out, done: false }
         const made = await drive<{ id: string }>(`files/${encodeURIComponent(f.id)}/copy?supportsAllDrives=true&fields=id`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: f.name, parents: [to] }) }).catch(() => null)
-        if (!made) continue
+        // 복사 실패(요청 한도 등)는 '다 채움'으로 치지 않음 → 다음 예약 실행이 다시 시도 (3일까지)
+        if (!made) { out.done = false; continue }
         out.files++
         await sb.from('drive_index').upsert({ id: made.id, project_id: project, name: f.name, mime_type: f.mimeType, parent_id: to, synced_at: now, first_seen_at: '2000-01-01T00:00:00Z' }, { onConflict: 'id', ignoreDuplicates: true })
       }
