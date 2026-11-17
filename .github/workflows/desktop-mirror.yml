@@ -1,0 +1,30 @@
+# PC 프로그램 릴리스 파일을 Supabase 공개 보관함(desktop-releases)에 다시 올림 (2026-11-18 · 저장소 비공개 대비)
+#  - Actions 탭 › desktop-mirror › Run workflow · 릴리스 번호(예: v1.29.0)
+#  - 새 릴리스는 desktop-app 작업이 저절로 올림 · 이 작업은 그때 실패했거나 예전 릴리스를 옮길 때
+name: desktop-mirror
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 릴리스 번호 (예 v1.29.0)
+        required: true
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: desktop-mirror
+  cancel-in-progress: false
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Supabase 공개 보관함에 올리기
+        run: node erp/desktop/scripts/mirror-release.mjs "$TAG"
+        env:
+          TAG: ${{ inputs.tag }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
