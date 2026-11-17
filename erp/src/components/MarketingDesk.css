@@ -296,3 +296,18 @@
 .acm-error { color: var(--red, #c0392b); margin: 0; }
 .acm-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
 @media (max-width: 640px) { .acm-prev canvas { height: 160px; } }
+
+/* AI 캠페인 기획 · 앵글 · 카피 규칙 검사 (2026-11-17) */
+.marketing-desk .md-plan-draft { margin: 0 0 15px; padding: 12px 14px; border: 1px solid var(--line); border-left: 3px solid var(--v8-green, #1f6b4a); border-radius: 10px !important; background: #fbfcf9; display: grid; gap: 8px; }
+.marketing-desk .md-plan-draft dl { margin: 0; display: grid; gap: 6px; }
+.marketing-desk .md-plan-draft dl > div { display: grid; grid-template-columns: 96px 1fr; gap: 10px; }
+.marketing-desk .md-plan-draft dt { font-weight: 700; color: var(--tx-title, #151d18); }
+.marketing-desk .md-plan-draft dd { margin: 0; white-space: pre-wrap; }
+.marketing-desk .md-plan-draft small { color: var(--tx-sub, #535c56); }
+.marketing-desk .md-variant-angle { align-self: flex-start; padding: 1px 8px; border-radius: 999px !important; background: var(--v8-tint, #e8f3ec); color: var(--v8-green, #1f6b4a); font-weight: 700; }
+.marketing-desk .md-variant-proof { color: var(--tx-sub, #535c56); }
+.marketing-desk .md-copy-check { margin: 0 0 15px; padding: 10px 12px 10px 28px; border-radius: 10px !important; background: #fff8ea; border: 1px solid #f0dfb5; display: grid; gap: 4px; }
+.marketing-desk .md-copy-check li.error { color: var(--red, #c0392b); font-weight: 700; }
+.marketing-desk .md-copy-check li.warn { color: #7a5600; }
+.marketing-desk .md-copy-ok { margin: 0 0 15px; color: var(--v8-green, #1f6b4a); display: flex; align-items: center; gap: 4px; }
+@media (max-width: 640px) { .marketing-desk .md-plan-draft dl > div { grid-template-columns: 1fr; gap: 2px; } }

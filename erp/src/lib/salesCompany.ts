@@ -20,3 +20,8 @@ export const SALES_PLAYBOOK:readonly SalesMethod[]=[
 export interface MethodLearning {category:string;approved:number;rejected:number;reasons:string[]}
 /** The database playbook is used when the job carries one; the built-in list is the fallback. */
 export const playbookText=(methods:readonly SalesMethod[]=SALES_PLAYBOOK)=>(methods.length?methods:SALES_PLAYBOOK).slice(0,16).map((m,i)=>`${i+1}. ${m.name} | 신호: ${m.signal} | 제안: ${m.offer} | 첫 접근: ${m.first}`).join('\n')
+
+/** 검증된 영업 스킬(계정 등급 · 첫 메일 3단 · 이해관계자 · 반론 · 후속 순서 · 휴면 거래처 · 받은 문의)에서 뽑은 원칙 — 기획 요청에 붙는다 (2026-11-17 대표 지시 '영업 스킬 학습해 능력을 높여') */
+export const SALES_SKILLS='영업 기술(검증된 영업 방법에서 배운 원칙): ① 대상 우선순위는 적합도(팝업·행사·공간 수요와 규모)×시기(행사 전·예정)로 정한다. 적합도는 높은데 접점이 없으면 매거진 취재·공간 소개로 접점부터 만든다. ② 첫 메일은 3단: 상대의 공개된 구체 사실 한 줄(날짜·장소) → 그 상황에서 우리가 덜어 줄 일 1~2문장 → 부담 낮은 요청 하나(자료 받기 또는 20분 통화). ③ 받을 사람은 브랜드 마케팅·BX·공간/리테일 담당이 먼저, 대행사가 정해진 행사는 대행사 담당. 한 경로에만 기대지 말고 두 번째 경로(공개 문의 창구·대행사)를 approach에 적는다. ④ 예상 반론을 미리 준비한다: 이미 대행사 있음→공간 파트·부분 협력, 예산 없음→규모별 단계 제안, 시기 아님→다음 시즌 일정 확인. steps에 반론 대응 한 줄을 넣는다. ⑤ 후속은 3일 뒤 새 정보 하나(사례·공간) → 7일 뒤 다른 각도 → 14일 뒤 마무리 인사. 같은 말 반복 금지, 회신·거절이 오면 멈춘다. ⑥ 지난 거래처는 첫 연락에서 팔지 않는다. 지난 프로젝트를 구체적으로 짚고 근황을 묻는다. ⑦ 받은 문의는 24시간 안에, 상대 질문에 먼저 답하고 모르는 것은 질문 하나로 확인한다. '
+/** 메일 초안 준비 단계용 짧은 원칙 */
+export const SALES_SKILLS_DRAFT='첫 메일: 상대의 구체 사실 → 우리가 덜어 줄 일 → 부담 낮은 요청 하나. 예상 반론(대행사·예산·시기)의 답을 아이디어 안에 녹인다. '
