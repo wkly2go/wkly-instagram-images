@@ -1977,6 +1977,10 @@ export function createDemoApi(): Api {
       persist()
       emit('agent_job_requests')
     },
+    async listWebInquiries() {
+      return []
+    },
+    async updateWebInquiry() {},
     async importAdDaily(rows) {
       if (!store.ad_daily) seedAds()
       const list = store.ad_daily ?? (store.ad_daily = [])

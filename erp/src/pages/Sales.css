@@ -84,3 +84,30 @@
 .prospect-search-cards { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 245px), 1fr)); }
 .prospect-search-cards article { padding: 12px; border: 1px solid var(--line); background: var(--paper); overflow-wrap: anywhere; }
 .prospect-search-cards article p { margin: 5px 0 8px; }
+
+/* 웹 문의함 (2026-11-17) */
+.sales-inq { border: 1px solid var(--line); background: var(--white); border-radius: 12px; padding: 10px 14px; margin-bottom: 14px; }
+.sales-inq > summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; cursor: pointer; }
+.sales-inq > summary b { font-size: var(--fs-sub); }
+.sales-inq > summary span { color: var(--gray); }
+.sales-inq > summary span.hot { color: #a5281b; font-weight: 700; }
+.sales-inq > summary small { flex-basis: 100%; color: var(--gray); }
+.sales-inq[open] > summary { margin-bottom: 10px; }
+.sales-inq-note { margin: 8px 0; color: var(--gray); line-height: 1.6; }
+.sales-inq-list { list-style: none; margin: 8px 0 0; padding: 0; }
+.sales-inq-list > li { border-top: 1px solid var(--line); }
+.sales-inq-list > li.open { background: #f7faf7; }
+.sales-inq-row { display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 4px; border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.sales-inq-row .when { flex: none; width: 44px; color: var(--gray); font-variant-numeric: tabular-nums; }
+.sales-inq-row .tag { flex: none; padding: 1px 8px; border-radius: 999px; background: #eef0ec; color: #535c56; white-space: nowrap; }
+.sales-inq-row .tag.ad { background: #fbf0c9; color: #7a5b00; }
+.sales-inq-row b { flex: 0 1 180px; min-width: 60px; }
+.sales-inq-row .what { flex: 1 1 0; min-width: 0; color: var(--gray); }
+.sales-inq-body { padding: 4px 4px 12px 56px; }
+.sales-inq-detail { margin: 0 0 8px; white-space: pre-line; line-height: 1.6; overflow-wrap: anywhere; }
+.sales-inq-body dl { display: grid; gap: 2px; margin: 0 0 10px; }
+.sales-inq-body dl > div { display: grid; grid-template-columns: 76px 1fr; gap: 8px; }
+.sales-inq-body dt { color: var(--gray); }
+.sales-inq-body dd { margin: 0; overflow-wrap: anywhere; }
+.sales-inq-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+@media (max-width: 700px) { .sales-inq-row { flex-wrap: wrap; } .sales-inq-row .what { flex-basis: 100%; } .sales-inq-body { padding-left: 4px; } }
