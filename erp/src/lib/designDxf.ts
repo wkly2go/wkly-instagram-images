@@ -153,7 +153,7 @@ function mkAxis(x1: number, y1: number, x2: number, y2: number, kind: PlanWall['
   return { ax: sx, ay: sy, ux, uy, len, th, kind, c: -uy * sx + ux * sy, R: Math.hypot(sx, sy) + len }
 }
 /** 두 선의 간격이 lim 을 확실히 넘으면 true (relate 전에 싸게 거른다) */
-const farApart = (A: Axis, B: Axis, lim: number) => (A.ux * B.ux + A.uy * B.uy > 0 ? Math.abs(A.c - B.c) : Math.abs(A.c + B.c)) > lim + 0.03 * (A.R + B.R)
+const farApart = (A: Axis, B: Axis, lim: number) => { const d = Math.abs(A.th - B.th), da = Math.min(d, Math.PI - d) + 1e-6; return (A.ux * B.ux + A.uy * B.uy > 0 ? Math.abs(A.c - B.c) : Math.abs(A.c + B.c)) > lim + 1 + da * 1.01 * (A.R + B.R) }
 const nearAngle = (a: Axis, b: Axis) => { const d = Math.abs(a.th - b.th); return d < 0.025 || Math.PI - d < 0.025 }
 /** B 를 A 의 축(A 시작점 기준 · A 방향)으로 본 값: 가운데 간격(왼쪽 +) · 구간 · 같은 방향인지 */
 function relate(A: Axis, B: Axis) {
