@@ -2,6 +2,7 @@
 -- 예약 작업은 커넥터 없이 환경 변수 연결 열쇠로 아래 RPC 두 개만 부른다.
 --   agent_ad_team_context : 이번 주 기획 · 결재 상태 · 광고 수치 · 팀 산출물 읽기
 --   agent_ad_team_save    : 산출물 저장(agent_reports) · 팀장만 대표 결재 올림
+--   ad_daily_import       : 광고 수치 파일 올리기 (관리자 · 화면에서만)
 -- 집행 · 게시 · 발송은 여기서 하지 않는다. 결재는 대표.
 
 create or replace function public.agent_ad_team_context(p_token text, p_role text)
@@ -52,7 +53,15 @@ begin
         order by r.run_at desc limit 1),
       'team', coalesce((select jsonb_agg(jsonb_build_object('job', r.job_name, 'title', r.title, 'summary', r.summary, 'body', r.body, 'run_at', r.run_at))
         from public.agent_reports r where r.job_name in ('AD-CREA 광고 소재', 'AD-UX 랜딩 · 문의 경로', 'AD-FILM 영상 광고')
-          and r.title like '% · ' || v_week), '[]'::jsonb)
+          and r.title like '% · ' || v_week), '[]'::jsonb),
+      -- 문의 수는 건수만 (이름 · 연락처는 넘기지 않음)
+      'inquiries', coalesce((select jsonb_agg(x order by x.week) from (
+        select date_trunc('week', w.submitted_at at time zone 'Asia/Seoul')::date as week, count(*) as total, count(*) filter (where w.is_ad) as from_ads
+        from public.web_inquiries w where not coalesce(w.is_test, false) and w.submitted_at >= now() - interval '70 days' group by 1) x), '[]'::jsonb),
+      'inquiry_sources', coalesce((select jsonb_agg(y) from (
+        select coalesce(w.utm_source, '(없음)') as source, coalesce(w.utm_campaign, '(없음)') as campaign, coalesce(w.category, '(없음)') as category, count(*) as n
+        from public.web_inquiries w where not coalesce(w.is_test, false) and w.submitted_at >= now() - interval '56 days'
+        group by 1, 2, 3 order by 4 desc limit 30) y), '[]'::jsonb)
     );
   end if;
   return v_out;
@@ -129,12 +138,50 @@ revoke all on function public.agent_ad_team_save(text, text, text, text, text, t
 grant execute on function public.agent_ad_team_context(text, text) to anon, authenticated;
 grant execute on function public.agent_ad_team_save(text, text, text, text, text, text, text) to anon, authenticated;
 
+-- 광고 수치 올리기: 매체 관리 화면에서 내려받은 파일을 화면이 읽어 넘김 (관리자만 · AI · 유료 도구 없이 수치 이어가기)
+create or replace function public.ad_daily_import(p_rows jsonb)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare
+  v_n int := 0;
+  r jsonb;
+  v_date date;
+  v_platform text;
+  v_campaign text;
+begin
+  if not coalesce((select public.is_admin()), false) then
+    raise exception '관리자만 광고 수치를 올릴 수 있습니다.' using errcode = '42501';
+  end if;
+  if p_rows is null or jsonb_typeof(p_rows) <> 'array' or jsonb_array_length(p_rows) = 0 then
+    raise exception '올릴 수치가 없습니다.' using errcode = '22023';
+  end if;
+  if jsonb_array_length(p_rows) > 3000 then
+    raise exception '한 번에 3,000줄까지 올릴 수 있습니다.' using errcode = '22023';
+  end if;
+  for r in select * from jsonb_array_elements(p_rows) loop
+    v_date := (r->>'date')::date;
+    v_platform := r->>'platform';
+    v_campaign := left(nullif(trim(r->>'campaign'), ''), 200);
+    if v_date is null or v_campaign is null or v_platform is null or v_platform not in ('Google', 'Meta', 'Naver', '기타') then continue; end if;
+    if v_date > (now() at time zone 'Asia/Seoul')::date or v_date < date '2020-01-01' then continue; end if;
+    insert into public.ad_daily (date, platform, campaign, impressions, clicks, cost, conversions, note, updated_at)
+    values (v_date, v_platform, v_campaign,
+      greatest(coalesce((r->>'impressions')::numeric, 0), 0)::int, greatest(coalesce((r->>'clicks')::numeric, 0), 0)::int,
+      greatest(coalesce((r->>'cost')::numeric, 0), 0)::int, nullif(r->>'conversions', '')::numeric, '파일 올리기', now())
+    on conflict (date, platform, campaign) do update set impressions = excluded.impressions, clicks = excluded.clicks,
+      cost = excluded.cost, conversions = excluded.conversions, note = excluded.note, updated_at = now();
+    v_n := v_n + 1;
+  end loop;
+  return jsonb_build_object('ok', true, 'saved', v_n, 'skipped', jsonb_array_length(p_rows) - v_n);
+end $$;
+revoke all on function public.ad_daily_import(jsonb) from public, anon;
+grant execute on function public.ad_daily_import(jsonb) to authenticated;
+
 -- AI 팀원 명단: 광고 운영 묶음 (기존 ADS 는 퍼포먼스 역할로 같은 묶음에)
 insert into public.agent_roster (code, name, group_name, owner_id, duties, schedule, model, approval_rule, phase, active, sort, is_lead, lead_code, home)
 values
   ('AD-PLAN', '광고 기획 (팀장)', '광고 운영', 'd6ec347b-766a-427d-9aae-7957e830797f', '자사 광고 주간 가설 2~3개 · 타깃 · 메시지 · 오퍼 · 채널 배분 · 판정 기준 · 팀 지시 · 소재 검수 · 대표 결재 올림(월 기획 · 수 소재)', '월 · 수 09:17', 'claude-sonnet-5-5', '기획 · 예산 · 소재 모두 대표', 1, true, 0, true, 'HQ', '{"intranet":"광고 › 광고 운영팀 · 보고서 › 결재"}'::jsonb),
-  ('AD-CREA', '콘텐츠 크리에이팅', '광고 운영', 'd6ec347b-766a-427d-9aae-7957e830797f', '승인된 기획서 기준 카피 · 이미지 소재 시안(가설당 2~3종) · 글과 제작 지시까지(이미지 생성은 하지 않음)', '월 · 화 13:23', 'claude-sonnet-5-5', '소재 대표', 1, true, 1, false, 'AD-PLAN', '{"intranet":"AI 보고"}'::jsonb),
-  ('AD-UX', 'UI · UX · AX 디자인', '광고 운영', 'd6ec347b-766a-427d-9aae-7957e830797f', '광고 → 랜딩 → 문의 경로 수정안 · 문의 폼 · AI 응대(채팅 · AI 검색 노출) 경로 점검표 · 배포는 하지 않음', '월 · 화 13:37', 'claude-sonnet-5-5', '랜딩 배포 대표', 1, true, 2, false, 'AD-PLAN', '{"intranet":"AI 보고"}'::jsonb),
-  ('AD-FILM', '영상 광고 디렉터', '광고 운영', 'd6ec347b-766a-427d-9aae-7957e830797f', '릴스 · 쇼츠 광고 콘티 · 촬영 · 편집 지시(영상 생성은 하지 않음)', '월 · 화 13:49', 'claude-sonnet-5-5', '소재 대표', 1, true, 3, false, 'AD-PLAN', '{"intranet":"AI 보고"}'::jsonb)
+  ('AD-CREA', '콘텐츠 크리에이팅', '광고 운영', 'd6ec347b-766a-427d-9aae-7957e830797f', '승인된 기획서 기준 카피 · 이미지 소재 시안(가설당 2~3종) · 글과 제작 지시까지(이미지 생성은 하지 않음)', '화 · 수 08:23', 'claude-sonnet-5-5', '소재 대표', 1, true, 1, false, 'AD-PLAN', '{"intranet":"AI 보고"}'::jsonb),
+  ('AD-UX', 'UI · UX · AX 디자인', '광고 운영', 'd6ec347b-766a-427d-9aae-7957e830797f', '광고 → 랜딩 → 문의 경로 수정안 · 문의 폼 · AI 응대(채팅 · AI 검색 노출) 경로 점검표 · 배포는 하지 않음', '화 · 수 08:37', 'claude-sonnet-5-5', '랜딩 배포 대표', 1, true, 2, false, 'AD-PLAN', '{"intranet":"AI 보고"}'::jsonb),
+  ('AD-FILM', '영상 광고 디렉터', '광고 운영', 'd6ec347b-766a-427d-9aae-7957e830797f', '릴스 · 쇼츠 광고 콘티 · 촬영 · 편집 지시(영상 생성은 하지 않음)', '화 · 수 08:49', 'claude-sonnet-5-5', '소재 대표', 1, true, 3, false, 'AD-PLAN', '{"intranet":"AI 보고"}'::jsonb)
 on conflict (code) do update set name = excluded.name, group_name = excluded.group_name, duties = excluded.duties, schedule = excluded.schedule,
   model = excluded.model, approval_rule = excluded.approval_rule, active = true, is_lead = excluded.is_lead, lead_code = excluded.lead_code, updated_at = now();
