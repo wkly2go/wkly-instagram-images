@@ -45,6 +45,9 @@ export const DesignBoardCanvas = forwardRef<BoardCanvasHandle, Props>(function D
   const drag = useRef<Drag | null>(null)
   const space = useRef(false)
   const [panning, setPanning] = useState(false)
+  // 손가락 두 개로 벌리고 오므리기 (터치 화면)
+  const touches = useRef(new Map<number, { x: number; y: number }>())
+  const pinch = useRef<{ d: number; k: number; mx: number; my: number; vx: number; vy: number } | null>(null)
   const [spaceOn, setSpaceOn] = useState(false)
   const [guides, setGuides] = useState<{ page: string; gx: number | null; gy: number | null } | null>(null)
   const [marquee, setMarquee] = useState<({ page: string } & Box) | null>(null)
@@ -105,7 +108,7 @@ export const DesignBoardCanvas = forwardRef<BoardCanvasHandle, Props>(function D
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
   // 스페이스를 누르고 있는 동안은 끌어서 옮기기
   useEffect(() => {
-    const down = (e: KeyboardEvent) => { if (e.code === 'Space' && !typing(e.target) && (document.activeElement === document.body || vp.current?.closest('.dbd')?.contains(document.activeElement))) { e.preventDefault(); if (!space.current) { space.current = true; setSpaceOn(true) } } }
+    const down = (e: KeyboardEvent) => { if (e.code === 'Space' && !typing(e.target) && (document.activeElement === document.body || document.activeElement === vp.current)) { e.preventDefault(); if (!space.current) { space.current = true; setSpaceOn(true) } } }
     const up = (e: KeyboardEvent) => { if (e.code === 'Space') { space.current = false; setSpaceOn(false) } }
     const blur = () => { space.current = false; setSpaceOn(false) }
     window.addEventListener('keydown', down); window.addEventListener('keyup', up); window.addEventListener('blur', blur)
@@ -127,7 +130,20 @@ export const DesignBoardCanvas = forwardRef<BoardCanvasHandle, Props>(function D
     if (typing(t)) return
     const { tool, pages, sel, cur, readOnly } = props.current
     vp.current?.focus({ preventScroll: true })
-    if (e.button === 1 || (e.button === 0 && space.current)) {
+    if (e.pointerType === 'touch') {
+      touches.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+      if (touches.current.size === 2) {
+        const d = drag.current
+        drag.current = null; setMarquee(null); setGuides(null); setPanning(false)
+        if (d && (d.kind === 'move' || d.kind === 'resize') && d.moved) props.current.onEnd()
+        const [a, b] = [...touches.current.values()], r = vp.current!.getBoundingClientRect(), v = viewRef.current
+        pinch.current = { d: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)), k: v.k, mx: (a.x + b.x) / 2 - r.left, my: (a.y + b.y) / 2 - r.top, vx: v.x, vy: v.y }
+        e.currentTarget.setPointerCapture(e.pointerId)
+        return
+      }
+    }
+    const blank = !t.closest('[data-el], [data-handle], [data-pin]')
+    if (e.button === 1 || (e.button === 0 && space.current) || (e.pointerType === 'touch' && tool === 'select' && blank)) {
       e.preventDefault()
       drag.current = { kind: 'pan', sx: e.clientX, sy: e.clientY, vx: viewRef.current.x, vy: viewRef.current.y }
       setPanning(true); e.currentTarget.setPointerCapture(e.pointerId); return
@@ -171,6 +187,16 @@ export const DesignBoardCanvas = forwardRef<BoardCanvasHandle, Props>(function D
     e.currentTarget.setPointerCapture(e.pointerId)
   }
   const move = (e: RPointerEvent<HTMLDivElement>) => {
+    if (e.pointerType === 'touch' && touches.current.has(e.pointerId)) {
+      touches.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+      const pc = pinch.current
+      if (pc && touches.current.size >= 2) {
+        const [a, b] = [...touches.current.values()], r = vp.current!.getBoundingClientRect()
+        const k = clamp(pc.k * Math.hypot(a.x - b.x, a.y - b.y) / pc.d, 0.05, 4), mx = (a.x + b.x) / 2 - r.left, my = (a.y + b.y) / 2 - r.top
+        setView({ k, x: mx - (pc.mx - pc.vx) * (k / pc.k), y: my - (pc.my - pc.vy) * (k / pc.k) })
+        return
+      }
+    }
     const d = drag.current
     if (!d) return
     const v = viewRef.current
@@ -216,6 +242,7 @@ export const DesignBoardCanvas = forwardRef<BoardCanvasHandle, Props>(function D
     props.current.onLive(d.base.map(pg => (pg.id !== d.page ? pg : { ...pg, els: pg.els.map(q => (q.id === d.id ? { ...q, x: Math.round(b.x), y: Math.round(b.y), w: Math.round(b.w), h: Math.round(b.h) } : q)) })))
   }
   const up = (e: RPointerEvent<HTMLDivElement>) => {
+    if (e.pointerType === 'touch') { touches.current.delete(e.pointerId); if (touches.current.size < 2) pinch.current = null }
     const d = drag.current
     drag.current = null
     if (!d) return

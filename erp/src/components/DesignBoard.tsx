@@ -10,7 +10,7 @@ import { useApp, useAsync } from '../lib/app'
 import { useRouter } from '../lib/router'
 import { SPEC_BOOKS, SPEC_STATUS, type DesignProject, type DesignRender, type ProposalSection, type ProposalTemplateSection, type SpecBook, type SpecItem } from '../lib/design'
 import { BUILTIN_LIBRARY, finishText, type LibraryFinish } from '../lib/designLibrary'
-import { cardGrid, chunk, cloneEls, emptyBoard, freeSpot, mergeBoardComments, newPage, readBoard, restack, topZ, uid, type BoardComment, type BoardEl, type BoardElType, type BoardPage, type BoardStyle, type ProposalBoard } from '../lib/designBoard'
+import { boundsOf, cardGrid, chunk, cloneEls, emptyBoard, freeSpot, mergeBoardComments, newPage, readBoard, restack, topZ, uid, type BoardComment, type BoardEl, type BoardElType, type BoardPage, type BoardStyle, type ProposalBoard } from '../lib/designBoard'
 import { DesignBoardCanvas, type BoardCanvasHandle, type BoardTool, type Pin } from './DesignBoardCanvas'
 import { BoardDataContext, BoardPageView, STATUS_KEYS, SpecThumb, elLabel, scheduleRows, type BoardData } from './DesignBoardEl'
 import './DesignBoard.css'
@@ -364,6 +364,15 @@ export default function DesignBoard({ project }: { project: DesignProject }) {
   }
   const addTable = () => { const h = clamp(64 + 46 + (scheduleRows(specs, bookF || undefined).length || 2) * 44 + 12, 200, 700), s = spot('table', SIZE.table[0], h); addEls(page.id, [make('table', page.id, s.x, s.y, { book: bookF || undefined, h })]) }
   const addImage = (src: string) => { const s = spot('image'); addEls(page.id, [make('image', page.id, s.x, s.y, { src })]) }
+  /** 맞춤: 여러 개를 골랐으면 고른 것끼리, 하나면 페이지에 맞춘다 */
+  const alignSel = (how: 'l' | 'c' | 'r' | 't' | 'm' | 'b') => {
+    const els = selEls.filter(e => !e.locked)
+    if (!els.length) return
+    const bb = els.length > 1 ? boundsOf(els)! : { x: 0, y: 0, w: page.w, h: page.h }
+    patch(els.map(e => e.id), e => ({ ...e,
+      x: Math.round(how === 'l' ? bb.x : how === 'c' ? bb.x + (bb.w - e.w) / 2 : how === 'r' ? bb.x + bb.w - e.w : e.x),
+      y: Math.round(how === 't' ? bb.y : how === 'm' ? bb.y + (bb.h - e.h) / 2 : how === 'b' ? bb.y + bb.h - e.h : e.y) }))
+  }
   const removeSel = () => { const ids = selEls.filter(e => !e.locked).map(e => e.id); if (!ids.length) return; change(ps => ps.map(p => (p.id !== page.id ? p : { ...p, els: p.els.filter(e => !ids.includes(e.id)) }))); setSel(s => s.filter(id => !ids.includes(id))); setEditing(null) }
   const duplicate = () => { if (selEls.length) addEls(page.id, cloneEls(selEls, page.els)) }
   const copy = () => { if (selEls.length) clip.current = { els: selEls.map(e => ({ ...e })), page: page.id, n: 0 } }
@@ -371,7 +380,13 @@ export default function DesignBoard({ project }: { project: DesignProject }) {
   const setText = (id: string, text: string) => {
     const el = page.els.find(e => e.id === id) ?? pages.flatMap(p => p.els).find(e => e.id === id)
     if (!el) return
-    if (el.type === 'text' && !text.trim()) { change(ps => ps.map(p => (p.els.some(e => e.id === id) ? { ...p, els: p.els.filter(e => e.id !== id) } : p))); setSel(s => s.filter(x => x !== id)); return }
+    if (el.type === 'text' && !text.trim()) {
+      // 아무것도 적지 않은 새 글 상자는 없던 일로 한다 (되돌리기 단계도 남기지 않는다)
+      const h = hist.current, last = h.past[h.past.length - 1]
+      if (last && !(el.text ?? '').trim() && !last.some(p => p.els.some(e => e.id === id))) { h.past.pop(); put({ ...boardRef.current, pages: last }); touch(); setHistTick(n => n + 1) }
+      else change(ps => ps.map(p => (p.els.some(e => e.id === id) ? { ...p, els: p.els.filter(e => e.id !== id) } : p)))
+      setSel(s => s.filter(x => x !== id)); return
+    }
     if ((el.text ?? '') === text) return
     // 글 상자는 줄 수에 맞게 높이를 늘린다 (줄어들지는 않는다)
     const lines = text.split('\n').length, px = { title: 64 * 1.18, sub: 36 * 1.3, body: 24 * 1.5 }[el.style?.size ?? 'body']
@@ -483,7 +498,7 @@ export default function DesignBoard({ project }: { project: DesignProject }) {
       if (mod || e.altKey) return
       if (k === 'delete' || k === 'backspace') { if (selEls.length) { e.preventDefault(); removeSel() } return }
       if (k === 'escape') { setSel([]); setTool('select'); setDraftPin(null); setEditing(null); return }
-      if (k === 'enter' && one && !one.locked && (one.type === 'text' || one.type === 'note' || one.type === 'rect')) { e.preventDefault(); setEditing(one.id); return }
+      if (k === 'enter' && one && !one.locked && (one.type === 'text' || one.type === 'note' || one.type === 'rect') && t?.tagName !== 'BUTTON' && t?.tagName !== 'A') { e.preventDefault(); setEditing(one.id); return }
       if (k.startsWith('arrow')) {
         const ids = selEls.filter(x => !x.locked).map(x => x.id)
         if (!ids.length) return
@@ -567,6 +582,10 @@ export default function DesignBoard({ project }: { project: DesignProject }) {
       {one && <div className="dbd-field"><span className="dbd-label">자리 · 크기</span><div className="dbd-nums">
         <Num label="X" value={one.x} onCommit={n => patch([one.id], x => ({ ...x, x: n }))} /><Num label="Y" value={one.y} onCommit={n => patch([one.id], x => ({ ...x, y: n }))} />
         <Num label="가로" value={one.w} min={16} onCommit={n => patch([one.id], x => ({ ...x, w: n }))} /><Num label="세로" value={one.h} min={16} onCommit={n => patch([one.id], x => ({ ...x, h: n }))} />
+      </div></div>}
+      {selEls.length > 0 && <div className="dbd-field"><span className="dbd-label">{selEls.length > 1 ? '맞춤 (고른 것끼리)' : '맞춤 (페이지에)'}</span><div className="dbd-row">
+        <div className="dbd-seg">{([['l', '왼쪽'], ['c', '가운데'], ['r', '오른쪽']] as const).map(([k, l]) => <button type="button" key={k} onClick={() => alignSel(k)}>{l}</button>)}</div>
+        <div className="dbd-seg">{([['t', '위'], ['m', '중간'], ['b', '아래']] as const).map(([k, l]) => <button type="button" key={k} onClick={() => alignSel(k)}>{l}</button>)}</div>
       </div></div>}
       {selEls.length > 0 && <div className="dbd-acts">
         <button type="button" className="dbd-tb" onClick={() => change(ps => ps.map(p => (p.id === page.id ? { ...p, els: restack(p.els, sel, 'front') } : p)))}><BringToFront size={13} />앞으로</button>

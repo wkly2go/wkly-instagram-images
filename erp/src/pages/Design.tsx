@@ -488,7 +488,7 @@ function FileButton({ id, label }: { id: string; label: string }) {
 function CostView({ project }: { project: DesignProject }) {
   const { api, version, toast } = useApp()
   const { run, busy } = useAction()
-  const { data: lines } = useAsync(() => api.listCostLines(project.id), [project.id, version], [])
+  const { data: lines, error: linesError, reload: reloadLines } = useAsync(() => api.listCostLines(project.id), [project.id, version], [])
   const { data: estimates } = useAsync(() => api.listEstimates(project.id), [project.id, version], [] as Estimate[])
   const { data: pos } = useAsync(() => api.listPurchaseOrders(project.id), [project.id, version], [])
   const { data: poLines } = useAsync(() => api.listPoLines(pos.map(p => p.id)), [pos.map(p => p.id).join(',')], [])
@@ -531,7 +531,8 @@ function CostView({ project }: { project: DesignProject }) {
         <div><dt>실행 비율</dt><dd>{est && supply > 0 ? `${((cost / supply) * 100).toFixed(1)}%` : ''}</dd></div>
       </dl>
       <p className="t-cap">실행 합계는 여기 올린 실행 내역만 더한 값입니다. 인건비 · 운송 등 내역에 없는 비용은 들어 있지 않습니다.</p>
-      {lines.length === 0 ? <Empty>아직 실행 내역이 없습니다. 엑셀을 올리세요.</Empty> : <>
+      {linesError && lines.length === 0 ? <LoadError message="실행 내역을 불러오지 못했습니다." error={linesError} onRetry={reloadLines} />
+        : lines.length === 0 ? <Empty>아직 실행 내역이 없습니다. 엑셀을 올리세요.</Empty> : <>
         <div className="row"><button type="button" className={`chip${by === 'vendor' ? ' active' : ''}`} onClick={() => setBy('vendor')}>업체별</button><button type="button" className={`chip${by === 'zone' ? ' active' : ''}`} onClick={() => setBy('zone')}>구역별</button></div>
         <div className="table-wrap"><table className="table">
           <thead><tr><th>{by === 'vendor' ? '업체' : '구역'}</th><th>품목</th><th>{by === 'vendor' ? '구역' : '업체'}</th><th className="num">수량</th><th className="num">단가</th><th className="num">금액</th><th>비고</th><th /></tr></thead>
@@ -692,7 +693,7 @@ function CardsTab() {
   const { api, me, version } = useApp()
   const { run, busy } = useAction()
   const [mode, setMode] = useState<'pending' | 'done'>('pending')
-  const { data: cards } = useAsync(() => api.listDesignCards(mode), [mode, version], [] as DesignCard[])
+  const { data: cards, error, reload } = useAsync(() => api.listDesignCards(mode), [mode, version], [] as DesignCard[])
   const [comment, setComment] = useState<Record<string, string>>({})
   const admin = me.role === 'admin'
   const summary = (c: DesignCard) => {
@@ -706,7 +707,8 @@ function CardsTab() {
       <div className="row"><button type="button" className={`chip${mode === 'pending' ? ' active' : ''}`} onClick={() => setMode('pending')}>검토 대기</button>
         <button type="button" className={`chip${mode === 'done' ? ' active' : ''}`} onClick={() => setMode('done')}>처리한 것</button></div>
       <p className="t-cap">자동으로 만든 것(가져온 단가 · 견적 초안 · 발주서 초안)은 여기서 확인한 뒤에만 쓰입니다. {admin ? '' : '결정은 관리자가 합니다.'}</p>
-      {cards.length === 0 ? <Empty>{mode === 'pending' ? '검토할 것이 없습니다.' : '처리한 기록이 없습니다.'}</Empty> : (
+      {error && cards.length === 0 ? <LoadError message="검토함을 불러오지 못했습니다." error={error} onRetry={reload} />
+        : cards.length === 0 ? <Empty>{mode === 'pending' ? '검토할 것이 없습니다.' : '처리한 기록이 없습니다.'}</Empty> : (
         <ul className="design-cards">{cards.map(c => (
           <li key={c.id}>
             <div className="row wrap"><Badge tone="paper">{CARD_LABELS[c.kind] ?? c.kind}</Badge><b>{c.title}</b>
@@ -786,7 +788,7 @@ function PricesTab({ base }: { base: DesignBase }) {
 function VendorsTab({ base }: { base: DesignBase }) {
   const { api, version } = useApp()
   const [status, setStatus] = useState<'partner' | 'candidate'>('partner')
-  const { data: all } = useAsync(() => api.listDesignVendors(), [version], [])
+  const { data: all, error, reload } = useAsync(() => api.listDesignVendors(), [version], [])
   const [find, setFind] = useState('')
   const [trade, setTrade] = useState('')
   const rows = all.filter(v => v.status === status && (!trade || v.trades.includes(trade)) && (!find.trim() || `${v.name} ${v.region ?? ''} ${v.contact_name ?? ''}`.toLowerCase().includes(find.trim().toLowerCase())))
@@ -800,7 +802,8 @@ function VendorsTab({ base }: { base: DesignBase }) {
         <span className="t-cap">{rows.length}곳</span>
       </div>
       <p className="t-cap">발주서 자동 배정에는 '거래 협력사'만 씁니다. '거래처 연결'은 인트라넷 거래처 메뉴에 같은 이름이 있는 곳입니다.</p>
-      {rows.length === 0 ? <Empty>협력사가 없습니다.</Empty> : (
+      {error && all.length === 0 ? <LoadError message="협력사를 불러오지 못했습니다." error={error} onRetry={reload} />
+        : rows.length === 0 ? <Empty>협력사가 없습니다.</Empty> : (
         <div className="table-wrap"><table className="table">
           <thead><tr><th>이름</th><th>담당 공종</th><th>지역</th><th>담당자</th><th>연락처</th><th>{status === 'partner' ? '거래처 연결' : '찾은 곳'}</th></tr></thead>
           <tbody>{rows.map(v => <tr key={v.id}><td className="strong">{v.name}</td><td>{v.trades.map(t => tradeName(base, t)).join(', ')}</td><td>{v.region}</td><td>{v.contact_name}</td><td className="nowrap">{v.phone}</td>
@@ -816,11 +819,12 @@ function MaterialsTab() {
   const [search, setSearch] = useState('')
   const [q, setQ] = useState('')
   useEffect(() => { const t = window.setTimeout(() => setQ(search), 350); return () => window.clearTimeout(t) }, [search])
-  const { data: rows } = useAsync(() => api.listDesignMaterials(q), [q, version], [])
+  const { data: rows, error, reload } = useAsync(() => api.listDesignMaterials(q), [q, version], [])
   return (
     <div className="design-block">
       <div className="row"><input className="input design-filter" type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder="자재 이름 · 분류 · 코드 찾기" aria-label="자재 찾기" /><span className="t-cap">{rows.length}건</span></div>
-      {rows.length === 0 ? <Empty>맞는 자재가 없습니다.</Empty> : (
+      {error && rows.length === 0 ? <LoadError message="자재를 불러오지 못했습니다." error={error} onRetry={reload} />
+        : rows.length === 0 ? <Empty>맞는 자재가 없습니다.</Empty> : (
         <div className="table-wrap"><table className="table">
           <thead><tr><th>코드</th><th>분류</th><th>이름</th><th>규격</th><th>단위</th><th>메모</th></tr></thead>
           <tbody>{rows.map(m => <tr key={m.id}><td className="nowrap strong">{m.color_code}</td><td className="nowrap">{m.category}</td>
@@ -844,11 +848,12 @@ function outline(body: unknown, depth = 0): string[] {
 }
 function KnowledgeTab() {
   const { api, version } = useApp()
-  const { data: rows } = useAsync(() => api.listKnowledge(), [version], [] as Knowledge[])
+  const { data: rows, error, reload } = useAsync(() => api.listKnowledge(), [version], [] as Knowledge[])
   return (
     <div className="design-block">
       <p className="t-cap">표본 자료에서 뽑아 둔 구성 · 기준입니다. 도면 세트 · 스펙북 · 설계 보고서 · 제안서를 만들 때 본보기로 씁니다. 금액은 여기에 없습니다.</p>
-      {rows.length === 0 ? <Empty>학습 자료가 없습니다.</Empty> : rows.map(k => (
+      {error && rows.length === 0 ? <LoadError message="학습 자료를 불러오지 못했습니다." error={error} onRetry={reload} />
+        : rows.length === 0 ? <Empty>학습 자료가 없습니다.</Empty> : rows.map(k => (
         <details className="design-know" key={k.id}>
           <summary><Badge tone="paper">{KIND_LABELS[k.kind] ?? k.kind}</Badge> <b>{k.title}</b> <span className="t-cap">{[k.project_code, k.source].filter(Boolean).join(' · ')}</span></summary>
           <pre>{outline(k.body).slice(0, 200).join('\n')}</pre>
