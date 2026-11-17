@@ -14,7 +14,7 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
 const URL_ = Deno.env.get('SUPABASE_URL')!
 const SERVICE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const sb = createClient(URL_, SERVICE, { auth: { persistSession: false, autoRefreshToken: false } })
-const ORIGINS = /^(https:\/\/([a-z0-9-]+\.)?wkly-erp\.pages\.dev|http:\/\/localhost(:\d+)?)$/
+const ORIGINS = /^(https:\/\/([a-z0-9-]+\.)?wkly-erp\.pages\.dev|http:\/\/localhost(:\d+)?|app:\/\/.*|file:\/\/.*)$/
 const DRIVE = 'https://www.googleapis.com/drive/v3'
 const FOLDER = 'application/vnd.google-apps.folder'
 const SHORTCUT = 'application/vnd.google-apps.shortcut'
