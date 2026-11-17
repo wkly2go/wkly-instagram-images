@@ -448,6 +448,8 @@ export interface WorkLog {
   minutes: number | null
   /** 기록에 덧붙인 메모 (0051+) */
   memo?: string | null
+  /** 연결된 할 일 — 할 일을 진행 중 · 완료로 바꾸면 자동으로 적힌 기록 (20261117150000) */
+  task_id?: string | null
   created_at: string
   updated_at: string
 }

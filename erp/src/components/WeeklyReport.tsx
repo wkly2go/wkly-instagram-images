@@ -283,6 +283,7 @@ export function WeeklyReportPane() {
                       <span className="weekly-text">
                         <Linkify text={l.content} />
                         {l.memo?.startsWith('주간 보고에서 보완') && <span className="weekly-fixed"> 보완</span>}
+                        {l.task_id && <> <Badge tone="outline" title="할 일에서 자동으로 적힌 기록입니다">할 일</Badge></>}
                       </span>
                     </li>
                   ))}

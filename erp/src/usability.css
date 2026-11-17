@@ -272,3 +272,9 @@ svg.lucide:is([width="27"], [width="28"], [width="30"], [width="32"]) { width: 2
 .work-main > .myproj { flex: none; }
 .work-main > .chat-body { flex: 1 0 auto; overflow: visible; min-height: 160px; }
 .work-main > .composer, .work-main > form { position: sticky; bottom: 0; z-index: 2; flex: none; }
+
+/* 홈 '내 할 일' 표 (대표 지시 2026-11-17 '홈에 내할일 넣어줘') — 묶음 제목(지연 · 오늘 · 이번 주)은 작게, 표는 프로젝트 › 내 할 일과 같은 모양 */
+.home-tasks .home-tasks-h { display: flex; align-items: center; gap: 6px; padding: 2px 2px 0; }
+.home-tasks .home-tasks-h .t-bodyb { font-size: var(--fs-body); font-weight: 700; }
+.home-tasks .section-h .more { display: inline-flex; align-items: center; gap: 10px; }
+.home-tasks .home-tasks-more { align-self: flex-start; }
