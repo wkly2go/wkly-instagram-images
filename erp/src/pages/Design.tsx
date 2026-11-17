@@ -157,28 +157,38 @@ function ProjectHead({ project }: { project: DesignProject }) {
 }
 
 type StepKey = 'survey' | 'proposal' | 'model' | 'qty' | 'estimate' | 'drawings' | 'spec' | 'schedule' | 'delivery'
-type StepState = 'none' | 'doing' | 'review' | 'done' | 'stale'
-const STEP_STATE: Record<StepState, string> = { none: '시작 전', doing: '진행 중', review: '검토 대기', done: '완료', stale: '갱신 필요' }
+/** 작업 칸을 통째로 쓰는 단계 — '확인할 것'은 기본으로 접어 둔다 */
+const WIDE_STEPS: StepKey[] = ['model', 'drawings', 'proposal', 'spec', 'delivery']
 
 /**
  * 프로젝트 작업 화면 (레퍼런스: Houzz Pro · Programa — 세부 개발계획 'UI·UX 리서치' 3 · 5 · 6장)
- *  - 위: 단계 표시줄(단계마다 상태 · 앞 단계가 바뀌면 뒤 단계에 '갱신 필요')  - 가운데: 그 단계의 작업  - 오른쪽: 검토 대기 · 경고 · 다음 행동 · 근거
+ *  - 위: 프로젝트 한 줄 · 단계 표시줄(단계마다 상태 · 앞 단계가 바뀌면 뒤 단계에 '갱신 필요') · 작업 진행 띠  - 가운데: 그 단계의 작업  - 접는 칸: 검토 대기 · 경고 · 다음 행동 · 근거
+ *  - 2026-11-17 작업 환경: 넓게 보기(채팅 · 일정 칸 숨김) · 단계 표시줄 한 줄 · 작업 상태를 모든 단계에서 확인
  */
-function ProjectView({ project, base }: { project: DesignProject; base: DesignBase }) {
+function ProjectView({ project, base, pick, count, startBtn, startForm }: { project: DesignProject; base: DesignBase; pick: React.ReactNode; count: number; startBtn: React.ReactNode; startForm: React.ReactNode }) {
   const { api, me, version } = useApp()
   const { query, navigate } = useRouter()
   const view = (['survey', 'proposal', 'model', 'qty', 'estimate', 'drawings', 'spec', 'schedule', 'delivery'].includes(query.get('view') ?? '') ? query.get('view') : 'qty') as StepKey
-  const go = (k: StepKey) => navigate(withQuery('/design', query, { view: k === 'qty' ? null : k }))
+  const go = async (k: StepKey) => { if (k !== view && await confirmLeave()) navigate(withQuery('/design', query, { view: k === 'qty' ? null : k })) }
+  const [wide, setWide] = useDesignWide(true)
+  // 작업 처리기에 맡긴 일이 끝나면 견적 · 파일 · 검토함만 다시 읽는다 (평면처럼 고치고 있는 화면은 건드리지 않음)
+  const [jobTick, setJobTick] = useState(0)
+  const { jobs } = useDesignJobs(project.id, () => setJobTick(t => t + 1))
+  const wideStep = WIDE_STEPS.includes(view)
+  const [infoNormal, setInfoNormal] = useStoredFlag('wkly-design-info', true)
+  const [infoWide, setInfoWide] = useStoredFlag('wkly-design-info-wide', false)
+  const infoOpen = wideStep ? infoWide : infoNormal
+  const setInfo = wideStep ? setInfoWide : setInfoNormal
   const { data: survey } = useAsync(() => api.listSurvey(project.id).catch(() => []), [project.id, version], [])
   const { data: rows } = useAsync(() => api.listPlacements(project.id, project.model_version), [project.id, project.model_version, version], [])
-  const { data: estimates } = useAsync(() => api.listEstimates(project.id), [project.id, version], [] as Estimate[])
+  const { data: estimates } = useAsync(() => api.listEstimates(project.id), [project.id, version, jobTick], [] as Estimate[])
   const { data: tasks } = useAsync(() => api.listScheduleTasks(project.id), [project.id, version], [])
   const { data: props } = useAsync(() => api.listProposalSections(project.id), [project.id, version], [])
   const { data: specs } = useAsync(() => api.listSpecItems(project.id), [project.id, version], [])
-  const { data: pending } = useAsync(() => api.listDesignCards('pending', project.id), [project.id, version], [] as DesignCard[])
-  const { data: decided } = useAsync(() => api.listDesignCards('done', project.id), [project.id, version], [] as DesignCard[])
+  const { data: pending } = useAsync(() => api.listDesignCards('pending', project.id), [project.id, version, jobTick], [] as DesignCard[])
+  const { data: decided } = useAsync(() => api.listDesignCards('done', project.id), [project.id, version, jobTick], [] as DesignCard[])
   const est = estimates.find(e => e.variant === 'standard') ?? null
-  const { data: lines } = useAsync(() => (est ? api.listEstimateLines(est.id) : Promise.resolve([])), [est?.id], [])
+  const { data: lines } = useAsync(() => (est ? api.listEstimateLines(est.id) : Promise.resolve([])), [est?.id, jobTick], [])
   const confirmed = est ? decided.some(c => c.kind === 'estimate' && c.ref_id === est.id && c.status === 'approved') : false
   const qtySum = rows.reduce((s, r) => s + r.qty, 0), lineSum = lines.reduce((s, l) => s + l.qty, 0)
   const stale = !!est && lines.length > 0 && (est.model_version !== project.model_version || rows.length !== lines.length || Math.abs(qtySum - lineSum) > 0.0005)
@@ -195,7 +205,7 @@ function ProjectView({ project, base }: { project: DesignProject; base: DesignBa
     schedule: tasks.length === 0 ? 'none' : tasks.every(t => t.done) ? 'done' : 'doing',
     delivery: project.stage === 'done' ? 'done' : 'none',
   }
-  const steps: { key: StepKey; label: string; note: string }[] = [
+  const steps: StepInfo<StepKey>[] = ([
     { key: 'survey', label: '현장 실측', note: survey.length ? `${surveyDone}/${survey.length}` : '' },
     { key: 'proposal', label: '제안서', note: props.length ? `${props.filter(s => s.status === 'checked').length}항목 확인` : '' },
     { key: 'model', label: '평면 · 3D', note: project.model_version > 0 ? `모델 ${project.model_version}번째` : '' },
@@ -205,7 +215,7 @@ function ProjectView({ project, base }: { project: DesignProject; base: DesignBa
     { key: 'spec', label: '스펙북', note: specs.length ? `${specs.length}개` : '' },
     { key: 'schedule', label: '공정', note: tasks.length ? `${tasks.filter(t => t.done).length}/${tasks.length}` : '' },
     { key: 'delivery', label: '납품', note: '' },
-  ]
+  ] as { key: StepKey; label: string; note: string }[]).map(s => ({ ...s, state: state[s.key] }))
   const next: { text: string; to: StepKey } | null =
     rows.length === 0 ? { text: "수량을 넣으세요. '평면 · 3D'에서 그려 반영하거나, 스케치업에서 '수량 보내기', 또는 수량표에서 직접 넣습니다.", to: 'model' }
     : !est ? { text: "수량표에서 '이 수량으로 견적 계산'을 누르세요.", to: 'qty' }
