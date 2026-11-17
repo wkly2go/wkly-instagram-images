@@ -1,7 +1,7 @@
 import {useEffect,useRef,useState,type ReactNode} from 'react'
 import {useAsync} from '../lib/app'
 import {useDraftNavigation} from '../lib/useDraftNavigation'
-import type {SalesDeskFold,SalesStrategy,SalesStrategyApi} from '../lib/salesStrategy'
+import type {SalesDeskFold,SalesStrategy,SalesStrategyApi,StrategyPlan} from '../lib/salesStrategy'
 import {parseStageQuestion} from '../lib/salesStrategy'
 import type {SalesDeskAction,SalesDeskMessage} from '../lib/salesDesk'
 import type {SalesExecutionPackage} from '../lib/salesExecution'
@@ -80,6 +80,17 @@ function DeskReportView({message:m}:{message:SalesDeskMessage}){
 }
 
 const planState=(row:SalesStrategy)=>row.status==='승인 대기'&&row.preparation_before_approval&&row.preparation_status!=='완료'?(row.preparation_status==='확인 필요'?'자료 준비 확인 필요':'자료 자동 준비 중'):row.status
+/** 기획안 구분 (대표 지시 2026-11-17 '기획안은 구분을 해줘'): 공공/민간 · 영업 방식(category) · 우선순위(제목 끝 괄호) · 상태 색 */
+function planTags(p:StrategyPlan|null|undefined){
+ const raw=p?.title||'기획 중',m=raw.match(/\s*[([]\s*(낮은|중간|보통|높은)\s*우선\s*순위\s*[)\]]\s*$/)
+ const cat=p?.category?.trim()||''
+ return {title:m?raw.slice(0,m.index).trim():raw,priority:m?(m[1]==='높은'?'높음':m[1]==='낮은'?'낮음':'보통'):'',sector:/공공|입찰|조달|나라장터/.test(cat+' '+raw)?'공공':'민간',category:cat}
+}
+const stateTone=(row:SalesStrategy)=>row.status==='승인 대기'?(row.preparation_before_approval&&row.preparation_status!=='완료'?'prep':'wait'):row.status==='승인'?'ok':row.status==='기획 중'?'prep':'off'
+function PlanTags({row}:{row:SalesStrategy}){
+ const t=planTags(row.plan)
+ return <span className="sales-plan-tags"><span className={`sales-plan-tag sector-${t.sector==='공공'?'public':'private'}`}>{t.sector}</span>{t.category&&<span className="sales-plan-tag cat">{t.category}</span>}{t.priority&&<span className={`sales-plan-tag pri-${t.priority==='높음'?'high':t.priority==='낮음'?'low':'mid'}`}>우선순위 {t.priority}</span>}<span className={`sales-plan-tag state-${stateTone(row)}`}>{planState(row)}</span></span>
+}
 function PlanProposal({row,plans,canDecide,compact=false,onToggle,onFold}:{row:SalesStrategy;plans:DeskPlans;canDecide:boolean;compact?:boolean;onToggle?:()=>void;onFold?:()=>void}){
  const [rejecting,setRejecting]=useState(false),[reason,setReason]=useState(''),p=row.plan
  const waiting=row.status==='승인 대기',ready=!row.preparation_before_approval||row.preparation_status==='완료'
@@ -88,11 +99,11 @@ function PlanProposal({row,plans,canDecide,compact=false,onToggle,onFold}:{row:S
  const load=plans.loadExecution
  useEffect(()=>{let live=true;setPkg(null);if(!load||!canDecide||!waiting||!ready||!row.preparation_before_approval)return;load(row).then(v=>{if(live)setPkg(v)}).catch(()=>undefined);return()=>{live=false}},[row.id,row.revision,row.preparation_status,waiting,ready,canDecide])
  const sendable=!!pkg&&pkg.can_approve&&pkg.payload.messages.length>0&&(!pkg.readiness||pkg.readiness.sender.can_send||!!pkg.payload.sender)
- if(compact)return <article id={'sales-plan-'+row.id} className="sales-desk-exchange sales-desk-compact sales-desk-plan"><button type="button" className="sales-desk-compact-open" onClick={onToggle} aria-expanded={false}><span className="sales-desk-compact-what">기획안 · {p?.title||'기획 중'}</span><small>{planState(row)} · {time(row.created_at)}</small></button>{onFold&&<Button kind="ghost" onClick={onFold}>보관</Button>}</article>
- return <article id={'sales-plan-'+row.id} className="sales-desk-exchange sales-desk-plan" aria-label={`기획안 제안 · ${p?.title||'기획 중'}`}><div className="sales-desk-answer">
-  <header><strong>영업 기획 AI · 기획안 제안</strong><small>{planState(row)} · {time(row.created_at)}</small>{onToggle&&!['승인 대기','승인','기획 중'].includes(row.status)&&<Button kind="ghost" onClick={onToggle}>접기</Button>}{onFold&&<Button kind="ghost" onClick={onFold} title="검토하지 않고 보관함에 넣기 · 나중에 다시 꺼낼 수 있어요">보관</Button>}</header>
+ if(compact)return <article id={'sales-plan-'+row.id} className={`sales-desk-exchange sales-desk-compact sales-desk-plan plan-${stateTone(row)}`}><button type="button" className="sales-desk-compact-open" onClick={onToggle} aria-expanded={false}><span className="sales-plan-badge">기획안</span><span className="sales-desk-compact-what">{planTags(p).title}</span><PlanTags row={row}/><small>{time(row.created_at)}</small></button>{onFold&&<Button kind="ghost" onClick={onFold}>보관</Button>}</article>
+ return <article id={'sales-plan-'+row.id} className={`sales-desk-exchange sales-desk-plan plan-${stateTone(row)}`} aria-label={`기획안 제안 · ${p?.title||'기획 중'}`}><div className="sales-desk-answer">
+  <header className="sales-plan-head"><span className="sales-plan-badge">기획안</span><PlanTags row={row}/><small className="sales-plan-when">영업 기획 AI · {time(row.created_at)}</small>{onToggle&&!['승인 대기','승인','기획 중'].includes(row.status)&&<Button kind="ghost" onClick={onToggle}>접기</Button>}{onFold&&<Button kind="ghost" onClick={onFold} title="검토하지 않고 보관함에 넣기 · 나중에 다시 꺼낼 수 있어요">보관</Button>}</header>
   {row.status==='기획 중'?<p role="status">자료를 읽고 기획안을 작성하고 있습니다.</p>:!p?<p className="sales-desk-text">기획안을 완성하지 못했습니다. 아래에서 다시 지시하거나 ‘AI 새 영업안 기획’으로 새 안을 받을 수 있습니다.</p>:<>
-   <h3>{p.title}</h3>
+   <h3>{planTags(p).title}</h3>
    <dl><div><dt>대상</dt><dd>{p.customer}</dd></div><div><dt>제안</dt><dd>{p.offer}</dd></div><div><dt>지금 하는 이유</dt><dd>{p.why_now}</dd></div></dl>
    {canDecide&&waiting&&!rejecting&&!!p.questions?.some(q=>q.includes('|'))&&<PlanQuestions key={row.id+':'+row.revision} questions={p.questions} busy={plans.busy} onRevise={text=>plans.onReject(row,text,true)} onApprove={text=>plans.onApprove(row,text)}/>}
    {!!p.steps?.length&&<details className="sales-desk-stages" open={row.status==='승인 대기'}><summary>영업 단계별 아이디어와 계획 · {p.steps.length}단계</summary><ol>{p.steps.map((s,i)=><li key={i}><strong>{s.action}</strong>{s.output&&<span> → {s.output}</span>}<small> · 승인 {s.day===0?'당일':`${s.day}일 뒤`}</small></li>)}</ol></details>}
