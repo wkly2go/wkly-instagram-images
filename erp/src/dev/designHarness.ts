@@ -30,6 +30,7 @@ let plan: PlanGeometry | null = {
   rooms: [{ id: 'r1', no: '101', name: '홀', floor: { mat: 'WF-01' }, base: { mat: 'MT-01' }, wall: { mat: 'PT-01' }, ceiling: { mat: 'PT-01' }, ch: 2700, area: 24, perimeter: 20 }],
 }
 const spec = (code: string, name: string, s: string): SpecItem => ({ id: `s-${code}`, project_id: project.id, book: 'materials', code, name, spec: s, location: null, maker: null, material_id: null, status: 'selected' } as unknown as SpecItem)
+const specImages: Record<string, string> = {}
 const specs = [spec('PT-01', '수성 페인트', '백색 무광'), spec('PT-02', '수성 페인트', '세이지 그린'), spec('WC-01', '실크 벽지', '아이보리'), spec('WF-01', '원목 마루', '오크 내추럴'), spec('MT-01', '스테인리스 걸레받이', '헤어라인 실버')]
 
 const library: LibraryEntry[] = []
@@ -48,8 +49,13 @@ export function installDesignHarness() {
     getProposalBoard: async () => (board ? (JSON.parse(JSON.stringify(board)) as typeof board) : null),
     saveProposalBoard: async (_id: string, b: ProposalBoard) => { board = { board: JSON.parse(JSON.stringify(b)) as ProposalBoard, updated_at: new Date().toISOString(), updated_by: 'harness' }; return { updated_at: board.updated_at } },
     listRenders: async () => renders,
-    listSpecImages: async () => ({}),
+    listSpecImages: async () => ({ ...specImages }),
+    setSpecImage: async (_pid: string, itemId: string, data: string | null) => { if (data) specImages[itemId] = data; else delete specImages[itemId] },
+    updateSpecItem: async (id: string, patch: Partial<SpecItem>) => { const i = specs.findIndex(x => x.id === id); if (i >= 0) specs[i] = { ...specs[i], ...patch } },
+    addSpecItem: async (row: Partial<SpecItem>) => { specs.push({ ...spec(String(row.code ?? ''), String(row.name ?? ''), String(row.spec ?? '')), ...row, id: `s-${Date.now().toString(36)}` } as SpecItem) },
+    deleteSpecItem: async (id: string) => { const i = specs.findIndex(x => x.id === id); if (i >= 0) specs.splice(i, 1) },
     listProposalSections: async () => [],
+    getProposalTemplate: async () => [],
 
     listDesignProjects: async () => [project],
     getDesignBase: async () => base,
