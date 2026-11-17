@@ -77,7 +77,8 @@ Deno.serve(async req => {
   if (password.length < 8 || password.length > 72) return json({ error: '임시 비밀번호는 8자 이상이어야 합니다.' }, 400)
 
   // 3) 계정 만들기 (이메일 확인 생략: 관리자가 직접 만든 계정)
-  const { data, error } = await admin.auth.admin.createUser({ email, password, email_confirm: true, user_metadata: { name } })
+  // app_metadata 는 서버(service_role)만 쓸 수 있음 → DB 트리거가 '관리자가 만든 계정'만 활성 팀원으로 만듦 (2026-11-17 보안 보강)
+  const { data, error } = await admin.auth.admin.createUser({ email, password, email_confirm: true, user_metadata: { name }, app_metadata: { wkly_admin_created: true } })
   if (error || !data.user) {
     const msg = error?.message ?? ''
     return json({ error: /already|registered|exists/i.test(msg) ? '이미 등록된 이메일입니다.' : msg || '계정을 만들지 못했습니다.' }, 400)
@@ -86,7 +87,7 @@ Deno.serve(async req => {
   // 4) 프로필 채우기 (계정이 생기면 DB 트리거가 기본 프로필을 만듦)
   const { error: profileError } = await admin
     .from('profiles')
-    .update({ name, title: body?.title?.trim() || null, role, is_agent: body?.is_agent === true })
+    .update({ name, title: body?.title?.trim() || null, role, is_agent: body?.is_agent === true, active: true })
     .eq('id', data.user.id)
   if (profileError) return json({ error: `계정은 만들었지만 프로필 저장에 실패했습니다: ${profileError.message}` }, 500)
 
