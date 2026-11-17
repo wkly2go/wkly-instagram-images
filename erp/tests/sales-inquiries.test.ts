@@ -17,6 +17,13 @@ test('inquiries are sorted into reply, signal, other and done', async () => {
   assert.equal(group({ kind: '리포트 신청', category: '공부·리서치', status: '신규' }), 'other')
   assert.equal(group({ kind: '구독', category: '구독', status: '신규' }), 'other')
   assert.equal(group({ kind: '문의', category: null, status: '응대 완료' }), 'done')
+  // consent: given on the site, or recorded in the inbox with the memo mark; signals and others are split by it
+  assert.ok(src.includes("export const inquiryConsent = (q: Pick<WebInquiry, 'newsletter' | 'memo'>): boolean => q.newsletter === true || (q.memo ?? '').includes(CONSENT_MARK)"))
+  assert.ok(src.includes("export const CONSENT_MARK = '[수신 동의]'"))
+  assert.ok(src.includes("(tab === 'signal' || tab === 'other' ? [true, false] : [null])"))
+  const sql = await (await import('node:fs/promises')).readFile(new URL('../supabase/migrations/20261117120000_sales_inquiry_prospects.sql', import.meta.url), 'utf8')
+  // the database uses the same consent rule and never registers a report request without consent
+  assert.ok(sql.includes("(w.newsletter is true or coalesce(w.memo, '') like '%[수신 동의]%')"))
   // replies only open a mail window; nothing is sent by the app
   assert.ok(!/sb\.functions|fetch\(|sendMail|gmail/i.test(src))
 })
