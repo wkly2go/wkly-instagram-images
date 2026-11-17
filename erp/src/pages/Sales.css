@@ -1,5 +1,5 @@
 .sales-page { padding: 20px; display: flex; flex-direction: column; gap: 18px; min-width: 0; }
-.app-page.tab-sales .main{padding:0!important}.tab-sales .sales-page{width:100%;max-width:none;padding:12px;box-sizing:border-box}.tab-sales .sales-report,.tab-sales .sales-strategy-desk{padding:24px;max-width:none}.sales-page-tools{display:flex;justify-content:flex-end}.sales-page-tools .btn{min-height:32px;font-size:12px}.tab-sales:has(.sales-wide) .web-slot{display:none}.tab-sales:has(.sales-wide) .inner,.tab-sales:has(.sales-wide) .main{--web-w:0px}
+.app-page.tab-sales .main{padding:0!important}.tab-sales .sales-page{width:100%;max-width:none;padding:12px;box-sizing:border-box}.tab-sales .sales-report,.tab-sales .sales-strategy-desk{padding:24px;max-width:none}.sales-page-tools{display:flex;justify-content:flex-end}.sales-page-tools .btn{min-height:32px;font-size:var(--fs-body)}.tab-sales:has(.sales-wide) .web-slot{display:none}.tab-sales:has(.sales-wide) .inner,.tab-sales:has(.sales-wide) .main{--web-w:0px}
 @media(max-width:640px){.tab-sales .sales-page{padding:8px}.tab-sales .sales-report,.tab-sales .sales-strategy-desk{padding:16px}}
 .sales-page h1, .sales-page p, .sales-detail p { margin: 0; }
 .sales-filters { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; }
@@ -15,7 +15,7 @@
 .sales-item-main > span, .sales-item small { font-size: var(--fs-sm, 13px); }
 .sales-item small { display: block; margin-top: 6px; overflow-wrap: anywhere; }
 .sales-stage { color: #0b6333; font-weight: 700; }
-.sales-due { color: #a02720; font-weight: 600; }
+.sales-due { color: #a02720; font-weight: 700; }
 .sales-amount { text-align: right; overflow-wrap: anywhere; }
 .sales-pager { justify-content: center; }
 .sales-fieldset { border: 0; padding: 0; min-width: 0; margin: 0; }
@@ -59,7 +59,7 @@
 .sales-search > .row { min-height: 38px; }
 .sales-work-filters > .btn { min-height: 38px; }
 .sales-options { padding: 10px 12px; border: 1px solid var(--line, #ddd); background: var(--paper, #fff); min-width: 0; }
-.sales-options summary { color: #164c2d; font-weight: 650; cursor: pointer; }
+.sales-options summary { color: #164c2d; font-weight: 700; cursor: pointer; }
 .sales-options[open] > summary { margin-bottom: 12px; }
 .sales-desk-active .sales-item { grid-template-columns: minmax(0, 1fr) auto; gap: 8px; padding: 12px; }
 .sales-item[aria-current="true"] { background: #edf6ef; box-shadow: inset 3px 0 #0b6333; }

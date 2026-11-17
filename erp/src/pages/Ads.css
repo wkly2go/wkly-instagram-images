@@ -11,13 +11,13 @@
 .ads-workspace .btn.primary { color: var(--white); background: var(--blue); border-color: var(--blue); }
 .ads-workspace .btn.primary:hover:not(:disabled) { background: var(--side-on); }
 .ads-nav { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); border: 1px solid var(--line); background: var(--paper); }
-.ads-nav button { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 49px; padding: 10px 8px; border: 0; border-right: 1px solid var(--line); border-bottom: 3px solid transparent; background: transparent; color: var(--gray); font-size: var(--fs-body); font-weight: 650; cursor: pointer; }
+.ads-nav button { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 49px; padding: 10px 8px; border: 0; border-right: 1px solid var(--line); border-bottom: 3px solid transparent; background: transparent; color: var(--gray); font-size: var(--fs-body); font-weight: 700; cursor: pointer; }
 .ads-nav button:last-child { border-right: 0; }
 .ads-nav button:hover { color: var(--blue); background: var(--blue-tint); }
 .ads-nav button.active { background: var(--white); color: var(--blue); border-bottom-color: var(--blue); font-weight: 800; }
 .ads-nav svg { flex-shrink: 0; }
 .ads-subnav { display: flex; flex-wrap: wrap; gap: 6px; margin-top: -5px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
-.ads-subnav button { min-height: 34px; padding: 7px 13px; border: 1px solid transparent; background: transparent; color: var(--gray); font-size: var(--fs-sm); font-weight: 600; cursor: pointer; }
+.ads-subnav button { min-height: 34px; padding: 7px 13px; border: 1px solid transparent; background: transparent; color: var(--gray); font-size: var(--fs-sm); font-weight: 700; cursor: pointer; }
 .ads-subnav button:hover { background: var(--paper); }
 .ads-subnav button.active { background: var(--blue-tint); color: var(--blue); border-color: var(--acid); }
 .ads-content { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
@@ -26,14 +26,14 @@
 .ads-workspace select { max-width: 100%; min-width: 0; height: 36px; padding: 5px 28px 5px 10px; border: 1px solid var(--line); background-color: var(--white); font-size: var(--fs-sm); color: var(--blue); }
 .ads-filters { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 20px; padding: 14px 16px; background: var(--paper); border: 1px solid var(--line); }
 .ads-period, .ads-channel { display: flex; flex-direction: column; gap: 6px; }
-.ads-filter-label { display: block; color: var(--gray); font-size: var(--fs-cap); font-weight: 600; }
+.ads-filter-label { display: block; color: var(--gray); font-size: var(--fs-cap); font-weight: 700; }
 .ads-segment { display: flex; border: 1px solid var(--line); background: var(--white); }
-.ads-segment button { min-height: 34px; padding: 6px 13px; border: 0; border-right: 1px solid var(--line); background: transparent; color: var(--gray); font-size: var(--fs-sm); font-weight: 600; cursor: pointer; }
+.ads-segment button { min-height: 34px; padding: 6px 13px; border: 0; border-right: 1px solid var(--line); background: transparent; color: var(--gray); font-size: var(--fs-sm); font-weight: 700; cursor: pointer; }
 .ads-segment button:last-child { border-right: 0; }
 .ads-segment button.active { background: var(--blue); color: var(--white); }
 .ads-channel select { min-width: 126px; }
 .ads-date-range { display: flex; flex-direction: column; gap: 3px; margin: 0 auto 2px 0; }
-.ads-date-range strong { font: 650 var(--fs-body)/1.4 var(--display); color: var(--blue); }
+.ads-date-range strong { font: 700 var(--fs-body)/1.4 var(--display); color: var(--blue); }
 .ads-date-range span { font-size: var(--fs-cap); }
 .ads-refresh { min-height: 36px; margin-bottom: 0; }
 .ads-data-meta { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 16px; margin-top: -5px; font-size: var(--fs-cap); }

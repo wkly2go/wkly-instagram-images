@@ -40,7 +40,7 @@
 .sales-plan-review ul { margin: 0; padding-inline-start: 1.3em; }
 .sales-plan-review li + li { margin-top: 5px; }
 .sales-plan-next { display: grid; justify-items: start; gap: 6px; }
-.sales-plan-preview summary { cursor: pointer; font-weight: 600; }
+.sales-plan-preview summary { cursor: pointer; font-weight: 700; }
 .sales-plan-preview .textarea { margin-top: 8px; }
 @media (pointer: coarse) {
   .sales-plan-sheet .btn { min-height: 44px; }
