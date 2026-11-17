@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useApp } from '../lib/app'
 import { safeWebUrl } from '../lib/growth'
 import { todayKey } from '../lib/date'
-import { fetchSeoulEvents } from '../lib/seoulEventClient'
+import { fetchSeoulEvents, publicDataUrl } from '../lib/seoulEventClient'
 import { validDate } from '../lib/prospecting'
 import { defaultTenderQuery } from '../lib/tenderSearch'
 import { Button } from './ui'
@@ -114,12 +114,16 @@ export function ProspectSearchResults({ query, sources, onSelect, disabled = fal
         catch (error) {
           if (controller.signal.aborted) throw error
           archived = true
-          try {
-            data = await read('https://raw.githubusercontent.com/wkly2go/wkly-instagram-images/refs/heads/data/seoul-events/coex-events.json', true)
-          } catch (archiveError) {
-            if (controller.signal.aborted) throw archiveError
-            data = await read('/data/coex-events.json')
+          // 보관본: Supabase 공개 보관함 → GitHub data 브랜치(저장소가 공개인 동안만) → 배포에 든 파일
+          for (const url of [publicDataUrl('coex-events.json'), 'https://raw.githubusercontent.com/wkly2go/wkly-instagram-images/refs/heads/data/seoul-events/coex-events.json']) {
+            if (!url || data) continue
+            try {
+              data = await read(url, true)
+            } catch (archiveError) {
+              if (controller.signal.aborted) throw archiveError
+            }
           }
+          if (!data) data = await read('/data/coex-events.json')
         }
         const rows = data?.rows
         if (!Array.isArray(rows) || rows.length > 12) throw new Error('잘못된 코엑스 행사 목록')
