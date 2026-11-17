@@ -131,6 +131,22 @@ export interface UnitPrice {
   source_doc: string | null
   approved: boolean
 }
+/** 물가 기준 단가 (조달청 가격정보 · design.price_refs) */
+export interface PriceRef {
+  id: number
+  source_name: string
+  category: string
+  item: string
+  spec: string
+  unit: string
+  price: number
+  material: number | null
+  labor: number | null
+  expense: number | null
+  region: string
+  notice_date: string | null
+}
+export interface PriceRefMatch { unit_price_id: string; ref_id: number; score: number; source_name: string; item: string; spec: string; unit: string; price: number; notice_date: string | null }
 export interface UnitCost {
   id: string
   trade_code: string
@@ -264,6 +280,10 @@ export interface DesignApi {
   updateScheduleTask(id: string, patch: Partial<ScheduleDraft>): Promise<void>
   deleteScheduleTask(id: string): Promise<void>
   listUnitPrices(search: string, trade: string | null): Promise<UnitPrice[]>
+  /** 물가 기준(조달청) 목록 · 전체 건수 */
+  listPriceRefs(search: string): Promise<{ rows: PriceRef[]; total: number }>
+  /** 판매 단가마다 가장 비슷한 물가 기준 (단위 같고 글 비슷함 0.3 이상) */
+  comparePriceRefs(ids: string[]): Promise<PriceRefMatch[]>
   /** 관리자만 내용이 보인다 (팀원은 빈 목록) */
   listUnitCosts(search: string, trade: string | null): Promise<UnitCost[]>
   listDesignVendors(): Promise<DesignVendor[]>

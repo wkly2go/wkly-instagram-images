@@ -3,7 +3,7 @@ import { ApiError } from './api'
 import type { PlanGeometry } from './designPlan'
 import type {
   CostLine, DesignApi, DesignRender, ModelVersion, ProposalSection, ProposalTemplateSection, SpecItem, DesignCard, DesignDocument, DesignJob, PoLine, PurchaseOrder, DesignMaterial, DesignProject, DesignTrade, DesignVendor, Estimate, EstimateLine,
-  Knowledge, Placement, ScheduleTask, UnitCost, UnitPrice,
+  Knowledge, Placement, PriceRef, PriceRefMatch, ScheduleTask, UnitCost, UnitPrice,
 } from './design'
 
 const fail = (e: { message: string; code?: string } | null) => {
@@ -214,6 +214,20 @@ export function createSupabaseDesignApi(sb: SupabaseClient): DesignApi {
       fail(r.error)
       return (r.data ?? []) as UnitPrice[]
     },
+    async listPriceRefs(search) {
+      let q = sb.from('design_price_refs').select('id,source_name,category,item,spec,unit,price,material,labor,expense,region,notice_date', { count: 'exact' })
+      if (search.trim()) q = q.or(`item.ilike.${like(search)},spec.ilike.${like(search)}`)
+      const r = await q.order('item').order('notice_date', { ascending: false }).limit(400)
+      if (r.error && ['42P01', 'PGRST205'].includes(r.error.code ?? '')) return { rows: [], total: 0 }
+      fail(r.error)
+      return { rows: (r.data ?? []) as PriceRef[], total: r.count ?? 0 }
+    },
+    async comparePriceRefs(ids) {
+      if (!ids.length) return []
+      const r = await sb.rpc('design_price_ref_compare', { p_ids: ids.slice(0, 400) })
+      if (r.error) return []
+      return (r.data ?? []) as PriceRefMatch[]
+    },
     async listUnitCosts(search, trade) {
       let q = sb.from('design_unit_costs').select('id,trade_code,item,spec,unit,cost_price,vendor_id,effective_date,source_doc,approved')
       if (trade) q = q.eq('trade_code', trade)
@@ -286,6 +300,8 @@ export function createDemoDesignApi(): DesignApi {
     async listScheduleTasks() { return [] },
     addScheduleTask: none, updateScheduleTask: none, deleteScheduleTask: none,
     async listUnitPrices() { return [] },
+    async listPriceRefs() { return { rows: [], total: 0 } },
+    async comparePriceRefs() { return [] },
     async listUnitCosts() { return [] },
     async listDesignVendors() { return [] },
     async listDesignMaterials() { return [] },
