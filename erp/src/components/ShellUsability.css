@@ -5,9 +5,9 @@
 .app-page .profile .side-nav { display: flex; flex-direction: column; align-items: stretch; gap: 8px; padding: 6px 0 10px; }
 .app-page .side-nav-group { display: flex; flex-direction: column; min-width: 0; gap: 2px; }
 .app-page .side-group-label { display: block; padding: 3px 8px 2px; color: var(--gray); font-size: var(--fs-cap); line-height: 1.4; font-weight: 600; }
-.app-page .profile .side-item { min-height: 34px; gap: 8px; padding: 7px 8px; border-radius: 0; font-size: var(--fs-sm); line-height: 1.4; font-weight: 600; }
+.app-page .profile .side-item { min-height: 34px; gap: 8px; padding: 7px 8px; border-radius: 0; font-size: var(--fs-sm); line-height: 1.4; font-weight: 400; }
 .app-page .profile .side-item > svg { flex: none; width: 17px; height: 17px; }
-.app-page .profile .side-item.on { background: var(--blue-tint); color: var(--blue); font-weight: 750; }
+.app-page .profile .side-item.on { background: var(--blue-tint); color: var(--blue); font-weight: 400; }
 .app-page .profile .side-item.on::before { width: 3px; background: var(--blue); }
 .app-page .profile .side-item:focus-visible { outline: 2px solid var(--blue); outline-offset: -2px; background: var(--blue-tint); }
 .app-page .profile .side-item .side-n { flex-shrink: 0; min-width: 19px; height: 19px; line-height: 19px; }
