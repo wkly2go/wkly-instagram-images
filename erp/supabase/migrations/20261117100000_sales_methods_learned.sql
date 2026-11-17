@@ -9,3 +9,5 @@ insert into public.sales_methods (name, signal, offer, first_step, active, origi
   ('예산 편성 시기 선제 제안', '연말 · 분기 초처럼 다음 해 · 다음 분기 마케팅 예산과 행사 계획을 짜는 시기', '연간 팝업 · 행사 일정표와 회차별 구성안 (예산 범위별 2~3안)', '내년 계획에 넣을 수 있도록 시기 · 규모별 안을 미리 보낸다고 알리고 편성 일정을 묻는다', true, '기본'),
   ('행사일 역산 일정 제안', '대상의 시즌 행사 · 신제품 출시 · 기념일이 8~12주 뒤로 공개된 때', '행사일에서 거꾸로 계산한 준비 일정표와 팝업 · 행사 구성', '행사일 기준 공간 확정 · 제작 착수 마감일을 보여 주고 준비가 시작됐는지 묻는다', true, '기본')
 on conflict (name) do nothing;
+-- 같은 날 따로 추가된 '받은 문의 즉시 응대'(20261117110000)와 뜻이 겹쳐 '웹 문의 즉시 응대'는 꺼 둔다
+update public.sales_methods set active = false, updated_at = now() where name = '웹 문의 즉시 응대' and exists (select 1 from public.sales_methods where name = '받은 문의 즉시 응대' and active);
