@@ -29,3 +29,39 @@ test('parseAdCopyVariants reads three variants in the requested format', () => {
 test('parseAdCopyVariants returns nothing for free text', () => {
   assert.deepEqual(parseAdCopyVariants('그냥 설명입니다.'), [])
 })
+
+import { lintAdCopy, parseAdPlan, adCopyRequest } from '../src/lib/adCopy.ts'
+
+test('parseAdCopyVariants keeps angle and proof', () => {
+  const [v] = parseAdCopyVariants('[1안]\n앵글: 공감 · 문제\n근거: 매거진이 직접 알림\n제목: 장소 찾다 11월 다 갑니다\n본문: 한 줄\n행동: 문의하기')
+  assert.equal(v.angle, '공감 · 문제')
+  assert.equal(v.proof, '매거진이 직접 알림')
+  assert.equal(v.headline, '장소 찾다 11월 다 갑니다')
+})
+
+test('lintAdCopy flags limits, translationese, generic one-stop and unproven numbers', () => {
+  const base = { platform: 'google' as const, headline: '기획부터 철거까지 원스톱으로 한 번에', primaryText: '고객을 위한 팝업, 매출 30% 상승', description: '', cta: '문의하기', seasonNote: '' }
+  const msgs = lintAdCopy(base).map(i => i.message).join('\n')
+  assert.match(msgs, /15자 이내/)
+  assert.match(msgs, /번역투/)
+  assert.match(msgs, /원스톱/)
+  assert.match(msgs, /숫자 근거/)
+  assert.deepEqual(lintAdCopy({ platform: 'meta', headline: '견적서 한 장으로 결재 끝', primaryText: '팝업 매거진이 직접 고른 성수 공간', description: '', cta: '문의하기' }), [])
+})
+
+test('lintAdCopy asks for the season keyword in every copy', () => {
+  const issues = lintAdCopy({ platform: 'meta', headline: '연말 팝업 준비', primaryText: '', description: '', cta: '', seasonNote: '크리스마스' })
+  assert.ok(issues.some(i => i.message.includes('크리스마스')))
+})
+
+test('parseAdPlan reads the planning fields', () => {
+  const d = parseAdPlan('타깃: 성수 팝업을 준비하는 브랜드 마케터\n인사이트: 공간 찾기가 가장 오래 걸림\n약속: 매거진이 고른 공간\n매체 · 예산: 메타 70% 구글 30%\n시험: 앵글 A/B, 7일 CTR')
+  assert.ok(d)
+  assert.equal(d!.channel, '메타 70% 구글 30%')
+  assert.equal(d!.audience, '성수 팝업을 준비하는 브랜드 마케터')
+})
+
+test('adCopyRequest carries company rules and stays within the request limit', () => {
+  const r = adCopyRequest({ platform: 'google', seasonNote: '크리스마스 팝업' }, 'x'.repeat(2000))
+  assert.ok(r.includes('스왑 테스트') && r.includes('크리스마스') && r.length <= 6000)
+})
