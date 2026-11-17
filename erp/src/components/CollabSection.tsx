@@ -734,7 +734,7 @@ function LinkModal({ project, room, guest, token, onClose }: { project: Project;
   const { me, toast } = useApp()
   const url = collabInviteUrl(token)
   const company = room.company?.trim() || COMPANY[projectBrand(project)]
-  const message = `안녕하세요, ${company} ${me.name}입니다.\n${room.title} 초대 링크를 보내 드립니다. 아래 링크를 누르시면 로그인 없이 대화 · 자료 · 일정을 함께 보실 수 있습니다.\n(이 링크는 처음 여신 기기에서만 열립니다. 다른 기기에서 보시려면 말씀해 주세요.)\n\n${url}`
+  const message = `안녕하세요, ${company} ${me.name}입니다.\n${room.title} 초대 링크를 보내 드립니다. 아래 링크를 열고 '협업방 들어가기'를 누르시면 로그인 없이 대화 · 자료 · 일정을 함께 보실 수 있습니다.\n(이 링크는 처음 여신 기기에서만 열립니다. 같은 기기에서는 다음에도 이 링크로 들어오시면 되고, 다른 기기에서 보시려면 말씀해 주세요.)\n\n${url}`
   return (
     <Modal
       title={`${guest.name}님 초대 링크`}
