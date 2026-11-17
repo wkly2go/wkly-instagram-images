@@ -19,7 +19,7 @@ const base: DesignBase = {
 const wall = (id: string, x1: number, y1: number, x2: number, y2: number, kind: 'existing' | 'new' = 'existing', t = 150, finish?: string) => ({ id, x1, y1, x2, y2, t, kind, finish })
 let plan: PlanGeometry | null = {
   unit: 'mm', height: 2700,
-  walls: [wall('a', 0, 0, 6000, 0, 'existing', 150, 'PT-01'), wall('b', 6000, 0, 6000, 4000, 'existing', 150, 'PT-01'), wall('c', 6000, 4000, 0, 4000), wall('d', 0, 4000, 0, 0, 'existing', 150, 'WP-01'), wall('n', 3800, 0, 3800, 2400, 'new', 100, 'PT-02')],
+  walls: [wall('a', 0, 0, 6000, 0, 'existing', 150, 'PT-01'), wall('b', 6000, 0, 6000, 4000, 'existing', 150, 'PT-01'), wall('c', 6000, 4000, 0, 4000), wall('d', 0, 4000, 0, 0, 'existing', 150, 'WC-01'), wall('n', 3800, 0, 3800, 2400, 'new', 100, 'PT-02')],
   openings: [{ id: 'o1', wall: 'c', pos: 1500, width: 900, kind: 'door', to: '홀' }, { id: 'o2', wall: 'a', pos: 1800, width: 1800, kind: 'window' }, { id: 'o3', wall: 'n', pos: 1500, width: 800, kind: 'door', type: '미닫이 도어', to: '창고' }],
   items: [
     { id: 'i1', x: 400, y: 500, w: 2100, d: 900, h: 800, rot: 0, name: '3인 소파', trade_code: 'T15', spec: '', unit: 'EA', measure: 'count', section: null },
@@ -30,7 +30,7 @@ let plan: PlanGeometry | null = {
   rooms: [{ id: 'r1', no: '101', name: '홀', floor: { mat: 'WF-01' }, base: { mat: 'MT-01' }, wall: { mat: 'PT-01' }, ceiling: { mat: 'PT-01' }, ch: 2700, area: 24, perimeter: 20 }],
 }
 const spec = (code: string, name: string, s: string): SpecItem => ({ id: `s-${code}`, project_id: project.id, book: 'materials', code, name, spec: s, location: null, maker: null, material_id: null, status: 'selected' } as unknown as SpecItem)
-const specs = [spec('PT-01', '수성 페인트', '백색 무광'), spec('PT-02', '수성 페인트', '세이지 그린'), spec('WP-01', '실크 벽지', '아이보리'), spec('WF-01', '원목 마루', '오크 내추럴'), spec('MT-01', '스테인리스 걸레받이', '헤어라인 실버')]
+const specs = [spec('PT-01', '수성 페인트', '백색 무광'), spec('PT-02', '수성 페인트', '세이지 그린'), spec('WC-01', '실크 벽지', '아이보리'), spec('WF-01', '원목 마루', '오크 내추럴'), spec('MT-01', '스테인리스 걸레받이', '헤어라인 실버')]
 
 const library: LibraryEntry[] = []
 let board: { board: ProposalBoard; updated_at: string; updated_by: string | null } | null = null

@@ -2,7 +2,7 @@
 // 기본 제공(아래 목록) + 회사 저장(design.plan_library) 을 평면 · 3D 작업 공간에서 눌러 바로 적용 · 배치한다.
 // 치수는 mm 실제 크기. 값은 흔히 쓰는 표준 크기이며 견적 금액과는 무관하다 (금액은 견적 엔진만 계산).
 import type { PlanItem } from './designPlan.ts'
-import { ITEM_SHAPES, type FinishKind, type ItemShape } from './designPlanLook.ts'
+import { ITEM_SHAPES, itemShape, type FinishKind, type ItemShape } from './designPlanLook.ts'
 
 export type LibraryKind = 'finish' | 'fixture'
 export type FinishUse = 'wall' | 'floor' | 'ceiling' | 'base'
@@ -12,6 +12,7 @@ export interface LibraryFixture {
   /** 바닥에서 띄운 높이 mm (벽걸이) */ z?: number
   unit: string; measure: 'count' | 'area' | 'length'
   /** 공종 이름에서 찾을 낱말 (정규식 글) */ trade?: string
+  /** 저장할 때의 공종 코드 (있으면 이것을 먼저 쓴다) */ trade_code?: string
   spec?: string; finish?: string
 }
 export interface LibraryEntry { id: string; kind: LibraryKind; group: string; name: string; data: LibraryFinish | LibraryFixture; builtin: boolean; created_by?: string | null; created_at?: string }
@@ -26,7 +27,7 @@ const FINISHES: LibraryEntry[] = [
   fin('도장 · 벽지', 'PT-03', '수성 페인트 라이트 그레이', 'paint', '#d5d6d2', WC), fin('도장 · 벽지', 'PT-04', '수성 페인트 그레이', 'paint', '#b9bbb6', W),
   fin('도장 · 벽지', 'PT-05', '수성 페인트 차콜', 'paint', '#6f716e', W), fin('도장 · 벽지', 'PT-06', '수성 페인트 세이지 그린', 'paint', '#a9b8a2', W),
   fin('도장 · 벽지', 'PT-07', '수성 페인트 베이지', 'paint', '#dccfb4', W), fin('도장 · 벽지', 'PT-08', '수성 페인트 테라코타', 'paint', '#c9744b', W),
-  fin('도장 · 벽지', 'WP-01', '실크 벽지 화이트', 'wallpaper', '#f2efe7', W), fin('도장 · 벽지', 'WP-02', '실크 벽지 아이보리', 'wallpaper', '#ece4d2', W),
+  fin('도장 · 벽지', 'WC-01', '실크 벽지 화이트', 'wallpaper', '#f2efe7', W), fin('도장 · 벽지', 'WC-02', '실크 벽지 아이보리', 'wallpaper', '#ece4d2', W),
   fin('도장 · 벽지', 'SH-01', '인테리어 필름 화이트', 'vinyl', '#f1efe9', W, '문 · 가구 · 몰딩 리폼'), fin('도장 · 벽지', 'SH-02', '인테리어 필름 오크 무늬', 'wood', '#d2b07a', W),
   fin('타일 · 석재', 'TL-01', '포세린 타일 600각 그레이', 'tile', '#b9bbb6', WF), fin('타일 · 석재', 'TL-02', '포세린 타일 600각 아이보리', 'tile', '#e6dfcf', WF),
   fin('타일 · 석재', 'TL-03', '도기질 타일 300각 화이트', 'tile', '#f1f0ea', W), fin('타일 · 석재', 'TL-04', '모자이크 타일 화이트', 'tile', '#ecebe4', W),
@@ -40,7 +41,7 @@ const FINISHES: LibraryEntry[] = [
   fin('금속 · 유리', 'MT-03', '분체 도장 금속 차콜', 'metal', '#5f6266', WB), fin('금속 · 유리', 'GL-01', '투명 강화 유리', 'glass', '#bcd6de', W),
   fin('금속 · 유리', 'GL-02', '불투명 유리 (샌드 블라스트)', 'glass', '#dfe9ea', W),
   fin('천장 · 기타', 'AC-01', '흡음 천장재 화이트', 'plain', '#efeee8', C), fin('천장 · 기타', 'FB-01', '패브릭 패널 베이지', 'fabric', '#cfc6b6', W),
-  fin('천장 · 기타', 'FB-02', '패브릭 패널 그레이', 'fabric', '#aeb0ab', W), fin('천장 · 기타', 'WD-01', '무늬목 패널 오크', 'wood', '#cfae78', W),
+  fin('천장 · 기타', 'FB-02', '패브릭 패널 그레이', 'fabric', '#aeb0ab', W), fin('천장 · 기타', 'WP-01', '무늬목 패널 오크', 'wood', '#cfae78', W),
 ]
 
 const FURN = '가구|집기', ELEC = '전기|조명', PLUMB = '설비|위생', WOODT = '목공|가구|집기'
@@ -89,11 +90,13 @@ export const finishText = (f: LibraryFinish) => [f.code.trim(), f.name.trim()].f
 
 /** 기구에 맞는 공종 코드. 낱말이 맞는 공종이 없으면 '' — 화면에서 고르게 한다 */
 export function fixtureTrade(f: LibraryFixture, trades: { code: string; name: string }[]): string {
+  if (f.trade_code && trades.some(t => t.code === f.trade_code)) return f.trade_code
   for (const word of (f.trade ?? FURN).split('|').map(s => s.trim()).filter(Boolean)) {
     const hit = trades.find(t => t.name.includes(word))
     if (hit) return hit.code
   }
-  return ''
+  // 맞는 공종이 없으면 '기타' — 공종이 비면 수량표에서 빠지므로 비워 두지 않는다
+  return trades.find(t => t.code === 'T99')?.code ?? ''
 }
 
 const SHAPES = new Set<string>(ITEM_SHAPES.map(([k]) => k))
@@ -109,10 +112,11 @@ export function fixtureToItem(f: LibraryFixture, at: { x: number; y: number }, t
   }
 }
 
-/** 평면 부품 → 라이브러리 기구 (저장용). 공종은 이름으로 다시 찾도록 낱말을 남기지 않는다 */
+/** 평면 부품 → 라이브러리 기구 (저장용). 모양은 이름으로 알아본 것까지 적고, 공종 코드도 같이 남긴다 */
 export function itemToFixture(it: PlanItem): LibraryFixture {
   return {
-    name: it.name.trim() || '부품', shape: (it.shape && SHAPES.has(it.shape) ? it.shape : 'box') as ItemShape, w: size(it.w, 600), d: size(it.d, 600), h: size(it.h, 900),
+    name: it.name.trim() || '부품', shape: itemShape(it.name, it.shape && SHAPES.has(it.shape) ? it.shape : null), w: size(it.w, 600), d: size(it.d, 600), h: size(it.h, 900),
+    ...(it.trade_code ? { trade_code: it.trade_code } : {}),
     ...(it.z && it.z > 0 ? { z: Math.round(it.z) } : {}), unit: it.unit || 'EA', measure: it.measure ?? 'count',
     ...(it.spec?.trim() ? { spec: it.spec.trim() } : {}), ...(it.finish?.trim() ? { finish: it.finish.trim() } : {}),
   }

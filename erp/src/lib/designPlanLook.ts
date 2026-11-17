@@ -7,7 +7,7 @@ export interface FinishLook { kind: FinishKind; /** #rrggbb */ color: string; ro
 
 /** 재료 번호 앞 글자 → 재료 종류 (표본 도면의 번호 체계) */
 const CODE_KIND: Record<string, FinishKind> = {
-  PT: 'paint', WP: 'wallpaper', WC: 'wallpaper', SH: 'vinyl', VS: 'vinyl', TL: 'tile', ST: 'stone', AS: 'stone', MT: 'metal', GL: 'glass',
+  PT: 'paint', WP: 'wood', WC: 'wallpaper', SH: 'vinyl', VS: 'vinyl', TL: 'tile', ST: 'stone', AS: 'stone', MT: 'metal', GL: 'glass',
   AC: 'plain', FB: 'fabric', LE: 'fabric', WF: 'wood', WD: 'wood', CP: 'carpet', CT: 'concrete',
 }
 const KIND_WORDS: [RegExp, FinishKind][] = [
@@ -78,7 +78,7 @@ const SHAPE_WORDS: [RegExp, ItemShape][] = [
   [/양변기|변기|toilet/i, 'toilet'], [/세면대|세면기|basin|lavatory/i, 'basin'], [/욕조|bathtub/i, 'bathtub'], [/싱크|개수대|sink/i, 'sink'],
   [/냉장고|세탁기|건조기|에어컨|식기세척|오븐|정수기|가전|refrigerator|washer/i, 'appliance'], [/TV|티브이|모니터|디스플레이\s*패널|monitor/i, 'tv'],
   [/화분|식물|플랜트|조경|나무|plant|tree/i, 'plant'], [/러그|카펫|매트|rug|mat/i, 'rug'],
-  [/펜던트|샹들리에|pendant/i, 'pendant'], [/매입등|다운라이트|downlight|레일등|스폿/i, 'downlight'], [/조명|스탠드|램프|lamp|light/i, 'light'],
+  [/펜던트(\s*조명)?|샹들리에|pendant/i, 'pendant'], [/매입등|다운라이트|downlight|레일\s*조명|레일등|라인\s*조명|스폿/i, 'downlight'], [/조명|스탠드|램프|lamp|light/i, 'light'],
   [/단상|무대|스테이지|플랫폼|포디움|데크|platform|stage|podium/i, 'platform'],
   [/파티션|포토월|배너|현수막|사인|사이니지|스크린|패널|그래픽|월$|wall|sign|screen|panel/i, 'screen'],
 ]

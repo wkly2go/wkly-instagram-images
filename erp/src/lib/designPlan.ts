@@ -80,7 +80,7 @@ export function mergeNotes(mine: PlanNote[] | undefined, latest: PlanNote[] | un
   return [...out.values()].sort((a, b) => a.at.localeCompare(b.at))
 }
 
-const FINISH_TRADE: Record<string, string> = { PT: 'T06', SH: 'T07', WC: 'T07', TL: 'T08', ST: 'T08', AS: 'T08', MT: 'T04', GL: 'T05', WP: 'T03', AC: 'T03', FB: 'T03', LE: 'T03', VS: 'T09', WF: 'T09' }
+const FINISH_TRADE: Record<string, string> = { PT: 'T06', SH: 'T07', WC: 'T07', TL: 'T08', ST: 'T08', AS: 'T08', MT: 'T04', GL: 'T05', WP: 'T03', WD: 'T03', AC: 'T03', FB: 'T03', LE: 'T03', VS: 'T09', WF: 'T09', CP: 'T09', CT: 'T09' }
 /** 마감 글의 재료 번호 앞 글자(PT-01 → PT)로 공종을 고른다. 번호가 없으면 기타(T99) — 수량표에서 고친다 */
 export const finishTrade = (finish: string) => FINISH_TRADE[finish.trim().toUpperCase().match(/^[A-Z]{2,3}(?=[-\s]?\d)/)?.[0] ?? ''] ?? 'T99'
 

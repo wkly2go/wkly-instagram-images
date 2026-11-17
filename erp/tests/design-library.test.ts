@@ -66,3 +66,18 @@ test('제안 보드: 저장 값 확인과 댓글 합치기', () => {
   const m = mergeBoardComments(mine, latest, ['c'])
   assert.deepEqual(m.map(c => [c.id, c.text, c.replies?.length ?? 0]), [['a', '내 글', 1], ['b', '남의 글', 0]])
 })
+
+test('저장한 부품은 모양 · 공종을 그대로 지키고, 맞는 공종이 없으면 기타로 들어간다', () => {
+  const sofa = { id: 's', x: 0, y: 0, w: 2100, d: 900, h: 800, rot: 0 as const, name: '3인 소파', trade_code: 'T11', spec: '', unit: 'EA', measure: 'count' as const, section: null }
+  const f = itemToFixture(sofa)
+  assert.deepEqual([f.shape, f.trade_code], ['sofa', 'T11'])
+  assert.equal(fixtureToItem(f, { x: 0, y: 0 }, trades, 'n').trade_code, 'T11')
+  assert.equal(fixtureTrade({ ...f, trade_code: undefined, trade: '없는공종' }, [...trades, { code: 'T99', name: '기타' }]), 'T99')
+  assert.deepEqual(['펜던트 조명', '레일 조명', '스탠드 조명'].map(n => itemShape(n)), ['pendant', 'downlight', 'light'])
+})
+
+test('기본 마감재 번호는 회사 범례를 따르고 공종이 기타로 빠지지 않는다', async () => {
+  const { finishTrade } = await import('../src/lib/designPlan.ts')
+  for (const e of finishes) assert.notEqual(finishTrade(finishText(e.data as LibraryFinish)), 'T99', e.name)
+  assert.equal(finishTrade('WC-01 실크 벽지'), 'T07'); assert.equal(finishTrade('WP-01 무늬목 패널'), 'T03'); assert.equal(finishTrade('WD-01 도어'), 'T03')
+})
