@@ -331,11 +331,12 @@ export default function DesignBoard({ project }: { project: DesignProject }) {
 
   const patch = (ids: string[], fn: (e: BoardEl) => BoardEl, tag = '') => change(ps => ps.map(p => (p.id !== page.id ? p : { ...p, els: p.els.map(e => (ids.includes(e.id) ? fn(e) : e)) })), tag)
   const patchStyle = (s: Partial<BoardStyle>, tag = '') => patch(sel, e => ({ ...e, style: { ...e.style, ...s } }), tag)
-  const addEls = (pageId: string, els: BoardEl[]) => {
+  /** 요소 넣기. showProps: 넣은 뒤 바로 고를 것이 있는 요소(견본 · 일람표 · 그림)는 속성 탭을 보여 준다 — 스펙 카드는 잇달아 넣을 수 있게 스펙 탭에 둔다 */
+  const addEls = (pageId: string, els: BoardEl[], showProps = false) => {
     if (!els.length) return
     change(ps => ps.map(p => (p.id !== pageId ? p : { ...p, els: [...p.els, ...els] })))
     if (pageId !== curRef.current) setCur(pageId)
-    setSel(els.map(e => e.id)); setTab(t => (t === 'notes' ? 'props' : t))
+    setSel(els.map(e => e.id)); setTab(t => (showProps || t === 'notes' ? 'props' : t))
   }
   /** 새 요소: 정한 자리(왼쪽 위)에 놓되 페이지 밖으로 나가지 않게 */
   const make = (type: BoardElType, pageId: string, x: number, y: number, more: Partial<BoardEl> = {}): BoardEl => {
@@ -361,10 +362,10 @@ export default function DesignBoard({ project }: { project: DesignProject }) {
   const addSwatch = () => {
     // 아직 견본으로 놓지 않은 마감부터 차례로
     const used = new Set(page.els.filter(e => e.type === 'swatch').map(e => e.finish)), all = [...finishOptions.mine, ...finishOptions.lib]
-    const s = spot('swatch'); addEls(page.id, [make('swatch', page.id, s.x, s.y, { finish: all.find(f => !used.has(f)) ?? all[0] ?? '' })])
+    const s = spot('swatch'); addEls(page.id, [make('swatch', page.id, s.x, s.y, { finish: all.find(f => !used.has(f)) ?? all[0] ?? '' })], true)
   }
-  const addTable = () => { const h = clamp(64 + 46 + (scheduleRows(specs, bookF || undefined).length || 2) * 44 + 12, 200, 700), s = spot('table', SIZE.table[0], h); addEls(page.id, [make('table', page.id, s.x, s.y, { book: bookF || undefined, h })]) }
-  const addImage = (src: string) => { const s = spot('image'); addEls(page.id, [make('image', page.id, s.x, s.y, { src })]) }
+  const addTable = () => { const h = clamp(64 + 46 + (scheduleRows(specs, bookF || undefined).length || 2) * 44 + 12, 200, 700), s = spot('table', SIZE.table[0], h); addEls(page.id, [make('table', page.id, s.x, s.y, { book: bookF || undefined, h })], true) }
+  const addImage = (src: string) => { const s = spot('image'); addEls(page.id, [make('image', page.id, s.x, s.y, { src })], true) }
   /** 맞춤: 여러 개를 골랐으면 고른 것끼리, 하나면 페이지에 맞춘다 */
   const alignSel = (how: 'l' | 'c' | 'r' | 't' | 'm' | 'b') => {
     const els = selEls.filter(e => !e.locked)

@@ -108,7 +108,7 @@ function SpecTable({ el }: { el: BoardEl }) {
   const show = rows.length > fit ? rows.slice(0, Math.max(1, fit - 1)) : rows
   return (
     <div className="dbd-table">
-      <div className="dbd-table-title">{el.book ? `${SPEC_BOOKS[el.book as SpecBook] ?? el.book} 일람표` : '스펙 일람표'}<span>선정 · 확정 {rows.length}개</span></div>
+      <div className="dbd-table-title">{el.book ? `${(SPEC_BOOKS[el.book as SpecBook] ?? el.book).split(' (')[0]} 일람표` : '스펙 일람표'}<span>선정 · 확정 {rows.length}개</span></div>
       <div className="dbd-table-row head"><span>번호</span><span>이름</span><span>규격</span><span>제조사</span><span>상태</span></div>
       {show.map(r => <div className="dbd-table-row" key={r.id}><span>{r.code ?? ''}</span><span>{r.name}</span><span>{r.spec ?? ''}</span><span>{r.maker ?? ''}</span><span><StatusMark status={r.status} /></span></div>)}
       {rows.length === 0 && <div className="dbd-table-none">선정 · 확정한 항목이 아직 없습니다. 스펙 탭에서 상태를 정하면 여기에 바로 나타납니다.</div>}
