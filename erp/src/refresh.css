@@ -540,3 +540,21 @@ html[data-theme="dark"] .proj-cover figcaption { background: rgba(21, 41, 28, .9
 .home-kpi-tile.k-proj { background: var(--v8-tint); color: var(--v8-green); }
 .home-kpi-tile.k-chat { background: #fde7f5; color: #b0207f; }
 html[data-theme="dark"] .home-kpi-tile { background: rgba(255, 255, 255, .08) !important; color: var(--ink) !important; }
+
+/* 할 일 표 바로 고치기 (2026-11-18 '할일을 바로 수정할 수 있게') — 평소엔 글처럼, 가리키면 칸 테두리 */
+.task-inline { display: inline-flex; align-items: center; gap: 2px; max-width: 100%; }
+.task-inline-sel, .task-inline-date { border: 1px solid transparent; background: transparent; font: inherit; color: inherit; padding: 2px 4px; border-radius: 6px; max-width: 100%; cursor: pointer; }
+.task-inline-sel { appearance: none; -webkit-appearance: none; text-overflow: ellipsis; }
+.task-inline-sel:hover, .task-inline-date:hover, .task-inline-sel:focus, .task-inline-date:focus { border-color: var(--v8-line-2, #d9dde3); background: #fff; outline: none; }
+.task-inline-go { color: var(--tx-key, #1f6b4a); padding: 0 4px; }
+.task-inline-title { border: 0; background: none; padding: 0; font: inherit; color: inherit; text-align: left; cursor: text; }
+.task-inline-title:hover { text-decoration: underline dotted; text-underline-offset: 3px; }
+.task-inline-input { width: 100%; padding: 4px 6px; }
+.t-red .task-inline-date { color: var(--red, #c62828); }
+.task-inline-due { position: relative; cursor: pointer; padding: 2px 4px; border-radius: 6px; border: 1px solid transparent; white-space: nowrap; }
+.task-inline-due:hover { border-color: var(--v8-line-2, #d9dde3); background: #fff; }
+.task-inline-due .task-inline-date { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; padding: 0; cursor: pointer; }
+.task-inline-sel { min-width: 0; width: 100%; }
+.task-inline:has(> .task-inline-sel) { width: 100%; }
+td .task-inline > .task-inline-sel { min-width: 140px; }
+td > .task-inline-sel, td .task-inline-sel:only-child { min-width: 76px; }

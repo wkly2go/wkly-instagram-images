@@ -33,6 +33,10 @@ export function HomeMyTasks({ tasks, projects, loading }: { tasks: Task[]; proje
     ['이후', mine.filter(t => t.due_date && t.due_date > we)],
     ['날짜 없음', mine.filter(t => !t.due_date)],
   ]
+  // 최근 7일 완료 (대표 지시 2026-11-18 '완료일까지 표시해') — 완료일 칸과 함께 접어 둠
+  const weekAgo = new Date(Date.now() - 7 * 86400_000).toISOString()
+  const recentDone = tasks.filter(t => t.assignee_id === me.id && t.status === '완료' && t.completed_at && t.completed_at >= weekAgo).sort((a, b) => (b.completed_at ?? '').localeCompare(a.completed_at ?? ''))
+  later.push(['최근 7일 완료', recentDone])
   const laterCount = later.reduce((s, [, l]) => s + l.length, 0)
   const toggleMore = () => {
     const next = !more
@@ -44,7 +48,7 @@ export function HomeMyTasks({ tasks, projects, loading }: { tasks: Task[]; proje
       <div key={label} className="col gap-2">
         <div className="home-tasks-h">
           <span className={`t-bodyb ${label === '지연' ? 't-red' : ''}`}>{label}</span>
-          <Badge tone={label === '지연' ? 'red' : 'yellow'}>{list.length}</Badge>
+          <Badge tone={label === '지연' ? 'red' : label.includes('완료') ? 'green' : 'yellow'}>{list.length}</Badge>
         </div>
         <TaskBoard list={list} late={label === '지연'} projects={projects} onStatus={t => run(() => api.saveTask({ id: t.id, status: NEXT_TASK_STATUS[t.status] }))} onEdit={t => setEditing(t)} />
       </div>
@@ -63,7 +67,7 @@ export function HomeMyTasks({ tasks, projects, loading }: { tasks: Task[]; proje
           </>
         }
       />
-      {mine.length === 0 ? (
+      {mine.length === 0 && recentDone.length === 0 ? (
         <Empty>{loading ? '불러오는 중…' : '나에게 배정된 할 일이 없습니다.'}</Empty>
       ) : (
         <div className="col gap-10">
@@ -72,7 +76,7 @@ export function HomeMyTasks({ tasks, projects, loading }: { tasks: Task[]; proje
           {more && later.map(board)}
           {laterCount > 0 && (
             <button type="button" className="btn btn-ghost btn-sm home-tasks-more" aria-expanded={more} onClick={toggleMore}>
-              {more ? '접기' : `이후 · 날짜 없음 ${laterCount}건 보기`}
+              {more ? '접기' : `이후 · 날짜 없음 · 최근 완료 ${laterCount}건 보기`}
             </button>
           )}
         </div>
