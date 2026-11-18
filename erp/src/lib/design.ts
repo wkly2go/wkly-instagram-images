@@ -134,6 +134,9 @@ export interface UnitPrice {
   approved: boolean
 }
 /** 물가 기준 단가 (조달청 가격정보 · design.price_refs) */
+/** 나라장터 자재목록 (조달청 물품목록정보 · design.g2b_items) — 가격 없음 */
+export interface G2bItem { ident_no: string; class_no: string; class_name: string | null; name: string; maker: string; kind: string; chg_date: string | null }
+export interface G2bClass { code: string; name: string }
 /** 물가 기준 묶음 — 기호 앞 두 글자 */
 export const PRICE_REF_GROUPS: [string, string][] = [['BM', '건축 자재'], ['EM', '전기·통신 자재'], ['MM', '기계설비 자재'], ['CM', '토목 자재'], ['BC', '건축 시공'], ['MC', '기계설비 시공'], ['CC', '토목 시공'], ['LT', '조명 (시중 판매가)']]
 export interface PriceRef {
@@ -294,6 +297,10 @@ export interface DesignApi {
   /** 물가 기준(조달청) 목록 · 전체 건수 */
   /** 물가 기준 찾기 — 기호 · 품명 · 규격. group 은 기호 앞 두 글자(BM 등). 기호가 붙은 최신 줄만 */
   listPriceRefs(search: string, group?: string): Promise<{ rows: PriceRef[]; total: number }>
+  /** 나라장터 자재목록 찾기 — 품명 · 규격 · 제조사 · 물품식별번호. cls 는 분류 번호 앞자리(예: 3016 내장마감재) */
+  listG2bItems(search: string, cls?: string): Promise<{ rows: G2bItem[]; total: number }>
+  /** 자재목록을 받아 둔 분류(4단위) */
+  listG2bGroups(): Promise<G2bClass[]>
   /** 판매 단가마다 가장 비슷한 물가 기준 (단위 같고 글 비슷함 0.3 이상) */
   comparePriceRefs(ids: string[]): Promise<PriceRefMatch[]>
   /** 견적 '단가 없음' 줄에 물가 기준 후보 3개 */
