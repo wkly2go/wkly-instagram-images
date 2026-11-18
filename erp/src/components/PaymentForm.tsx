@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { ListTextarea } from './ListTextarea'
 import { ProjectOptions } from './ProjectOptions'
 import { TextLinks } from './ui'
 import { useAction, useApp } from '../lib/app'
@@ -328,7 +329,7 @@ export function PaymentForm({
               </Field>
             )}
             <Field label="비고" className="full">
-              <textarea className="textarea" rows={2} value={f.memo ?? ''} onChange={e => set({ memo: e.target.value || null })} />
+              <ListTextarea className="textarea" rows={2} value={f.memo ?? ''} onValue={v => set({ memo: v || null })} />
               <TextLinks text={f.memo} />
             </Field>
           </div>
