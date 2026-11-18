@@ -46,6 +46,12 @@ const clean = (s: string) => s.replace(/[\\/:*?"<>|\r\n\t]+/g, '_').trim().slice
 Deno.serve(async req => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
   if (req.method !== 'POST') return json({ error: 'POST 만 됩니다.' }, 405)
+  // 2026-11-17 보안 점검: 예전엔 로그인 없이(공개 키 + Origin) 누구나 회사 드라이브 폴더에 올리고 덮어쓸 수 있었음 → 활성 팀원 로그인만
+  const authorization = req.headers.get('Authorization') ?? ''
+  if (!authorization.startsWith('Bearer ')) return json({ error: '로그인이 필요합니다.' }, 401)
+  const caller = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, { global: { headers: { Authorization: authorization } }, auth: { persistSession: false } })
+  const { data: member } = await caller.rpc('is_active_member')
+  if (member !== true) return json({ error: '팀원만 쓸 수 있습니다.' }, 403)
   const b = (await req.json().catch(() => ({}))) as { folder?: string; name?: string; mime?: string; size?: number; origin?: string }
   const origin = b.origin && ORIGINS.test(b.origin) ? b.origin : req.headers.get('Origin') ?? ''
   if (!ORIGINS.test(origin)) return json({ error: '허용되지 않은 주소입니다.' }, 403)

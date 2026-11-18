@@ -111,7 +111,7 @@ html:not([data-theme="dark"]) .app-page .profile .mini-cal-grid .day.today, html
 html:not([data-theme="dark"]) .chat-dock { background: #fbfaf7; border-color: var(--v8-line); }
 html:not([data-theme="dark"]) .chat-dock-h { background: #fff; border-bottom-color: var(--v8-line); color: var(--v8-ink); }
 /* 흰 머리줄에서 버튼이 흰 글자로 남아 안 보이던 것 (대표 지시 2026-11-16 '채팅창을 접을 수 있게'): 내 비서 · 설정 · 전체 화면 · 접기 */
-html:not([data-theme="dark"]) .chat-dock-h :is(.chat-dock-full, .icon-btn, .icon-btn.sm) { color: var(--v8-sub); }
+html:not([data-theme="dark"]) .chat-dock-h :is(.chat-dock-full, .icon-btn, .icon-btn.sm) { color: var(--v8-ink); }
 html:not([data-theme="dark"]) .chat-dock-h :is(.chat-dock-full, .icon-btn, .icon-btn.sm):hover { color: var(--v8-green); background: var(--v8-tint); }
 html:not([data-theme="dark"]) .chat-dock-h .dock-fold { border: 1px solid var(--v8-line); border-radius: 6px; width: 26px; height: 26px; color: var(--v8-ink); }
 html:not([data-theme="dark"]) .dock-todo { border-bottom: 1px solid var(--v8-line); }
@@ -422,7 +422,7 @@ html:not([data-theme="dark"]) .section-h::before { align-self: center; margin: 0
    디자인 v8 2단계 마무리 — 프로젝트 상세 · 옆 창 (2026-11-16)
    ================================================================================ */
 html:not([data-theme="dark"]) .detail-head, html:not([data-theme="dark"]) .modal-col .detail-head { background: #fff; color: var(--v8-ink); border-bottom: 1px solid var(--v8-line); padding: 10px 10px 10px 16px; font-size: var(--fs-sub); }
-html:not([data-theme="dark"]) :is(.detail-head, .modal-col .detail-head) .icon-btn { color: var(--v8-sub); }
+html:not([data-theme="dark"]) :is(.detail-head, .modal-col .detail-head) .icon-btn { color: var(--v8-ink); }
 html:not([data-theme="dark"]) .detail-col { background: #fff; }
 .proj-code { font-family: var(--font) !important; border-radius: 999px !important; padding: 3px 10px !important; font-weight: 700; letter-spacing: 0; }
 html:not([data-theme="dark"]) .proj-code:not([style]) { background: var(--v8-tint); color: var(--v8-green); }
