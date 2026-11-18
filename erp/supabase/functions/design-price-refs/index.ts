@@ -8,6 +8,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { toRow, type Item } from './row.ts'
 import { runCatalog } from './catalog.ts'
+import { runMall } from './mall.ts'
 
 const BASE = 'https://apis.data.go.kr/1230000/ao/PriceInfoService/'
 const SOURCES = [
@@ -34,7 +35,7 @@ Deno.serve(async req => {
   if (used.error || used.data !== true) return json({ error: '권한 없음' }, 401)
   const key = Deno.env.get('DATA_GO_KR_SERVICE_KEY')?.trim()
   if (!key) return json({ error: 'DATA_GO_KR_SERVICE_KEY 비밀값이 없습니다' }, 503)
-  const body = (await req.json().catch(() => ({}))) as { mode?: string; ops?: string[]; params?: Record<string, string>; force?: boolean; keep?: string[] }
+  const body = (await req.json().catch(() => ({}))) as { mode?: string; ops?: string[]; params?: Record<string, string>; force?: boolean; keep?: string[]; wait?: boolean }
   const call = async (op: string, page: number, rows: number, extra: Record<string, string> = {}) => {
     const u = new URL(BASE + op)
     u.search = new URLSearchParams({ serviceKey: key, type: 'json', pageNo: String(page), numOfRows: String(rows), ...extra }).toString()
@@ -58,10 +59,22 @@ Deno.serve(async req => {
     }
     return json({ out })
   }
-  // 나라장터 자재목록만 (분류 · 품목)
-  if (body.mode === 'catalog') return json({ ok: true, report: await runCatalog(db, call, started + BUDGET_MS, !!body.force), ms: Date.now() - started })
-  if (body.mode !== 'sync') return json({ error: 'mode 를 확인해 주세요' }, 400)
+  if (!['sync', 'catalog', 'mall'].includes(body.mode ?? '')) return json({ error: 'mode 를 확인해 주세요' }, 400)
+  // 길게 걸리는 수집은 바로 답하고 뒤에서 돈다 — DB 의 pg_net 이 답을 기다리는 동안 다른 예약 호출(메일 · 슬랙 등)이 밀리지 않게
+  const work = (async () => {
+    const end = started + BUDGET_MS
+    if (body.mode === 'catalog') return await runCatalog(db, call, end, !!body.force)
+    if (body.mode === 'mall') return await runMall(db, call, end, !!body.force)
+    const report = await syncPrices()
+    if (Date.now() < end - 15_000) report.push(...await runCatalog(db, call, end))
+    if (Date.now() < end - 15_000) report.push(...await runMall(db, call, end))
+    return report
+  })().catch(e => [{ error: String(e).slice(0, 300) }])
+  const bg = (globalThis as { EdgeRuntime?: { waitUntil?(p: Promise<unknown>): void } }).EdgeRuntime
+  if (bg?.waitUntil && !body.wait) { bg.waitUntil(work); return json({ ok: true, background: true }, 202) }
+  return json({ ok: true, report: await work, ms: Date.now() - started })
 
+  async function syncPrices() {
   const plan = ((await db.rpc('design_price_refs_plan')).data ?? []) as { source: string; next_page: number; total: number | null; done_at: string | null; last_error: string | null; updated_at: string }[]
   const report: Record<string, unknown>[] = []
   for (const src of SOURCES) {
@@ -96,7 +109,6 @@ Deno.serve(async req => {
     report.push({ source: src.source, saved, page })
     if (Date.now() - started >= BUDGET_MS) break
   }
-  // 가격을 다 받고 시간이 남으면 나라장터 자재목록을 이어서 받는다
-  if (Date.now() - started < BUDGET_MS - 15_000) report.push(...await runCatalog(db, call, started + BUDGET_MS))
-  return json({ ok: true, report, ms: Date.now() - started })
+  return report
+  }
 })
