@@ -22,6 +22,7 @@ import { FinancePanel } from '../components/FinancePanel'
 import { ProjectVizLoader } from '../components/ProjectViz'
 import { ProjectBrief } from '../components/ProjectBrief'
 import { KakaoSection } from '../components/KakaoSection'
+import { CollabSection } from '../components/CollabSection'
 import { ProjectClientLink } from '../components/ProjectClientLink'
 import { ProjectMails } from '../components/ProjectMails'
 import { ProjectDashboard } from './ProjectDashboard'
@@ -879,6 +880,8 @@ function ProjectDetail({ project: p, data, onEdit, onBack, panel = false }: { pr
       <SiteLogsSection project={p} always={projectBrand(p) === 'AR'} clients={data.clients} />
       {/* 구글 드라이브 자료: 드라이브 파일을 가리켜 늘 최신 · 구글 문서는 편집 화면으로 */}
       <ProjectDriveSection project={p} />
+      {/* 외부 협업방: 발주처 · 협력사가 로그인 없이 링크로 이 방 하나만 (로드맵 2단계 · 2026-11-17) */}
+      <CollabSection project={p} />
       {/* 슬랙 채널 대화 · 공유 파일 가져오기 (대표 지시 2026-11-05) */}
       <SlackSection project={p} />
       {/* 카카오톡 대화 내보내기 파일 가져오기 (로드맵 1-3 · 2026-11-11) */}

@@ -28,6 +28,19 @@
 2. GitHub 저장소 `wkly2go/wkly-instagram-images` 를 **비공개**로 바꿀지 결정 (지금 공개라 인트라넷 코드 · DB 구조가 누구에게나 보임. 비밀 키는 없음)
    - **바로 바꾸면 안 됨**: 이 저장소의 공개 주소를 쓰는 곳이 있음 — PC 프로그램 자동 업데이트(releases), 안드로이드 APK 내려받기(releases/android), 영업 '서울 행사' 자료(`data` 브랜치 raw 주소 · `seoulEventClient.ts` · `ProspectSearchResults.tsx`)
    - 비공개로 하려면 먼저 이 세 가지를 공개용 별도 저장소나 Supabase 공개 보관함으로 옮긴 뒤 바꿈 (11/17 22시 확인 · 아직 공개)
+   - **11/18 진행**: Supabase 공개 보관함 `public-data`(20261118090000 · 읽기 누구나 · 쓰기는 함수 `public-files` 만 — GitHub Actions OIDC · 이 저장소 main · 정해진 이름 3개만) 를 만들고
+     ① 서울 · 코엑스 행사 스냅샷: 매일 작업(seoul-event-snapshot.yml)이 GitHub data 브랜치와 함께 보관함에도 올림 · 화면은 보관함 → GitHub → 배포 파일 순서로 읽음 ✅
+     ② 안드로이드 APK: android.yml 이 릴리스와 함께 보관함(`public-data/android/wkly-erp.apk`)에도 올림 → 올라간 것 확인 뒤 내려받기 링크를 보관함으로 바꿈
+     ③ **PC 프로그램(데스크톱) 업데이트 파일은 남음**: 설치 파일이 78~171MB 라 Supabase 보관함 기본 한도(50MB)를 넘음. 방법 둘 —
+       (가) 대표님이 Supabase › Storage › Settings 에서 '업로드 파일 크기 한도'를 500MB 로 올림 → 데스크톱 작업이 보관함에도 올리고, 새 버전부터 업데이트 주소를 보관함으로 (기존 설치본이 새 버전을 한 번 받은 뒤 비공개 전환)
+       (나) 공개용 저장소를 따로 만들어 릴리스만 둠 (GitHub 토큰을 대표님이 만들어 넣어야 함)
+     **11/18 (가)로 결정 · 준비 완료** — 보관함 `desktop-releases`(20261118110000 · 공개 읽기 · 300MB) · 함수 `public-files` v2(POST ?op=sign → 서명 올리기 주소 · ?op=promote → 표를 맨 위에 · 첫 설치용 `latest/` 사본) ·
+       desktop.yml 이 릴리스 공개 뒤 `erp/desktop/scripts/mirror-release.mjs` 로 보관함에도 올림(실패해도 릴리스는 그대로) · 수동 다시 올리기 `desktop-mirror.yml` ·
+       PC 프로그램 1.29.0 부터 보관함 표를 먼저 보고 없으면 GitHub(`desktop/update-feed.js` · 시험 tests/desktop-update-feed.test.ts).
+       11/18 시험: PC 프로그램 1.29.0 릴리스(GitHub 공개 · 자동 업데이트 시작) 뒤 보관함 올리기 — OIDC 확인 · 서명 주소 · 올리기 요청까지 정상, 82MB 설치 파일이 **전체 업로드 한도에 막힘**(413 EntityTooLarge) → 한도만 올리면 됨.
+       **11/18 09시 완료**: 대표님이 업로드 한도 500MB 로 올림 → Actions `desktop-mirror` 로 v1.29.0 8개 파일(설치 파일 78~172MB 포함) 보관함에 올림 · 표 맨 위 · 첫 설치용 `latest/` 사본 확인(공개 주소 200 · text/yaml · 60초 캐시) → 인트라넷 'PC 프로그램' 내려받기 단추도 보관함 `latest/` 로 바꿈.
+       남은 것: ④ 켜져 있는 PC 는 30분 안에 1.29.0 을 받아 두고 쉬는 동안 설치 · 꺼져 있던 PC 는 켤 때 — 일주일쯤 기다린 뒤 ⑤ 저장소 비공개(대표님 결정).
+       비공개로 바꾸면 함께 바뀌는 것: GitHub Pages(저장소 `images/` · 10월 인스타그램 게시용 사진 137장)가 꺼짐 — 무료 개인 계정은 비공개 저장소에 Pages 를 못 씀 · 지금 DB · 코드에 이 주소를 쓰는 곳은 없음(11/18 확인) · Actions 는 월 2,000분 무료(맥 빌드는 10배로 셈 · 지금 실행의 대부분은 Pages 빌드라 비공개 뒤엔 줄어듦)
 3. 예전 현장 실측 링크(`/field/fossil-1103`)를 계속 쓸지 — 안 쓰면 로그인 없는 접근을 닫음
 
 ## 남겨 둔 것

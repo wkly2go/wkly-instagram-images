@@ -20,8 +20,16 @@ const start = () =>
       </RouterProvider>
     </StrictMode>,
   )
+// 외부 협업방 (/c/<초대 링크> · 2026-11-17): 로그인 · 인트라넷 화면 없이 그 방 하나만 (src/pages/GuestRoom.tsx)
+const guest = /^\/c(\/|$)/.test(window.location.pathname)
 // 설계 화면 시험용 자료는 개발 서버에서 따로 켰을 때만 (운영 · 체험 모드 배포에는 들어가지 않음 · src/dev/designHarness.ts)
-if (import.meta.env.DEV && import.meta.env.VITE_DESIGN_HARNESS) void import('./dev/designHarness').then(m => { m.installDesignHarness(); start() })
+if (guest)
+  void (async () => {
+    if (import.meta.env.DEV && import.meta.env.VITE_COLLAB_HARNESS) (await import('./dev/collabHarness')).installGuestHarness()
+    ;(await import('./pages/GuestRoom')).mountGuestRoom(document.getElementById('root')!)
+  })()
+else if (import.meta.env.DEV && import.meta.env.VITE_DESIGN_HARNESS) void import('./dev/designHarness').then(m => { m.installDesignHarness(); start() })
+else if (import.meta.env.DEV && import.meta.env.VITE_COLLAB_HARNESS) void import('./dev/collabHarness').then(m => { m.installCollabHarness(); start() })
 else start()
 
 // PWA: 오프라인 캐시 없이 설치만 가능하게
@@ -35,8 +43,8 @@ for (const ev of ['dragover', 'drop'] as const)
     if (e.dataTransfer?.types.includes('Files')) e.preventDefault()
   })
 
-// 휴대폰: 모든 기록지 표를 위아래 카드로 (칸 이름 붙이기)
-startStackTables()
-
-// 휴대폰: 긴 글은 접고 '더 보기' 로 펼침
-startFoldLong()
+// 휴대폰: 모든 기록지 표를 위아래 카드로 (칸 이름 붙이기) · 긴 글은 접고 '더 보기' 로 펼침 (외부 협업방 화면에는 쓰지 않음)
+if (!guest) {
+  startStackTables()
+  startFoldLong()
+}

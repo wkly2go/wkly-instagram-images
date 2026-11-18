@@ -38,7 +38,8 @@ function useInstallEvt() {
   return installEvt
 }
 
-export const APK_URL = 'https://github.com/wkly2go/wkly-instagram-images/releases/download/android/wkly-erp.apk'
+// APK 는 Supabase 공개 보관함 (2026-11-18 · 저장소 비공개 준비 · android.yml 이 릴리스와 함께 올림)
+export const APK_URL = 'https://hophgcpszenrvchvbkav.supabase.co/storage/v1/object/public/public-data/android/wkly-erp.apk'
 export const IOS_PROFILE_URL = '/wkly-erp.mobileconfig'
 
 /**

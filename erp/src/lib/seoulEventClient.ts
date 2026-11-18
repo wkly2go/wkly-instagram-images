@@ -41,7 +41,10 @@ export function parseSeoulEventSnapshot(raw: unknown): SeoulEventSnapshot {
 }
 
 const LIVE_URL = '/api/seoul-events'
-const ARCHIVE_URL = 'https://raw.githubusercontent.com/wkly2go/wkly-instagram-images/refs/heads/data/seoul-events/seoul-events.json'
+// 보관본: Supabase 공개 보관함(public-data · 2026-11-18 저장소 비공개 준비) → GitHub data 브랜치(저장소가 공개인 동안만) → 배포에 든 파일
+const SUPABASE_URL = (import.meta.env?.VITE_SUPABASE_URL as string | undefined) ?? ''
+export const publicDataUrl = (name: string) => (SUPABASE_URL ? `${SUPABASE_URL}/storage/v1/object/public/public-data/${name}` : null)
+const ARCHIVE_URLS = [publicDataUrl('seoul-events.json'), 'https://raw.githubusercontent.com/wkly2go/wkly-instagram-images/refs/heads/data/seoul-events/seoul-events.json'].filter((u): u is string => !!u)
 const BUNDLED_URL = '/data/seoul-events.json'
 
 /** All endpoints are fixed. The public archive receives no account data. */
@@ -59,11 +62,13 @@ export async function fetchSeoulEvents(signal: AbortSignal, archived = false): P
     return parseSeoulEventSnapshot(data)
   }
   if (!archived) return read(LIVE_URL)
-  try {
-    const latest = await read(ARCHIVE_URL, true)
-    if (latest.events.length) return latest
-  } catch (error) {
-    if (signal.aborted) throw error
+  for (const url of ARCHIVE_URLS) {
+    try {
+      const latest = await read(url, true)
+      if (latest.events.length) return latest
+    } catch (error) {
+      if (signal.aborted) throw error
+    }
   }
   return read(BUNDLED_URL)
 }

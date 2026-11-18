@@ -1487,3 +1487,86 @@ export interface LedgerFile {
   note: string | null
   processed_at: string
 }
+
+/** 외부 협업방 (로드맵 2단계 · 2026-11-17 · docs/EXTERNAL_COLLAB.md) */
+export const COLLAB_ROLES = ['발주처', '협력사', '기타'] as const
+export type CollabRole = (typeof COLLAB_ROLES)[number]
+export const COLLAB_EVENT_KINDS = ['미팅', '마일스톤', '일정'] as const
+export type CollabEventKind = (typeof COLLAB_EVENT_KINDS)[number]
+export interface CollabRoom {
+  id: string
+  project_id: string
+  title: string
+  intro: string | null
+  drive_folder_id: string | null
+  closed_at: string | null
+  created_by: string | null
+  created_at: string
+  /** 외부인에게 보이는 회사 이름 (비우면 프로젝트 구분으로) */
+  company?: string | null
+}
+export interface CollabGuest {
+  id: string
+  room_id: string
+  name: string
+  org: string | null
+  role: CollabRole
+  can_upload: boolean
+  expires_at: string
+  revoked_at: string | null
+  last_seen_at: string | null
+  read_upto: number
+  invited_by: string | null
+  created_at: string
+}
+/** 초대 링크 · 기기 (해시는 서버에만) */
+export interface CollabLink {
+  id: string
+  guest_id: string
+  pending: boolean
+  invite_expires_at: string
+  device: string | null
+  created_at: string
+  redeemed_at: string | null
+  last_seen_at: string | null
+  revoked_at: string | null
+}
+export interface CollabFileRef {
+  id: string
+  name: string
+  mime: string | null
+  size: number | null
+}
+export interface CollabMessage {
+  id: number
+  room_id?: string
+  user_id: string | null
+  guest_id: string | null
+  body: string
+  files: CollabFileRef[]
+  created_at: string
+  deleted_at: string | null
+}
+export interface CollabEvent {
+  id: string
+  room_id?: string
+  kind: CollabEventKind
+  title: string
+  day: string
+  end_day: string | null
+  start_time: string | null
+  place: string | null
+  note: string | null
+  updated_at?: string
+}
+/** 방 폴더의 드라이브 파일 (팀원이 드라이브에 직접 넣은 것 포함) */
+export interface CollabDriveFile {
+  id: string
+  name: string
+  mime: string
+  size: number | null
+  modified: string | null
+  folder: string
+  user_id: string | null
+  guest_id: string | null
+}
