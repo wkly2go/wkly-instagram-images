@@ -116,14 +116,39 @@ export function emptyInterview(today = todayKst()): SalesInterviewDraft {
     batch: `${Number(today.slice(5, 7))}월 발송`, brand: '', event_name: null, venue: null, stage: '발송',
     send_channel: 'DM', sent_on: today, contact: null, reply_channel: null, replied_at: null, image_use: null, interview_ok: null,
     form_url: null, form_sent_at: null, form_note: null, material_due: null, material_note: null, upload_on: null, upload_note: null,
-    post_url: null, note: null, answers: {}, answered_at: null, answered_note: null, sales_info: {}, owner_id: null,
+    post_url: null, note: null, answers: {}, answered_at: null, answered_note: null, sales_info: {}, owner_id: null, content_id: null,
   }
+}
+
+/** 인터뷰 피드 콘텐츠 초안 글 (광고·콘텐츠 제작 대기열 · AI 없이 답을 옮겨 적음)
+ *  영업용 문항 Q3(예산) · Q10(향후 계획 · 파트너 기준)은 넣지 않는다 — 인터뷰지에 '내부 참고용'으로 안내한 답 */
+export function interviewContentText(r: Pick<SalesInterview, 'brand' | 'event_name' | 'venue' | 'answers' | 'note'>): { title: string; original: string; instagram: string; blog: string; tags: string } {
+  const qa = INTERVIEW_QUESTIONS.filter(q => q.use === '콘텐츠' && r.answers[q.no]?.trim())
+  const title = `[인터뷰 피드] ${r.brand}${r.event_name ? ` · ${r.event_name}` : ''}`.slice(0, 160)
+  const original = [title, r.venue ? `장소 · 일정: ${r.venue}` : '', '', ...qa.flatMap(q => [`Q. ${q.label}`, `A. ${r.answers[q.no].trim()}`, ''])]
+    .join('\n').trim().slice(0, 20000)
+  const lead = firstSentences(r.answers.Q1 || r.answers.Q2 || '', 240)
+  const handle = (r.note ?? '').match(/@[A-Za-z0-9._]{2,30}/)?.[0]?.replace(/\.$/, '')
+  const instagram = [`[더위클리 팝업 큐레이션] ${r.brand}`, r.event_name ?? '', r.venue ?? '', '', lead, '', '인터뷰 전문은 더위클리 홈페이지에서 만나 보세요.', handle ?? '']
+    .filter((line, i, all) => line !== '' || (i > 0 && all[i - 1] !== '')).join('\n').trim().slice(0, 10000)
+  const blog = qa.map(q => `Q. ${q.label}\n${r.answers[q.no].trim()}`).join('\n\n').slice(0, 10000)
+  const tag = r.brand.replace(/[^0-9A-Za-z가-힣]/g, '')
+  const tags = ['#더위클리', '#팝업스토어', '#팝업', tag ? `#${tag}` : ''].filter(Boolean).join(' ').slice(0, 500)
+  return { title, original, instagram, blog, tags }
+}
+/** 앞 문장들을 n자 안에서 자름 (문장 끝에서) */
+function firstSentences(text: string, n: number): string {
+  const t = text.replace(/\s+/g, ' ').trim()
+  if (t.length <= n) return t
+  const cut = t.slice(0, n)
+  const end = Math.max(cut.lastIndexOf('다. '), cut.lastIndexOf('요. '), cut.lastIndexOf('. '))
+  return end > n / 3 ? cut.slice(0, end + 2).trim() : `${cut.trim()}…`
 }
 /** 화면에서 고치는 칸 (메일 자동 확인 칸 · 메일 주소 목록 · 출처는 서버가 채움) */
 export const DRAFT_KEYS = [
   'batch', 'brand', 'event_name', 'venue', 'stage', 'send_channel', 'sent_on', 'contact', 'reply_channel', 'replied_at', 'image_use',
   'interview_ok', 'form_url', 'form_sent_at', 'form_note', 'material_due', 'material_note', 'upload_on', 'upload_note', 'post_url',
-  'note', 'answers', 'answered_at', 'answered_note', 'sales_info', 'owner_id',
+  'note', 'answers', 'answered_at', 'answered_note', 'sales_info', 'owner_id', 'content_id',
 ] as const satisfies readonly (keyof SalesInterviewDraft)[]
 /** 저장된 줄 → 고칠 칸만 */
 export function draftOf(r: SalesInterview): SalesInterviewDraft {

@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import {contactKind} from '../lib/contactKind'
 import { useApp, useAsync } from '../lib/app'
 import { friendlyError } from '../lib/api'
-import { Link } from '../lib/router'
+import { Link, useRouter } from '../lib/router'
 import { requestViewChange } from '../lib/navigationGuard'
 import { useDraftNavigation } from '../lib/useDraftNavigation'
 import { contactImportIdentity, saveContactImportBatch, type ContactImportCandidate } from '../lib/contactImport'
@@ -31,6 +31,7 @@ export function GrowthWorkspace({ kind, embedded = false, onPlanCandidate, rende
   renderContactPlan?: RenderContactPlan
 }) {
   const { api, me, profileName } = useApp()
+  const router = useRouter()
   const [search, setSearch] = useState(''), [query, setQuery] = useState(''), [page, setPage] = useState(0), [status, setStatus] = useState('')
   const [selected, setSelected] = useState<string | null>(null), [adding, setAdding] = useState(false), [importing, setImporting] = useState(false)
   const [researchImporting, setResearchImporting] = useState(false)
@@ -63,6 +64,10 @@ export function GrowthWorkspace({ kind, embedded = false, onPlanCandidate, rende
   }
   const chooseTender=(draft:GrowthDraft)=>{if(!requestViewChange('growth:tender:prefill'))return false;setSelected(null);setImporting(false);setTenderSearching(false);setResearchImporting(false);setSeed(draft);setAdding(true);return true}
   useEffect(() => { const t=setTimeout(()=>{setQuery(search);setPage(0)},350);return ()=>clearTimeout(t) },[search])
+  // 서면 인터뷰 '콘텐츠 열기'(/ads?tab=content&item=<id>) → 그 콘텐츠를 바로 펼침 (2026-11-18)
+  const deepItem = kind === 'content' ? router.query.get('item') : null
+  const deepOpened = useRef<string | null>(null)
+  useEffect(() => { if (!deepItem || deepOpened.current === deepItem) return; deepOpened.current = deepItem; openPanel(deepItem) }, [deepItem]) // eslint-disable-line react-hooks/exhaustive-deps
   const list=useAsync(()=>api.listGrowth({kind,page,search:query,status}),[kind,page,query,status],{items:[],hasMore:false})
   const backfill=async()=>{if(busy)return;setBusy(true);try{const n=await api.backfillMailLeads();setNotice(`과거 메일 ${n}건 확인 · 새 발신자는 검토함에 저장됩니다.`);list.reload()}catch(e){setNotice(friendlyError(e))}finally{setBusy(false)}}
   const Heading = embedded ? 'h2' : 'h1'

@@ -113,7 +113,7 @@ export function SalesInterviews() {
           {active.length ? <ul className="sales-iv-list">{active.map(r => row(r, 'active'))}</ul> : <p className="sales-iv-note">진행 중인 인터뷰가 없습니다.</p>}
         </>
       ) : view === 'schedule' ? (
-        <Schedule rows={shown} today={today} onPick={id => focusRow(id)} />
+        <InterviewSchedule rows={shown} today={today} onPick={id => focusRow(id)} />
       ) : view === 'all' ? (
         <>
           <div className="chips" aria-label="단계로 거르기">
@@ -155,13 +155,15 @@ function Row({ r, kind, today, clash, open, onToggle, children }: { r: SalesInte
         {ms && kind === 'active' && <span className={`tag ${ms.tone}`}>{ms.label}</span>}
         {r.upload_on && (kind === 'active' || r.stage !== '답장 없음') && <span className={`tag${clash > 1 && r.stage !== '업로드 완료' ? ' warn' : ''}`}>업로드 {mdWithDay(r.upload_on)}{r.upload_note ? ` ${r.upload_note}` : ''}{clash > 1 ? ` · 같은 날 ${clash}곳` : ''}</span>}
         {mail && <span className={`tag ${mail.tone}`}>{mail.label}</span>}
+        {r.content_id && <span className="tag ok">콘텐츠 초안 있음</span>}
       </button>
       {children}
     </li>
   )
 }
 
-function Schedule({ rows, today, onPick }: { rows: SalesInterview[]; today: string; onPick: (id: string) => void }) {
+/** 업로드 일정 (지난 2주 ~ 앞으로 · 같은 날 겹침) — 광고·콘텐츠 '인터뷰 피드'에서도 씀 */
+export function InterviewSchedule({ rows, today, onPick }: { rows: SalesInterview[]; today: string; onPick: (id: string) => void }) {
   const dated = rows.filter(r => r.upload_on && !CLOSED.includes(r.stage) && daysBetween(today, r.upload_on) >= -14).sort(byUpload)
   const days = new Map<string, SalesInterview[]>()
   for (const r of dated) days.set(r.upload_on as string, [...(days.get(r.upload_on as string) ?? []), r])
@@ -231,7 +233,7 @@ function SalesInfo({ rows, onEdit }: { rows: SalesInterview[]; onEdit: (id: stri
   if (!rows.length) return <p className="sales-iv-note">정리된 영업 정보가 없습니다.</p>
   return (
     <div className="sales-iv-sales">
-      <p className="sales-iv-note">인터뷰 답에서 뽑은 영업 정보입니다(예전 &apos;1차 가공 데이터&apos;). 브랜드를 누르면 고칠 수 있습니다.</p>
+      <p className="sales-iv-note">인터뷰 답에서 뽑은 영업 정보입니다(예전 &apos;1차 가공 데이터&apos;). 답을 받은 브랜드는 10분 안에 영업 후보(출처 &apos;서면 인터뷰&apos;)로 자동 등록됩니다. 브랜드를 누르면 고칠 수 있습니다.</p>
       <table className="table">
         <thead><tr><th>브랜드</th>{SALES_INFO_FIELDS.map(([, label]) => <th key={label}>{label}</th>)}</tr></thead>
         <tbody>
