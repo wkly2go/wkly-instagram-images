@@ -50,6 +50,7 @@ end $$;
 revoke all on function public.design_g2b_save(text, jsonb, jsonb, boolean, text) from public, anon, authenticated;
 grant execute on function public.design_g2b_save(text, jsonb, jsonb, boolean, text) to service_role;
 
--- 예약: 자재목록 · 계약 단가를 5분마다 조금씩 (함수가 바로 답하고 뒤에서 돌며, 하루 호출 한도에 걸린 날은 스스로 쉰다)
-select cron.schedule('design_g2b_catalog', '3-58/5 * * * *', $c$select private.design_run_price_refs('{"mode":"catalog"}'::jsonb) where not exists (select 1 from private.design_g2b_sync where kind = 'items' and ((state = '{}'::jsonb and done_at > now() - interval '25 days') or (last_error like 'LIMITED_NUMBER%' and (updated_at at time zone 'Asia/Seoul')::date = (now() at time zone 'Asia/Seoul')::date)))$c$);
-select cron.schedule('design_g2b_mall', '1-56/5 * * * *', $c$select private.design_run_price_refs('{"mode":"mall"}'::jsonb) where not exists (select 1 from private.design_g2b_sync where kind = 'mall' and last_error like 'LIMITED_NUMBER%' and (updated_at at time zone 'Asia/Seoul')::date = (now() at time zone 'Asia/Seoul')::date)$c$);
+-- 예약: 15분에 자재목록 1번(:03) · 가격 동기화 1번(:07 · 기존) · 계약 단가 2번(:11 · :14) — 한 번에 100초까지라 서로 겹치지 않게 띄운다
+-- 함수는 바로 답하고 뒤에서 돌며, 하루 호출 한도에 걸린 날은 쉰다
+select cron.schedule('design_g2b_catalog', '3,18,33,48 * * * *', $c$select private.design_run_price_refs('{"mode":"catalog"}'::jsonb) where not exists (select 1 from private.design_g2b_sync where kind = 'items' and ((state = '{}'::jsonb and done_at > now() - interval '25 days') or (last_error like 'LIMITED_NUMBER%' and (updated_at at time zone 'Asia/Seoul')::date = (now() at time zone 'Asia/Seoul')::date)))$c$);
+select cron.schedule('design_g2b_mall', '11,14,26,29,41,44,56,59 * * * *', $c$select private.design_run_price_refs('{"mode":"mall"}'::jsonb) where not exists (select 1 from private.design_g2b_sync where kind = 'mall' and last_error like 'LIMITED_NUMBER%' and (updated_at at time zone 'Asia/Seoul')::date = (now() at time zone 'Asia/Seoul')::date)$c$);
