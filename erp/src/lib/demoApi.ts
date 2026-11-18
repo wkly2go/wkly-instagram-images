@@ -1,5 +1,6 @@
 import { createDemoSalesStrategyApi } from './salesStrategyApi'
 import { createDemoDesignApi } from './designApi'
+import { createDemoIlwiApi } from './ilwiApi'
 import { createDemoCollabApi } from './collabApi'
 import { createDemoSalesReportApi } from './salesReport'
 import { createDemoGrowthApi } from './growthApi'
@@ -668,6 +669,7 @@ export function createDemoApi(): Api {
     ...createDemoSalesApi(meProfile),
     ...createDemoSalesStrategyApi(),
     ...createDemoDesignApi(),
+    ...createDemoIlwiApi(),
     ...createDemoCollabApi(),
     ...createDemoSalesReportApi(),
     ...createDemoGrowthApi(meProfile, createDemoSalesApi(meProfile)),
