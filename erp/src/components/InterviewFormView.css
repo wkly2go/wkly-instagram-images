@@ -1,0 +1,27 @@
+/* 인터뷰지 본문 (2026-11-19) — 밝은 화면 · 글자 3단계(타이틀 · 강조 · 본문) · 휴대폰 우선 */
+.ivf-body { display: grid; gap: 22px; }
+.ivf-part { display: grid; gap: 12px; }
+.ivf-part > h2 { display: flex; align-items: center; gap: 10px; margin: 0; font-size: var(--fs-sub); font-weight: 700; color: var(--tx-key, #1f6b4a); }
+.ivf-part > h2 span { flex: none; display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 999px !important; background: var(--tx-key, #1f6b4a); color: #fff; font-size: var(--fs-body); font-weight: 700; }
+.ivf-q { background: #fff; border: 1px solid var(--v8-line, #e4e0d6); border-radius: 12px !important; padding: 16px; scroll-margin-top: 16px; }
+.ivf-q.err { border-color: #c7372f; box-shadow: 0 0 0 2px rgba(199, 55, 47, .12); }
+.ivf-q-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
+.ivf-q-head b { color: var(--tx-key, #1f6b4a); font-weight: 800; }
+.ivf-q-head strong { font-size: var(--fs-sub); font-weight: 700; color: var(--tx-title, #151d18); }
+.ivf-q-head em { font-style: normal; font-weight: 700; color: #a5281b; background: #fde8e4; border-radius: 999px !important; padding: 0 8px; }
+.ivf-q-head i { font-style: normal; color: #1f4f8f; background: #e6eefb; border-radius: 999px !important; padding: 0 8px; }
+.ivf-q-body { margin: 8px 0 0; line-height: 1.7; color: var(--tx-body, #222a25); white-space: pre-wrap; overflow-wrap: anywhere; }
+.ivf-q-help { margin: 6px 0 0; line-height: 1.6; color: var(--tx-sub, #535c56); }
+.ivf-q textarea { display: block; width: 100%; margin-top: 12px; padding: 12px; border: 1px solid var(--v8-line-2, #d5d0c4); border-radius: 8px !important; background: #fdfcfa; color: inherit; font: inherit; line-height: 1.7; resize: vertical; min-height: 132px; box-sizing: border-box; }
+.ivf-q textarea:focus-visible { outline: 2px solid var(--tx-key, #1f6b4a); outline-offset: 1px; background: #fff; }
+.ivf-count { margin-top: 4px; text-align: right; color: var(--tx-sub, #535c56); }
+.ivf-count.short { color: #7a5b00; }
+.ivf-answer { margin-top: 12px; padding: 12px; border-radius: 8px !important; background: #f6f4ef; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
+.ivf-answer.none { color: var(--tx-sub, #535c56); }
+.ivf-opts { display: grid; gap: 6px; margin-top: 12px; }
+.ivf-opts label { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 6px 12px; border: 1px solid var(--v8-line-2, #d5d0c4); border-radius: 8px !important; background: #fdfcfa; cursor: pointer; }
+.ivf-opts label.on { border-color: var(--tx-key, #1f6b4a); background: #eaf4ee; font-weight: 700; }
+.ivf-opts input { flex: none; width: 18px; height: 18px; accent-color: #1f6b4a; }
+.ivf-opts input:disabled + span { color: var(--tx-body, #222a25); }
+.ivf-q-error { margin: 10px 0 0; color: #a5281b; font-weight: 700; }
+.ivf-body { word-break: keep-all; overflow-wrap: anywhere; }
