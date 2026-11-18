@@ -1,10 +1,11 @@
+import { ErrorBoundary } from './components/ErrorBoundary'
 import { createVisiblePoller } from './lib/visiblePolling'
 import { runTabTask } from './lib/tabTask'
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { WebPanelHost } from './components/WebSearch'
 import { DetailColumnHost } from './components/RightPanel'
-import { ShellFrame } from './components/Shell'
+import { ShellFrame, TABS } from './components/Shell'
 import { AskHost } from './components/Ask'
 import { CommandPalette } from './components/CommandPalette'
 import { Shortcuts } from './components/Shortcuts'
@@ -211,12 +212,16 @@ export default function App() {
   return (
     <AppProvider me={me} profiles={profiles} version={version} bump={bump} toast={toast} openQuick={openQuick}>
       {path === '/quick' ? (
-        <Quick />
+        <ErrorBoundary area="빠른 창">
+          <Quick />
+        </ErrorBoundary>
       ) : (
         <ShellFrame>
-          <Suspense fallback={<div className="t-cap" style={{ padding: 24 }}>불러오는 중…</div>}>
-            <Page />
-          </Suspense>
+          <ErrorBoundary key={path} area={TABS.find(t => t.path === path)?.label}>
+            <Suspense fallback={<div className="t-cap" style={{ padding: 24 }}>불러오는 중…</div>}>
+              <Page />
+            </Suspense>
+          </ErrorBoundary>
         </ShellFrame>
       )}
       {path !== '/quick' && <DetailColumnHost />}

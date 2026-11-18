@@ -6,6 +6,7 @@ import { createRoot } from 'react-dom/client'
 import { ArrowUp, CalendarDays, Download, Eye, File as FileIcon, FileImage, FileSpreadsheet, FileText, Folder, Lock, MessageSquare, Paperclip, RefreshCw, X } from 'lucide-react'
 import { forgetKey, GuestError, guestApi, INVITE_RE, inviteKnown, keysPersist, loadKeys, openInvite, rememberTitle, staffSignedIn, type GuestFile, type GuestKey, type GuestMe, type GuestPeople, type GuestRoomInfo } from '../lib/collabGuest'
 import type { CollabEvent, CollabFileRef, CollabMessage } from '../lib/types'
+import { ErrorBoundary } from '../components/ErrorBoundary'
 import './GuestRoom.css'
 
 const POLL = 8_000
@@ -64,7 +65,7 @@ export function mountGuestRoom(el: HTMLElement) {
   document.querySelector('link[rel="manifest"]')?.remove()
   document.title = '협업방'
   document.documentElement.dataset.theme = 'light'
-  createRoot(el).render(<GuestApp invite={invite} badLink={!!raw && !invite} roomParam={roomParam} />)
+  createRoot(el).render(<ErrorBoundary area="협업방" full><GuestApp invite={invite} badLink={!!raw && !invite} roomParam={roomParam} /></ErrorBoundary>)
 }
 
 type Phase =
