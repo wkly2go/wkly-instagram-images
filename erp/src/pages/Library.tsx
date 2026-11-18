@@ -1,4 +1,5 @@
 import { useResearchBodyMatches } from '../lib/researchSearch'
+import { ListTextarea } from '../components/ListTextarea'
 import { AlarmInput } from '../components/AlarmInput'
 import { ProjectOptions } from '../components/ProjectOptions'
 import { useMemo, useRef, useState, type ReactNode } from 'react'
@@ -892,7 +893,7 @@ function ContactForm({ contact, preset, onClose, onSaved }: { contact: BrandCont
           <input className="input" value={f.source_note ?? ''} onChange={e => set({ source_note: e.target.value || null })} placeholder="예) 10.09 협업 문의 메일 수신" />
         </Field>
         <Field label="메모" className="full">
-          <textarea className="textarea" rows={2} value={f.memo ?? ''} onChange={e => set({ memo: e.target.value || null })} />
+          <ListTextarea className="textarea" rows={2} value={f.memo ?? ''} onValue={v => set({ memo: v || null })} />
           <TextLinks text={f.memo} />
         </Field>
         <label className="row t-cap full" style={{ gap: 6 }}>

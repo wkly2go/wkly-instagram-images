@@ -1,4 +1,5 @@
 import { CompanySwitch, CompanyTag } from '../components/CompanySwitch'
+import { ListTextarea } from '../components/ListTextarea'
 import { COMPANIES, COMPANY_KEYS, companyOfInvoice, companyOfProject, useCompany, type CompanyKey } from '../lib/company'
 import { useResearchBodyMatches } from '../lib/researchSearch'
 import { useMemo, useState } from 'react'
@@ -496,7 +497,7 @@ function ClientForm({ client, onClose, onSaved }: { client: Client | null; onClo
         {text('address', '주소', true)}
         {text('website', '웹사이트', true)}
         <Field label="메모" className="full">
-          <textarea className="textarea" rows={3} value={f.memo ?? ''} onChange={e => set({ memo: e.target.value || null })} />
+          <ListTextarea className="textarea" rows={3} value={f.memo ?? ''} onValue={v => set({ memo: v || null })} />
           <TextLinks text={f.memo} />
         </Field>
       </div>
