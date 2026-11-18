@@ -8,7 +8,7 @@ import { approvalSummary, researchSummary } from './reportReads'
 import { searchDemoProspectingClients } from './prospectingClientSearch'
 import { createDemoMarketingApi } from './marketingApi'
 import { desktop } from './desktop'
-import type { MaterialMove, MaterialStockRow, SlackLink, SlackMessage } from './types'
+import type { MaterialMove, MaterialStockRow, SalesInterview, SlackLink, SlackMessage } from './types'
 import { ApiError, groupIps, type Api, type DriveFolder, type ImportResult, type MessageEvent } from './api'
 import { addDays, nextMonday, toDateKey, todayKey } from './date'
 import { DEFAULT_REPORT_BODY } from './reports'
@@ -494,6 +494,8 @@ function seed(): Store {
 }
 
 export function createDemoApi(): Api {
+  // 서면 인터뷰는 체험 모드에 자료를 두지 않음 (대표 지시 '목업은 올리지 마') · 새로 추가한 것만 창이 열린 동안 보관
+  let demoInterviews: SalesInterview[] = []
   let store: Store
   try {
     const raw = localStorage.getItem(KEY)
@@ -2012,6 +2014,27 @@ export function createDemoApi(): Api {
       return []
     },
     async updateWebInquiry() {},
+    async listInquiryThreads() {
+      return []
+    },
+    async dismissInquiryThread() {},
+    async listInterviews() {
+      return demoInterviews.map(r => ({ ...r }))
+    },
+    async saveInterview(id, draft) {
+      const now = new Date().toISOString()
+      const emails = [...new Set((draft.contact ?? '').toLowerCase().match(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/g) ?? [])]
+      const prev = id ? demoInterviews.find(r => r.id === id) : undefined
+      const row: SalesInterview = {
+        id: prev?.id ?? uid(), mail_threads: [], mail_last_in_at: null, mail_last_out_at: null, mail_attach_at: null, source: null,
+        created_at: prev?.created_at ?? now, ...draft, emails, updated_at: now,
+      }
+      demoInterviews = prev ? demoInterviews.map(r => (r.id === row.id ? row : r)) : [row, ...demoInterviews]
+      return row
+    },
+    async listMailFilesByThreads() {
+      return []
+    },
     async importAdDaily(rows) {
       if (!store.ad_daily) seedAds()
       const list = store.ad_daily ?? (store.ad_daily = [])

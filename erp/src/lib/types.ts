@@ -1008,6 +1008,31 @@ export interface WebInquiry {
   submitted_at: string | null; brand: string | null; title: string | null; detail: string | null; email: string | null; phone: string | null
   newsletter: boolean | null; utm_source: string | null; utm_campaign: string | null; is_ad: boolean | null; status: string | null; memo: string | null
 }
+/** 서면 인터뷰(더위클리 팝업 큐레이션) 한 건 · 표 sales_interviews (2026-11-18 · 시트 '인터뷰피드 발송현황'에서 이전) */
+export type InterviewStage = '발송' | '답변' | '인터뷰지 발송' | '자료 수령' | '제작' | '업로드 완료' | '답장 없음' | '확인 필요' | '불가' | '보류'
+export interface InterviewSalesInfo { category?: string; region?: string; budget?: string; partner?: string; next_plan?: string }
+export interface SalesInterview {
+  id: string; batch: string; brand: string; event_name: string | null; venue: string | null; stage: InterviewStage
+  send_channel: string | null; sent_on: string | null; contact: string | null; emails: string[]
+  reply_channel: string | null; replied_at: string | null; image_use: string | null; interview_ok: string | null
+  form_url: string | null; form_sent_at: string | null; form_note: string | null
+  material_due: string | null; material_note: string | null; upload_on: string | null; upload_note: string | null
+  post_url: string | null; note: string | null
+  answers: Record<string, string>; answered_at: string | null; answered_note: string | null
+  sales_info: InterviewSalesInfo; owner_id: string | null
+  /** 메일 자동 확인 (10분마다 · 읽기 전용) */
+  mail_threads: string[]; mail_last_in_at: string | null; mail_last_out_at: string | null; mail_attach_at: string | null
+  source: string | null; created_at: string; updated_at: string
+}
+/** 화면에서 고치는 칸 (메일 자동 확인 칸 · 메일 주소 목록은 서버가 채움) */
+export type SalesInterviewDraft = Omit<SalesInterview, 'id' | 'emails' | 'mail_threads' | 'mail_last_in_at' | 'mail_last_out_at' | 'mail_attach_at' | 'source' | 'created_at' | 'updated_at'>
+/** 문의별 메일 대화 상태 (2026-11-18 · RPC sales_inquiry_threads · 10분마다 회사 메일과 맞춰 봄) */
+export interface InquiryThread {
+  inquiry_id: string; state: '미응대' | '우리 답 필요' | '회신 대기'; thread_id: string | null
+  first_out_at: string | null; last_out_at: string | null; last_in_at: string | null
+  last_in_subject: string | null; last_in_snippet: string | null; in_count: number; out_count: number
+  quote_asked: boolean; unread: boolean; alerted_at: string | null; updated_at: string
+}
 export interface AdDaily {
   date: string
   platform: AdPlatform
