@@ -5,6 +5,8 @@ import { Fragment, useMemo, useState } from 'react'
 import { ExternalLink, RefreshCw, SlidersHorizontal } from 'lucide-react'
 import { Shell } from '../components/Shell'
 import { Badge, Button, Empty, Linkify, Loading, type Tone } from '../components/ui'
+import { GovPlanWriter } from '../components/GovPlanWriter'
+import { GovDocs } from '../components/GovDocs'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { shortDate, todayKey } from '../lib/date'
 import { GOV_FITS, GOV_STATUSES, daysLeft, ddayLabel, filterGovPrograms, fitFor, govCounts, parseKeywords, type GovCompany, type GovFilter, type GovFit, type GovProgram, type GovStatus } from '../lib/gov'
@@ -17,6 +19,7 @@ const STATUS_TABS: { key: GovFilter['status']; label: string }[] = [{ key: 'open
 
 export default function Gov() {
   const { me } = useApp()
+  const [view, setView] = useState<'list' | 'docs'>(() => (new URLSearchParams(location.search).get('view') === 'docs' ? 'docs' : 'list'))
   return (
     <Shell active="gov">
       {me.role !== 'admin' ? (
@@ -24,10 +27,14 @@ export default function Gov() {
       ) : (
         <div className="design-page gov">
           <header className="design-head">
-            <h1 className="t-title">정부지원사업</h1>
-            <p className="t-cap">매일 아침 공공데이터에서 모집 중인 지원사업 공고를 받아 회사별로 맞는지 판정합니다. 판정은 참고용이며, 신청 자격은 공고 원문으로 확인해 주세요. 신청 · 제출은 각 기관 누리집에서 직접 합니다.</p>
+            <h1 className="t-title">정부지원사업 · 투자유치</h1>
+            <p className="t-cap">매일 아침 공공데이터에서 모집 중인 지원사업 · 투자유치 공고를 받아 회사별로 맞는지 판정합니다. 판정은 참고용이며, 신청 자격은 공고 원문으로 확인해 주세요. 신청 · 제출은 각 기관 누리집에서 직접 합니다.</p>
           </header>
-          <Board />
+          <div className="row wrap gov-views" role="tablist" aria-label="보기">
+            <button type="button" role="tab" aria-selected={view === 'list'} className={`chip${view === 'list' ? ' active' : ''}`} onClick={() => setView('list')}>공고</button>
+            <button type="button" role="tab" aria-selected={view === 'docs'} className={`chip${view === 'docs' ? ' active' : ''}`} onClick={() => setView('docs')}>자료 · 계획</button>
+          </div>
+          {view === 'list' ? <Board /> : <div className="design-block"><GovDocs /></div>}
         </div>
       )}
     </Shell>
@@ -40,7 +47,7 @@ function Board() {
   const today = todayKey()
   const { data: list, loading } = useAsync(() => api.listGovPrograms(), [version], [] as GovProgram[])
   const { data: companies } = useAsync(() => api.listGovCompanies(), [version], [] as GovCompany[])
-  const [f, setF] = useState<GovFilter>({ company: null, fit: '높음', status: 'open', word: '' })
+  const [f, setF] = useState<GovFilter>({ company: null, track: 'all', fit: '높음', status: 'open', word: '' })
   const [open, setOpen] = useState<string | null>(null)
   const [rules, setRules] = useState(false)
   const shown = useMemo(() => filterGovPrograms(list, f), [list, f])
@@ -61,6 +68,12 @@ function Board() {
         <div className="row wrap" role="tablist" aria-label="회사">
           <Pick on={f.company === null} onClick={() => setF({ ...f, company: null })}>두 회사</Pick>
           {companies.map(c => <Pick key={c.key} on={f.company === c.key} onClick={() => setF({ ...f, company: c.key })}>{c.short}</Pick>)}
+        </div>
+        <span className="gov-sep" aria-hidden />
+        <div className="row wrap" role="tablist" aria-label="구분">
+          <Pick on={f.track === 'all'} onClick={() => setF({ ...f, track: 'all' })}>지원 + 투자</Pick>
+          <Pick on={f.track === '지원'} onClick={() => setF({ ...f, track: '지원' })}>지원사업</Pick>
+          <Pick on={f.track === '투자'} onClick={() => setF({ ...f, track: '투자' })}>투자유치</Pick>
         </div>
         <span className="gov-sep" aria-hidden />
         <div className="row wrap" role="tablist" aria-label="판정">
@@ -95,7 +108,7 @@ function Board() {
                 <Fragment key={p.id}>
                   <tr className={on ? 'gov-open' : undefined} onClick={() => setOpen(on ? null : p.id)}>
                     <td className="nowrap"><b className={left != null && left >= 0 && left <= 7 ? 't-red' : undefined}>{ddayLabel(left)}</b><span className="cell-sub">{p.apply_end ? shortDate(p.apply_end) : '마감일 없음'}</span></td>
-                    <td className="max"><button type="button" className="gov-title" aria-expanded={on}>{p.title.trim()}</button><span className="cell-sub">{[p.org, p.region].filter(Boolean).join(' · ')}</span></td>
+                    <td className="max"><button type="button" className="gov-title" aria-expanded={on}>{p.title.trim()}</button>{p.track === '투자' && <Badge tone="blue">투자</Badge>}<span className="cell-sub">{[p.org, p.region].filter(Boolean).join(' · ')}</span></td>
                     <td className="nowrap">{p.category ?? '-'}</td>
                     <td className="nowrap"><Fits p={p} company={f.company} short={short} /></td>
                     <td className="nowrap" onClick={e => e.stopPropagation()}>
@@ -164,6 +177,7 @@ function Detail({ p, short, companies }: { p: GovProgram; short: (k: string) => 
         <input className="input" value={note} onChange={e => setNote(e.target.value)} placeholder="메모 (검토 결과 · 준비할 서류 · 보류 이유)" aria-label="메모" maxLength={500} />
         <Button kind="outline" size="sm" type="submit" disabled={busy || note.trim() === (p.decision_note ?? '')}>메모 저장</Button>
       </form>
+      {companies.length > 0 && <GovPlanWriter program={p} companies={companies} />}
     </div>
   )
 }
