@@ -60,6 +60,7 @@ import type { LedgerEntry, LedgerFile, LedgerRecurring, LedgerStatus, MaterialIt
   AdCreative,
   AdReport,
   WebInquiry,
+  InquiryThread,
   AdDaily,
   SeoCheck,
   AgentAction,
@@ -432,6 +433,10 @@ export interface Api extends SalesStrategyApi, SalesApi, GrowthApi, SalesReportA
   /** 홈페이지 문의함 (시험 접수 제외 · 최근 300건) */
   listWebInquiries(): Promise<WebInquiry[]>
   updateWebInquiry(id: string, patch: { status?: string; memo?: string | null }): Promise<void>
+  /** 문의별 메일 대화 상태 (회사 메일과 10분마다 맞춰 봄) */
+  listInquiryThreads(): Promise<InquiryThread[]>
+  /** 고객의 마지막 메일에 답이 필요 없음 → 회신 대기 (새 메일이 오면 다시 바로 응대) */
+  dismissInquiryThread(inquiryId: string): Promise<void>
   listAdDaily(from: string, to: string): Promise<AdDaily[]>
   /** 매체에서 내려받은 일별 · 캠페인별 수치 올리기 (관리자 · 같은 날 · 캠페인은 덮어씀) */
   importAdDaily(rows: { date: string; platform: string; campaign: string; impressions: number; clicks: number; cost: number; conversions: number | null }[]): Promise<{ saved: number; skipped: number }>

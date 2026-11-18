@@ -1006,6 +1006,13 @@ export interface WebInquiry {
   submitted_at: string | null; brand: string | null; title: string | null; detail: string | null; email: string | null; phone: string | null
   newsletter: boolean | null; utm_source: string | null; utm_campaign: string | null; is_ad: boolean | null; status: string | null; memo: string | null
 }
+/** 문의별 메일 대화 상태 (2026-11-18 · RPC sales_inquiry_threads · 10분마다 회사 메일과 맞춰 봄) */
+export interface InquiryThread {
+  inquiry_id: string; state: '미응대' | '우리 답 필요' | '회신 대기'; thread_id: string | null
+  first_out_at: string | null; last_out_at: string | null; last_in_at: string | null
+  last_in_subject: string | null; last_in_snippet: string | null; in_count: number; out_count: number
+  quote_asked: boolean; unread: boolean; alerted_at: string | null; updated_at: string
+}
 export interface AdDaily {
   date: string
   platform: AdPlatform
