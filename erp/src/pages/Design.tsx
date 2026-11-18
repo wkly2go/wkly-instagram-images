@@ -41,7 +41,7 @@ const SECTIONS: Record<string, { tab: Tab | 'orders'; active: TabKey; title: str
   '/design-cards': { tab: 'cards', active: 'designCards', title: '검토함', lead: '자동으로 만든 단가 · 견적 초안 · 발주서 초안을 확인하는 곳입니다.' },
   '/design-prices': { tab: 'prices', active: 'designPrices', title: '단가', lead: '견적에 쓰는 판매 단가와 발주에 쓰는 실행 단가(관리자만)입니다.' },
   '/design-vendors': { tab: 'vendors', active: 'designVendors', title: '협력사', lead: '거래 협력사와 나라장터 · 검색으로 찾은 후보입니다.' },
-  '/design-materials': { tab: 'materials', active: 'designMaterials', title: '자재', lead: '마감재 · 자재 목록과 코드입니다.' },
+  '/design-materials': { tab: 'materials', active: 'designMaterials', title: '자재', lead: '마감재 · 조명 · 자재 목록과 코드입니다. 기준 가격은 조달청 물가 기준 · 시중 판매가로, 참고용입니다(견적 계산에는 쓰지 않음).' },
   '/design-learn': { tab: 'knowledge', active: 'designLearn', title: '학습 자료', lead: '표본 자료에서 뽑아 둔 도면 세트 · 스펙북 · 보고서 구성과 기준입니다.' },
 }
 
@@ -901,9 +901,9 @@ function MaterialsTab() {
       {error && rows.length === 0 ? <LoadError message="자재를 불러오지 못했습니다." error={error} onRetry={reload} />
         : rows.length === 0 ? <Empty>맞는 자재가 없습니다.</Empty> : (
         <div className="table-wrap"><table className="table">
-          <thead><tr><th>코드</th><th>분류</th><th>이름</th><th>규격</th><th>단위</th><th>메모</th></tr></thead>
+          <thead><tr><th>코드</th><th>분류</th><th>이름</th><th>규격</th><th>단위</th><th className="num">기준 가격</th><th>가격 출처 · 메모</th></tr></thead>
           <tbody>{rows.map(m => <tr key={m.id}><td className="nowrap strong">{m.color_code}</td><td className="nowrap">{m.category}</td>
-            <td>{m.product_url ? <a href={m.product_url} target="_blank" rel="noreferrer">{m.name}</a> : m.name}</td><td className="max">{m.spec}</td><td>{m.unit}</td><td className="max t-cap">{m.notes}</td></tr>)}</tbody>
+            <td>{m.product_url ? <a href={m.product_url} target="_blank" rel="noreferrer">{m.name}</a> : m.name}</td><td className="max">{m.spec}</td><td>{m.unit}</td><td className="num nowrap">{m.list_price != null ? won(Number(m.list_price)) : ''}</td><td className="max t-cap">{[m.source_note, m.notes].filter(Boolean).join(' · ')}</td></tr>)}</tbody>
         </table></div>
       )}
     </div>

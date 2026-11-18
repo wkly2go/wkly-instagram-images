@@ -263,7 +263,7 @@ export function createSupabaseDesignApi(sb: SupabaseClient): DesignApi {
       return (r.data ?? []) as DesignVendor[]
     },
     async listDesignMaterials(search) {
-      let q = sb.from('design_materials').select('id,name,category,spec,color_code,unit,supplier_id,product_url,notes')
+      let q = sb.from('design_materials').select('id,name,category,spec,color_code,unit,supplier_id,product_url,notes,list_price,price_as_of,source_note')
       if (search.trim()) q = q.or(`name.ilike.${like(search)},category.ilike.${like(search)},color_code.ilike.${like(search)}`)
       const r = await q.order('category').order('name').limit(400)
       fail(r.error)
