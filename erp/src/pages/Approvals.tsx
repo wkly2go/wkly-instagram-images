@@ -2,7 +2,7 @@ import { ReportBody } from '../components/Reports'
 import { useCallback, useEffect, useState } from 'react'
 import { ProjectOptions } from '../components/ProjectOptions'
 import { Linkify } from '../components/ui'
-import { ArrowLeft, FileText, Filter, Inbox, List, MessageSquare, NotebookPen, Plus, Send } from 'lucide-react'
+import { ArrowLeft, Ban, FileText, Filter, Inbox, List, MessageSquare, NotebookPen, Plus, Send } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { dateLabel, dateTimeLabel, minutesLabel, timeLabel, toDateKey, todayKey, won } from '../lib/date'
 import { openGmail } from '../lib/links'
@@ -19,7 +19,7 @@ import { Button, Chip, Field, KindBadge, KindTag, Modal, StatusBadge, ViewTabs }
 import { MeetingRecorder } from '../components/MeetingRecorder'
 import { ReportDashboard } from '../components/ReportDashboard'
 
-type View = 'todo' | 'mine' | 'all'
+type View = 'todo' | 'mine' | 'rejected' | 'all'
 
 
 /** 승인/반려 버튼 (홈·상세 공용) */
@@ -122,7 +122,7 @@ export function DecideButtons({ approval, compact }: { approval: ApprovalSummary
               <Button
                 disabled={busy}
                 onClick={async () => {
-                  if (await run(() => api.decideApproval(approval.id, '반려', comment), '반려했습니다.')) setRejecting(false)
+                  if (await run(() => api.decideApproval(approval.id, '반려', comment), "반려했습니다. '반려' 탭으로 옮겼습니다.")) setRejecting(false)
                 }}
               >
                 반려하기
@@ -176,7 +176,9 @@ function ApprovalContent() {
   const { data, loading } = useAsync(() => api.listApprovals(), [version], [] as ApprovalSummary[])
 
   const todo = data.filter(a => a.status === '대기' && a.can_decide && (a.requested_by !== me.id || me.role === 'admin'))
-  const base = view === 'todo' ? todo : view === 'mine' ? data.filter(a => a.requested_by === me.id) : data
+  // 반려한 건은 '처리할 것'에서 빠지고 '반려' 탭으로 (대표 지시 2026-11-18 '반려처리하면 할일에서 지워주고 반려항목으로 이동')
+  const rejected = data.filter(a => a.status === '반려' && (a.can_decide || a.requested_by === me.id || me.role === 'admin'))
+  const base = view === 'todo' ? todo : view === 'mine' ? data.filter(a => a.requested_by === me.id) : view === 'rejected' ? rejected : data
   const list = kind ? base.filter(a => a.kind === kind) : base
   const go = (patch: Record<string, string | null>) => navigate(withQuery(path, query, patch), { replace: true })
   const daily = data.filter(a => a.kind === '일일 보고' && a.status === '대기' && a.can_decide).length
@@ -194,6 +196,7 @@ function ApprovalContent() {
           items={[
             { key: 'todo', label: '처리할 것', icon: <Inbox size={15} />, count: todo.length },
             { key: 'mine', label: '내 요청', icon: <Send size={15} /> },
+            { key: 'rejected', label: '반려', icon: <Ban size={15} />, count: rejected.length || undefined },
             { key: 'all', label: '전체', icon: <List size={15} /> },
             { key: 'minutes', label: `회의록 ${data.filter(a => a.kind === '회의록').length}`, icon: <NotebookPen size={15} /> },
           ]}
@@ -249,7 +252,7 @@ function ApprovalContent() {
 function ApprovalBoards({ list, byKind, loading, view, selectedId, onOpen }: { list: ApprovalSummary[]; byKind: boolean; loading: boolean; view: View; selectedId?: string | null; onOpen: (id: string) => void }) {
   const { profileName } = useApp()
   const groups: [string, ApprovalSummary[]][] = byKind ? APPROVAL_KINDS.map(k => [k, list.filter(a => a.kind === k)] as [string, ApprovalSummary[]]).filter(([, l]) => l.length) : [['', list]]
-  const empty = loading ? '불러오는 중…' : view === 'todo' ? '처리할 승인이 없습니다.' : '요청이 없습니다.'
+  const empty = loading ? '불러오는 중…' : view === 'todo' ? '처리할 승인이 없습니다.' : view === 'rejected' ? '반려한 건이 없습니다.' : '요청이 없습니다.'
   if (!groups.length) return <Board<ApprovalSummary> rows={[]} rowKey={a => a.id} cols={[]} empty={empty} />
   return (
     <div className="col gap-12">
