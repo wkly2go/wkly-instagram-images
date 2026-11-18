@@ -68,6 +68,7 @@ export async function runCatalog(db: Db, call: Call, deadline: number, force = f
   }
   const st = plan.find(p => p.kind === 'items')
   if (fresh(st) && !st?.state?.after && !st?.state?.cur) return report
+  if (st?.state?.paused) { report.push({ kind: 'items', skipped: 'paused' }); return report }
   // 분류는 '번호|이름' — 이 서비스는 분류 번호로는 거르지 못하고 품명(prdctClsfcNoNm)으로만 거른다
   let after = s(st?.state?.after), cur = s(st?.state?.cur), page = Number(st?.state?.page ?? 1), saved = 0, classes = 0
   while (Date.now() < deadline) {
