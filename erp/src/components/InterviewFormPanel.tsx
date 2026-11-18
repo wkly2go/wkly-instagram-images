@@ -42,7 +42,7 @@ export function InterviewFormPanel({ row, onLinked }: { row: SalesInterview; onL
   }
   const create = () => {
     if (!ctx.brand.trim()) { toast('브랜드 이름을 적어 주세요.'); return }
-    if (!bank.length) { toast('질문 은행에 문안이 없습니다. 위 \'질문 은행\'에서 먼저 확인해 주세요.'); return }
+    if (!bank.length) { toast('질문 은행에 쓸 문안이 없습니다. 관리자 전용 › 인터뷰 질문 은행에서 확인해 주세요.'); return }
     void run(() => api.saveInterviewForm(row.id, { ...buildForm(ctx, bank, { dueOn: dates.due, uploadOn: dates.upload }), status: '작성 중' }), '인터뷰지 초안을 만들었습니다. 질문을 이 팝업에 맞게 고쳐 주세요.')
   }
   const rebuild = () => {
@@ -77,7 +77,7 @@ export function InterviewFormPanel({ row, onLinked }: { row: SalesInterview; onL
   if (!form || !d)
     return (
       <div className="sales-iv-form">
-        <p className="sales-iv-note">구글 폼을 새로 만들지 않고, 질문 은행의 기본 문안(Q1~Q10)에 아래 내용을 채워 이 브랜드의 인터뷰지를 만듭니다. 만든 뒤 질문을 이 팝업에 맞게 고칠 수 있습니다.</p>
+        <p className="sales-iv-note">구글 폼을 새로 만들지 않고, 질문 은행(관리자 전용 › 인터뷰 질문 은행)의 기본 문안 Q1~Q10에 아래 내용을 채워 이 브랜드의 인터뷰지를 만듭니다. 만든 뒤 질문을 이 팝업에 맞게 고칠 수 있습니다.</p>
         {context}
         <div className="grid2">
           <Field label="답변 수령 희망일"><input className="input" type="date" value={dates.due ?? ''} onChange={e => setDates({ ...dates, due: e.target.value || null })} /></Field>
