@@ -71,7 +71,7 @@ export function findWeeklyGaps(a: { monday: string; today: string; userId: strin
   })
   const active = new Set(a.logs.map(l => l.project_id).filter(Boolean))
   const mine = new Set(a.tasks.filter(t => t.assignee_id === a.userId && t.status !== '완료' && t.project_id).map(t => t.project_id!))
-  const quietProjects = a.projects.filter(p => (p.status === '진행' || p.status === '기획') && (p.owner_id === a.userId || mine.has(p.id)) && !active.has(p.id))
+  const quietProjects = a.projects.filter(p => (p.status === '진행' || p.status === '문의') && (p.owner_id === a.userId || mine.has(p.id)) && !active.has(p.id))
   return { emptyDays, noProject, doneTasks, quietProjects }
 }
 export const taskDoneDay = (t: Task) => (t.completed_at ? kstDay(t.completed_at) : null)

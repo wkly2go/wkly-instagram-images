@@ -7,7 +7,7 @@ import type { AgentJob, Department, Project, Task } from '../lib/types'
 import { Badge, Button, Chip, Empty, Field, Modal, SectionHead } from './ui'
 import { ask } from './Ask'
 
-const S_COLOR: Record<string, string> = { 진행: 'var(--blue)', 기획: 'var(--pink)', NIC: 'var(--green)', 보류: 'var(--gray)' }
+const S_COLOR: Record<string, string> = { 진행: 'var(--blue)', 문의: 'var(--pink)', NIC: 'var(--green)', 보류: 'var(--gray)' }
 
 interface Prog {
   p: Project
@@ -82,7 +82,7 @@ export function OrgSection() {
   const today = todayKey()
   const openOf = (id: string) => data.tasks.filter(t => t.assignee_id === id && t.status !== '완료')
   const groups = [...new Set(data.jobs.map(j => j.group_name))]
-  const counts = { 진행: progs.filter(g => g.p.status === '진행').length, 기획: progs.filter(g => g.p.status === '기획').length, NIC: progs.filter(g => g.p.status === 'NIC').length, 보류: progs.filter(g => g.p.status === '보류').length }
+  const counts = { 진행: progs.filter(g => g.p.status === '진행').length, 문의: progs.filter(g => g.p.status === '문의').length, NIC: progs.filter(g => g.p.status === 'NIC').length, 보류: progs.filter(g => g.p.status === '보류').length }
   const totalTasks = active.reduce((n, g) => n + g.total, 0)
   const doneTasks = active.reduce((n, g) => n + g.done, 0)
 
@@ -93,7 +93,7 @@ export function OrgSection() {
         <div className="kpi">
           <span className="t-cap">진행</span>
           <span className="v">{counts.진행}</span>
-          <span className="sub">기획 {counts.기획} · NIC {counts.NIC}</span>
+          <span className="sub">문의 {counts.문의} · NIC {counts.NIC}</span>
         </div>
         <div className="kpi">
           <span className="t-cap">전체 업무 진행률</span>

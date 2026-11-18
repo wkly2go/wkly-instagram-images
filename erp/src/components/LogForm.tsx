@@ -275,7 +275,7 @@ export function SearchPick({ items, value, onChange, placeholder, label, groups,
 
 /** 프로젝트 묶음: 진행 중(진행 · 기획) · NIC(계약 전) · 보류 · 완료 */
 export const PROJECT_GROUPS = ['진행 중', 'NIC · 계약 전', '보류', '완료']
-export const projectGroup = (p: Project) => (p.status === '진행' || p.status === '기획' || p.status === '상담협의' ? '진행 중' : p.status === 'NIC' ? 'NIC · 계약 전' : p.status)
+export const projectGroup = (p: Project) => (p.status === '진행' || p.status === '문의' || p.status === '상담협의' ? '진행 중' : p.status === 'NIC' ? 'NIC · 계약 전' : p.status)
 
 /** 업무 내용에서 프로젝트 · 거래처 찾기: 이름이 통째로 들어 있거나, 이름의 주요 단어가 들어 있으면 연결 */
 export function guessLinks(text: string, projects: Project[], clients: Client[]): { projectId?: string; clientId?: string } {
