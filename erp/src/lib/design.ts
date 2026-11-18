@@ -138,7 +138,7 @@ export interface UnitPrice {
 export interface G2bItem { ident_no: string; class_no: string; class_name: string | null; name: string; maker: string; kind: string; chg_date: string | null }
 export interface G2bClass { code: string; name: string }
 /** 물가 기준 묶음 — 기호 앞 두 글자 */
-export const PRICE_REF_GROUPS: [string, string][] = [['BM', '건축 자재'], ['EM', '전기·통신 자재'], ['MM', '기계설비 자재'], ['CM', '토목 자재'], ['BC', '건축 시공'], ['MC', '기계설비 시공'], ['CC', '토목 시공'], ['LT', '조명 (시중 판매가)']]
+export const PRICE_REF_GROUPS: [string, string][] = [['BM', '건축 자재'], ['EM', '전기·통신 자재'], ['MM', '기계설비 자재'], ['CM', '토목 자재'], ['BC', '건축 시공'], ['MC', '기계설비 시공'], ['CC', '토목 시공'], ['SM', '나라장터 계약 단가'], ['LT', '조명 (시중 판매가)']]
 export interface PriceRef {
   id: number
   source_name: string

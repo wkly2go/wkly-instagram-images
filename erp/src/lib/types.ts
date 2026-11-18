@@ -326,8 +326,8 @@ export interface Contact {
 export const PROJECT_CATEGORIES = ['팝업', '캠페인', '콘텐츠', '기타'] as const
 export type ProjectCategory = (typeof PROJECT_CATEGORIES)[number]
 /** NIC = Not In Contract (계약 전) */
-// 상담협의 (2026-11-18 대표 지시 '상담협의 항목을 추가해'): 문의 · 상담 단계 — 기획보다 앞
-export const PROJECT_STATUSES = ['상담협의', '기획', '진행', 'NIC', '완료', '보류'] as const
+// 상담협의 (2026-11-18 대표 지시 '상담협의 항목을 추가해') · '기획' 상태는 '문의'로 이름 바꿈 (2026-11-19 대표 지시 '기획을 문의로 변경해')
+export const PROJECT_STATUSES = ['상담협의', '문의', '진행', 'NIC', '완료', '보류'] as const
 export type ProjectStatus = (typeof PROJECT_STATUSES)[number]
 
 export interface Project {
@@ -836,6 +836,10 @@ export interface BudgetLine {
 
 export interface AdminOverview {
   db_size_bytes: number
+  /** 파일 저장공간(storage) 합계 · 연결 수 (2026-11-19 · 예전 서버 함수에는 없음) */
+  storage_bytes?: number
+  connections?: number
+  max_connections?: number
   active_members: number
   tables: Record<string, number>
   generated_at: string

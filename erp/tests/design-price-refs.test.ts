@@ -2,7 +2,8 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { toRow } from '../supabase/functions/design-price-refs/row.ts'
-import { classRow, itemRow, parseList, runCatalog } from '../supabase/functions/design-price-refs/catalog.ts'
+import { classRow, itemRow, limitedToday, parseList, runCatalog } from '../supabase/functions/design-price-refs/catalog.ts'
+import { mallRow, nextMallDay, runMall } from '../supabase/functions/design-price-refs/mall.ts'
 
 test('material price rows keep name, spec, unit, region and notice date', () => {
   const r = toRow({ prdctClsfcNoNm: '석고보드', krnPrdctNm: '일반 9.5mm 900*1800', unit: '매', prce: '3,250', splyJrsdctRgnNm: '서울', prdctIdntNo: '24123456', nticeDt: '20260701', bsnsDivNm: '건축' })
@@ -83,5 +84,79 @@ test('catalog migration: members read only, nothing dropped, row cap in place', 
   const sql = readFileSync(new URL('../supabase/migrations/20261118190000_design_g2b_catalog.sql', import.meta.url), 'utf8')
   assert.doesNotMatch(sql, /\bdrop\s/i)
   assert.match(sql, />= 300000/)
+  const mall = readFileSync(new URL('../supabase/migrations/20261118223000_design_g2b_mall_prices.sql', import.meta.url), 'utf8')
+  assert.doesNotMatch(mall, /\bdrop\s/i)
+  assert.match(mall, /when 'g2b_mall' then 'SM'/)
   assert.doesNotMatch(sql, /grant (insert|update|delete|all)[^;]*g2b_[a-z]+[^;]*authenticated/i)
+})
+
+test('catalog stops for the day once the portal says the daily limit is reached', async () => {
+  const now = new Date().toISOString()
+  assert.equal(limitedToday({ kind: 'items', state: {}, done_at: null, last_error: 'LIMITED_NUMBER_OF_SERVICE_REQUESTS_EXCEEDS_ERROR', updated_at: now }), true)
+  assert.equal(limitedToday({ kind: 'items', state: {}, done_at: null, last_error: 'LIMITED_NUMBER_OF_SERVICE_REQUESTS_EXCEEDS_ERROR', updated_at: '2026-01-01T00:00:00Z' }), false)
+  let calls = 0
+  const db = { rpc: async (fn: string) => ({ data: fn === 'design_g2b_plan' ? [{ kind: 'items', state: { after: '30103103' }, done_at: null, last_error: 'LIMITED_NUMBER_OF_SERVICE_REQUESTS_EXCEEDS_ERROR', updated_at: now }] : [], error: null }) }
+  const r = await runCatalog(db, async () => { calls++; return { status: 200, text: '{}' } }, Date.now() + 2000)
+  assert.equal(calls, 0)
+  assert.deepEqual(r, [{ catalog: 'skipped', reason: 'daily limit' }])
+})
+
+test('a large class is saved page by page so the next run continues instead of starting over', async () => {
+  const done = new Date().toISOString()
+  const plan = [2, 4, 6, 8, 10].map(l => ({ kind: `class${l}`, state: {}, done_at: done, last_error: null, updated_at: done }))
+  const states: Record<string, unknown>[] = []
+  const db = { rpc: async (fn: string, a: Record<string, unknown> = {}) => {
+    if (fn === 'design_g2b_plan') return { data: plan, error: null }
+    if (fn === 'design_g2b_item_classes') return { data: ['30103201|스틸그레이팅'], error: null }
+    states.push(a.p_state as Record<string, unknown>); return { data: 1, error: null }
+  } }
+  let n = 0
+  const call = async () => { n++; return { status: 200, text: JSON.stringify({ response: { header: { resultCode: '00' }, body: { totalCount: 50000, items: [{ prdctIdntNo: String(20000000 + n), prdctClsfcNo: '30103201', krnPrdctNm: '스틸그레이팅' }] } } }) } }
+  await runCatalog(db, call, Date.now() + 60)
+  assert.deepEqual(states[0], { after: '', cur: '30103201|스틸그레이팅', page: 4 })
+})
+
+test('contract price rows: only building materials and lighting with a price are kept', () => {
+  const it = { prdctClsfcNo: '30161598', prdctClsfcNoNm: '흡음패널', prdctIdntNo: '24123456', prdctSpecNm: '흡음패널, 가나, GN-100, 600×1200×25mm', prdctUnit: '㎡', cntrctPrceAmt: '35,000', cntrctDate: '20261110', cntrctEndDate: '20291109', cntrctCorpNm: '가나', prdctLrgclsfcNm: '토목/건축/자재', prdctMidclsfcNm: '패널' }
+  const r = mallRow(it)
+  assert.ok(r)
+  assert.equal(r.price, 35000)
+  assert.equal(r.ref_key, '24123456||㎡')
+  assert.equal(r.notice_date, '2026-11-10')
+  assert.equal(r.raw.end, '2029-11-09')
+  assert.equal(mallRow({ ...it, prdctClsfcNo: '43211596' }), null)
+  assert.equal(mallRow({ ...it, cntrctPrceAmt: '' }), null)
+  assert.ok(mallRow({ ...it, prdctClsfcNo: '39112102' }))
+})
+
+test('contract prices are fetched newest day first, then older days, one day at a time', async () => {
+  const now = Date.parse('2026-11-18T13:00:00Z')
+  assert.deepEqual(nextMallDay({}, now), { day: '20261117', page: 1, kind: 'front' })
+  assert.equal(nextMallDay({ front: '20261117', back: '20261116' }, now)?.day, '20261116')
+  assert.equal(nextMallDay({ front: '20261115', back: '20261101' }, now)?.day, '20261116')
+  assert.deepEqual(nextMallDay({ front: '20261117', back: '20261116', day: '20261116', page: 3 }, now)?.page, 3)
+  assert.equal(nextMallDay({ front: '20261117', back: '20241101' }, now), null)
+  const states: Record<string, unknown>[] = []; let saved = 0
+  const db = { rpc: async (fn: string, a: Record<string, unknown> = {}) => {
+    if (fn === 'design_g2b_plan') return { data: [], error: null }
+    if (fn === 'design_price_refs_save') { saved += (a.p_rows as unknown[]).length; return { data: 1, error: null } }
+    states.push(a.p_state as Record<string, unknown>); return { data: 0, error: null }
+  } }
+  const call = async (_op: string, page: number) => ({ status: 200, text: JSON.stringify({ response: { header: { resultCode: '00' }, body: { totalCount: 1500, items: [{ prdctClsfcNo: '30161598', prdctClsfcNoNm: '흡음패널', prdctIdntNo: String(24000000 + page), prdctUnit: '㎡', cntrctPrceAmt: '1000' }] } } }) })
+  await runMall(db, call, Date.now() + 40)
+  assert.equal(states[0].page, 2)
+  assert.ok(String(states[1].front).length === 8 && !states[1].day)
+  assert.ok(saved >= 2)
+})
+
+test('collection can be paused and is throttled to a few pages per run', async () => {
+  const mk = (state: Record<string, unknown>) => { let n = 0; return { n: () => n, db: { rpc: async (fn: string) => ({ data: fn === 'design_g2b_plan' ? [{ kind: 'mall', state, done_at: null, last_error: null, updated_at: new Date().toISOString() }] : 0, error: null }) }, call: async () => { n++; return { status: 200, text: JSON.stringify({ response: { header: { resultCode: '00' }, body: { totalCount: 99999, items: [] } } }) } } } }
+  const paused = mk({ paused: true, front: '20261117', back: '20261022' })
+  assert.deepEqual(await runMall(paused.db, paused.call, Date.now() + 500), [{ mall: 'skipped', reason: 'paused' }])
+  assert.equal(paused.n(), 0)
+  const slow = mk({ front: '20261117', back: '20261022' })
+  await runMall(slow.db, slow.call, Date.now() + 5000, false, 2)
+  assert.equal(slow.n(), 2)
+  const src = readFileSync(new URL('../supabase/functions/design-price-refs/index.ts', import.meta.url), 'utf8')
+  assert.match(src, /return await syncPrices\(\)/)
 })

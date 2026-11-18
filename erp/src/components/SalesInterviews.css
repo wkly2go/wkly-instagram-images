@@ -104,3 +104,32 @@
 .sales-iv-list .sales-iv-row.static { cursor: default; }
 a.sales-iv-row { text-decoration: none; }
 @media (max-width: 700px) { .sales-iv-feed .facts > div { grid-template-columns: 1fr; gap: 0; } }
+
+/* 인터뷰지 만들기 · 질문 은행 (2026-11-19) */
+.sales-iv-form { display: grid; gap: 10px; margin-top: 8px; }
+.sales-iv-form-state { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; color: var(--gray); }
+.sales-iv-form-link { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.sales-iv-form-link .input { flex: 1 1 280px; min-width: 0; }
+.sales-iv-form-qs { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.sales-iv-form-qs > li { display: grid; gap: 6px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--white); }
+.sales-iv-form-qs .head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.sales-iv-form-qs .head b { flex: none; min-width: 30px; color: var(--tx-key); font-weight: 800; }
+.sales-iv-form-qs .head > .input:first-of-type { flex: 1 1 220px; min-width: 0; font-weight: 700; }
+.sales-iv-form-qs .head select.input { flex: 0 1 150px; }
+.sales-iv-form-qs .head label { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.sales-iv-form-problems { margin: 0; padding: 8px 12px 8px 28px; border-radius: 8px; background: #fbf0c9; color: #7a5b00; line-height: 1.6; }
+.sales-iv-form-preview { padding: 16px; border-radius: 12px; background: #f6f4ef; border: 1px solid var(--line); }
+.sales-iv-form-preview h4 { margin: 0 0 8px; font-size: var(--fs-title); font-weight: 800; }
+.sales-iv-form-preview > p { margin: 0 0 10px; line-height: 1.7; }
+.sales-iv-bank .slot { border-top: 1px solid var(--line); padding: 10px 0; }
+.sales-iv-bank .slot > h3 { margin: 0 0 6px; font-size: var(--fs-sub); color: var(--tx-key); }
+.sales-iv-bank .slot > h3 small { color: var(--gray); font-weight: 400; }
+.sales-iv-bank ul { list-style: none; margin: 0 0 6px; padding: 0; display: grid; gap: 8px; }
+.sales-iv-bank li.off { opacity: .6; }
+.sales-iv-bank .row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.sales-iv-bank .row b { margin-right: 4px; }
+.sales-iv-bank .row .btn { margin-left: auto; }
+.sales-iv-bank li > p { margin: 4px 0 0; line-height: 1.65; color: var(--tx-body); }
+.sales-iv-bank .edit { margin-top: 8px; padding: 10px; border-radius: 10px; background: #f7faf7; }
+.sales-iv-bank .checks { display: flex; flex-wrap: wrap; gap: 6px 16px; }
+.sales-iv-bank .checks label { display: inline-flex; align-items: center; gap: 4px; }

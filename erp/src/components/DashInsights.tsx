@@ -199,7 +199,7 @@ export function DashInsights({
   }
 
   // 7) 영업 파이프라인
-  const plan = projects.filter(p => p.status === '기획')
+  const plan = projects.filter(p => p.status === '문의')
   if (plan.length) {
     const planSum = plan.reduce((n, p) => n + (money.get(p.id)?.contract ?? 0), 0)
     out.push({

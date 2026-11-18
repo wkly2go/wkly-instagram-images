@@ -343,14 +343,14 @@ function ProjectLogBoards({ logs, projects, cols, nested }: { logs: Log[]; proje
 /** 이 기간의 업무 보고 (승인 체크) */
 /**
  * 내가 맡고 있는 프로젝트 한눈에 (대표 지시 2026-11-10)
- *  - 담당(owner)이거나 내 할 일이 걸린 프로젝트 중 기획 · 진행 · NIC
+ *  - 담당(owner)이거나 내 할 일이 걸린 프로젝트 중 문의 · 진행 · NIC
  *  - 칸마다: 연번 · 이름 · 상태 · 남은 날 · 내 할 일 / 지연 · 다음 마감 · 진행률(업무 완료 비율)
  *  - 지연 → 마감 임박 순 · 접기 기억
  */
 const MYPROJ_KEY = "wkly-myproj-open";
 const MYPROJ_F = "wkly-myproj-filter";
-const ST_ORDER = ["진행", "기획", "NIC"] as const;
-type PF = "전체" | "진행" | "기획" | "NIC" | "지연";
+const ST_ORDER = ["진행", "문의", "NIC"] as const;
+type PF = "전체" | "진행" | "문의" | "NIC" | "지연";
 function MyProjects({ uid, projects, tasks, who }: { uid: string; projects: Project[]; tasks: Task[]; who: string | null }) {
   const { api, profiles, profileName } = useApp();
   const { run } = useAction();
@@ -408,7 +408,7 @@ function MyProjects({ uid, projects, tasks, who }: { uid: string; projects: Proj
   const lateSum = rows.reduce((n, r) => n + r.late.length, 0);
   const count = (f: PF) => (f === "전체" ? rows.length : f === "지연" ? rows.filter((r) => r.late.length).length : rows.filter((r) => r.p.status === f).length);
   const shown = rows.filter((r) => filter === "전체" || (filter === "지연" ? r.late.length > 0 : r.p.status === filter));
-  // 상태별로 묶어서 (진행 → 기획 → NIC)
+  // 상태별로 묶어서 (진행 → 문의 → NIC)
   const groups = ST_ORDER.map((st) => [st, shown.filter((r) => r.p.status === st)] as const).filter(([, l]) => l.length);
   const people = profiles.filter((x) => x.active && !x.is_agent);
   const ais = profiles.filter((x) => x.active && x.is_agent);
@@ -462,7 +462,7 @@ function MyProjects({ uid, projects, tasks, who }: { uid: string; projects: Proj
         {lateSum > 0 && <span className="myproj-late">지연 {lateSum}</span>}
         {open && (
           <span className="myproj-filter" role="group" aria-label="프로젝트 거르기">
-            {(["전체", "진행", "기획", "NIC", "지연"] as PF[]).map((f) => (
+            {(["전체", "진행", "문의", "NIC", "지연"] as PF[]).map((f) => (
               <button key={f} type="button" className={`mf-${f}${filter === f ? " on" : ""}`} onClick={() => setFilter(f)} aria-pressed={filter === f}>
                 {f} <i>{count(f)}</i>
               </button>
@@ -528,13 +528,13 @@ function MyProjects({ uid, projects, tasks, who }: { uid: string; projects: Proj
                       <div className="myproj-ctl">
                         <span className="myproj-ctl-l">진행 여부</span>
                         <span className="myproj-seg" role="group" aria-label="진행 여부">
-                          {(["기획", "진행", "NIC", "보류"] as const).map((x) => (
+                          {(["문의", "진행", "NIC", "보류"] as const).map((x) => (
                             <button
                               key={x}
                               type="button"
                               className={`sg-${x}${p.status === x ? " on" : ""}`}
                               aria-pressed={p.status === x}
-                              title={x === "기획" ? "검토 · 제안 중" : x === "진행" ? "수주 · 진행 중" : x === "NIC" ? "NIC (진행 여부 미정)" : "보류 (진행 안 함 · 목록에서 빠짐)"}
+                              title={x === "문의" ? "문의 · 검토 · 제안 중" : x === "진행" ? "수주 · 진행 중" : x === "NIC" ? "NIC (진행 여부 미정)" : "보류 (진행 안 함 · 목록에서 빠짐)"}
                               onClick={() => p.status !== x && save(p, { status: x }, `'${p.name}' → ${x}`)}
                             >
                               {x}

@@ -1,5 +1,7 @@
 import { createDemoSalesStrategyApi } from './salesStrategyApi'
 import { createDemoDesignApi } from './designApi'
+import { createDemoIlwiApi } from './ilwiApi'
+import { createDemoGovApi } from './govApi'
 import { createDemoCollabApi } from './collabApi'
 import { createDemoSalesReportApi } from './salesReport'
 import { createDemoGrowthApi } from './growthApi'
@@ -8,6 +10,7 @@ import { approvalSummary, researchSummary } from './reportReads'
 import { searchDemoProspectingClients } from './prospectingClientSearch'
 import { createDemoMarketingApi } from './marketingApi'
 import { desktop } from './desktop'
+import { DEMO_INTERVIEW_QUESTIONS, type BankQuestion, type InterviewForm } from './interviewForms'
 import type { MaterialMove, MaterialStockRow, SalesInterview, SlackLink, SlackMessage } from './types'
 import { ApiError, groupIps, type Api, type DriveFolder, type ImportResult, type MessageEvent } from './api'
 import { addDays, nextMonday, toDateKey, todayKey } from './date'
@@ -242,7 +245,7 @@ function seed(): Store {
   })
   const objetWeek = pj("성수 팝업 '오브제 위크'", objet, '팝업', '진행', U.haneul, -2, 14, '서울 성동구 성수동', '오브제랩 브랜드 팝업 운영 · 현장 사진 · 철수')
   const autumn = pj('가을 시즌 인스타 캠페인', loop, '캠페인', '진행', U.doyun, -11, 19, null, '릴스 6편 + 피드 12장')
-  const weekly = pj('주간 핫 마케팅 3주차', null, '콘텐츠', '기획', U.seoyeon, 1, 7)
+  const weekly = pj('주간 핫 마케팅 3주차', null, '콘텐츠', '문의', U.seoyeon, 1, 7)
   const paper = pj("연남 팝업 '페이퍼 마켓'", high, '팝업', 'NIC', U.seoyeon, 21, 34, '서울 마포구 연남동')
   const yeouido = pj('여의도 팝업 리뷰 콘텐츠', green, '콘텐츠', '완료', U.haneul, -20, -7)
   const hannam = pj('한남 플래그십 인테리어', objet, '팝업', '진행', U.admin, -35, 120, '서울 용산구 한남동', '브랜드 플래그십 매장 설계 · 시공 (협력사 협업)')
@@ -496,6 +499,9 @@ function seed(): Store {
 export function createDemoApi(): Api {
   // 서면 인터뷰는 체험 모드에 자료를 두지 않음 (대표 지시 '목업은 올리지 마') · 새로 추가한 것만 창이 열린 동안 보관
   let demoInterviews: SalesInterview[] = []
+  // 인터뷰지: 체험 모드에는 질문 은행 기본 문안만 둔다 (브랜드 자료 없음)
+  let demoQuestions: BankQuestion[] = DEMO_INTERVIEW_QUESTIONS.map(q => ({ ...q }))
+  let demoForms: InterviewForm[] = []
   let store: Store
   try {
     const raw = localStorage.getItem(KEY)
@@ -668,6 +674,8 @@ export function createDemoApi(): Api {
     ...createDemoSalesApi(meProfile),
     ...createDemoSalesStrategyApi(),
     ...createDemoDesignApi(),
+    ...createDemoIlwiApi(),
+    ...createDemoGovApi(),
     ...createDemoCollabApi(),
     ...createDemoSalesReportApi(),
     ...createDemoGrowthApi(meProfile, createDemoSalesApi(meProfile)),
@@ -782,7 +790,7 @@ export function createDemoApi(): Api {
         p = { ...p, division: div, code: `${base}${String(n).padStart(2, '0')}` }
       }
       if (p.start_date && p.end_date && p.end_date < p.start_date) throw new ApiError('종료일이 시작일보다 빠릅니다.')
-      return upsert<'projects', Project>('projects', p, () => ({ ...base(), name: '', client_id: null, category: '팝업', status: '기획', owner_id: null, start_date: null, end_date: null, location: null, description: null }) as Project)
+      return upsert<'projects', Project>('projects', p, () => ({ ...base(), name: '', client_id: null, category: '팝업', status: '문의', owner_id: null, start_date: null, end_date: null, location: null, description: null }) as Project)
     },
     async deleteProject(id) {
       del('projects', id, isAdmin)
@@ -1835,7 +1843,7 @@ export function createDemoApi(): Api {
       } catch {
         bytes = 0
       }
-      return { db_size_bytes: 8_400_000 + bytes, active_members: store.profiles.filter(p => p.active).length, tables, generated_at: now() }
+      return { db_size_bytes: 8_400_000 + bytes, storage_bytes: 0, connections: 1, max_connections: 60, active_members: store.profiles.filter(p => p.active).length, tables, generated_at: now() }
     },
     async listAiAgents() {
       requireMe()
@@ -2033,6 +2041,30 @@ export function createDemoApi(): Api {
         created_at: prev?.created_at ?? now, ...draft, emails, updated_at: now,
       }
       demoInterviews = prev ? demoInterviews.map(r => (r.id === row.id ? row : r)) : [row, ...demoInterviews]
+      return row
+    },
+    async listInterviewQuestions() {
+      return demoQuestions.map(q => ({ ...q }))
+    },
+    async saveInterviewQuestion(id, draft) {
+      const row: BankQuestion = { ...draft, id: id ?? uid() }
+      if (row.is_default && row.active) demoQuestions = demoQuestions.map(q => (q.slot === row.slot ? { ...q, is_default: false } : q))
+      demoQuestions = id ? demoQuestions.map(q => (q.id === id ? row : q)) : [...demoQuestions, row]
+      return row
+    },
+    async getInterviewForm(interviewId) {
+      return demoForms.find(f => f.interview_id === interviewId) ?? null
+    },
+    async saveInterviewForm(interviewId, patch) {
+      const now = new Date().toISOString()
+      const prev = demoForms.find(f => f.interview_id === interviewId)
+      const row: InterviewForm = {
+        id: uid(), interview_id: interviewId, token: Array.from({ length: 36 }, () => '0123456789abcdef'[Math.floor(Math.random() * 16)]).join(''),
+        title: '', intro: '', due_on: null, upload_on: null, questions: [], status: '작성 중', opened_at: null, first_seen_at: null, submitted_at: null,
+        answers: {}, respondent: null, respondent_contact: null, image_consent: null, ...prev, ...patch, updated_at: now,
+      }
+      if (patch.status === '열림' && !row.opened_at) row.opened_at = now
+      demoForms = prev ? demoForms.map(f => (f.id === row.id ? row : f)) : [...demoForms, row]
       return row
     },
     async listMailFilesByThreads() {

@@ -26,7 +26,7 @@ export function ProjectCards({ projects, tasks, scroll = false, limit }: { proje
         const late = left.filter(t => t.due_date && t.due_date < today).length
         const start = p.start_date
         const end = p.end_date ?? p.start_date
-        const label = p.status !== '진행' && p.status !== '기획' ? p.status : !end ? '기간 미정' : today > end ? `종료 후 ${days(end, today)}일` : today < (start ?? end) ? `시작 D-${days(today, start ?? end)}` : `종료 D-${days(today, end)}`
+        const label = p.status !== '진행' && p.status !== '문의' ? p.status : !end ? '기간 미정' : today > end ? `종료 후 ${days(end, today)}일` : today < (start ?? end) ? `시작 D-${days(today, start ?? end)}` : `종료 D-${days(today, end)}`
         const prog = start && end && end > start ? Math.max(0, Math.min(100, (days(start, today) / days(start, end)) * 100)) : null
         const cover = broken[p.id] ? undefined : covers.data[p.id]
         return (

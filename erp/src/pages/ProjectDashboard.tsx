@@ -98,7 +98,7 @@ function AdminKpis({ projects, fin, money, today }: { projects: Project[]; fin: 
         <span className="t-cap">진행 프로젝트</span>
         <span className="v">{count('진행')}</span>
         <span className="sub">
-          상담협의 {count('상담협의')} · 기획 {count('기획')} · NIC {count('NIC')} · 보류 {count('보류')}
+          상담협의 {count('상담협의')} · 문의 {count('문의')} · NIC {count('NIC')} · 보류 {count('보류')}
         </span>
       </button>
       <div className="kpi">
@@ -145,7 +145,7 @@ function MemberKpis({ projects, tasks, today }: { projects: Project[]; tasks: Ta
         <span className="t-cap">진행 프로젝트</span>
         <span className="v">{projects.filter(p => p.status === '진행').length}</span>
         <span className="sub">
-          기획 {projects.filter(p => p.status === '기획').length} · NIC {projects.filter(p => p.status === 'NIC').length}
+          문의 {projects.filter(p => p.status === '문의').length} · NIC {projects.filter(p => p.status === 'NIC').length}
         </span>
       </button>
       <button type="button" className="kpi" onClick={() => navigate('/projects?view=mine')}>
@@ -162,7 +162,7 @@ function MemberKpis({ projects, tasks, today }: { projects: Project[]; tasks: Ta
   )
 }
 
-const STATUS_COLOR: Record<Project['status'], string> = { 상담협의: 'var(--yellow)', 진행: 'var(--blue)', 기획: 'var(--green)', NIC: 'var(--red)', 완료: 'var(--pink)', 보류: 'var(--gray)' }
+const STATUS_COLOR: Record<Project['status'], string> = { 상담협의: 'var(--yellow)', 진행: 'var(--blue)', 문의: 'var(--green)', NIC: 'var(--red)', 완료: 'var(--pink)', 보류: 'var(--gray)' }
 
 /** 수주 현황: 상태별 프로젝트 수 + (관리자) 월별 수주액 = 프로젝트 시작 월 기준 계약액(공급가) */
 function Orders({ projects, money, today, admin }: { projects: Project[]; money: Map<string, ReturnType<typeof projectMoney>>; today: string; admin: boolean }) {
@@ -183,7 +183,7 @@ function Orders({ projects, money, today, admin }: { projects: Project[]; money:
         <span className="t-bodyb">수주 현황</span>
         <span className="cap">{admin ? '수주액 = 프로젝트 시작 월의 계약액 (부가세 포함)' : '상태별 프로젝트 수'}</span>
       </div>
-      <StackBar label="상태별 프로젝트" parts={(['상담협의', '진행', '기획', 'NIC', '완료', '보류'] as const).map(s => ({ key: s, label: s, value: projects.filter(p => p.status === s).length, color: STATUS_COLOR[s] }))} />
+      <StackBar label="상태별 프로젝트" parts={(['상담협의', '진행', '문의', 'NIC', '완료', '보류'] as const).map(s => ({ key: s, label: s, value: projects.filter(p => p.status === s).length, color: STATUS_COLOR[s] }))} />
       {admin && (
         <>
           <div className="row wrap gap-12">
@@ -205,7 +205,7 @@ function Orders({ projects, money, today, admin }: { projects: Project[]; money:
 function ProgressBoard({ projects, tasks, today }: { projects: Project[]; tasks: Task[]; today: string }) {
   const { profileName } = useApp()
   const rows = projects
-    .filter(p => p.status === '진행' || p.status === '기획' || p.status === '상담협의' || p.status === 'NIC')
+    .filter(p => p.status === '진행' || p.status === '문의' || p.status === '상담협의' || p.status === 'NIC')
     .map(p => {
       const ts = tasks.filter(t => t.project_id === p.id)
       const done = ts.filter(t => t.status === '완료').length
@@ -233,7 +233,7 @@ function ProgressBoard({ projects, tasks, today }: { projects: Project[]; tasks:
         <span className="cap">파랑 막대 = 업무 완료율 · 회색 눈금 = 일정 경과율 (완료율이 15%p 이상 뒤지면 뒤처짐)</span>
       </div>
       {rows.length === 0 ? (
-        <Empty>진행 · 기획 중인 프로젝트가 없습니다.</Empty>
+        <Empty>진행 · 문의 중인 프로젝트가 없습니다.</Empty>
       ) : (
         <div className="div-cards progress-cards">
           {groups.map(g => (
@@ -315,7 +315,7 @@ function OwnerProgress({ projects, tasks, money, today }: { projects: Project[];
       return {
         p,
         진행: owned.filter(x => x.status === '진행').length,
-        기획: owned.filter(x => x.status === '기획').length,
+        문의: owned.filter(x => x.status === '문의').length,
         완료: owned.filter(x => x.status === '완료').length,
         total: mine.length,
         done,
@@ -323,7 +323,7 @@ function OwnerProgress({ projects, tasks, money, today }: { projects: Project[];
         contract: owned.filter(x => x.status !== '보류' && x.status !== 'NIC').reduce((n, x) => n + (money.get(x.id)?.contract ?? 0), 0),
       }
     })
-    .filter(r => r.진행 + r.기획 + r.완료 + r.total > 0)
+    .filter(r => r.진행 + r.문의 + r.완료 + r.total > 0)
   return (
     <section className="section" aria-label="담당자별 진행상황">
       <div className="section-h">
@@ -339,7 +339,7 @@ function OwnerProgress({ projects, tasks, money, today }: { projects: Project[];
               <tr>
                 <th>담당</th>
                 <th className="num">진행</th>
-                <th className="num">기획</th>
+                <th className="num">문의</th>
                 <th className="num">완료</th>
                 <th style={{ minWidth: 150 }}>할 일 완료율</th>
                 <th className="num">지연</th>
@@ -360,7 +360,7 @@ function OwnerProgress({ projects, tasks, money, today }: { projects: Project[];
                       </span>
                     </td>
                     <td className="num">{r.진행}</td>
-                    <td className="num">{r.기획}</td>
+                    <td className="num">{r.문의}</td>
                     <td className="num">{r.완료}</td>
                     <td>
                       <span className="row" style={{ gap: 8 }}>
@@ -385,7 +385,7 @@ function OwnerProgress({ projects, tasks, money, today }: { projects: Project[];
 
 function Profitability({ projects, money }: { projects: Project[]; money: Map<string, ReturnType<typeof projectMoney>> }) {
   const { profileName } = useApp()
-  const order: Record<Project['status'], number> = { 진행: 0, 기획: 1, 상담협의: 2, NIC: 3, 완료: 4, 보류: 5 }
+  const order: Record<Project['status'], number> = { 진행: 0, 문의: 1, 상담협의: 2, NIC: 3, 완료: 4, 보류: 5 }
   const rows = projects
     .filter(p => money.get(p.id)?.contract != null && p.status !== '보류' && p.status !== 'NIC')
     .sort((a, b) => order[a.status] - order[b.status] || (a.end_date ?? '').localeCompare(b.end_date ?? ''))

@@ -866,7 +866,7 @@ function PricesTab({ base }: { base: DesignBase }) {
           </table></div>)}
       </>}
       {kind === 'g2b' ? null : kind === 'ref'
-        ? <p className="t-cap">조달청 가격정보(시설자재 · 시장시공가격)와 조명 시중 판매가 {refs.total.toLocaleString('ko-KR')}건{refs.total > refs.rows.length ? ` 중 ${refs.rows.length}건` : ''} · 품목 · 규격 · 단위마다 기호가 하나씩 붙어 있고, 가격이 새로 고시돼도 기호는 그대로입니다. 수량표의 '물가 기준에서 찾아 넣기'에 기호나 이름을 넣어 씁니다. 부가세 별도 · 우리 단가는 바꾸지 않습니다.</p>
+        ? <p className="t-cap">조달청 가격정보(시설자재 · 시장시공가격) · 나라장터 쇼핑몰 계약 단가(건자재 · 조명) · 조명 시중 판매가 {refs.total.toLocaleString('ko-KR')}건{refs.total > refs.rows.length ? ` 중 ${refs.rows.length}건` : ''} · 품목 · 규격 · 단위마다 기호가 하나씩 붙어 있고, 가격이 새로 고시돼도 기호는 그대로입니다. 수량표의 '물가 기준에서 찾아 넣기'에 기호나 이름을 넣어 씁니다. 부가세 별도 · 우리 단가는 바꾸지 않습니다.</p>
         : <p className="t-cap">{count >= 400 ? '400건까지만 보입니다. 공종이나 낱말로 좁혀 보세요.' : `${count}건`} · 견적에는 '승인'된 단가 중 가장 최근 것만 쓰입니다.{kind === 'sell' && matches.length > 0 ? ` · 물가 기준과 견준 것 ${matches.length}건` : ''}</p>}
       {kind === 'g2b' ? null : kind === 'ref' ? (refs.rows.length === 0 ? <Empty>아직 받은 물가 기준이 없습니다. 조달청 가격정보를 받는 대로 여기에 쌓입니다.</Empty> : (
         <div className="table-wrap"><table className="table">

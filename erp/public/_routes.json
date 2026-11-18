@@ -4,7 +4,8 @@
     "/api/seoul-events",
     "/api/prospect-events",
     "/c",
-    "/c/*"
+    "/c/*",
+    "/i/*"
   ],
   "exclude": []
 }

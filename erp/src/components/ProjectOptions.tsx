@@ -3,7 +3,7 @@ import { DIVISIONS, DIVISION_KEYS, projectBrand, type Division, type Project } f
 type P = Pick<Project, 'id' | 'name'> & Partial<Pick<Project, 'code' | 'division' | 'status'>>
 const DONE = new Set(['완료', '보류'])
 /** 상태 순서: 진행 → 기획 → NIC(계약 전) → 완료 → 보류 · 그 밖은 맨 뒤 (대표 지시 2026-11-18 '프로젝트 구분') */
-const STATUS_ORDER = ['진행', '기획', '상담협의', 'NIC', '완료', '보류']
+const STATUS_ORDER = ['진행', '문의', '상담협의', 'NIC', '완료', '보류']
 const statusRank = (s?: string | null) => { const i = STATUS_ORDER.indexOf(s ?? ''); return i < 0 ? STATUS_ORDER.length : i }
 
 /** 구분(아트리어 · 더위클리 · 내부 리서치)별로 묶고, 진행 중 먼저 · 연번 순으로 정렬 */

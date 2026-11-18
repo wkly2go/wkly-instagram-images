@@ -1,5 +1,8 @@
+import type { BankQuestion, BankQuestionDraft, InterviewForm, InterviewFormPatch } from './interviewForms'
 import type { SalesStrategyApi } from './salesStrategy'
 import type { DesignApi } from './design'
+import type { IlwiApi } from './ilwi'
+import type { GovApi } from './gov'
 import type { CollabApi } from './collabApi'
 import type { SalesReportApi } from './salesReport'
 import type { GrowthApi } from './growth'
@@ -176,7 +179,7 @@ export type AgentDraft = { agent_id: string; seq: number; text: string; status: 
  * - supabaseApi: 실제 운영 (Supabase)
  * - demoApi: 환경변수가 없을 때 브라우저 저장소로 동작하는 체험판
  */
-export interface Api extends SalesStrategyApi, SalesApi, GrowthApi, SalesReportApi, DesignApi, CollabApi {
+export interface Api extends SalesStrategyApi, SalesApi, GrowthApi, SalesReportApi, DesignApi, IlwiApi, GovApi, CollabApi {
   mode: 'supabase' | 'demo'
 
   // 인증
@@ -445,6 +448,12 @@ export interface Api extends SalesStrategyApi, SalesApi, GrowthApi, SalesReportA
   /** 서면 인터뷰 (더위클리 팝업 큐레이션 · 영업·수주) */
   listInterviews(): Promise<SalesInterview[]>
   saveInterview(id: string | null, draft: SalesInterviewDraft): Promise<SalesInterview>
+  /** 인터뷰지 (구글 폼 대신 · lib/interviewForms.ts): 질문 은행과 브랜드별 인터뷰지 한 부 */
+  listInterviewQuestions(): Promise<BankQuestion[]>
+  saveInterviewQuestion(id: string | null, draft: BankQuestionDraft): Promise<BankQuestion>
+  getInterviewForm(interviewId: string): Promise<InterviewForm | null>
+  /** 없으면 만들고 있으면 고친다. status '열림' 은 처음 열 때 opened_at 을 남긴다 */
+  saveInterviewForm(interviewId: string, patch: InterviewFormPatch): Promise<InterviewForm>
   /** 메일 대화에 붙은 받은 자료 (수신방 드라이브 파일) */
   listMailFilesByThreads(threadIds: string[]): Promise<Pick<MailFile, 'id' | 'name' | 'drive_url' | 'sent_at' | 'thread_id' | 'kind'>[]>
   listAdDaily(from: string, to: string): Promise<AdDaily[]>

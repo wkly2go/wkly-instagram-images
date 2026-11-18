@@ -12,33 +12,40 @@ export const COLLAB_PAGE_HEADERS: Record<string, string> = {
   'X-Content-Type-Options': 'nosniff',
 }
 
-const HEAD_EXTRA = [
-  '<meta name="robots" content="noindex, nofollow" />',
-  '<meta name="referrer" content="no-referrer" />',
-  `<meta property="og:title" content="${COLLAB_PAGE_TITLE}" />`,
-  `<meta property="og:description" content="${COLLAB_PAGE_DESC}" />`,
-  '<meta property="og:type" content="website" />',
-].join('\n    ')
+export interface PublicPage { title: string; desc: string; appTitle: string }
+const COLLAB_PAGE: PublicPage = { title: COLLAB_PAGE_TITLE, desc: COLLAB_PAGE_DESC, appTitle: '협업방' }
+/** 인터뷰지 주소(/i/…) — 브랜드 담당자가 받는 링크. 같은 방식으로 제목 · 미리보기 글만 바꾼다 (functions/i) */
+export const INTERVIEW_PAGE: PublicPage = { title: '서면 인터뷰 · 더위클리', desc: '더위클리(THE WKLY) 팝업 큐레이션 콘텐츠를 위한 서면 인터뷰지입니다.', appTitle: '서면 인터뷰' }
 
-/** index.html → 협업방용 (제목 · 설명 · 미리보기 글 바꾸고 앱 설치 정보는 뺌) */
-export function collabPageHtml(html: string): string {
+/** index.html → 외부인용 (제목 · 설명 · 미리보기 글 바꾸고 앱 설치 정보는 뺌) */
+export function publicPageHtml(html: string, page: PublicPage): string {
+  const extra = [
+    '<meta name="robots" content="noindex, nofollow" />',
+    '<meta name="referrer" content="no-referrer" />',
+    `<meta property="og:title" content="${page.title}" />`,
+    `<meta property="og:description" content="${page.desc}" />`,
+    '<meta property="og:type" content="website" />',
+  ].join('\n    ')
   return html
-    .replace(/<title>[\s\S]*?<\/title>/i, `<title>${COLLAB_PAGE_TITLE}</title>`)
-    .replace(/<meta\s+name="description"[^>]*>/i, `<meta name="description" content="${COLLAB_PAGE_DESC}" />`)
-    .replace(/<meta\s+name="apple-mobile-web-app-title"[^>]*>/i, `<meta name="apple-mobile-web-app-title" content="협업방" />`)
+    .replace(/<title>[\s\S]*?<\/title>/i, `<title>${page.title}</title>`)
+    .replace(/<meta\s+name="description"[^>]*>/i, `<meta name="description" content="${page.desc}" />`)
+    .replace(/<meta\s+name="apple-mobile-web-app-title"[^>]*>/i, `<meta name="apple-mobile-web-app-title" content="${page.appTitle}" />`)
     .replace(/<link\s+rel="manifest"[^>]*>\s*/i, '')
-    .replace(/<\/head>/i, `  ${HEAD_EXTRA}\n  </head>`)
+    .replace(/<\/head>/i, `  ${extra}\n  </head>`)
 }
+/** index.html → 협업방용 */
+export const collabPageHtml = (html: string): string => publicPageHtml(html, COLLAB_PAGE)
 
 interface Assets {
   fetch(request: Request): Promise<Response>
 }
 
 /** GET · HEAD 만 바꿔 줌 · 그 밖은 null (원래 처리로) */
-export async function collabPageResponse(request: Request, assets: Assets): Promise<Response | null> {
+export async function publicPageResponse(request: Request, assets: Assets, page: PublicPage): Promise<Response | null> {
   if (request.method !== 'GET' && request.method !== 'HEAD') return null
-  const page = await assets.fetch(new Request(new URL('/', request.url)))
-  if (!page.ok) return null
-  const html = collabPageHtml(await page.text())
+  const res = await assets.fetch(new Request(new URL('/', request.url)))
+  if (!res.ok) return null
+  const html = publicPageHtml(await res.text(), page)
   return new Response(request.method === 'HEAD' ? null : html, { status: 200, headers: COLLAB_PAGE_HEADERS })
 }
+export const collabPageResponse = (request: Request, assets: Assets): Promise<Response | null> => publicPageResponse(request, assets, COLLAB_PAGE)

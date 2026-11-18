@@ -4476,7 +4476,7 @@ body.dock-resizing iframe { pointer-events: none; }
 .myproj-seg button:hover:not(.on) { color: var(--blue); border-color: var(--blue); position: relative; }
 .myproj-seg button.on { font-weight: 700; color: #fff; position: relative; }
 .myproj-seg .sg-진행.on { background: var(--blue); border-color: var(--blue); }
-.myproj-seg .sg-기획.on { background: #2f6fd6; border-color: #2f6fd6; }
+.myproj-seg .sg-문의.on { background: #2f6fd6; border-color: #2f6fd6; }
 .myproj-seg .sg-NIC.on { background: #ffd659; border-color: #e0a800; color: #5a3d00; }
 .myproj-seg .sg-보류.on { background: #8a8a83; border-color: #8a8a83; }
 .myproj-ctl .select:first-of-type { flex: 1 1 90px; }
