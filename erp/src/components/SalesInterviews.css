@@ -83,3 +83,24 @@
   .sales-iv-edit .grid2 { grid-template-columns: minmax(0, 1fr); }
   .sales-iv-bar .input { flex: 1 1 100%; }
 }
+
+/* 광고·콘텐츠 › 인터뷰 피드 (제작 대기열) */
+.sales-iv-feedpage h3 { margin: 18px 0 6px; font-size: var(--fs-sub); }
+.sales-iv-feedpage h3 small { color: var(--gray); font-weight: 400; }
+.sales-iv-feedlist { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.sales-iv-feed { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: var(--white); }
+.sales-iv-feed.open { background: #f7faf7; }
+.sales-iv-feed .head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.sales-iv-feed .head .what { flex: 1 1 200px; min-width: 0; color: var(--gray); }
+.sales-iv-feed .facts { display: grid; gap: 2px; margin: 8px 0 0; }
+.sales-iv-feed .facts > div { display: grid; grid-template-columns: 84px 1fr; gap: 8px; }
+.sales-iv-feed .facts dt { color: var(--gray); }
+.sales-iv-feed .facts dd { margin: 0; white-space: pre-line; overflow-wrap: anywhere; line-height: 1.6; }
+.sales-iv-feed .input.post { flex: 1 1 200px; min-width: 160px; }
+.sales-iv-feeddetail { margin-top: 10px; }
+.sales-iv-qa-list { display: grid; gap: 10px; margin: 10px 0 0; }
+.sales-iv-qa-list dt { font-weight: 700; }
+.sales-iv-qa-list dd { margin: 4px 0 0; white-space: pre-line; line-height: 1.7; overflow-wrap: anywhere; }
+.sales-iv-list .sales-iv-row.static { cursor: default; }
+a.sales-iv-row { text-decoration: none; }
+@media (max-width: 700px) { .sales-iv-feed .facts > div { grid-template-columns: 1fr; gap: 0; } }

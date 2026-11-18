@@ -14,6 +14,10 @@ const SOURCES = [
   { source: 'pps_mrkt_bildng', name: '조달청 시장시공가격(건축)', op: 'getPriceInfoListMrktCnstrctPcBildng' },
   { source: 'pps_mtril_elcty', name: '조달청 시설자재(전기·통신)', op: 'getPriceInfoListFcltyCmmnMtrilElctyIrmc' },
   { source: 'pps_mrkt_mchn', name: '조달청 시장시공가격(기계설비)', op: 'getPriceInfoListMrktCnstrctPcMchnEqp' },
+  // 2026-11-18 대표 지시 '모든 물가정보를 인트라넷에 저장': 가격정보현황서비스의 나머지 세 묶음
+  { source: 'pps_mtril_mchn', name: '조달청 시설자재(기계설비)', op: 'getPriceInfoListFcltyCmmnMtrilMchnEqp' },
+  { source: 'pps_mtril_engrk', name: '조달청 시설자재(토목)', op: 'getPriceInfoListFcltyCmmnMtrilEngrk' },
+  { source: 'pps_mrkt_engrk', name: '조달청 시장시공가격(토목)', op: 'getPriceInfoListMrktCnstrctPcEngrk' },
 ]
 const ROWS = 500
 const BUDGET_MS = 100_000

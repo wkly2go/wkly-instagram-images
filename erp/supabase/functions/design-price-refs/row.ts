@@ -14,7 +14,9 @@ export function toRow(it: Item) {
   const parts = [material, labor, expense].filter((x): x is number => x !== null)
   const price = n(it.prce) ?? (parts.length ? parts.reduce((a, b) => a + b, 0) : null)
   const region = s(it.splyJrsdctRgnNm)
-  const id = s(it.prdctIdntNo) || s(it.qtyCalcCtyclcd) || s(it.netRsceCd) || `${item}|${spec}`
+  // 시장시공가격은 식별번호가 비거나 '0' 이다 — 그대로 쓰면 단위가 같은 줄끼리 덮어쓰므로 품명 · 규격으로 구분한다
+  const real = (v: unknown) => { const t = s(v); return /^0*$/.test(t) ? '' : t }
+  const id = real(it.prdctIdntNo) || real(it.qtyCalcCtyclcd) || real(it.netRsceCd) || `${item}|${spec}`
   if (!item || price === null) return null
   return {
     ref_key: [id, region, s(it.unit)].join('|').slice(0, 300),

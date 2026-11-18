@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
 import {
   ACTIVE_STAGES, DRAFT_KEYS, INTERVIEW_QUESTIONS, answersFromPaste, byUpload, cleanDraft, daysBetween, emptyInterview, fromLocalInput,
-  mailSignal, materialStatus, mdWithDay, toLocalInput, todayKst, uploadConflicts, validateInterview,
+  interviewContentText, mailSignal, materialStatus, mdWithDay, toLocalInput, todayKst, uploadConflicts, validateInterview,
 } from '../src/lib/interviews.ts'
 
 const TODAY = '2026-11-18'
@@ -111,4 +111,43 @@ test('the screen sends no mail and keeps the sheet tabs', async () => {
   for (const label of ['진행 현황', '업로드 일정', '발송 전체', '인터뷰 답', '영업 정보']) assert.ok(src.includes(`'${label}'`), label)
   const page = await readFile(new URL('../src/pages/Sales.tsx', import.meta.url), 'utf8')
   assert.ok(page.indexOf('<SalesInquiries />') < page.indexOf('<SalesInterviews />'))
+})
+
+test('content drafts never carry the internal answers (budget, partner criteria)', () => {
+  const r = {
+    brand: '덴티스테', event_name: '미니무비 촬영소', venue: '홍대 프로타주 갤러리 · 11/6~11/29', note: '태그 @luvdentiste. 게시 전 초안 확인 요청.',
+    answers: { Q1: '피부과 전문의와 만든 브랜드입니다. 두 번째 문장입니다.', Q3: '5,000만원 이상', Q4: '포토존을 가장 크게 두었습니다.', Q10: '파트너는 IP 이해도를 봅니다.' },
+  }
+  const t = interviewContentText(r)
+  for (const text of [t.original, t.instagram, t.blog]) {
+    assert.ok(!text.includes('5,000만원'), 'budget stays internal')
+    assert.ok(!text.includes('IP 이해도'), 'partner criteria stay internal')
+  }
+  assert.ok(t.original.includes('포토존을 가장 크게'))
+  assert.ok(t.instagram.includes('@luvdentiste'))
+  assert.ok(t.instagram.startsWith('[더위클리 팝업 큐레이션] 덴티스테'))
+  assert.equal(t.title, '[인터뷰 피드] 덴티스테 · 미니무비 촬영소')
+  assert.ok(t.tags.includes('#덴티스테'))
+  assert.ok(!/\n\n\n/.test(t.instagram), 'no double blank lines')
+  const empty = interviewContentText({ brand: '빈 브랜드', event_name: null, venue: null, note: null, answers: {} })
+  assert.ok(empty.original.length > 0, 'the content item always has an original text')
+})
+
+test('interview feed: prospects once, content link, tab in ads', async () => {
+  const sql = await readFile(new URL('../supabase/migrations/20261118161500_sales_interview_feed.sql', import.meta.url), 'utf8')
+  const code = sql.replace(/--.*$/gm, '')
+  assert.ok(code.includes('add column if not exists content_id uuid references public.growth_items (id) on delete set null'))
+  assert.ok(code.includes("'서면 인터뷰', s.id::text"))
+  assert.ok(code.includes('on conflict (source, source_key) do nothing'))
+  assert.ok(code.includes("s.stage not in ('불가', '보류')"))
+  assert.ok(!/\bdrop\s+(table|function|trigger|policy|column)\b/i.test(code))
+  assert.ok(!/net\.http_|send_message|gmail/i.test(code))
+  assert.ok(code.includes("('interview_prospects', '서면 인터뷰 → 영업 후보', 'private.sales_interview_prospects()', 10, 10, true)"))
+  const ads = await readFile(new URL('../src/pages/Ads.tsx', import.meta.url), 'utf8')
+  assert.ok(ads.includes("['interview', '인터뷰 피드']") && ads.includes("tabs: ['content', 'interview']"))
+  const feed = await readFile(new URL('../src/components/InterviewFeed.tsx', import.meta.url), 'utf8')
+  assert.ok(feed.includes('interviewContentText(r)'))
+  assert.ok(!/functions\.invoke|runGrowthAi|fetch\(|mailto:/i.test(feed), 'no AI calls or mail from the feed')
+  const growth = await readFile(new URL('../src/components/GrowthWorkspace.tsx', import.meta.url), 'utf8')
+  assert.ok(growth.includes("router.query.get('item')"))
 })

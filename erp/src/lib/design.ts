@@ -134,6 +134,8 @@ export interface UnitPrice {
   approved: boolean
 }
 /** 물가 기준 단가 (조달청 가격정보 · design.price_refs) */
+/** 물가 기준 묶음 — 기호 앞 두 글자 */
+export const PRICE_REF_GROUPS: [string, string][] = [['BM', '건축 자재'], ['EM', '전기·통신 자재'], ['MM', '기계설비 자재'], ['CM', '토목 자재'], ['BC', '건축 시공'], ['MC', '기계설비 시공'], ['CC', '토목 시공'], ['LT', '조명 (시중 판매가)']]
 export interface PriceRef {
   id: number
   source_name: string
@@ -147,6 +149,10 @@ export interface PriceRef {
   expense: number | null
   region: string
   notice_date: string | null
+  /** 기호 (예: BM053-015) — 품목 · 규격 · 단위마다 하나, 가장 최근 고시 줄에만 붙는다 */
+  code?: string | null
+  source?: string
+  unit_std?: string
 }
 export interface PriceRefSuggestion { ref_id: number; source_name: string; item: string; spec: string; unit: string; price: number; material: number | null; labor: number | null; expense: number | null; notice_date: string | null; score: number }
 export interface PriceRefMatch { unit_price_id: string; ref_id: number; score: number; source_name: string; item: string; spec: string; unit: string; price: number; notice_date: string | null }
@@ -286,7 +292,8 @@ export interface DesignApi {
   deleteScheduleTask(id: string): Promise<void>
   listUnitPrices(search: string, trade: string | null): Promise<UnitPrice[]>
   /** 물가 기준(조달청) 목록 · 전체 건수 */
-  listPriceRefs(search: string): Promise<{ rows: PriceRef[]; total: number }>
+  /** 물가 기준 찾기 — 기호 · 품명 · 규격. group 은 기호 앞 두 글자(BM 등). 기호가 붙은 최신 줄만 */
+  listPriceRefs(search: string, group?: string): Promise<{ rows: PriceRef[]; total: number }>
   /** 판매 단가마다 가장 비슷한 물가 기준 (단위 같고 글 비슷함 0.3 이상) */
   comparePriceRefs(ids: string[]): Promise<PriceRefMatch[]>
   /** 견적 '단가 없음' 줄에 물가 기준 후보 3개 */

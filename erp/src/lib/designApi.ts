@@ -225,11 +225,12 @@ export function createSupabaseDesignApi(sb: SupabaseClient): DesignApi {
       fail(r.error)
       return (r.data ?? []) as UnitPrice[]
     },
-    async listPriceRefs(search) {
-      let q = sb.from('design_price_refs').select('id,source_name,category,item,spec,unit,price,material,labor,expense,region,notice_date', { count: 'exact' })
-      // 낱말마다 품명 또는 규격에 들어 있어야 함 (예: 'SUS 재료분리대')
-      for (const w of search.trim().split(/\s+/).filter(Boolean).slice(0, 4)) q = q.or(`item.ilike.${like(w)},spec.ilike.${like(w)}`)
-      const r = await q.order('item').order('notice_date', { ascending: false }).limit(400)
+    async listPriceRefs(search, group) {
+      let q = sb.from('design_price_refs').select('id,source_name,category,item,spec,unit,unit_std,price,material,labor,expense,region,notice_date,code,source', { count: 'exact' }).not('code', 'is', null)
+      if (group && /^[A-Z]{2}$/.test(group)) q = q.like('code', `${group}%`)
+      // 낱말마다 기호 · 품명 · 규격 중 하나에 들어 있어야 함 (예: 'SUS 재료분리대' · 'BM053')
+      for (const w of search.trim().split(/\s+/).filter(Boolean).slice(0, 4)) q = q.or(`item.ilike.${like(w)},spec.ilike.${like(w)},code.ilike.${like(w)}`)
+      const r = await q.order('code').limit(400)
       if (r.error && ['42P01', 'PGRST205'].includes(r.error.code ?? '')) return { rows: [], total: 0 }
       fail(r.error)
       return { rows: (r.data ?? []) as PriceRef[], total: r.count ?? 0 }
