@@ -1,17 +1,22 @@
 export interface InstagramContact { id: string; username: string }
 export interface InstagramSyncState { cursor: string | null; revision: number; last_synced_at?: string | null; last_completed_at?: string | null }
-export interface InstagramSyncConfig { accountId?: string; pageId?: string; division?: string; token?: string; version?: string; ownerId?: string; cronToken?: string }
+/** 2026-11-18: 'Instagram 로그인이 포함된 API'(graph.instagram.com · 금고 INSTAGRAM_ACCESS_TOKEN) 기준.
+ *  예전 Facebook 페이지 방식(페이지 ID · 페이지 토큰)은 우리 계정 연결 방식과 달라 운영에서 동작하지 않았음 → 계정 ID 는 /me 에서 확인 */
+export interface InstagramSyncConfig { accountId?: string; division?: string; token?: string; version?: string; ownerId?: string; cronToken?: string }
 export interface InstagramContactDeps {
  config: InstagramSyncConfig; fetch: typeof fetch
  authenticate: (authorization: string) => Promise<{id:string;active:boolean;admin:boolean}|null>
- state: (accountId:string) => Promise<InstagramSyncState>
+ /** 금고 토큰 · 담당자처럼 요청마다 읽는 설정 (없으면 config 만) */
+ loadConfig?: () => Promise<Partial<InstagramSyncConfig>>
+ /** accountId 가 null 이면 가장 최근 수집 계정 */
+ state: (accountId:string|null) => Promise<InstagramSyncState>
  commit: (accountId:string,state:InstagramSyncState,cursor:string|null,contacts:InstagramContact[],owner:string,division:string) => Promise<{inserted:number;kept:number;hasMore:boolean;revision:number}>
 }
 const headers={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'authorization,apikey,content-type,x-client-info,x-sync-token','Access-Control-Allow-Methods':'POST,OPTIONS','Content-Type':'application/json','Cache-Control':'no-store'}
 const json=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers})
 const obj=(x:unknown):Record<string,unknown>=>x&&typeof x==='object'&&!Array.isArray(x)?x as Record<string,unknown>:{}
 const id=(s:unknown):s is string=>typeof s==='string'&&/^\d{1,40}$/.test(s)
-export function instagramConfigured(c:InstagramSyncConfig){return id(c.accountId)&&id(c.pageId)&&['TW','AR'].includes(c.division??'')&&!!c.token&&!!c.version&&/^v\d+\.0$/.test(c.version)&&!!c.ownerId&&/^[a-f\d-]{36}$/i.test(c.ownerId)}
+export function instagramConfigured(c:InstagramSyncConfig){return (c.accountId==null||id(c.accountId))&&['TW','AR'].includes(c.division??'')&&!!c.token&&!!c.version&&/^v\d+\.0$/.test(c.version)&&!!c.ownerId&&/^[a-f\d-]{36}$/i.test(c.ownerId)}
 export async function boundedJson(body:ReadableStream<Uint8Array>|null,max:number):Promise<unknown>{
  if(!body)throw new Error('empty');const reader=body.getReader(),decoder=new TextDecoder('utf-8',{fatal:true});let text='',size=0
  try{for(;;){const r=await reader.read();if(r.done)break;size+=r.value.byteLength;if(size>max){await reader.cancel();throw new Error('size')}text+=decoder.decode(r.value,{stream:true})}return JSON.parse(text+decoder.decode())}finally{reader.releaseLock()}
@@ -50,25 +55,40 @@ export function createInstagramContactsHandler(deps:InstagramContactDeps){return
  }
  let body;try{body=obj(await boundedJson(req.body,2048))}catch{return json({error:'요청 형식을 확인해 주세요.'},400)}
  if(Object.keys(body).some(k=>k!=='action')||!['status','sync'].includes(String(body.action)))return json({error:'지원하지 않는 요청입니다.'},400)
- const configured=instagramConfigured(deps.config)
- if(!configured)return body.action==='status'?json({configured:false,hasMore:false,lastSyncedAt:null,lastCompletedAt:null}):json({error:'인스타그램 계정·서버 인증·담당자 설정이 필요합니다.'},503)
- const c=deps.config
- let state;try{state=await deps.state(c.accountId!)}catch{return json({error:'연락처 수집 DB 설치 상태를 확인해 주세요.'},503)}
- if(body.action==='status')return json({configured:true,hasMore:!!state.cursor,lastSyncedAt:state.last_synced_at??null,lastCompletedAt:state.last_completed_at??null})
- const url=new URL(`https://graph.facebook.com/${c.version}/${c.pageId}/conversations`)
- url.search=new URLSearchParams({platform:'instagram',fields:'id,participants',limit:'25',...(state.cursor?{after:state.cursor}:{})}).toString()
- let parsed
+ let c:InstagramSyncConfig
+ try{c={...deps.config,...(deps.loadConfig?await deps.loadConfig():{})}}catch{return json({error:'인스타그램 연결 설정을 읽지 못했습니다.'},503)}
+ if(!instagramConfigured(c))return body.action==='status'?json({configured:false,hasMore:false,lastSyncedAt:null,lastCompletedAt:null}):json({error:'인스타그램 연결(영업 › Instagram DM 연결의 접근 토큰)과 담당자 설정이 필요합니다.'},503)
+ if(body.action==='status'){
+  let st;try{st=await deps.state(c.accountId??null)}catch{return json({error:'연락처 수집 DB 설치 상태를 확인해 주세요.'},503)}
+  return json({configured:true,hasMore:!!st.cursor,lastSyncedAt:st.last_synced_at??null,lastCompletedAt:st.last_completed_at??null})
+ }
+ const base=`https://graph.instagram.com/${c.version}`,auth={Authorization:`Bearer ${c.token}`}
+ let account:string,state:InstagramSyncState,parsed
  try{
-  const identityUrl=new URL(`https://graph.facebook.com/${c.version}/${c.pageId}`)
-  identityUrl.searchParams.set('fields','instagram_business_account')
-  const identity=await deps.fetch(identityUrl,{headers:{Authorization:`Bearer ${c.token}`},redirect:'error',signal:AbortSignal.timeout(12000)})
-  if(!identity.ok)return json({error:'연결된 Facebook 페이지의 인스타그램 계정·권한을 확인해 주세요.'},identity.status===429?429:502)
-  const identityBody=obj(await boundedJson(identity.body,32768))
-  if(identityBody.error||obj(identityBody.instagram_business_account).id!==c.accountId)return json({error:'설정한 페이지와 인스타그램 업무 계정이 일치하지 않습니다.'},502)
-  const res=await deps.fetch(url,{headers:{Authorization:`Bearer ${c.token}`},redirect:'error',signal:AbortSignal.timeout(12000)})
-  if(!res.ok)return json({error:res.status===429?'인스타그램 조회 한도입니다. 잠시 후 다시 확인해 주세요.':'인스타그램 계정 권한·토큰·앱 검수 상태를 확인해 주세요.'},res.status===429?429:502)
-  parsed=parseInstagramContacts(await boundedJson(res.body,1024*1024),c.accountId!)
-  if(parsed.cursor&&parsed.cursor===state.cursor)throw new Error('repeated cursor')
+  const me=await deps.fetch(new URL(`${base}/me?fields=user_id,username`),{headers:auth,redirect:'error',signal:AbortSignal.timeout(12000)})
+  if(!me.ok)return json({error:me.status===429?'인스타그램 조회 한도입니다. 잠시 후 다시 확인해 주세요.':'인스타그램 접근 토큰 · 권한을 확인해 주세요.'},me.status===429?429:502)
+  const meBody=obj(await boundedJson(me.body,32768)),uid=meBody.user_id==null?'':String(meBody.user_id)
+  if(meBody.error||!id(uid))return json({error:'인스타그램 업무 계정을 확인하지 못했습니다.'},502)
+  if(c.accountId&&c.accountId!==uid)return json({error:'설정한 인스타그램 계정과 토큰의 계정이 일치하지 않습니다.'},502)
+  account=uid
  }catch{return json({error:'인스타그램 응답을 확인하지 못했습니다. 수집 위치는 유지됩니다.'},502)}
- try{return json(await deps.commit(c.accountId!,state,parsed.cursor,parsed.contacts,c.ownerId!,c.division!))}catch{return json({error:'후보 저장을 확인하지 못했습니다. 상태를 다시 조회한 뒤 이어서 가져와 주세요.'},409)}
+ try{state=await deps.state(account)}catch{return json({error:'연락처 수집 DB 설치 상태를 확인해 주세요.'},503)}
+ try{
+  // 인스타그램은 빈 쪽(data: [])에 다음 쪽 표시를 붙여 주기도 함 → 후보가 나올 때까지 최대 4쪽을 한 번에 읽고 마지막 위치만 저장
+  let after=state.cursor,contacts:InstagramContact[]=[],seen=new Set<string>([...(state.cursor?[state.cursor]:[])])
+  for(let page=0;page<4;page++){
+   const url=new URL(`${base}/me/conversations`)
+   url.search=new URLSearchParams({platform:'instagram',fields:'participants',limit:'25',...(after?{after}:{})}).toString()
+   const res=await deps.fetch(url,{headers:auth,redirect:'error',signal:AbortSignal.timeout(12000)})
+   if(!res.ok)return json({error:res.status===429?'인스타그램 조회 한도입니다. 잠시 후 다시 확인해 주세요.':'인스타그램 계정 권한·토큰·앱 검수 상태를 확인해 주세요.'},res.status===429?429:502)
+   const one=parseInstagramContacts(await boundedJson(res.body,1024*1024),account)
+   if(one.cursor&&seen.has(one.cursor))throw new Error('repeated cursor')
+   if(one.cursor)seen.add(one.cursor)
+   for(const x of one.contacts)if(!contacts.some(y=>y.id===x.id))contacts.push(x)
+   after=one.cursor
+   if(contacts.length||!after||contacts.length>=100)break
+  }
+  parsed={contacts:contacts.slice(0,100),cursor:after}
+ }catch{return json({error:'인스타그램 응답을 확인하지 못했습니다. 수집 위치는 유지됩니다.'},502)}
+ try{return json(await deps.commit(account,state,parsed.cursor,parsed.contacts,c.ownerId!,c.division!))}catch{return json({error:'후보 저장을 확인하지 못했습니다. 상태를 다시 조회한 뒤 이어서 가져와 주세요.'},409)}
 }}

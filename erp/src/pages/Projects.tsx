@@ -119,7 +119,7 @@ export default function Projects() {
   // 목록: 회사(AR 아트리어 · TW 더위클리) 거르기 + 정렬(연번 · 이름 · 최근)
   const brand = query.get('brand')
   const sort = query.get('sort')
-  const OPEN: ProjectStatus[] = ['진행', '기획']
+  const OPEN: ProjectStatus[] = ['진행', '기획', '상담협의']
   const shown = brand ? data.projects.filter(p => projectBrand(p) === brand) : data.projects
   const sorted = (rows: Project[]) =>
     [...rows].sort((a, b) =>
@@ -258,7 +258,7 @@ export default function Projects() {
                     {layout === 'cards' ? <ProjectCards projects={rows} tasks={data.tasks} /> : <ProjectBoard list={rows} data={data} loading={loading} onOpen={id => go({ id })} />}
                     {/* 다른 상태에 있는 이 회사 프로젝트 (2026-10-31 "아트리어 프로젝트가 이 화면에 안 보임" → 기획 · NIC · 보류 · 완료도 바로 보이게) */}
                     {(() => {
-                      const others = (['진행', '기획', 'NIC', '보류', '완료'] as ProjectStatus[])
+                      const others = (['진행', '기획', '상담협의', 'NIC', '보류', '완료'] as ProjectStatus[])
                         .filter(st => status === 'all' ? !OPEN.includes(st) : st !== status)
                         .map(st => [st, shown.filter(p => projectBrand(p) === k && p.status === st).length] as const)
                         .filter(([, n]) => n > 0)
@@ -677,7 +677,7 @@ function ProjectDetail({ project: p, data, onEdit, onBack, panel = false }: { pr
   const todoSorted = [...myTodos.filter(t => t.status !== '완료'), ...myTodos.filter(t => t.status === '완료')]
   const [todoAll, setTodoAll] = useState(false)
   const client = data.clients.find(c => c.id === p.client_id)
-  const [pickSt, setPickSt] = useState<'진행' | '기획' | 'NIC' | '보류' | '완료' | '전체'>('진행')
+  const [pickSt, setPickSt] = useState<'진행' | '기획' | '상담협의' | 'NIC' | '보류' | '완료' | '전체'>('진행')
   const pickList = data.projects.filter(x => pickSt === '전체' || x.status === pickSt).sort((a, b) => (b.code ?? '').localeCompare(a.code ?? ''))
   // 이 프로젝트에 연결된 자료는 오른쪽 칸(검색 창 자리)에 표시
   useRightPanel(panel ? null : `project:${p.id}`, '프로젝트 자료', <ProjectMaterials projectId={p.id} />)
@@ -715,7 +715,7 @@ function ProjectDetail({ project: p, data, onEdit, onBack, panel = false }: { pr
         {p.code && <span className="proj-code" style={{ background: DIVISIONS[projectBrand(p)].color }} title={DIVISIONS[projectBrand(p)].full}>{p.code}</span>}
         {/* 프로젝트 고르기 (대표 지시 2026-11-11): 이름을 누르면 '진행' 프로젝트만, 다른 상태는 옆 드롭다운으로 바꿔서 */}
         <select className="proj-scope" value={pickSt} onChange={e => setPickSt(e.target.value as typeof pickSt)} aria-label="고를 프로젝트 상태" title="이름 목록에 나올 프로젝트 상태">
-          {(['진행', '기획', 'NIC', '보류', '완료', '전체'] as const).map(st => (
+          {(['진행', '기획', '상담협의', 'NIC', '보류', '완료', '전체'] as const).map(st => (
             <option key={st} value={st}>
               {st} {st === '전체' ? data.projects.length : data.projects.filter(x => x.status === st).length}
             </option>

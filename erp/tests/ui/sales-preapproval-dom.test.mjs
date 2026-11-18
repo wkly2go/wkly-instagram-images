@@ -51,7 +51,7 @@ test('preapproval shows connected targets and prepared materials before enabling
     api.decideSalesStrategy=async(...args)=>{decisions.push(args);row.status='승인';row.revision=4}
     await act(async()=>root.render(el(RouterProvider,null,el(AppProvider,{me,profiles,version:0,bump(){},toast(){},openQuick(){}},el(SalesStrategyDesk)))))
     const screen=within(document.body)
-    await act(async()=>fireEvent.click(screen.getByRole('button',{name:'기획 보고서',exact:true})))
+    await act(async()=>{fireEvent.click(document.querySelector('.sales-plan-card'))});{const more=screen.queryByRole('button',{name:'자세히 보기'});if(more)await act(async()=>fireEvent.click(more))}
     const report=within(screen.getByRole('region',{name:'영업 기획 보고서'}))
     assert.ok(report.getByRole('region',{name:'자동 연결한 영업 대상 DB'}))
     assert.ok(report.getByText('person@example.com'))
@@ -65,7 +65,7 @@ test('preapproval shows connected targets and prepared materials before enabling
     assert.ok(prepared.compareDocumentPosition(decision)&Node.DOCUMENT_POSITION_FOLLOWING)
     await act(async()=>fireEvent.click(report.getByRole('button',{name:'준비된 기획안 승인'})))
     assert.deepEqual(decisions,[['proposal',3,'승인','예산 범위 검토']])
-    await act(async()=>fireEvent.click(screen.getByRole('button',{name:'기획 보고서',exact:true})))
+    await act(async()=>{fireEvent.click(document.querySelector('.sales-plan-card'))});{const more=screen.queryByRole('button',{name:'자세히 보기'});if(more)await act(async()=>fireEvent.click(more))}
     const tasks=within(screen.getByRole('region',{name:'승인된 영업 실행 업무'}))
     assert.match(tasks.getByText(/까지 · 시스템 처리/).textContent,/시스템 처리/)
     assert.equal(tasks.queryByText('실행 결과 기록'),null)

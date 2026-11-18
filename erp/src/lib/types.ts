@@ -326,7 +326,8 @@ export interface Contact {
 export const PROJECT_CATEGORIES = ['팝업', '캠페인', '콘텐츠', '기타'] as const
 export type ProjectCategory = (typeof PROJECT_CATEGORIES)[number]
 /** NIC = Not In Contract (계약 전) */
-export const PROJECT_STATUSES = ['기획', '진행', 'NIC', '완료', '보류'] as const
+// 상담협의 (2026-11-18 대표 지시 '상담협의 항목을 추가해'): 문의 · 상담 단계 — 기획보다 앞
+export const PROJECT_STATUSES = ['상담협의', '기획', '진행', 'NIC', '완료', '보류'] as const
 export type ProjectStatus = (typeof PROJECT_STATUSES)[number]
 
 export interface Project {
