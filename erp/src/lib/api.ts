@@ -61,6 +61,8 @@ import type { LedgerEntry, LedgerFile, LedgerRecurring, LedgerStatus, MaterialIt
   AdReport,
   WebInquiry,
   InquiryThread,
+  SalesInterview,
+  SalesInterviewDraft,
   AdDaily,
   SeoCheck,
   AgentAction,
@@ -437,6 +439,11 @@ export interface Api extends SalesStrategyApi, SalesApi, GrowthApi, SalesReportA
   listInquiryThreads(): Promise<InquiryThread[]>
   /** 고객의 마지막 메일에 답이 필요 없음 → 회신 대기 (새 메일이 오면 다시 바로 응대) */
   dismissInquiryThread(inquiryId: string): Promise<void>
+  /** 서면 인터뷰 (더위클리 팝업 큐레이션 · 영업·수주) */
+  listInterviews(): Promise<SalesInterview[]>
+  saveInterview(id: string | null, draft: SalesInterviewDraft): Promise<SalesInterview>
+  /** 메일 대화에 붙은 받은 자료 (수신방 드라이브 파일) */
+  listMailFilesByThreads(threadIds: string[]): Promise<Pick<MailFile, 'id' | 'name' | 'drive_url' | 'sent_at' | 'thread_id' | 'kind'>[]>
   listAdDaily(from: string, to: string): Promise<AdDaily[]>
   /** 매체에서 내려받은 일별 · 캠페인별 수치 올리기 (관리자 · 같은 날 · 캠페인은 덮어씀) */
   importAdDaily(rows: { date: string; platform: string; campaign: string; impressions: number; clicks: number; cost: number; conversions: number | null }[]): Promise<{ saved: number; skipped: number }>

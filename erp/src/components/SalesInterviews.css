@@ -1,0 +1,85 @@
+/* 서면 인터뷰 · 팝업 큐레이션 (영업·수주 · 2026-11-18) — 웹 문의함(.sales-inq)과 같은 짜임 */
+.sales-iv { border: 1px solid var(--line); background: var(--white); border-radius: 12px; padding: 10px 14px; margin-bottom: 14px; }
+.sales-iv > summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; cursor: pointer; }
+.sales-iv > summary b { font-size: var(--fs-sub); }
+.sales-iv > summary span { color: var(--gray); }
+.sales-iv > summary span.hot { color: #a5281b; font-weight: 700; }
+.sales-iv > summary span.warn { color: #7a5b00; font-weight: 700; }
+.sales-iv > summary small { flex-basis: 100%; color: var(--gray); }
+.sales-iv[open] > summary { margin-bottom: 10px; }
+.sales-iv-note { margin: 8px 0; color: var(--gray); line-height: 1.6; }
+.sales-iv-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.sales-iv-bar .chips { flex: 1 1 auto; }
+.sales-iv-bar .input { flex: 0 1 240px; min-width: 160px; }
+
+.sales-iv-list { list-style: none; margin: 8px 0 0; padding: 0; }
+.sales-iv-list > li { border-top: 1px solid var(--line); }
+.sales-iv-list > li.open { background: #f7faf7; }
+.sales-iv-row { display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 4px; border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.sales-iv-row b { flex: 0 1 200px; min-width: 70px; }
+.sales-iv-row .what { flex: 1 1 0; min-width: 0; color: var(--gray); }
+.sales-iv .tag { flex: none; padding: 1px 8px; border-radius: 999px; background: #eef0ec; color: #535c56; white-space: nowrap; }
+.sales-iv .tag.ok { background: #e3f1e8; color: #1f6b4a; font-weight: 700; }
+.sales-iv .tag.hot { background: #fde8e4; color: #a5281b; font-weight: 700; }
+.sales-iv .tag.soon, .sales-iv .tag.warn { background: #fbf0c9; color: #7a5b00; font-weight: 700; }
+.sales-iv .tag.sales { margin-left: 6px; background: #e6eefb; color: #1f4f8f; font-weight: 700; }
+
+.iv-stage { flex: none; min-width: 74px; padding: 1px 8px; border-radius: 6px; text-align: center; font-weight: 700; white-space: nowrap; background: #eef0ec; color: #535c56; }
+.iv-stage.go { background: #e6eefb; color: #1f4f8f; }
+.iv-stage.ok { background: #e3f1e8; color: #1f6b4a; }
+.iv-stage.done { background: #dfe9e2; color: #2f5641; }
+.iv-stage.warn { background: #fbf0c9; color: #7a5b00; }
+.iv-stage.off { background: #f1f1ef; color: #8a8f8b; font-weight: 400; }
+
+.sales-iv-part + .sales-iv-part { margin-top: 14px; }
+.sales-iv-part > h3 { margin: 12px 0 0; font-size: var(--fs-sub); }
+.sales-iv-part > h3 small { color: var(--gray); font-weight: 400; }
+
+.sales-iv-cal { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; margin-top: 4px; }
+.sales-iv-cal > .sales-iv-note { grid-column: 1 / -1; margin-bottom: 0; }
+.sales-iv-cal .day { border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; background: var(--white); }
+.sales-iv-cal .day.clash { border-color: #e6c54a; background: #fffaea; }
+.sales-iv-cal .day.past { opacity: 0.75; }
+.sales-iv-cal .day.today { border-color: #1f6b4a; box-shadow: inset 0 0 0 1px #1f6b4a; }
+.sales-iv-cal .day.undated { grid-column: 1 / -1; }
+.sales-iv-cal h4 { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 6px; font-size: var(--fs-sub); }
+.sales-iv-cal h4 small { color: var(--gray); font-weight: 400; }
+.sales-iv-cal ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.sales-iv-cal li button { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; width: 100%; padding: 4px 2px; border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.sales-iv-cal .day.undated ul { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+
+.sales-iv-qa { border-top: 1px solid var(--line); padding: 6px 2px; }
+.sales-iv-qa > summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; cursor: pointer; }
+.sales-iv-qa > summary span { color: var(--gray); }
+.sales-iv-qa dl { display: grid; gap: 12px; margin: 10px 0; }
+.sales-iv-qa dt { font-weight: 700; }
+.sales-iv-qa dd { margin: 4px 0 0; white-space: pre-line; line-height: 1.7; overflow-wrap: anywhere; }
+
+.sales-iv-sales table td { vertical-align: top; line-height: 1.6; }
+.sales-iv-sales .linkish { padding: 0; border: 0; background: none; font: inherit; font-weight: 700; color: inherit; text-align: left; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.sales-iv-sales .hint { color: #7a5b00; }
+
+.sales-iv-edit { padding: 8px 4px 14px 82px; }
+.sales-iv-edit.new { margin: 10px 0; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; background: #f7faf7; }
+.sales-iv-edit h3 { margin: 0 0 8px; font-size: var(--fs-sub); }
+.sales-iv-edit .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; }
+.sales-iv-edit .grid2 .full { grid-column: 1 / -1; }
+.sales-iv-sub { margin-top: 12px; border-top: 1px dashed var(--line); padding-top: 8px; }
+.sales-iv-sub > summary { cursor: pointer; font-weight: 700; }
+.sales-iv-sub > summary span { margin-left: 6px; color: var(--gray); font-weight: 400; }
+.sales-iv-paste { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px; margin-bottom: 10px; }
+.sales-iv-paste .textarea { flex: 1 1 260px; }
+.sales-iv-mail { margin-top: 12px; padding: 8px 10px; border-left: 3px solid #a5c9b2; background: var(--white); }
+.sales-iv-mail .sales-iv-note { margin: 4px 0; }
+.sales-iv-mail .links { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.sales-iv-mail .file { padding: 2px 8px; border-radius: 6px; background: #eef0ec; color: inherit; overflow-wrap: anywhere; }
+.sales-iv-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 12px; }
+.sales-iv-actions small { color: var(--gray); }
+
+@media (max-width: 700px) {
+  .sales-iv-row { flex-wrap: wrap; }
+  .sales-iv-row .what { flex-basis: 100%; }
+  .sales-iv-edit { padding-left: 4px; }
+  .sales-iv-edit .grid2 { grid-template-columns: minmax(0, 1fr); }
+  .sales-iv-bar .input { flex: 1 1 100%; }
+}

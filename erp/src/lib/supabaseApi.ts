@@ -72,6 +72,7 @@ import type {
   AdReport,
   WebInquiry,
   InquiryThread,
+  SalesInterview,
   AdDaily,
   SeoCheck,
   AgentJob,
@@ -964,6 +965,26 @@ export function createSupabaseApi(url: string, key: string): Api {
       const { error } = await sb.rpc('sales_inquiry_thread_dismiss', { p_inquiry: inquiryId })
       if (error?.code === 'PGRST202') throw new Error('답장 필요 없음 기능은 서버 반영 뒤 쓸 수 있습니다.')
       if (error) throw new Error(error.message)
+    },
+    async listInterviews() {
+      const r = await sb.from('sales_interviews').select('*')
+        .order('upload_on', { ascending: true, nullsFirst: false }).order('sent_on', { ascending: false, nullsFirst: false }).limit(1000)
+      if (r.error) throw new Error(r.error.message)
+      return r.data as SalesInterview[]
+    },
+    async saveInterview(id, draft) {
+      const r = id
+        ? await sb.from('sales_interviews').update(draft).eq('id', id).select('*').single()
+        : await sb.from('sales_interviews').insert(draft).select('*').single()
+      if (r.error) throw new Error(r.error.message)
+      return r.data as SalesInterview
+    },
+    async listMailFilesByThreads(threadIds) {
+      if (!threadIds.length) return []
+      const r = await sb.from('mail_files').select('id,name,drive_url,sent_at,thread_id,kind')
+        .in('thread_id', threadIds.slice(0, 50)).order('sent_at', { ascending: false, nullsFirst: false }).limit(100)
+      if (r.error) throw new Error(r.error.message)
+      return r.data as Pick<MailFile, 'id' | 'name' | 'drive_url' | 'sent_at' | 'thread_id' | 'kind'>[]
     },
     async importAdDaily(rows) {
       const { data, error } = await sb.rpc('ad_daily_import', { p_rows: rows })
