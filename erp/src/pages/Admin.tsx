@@ -6,8 +6,9 @@ import { EXPORT_TABLES, type ExportTable } from '../lib/api'
 import { downloadText, toCsv } from '../lib/csv'
 import { relativeLabel, shortDate, timeLabel, toDateKey, todayKey } from '../lib/date'
 import { Link } from '../lib/router'
-import { AGENT_SCOPES, APPROVAL_KINDS, type AdminOverview, type AgentScope, type AgentToken, type ApprovalSummary, type ApprovalKind, type ApprovalRoute, type Department, type HrRecord, type LeaveRecord, type Profile, type ResearchSummary } from '../lib/types'
+import { AGENT_SCOPES, APPROVAL_KINDS, type AdminOverview, type AdminReport, type AgentScope, type AgentToken, type ApprovalSummary, type ApprovalKind, type ApprovalRoute, type Department, type HrRecord, type LeaveRecord, type Profile, type ResearchSummary } from '../lib/types'
 import { Meter } from '../components/charts'
+import { ReportBody } from '../components/Reports'
 import { Shell } from '../components/Shell'
 import { EMPTY_HR, HrForm, PersonName } from '../components/Person'
 import { leaveBalance } from '../lib/leave'
@@ -68,6 +69,7 @@ export default function Admin() {
         <span className="t-cap">{lastBackup ? `마지막 백업 ${shortDate(lastBackup)}` : '백업 기록 없음'}</span>
       </div>
       {error && <div className="err">{error}</div>}
+      <AdminReports />
       <SystemStatus overview={data.overview} />
       <PmAgent tokens={data.tokens} approvals={data.approvals} />
       <Members />
@@ -934,6 +936,39 @@ function Activity({ approvals, research }: { approvals: ApprovalSummary[]; resea
           </div>
         )
       })}
+    </section>
+  )
+}
+
+/** 관리자 보고서 (2026-11-18 대표 지시 '보고서로 만들어서 인트라넷 관리자 전용 관리에 저장해') — 표 admin_reports · 관리자만 */
+function AdminReports() {
+  const { api, version } = useApp()
+  const { data } = useAsync(() => api.listAdminReports().catch(() => [] as AdminReport[]), [version], [] as AdminReport[])
+  const [open, setOpen] = useState<string | null>(null)
+  if (!data.length) return null
+  return (
+    <section className="section admin-reports">
+      <div className="section-h">
+        <h3 className="t-sub">관리자 보고서</h3>
+        <span className="t-cap">{data.length}건 · 관리자만 보임</span>
+      </div>
+      <ul className="admin-report-list">
+        {data.map(r => (
+          <li key={r.id} className={open === r.id ? 'open' : ''}>
+            <button type="button" className="admin-report-row" aria-expanded={open === r.id} onClick={() => setOpen(open === r.id ? null : r.id)}>
+              <span className="tag">{r.category}</span>
+              <b className="grow">{r.title}</b>
+              <span className="t-cap">{shortDate(r.report_date)}</span>
+            </button>
+            {open !== r.id && r.summary && <p className="t-cap admin-report-sum">{r.summary}</p>}
+            {open === r.id && (
+              <div className="panel doc-panel">
+                <ReportBody body={r.body} showTitle />
+              </div>
+            )}
+          </li>
+        ))}
+      </ul>
     </section>
   )
 }

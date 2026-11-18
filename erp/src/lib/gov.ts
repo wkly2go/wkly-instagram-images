@@ -9,6 +9,8 @@ export type GovStatus = (typeof GOV_STATUSES)[number]
 /** 손을 대고 있는 단계 (마감일을 챙겨야 하는 것) */
 export const GOV_ACTIVE: GovStatus[] = ['검토 중', '신청 준비', '제출']
 
+export type GovTrack = '지원' | '투자'
+
 export type GovFitOf = { fit: GovFit; score: number; note: string | null }
 
 export type GovProgram = {
@@ -34,6 +36,8 @@ export type GovProgram = {
   fit_score: number
   fit_company: string | null
   fits: Record<string, GovFitOf>
+  /** 지원 = 지원사업 · 투자 = 투자유치 관련 공고 */
+  track: GovTrack
   status: GovStatus
   owner_id: string | null
   decision_note: string | null
@@ -54,7 +58,18 @@ export type GovCompany = {
   sort: number
 }
 
+/** 자료 · 계획 문서 (마크다운 · 관리자 전용) */
+export type GovDoc = { key: string; title: string; body: string; sort: number; updated_at: string }
+/** 사업계획서 초안 — 입력값과 AI 가 쓴 네 항목 */
+export type GovPlanDraft = { id: string; program_id: string | null; company: string; title: string; inputs: Record<string, string>; sections: Record<string, string>; updated_at: string }
+
 export interface GovApi {
+  listGovDocs(): Promise<GovDoc[]>
+  saveGovDoc(key: string, body: string): Promise<void>
+  /** 그 공고의 가장 최근 초안 (없으면 null) */
+  getGovPlanDraft(programId: string): Promise<GovPlanDraft | null>
+  /** id 가 없으면 새로 — 저장한 초안의 id */
+  saveGovPlanDraft(draft: Omit<GovPlanDraft, 'id' | 'updated_at'> & { id?: string }): Promise<string>
   listGovPrograms(): Promise<GovProgram[]>
   listGovCompanies(): Promise<GovCompany[]>
   updateGovProgram(id: string, patch: Partial<Pick<GovProgram, 'status' | 'owner_id' | 'decision_note'>>): Promise<void>
@@ -82,7 +97,7 @@ export function fitFor(p: GovProgram, company: string | null): GovFitOf {
   return own ?? { fit: p.fit, score: p.fit_score, note: null }
 }
 
-export type GovFilter = { company: string | null; fit: GovFit | 'all'; status: GovStatus | 'open' | 'all'; word: string }
+export type GovFilter = { company: string | null; track: GovTrack | 'all'; fit: GovFit | 'all'; status: GovStatus | 'open' | 'all'; word: string }
 
 const FIT_RANK: Record<GovFit, number> = { 높음: 0, 보통: 1, 낮음: 2, 제외: 3 }
 
@@ -92,6 +107,7 @@ export function filterGovPrograms(list: GovProgram[], f: GovFilter): GovProgram[
   return list
     .filter(p => {
       if (f.status === 'open' ? p.status === '마감' || p.status === '탈락' || p.status === '보류' : f.status !== 'all' && p.status !== f.status) return false
+      if (f.track !== 'all' && (p.track ?? '지원') !== f.track) return false
       if (f.fit !== 'all' && fitFor(p, f.company).fit !== f.fit) return false
       if (word && !`${p.title} ${p.org ?? ''} ${p.category ?? ''} ${p.summary ?? ''}`.toLowerCase().includes(word)) return false
       return true

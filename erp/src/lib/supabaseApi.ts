@@ -51,6 +51,7 @@ import type {
   AgentToken,
   AppNotification,
   Approval,
+  AdminReport,
   ApprovalRoute,
   BrandContact,
   BudgetLine,
@@ -530,6 +531,9 @@ export function createSupabaseApi(url: string, key: string): Api {
     },
     async listApprovalRoutes() {
       return must(await sb.from('approval_routes').select('*')) as ApprovalRoute[]
+    },
+    async listAdminReports() {
+      return must(await sb.from('admin_reports').select('*').order('report_date', { ascending: false }).order('created_at', { ascending: false }).limit(50)) as AdminReport[]
     },
     async saveApprovalRoute(kind, approverId) {
       must(await sb.from('approval_routes').upsert({ kind, approver_id: approverId }, { onConflict: 'kind' }))
