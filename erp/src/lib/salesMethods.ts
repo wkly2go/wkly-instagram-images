@@ -2,7 +2,6 @@ import type { GrowthSummary } from './growth.ts'
 import type { SalesDraft } from './sales.ts'
 import { readSalesPlan } from './salesPlan.ts'
 
-export const SALES_METHOD_VERSION = '2026-11-14.1'
 export interface SalesMethod {
  id: string; title: string; target: string; intent: string; buyer: string; channel: string;
  offer: string; questions: string[]; steps: string[]; proof: string; nextAction: string;

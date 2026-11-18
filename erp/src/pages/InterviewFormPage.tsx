@@ -3,6 +3,7 @@
 //  - 쓰던 글은 이 브라우저에 임시 보관(창을 닫아도 남음) · 보내면 지운다
 import { useEffect, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
+import { ErrorBoundary } from '../components/ErrorBoundary'
 import { InterviewFormView } from '../components/InterviewFormView'
 import { ANSWER_HINT_CHARS, checkAnswers, shortAnswers, SUBMIT_REASONS, type FormQuestion } from '../lib/interviewForms'
 import { clearDraft, FORM_TOKEN_RE, getGuestForm, loadDraft, saveDraft, submitGuestForm, type GuestDraft, type GuestForm } from '../lib/interviewFormGuest'
@@ -22,7 +23,7 @@ export function mountInterviewForm(el: HTMLElement) {
   }
   document.querySelector('link[rel="manifest"]')?.remove()
   document.title = '서면 인터뷰 · 더위클리'
-  createRoot(el).render(<InterviewFormPage token={FORM_TOKEN_RE.test(token) ? token : null} />)
+  createRoot(el).render(<ErrorBoundary area="인터뷰지" full><InterviewFormPage token={FORM_TOKEN_RE.test(token) ? token : null} /></ErrorBoundary>)
 }
 
 type Phase = 'loading' | 'missing' | 'form' | 'done'
