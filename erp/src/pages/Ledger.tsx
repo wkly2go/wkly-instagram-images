@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { BarChart3, CalendarClock, FolderInput, PieChart, Receipt, ChevronLeft, ChevronRight, Download, KeyRound, Lock, Pencil, Search, Trash2, Wallet, X } from 'lucide-react'
 import { CompareView, RecurringView } from '../components/LedgerViews'
 import { InvoiceView } from '../components/LedgerInvoice'
 import { LedgerStats } from '../components/LedgerStats'
 import { LedgerFolder, useLedgerAutoImport } from '../components/LedgerFolder'
+import { CompanySwitch } from '../components/CompanySwitch'
+import { COMPANIES, useCompany } from '../lib/company'
 import { Shell } from '../components/Shell'
 import { Button, Empty, Field, Modal, ViewTabs } from '../components/ui'
 import { ask } from '../components/Ask'
@@ -31,6 +33,7 @@ export default function Ledger() {
   // 화면을 떠나면 잠금
   useEffect(() => () => void api.ledgerLock().catch(() => undefined), [api])
 
+  const company = useCompany()
   return (
     <Shell active="ledger">
       {me.role !== 'admin' || (status && !status.admin) ? (
@@ -38,13 +41,16 @@ export default function Ledger() {
       ) : !status ? (
         <Empty>확인하는 중…</Empty>
       ) : open ? (
+        <LedgerCompany>
         <LedgerBoard
+          key={company}
           onLock={async () => {
             await api.ledgerLock().catch(() => undefined)
             void refresh()
           }}
           onExpired={() => void refresh()}
         />
+        </LedgerCompany>
       ) : (
         <LockGate status={status} onOpened={() => void refresh()} />
       )}
@@ -532,5 +538,21 @@ function ChangePassword({ onClose, onDone }: { onClose: () => void; onDone: () =
       </Field>
       <span className="t-cap">바꾸면 열려 있는 장부는 모두 잠깁니다.</span>
     </Modal>
+  )
+}
+
+/** 회사 구분 (대표 지시 2026-11-18 '더위클리와 아트리어 회계 구분') — 고른 회사 장부만 보이고, 새로 적는 줄 · 올리는 파일도 그 회사로 들어감 */
+function LedgerCompany({ children }: { children: ReactNode }) {
+  const company = useCompany()
+  return (
+    <div className="col gap-10">
+      <div className="row wrap gap-8" style={{ alignItems: 'center' }}>
+        <CompanySwitch />
+        <span className="t-cap">
+          {company === 'all' ? '두 회사 장부를 함께 봅니다 · 새로 적는 줄은 아트리어로 들어갑니다' : `${COMPANIES[company].full} 장부 · 새로 적거나 올리는 자료도 ${COMPANIES[company].label}로 들어갑니다`}
+        </span>
+      </div>
+      {children}
+    </div>
   )
 }

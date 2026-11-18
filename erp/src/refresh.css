@@ -565,3 +565,9 @@ td > .task-inline-sel, td .task-inline-sel:only-child { min-width: 76px; }
 .task-follow-row > input:first-child { grid-column: 1 / -1; }
 .task-follow-row > * { min-width: 0; width: 100%; }
 .task-follow > label { flex-wrap: wrap; }
+
+/* 회사 구분 (2026-11-18) */
+.company-switch .chip { display: inline-flex; align-items: center; gap: 6px; }
+.company-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.company-switch .chip.active .company-dot { box-shadow: 0 0 0 2px #fff; }
+.company-tag { display: inline-flex; align-items: center; padding: 0 7px; border: 1px solid; border-radius: 999px; font-size: var(--fs-body); line-height: 1.5; background: #fff; white-space: nowrap; }

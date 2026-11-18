@@ -1,3 +1,4 @@
+import { getCompany } from './company'
 import { createSupabaseSalesStrategyApi } from './salesStrategyApi'
 import { createSupabaseDesignApi } from './designApi'
 import { createSupabaseCollabApi } from './collabApi'
@@ -563,11 +564,16 @@ export function createSupabaseApi(url: string, key: string): Api {
       return (data as string | null) ?? null
     },
     async listLedger(from, to) {
-      return must(await sb.from('cash_ledger').select('*').gte('entry_date', from).lte('entry_date', to).order('entry_date', { ascending: false }).order('id', { ascending: false })) as LedgerEntry[]
+      // 회사 구분 (2026-11-18): 고른 회사 장부만 · '전체 회사'면 둘 다
+      const c = getCompany()
+      let q = sb.from('cash_ledger').select('*').gte('entry_date', from).lte('entry_date', to)
+      if (c !== 'all') q = q.eq('company', c)
+      return must(await q.order('entry_date', { ascending: false }).order('id', { ascending: false })) as LedgerEntry[]
     },
     async saveLedger(e) {
       const body = strip(e, READONLY) as Record<string, unknown>
       delete body.created_by
+      if (!e.id && !body.company) body.company = getCompany() === 'TW' ? 'TW' : 'AR'
       const q = e.id ? sb.from('cash_ledger').update(body).eq('id', e.id) : sb.from('cash_ledger').insert(body)
       return must(await q.select().single()) as LedgerEntry
     },
@@ -588,7 +594,8 @@ export function createSupabaseApi(url: string, key: string): Api {
     async importLedgerRows(rows) {
       let added = 0
       for (let i = 0; i < rows.length; i += 300) {
-        const chunk = rows.slice(i, i + 300)
+        const co = getCompany() === 'TW' ? 'TW' : 'AR'
+        const chunk = rows.slice(i, i + 300).map(r => ({ company: co, ...r }))
         const { data, error } = await sb.from('cash_ledger').upsert(chunk, { onConflict: 'source_ref', ignoreDuplicates: true }).select('id')
         if (error) throw new ApiError(error.message)
         added += data?.length ?? 0
@@ -596,11 +603,14 @@ export function createSupabaseApi(url: string, key: string): Api {
       return { added, skipped: rows.length - added }
     },
     async listLedgerOpening(year) {
-      const { data } = await sb.from('cash_ledger_opening').select('account, amount').eq('year', year)
+      const c = getCompany()
+      let q = sb.from('cash_ledger_opening').select('account, amount').eq('year', year)
+      if (c !== 'all') q = q.eq('company', c)
+      const { data } = await q
       return (data ?? []) as { account: string; amount: number }[]
     },
     async setLedgerOpening(year, account, amount) {
-      must(await sb.from('cash_ledger_opening').upsert({ year, account, amount, updated_at: new Date().toISOString() }))
+      must(await sb.from('cash_ledger_opening').upsert({ year, account, amount, company: getCompany() === 'TW' ? 'TW' : 'AR', updated_at: new Date().toISOString() }))
     },
     async deleteLedger(id) {
       mustAffect(await sb.from('cash_ledger').delete().eq('id', id).select('id'))
