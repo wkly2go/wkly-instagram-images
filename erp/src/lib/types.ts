@@ -834,6 +834,10 @@ export interface BudgetLine {
 
 export interface AdminOverview {
   db_size_bytes: number
+  /** 파일 저장공간(storage) 합계 · 연결 수 (2026-11-19 · 예전 서버 함수에는 없음) */
+  storage_bytes?: number
+  connections?: number
+  max_connections?: number
   active_members: number
   tables: Record<string, number>
   generated_at: string

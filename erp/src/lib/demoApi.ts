@@ -1838,7 +1838,7 @@ export function createDemoApi(): Api {
       } catch {
         bytes = 0
       }
-      return { db_size_bytes: 8_400_000 + bytes, active_members: store.profiles.filter(p => p.active).length, tables, generated_at: now() }
+      return { db_size_bytes: 8_400_000 + bytes, storage_bytes: 0, connections: 1, max_connections: 60, active_members: store.profiles.filter(p => p.active).length, tables, generated_at: now() }
     },
     async listAiAgents() {
       requireMe()

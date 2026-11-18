@@ -15,7 +15,10 @@ import { Badge, Button, Empty, Field, Modal } from '../components/ui'
 import { ask } from '../components/Ask'
 
 export const SCOPE_LABEL: Record<AgentScope, string> = { read: '현황 조회', task: '할 일', daily_report: '일일 보고', notify: '알림', research: '리서치', contact: '브랜드 담당자', finance: '재무 요약(합계만)' }
-const FREE_DB = 500 * 1024 * 1024
+// 서버 요금제 한도 (2026-11-19 · Supabase Pro · 가장 작은 컴퓨트). 요금제를 바꾸면 여기만 고칠 것
+const GB = 1024 * 1024 * 1024
+const PLAN = { name: 'Supabase Pro', db: 8 * GB, storage: 100 * GB, backup: '매일 자동 백업 (7일 보관)' }
+const size = (b: number) => (b >= GB ? `${Number((b / GB).toFixed(2))}GB` : `${(b / 1024 / 1024).toFixed(1)}MB`)
 const BACKUP_KEY = 'wkly-erp-last-backup'
 
 interface Data {
@@ -78,49 +81,61 @@ export default function Admin() {
 }
 
 function SystemStatus({ overview }: { overview: AdminOverview | null }) {
-  const size = overview?.db_size_bytes ?? 0
-  const used = (size / FREE_DB) * 100
   const t = overview?.tables ?? {}
-  const counts: [string, string][] = [
-    ['work_logs', '업무 일지'],
-    ['chat_messages', '채팅'],
-    ['approvals', '승인'],
-    ['clients', '거래처'],
-    ['payments', '결제'],
-    ['research_items', '리서치'],
-    ['brand_contacts', '브랜드 담당자'],
+  const pct = (v: number, max: number) => (max > 0 ? (v / max) * 100 : 0)
+  const db = overview?.db_size_bytes ?? 0
+  const files = overview?.storage_bytes
+  const conn = overview?.connections
+  const maxConn = overview?.max_connections ?? 0
+  const meters: { label: string; value: string; max: string; used: number; sub: string }[] = overview
+    ? [
+        { label: 'DB 사용량', value: size(db), max: size(PLAN.db), used: pct(db, PLAN.db), sub: '표 · 기록 전체. 넘으면 디스크가 자동으로 늘고 요금이 붙습니다.' },
+        ...(files === undefined ? [] : [{ label: '파일 저장공간', value: size(files), max: size(PLAN.storage), used: pct(files, PLAN.storage), sub: '사진 · 첨부 · 미리보기 (드라이브 파일은 따로)' }]),
+        ...(conn === undefined || !maxConn ? [] : [{ label: 'DB 연결', value: `${conn}개`, max: `${maxConn}개`, used: pct(conn, maxConn), sub: '동시에 열린 연결. 80%를 넘으면 느려질 수 있습니다.' }]),
+      ]
+    : []
+  const groups: [string, [string, string][]][] = [
+    ['업무', [['projects', '프로젝트'], ['tasks', '할 일'], ['work_logs', '업무 일지'], ['chat_messages', '채팅'], ['approvals', '결재'], ['notifications', '알림']]],
+    ['거래 · 영업', [['clients', '거래처'], ['contacts', '연락처'], ['payments', '결제'], ['sales_prospects', '영업 대상'], ['sales_interviews', '서면 인터뷰'], ['web_inquiries', '웹 문의']]],
+    ['자료', [['research_items', '리서치'], ['mail_index', '메일 색인'], ['drive_index', '드라이브 색인'], ['price_refs', '물가 기준'], ['g2b_items', '나라장터 자재']]],
   ]
   return (
     <section className="section">
       <div className="section-h">
         <span className="t-bodyb">시스템 현황</span>
-        <span className="cap">현재 프로젝트 · 무료 플랜 참고치</span>
+        <span className="cap">{PLAN.name} · {PLAN.backup}</span>
       </div>
       {!overview ? (
         <div className="note">현황을 불러오지 못했습니다. 잠시 뒤 화면을 새로고침해 주세요.</div>
       ) : (
-        <div className="kpis" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
-          <div className="kpi">
-            <span className="t-cap">DB 사용량</span>
-            <span className="row" style={{ gap: 6, alignItems: 'baseline' }}>
-              <span className="v">{(size / 1024 / 1024).toFixed(1)}MB</span>
-              <span className="t-cap">/ 500MB · {used.toFixed(1)}%</span>
-            </span>
-            <Meter value={used} red={used > 80} label="DB 사용량" />
-            <span className="sub">파일 저장공간과 월간 전송량은 별도입니다. 한도 초과 항목은 Supabase 사용량에서 확인해 주세요.</span>
-          </div>
-          <div className="kpi">
-            <span className="t-cap">데이터 수 · 활성 팀원 {overview.active_members}</span>
-            <span className="row wrap" style={{ gap: '2px 12px' }}>
-              {counts.map(([k, label]) => (
-                <span key={k} className="t-cap">
-                  {label} <b className="t-meta t-blue">{(t[k] ?? 0).toLocaleString('ko-KR')}</b>
+        <>
+          <div className="kpis" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
+            {meters.map(m => (
+              <div className="kpi" key={m.label}>
+                <span className="t-cap">{m.label}</span>
+                <span className="row" style={{ gap: 6, alignItems: 'baseline' }}>
+                  <span className="v">{m.value}</span>
+                  <span className="t-cap">/ {m.max} · {m.used < 0.1 && m.used > 0 ? '0.1% 미만' : `${m.used.toFixed(1)}%`}</span>
                 </span>
-              ))}
-            </span>
-            <span className="sub">갱신 {timeLabel(overview.generated_at)}</span>
+                <Meter value={Math.max(m.used, 0.5)} red={m.used > 80} label={m.label} />
+                <span className="sub">{m.sub}</span>
+              </div>
+            ))}
           </div>
-        </div>
+          <div className="kpi" style={{ marginTop: 10 }}>
+            <span className="t-cap">데이터 수 · 활성 팀원 {overview.active_members} · 갱신 {timeLabel(overview.generated_at)}</span>
+            {groups.map(([g, items]) => (
+              <span key={g} className="row wrap" style={{ gap: '2px 12px' }}>
+                <span className="t-cap" style={{ minWidth: 72 }}>{g}</span>
+                {items.filter(([k]) => t[k] !== undefined).map(([k, label]) => (
+                  <span key={k} className="t-cap">
+                    {label} <b className="t-meta t-blue">{(t[k] ?? 0).toLocaleString('ko-KR')}</b>
+                  </span>
+                ))}
+              </span>
+            ))}
+          </div>
+        </>
       )}
     </section>
   )
@@ -874,7 +889,7 @@ function Backup() {
     <section className="section">
       <div className="section-h">
         <span className="t-bodyb">데이터 백업</span>
-        <span className="cap">무료 플랜은 자동 백업이 없어요 · 월 1회 권장 · 내려받은 파일은 회사 드라이브에 보관</span>
+        <span className="cap">서버가 매일 자동 백업합니다(7일 보관) · 더 오래 둘 자료는 월 1회 내려받아 회사 드라이브에 보관</span>
       </div>
       <div className="row wrap" style={{ gap: 6 }}>
         <Button onClick={all} disabled={busy}>
