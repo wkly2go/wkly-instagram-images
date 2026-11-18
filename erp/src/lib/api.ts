@@ -49,6 +49,7 @@ import type { LedgerEntry, LedgerFile, LedgerRecurring, LedgerStatus, MaterialIt
   AppNotification,
   Approval,
   ApprovalKind,
+  AdminReport,
   ApprovalRoute,
   ApprovalStatus,
   BrandContact,
@@ -302,6 +303,8 @@ export interface Api extends SalesStrategyApi, SalesApi, GrowthApi, SalesReportA
   addApprovalActivity(approvalId: string, kind: ActivityInputKind, body: string): Promise<ApprovalActivity>
   removeApprovalActivity(id: number): Promise<void>
   listApprovalRoutes(): Promise<ApprovalRoute[]>
+  /** 관리자 보고서 (관리자만 · 2026-11-18) */
+  listAdminReports(): Promise<AdminReport[]>
   saveApprovalRoute(kind: ApprovalKind, approverId: string | null): Promise<void>
   subscribeChanges(tables: string[], cb: () => void, filter?: string): () => void
 

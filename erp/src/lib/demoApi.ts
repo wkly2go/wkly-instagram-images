@@ -1354,6 +1354,9 @@ export function createDemoApi(): Api {
     async listApprovalRoutes() {
       return clone(store.approval_routes)
     },
+    async listAdminReports() {
+      return []
+    },
     async saveApprovalRoute(kind, approverId) {
       requireAdmin()
       const r = store.approval_routes.find(x => x.kind === kind)
