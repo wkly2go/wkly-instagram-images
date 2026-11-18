@@ -88,3 +88,35 @@
 .sales-desk-detail { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
 /* 대화도 페이지 전체 폭 (대표 지시 2026-11-17) */
 .sales-desk-chat .sales-desk-mine, .sales-desk-chat .sales-desk-answer { max-width: none; margin-left: 0; }
+
+/* 기획안 카드 판 (2026-11-18) */
+.sales-plan-board{display:flex;flex-direction:column;gap:10px;margin:4px 0 14px}
+.sales-plan-board>header{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.sales-plan-board>header h3{margin:0;font-size:var(--fs-title);font-weight:800}
+.sales-plan-board>header h3 span{color:var(--tx-key,#1f6b4a)}
+.sales-plan-board>header small{color:var(--tx-sub,#535c56)}
+.sales-plan-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
+.sales-plan-card{display:flex;flex-direction:column;gap:8px;text-align:left;padding:14px 16px;border:1px solid var(--v8-line,#ebe7df);border-left:4px solid var(--v8-line-2,#d9dde3);border-radius:12px;background:#fff;cursor:pointer;font:inherit;color:inherit;min-height:180px}
+.sales-plan-card:hover{box-shadow:0 4px 14px rgba(21,29,24,.08);border-color:var(--v8-line-2,#d9dde3)}
+.sales-plan-card.plan-wait{border-left-color:#d6457a}
+.sales-plan-card.plan-ok{border-left-color:#1f6b4a}
+.sales-plan-card.plan-prep{border-left-color:#c99a1c}
+.sales-plan-card.plan-off{opacity:.75}
+.sales-plan-card-tags .sales-plan-tags{display:flex;flex-wrap:wrap;gap:4px}
+.sales-plan-card-title{font-size:var(--fs-sub);font-weight:700;line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.sales-plan-card-line{font-size:var(--fs-body);color:var(--tx-body);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sales-plan-card-line b{color:var(--tx-sub,#535c56);font-weight:400;margin-right:4px}
+.sales-plan-card-offer{font-size:var(--fs-body);color:var(--tx-sub,#535c56);line-height:1.6;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.sales-plan-card-when{margin-top:auto;color:var(--tx-sub,#535c56)}
+.sales-plan-modal .sales-desk-exchange{border:0;box-shadow:none;margin:0}
+.sales-plan-editor{display:flex;flex-direction:column;gap:10px}
+.sales-plan-editor-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.sales-plan-editor-grid .full{grid-column:1/-1}
+.sales-plan-editor h4{margin:6px 0 0;font-size:var(--fs-sub)}
+.sales-plan-editor h4 small{font-weight:400;color:var(--tx-sub,#535c56);margin-left:6px}
+.sales-plan-editor-steps{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:6px}
+.sales-plan-editor-steps li{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1.4fr) 80px auto;gap:6px;align-items:center}
+@media (max-width:720px){.sales-plan-editor-grid{grid-template-columns:1fr}.sales-plan-editor-steps li{grid-template-columns:1fr 80px}}
+/* 기획안을 열면 크게 (화면 거의 전체) */
+.dialog.wide:has(.sales-plan-modal,.sales-plan-editor){width:min(1240px,96vw);max-width:96vw;max-height:94vh}
+.modal-col:has(.sales-plan-modal,.sales-plan-editor){width:min(1100px,70vw)}

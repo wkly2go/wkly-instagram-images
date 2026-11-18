@@ -304,6 +304,8 @@ export interface Client {
   tax_email?: string | null
   biz_cert_url?: string | null
   biz_cert_name?: string | null
+  /** 거래하는 회사 (2026-11-18 · 비우면 프로젝트 · 계산서로 판단) */
+  companies?: ('AR' | 'TW')[] | null
   created_by: string | null
   created_at: string
   updated_at: string
@@ -1258,6 +1260,8 @@ export const LEDGER_CATEGORIES: Record<LedgerDirection, string[]> = {
 export const LEDGER_TRANSFER_CATEGORIES = ['카드대금', '내 통장 이체', '대표 가지급 · 가수']
 export interface LedgerEntry {
   id: number
+  /** 회사 (2026-11-18) AR 아트리어 · TW 더위클리 */
+  company?: 'AR' | 'TW'
   entry_date: string
   direction: LedgerDirection
   amount: number

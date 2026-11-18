@@ -1,3 +1,5 @@
+import { CompanySwitch } from '../components/CompanySwitch'
+import { companyOfProject, useCompany } from '../lib/company'
 import { useEffect, useMemo, useState } from 'react'
 import { ProjectOptions } from '../components/ProjectOptions'
 import { ChevronLeft, ChevronRight, Search } from 'lucide-react'
@@ -27,12 +29,12 @@ export interface PayData {
 }
 
 /** 프로젝트 › 결제 대장 (관리자) */
-export function Payments({ projects, clients }: { projects: Project[]; clients: Client[] }) {
+export function Payments({ projects: allProjects, clients }: { projects: Project[]; clients: Client[] }) {
   const { api, version } = useApp()
   const { query, path, navigate } = useRouter()
   const sub = query.get('sub') ?? 'register'
   const go = (patch: Record<string, string | null>) => navigate(withQuery(path, query, patch), { replace: true })
-  const { data, loading } = useAsync<PayData>(
+  const { data: allData, loading } = useAsync<PayData>(
     async () => {
       const [payments, lines, finances] = await Promise.all([api.listPayments(), api.listBudgetLines(), api.listFinances()])
       return { payments, lines, finances }
@@ -40,12 +42,18 @@ export function Payments({ projects, clients }: { projects: Project[]; clients: 
     [version],
     { payments: [], lines: [], finances: [] },
   )
+  // 회사 구분 (대표 지시 2026-11-18): 프로젝트 연번으로 아트리어 · 더위클리 나눔
+  const company = useCompany()
+  const projects = company === 'all' ? allProjects : allProjects.filter(p => companyOfProject(p) === company)
+  const coIds = new Set(projects.map(p => p.id))
+  const data: PayData = company === 'all' ? allData : { ...allData, payments: allData.payments.filter(x => (x.project_id ? coIds.has(x.project_id) : company === 'AR')) }
   const advances = advanceGroups(data.payments)
   // 현장을 고른 동안에는 위 메뉴를 숨기고 그 현장 결제 대장만 (대표 지시 2026-10-31 "맨 위 상단의 네비게이션은 비노출하고 프로젝트에 집중")
   const focus = !!query.get('project') && query.get('project') !== 'none'
   const checks = paymentChecks(data.payments, data.lines, projects, todayKey())
   return (
     <div className="col gap-10">
+      {!focus && <CompanySwitch />}
       {!focus && <div className="chips" role="tablist" aria-label="결제 대장 메뉴">
         <Chip active={sub === 'register'} onClick={() => go({ sub: null })}>
           결제 대장

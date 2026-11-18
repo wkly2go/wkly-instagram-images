@@ -1,3 +1,4 @@
+import { getCompany, type CompanyKey } from '../lib/company'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ExternalLink, FolderPlus, RefreshCw, Upload } from 'lucide-react'
 import { useApp } from '../lib/app'
@@ -80,7 +81,8 @@ export async function runLedgerImport(api: ReturnType<typeof useApp>['api'], onS
       errors.push(`${f.name}: ${e instanceof Error ? e.message : String(e)}`)
     }
   }
-  const r = await processLedgerFiles(api, inputs, onStep)
+  // 드라이브 '회계 자료' 폴더는 아트리어 자료 (2026-11-18 회사 구분) — 더위클리를 고른 채 열어도 아트리어 장부로
+  const r = await processLedgerFiles(api, inputs, onStep, 'AR')
   return { ...r, errors: [...errors, ...r.errors] }
 }
 
@@ -122,7 +124,7 @@ export interface LedgerInput {
   load: () => Promise<{ data: ArrayBuffer; name: string }>
 }
 /** 파일들을 읽어 분류 · 기입 (드라이브 폴더 · 직접 올리기 공통) */
-export async function processLedgerFiles(api: ReturnType<typeof useApp>['api'], inputs: LedgerInput[], onStep?: (s: string) => void): Promise<ImportResult> {
+export async function processLedgerFiles(api: ReturnType<typeof useApp>['api'], inputs: LedgerInput[], onStep?: (s: string) => void, company: CompanyKey = getCompany() === 'TW' ? 'TW' : 'AR'): Promise<ImportResult> {
   const res: ImportResult = { files: 0, added: 0, skipped: 0, review: 0, evidence: 0, errors: [] }
   const payments: Payment[] = await api.listPayments().catch(() => [] as Payment[])
   await loadStaff(api)
@@ -208,7 +210,7 @@ export async function processLedgerFiles(api: ReturnType<typeof useApp>['api'], 
         if (r.entry_date < minDate) minDate = r.entry_date
         if (r.entry_date > maxDate) maxDate = r.entry_date
       }
-      const r = rows.length ? await api.importLedgerRows(rows.map(x => ({ ...x, file_id: f.id }) as Partial<LedgerEntry>)) : { added: 0, skipped: 0 }
+      const r = rows.length ? await api.importLedgerRows(rows.map(x => ({ ...x, file_id: f.id, company }) as Partial<LedgerEntry>)) : { added: 0, skipped: 0 }
       res.added += r.added
       res.skipped += r.skipped
       res.review += rows.filter(x => x.needs_review).length

@@ -50,11 +50,14 @@ test('failed instructions are hidden and a plan report opens inside its card', a
    assert.ok(screen.getByText(/실패한 지시 1건은 숨겼습니다/))
    await act(async()=>{fireEvent.click(screen.getByRole('button',{name:'실패한 지시 보기'}))})
    assert.ok(screen.getByText(/보고서 · 실패한 지시/))
-   // the full report opens inside the plan's own card
+   // plans sit on the card board; a card opens the full plan in a large view (2026-11-18)
    assert.equal(screen.queryByText('보고서 본문'),null)
+   const card=document.querySelector('.sales-plan-card')
+   assert.ok(card&&card.textContent.includes('시험 기획'))
+   await act(async()=>{fireEvent.click(card)})
    await act(async()=>{fireEvent.click(screen.getByRole('button',{name:'자세히 보기'}))})
    const detail=screen.getByText('보고서 본문')
-   assert.ok(detail.closest('#sales-plan-'+plan.id))
+   assert.ok(detail.closest('article#sales-plan-'+plan.id))
    await act(async()=>{fireEvent.click(screen.getByRole('button',{name:'자세히 닫기'}))})
    assert.equal(screen.queryByText('보고서 본문'),null)
   } finally {

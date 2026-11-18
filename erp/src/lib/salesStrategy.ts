@@ -25,6 +25,8 @@ export interface SalesStrategyApi extends SalesExecutionApi {
   listSalesDeskFolds?():Promise<SalesDeskFold[]>;
   foldSalesDesk?(kind:SalesDeskFold['kind'],id:string,fold:boolean,label:string):Promise<void>;
   listSalesStrategies(page: number): Promise<{items: SalesStrategy[]; total: number; automatic: boolean}>;
+  /** 기획안 직접 고치기 (2026-11-18 · 관리자 · 글 칸과 단계만) → 새 revision */
+  editSalesStrategy?(id: string, revision: number, patch: Partial<Pick<StrategyPlan,'title'|'category'|'customer'|'opportunity'|'offer'|'why_now'|'approach'|'effect'|'resources'|'stop_rule'|'first_message'|'steps'>>): Promise<number>;
   requestSalesStrategy(id: string, feedback: string): Promise<string>;
   /** 행사 → 참가 브랜드 자동 조사 현황 (건수만 화면에 쓰고 목록은 AI 기획 · 대화의 근거로 쓴다) */
   getSalesEventBrands(): Promise<SalesEventBrands>;
