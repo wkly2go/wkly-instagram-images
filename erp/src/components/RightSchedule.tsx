@@ -127,7 +127,7 @@ function AllProjects({ projects, tasks, onOpen }: { projects: Project[]; tasks: 
   }
   const today = todayKey()
   const until = addDays(today, 14)
-  const list = projects.filter(p => p.status === '진행' || p.status === '기획')
+  const list = projects.filter(p => p.status === '진행' || p.status === '기획' || p.status === '상담협의')
   if (!list.length) return <span className="t-cap">진행 중인 프로젝트가 없습니다.</span>
   const rows = list.map(p => {
     const mine = tasks.filter(t => t.project_id === p.id && t.status !== '완료' && t.due_date)

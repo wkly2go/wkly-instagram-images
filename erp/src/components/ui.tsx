@@ -26,6 +26,7 @@ const STATUS_TONE: Record<string, Tone> = {
   승인: 'acid',
   반려: 'gray',
   취소: 'paper',
+  상담협의: 'yellow',
   기획: 'outline',
   진행: 'blue',
   NIC: 'red',
