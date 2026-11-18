@@ -71,3 +71,14 @@ test('place and period are read out of the one venue field; the share text carri
   assert.match(text, /^\[더위클리\] A 인터뷰지\n\n아래 링크/)
   assert.match(text, /https:\/\/wkly-erp\.pages\.dev\/i\/abc\n\n답변 수령 희망일: 2026\.11\.12$/)
 })
+
+test('the question bank lives in the admin-only menu, and only admins can change its wording', () => {
+  const sql = readFileSync(new URL('../supabase/migrations/20261119011500_interview_questions_admin.sql', import.meta.url), 'utf8')
+  assert.doesNotMatch(sql, /\bdrop\s/i)
+  assert.match(sql, /as restrictive for insert to authenticated\s+with check \(\(select public\.is_admin\(\)\)\)/)
+  assert.match(sql, /as restrictive for update to authenticated\s+using \(\(select public\.is_admin\(\)\)\)/)
+  const shell = readFileSync(new URL('../src/components/Shell.tsx', import.meta.url), 'utf8')
+  assert.match(shell, /key: 'interviewQuestions', label: '인터뷰 질문 은행', path: '\/interview-questions', admin: true/)
+  assert.match(shell, /label: '관리자 전용', tabs: \[[^\]]*'interviewQuestions'/)
+  assert.doesNotMatch(readFileSync(new URL('../src/components/SalesInterviews.tsx', import.meta.url), 'utf8'), /질문 은행'\]/)
+})
