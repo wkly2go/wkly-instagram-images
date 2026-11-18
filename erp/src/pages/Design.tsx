@@ -42,7 +42,7 @@ const SECTIONS: Record<string, { tab: Tab | 'orders'; active: TabKey; title: str
   '/design-cards': { tab: 'cards', active: 'designCards', title: '검토함', lead: '자동으로 만든 단가 · 견적 초안 · 발주서 초안을 확인하는 곳입니다.' },
   '/design-prices': { tab: 'prices', active: 'designPrices', title: '단가', lead: '견적에 쓰는 판매 단가와 발주에 쓰는 실행 단가(관리자만)입니다.' },
   '/design-vendors': { tab: 'vendors', active: 'designVendors', title: '협력사', lead: '거래 협력사와 나라장터 · 검색으로 찾은 후보입니다.' },
-  '/design-materials': { tab: 'materials', active: 'designMaterials', title: '자재', lead: '마감재 · 조명 · 자재 목록과 코드입니다. 기준 가격은 조달청 물가 기준 · 시중 판매가로, 참고용입니다(견적 계산에는 쓰지 않음).' },
+  '/design-materials': { tab: 'materials', active: 'designMaterials', title: '자재', lead: '마감재 · 자재 목록과 코드입니다.' },
   '/design-learn': { tab: 'knowledge', active: 'designLearn', title: '학습 자료', lead: '표본 자료에서 뽑아 둔 도면 세트 · 스펙북 · 보고서 구성과 기준입니다.' },
 }
 
@@ -835,7 +835,7 @@ function PricesTab({ base }: { base: DesignBase }) {
       <div className="row wrap">
         <button type="button" className={`chip${kind === 'sell' ? ' active' : ''}`} onClick={() => setKind('sell')}>판매 단가 (견적용)</button>
         {admin && <button type="button" className={`chip${kind === 'cost' ? ' active' : ''}`} onClick={() => setKind('cost')}>실행 단가 (발주용 · 관리자만)</button>}
-        <button type="button" className={`chip${kind === 'ref' ? ' active' : ''}`} onClick={() => setKind('ref')}>물가 기준 (조달청)</button>
+        <button type="button" className={`chip${kind === 'ref' ? ' active' : ''}`} onClick={() => setKind('ref')}>물가 기준</button>
         <span className="design-gap" />
         <select className="select design-filter" value={trade} onChange={e => setTrade(e.target.value)} aria-label="공종으로 거르기">
           <option value="">모든 공종</option>{base.trades.map(t => <option key={t.code} value={t.code}>{t.name}</option>)}
@@ -847,7 +847,7 @@ function PricesTab({ base }: { base: DesignBase }) {
         {PRICE_REF_GROUPS.map(([k, name]) => <button type="button" key={k} className={`chip${group === k ? ' active' : ''}`} onClick={() => setGroup(k)}>{k} {name}</button>)}
       </div>}
       {kind === 'ref'
-        ? <p className="t-cap">조달청 가격정보(시설자재 · 시장시공가격) {refs.total.toLocaleString('ko-KR')}건{refs.total > refs.rows.length ? ` 중 ${refs.rows.length}건` : ''} · 품목 · 규격 · 단위마다 기호가 하나씩 붙어 있고, 가격이 새로 고시돼도 기호는 그대로입니다. 수량표의 '물가 기준에서 찾아 넣기'에 기호나 이름을 넣어 씁니다. 부가세 별도 · 우리 단가는 바꾸지 않습니다.</p>
+        ? <p className="t-cap">조달청 가격정보(시설자재 · 시장시공가격)와 조명 시중 판매가 {refs.total.toLocaleString('ko-KR')}건{refs.total > refs.rows.length ? ` 중 ${refs.rows.length}건` : ''} · 품목 · 규격 · 단위마다 기호가 하나씩 붙어 있고, 가격이 새로 고시돼도 기호는 그대로입니다. 수량표의 '물가 기준에서 찾아 넣기'에 기호나 이름을 넣어 씁니다. 부가세 별도 · 우리 단가는 바꾸지 않습니다.</p>
         : <p className="t-cap">{count >= 400 ? '400건까지만 보입니다. 공종이나 낱말로 좁혀 보세요.' : `${count}건`} · 견적에는 '승인'된 단가 중 가장 최근 것만 쓰입니다.{kind === 'sell' && matches.length > 0 ? ` · 물가 기준과 견준 것 ${matches.length}건` : ''}</p>}
       {kind === 'ref' ? (refs.rows.length === 0 ? <Empty>아직 받은 물가 기준이 없습니다. 조달청 가격정보를 받는 대로 여기에 쌓입니다.</Empty> : (
         <div className="table-wrap"><table className="table">
@@ -908,9 +908,9 @@ function MaterialsTab() {
       {error && rows.length === 0 ? <LoadError message="자재를 불러오지 못했습니다." error={error} onRetry={reload} />
         : rows.length === 0 ? <Empty>맞는 자재가 없습니다.</Empty> : (
         <div className="table-wrap"><table className="table">
-          <thead><tr><th>코드</th><th>분류</th><th>이름</th><th>규격</th><th>단위</th><th className="num">기준 가격</th><th>가격 출처 · 메모</th></tr></thead>
+          <thead><tr><th>코드</th><th>분류</th><th>이름</th><th>규격</th><th>단위</th><th>메모</th></tr></thead>
           <tbody>{rows.map(m => <tr key={m.id}><td className="nowrap strong">{m.color_code}</td><td className="nowrap">{m.category}</td>
-            <td>{m.product_url ? <a href={m.product_url} target="_blank" rel="noreferrer">{m.name}</a> : m.name}</td><td className="max">{m.spec}</td><td>{m.unit}</td><td className="num nowrap">{m.list_price != null ? won(Number(m.list_price)) : ''}</td><td className="max t-cap">{[m.source_note, m.notes].filter(Boolean).join(' · ')}</td></tr>)}</tbody>
+            <td>{m.product_url ? <a href={m.product_url} target="_blank" rel="noreferrer">{m.name}</a> : m.name}</td><td className="max">{m.spec}</td><td>{m.unit}</td><td className="max t-cap">{m.notes}</td></tr>)}</tbody>
         </table></div>
       )}
     </div>
