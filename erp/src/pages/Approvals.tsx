@@ -1,3 +1,4 @@
+import { ReportBody } from '../components/Reports'
 import { useCallback, useEffect, useState } from 'react'
 import { ProjectOptions } from '../components/ProjectOptions'
 import { Linkify } from '../components/ui'
@@ -341,7 +342,7 @@ function ApprovalDetail({ a, onBack }: { a: Approval; onBack: () => void }) {
         </div>
       )}
       {a.kind === '업무 보고' && a.payload.user_id && a.payload.date && <ReportLogs userId={a.payload.user_id} date={a.payload.date} />}
-      {a.content && a.kind !== '일일 보고' && <div className="panel t-small pre"><Linkify text={a.content} /></div>}
+      {a.content && a.kind !== '일일 보고' && <div className="panel doc-panel"><ReportBody body={a.content} showTitle /></div>}
       <DocFullText texts={[a.content, typeof a.payload?.body === 'string' ? a.payload.body : null]} />
       {target && a.target_id && (
         <Link to={target} className="t-small">

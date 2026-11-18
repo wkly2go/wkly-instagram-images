@@ -1,3 +1,4 @@
+import { companyOfInvoice, inCompany, useCompany } from '../lib/company'
 import { useMemo, useRef, useState } from 'react'
 import { ProjectOptions } from './ProjectOptions'
 import { FileSpreadsheet } from 'lucide-react'
@@ -16,12 +17,13 @@ export function TaxInvoices({ projects }: { projects: Project[] }) {
   const { busy, run } = useAction()
   const fileRef = useRef<HTMLInputElement>(null)
   const { data, loading } = useAsync(() => api.listTaxInvoices(), [version], [] as TaxInvoice[])
+  const company = useCompany()
   const years = useMemo(() => [...new Set(data.map(x => x.write_date.slice(0, 4)))].sort().reverse(), [data])
   const [year, setYear] = useState('')
   const [dir, setDir] = useState<'매출' | '매입'>('매출')
   const [q, setQ] = useState('')
   const y = year || years[0] || String(new Date().getFullYear())
-  const rows = data.filter(x => x.direction === dir && x.write_date.startsWith(y) && (!q || `${x.partner_name} ${x.item ?? ''}`.includes(q)))
+  const rows = data.filter(x => inCompany(company, companyOfInvoice(x)) && x.direction === dir && x.write_date.startsWith(y) && (!q || `${x.partner_name} ${x.item ?? ''}`.includes(q)))
   const sum = (list: TaxInvoice[]) => list.reduce((a, x) => ({ total: a.total + x.total, supply: a.supply + x.supply, vat: a.vat + x.vat, n: a.n + 1 }), { total: 0, supply: 0, vat: 0, n: 0 })
   const all = sum(rows)
   const h1 = sum(rows.filter(x => Number(x.write_date.slice(5, 7)) <= 6))

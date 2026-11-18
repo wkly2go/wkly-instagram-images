@@ -1,3 +1,5 @@
+import { CompanySwitch, CompanyTag } from '../components/CompanySwitch'
+import { COMPANIES, COMPANY_KEYS, companyOfInvoice, companyOfProject, useCompany, type CompanyKey } from '../lib/company'
 import { useResearchBodyMatches } from '../lib/researchSearch'
 import { useMemo, useState } from 'react'
 import { Linkify } from '../components/ui'
@@ -8,7 +10,7 @@ import { manwon, shortDate, todayKey } from '../lib/date'
 import { isOverdue, sameName, vendorSummary } from '../lib/finance'
 import { openGmail, telUrl } from '../lib/links'
 import { Link, useRouter, withQuery } from '../lib/router'
-import { CLIENT_CATEGORIES, type Client, type ClientCategory, type Contact, type ExchangeFile, type Payment, type Project, type ResearchItem, type ResearchSummary, type WorkLog } from '../lib/types'
+import { CLIENT_CATEGORIES, type Client, type ClientCategory, type Contact, type ExchangeFile, type Payment, type Project, type ResearchItem, type ResearchSummary, type WorkLog, type TaxInvoice } from '../lib/types'
 import { REPORT_KIND, ReportBody, ReportForm, clientCatLabel } from '../components/Reports'
 import { ContactProjectsSection, ContactTimeline, ExchangeFilesSection } from '../components/ContactHistory'
 import { Shell } from '../components/Shell'
@@ -27,12 +29,33 @@ export default function Clients() {
   // 검색: 거래처 정보 + 담당자(이름·메일·연락처) + 리서치 보고서 내용
   const { data: extra } = useAsync(
     async () => {
-      const [contacts, research] = await Promise.all([api.listContacts().catch(() => [] as Contact[]), api.listResearch().catch(() => [] as ResearchSummary[])])
-      return { contacts, reports: research.filter(r => r.kind === REPORT_KIND && r.client_id) }
+      const [contacts, research, projects, payments, invoices] = await Promise.all([
+        api.listContacts().catch(() => [] as Contact[]),
+        api.listResearch().catch(() => [] as ResearchSummary[]),
+        api.listProjects().catch(() => [] as Project[]),
+        api.listPayments().catch(() => [] as Payment[]),
+        api.listTaxInvoices().catch(() => [] as TaxInvoice[]),
+      ])
+      return { contacts, reports: research.filter(r => r.kind === REPORT_KIND && r.client_id), projects, payments, invoices }
     },
     [version],
-    { contacts: [] as Contact[], reports: [] as ResearchSummary[] },
+    { contacts: [] as Contact[], reports: [] as ResearchSummary[], projects: [] as Project[], payments: [] as Payment[], invoices: [] as TaxInvoice[] },
   )
+  // 회사 구분 (대표 지시 2026-11-18 '업체도 각 회사 구분'): 직접 정한 값 → 없으면 그 업체의 프로젝트 · 결제 · 세금계산서로 판단 → 아무 기록 없으면 아트리어(지금까지 자료는 모두 아트리어)
+  const company = useCompany()
+  const companiesOf = useMemo(() => {
+    const m = new Map<string, Set<CompanyKey>>()
+    const add = (id: string | null | undefined, k: CompanyKey | null) => {
+      if (!id || !k) return
+      m.set(id, (m.get(id) ?? new Set<CompanyKey>()).add(k))
+    }
+    const projCo = new Map(extra.projects.map(p => [p.id, companyOfProject(p)]))
+    for (const p of extra.projects) add(p.client_id, companyOfProject(p))
+    for (const x of extra.payments) add(x.client_id, x.project_id ? projCo.get(x.project_id) ?? null : null)
+    const byBiz = new Map(clients.filter(c => c.business_no).map(c => [c.business_no!.replace(/\D/g, ''), c.id]))
+    for (const inv of extra.invoices) add(byBiz.get((inv.partner_biz_no ?? '').replace(/\D/g, '')), companyOfInvoice(inv))
+    return (c: Client): CompanyKey[] => (c.companies?.length ? c.companies : [...(m.get(c.id) ?? new Set<CompanyKey>(['AR']))]).sort()
+  }, [extra, clients])
   const selectedId = query.get('id')
   const selected = clients.find(c => c.id === selectedId) ?? null
   const haystack = useMemo(() => {
@@ -46,7 +69,7 @@ export default function Clients() {
   }, [clients, extra])
   const reported = useMemo(() => new Set(extra.reports.map(r => r.client_id)), [extra.reports])
   const words = q.trim().toLowerCase().split(/\s+/).filter(Boolean)
-  const list = clients.filter(c => (!cat || c.category === cat) && (!words.length || words.every(w => haystack.get(c.id)?.includes(w) || bodySearch.matches.some(m => m.word === w && m.client_id === c.id && extra.reports.some(r => r.id === m.id)))))
+  const list = clients.filter(c => (company === 'all' || companiesOf(c).includes(company)) && (!cat || c.category === cat) && (!words.length || words.every(w => haystack.get(c.id)?.includes(w) || bodySearch.matches.some(m => m.word === w && m.client_id === c.id && extra.reports.some(r => r.id === m.id)))))
   const go = (id: string | null) => navigate(withQuery(path, query, { id, view: null, pid: null }), { replace: true })
   const people = query.get('view') === 'people'
   const setView = (v: 'people' | null) => navigate(withQuery(path, query, { view: v, pid: null }), { replace: true })
@@ -93,13 +116,14 @@ export default function Clients() {
               <Search size={14} />
               <input className="input" placeholder="협력사·발주처 · 담당자 · 이메일 · 보고서 검색" value={q} onChange={e => setQ(e.target.value)} aria-label="거래처 검색" />
             </div>
+            <CompanySwitch />
             <div className="chips">
               <Chip active={!cat} onClick={() => setCat(null)}>
                 전체
               </Chip>
               {CLIENT_CATEGORIES.map(c => (
                 <Chip key={c} active={cat === c} onClick={() => setCat(c)}>
-                  {clientCatLabel(c)} {clients.filter(x => x.category === c).length}
+                  {clientCatLabel(c)} {clients.filter(x => x.category === c && (company === 'all' || companiesOf(x).includes(company))).length}
                 </Chip>
               ))}
             </div>
@@ -115,6 +139,7 @@ export default function Clients() {
                       {c.phone ? ` · ${c.phone}` : ''}
                     </span>
                   </span>
+                  <span className="row gap-4">{companiesOf(c).map(k => <CompanyTag key={k} k={k} />)}</span>
                   {reported.has(c.id) && <span className="t-meta">보고서</span>}
                 </div>
               </button>
@@ -443,6 +468,26 @@ function ClientForm({ client, onClose, onSaved }: { client: Client | null; onClo
               <option key={c}>{c}</option>
             ))}
           </select>
+        </Field>
+        <Field label="거래 회사" className="full">
+          <div className="row gap-12 wrap">
+            {COMPANY_KEYS.map(k => (
+              <label key={k} className="row gap-6" style={{ alignItems: 'center' }}>
+                <input
+                  type="checkbox"
+                  checked={!!f.companies?.includes(k)}
+                  onChange={e => {
+                    const next = new Set(f.companies ?? [])
+                    if (e.target.checked) next.add(k)
+                    else next.delete(k)
+                    set({ companies: next.size ? COMPANY_KEYS.filter(x => next.has(x)) : null })
+                  }}
+                />
+                {COMPANIES[k].label}
+              </label>
+            ))}
+            <span className="t-cap">비워 두면 프로젝트 · 결제 · 세금계산서로 저절로 정합니다</span>
+          </div>
         </Field>
         {text('business_no', '사업자번호')}
         {text('tax_email', '세금계산서 메일', false, 'email')}
