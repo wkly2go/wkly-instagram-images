@@ -2012,6 +2012,10 @@ export function createDemoApi(): Api {
       return []
     },
     async updateWebInquiry() {},
+    async listInquiryThreads() {
+      return []
+    },
+    async dismissInquiryThread() {},
     async importAdDaily(rows) {
       if (!store.ad_daily) seedAds()
       const list = store.ad_daily ?? (store.ad_daily = [])

@@ -71,6 +71,7 @@ import type {
   AdCreative,
   AdReport,
   WebInquiry,
+  InquiryThread,
   AdDaily,
   SeoCheck,
   AgentJob,
@@ -952,6 +953,16 @@ export function createSupabaseApi(url: string, key: string): Api {
     },
     async updateWebInquiry(id, patch) {
       const { error } = await sb.from('web_inquiries').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', id)
+      if (error) throw new Error(error.message)
+    },
+    async listInquiryThreads() {
+      const { data, error } = await sb.rpc('sales_inquiry_threads')
+      if (error) throw new Error(error.message)
+      return (data ?? []) as InquiryThread[]
+    },
+    async dismissInquiryThread(inquiryId) {
+      const { error } = await sb.rpc('sales_inquiry_thread_dismiss', { p_inquiry: inquiryId })
+      if (error?.code === 'PGRST202') throw new Error('답장 필요 없음 기능은 서버 반영 뒤 쓸 수 있습니다.')
       if (error) throw new Error(error.message)
     },
     async importAdDaily(rows) {
