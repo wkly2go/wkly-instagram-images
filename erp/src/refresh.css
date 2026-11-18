@@ -558,3 +558,10 @@ html[data-theme="dark"] .home-kpi-tile { background: rgba(255, 255, 255, .08) !i
 .task-inline:has(> .task-inline-sel) { width: 100%; }
 td .task-inline > .task-inline-sel { min-width: 140px; }
 td > .task-inline-sel, td .task-inline-sel:only-child { min-width: 76px; }
+
+/* 완료 → 후속 업무 (2026-11-18) */
+.task-follow { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px dashed var(--v8-line-2, #d9dde3); border-radius: 10px; background: #fff; }
+.task-follow-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
+.task-follow-row > input:first-child { grid-column: 1 / -1; }
+.task-follow-row > * { min-width: 0; width: 100%; }
+.task-follow > label { flex-wrap: wrap; }
