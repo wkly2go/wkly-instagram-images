@@ -5,7 +5,7 @@ import type {SalesDeskFold,SalesStrategy,SalesStrategyApi,StrategyPlan} from '..
 import {parseStageQuestion} from '../lib/salesStrategy'
 import type {SalesDeskAction,SalesDeskMessage} from '../lib/salesDesk'
 import type {SalesExecutionPackage} from '../lib/salesExecution'
-import {Button,Field} from './ui'
+import {Button,Field,Modal} from './ui'
 import './SalesDeskChat.css'
 /** One-tap instructions for the most common questions. */
 const REJECTED=['수정 요청','보류']
@@ -14,7 +14,7 @@ const REASONS=['대상이 너무 넓다. 더 좁고 구체적으로','근거가 
 const QUICK=['이번 주 새로 확인된 팝업·매장 오픈 브랜드와 접근 방법','참여 가능한 나라장터 용역 공고 정리','승인 대기 중인 기획안 요약과 우선순위']
 const time=(v:string)=>new Date(v).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'})
 /** Plans join the conversation as proposals the administrator approves or rejects in place. */
-export interface DeskPlans {items:SalesStrategy[];busy:boolean;error:string;onApprove:(row:SalesStrategy,feedback?:string)=>void;/** The prepared execution package of a plan, for one-step approval. */loadExecution?:(row:SalesStrategy)=>Promise<SalesExecutionPackage|null>;onApproveExecute?:(row:SalesStrategy,pkg:SalesExecutionPackage)=>void;onReject:(row:SalesStrategy,reason:string,replan:boolean)=>void;onOpen:(row:SalesStrategy)=>void;/** The plan whose full report is shown inside its own card. */openId?:string|null;detail?:(row:SalesStrategy)=>ReactNode;onPlan:(direction:string)=>void;execution?:(row:SalesStrategy)=>ReactNode}
+export interface DeskPlans {items:SalesStrategy[];busy:boolean;error:string;onApprove:(row:SalesStrategy,feedback?:string)=>void;/** The prepared execution package of a plan, for one-step approval. */loadExecution?:(row:SalesStrategy)=>Promise<SalesExecutionPackage|null>;onApproveExecute?:(row:SalesStrategy,pkg:SalesExecutionPackage)=>void;onReject:(row:SalesStrategy,reason:string,replan:boolean)=>void;onOpen:(row:SalesStrategy)=>void;/** The plan whose full report is shown inside its own card. */openId?:string|null;detail?:(row:SalesStrategy)=>ReactNode;onPlan:(direction:string)=>void;execution?:(row:SalesStrategy)=>ReactNode;/** 기획안을 고친 뒤 목록 다시 읽기 */onChanged?:()=>void}
 export function SalesDeskChat({api,agents,canSubmit,operational,plans}:{api:SalesStrategyApi;agents:{id:string;name:string}[];canSubmit:boolean;operational:boolean;plans?:DeskPlans}){
  const [instruction,setInstruction]=useState(''),[agent,setAgent]=useState(''),[action,setAction]=useState<SalesDeskAction>('보고서'),[busy,setBusy]=useState(false),[error,setError]=useState(''),[cursors,setCursors]=useState<(number|null)[]>([null])
  const before=cursors[cursors.length-1],state=useAsync(()=>api.listSalesDesk(before),[api,before],[])
@@ -39,7 +39,7 @@ export function SalesDeskChat({api,agents,canSubmit,operational,plans}:{api:Sale
  const shownMsg=(m:SalesDeskMessage)=>!folded('message',m.id)&&(showFailed||!failedMsg(m))
  const newest=state.data.filter(shownMsg).at(-1)?.id
  // Proposals appear only beside the latest conversation page, in the order things happened.
- const timeline=[...state.data.filter(shownMsg).map(m=>({at:m.created_at,message:m,plan:null as SalesStrategy|null})),...(plans&&cursors.length===1?plans.items.filter(p=>p.status!=='생성 실패'&&!folded('plan',p.id)&&(showRejected||!REJECTED.includes(p.status))).map(p=>({at:p.created_at,message:null as SalesDeskMessage|null,plan:p})):[])].sort((a,b)=>a.at<b.at?-1:a.at>b.at?1:0)
+ const timeline=[...state.data.filter(shownMsg).map(m=>({at:m.created_at,message:m,plan:null as SalesStrategy|null})),...([] as {at:string;message:SalesDeskMessage|null;plan:SalesStrategy|null}[])].sort((a,b)=>a.at<b.at?-1:a.at>b.at?1:0)
  useDraftNavigation(!!instruction.trim(),busy)
  // After the user sends an instruction, bring the newest exchange into view once; never move the page on a plain reload.
  useEffect(()=>{if(state.loading||!followLatest.current||!sent.current)return;sent.current=false;conversation.current?.lastElementChild?.scrollIntoView?.({block:'nearest'})},[state.data,state.loading])
@@ -61,6 +61,7 @@ export function SalesDeskChat({api,agents,canSubmit,operational,plans}:{api:Sale
   {plans&&(waiting.length>0||running>0)&&<p className="sales-desk-summary" role="status"><strong>승인 대기 {waiting.length}건</strong> · 실행 준비·진행 {running}건{waiting.length>0&&<Button kind="outline" onClick={()=>document.getElementById('sales-plan-'+waiting[0].id)?.scrollIntoView?.({block:'center'})}>승인할 기획안 보기</Button>}</p>}
   {rejected>0&&cursors.length===1&&<p className="sales-desk-note">반려한 기획안 {rejected}건은 숨겼습니다. 반려 사유는 다음 기획에 반영됩니다. <Button kind="ghost" onClick={()=>setShowRejected(v=>!v)}>{showRejected?'반려한 안 숨기기':'반려한 안 보기'}</Button></p>}
   {failed>0&&<p className="sales-desk-note">실패한 지시 {failed}건은 숨겼습니다. <Button kind="ghost" onClick={()=>setShowFailed(v=>!v)}>{showFailed?'실패한 지시 숨기기':'실패한 지시 보기'}</Button></p>}
+  {plans&&cursors.length===1&&<PlanBoard api={api} plans={plans} canDecide={canSubmit&&operational} showRejected={showRejected} folded={id=>folded('plan',id)} onFold={canFold?row=>void fold('plan',row.id,true,`${planTags(row.plan).title}`.slice(0,80)):undefined}/>}
   <div ref={conversation} className="sales-desk-conversation" aria-label="저장된 지시와 결과" aria-busy={state.loading}>
    {state.loading?<p role="status">대화 기록을 불러오고 있습니다.</p>:!state.error&&!timeline.length?<p>아직 대화가 없습니다. 아래에 원하는 결과를 적어 주세요.</p>:!state.error&&timeline.map(item=>item.plan?<PlanProposal key={'plan:'+item.plan.id} row={item.plan} plans={plans!} canDecide={canSubmit&&operational} compact={!['승인 대기','승인','기획 중'].includes(item.plan.status)&&!opened.includes('plan:'+item.plan.id)} onToggle={()=>toggle('plan:'+item.plan!.id)} onFold={canFold?()=>void fold('plan',item.plan!.id,true,`${item.plan!.plan?.title||'기획안'} · ${item.plan!.status}`):undefined}/>:(m=>m.id!==newest&&m.status!=='처리 중'&&!opened.includes('msg:'+m.id)?<article key={m.id} className="sales-desk-exchange sales-desk-compact"><button type="button" className="sales-desk-compact-open" onClick={()=>toggle('msg:'+m.id)} aria-expanded={false}><span className="sales-desk-compact-what">{m.action} · {m.instruction}</span><small>{m.agent_name} · {m.status} · {time(m.created_at)}</small></button>{canFold&&<Button kind="ghost" onClick={()=>void fold('message',m.id,true,`${m.action} · ${m.instruction}`.slice(0,200))}>보관</Button>}</article>:<article key={m.id} className="sales-desk-exchange"><div className="sales-desk-mine"><header><strong>내 지시 · {m.action}</strong><small>{time(m.created_at)}</small>{m.id!==newest&&<Button kind="ghost" onClick={()=>toggle('msg:'+m.id)}>접기</Button>}{canFold&&m.status!=='처리 중'&&<Button kind="ghost" onClick={()=>void fold('message',m.id,true,`${m.action} · ${m.instruction}`.slice(0,200))}>보관</Button>}</header><p className="sales-desk-text">{m.instruction}</p></div><div className="sales-desk-answer"><strong>{m.agent_name} · {m.status}</strong>{m.status==='처리 중'?<p role="status">저장된 자료를 바탕으로 보고서를 작성하고 있습니다.</p>:<p className="sales-desk-text">{m.reply}</p>}{m.report&&<DeskReportView message={m}/>}{m.report&&plans&&canSubmit&&<p className="sales-desk-actions"><Button kind="outline" disabled={plans.busy} onClick={()=>plans.onPlan(`대화 지시: ${m.instruction} · 보고서: ${m.report!.title} · 제안: ${m.report!.recommendations.slice(0,2).join(' / ')}`.slice(0,600))}>이 내용으로 기획안 만들기</Button></p>}<details><summary>조회한 DB 자료와 수집 상태 · {m.snapshot.sources.length}건</summary><p>{m.snapshot.scope} · 일치 {m.snapshot.matched_total}건 · {time(m.snapshot.at)}</p>{m.snapshot.sources.length?<ul>{m.snapshot.sources.map(s=><li key={s.id}><strong>{s.name}</strong> · {s.entity_kind} · {s.organization||'소속 미확인'}<small>{s.source} · {s.source_updated_at?time(s.source_updated_at):'자료 시각 미확인'}</small><p className="sales-desk-text">{s.evidence}</p>{/^https?:\/\//i.test(s.source_url)&&<a href={s.source_url} target="_blank" rel="noopener noreferrer">등록 출처 열기 ↗</a>}</li>)}</ul>:<p>조건에 맞는 저장 자료가 없습니다. 새로운 고객 수요가 확인됐다는 의미가 아닙니다.</p>}<h4>출처별 최근 수집 상태</h4>{m.snapshot.coverage.map(s=><p key={s.source}>{s.source} · {s.status}<br/>{s.note}</p>)}<h4>전체 영업 진행 단계</h4><p>{m.snapshot.pipeline.map(p=>`${p.stage} ${p.count}건`).join(' · ')||'등록된 진행 영업 없음'}</p>{m.snapshot.execution&&<><h4>외부 연락 준비 현황</h4><p>{m.snapshot.execution.scope} · 검증 대기 {m.snapshot.execution.needs_verification}건 · 재검토 {m.snapshot.execution.recheck}건 · 보류 {m.snapshot.execution.held}건</p><p>{m.snapshot.execution.note}</p></>}</details></div></article>)(item.message!))}
   </div>
@@ -150,4 +151,69 @@ function PlanQuestions({questions,busy,onRevise,onApprove}:{questions:string[];b
   <p className="sales-desk-actions"><Button kind="outline" disabled={busy||!text} onClick={()=>onRevise(text)}>이 의견으로 다시 기획</Button><Button disabled={busy||!text} onClick={()=>onApprove(text)}>이 의견으로 승인</Button></p>
   {!text&&<small>하나 이상 고르거나 적으시면 버튼이 켜집니다. 그대로 괜찮으면 아래 '승인'을 누르세요.</small>}
  </section>
+}
+
+/**
+ * 기획안 보드 (대표 지시 2026-11-18 '기획안을 카드 형식으로 한 페이지에서 여러 개를 볼 수 있게 · 클릭하면 화면이 커지고 모든 내용을 보고 기획을 수정할 수 있게')
+ * 대화 사이에 끼어 있던 기획안을 위쪽 카드 판으로 모음 · 승인 대기 → 승인 → 기획 중 → 나머지 순 · 카드를 누르면 큰 창에서 전체 내용 · 승인/반려 · 고치기
+ */
+const ORDER:Record<string,number>={'승인 대기':0,'승인':1,'기획 중':2,'수정 요청':3,'보류':4}
+function PlanBoard({api,plans,canDecide,showRejected,folded,onFold}:{api:SalesStrategyApi;plans:DeskPlans;canDecide:boolean;showRejected:boolean;folded:(id:string)=>boolean;onFold?:(row:SalesStrategy)=>void}){
+ const [openId,setOpenId]=useState<string|null>(null),[editing,setEditing]=useState(false)
+ const items=plans.items.filter(p=>p.status!=='생성 실패'&&!folded(p.id)&&(showRejected||!REJECTED.includes(p.status))).sort((a,b)=>(ORDER[a.status]??9)-(ORDER[b.status]??9)||(a.created_at<b.created_at?1:-1))
+ const open=items.find(p=>p.id===openId)??plans.items.find(p=>p.id===openId)??null
+ if(!items.length)return null
+ const close=()=>{setOpenId(null);setEditing(false)}
+ return <section className="sales-plan-board" aria-label="기획안 카드">
+  <header><h3>기획안 <span>{items.length}</span></h3><small>카드를 누르면 크게 열어 전체 내용을 보고 승인 · 반려 · 고치기를 할 수 있어요</small></header>
+  <div className="sales-plan-grid">
+   {items.map(row=>{const t=planTags(row.plan);return <button key={row.id} id={'sales-plan-'+row.id} type="button" className={`sales-plan-card plan-${stateTone(row)}`} onClick={()=>{setOpenId(row.id);setEditing(false)}}>
+    <span className="sales-plan-card-tags"><PlanTags row={row}/></span>
+    <strong className="sales-plan-card-title">{t.title}</strong>
+    {row.plan?.customer&&<span className="sales-plan-card-line"><b>대상</b> {row.plan.customer}</span>}
+    {row.plan?.offer&&<span className="sales-plan-card-offer">{row.plan.offer}</span>}
+    <small className="sales-plan-card-when">{time(row.created_at)}{row.plan?.steps?.length?` · ${row.plan.steps.length}단계`:''}</small>
+   </button>})}
+  </div>
+  {open&&<Modal wide title={planTags(open.plan).title} onClose={close} actions={<>{canDecide&&api.editSalesStrategy&&open.plan&&!editing&&!['기획 중','생성 실패'].includes(open.status)&&<Button kind="outline" onClick={()=>setEditing(true)}>기획 고치기</Button>}<Button kind="ghost" onClick={close}>닫기</Button></>}>
+   {editing&&open.plan?<PlanEditor key={open.id+':'+open.revision} api={api} row={open} onDone={()=>{setEditing(false);plans.onChanged?.()}} onCancel={()=>setEditing(false)}/>:<div className="sales-plan-modal"><PlanProposal row={open} plans={plans} canDecide={canDecide} onFold={onFold?()=>{onFold(open);close()}:undefined}/></div>}
+  </Modal>}
+ </section>
+}
+
+const EDIT_FIELDS:[keyof StrategyPlan,string,number][]=[['title','제목',1],['customer','대상',2],['offer','제안',5],['why_now','지금 하는 이유',4],['opportunity','기회',3],['approach','접근 방법',4],['effect','기대 효과',3],['resources','필요한 자원',3],['stop_rule','중단 기준',2],['first_message','첫 연락 문안',6]]
+function PlanEditor({api,row,onDone,onCancel}:{api:SalesStrategyApi;row:SalesStrategy;onDone:()=>void;onCancel:()=>void}){
+ const p=row.plan!
+ const [f,setF]=useState<Record<string,string>>(()=>Object.fromEntries(EDIT_FIELDS.map(([k])=>[k,String(p[k]??'')])))
+ const [steps,setSteps]=useState(()=>(p.steps??[]).map(s=>({action:s.action,output:s.output??'',day:s.day})))
+ const [busy,setBusy]=useState(false),[error,setError]=useState('')
+ const save=async()=>{
+  setBusy(true);setError('')
+  const patch:Record<string,unknown>={}
+  for(const [k] of EDIT_FIELDS)if((f[k]??'').trim()!==String(p[k]??'').trim())patch[k]=f[k]
+  const cleaned=steps.filter(s=>s.action.trim()).map(s=>({action:s.action.trim(),output:s.output.trim(),day:Math.max(0,Math.min(365,Math.round(Number(s.day)||0)))}))
+  if(JSON.stringify(cleaned)!==JSON.stringify((p.steps??[]).map(s=>({action:s.action,output:s.output??'',day:s.day}))))patch.steps=cleaned
+  try{if(Object.keys(patch).length)await api.editSalesStrategy!(row.id,row.revision,patch as never);onDone()}
+  catch(e){setError(e instanceof Error?e.message:'저장하지 못했습니다.')}
+  finally{setBusy(false)}
+ }
+ return <div className="sales-plan-editor">
+  {row.status==='승인'&&<p className="sales-desk-note">이미 승인된 기획입니다. 고치면 기록이 바뀌고, 이미 만들어진 실행 단계 · 메일 초안은 그대로입니다.</p>}
+  {row.status==='승인 대기'&&<p className="sales-desk-note">고친 뒤에는 바뀐 내용으로 승인하게 됩니다.</p>}
+  <div className="sales-plan-editor-grid">
+   {EDIT_FIELDS.map(([k,label,rows])=><Field key={k} label={label} className={rows>2?'full':''}>{rows===1?<input className="input" value={f[k]} maxLength={4000} onChange={e=>setF({...f,[k]:e.target.value})}/>:<textarea className="textarea" rows={rows} value={f[k]} maxLength={4000} onChange={e=>setF({...f,[k]:e.target.value})}/>}</Field>)}
+  </div>
+  <h4>영업 단계 <small>할 일 · 산출물 · 승인 뒤 며칠째</small></h4>
+  <ol className="sales-plan-editor-steps">
+   {steps.map((s,i)=><li key={i}>
+    <input className="input" value={s.action} maxLength={300} placeholder="할 일" onChange={e=>setSteps(v=>v.map((x,j)=>j===i?{...x,action:e.target.value}:x))} aria-label={`${i+1}단계 할 일`}/>
+    <input className="input" value={s.output} maxLength={300} placeholder="산출물" onChange={e=>setSteps(v=>v.map((x,j)=>j===i?{...x,output:e.target.value}:x))} aria-label={`${i+1}단계 산출물`}/>
+    <input className="input" type="number" min={0} max={365} value={s.day} onChange={e=>setSteps(v=>v.map((x,j)=>j===i?{...x,day:Number(e.target.value)}:x))} aria-label={`${i+1}단계 승인 뒤 날짜`}/>
+    <Button kind="ghost" onClick={()=>setSteps(v=>v.filter((_,j)=>j!==i))} aria-label={`${i+1}단계 지우기`}>지우기</Button>
+   </li>)}
+  </ol>
+  {steps.length<12&&<Button kind="outline" onClick={()=>setSteps(v=>[...v,{action:'',output:'',day:(v.at(-1)?.day??0)+1}])}>단계 추가</Button>}
+  {error&&<p role="alert" className="t-red">{error}</p>}
+  <p className="sales-desk-actions"><Button disabled={busy||!(f.title??'').trim()} onClick={()=>void save()}>{busy?'저장 중…':'고친 내용 저장'}</Button><Button kind="ghost" disabled={busy} onClick={onCancel}>취소</Button></p>
+ </div>
 }
