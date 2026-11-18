@@ -98,7 +98,7 @@ function AdminKpis({ projects, fin, money, today }: { projects: Project[]; fin: 
         <span className="t-cap">진행 프로젝트</span>
         <span className="v">{count('진행')}</span>
         <span className="sub">
-          기획 {count('기획')} · NIC {count('NIC')} · 보류 {count('보류')}
+          상담협의 {count('상담협의')} · 기획 {count('기획')} · NIC {count('NIC')} · 보류 {count('보류')}
         </span>
       </button>
       <div className="kpi">
@@ -162,7 +162,7 @@ function MemberKpis({ projects, tasks, today }: { projects: Project[]; tasks: Ta
   )
 }
 
-const STATUS_COLOR: Record<Project['status'], string> = { 진행: 'var(--blue)', 기획: 'var(--green)', NIC: 'var(--red)', 완료: 'var(--pink)', 보류: 'var(--gray)' }
+const STATUS_COLOR: Record<Project['status'], string> = { 상담협의: 'var(--yellow)', 진행: 'var(--blue)', 기획: 'var(--green)', NIC: 'var(--red)', 완료: 'var(--pink)', 보류: 'var(--gray)' }
 
 /** 수주 현황: 상태별 프로젝트 수 + (관리자) 월별 수주액 = 프로젝트 시작 월 기준 계약액(공급가) */
 function Orders({ projects, money, today, admin }: { projects: Project[]; money: Map<string, ReturnType<typeof projectMoney>>; today: string; admin: boolean }) {
@@ -183,7 +183,7 @@ function Orders({ projects, money, today, admin }: { projects: Project[]; money:
         <span className="t-bodyb">수주 현황</span>
         <span className="cap">{admin ? '수주액 = 프로젝트 시작 월의 계약액 (부가세 포함)' : '상태별 프로젝트 수'}</span>
       </div>
-      <StackBar label="상태별 프로젝트" parts={(['진행', '기획', 'NIC', '완료', '보류'] as const).map(s => ({ key: s, label: s, value: projects.filter(p => p.status === s).length, color: STATUS_COLOR[s] }))} />
+      <StackBar label="상태별 프로젝트" parts={(['상담협의', '진행', '기획', 'NIC', '완료', '보류'] as const).map(s => ({ key: s, label: s, value: projects.filter(p => p.status === s).length, color: STATUS_COLOR[s] }))} />
       {admin && (
         <>
           <div className="row wrap gap-12">
@@ -205,7 +205,7 @@ function Orders({ projects, money, today, admin }: { projects: Project[]; money:
 function ProgressBoard({ projects, tasks, today }: { projects: Project[]; tasks: Task[]; today: string }) {
   const { profileName } = useApp()
   const rows = projects
-    .filter(p => p.status === '진행' || p.status === '기획' || p.status === 'NIC')
+    .filter(p => p.status === '진행' || p.status === '기획' || p.status === '상담협의' || p.status === 'NIC')
     .map(p => {
       const ts = tasks.filter(t => t.project_id === p.id)
       const done = ts.filter(t => t.status === '완료').length
@@ -385,7 +385,7 @@ function OwnerProgress({ projects, tasks, money, today }: { projects: Project[];
 
 function Profitability({ projects, money }: { projects: Project[]; money: Map<string, ReturnType<typeof projectMoney>> }) {
   const { profileName } = useApp()
-  const order: Record<Project['status'], number> = { 진행: 0, 기획: 1, NIC: 2, 완료: 3, 보류: 4 }
+  const order: Record<Project['status'], number> = { 진행: 0, 기획: 1, 상담협의: 2, NIC: 3, 완료: 4, 보류: 5 }
   const rows = projects
     .filter(p => money.get(p.id)?.contract != null && p.status !== '보류' && p.status !== 'NIC')
     .sort((a, b) => order[a.status] - order[b.status] || (a.end_date ?? '').localeCompare(b.end_date ?? ''))
