@@ -645,6 +645,8 @@ export interface ApprovalActivity {
   created_at: string
 }
 
+/** 관리자 보고서 (표 admin_reports · 관리자만) */
+export interface AdminReport { id: string; title: string; category: string; summary: string | null; body: string; report_date: string; created_at: string; updated_at: string }
 export interface ApprovalRoute {
   kind: ApprovalKind
   approver_id: string | null
