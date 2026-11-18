@@ -3,7 +3,7 @@ import { useApp, useAsync } from '../lib/app'
 import type { DesignBase, PriceRef } from '../lib/design'
 
 /** 기호 앞 두 글자로 고르는 기본 공종 (비어 있을 때만 채움 · 건축 자재는 공종이 여러 가지라 비워 둔다) */
-const GROUP_TRADE: Record<string, string> = { EM: 'T10', MM: 'T12', MC: 'T12' }
+const GROUP_TRADE: Record<string, string> = { EM: 'T10', MM: 'T12', MC: 'T12', LT: 'T11' }
 
 /**
  * 수량표 › 물가 기준에서 찾아 넣기 (2026-11-18 대표 지시 '물가정보를 기호화해서 견적이나 물량 산출에 사용')

@@ -135,7 +135,7 @@ export interface UnitPrice {
 }
 /** 물가 기준 단가 (조달청 가격정보 · design.price_refs) */
 /** 물가 기준 묶음 — 기호 앞 두 글자 */
-export const PRICE_REF_GROUPS: [string, string][] = [['BM', '건축 자재'], ['EM', '전기·통신 자재'], ['MM', '기계설비 자재'], ['CM', '토목 자재'], ['BC', '건축 시공'], ['MC', '기계설비 시공'], ['CC', '토목 시공']]
+export const PRICE_REF_GROUPS: [string, string][] = [['BM', '건축 자재'], ['EM', '전기·통신 자재'], ['MM', '기계설비 자재'], ['CM', '토목 자재'], ['BC', '건축 시공'], ['MC', '기계설비 시공'], ['CC', '토목 시공'], ['LT', '조명 (시중 판매가)']]
 export interface PriceRef {
   id: number
   source_name: string
@@ -190,10 +190,6 @@ export interface DesignMaterial {
   supplier_id: string | null
   product_url: string | null
   notes: string | null
-  /** 물가 기준 · 시중 가격 (참고용 · 견적 계산에는 쓰지 않음) */
-  list_price?: number | null
-  price_as_of?: string | null
-  source_note?: string | null
 }
 export interface Knowledge { id: string; kind: string; key: string; title: string; body: unknown; source: string | null; project_code: string | null }
 
