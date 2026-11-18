@@ -571,3 +571,21 @@ td > .task-inline-sel, td .task-inline-sel:only-child { min-width: 76px; }
 .company-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
 .company-switch .chip.active .company-dot { box-shadow: 0 0 0 2px #fff; }
 .company-tag { display: inline-flex; align-items: center; padding: 0 7px; border: 1px solid; border-radius: 999px; font-size: var(--fs-body); line-height: 1.5; background: #fff; white-space: nowrap; }
+
+/* 문서 읽기 (2026-11-18 '가독성을 고려해서 문서를 만들어') — 보고서 · 결재 문서 공통 */
+.report { line-height: 1.75; color: var(--tx-body, #222a25); }
+.report .report-title { margin: 0 0 2px; font-size: var(--fs-sub); font-weight: 800; color: var(--tx-title, #151d18); }
+.report .report-h { margin: 14px 0 2px; padding-left: 10px; border-left: 3px solid var(--tx-key, #1f6b4a); font-size: var(--fs-sub); font-weight: 700; color: var(--tx-title, #151d18); }
+.report .report-p { margin: 0; font-size: var(--fs-body); white-space: pre-wrap; }
+.report .report-list { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; font-size: var(--fs-body); }
+.report .report-list li::marker { color: var(--tx-key, #1f6b4a); }
+.report .report-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; font-size: var(--fs-body); }
+.report .report-steps li { display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 8px; align-items: start; }
+.report .report-step-n { width: 22px; height: 22px; border-radius: 50% !important; background: var(--v8-tint, #e8f2ec); color: var(--tx-key, #1f6b4a); font-weight: 700; display: inline-flex; align-items: center; justify-content: center; margin-top: 2px; }
+.report .report-kv { font-size: var(--fs-body); }
+.report b { font-weight: 700; color: var(--tx-title, #151d18); }
+.report-table-wrap { overflow-x: auto; }
+.report-table { border-collapse: collapse; width: 100%; font-size: var(--fs-body); }
+.report-table th, .report-table td { border-bottom: 1px solid var(--v8-line, #ebe7df); padding: 6px 8px; text-align: left; vertical-align: top; }
+.report-table th { color: var(--tx-sub, #535c56); font-weight: 700; background: #faf8f4; }
+.doc-panel { padding: 16px 18px; background: #fff; }

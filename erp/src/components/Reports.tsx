@@ -11,19 +11,25 @@ export const REPORT_KIND = '거래처 리포트'
 const CAT_LABEL: Record<string, string> = { 클라이언트: '클라이언트 (발주처)', 협력사: '협력사', 기타: '기타' }
 export const clientCatLabel = (c: string) => CAT_LABEL[c] ?? c
 
-/** 보고서 본문: '# 제목' · '## 소제목' · '- 목록' · '키: 값' 줄을 읽기 좋게 */
-export function ReportBody({ body }: { body: string }) {
+/**
+ * 보고서 · 결재 문서 본문 (대표 지시 2026-11-18 '가독성을 고려해서 문서를 만들어'):
+ * '# 제목' · '## 소제목' · '- 목록' · '1. 순서' · '| 표 |' · '키: 값' · **굵게** 를 읽기 좋게 나눠 그림
+ * showTitle 이면 '# 제목'도 보여 줌 (결재 문서처럼 화면 제목과 다를 때)
+ */
+export function ReportBody({ body, showTitle = false }: { body: string; showTitle?: boolean }) {
   const out: ReactNode[] = []
   let kv: [string, string][] = []
   let list: string[] = []
+  let ol: string[] = []
+  let table: string[][] = []
   const flush = () => {
     if (kv.length) {
       out.push(
-        <dl key={`kv${out.length}`} className="kv box">
+        <dl key={`kv${out.length}`} className="kv box report-kv">
           {kv.map(([k, v], i) => (
             <Fragment key={i}>
               <dt>{k}</dt>
-              <dd>{linkify(v)}</dd>
+              <dd>{inline(v)}</dd>
             </Fragment>
           ))}
         </dl>,
@@ -34,11 +40,43 @@ export function ReportBody({ body }: { body: string }) {
       out.push(
         <ul key={`ul${out.length}`} className="report-list">
           {list.map((t, i) => (
-            <li key={i}>{linkify(t)}</li>
+            <li key={i}>{inline(t)}</li>
           ))}
         </ul>,
       )
       list = []
+    }
+    if (ol.length) {
+      out.push(
+        <ol key={`ol${out.length}`} className="report-steps">
+          {ol.map((t, i) => (
+            <li key={i}>
+              <span className="report-step-n">{i + 1}</span>
+              <span>{inline(t)}</span>
+            </li>
+          ))}
+        </ol>,
+      )
+      ol = []
+    }
+    if (table.length) {
+      const rows = table.filter(r => !r.every(c => /^:?-{2,}:?$/.test(c.trim())))
+      const [head, ...rest] = rows
+      out.push(
+        <div key={`tb${out.length}`} className="report-table-wrap">
+          <table className="report-table">
+            <thead>
+              <tr>{head.map((c, i) => <th key={i}>{inline(c)}</th>)}</tr>
+            </thead>
+            <tbody>
+              {rest.map((r, i) => (
+                <tr key={i}>{r.map((c, j) => <td key={j}>{inline(c)}</td>)}</tr>
+              ))}
+            </tbody>
+          </table>
+        </div>,
+      )
+      table = []
     }
   }
   for (const raw of body.split('\n')) {
@@ -47,30 +85,50 @@ export function ReportBody({ body }: { body: string }) {
       flush()
       continue
     }
-    const h = line.match(/^(#{1,3})\s+(.*)$/)
+    const h = line.match(/^(#{1,4})\s+(.*)$/)
+    const row = line.trim().match(/^\|(.*)\|$/)
+    const num = line.match(/^\s*(\d{1,2})[.)]\s+(.*)$/)
     const li = line.match(/^\s*[-*·•]\s*(.*)$/)
-    const pair = line.match(/^([^:：#\-*]{1,12})[:：]\s*(.*)$/)
+    const pair = line.match(/^([^:：#\-*|]{1,12})[:：]\s*(.*)$/)
+    if (row) {
+      if (!table.length) flush()
+      table.push(row[1].split('|').map(c => c.trim()))
+      continue
+    }
+    if (table.length) flush()
     if (h) {
       flush()
-      // '# 제목' 은 화면 위 제목과 같아서 생략
-      if (h[1].length > 1) out.push(<h3 key={out.length} className="report-h">{linkify(h[2])}</h3>)
+      // '# 제목' 은 화면 위 제목과 같아서 생략 (showTitle 이면 보여 줌)
+      if (h[1].length === 1) {
+        if (showTitle) out.push(<h2 key={out.length} className="report-title">{inline(h[2])}</h2>)
+      } else out.push(<h3 key={out.length} className="report-h">{inline(h[2])}</h3>)
+    } else if (num) {
+      if (kv.length || list.length) flush()
+      ol.push(num[2])
     } else if (li) {
-      if (kv.length) flush()
+      if (kv.length || ol.length) flush()
       if (li[1].trim()) list.push(li[1])
     } else if (pair && !/^https?$/i.test(pair[1].trim())) {
-      if (list.length) flush()
+      if (list.length || ol.length) flush()
       if (pair[2].trim()) kv.push([pair[1].trim(), pair[2].trim()])
     } else {
       flush()
       out.push(
-        <p key={out.length} className="t-small pre" style={{ margin: 0 }}>
-          {linkify(line)}
+        <p key={out.length} className="report-p">
+          {inline(line)}
         </p>,
       )
     }
   }
   flush()
-  return <div className="col gap-6 report">{out}</div>
+  return <div className="col gap-8 report">{out}</div>
+}
+
+/** **굵게** 를 강조로, 나머지는 링크까지 */
+const inline = (text: string): ReactNode => {
+  const parts = text.split(/(\*\*[^*]+\*\*)/g).filter(Boolean)
+  if (parts.length === 1 && !/^\*\*/.test(parts[0])) return linkify(text)
+  return parts.map((t, i) => (/^\*\*[^*]+\*\*$/.test(t) ? <b key={i}>{t.slice(2, -2)}</b> : <Fragment key={i}>{linkify(t)}</Fragment>))
 }
 
 const linkify = (text: string): ReactNode => <Linkify text={text} />
