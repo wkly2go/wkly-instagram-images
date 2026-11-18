@@ -184,6 +184,10 @@ export interface DesignMaterial {
   supplier_id: string | null
   product_url: string | null
   notes: string | null
+  /** 물가 기준 · 시중 가격 (참고용 · 견적 계산에는 쓰지 않음) */
+  list_price?: number | null
+  price_as_of?: string | null
+  source_note?: string | null
 }
 export interface Knowledge { id: string; kind: string; key: string; title: string; body: unknown; source: string | null; project_code: string | null }
 
