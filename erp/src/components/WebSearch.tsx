@@ -264,6 +264,9 @@ export function openLink(url: string) {
 }
 /** 바깥 링크를 인트라넷 위에 뜨는 별도 창으로 (같은 창을 다시 씀 · 휴대폰은 새 탭) */
 export function openPopup(url: string) {
+  // PC 프로그램은 바깥 링크를 기본 브라우저로 넘기고 창 열기를 거절한다(window.open 이 null).
+  // 그때 아래의 '새 탭으로 다시 열기'까지 돌면 같은 주소가 두 번 열리므로 한 번만 부른다 (2026-11-18 대표 지시 '한 개만 열리게')
+  if (desktop()) return void window.open(url, '_blank', 'noopener')
   const w = Math.min(1280, Math.round(screen.availWidth * 0.8))
   const h = Math.min(900, Math.round(screen.availHeight * 0.85))
   const left = Math.round((screen.availWidth - w) / 2)
