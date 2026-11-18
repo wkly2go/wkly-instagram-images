@@ -7,6 +7,7 @@
 // - 우리 판매 단가(design.unit_prices)는 바꾸지 않는다. 화면이 옆에 '물가 기준'으로 보여 준다.
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { toRow, type Item } from './row.ts'
+import { runCatalog } from './catalog.ts'
 
 const BASE = 'https://apis.data.go.kr/1230000/ao/PriceInfoService/'
 const SOURCES = [
@@ -33,7 +34,7 @@ Deno.serve(async req => {
   if (used.error || used.data !== true) return json({ error: '권한 없음' }, 401)
   const key = Deno.env.get('DATA_GO_KR_SERVICE_KEY')?.trim()
   if (!key) return json({ error: 'DATA_GO_KR_SERVICE_KEY 비밀값이 없습니다' }, 503)
-  const body = (await req.json().catch(() => ({}))) as { mode?: string; ops?: string[]; params?: Record<string, string>; force?: boolean }
+  const body = (await req.json().catch(() => ({}))) as { mode?: string; ops?: string[]; params?: Record<string, string>; force?: boolean; keep?: string[] }
   const call = async (op: string, page: number, rows: number, extra: Record<string, string> = {}) => {
     const u = new URL(BASE + op)
     u.search = new URLSearchParams({ serviceKey: key, type: 'json', pageNo: String(page), numOfRows: String(rows), ...extra }).toString()
@@ -45,10 +46,20 @@ Deno.serve(async req => {
     const out = []
     for (const op of (body.ops ?? SOURCES.map(x => x.op)).slice(0, 12)) {
       const r = await call(op, 1, 3, body.params).catch(e => ({ status: 0, text: String(e) }))
-      out.push({ op, status: r.status, text: r.text.slice(0, 1500) })
+      // 응답 살펴보기: 전체 건수 · 첫 줄 · (keep 를 주면) 줄마다 그 칸만
+      let total: number | null = null, first: unknown = null, rows: unknown[] = []
+      try {
+        const j = JSON.parse(r.text); total = Number(j?.response?.body?.totalCount ?? NaN)
+        const it = j?.response?.body?.items; const list = (Array.isArray(it) ? it : Array.isArray(it?.item) ? it.item : it?.item ? [it.item] : []) as Record<string, unknown>[]
+        first = list[0] ?? null
+        if (body.keep?.length) rows = list.map(x => body.keep!.map(k => x[k]))
+      } catch { /* error body */ }
+      out.push({ op, status: r.status, total, first: body.keep?.length ? undefined : first, rows, text: first ? '' : r.text.slice(0, 600) })
     }
     return json({ out })
   }
+  // 나라장터 자재목록만 (분류 · 품목)
+  if (body.mode === 'catalog') return json({ ok: true, report: await runCatalog(db, call, started + BUDGET_MS, !!body.force), ms: Date.now() - started })
   if (body.mode !== 'sync') return json({ error: 'mode 를 확인해 주세요' }, 400)
 
   const plan = ((await db.rpc('design_price_refs_plan')).data ?? []) as { source: string; next_page: number; total: number | null; done_at: string | null; last_error: string | null; updated_at: string }[]
@@ -85,5 +96,7 @@ Deno.serve(async req => {
     report.push({ source: src.source, saved, page })
     if (Date.now() - started >= BUDGET_MS) break
   }
+  // 가격을 다 받고 시간이 남으면 나라장터 자재목록을 이어서 받는다
+  if (Date.now() - started < BUDGET_MS - 15_000) report.push(...await runCatalog(db, call, started + BUDGET_MS))
   return json({ ok: true, report, ms: Date.now() - started })
 })

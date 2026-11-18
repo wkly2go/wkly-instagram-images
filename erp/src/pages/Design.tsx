@@ -816,7 +816,7 @@ function RefCell({ price, m, onFind }: { price: number; m?: PriceRefMatch; onFin
 function PricesTab({ base }: { base: DesignBase }) {
   const { api, me, version } = useApp()
   const admin = me.role === 'admin'
-  const [kind, setKind] = useState<'sell' | 'cost' | 'ref'>('sell')
+  const [kind, setKind] = useState<'sell' | 'cost' | 'ref' | 'g2b'>('sell')
   const [search, setSearch] = useState('')
   const [q, setQ] = useState('')
   const [trade, setTrade] = useState('')
@@ -825,6 +825,9 @@ function PricesTab({ base }: { base: DesignBase }) {
   const { data: costs } = useAsync(() => (kind === 'cost' && admin ? api.listUnitCosts(q, trade || null) : Promise.resolve([])), [kind, q, trade, version, admin], [])
   const { data: vendors } = useAsync(() => (kind === 'cost' && admin ? api.listDesignVendors() : Promise.resolve([])), [kind, admin], [])
   const [group, setGroup] = useState('')
+  const [cls, setCls] = useState('')
+  const { data: g2b } = useAsync(() => (kind === 'g2b' ? api.listG2bItems(q, cls) : Promise.resolve({ rows: [], total: 0 })), [kind, q, cls, version], { rows: [], total: 0 })
+  const { data: g2bGroups } = useAsync(() => (kind === 'g2b' ? api.listG2bGroups() : Promise.resolve([])), [kind], [])
   const { data: refs } = useAsync(() => (kind === 'ref' ? api.listPriceRefs(q, group) : Promise.resolve({ rows: [], total: 0 })), [kind, q, group, version], { rows: [], total: 0 })
   const { data: matches } = useAsync(() => (kind === 'sell' ? api.comparePriceRefs(prices.map(p => p.id)) : Promise.resolve([])), [kind, prices], [])
   const refOf = new Map(matches.map(m => [m.unit_price_id, m]))
@@ -836,20 +839,36 @@ function PricesTab({ base }: { base: DesignBase }) {
         <button type="button" className={`chip${kind === 'sell' ? ' active' : ''}`} onClick={() => setKind('sell')}>판매 단가 (견적용)</button>
         {admin && <button type="button" className={`chip${kind === 'cost' ? ' active' : ''}`} onClick={() => setKind('cost')}>실행 단가 (발주용 · 관리자만)</button>}
         <button type="button" className={`chip${kind === 'ref' ? ' active' : ''}`} onClick={() => setKind('ref')}>물가 기준</button>
+        <button type="button" className={`chip${kind === 'g2b' ? ' active' : ''}`} onClick={() => setKind('g2b')}>나라장터 자재목록</button>
         <span className="design-gap" />
         <select className="select design-filter" value={trade} onChange={e => setTrade(e.target.value)} aria-label="공종으로 거르기">
           <option value="">모든 공종</option>{base.trades.map(t => <option key={t.code} value={t.code}>{t.name}</option>)}
         </select>
-        <input className="input design-filter" type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder={kind === 'ref' ? '기호 · 품목 · 규격 찾기' : '품목 · 규격 찾기'} aria-label="품목 · 규격 찾기" />
+        <input className="input design-filter" type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder={kind === 'ref' ? '기호 · 품목 · 규격 찾기' : kind === 'g2b' ? '품명 · 규격 · 제조사 · 식별번호 찾기' : '품목 · 규격 찾기'} aria-label="품목 · 규격 찾기" />
       </div>
       {kind === 'ref' && <div className="row wrap" role="group" aria-label="물가 기준 묶음">
         <button type="button" className={`chip${group === '' ? ' active' : ''}`} onClick={() => setGroup('')}>전체</button>
         {PRICE_REF_GROUPS.map(([k, name]) => <button type="button" key={k} className={`chip${group === k ? ' active' : ''}`} onClick={() => setGroup(k)}>{k} {name}</button>)}
       </div>}
-      {kind === 'ref'
+      {kind === 'g2b' && <>
+        <div className="row wrap" role="group" aria-label="자재 분류">
+          <button type="button" className={`chip${cls === '' ? ' active' : ''}`} onClick={() => setCls('')}>전체</button>
+          {[['30', '건자재'], ['3015', '외장마감재'], ['3016', '내장마감재'], ['39', '전기 · 조명'], ['40', '배관 · 설비'], ['56', '가구']].map(([k, name]) => <button type="button" key={k} className={`chip${cls === k ? ' active' : ''}`} onClick={() => setCls(k)}>{name}</button>)}
+          <select className="select design-filter" value={cls.length === 4 ? cls : ''} onChange={e => setCls(e.target.value)} aria-label="분류 고르기">
+            <option value="">분류 고르기</option>{g2bGroups.map(g => <option key={g.code} value={g.code}>{g.code} {g.name}</option>)}
+          </select>
+        </div>
+        <p className="t-cap">조달청 물품목록(나라장터 자재목록) {g2b.total.toLocaleString('ko-KR')}건{g2b.total > g2b.rows.length ? ` 중 ${g2b.rows.length}건` : ''} · 건자재(외장 · 내장 마감재 포함) · 전기·조명 · 배관·설비 · 가구 품목의 이름 · 규격 · 제조사 · 물품식별번호입니다. 가격은 없습니다 — 가격은 '물가 기준'에서 찾습니다.</p>
+        {g2b.rows.length === 0 ? <Empty>맞는 품목이 없습니다. 받는 중이면 잠시 뒤 다시 보세요.</Empty> : (
+          <div className="table-wrap"><table className="table">
+            <thead><tr><th>식별번호</th><th>분류</th><th>품명 · 규격</th><th>제조사</th><th>구분</th></tr></thead>
+            <tbody>{g2b.rows.map(r => <tr key={r.ident_no}><td className="nowrap strong">{r.ident_no}</td><td className="nowrap t-cap">{r.class_name ?? r.class_no}</td><td className="max">{r.name}</td><td>{r.maker}</td><td className="nowrap t-cap">{r.kind}</td></tr>)}</tbody>
+          </table></div>)}
+      </>}
+      {kind === 'g2b' ? null : kind === 'ref'
         ? <p className="t-cap">조달청 가격정보(시설자재 · 시장시공가격)와 조명 시중 판매가 {refs.total.toLocaleString('ko-KR')}건{refs.total > refs.rows.length ? ` 중 ${refs.rows.length}건` : ''} · 품목 · 규격 · 단위마다 기호가 하나씩 붙어 있고, 가격이 새로 고시돼도 기호는 그대로입니다. 수량표의 '물가 기준에서 찾아 넣기'에 기호나 이름을 넣어 씁니다. 부가세 별도 · 우리 단가는 바꾸지 않습니다.</p>
         : <p className="t-cap">{count >= 400 ? '400건까지만 보입니다. 공종이나 낱말로 좁혀 보세요.' : `${count}건`} · 견적에는 '승인'된 단가 중 가장 최근 것만 쓰입니다.{kind === 'sell' && matches.length > 0 ? ` · 물가 기준과 견준 것 ${matches.length}건` : ''}</p>}
-      {kind === 'ref' ? (refs.rows.length === 0 ? <Empty>아직 받은 물가 기준이 없습니다. 조달청 가격정보를 받는 대로 여기에 쌓입니다.</Empty> : (
+      {kind === 'g2b' ? null : kind === 'ref' ? (refs.rows.length === 0 ? <Empty>아직 받은 물가 기준이 없습니다. 조달청 가격정보를 받는 대로 여기에 쌓입니다.</Empty> : (
         <div className="table-wrap"><table className="table">
           <thead><tr><th>기호</th><th>출처</th><th>품명</th><th>규격</th><th>단위</th><th className="num">단가</th><th className="num">재료 · 노무 · 경비</th><th>지역</th><th>기준일</th></tr></thead>
           <tbody>{refs.rows.map(r => <tr key={r.id}><td className="nowrap strong">{r.code}</td><td className="nowrap t-cap">{r.source_name.replace('조달청 ', '')}</td><td>{r.item}</td><td className="max">{r.spec}</td><td>{r.unit}</td><td className="num">{Math.round(r.price).toLocaleString('ko-KR')}</td><td className="num t-cap">{[r.material, r.labor, r.expense].some(x => x != null) ? [r.material, r.labor, r.expense].map(x => (x == null ? '-' : Math.round(x).toLocaleString('ko-KR'))).join(' · ') : ''}</td><td className="nowrap">{r.region}</td><td className="nowrap">{r.notice_date ?? ''}</td></tr>)}</tbody>
