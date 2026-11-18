@@ -38,3 +38,13 @@
   .gov-dl dd { margin-bottom: 6px; }
 }
 .gov-status, .gov-owner { width: auto; height: 30px; padding-top: 0; padding-bottom: 0; }
+.gov-views { margin-bottom: -2px; }
+.gov-plan { border: 1px solid var(--v8-line-2, #e2ded5); border-radius: var(--v8-r-card, 12px); background: var(--v8-card, #fff); padding: 10px 12px; }
+.gov-plan > summary { cursor: pointer; font-weight: 700; color: var(--tx-key, #1f6b4a); display: flex; align-items: center; gap: 6px; }
+.gov-plan[open] { display: grid; gap: 10px; }
+.gov-plan-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 8px 12px; }
+.gov-plan-form textarea, .gov-plan-sec textarea { width: 100%; resize: vertical; }
+.gov-plan-sec { display: grid; gap: 6px; }
+.gov-docs { display: grid; gap: 12px; }
+.gov-doc { padding: 16px 18px; background: var(--v8-card, #fff); border: 1px solid var(--v8-line-2, #e2ded5); border-radius: var(--v8-r-card, 12px); overflow-x: auto; }
+.gov-doc-edit { width: 100%; min-height: 60vh; resize: vertical; font-family: inherit; }
