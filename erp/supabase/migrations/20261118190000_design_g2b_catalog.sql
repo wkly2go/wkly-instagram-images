@@ -52,11 +52,12 @@ create or replace function public.design_g2b_plan() returns jsonb language sql s
   from private.design_g2b_sync
 $$;
 
--- 품목을 받을 분류(8단위) 다음 몇 개: 건자재 30 → 전기·조명 39 → 배관·설비 40 → 가구 56 (번호 순)
+-- 품목을 받을 분류(8단위) 다음 몇 개를 '번호|이름'으로: 건자재 30 → 전기·조명 39 → 배관·설비 40 → 가구 56 (번호 순)
+-- 물품목록 품목 조회는 분류 번호로 거르지 못하고 품명으로만 거르기 때문에 이름을 같이 넘긴다
 create or replace function public.design_g2b_item_classes(p_after text, p_limit integer) returns text[]
 language sql stable security definer set search_path = '' as $$
-  select coalesce(array_agg(code order by code), '{}') from (
-    select c.code from design.g2b_classes c
+  select coalesce(array_agg(code || '|' || name order by code), '{}') from (
+    select c.code, c.name from design.g2b_classes c
     where c.level = 8 and c.use_yn and c.code ~ '^(30|39|40|56)' and c.code > coalesce(p_after, '')
     order by c.code limit least(greatest(coalesce(p_limit, 6), 1), 20)) t
 $$;

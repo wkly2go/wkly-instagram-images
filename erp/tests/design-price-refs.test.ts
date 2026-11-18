@@ -65,12 +65,12 @@ test('catalog run saves classes then items and remembers where it stopped', asyn
   const saves: { kind: string; n: number; state: Record<string, unknown>; done: boolean }[] = []
   const db = { rpc: async (fn: string, a: Record<string, unknown> = {}) => {
     if (fn === 'design_g2b_plan') return { data: [], error: null }
-    if (fn === 'design_g2b_item_classes') return { data: a.p_after ? [] : ['30161509'], error: null }
+    if (fn === 'design_g2b_item_classes') return { data: a.p_after ? [] : ['30161509|석고보드'], error: null }
     saves.push({ kind: String(a.p_kind), n: (a.p_rows as unknown[]).length, state: a.p_state as Record<string, unknown>, done: !!a.p_done })
     return { data: (a.p_rows as unknown[]).length, error: null }
   } }
   const call = async (op: string) => ({ status: 200, text: JSON.stringify({ response: { header: { resultCode: '00' }, body: { totalCount: 1, items: op.includes('PrdlstSearch')
-    ? [{ prdctIdntNo: '20153194', prdctClsfcNo: '30161509', krnPrdctNm: '석고보드' }]
+    ? [{ prdctIdntNo: '20153194', prdctClsfcNo: '30161509', krnPrdctNm: '석고보드' }, { prdctIdntNo: '26568521', prdctClsfcNo: '43211596', krnPrdctNm: '다른 분류 품목' }]
     : [{ prdctClsfcNo: '30161509', prdctClsfcNoNm: '석고보드', dtilPrdctClsfcNo: '3016150901', dtilPrdctClsfcNoNm: '석고보드' }] } } }) })
   await runCatalog(db, call, Date.now() + 5000)
   assert.deepEqual(saves.filter(x => x.kind.startsWith('class')).map(x => x.kind), ['class2', 'class4', 'class6', 'class8', 'class10'])

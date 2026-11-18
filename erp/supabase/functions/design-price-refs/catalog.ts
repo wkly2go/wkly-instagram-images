@@ -63,15 +63,16 @@ export async function runCatalog(db: Db, call: Call, deadline: number, force = f
   if (fresh(st) && !st?.state?.after) return report
   let after = String(st?.state?.after ?? ''), saved = 0, classes = 0
   while (Date.now() < deadline) {
-    const codes = ((await db.rpc('design_g2b_item_classes', { p_after: after, p_limit: 6 })).data ?? []) as string[]
+    // 분류마다 '번호|이름' — 이 서비스는 분류 번호로는 거르지 못하고 품명(prdctClsfcNoNm)으로만 거른다
+    const codes = (((await db.rpc('design_g2b_item_classes', { p_after: after, p_limit: 6 })).data ?? []) as string[]).map(c => ({ code: c.split('|')[0], name: c.split('|').slice(1).join('|') }))
     if (!codes.length) { await save('items', [], {}, true, null); report.push({ kind: 'items', done: true }); break }
-    const results = await Promise.all(codes.map(async code => {
+    const results = await Promise.all(codes.map(async ({ code, name }) => {
       const rows: NonNullable<ReturnType<typeof itemRow>>[] = []
       for (let pg = 1; pg <= 40; pg++) {
-        const res = await call(T + 'getThngPrdnmLocplcAccotListInfoInfoPrdlstSearch02', pg, 500, { prdctClsfcNo: code }).catch(e => ({ status: 0, text: String(e) }))
+        const res = await call(T + 'getThngPrdnmLocplcAccotListInfoInfoPrdlstSearch02', pg, 500, { prdctClsfcNoNm: name }).catch(e => ({ status: 0, text: String(e) }))
         const p = parseList(res.text)
         if (p.err || res.status !== 200) return { code, rows, err: (p.err || `HTTP ${res.status}`).slice(0, 300) }
-        for (const x of p.list) { const r = itemRow(x); if (r) rows.push(r) }
+        for (const x of p.list) { const r = itemRow(x); if (r && r.class_no === code) rows.push(r) }
         if (pg * 500 >= p.total || p.list.length === 0) break
       }
       return { code, rows, err: '' }
