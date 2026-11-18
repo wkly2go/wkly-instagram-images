@@ -16,6 +16,7 @@ import { createPendingReads } from './pendingReads'
 import { createSignedUrlCache } from './signedUrlCache'
 import { resolveUploadedRecord } from './uploadRecord'
 import { removeStoredObject } from './storageRemoval'
+import type { BankQuestion, InterviewForm } from './interviewForms'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { startMeetingProcessing } from './meetingProgress'
 import { isHiddenName, isReferencePath } from './gdrive'
@@ -980,6 +981,42 @@ export function createSupabaseApi(url: string, key: string): Api {
         : await sb.from('sales_interviews').insert(draft).select('*').single()
       if (r.error) throw new Error(r.error.message)
       return r.data as SalesInterview
+    },
+    async listInterviewQuestions() {
+      const r = await sb.from('sales_interview_questions').select('*').order('sort').order('created_at').limit(500)
+      if (r.error) throw new Error(r.error.code === '42P01' ? '질문 은행은 서버 반영 뒤 쓸 수 있습니다.' : r.error.message)
+      return r.data as BankQuestion[]
+    },
+    async saveInterviewQuestion(id, draft) {
+      // 자리마다 기본 문안은 하나 — 새 기본을 정하면 예전 기본 표시를 먼저 내린다
+      if (draft.is_default && draft.active) {
+        let q = sb.from('sales_interview_questions').update({ is_default: false }).eq('slot', draft.slot).eq('is_default', true)
+        if (id) q = q.neq('id', id)
+        const off = await q
+        if (off.error) throw new Error(off.error.message)
+      }
+      const row = { ...draft, updated_at: new Date().toISOString() }
+      const r = id
+        ? await sb.from('sales_interview_questions').update(row).eq('id', id).select('*').single()
+        : await sb.from('sales_interview_questions').insert(row).select('*').single()
+      if (r.error) throw new Error(r.error.code === '23505' ? '같은 자리에 같은 이름의 문안이 이미 있습니다.' : r.error.message)
+      return r.data as BankQuestion
+    },
+    async getInterviewForm(interviewId) {
+      const r = await sb.from('sales_interview_forms').select('*').eq('interview_id', interviewId).maybeSingle()
+      if (r.error) throw new Error(r.error.message)
+      return r.data as InterviewForm | null
+    },
+    async saveInterviewForm(interviewId, patch) {
+      const now = new Date().toISOString()
+      const prev = await sb.from('sales_interview_forms').select('id, opened_at').eq('interview_id', interviewId).maybeSingle()
+      if (prev.error) throw new Error(prev.error.message)
+      const row = { ...patch, updated_at: now, ...(patch.status === '열림' && !prev.data?.opened_at ? { opened_at: now } : {}) }
+      const r = prev.data
+        ? await sb.from('sales_interview_forms').update(row).eq('id', prev.data.id).select('*').single()
+        : await sb.from('sales_interview_forms').insert({ interview_id: interviewId, title: '', ...row }).select('*').single()
+      if (r.error) throw new Error(r.error.message)
+      return r.data as InterviewForm
     },
     async listMailFilesByThreads(threadIds) {
       if (!threadIds.length) return []

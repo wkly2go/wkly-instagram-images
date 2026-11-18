@@ -22,8 +22,11 @@ const start = () =>
   )
 // 외부 협업방 (/c/<초대 링크> · 2026-11-17): 로그인 · 인트라넷 화면 없이 그 방 하나만 (src/pages/GuestRoom.tsx)
 const guest = /^\/c(\/|$)/.test(window.location.pathname)
+// 인터뷰지 (/i/<토큰> · 2026-11-19): 브랜드 담당자가 로그인 없이 답하는 화면 하나만 (src/pages/InterviewFormPage.tsx)
+const interviewForm = /^\/i\//.test(window.location.pathname)
 // 설계 화면 시험용 자료는 개발 서버에서 따로 켰을 때만 (운영 · 체험 모드 배포에는 들어가지 않음 · src/dev/designHarness.ts)
-if (guest)
+if (interviewForm) void import('./pages/InterviewFormPage').then(m => m.mountInterviewForm(document.getElementById('root')!))
+else if (guest)
   void (async () => {
     if (import.meta.env.DEV && import.meta.env.VITE_COLLAB_HARNESS) (await import('./dev/collabHarness')).installGuestHarness()
     ;(await import('./pages/GuestRoom')).mountGuestRoom(document.getElementById('root')!)

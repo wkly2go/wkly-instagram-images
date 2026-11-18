@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { InterviewFormPanel } from './InterviewFormPanel'
+import { InterviewQuestionBank } from './InterviewQuestionBank'
 import { useApp, useAsync } from '../lib/app'
 import { dateTimeLabel } from '../lib/date'
 import { inquiryMailUrl } from '../lib/inquiryThreads'
@@ -18,8 +20,8 @@ import './SalesInterviews.css'
  * 구글 시트 '인터뷰피드 발송현황'의 탭을 그대로 화면으로: 진행 현황(답변 온 브랜드) · 업로드 일정 · 발송 전체 · 인터뷰 답(로우 데이터) · 영업 정보(1차 가공)
  * 연락처 메일로 오간 메일 · 첨부는 서버가 10분마다 확인(private.sales_interview_mail_tick). 메일은 보내지 않는다. 규칙은 lib/interviews.ts
  */
-type View = 'active' | 'schedule' | 'all' | 'answers' | 'sales'
-const VIEWS: [View, string][] = [['active', '진행 현황'], ['schedule', '업로드 일정'], ['all', '발송 전체'], ['answers', '인터뷰 답'], ['sales', '영업 정보']]
+type View = 'active' | 'schedule' | 'all' | 'answers' | 'sales' | 'bank'
+const VIEWS: [View, string][] = [['active', '진행 현황'], ['schedule', '업로드 일정'], ['all', '발송 전체'], ['answers', '인터뷰 답'], ['sales', '영업 정보'], ['bank', '질문 은행']]
 const CLOSED: InterviewStage[] = ['답장 없음', '불가', '보류']
 const FILTERS: [string, (s: InterviewStage) => boolean][] = [
   ['전체', () => true],
@@ -56,7 +58,7 @@ export function SalesInterviews() {
   const week = rows.filter(r => r.upload_on && r.stage !== '업로드 완료' && !CLOSED.includes(r.stage) && daysBetween(today, r.upload_on) >= 0 && daysBetween(today, r.upload_on) < 7).length
   const clashDays = [...conflicts.keys()].filter(d => d >= today).length
   const replace = (saved: SalesInterview) => state.setData(rows.some(r => r.id === saved.id) ? rows.map(r => (r.id === saved.id ? saved : r)) : [saved, ...rows])
-  const counts: Record<View, number> = { active: active.length, schedule: rows.filter(r => r.upload_on && !CLOSED.includes(r.stage)).length, all: shown.length, answers: answered.length, sales: salesRows.length }
+  const counts: Partial<Record<View, number>> = { active: active.length, schedule: rows.filter(r => r.upload_on && !CLOSED.includes(r.stage)).length, all: shown.length, answers: answered.length, sales: salesRows.length }
 
   // 알림의 '/sales?interview=<id>' · 다른 보기에서 고르기 → 그 줄이 있는 보기로 가서 펼침
   const focusRow = (id: string, list: SalesInterview[] = rows) => {
@@ -101,7 +103,7 @@ export function SalesInterviews() {
       {state.error && <p role="alert">{state.error}</p>}
       <div className="sales-iv-bar">
         <div className="chips" role="tablist" aria-label="서면 인터뷰 보기">
-          {VIEWS.map(([k, label]) => <button key={k} type="button" role="tab" aria-selected={view === k} className={`chip${view === k ? ' active' : ''}`} onClick={() => setView(k)}>{label} {counts[k]}</button>)}
+          {VIEWS.map(([k, label]) => <button key={k} type="button" role="tab" aria-selected={view === k} className={`chip${view === k ? ' active' : ''}`} onClick={() => setView(k)}>{label}{counts[k] === undefined ? '' : ` ${counts[k]}`}</button>)}
         </div>
         <input className="input" type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder="브랜드 · 행사 · 연락처 · 비고 검색" aria-label="서면 인터뷰 검색" />
         <Button size="sm" disabled={open === 'new'} onClick={() => { setOpen('new'); setPinned(true) }}>+ 섭외 추가</Button>
@@ -131,6 +133,8 @@ export function SalesInterviews() {
             )
           })}
         </>
+      ) : view === 'bank' ? (
+        <InterviewQuestionBank />
       ) : view === 'answers' ? (
         <Answers rows={answered} onEdit={id => focusRow(id)} />
       ) : (
@@ -284,6 +288,16 @@ function Editor({ row, onSaved, onClose }: { row: SalesInterview | null; onSaved
     } catch (e) { toast(e instanceof Error ? e.message : '저장하지 못했습니다.') }
     finally { setBusy(false) }
   }
+  // 인터뷰지 링크를 열면 '인터뷰지 링크' 칸에 자동으로 적는다 (저장된 줄 기준 · 지금 고치던 다른 칸은 건드리지 않음)
+  const linkForm = async (url: string) => {
+    if (!row) return
+    try {
+      const saved = await api.saveInterview(row.id, cleanDraft({ ...draftOf(row), form_url: url }))
+      base.current = JSON.stringify({ ...(JSON.parse(base.current) as SalesInterviewDraft), form_url: url })
+      set({ form_url: url })
+      onSaved(saved)
+    } catch { /* 링크 칸을 못 적어도 인터뷰지는 열려 있다 */ }
+  }
   const close = () => { if (!dirty || window.confirm('저장하지 않은 내용이 있습니다. 닫을까요?')) onClose() }
   const applyPaste = () => {
     const p = answersFromPaste(paste)
@@ -333,6 +347,13 @@ function Editor({ row, onSaved, onClose }: { row: SalesInterview | null; onSaved
         {text('게시 링크', 'post_url', { type: 'url', full: true, placeholder: '업로드한 게시물 주소' })}
         {text('비고', 'note', { full: true, area: 4 })}
       </div>
+
+      {row && (
+        <details className="sales-iv-sub" open={row.stage === '답변' || row.stage === '인터뷰지 발송'}>
+          <summary>인터뷰지 (인트라넷) <span>구글 폼 대신 링크로 답 받기</span></summary>
+          <InterviewFormPanel row={row} onLinked={linkForm} />
+        </details>
+      )}
 
       <details className="sales-iv-sub">
         <summary>인터뷰 답 <span>{answerCount}/10</span></summary>

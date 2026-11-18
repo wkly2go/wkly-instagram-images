@@ -9,6 +9,7 @@ import { approvalSummary, researchSummary } from './reportReads'
 import { searchDemoProspectingClients } from './prospectingClientSearch'
 import { createDemoMarketingApi } from './marketingApi'
 import { desktop } from './desktop'
+import { DEMO_INTERVIEW_QUESTIONS, type BankQuestion, type InterviewForm } from './interviewForms'
 import type { MaterialMove, MaterialStockRow, SalesInterview, SlackLink, SlackMessage } from './types'
 import { ApiError, groupIps, type Api, type DriveFolder, type ImportResult, type MessageEvent } from './api'
 import { addDays, nextMonday, toDateKey, todayKey } from './date'
@@ -497,6 +498,9 @@ function seed(): Store {
 export function createDemoApi(): Api {
   // 서면 인터뷰는 체험 모드에 자료를 두지 않음 (대표 지시 '목업은 올리지 마') · 새로 추가한 것만 창이 열린 동안 보관
   let demoInterviews: SalesInterview[] = []
+  // 인터뷰지: 체험 모드에는 질문 은행 기본 문안만 둔다 (브랜드 자료 없음)
+  let demoQuestions: BankQuestion[] = DEMO_INTERVIEW_QUESTIONS.map(q => ({ ...q }))
+  let demoForms: InterviewForm[] = []
   let store: Store
   try {
     const raw = localStorage.getItem(KEY)
@@ -2032,6 +2036,30 @@ export function createDemoApi(): Api {
         created_at: prev?.created_at ?? now, ...draft, emails, updated_at: now,
       }
       demoInterviews = prev ? demoInterviews.map(r => (r.id === row.id ? row : r)) : [row, ...demoInterviews]
+      return row
+    },
+    async listInterviewQuestions() {
+      return demoQuestions.map(q => ({ ...q }))
+    },
+    async saveInterviewQuestion(id, draft) {
+      const row: BankQuestion = { ...draft, id: id ?? uid() }
+      if (row.is_default && row.active) demoQuestions = demoQuestions.map(q => (q.slot === row.slot ? { ...q, is_default: false } : q))
+      demoQuestions = id ? demoQuestions.map(q => (q.id === id ? row : q)) : [...demoQuestions, row]
+      return row
+    },
+    async getInterviewForm(interviewId) {
+      return demoForms.find(f => f.interview_id === interviewId) ?? null
+    },
+    async saveInterviewForm(interviewId, patch) {
+      const now = new Date().toISOString()
+      const prev = demoForms.find(f => f.interview_id === interviewId)
+      const row: InterviewForm = {
+        id: uid(), interview_id: interviewId, token: Array.from({ length: 36 }, () => '0123456789abcdef'[Math.floor(Math.random() * 16)]).join(''),
+        title: '', intro: '', due_on: null, upload_on: null, questions: [], status: '작성 중', opened_at: null, first_seen_at: null, submitted_at: null,
+        answers: {}, respondent: null, respondent_contact: null, image_consent: null, ...prev, ...patch, updated_at: now,
+      }
+      if (patch.status === '열림' && !row.opened_at) row.opened_at = now
+      demoForms = prev ? demoForms.map(f => (f.id === row.id ? row : f)) : [...demoForms, row]
       return row
     },
     async listMailFilesByThreads() {

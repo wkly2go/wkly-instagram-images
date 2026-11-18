@@ -44,3 +44,14 @@ test('HEAD 는 본문 없이 · POST 등은 원래 처리로 · 파일을 못 �
   assert.equal(await collabPageResponse(new Request('https://wkly-erp.pages.dev/c/x', { method: 'POST' }), assets(BUILT)), null)
   assert.equal(await collabPageResponse(new Request('https://wkly-erp.pages.dev/c/x'), assets('nope', 404)), null)
 })
+
+test('the interview form address (/i/…) gets its own title and the same no-index headers', async () => {
+  const { INTERVIEW_PAGE, publicPageResponse } = await import('../src/lib/collabPage.ts')
+  const res = await publicPageResponse(new Request('https://wkly-erp.pages.dev/i/0123456789abcdef0123456789abcdef0123'), assets(BUILT), INTERVIEW_PAGE)
+  const html = await res!.text()
+  assert.match(html, /<title>서면 인터뷰 · 더위클리<\/title>/)
+  assert.doesNotMatch(html, /인트라넷|rel="manifest"/)
+  assert.equal(res!.headers.get('X-Robots-Tag'), 'noindex, nofollow')
+  assert.equal(res!.headers.get('Cache-Control'), 'no-store')
+  assert.ok((JSON.parse(readFileSync(new URL('../public/_routes.json', import.meta.url), 'utf8')).include as string[]).includes('/i/*'))
+})
