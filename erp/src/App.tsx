@@ -42,6 +42,8 @@ const Drive = lazy(() => import('./pages/Drive'))
 const Ledger = lazy(() => import('./pages/Ledger'))
 const Design = lazy(() => import('./pages/Design'))
 
+const Ilwi = lazy(() => import('./pages/Ilwi'))
+
 const PAGES: Record<string, React.ComponentType> = {
   '/': Home,
   '/approvals': Approvals,
@@ -63,6 +65,7 @@ const PAGES: Record<string, React.ComponentType> = {
   '/design-orders': Design,
   '/design-cards': Design,
   '/design-prices': Design,
+  '/ilwi': Ilwi,
   '/design-vendors': Design,
   '/design-materials': Design,
   '/design-learn': Design,

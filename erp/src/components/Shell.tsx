@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useId, useLayoutEffe
 import { useMyAgents } from './AgentDesk'
 import { MobileAppBar, TopAppButton } from './InstallCard'
 import { useTheme } from '../lib/theme'
-import { PencilRuler, Truck, Inbox, Calculator, Building2, Layers, GraduationCap, Ruler, BookOpen, Bookmark, Bot, ListTodo, Plus, Search, Briefcase, HardDrive, ChevronDown, ChevronLeft, ChevronRight, CircleHelp, PanelLeftClose, PanelLeftOpen, ClipboardCheck, FolderKanban, Home, Library, Megaphone, MessageCircle, MoreHorizontal, Settings, Users, Landmark, type LucideIcon } from 'lucide-react'
+import { PencilRuler, Truck, Inbox, Calculator, Sigma, Building2, Layers, GraduationCap, Ruler, BookOpen, Bookmark, Bot, ListTodo, Plus, Search, Briefcase, HardDrive, ChevronDown, ChevronLeft, ChevronRight, CircleHelp, PanelLeftClose, PanelLeftOpen, ClipboardCheck, FolderKanban, Home, Library, Megaphone, MessageCircle, MoreHorizontal, Settings, Users, Landmark, type LucideIcon } from 'lucide-react'
 import { accessSource, isDesktopApp } from '../lib/desktop'
 import { useAttendance } from '../lib/attendance'
 import { AssignTaskModal } from './AssignTask'
@@ -35,7 +35,7 @@ import { AssistantSettingsButton } from './AssistantSettings'
 import type { ChatRoomSummary } from '../lib/types'
 import './ShellUsability.css'
 
-export type TabKey = 'design' | 'designOrders' | 'designCards' | 'designPrices' | 'designVendors' | 'designMaterials' | 'designLearn' | 'tenders' | 'leads' | 'sales' | 'home' | 'reportTemplates' | 'approvals' | 'chat' | 'work' | 'projects' | 'clients' | 'library' | 'drive' | 'team' | 'site' | 'agents' | 'ads' | 'ledger' | 'admin'
+export type TabKey = 'design' | 'designOrders' | 'designCards' | 'designPrices' | 'ilwi' | 'designVendors' | 'designMaterials' | 'designLearn' | 'tenders' | 'leads' | 'sales' | 'home' | 'reportTemplates' | 'approvals' | 'chat' | 'work' | 'projects' | 'clients' | 'library' | 'drive' | 'team' | 'site' | 'agents' | 'ads' | 'ledger' | 'admin'
 
 export const TABS: { key: TabKey; label: string; path: string; admin?: boolean; keywords?: string[] }[] = [
   { key: 'home', label: '홈', path: '/' },
@@ -52,7 +52,9 @@ export const TABS: { key: TabKey; label: string; path: string; admin?: boolean; 
   { key: 'design', label: '설계 프로젝트', path: '/design', keywords: ['설계', '견적', '수량표', '공정표', '스케치업', '인테리어 자동화'] },
   { key: 'designOrders', label: '실행·발주', path: '/design-orders', admin: true, keywords: ['실행 내역', '발주서', '손익', '실행가'] },
   { key: 'designCards', label: '검토함', path: '/design-cards', keywords: ['견적 확정', '단가 가져오기', '검토'] },
-  { key: 'designPrices', label: '단가', path: '/design-prices', keywords: ['판매 단가', '실행 단가', '일위대가'] },
+  { key: 'designPrices', label: '단가', path: '/design-prices', keywords: ['판매 단가', '실행 단가', '물가 기준', '나라장터 자재목록'] },
+  // 일위대가: 일반 인테리어 견적과 따로 (2026-11-18 대표 지시 '분리해서 개발')
+  { key: 'ilwi', label: '일위대가', path: '/ilwi', keywords: ['일위대가', '품셈', '노임단가', '재료비', '노무비', '경비', '시장시공가격'] },
   { key: 'designVendors', label: '협력사', path: '/design-vendors', keywords: ['협력업체', '시공사', '나라장터 후보'] },
   { key: 'designMaterials', label: '자재', path: '/design-materials', keywords: ['마감재', '자재 코드', '스펙'] },
   { key: 'designLearn', label: '학습 자료', path: '/design-learn', keywords: ['도면 세트', '스펙북', '표본', '학습'] },
@@ -85,6 +87,7 @@ const ICONS: Record<TabKey, LucideIcon> = {
   designOrders: Truck,
   designCards: Inbox,
   designPrices: Calculator,
+  ilwi: Sigma,
   designVendors: Building2,
   designMaterials: Layers,
   designLearn: GraduationCap,
@@ -99,7 +102,7 @@ const NAV_SHUT_KEY = 'wkly-side-groups-shut'
 const NAV_GROUPS: { label: string; tabs: TabKey[] }[] = [
   { label: '업무', tabs: ['home', 'reportTemplates', 'approvals', 'projects'] },
   // 설계·견적 (인테리어 디자인 자동화) — 별도 묶음으로 세분화 (대표 지시 2026-11-15)
-  { label: '설계·견적', tabs: ['site', 'design', 'designOrders', 'designCards', 'designPrices', 'designVendors', 'designMaterials', 'designLearn'] },
+  { label: '설계·견적', tabs: ['site', 'design', 'designOrders', 'designCards', 'designPrices', 'ilwi', 'designVendors', 'designMaterials', 'designLearn'] },
   { label: '협업·자료', tabs: ['chat', 'drive', 'team'] },
   { label: '운영', tabs: ['sales', 'leads', 'ads'] },
   // AI 팀·비용은 관리 묶음으로 (대표 지시 2026-11-16) — 팀원에게는 이 묶음에 AI 팀·비용만 보이므로 이름을 '관리'로 보여 줌
