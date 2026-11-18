@@ -78,7 +78,7 @@ test('the inbox never sends mail and keeps the consent rule', async () => {
 })
 
 test('mail tracking in the database only reads mail and alerts politely', async () => {
-  const sql = await readFile(new URL('../supabase/migrations/20261118120000_sales_inquiry_threads.sql', import.meta.url), 'utf8')
+  const sql = await readFile(new URL('../supabase/migrations/20261118141500_sales_inquiry_threads.sql', import.meta.url), 'utf8')
   // reads the synced mailbox, skips unsent drafts and our own addresses
   assert.ok(sql.includes("not ('DRAFT' = any (m.labels))"))
   assert.ok(sql.includes("split_part(lower(trim(w.email)), '@', 2) <> 'thewklyn.com'"))
