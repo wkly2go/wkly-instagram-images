@@ -45,8 +45,8 @@ export function accessSource(): AccessSource {
 
 export const SOURCE_LABEL: Record<AccessSource, string> = { desktop: 'PC 프로그램', web: '브라우저', mobile: '휴대폰' }
 
-/** 설치 파일 (GitHub 릴리스 · 최신 버전으로 자동 연결) */
-const RELEASES = 'https://github.com/wkly2go/wkly-instagram-images/releases/latest/download'
+/** 설치 파일 (Supabase 공개 보관함 desktop-releases 의 latest/ · 릴리스 때 desktop.yml 이 새 버전으로 바꿈 · 2026-11-18 저장소 비공개 대비) */
+const RELEASES = 'https://hophgcpszenrvchvbkav.supabase.co/storage/v1/object/public/desktop-releases/latest'
 export const DOWNLOADS = {
   windows: `${RELEASES}/WKLY-Intranet-Setup.exe`,
   mac: `${RELEASES}/WKLY-Intranet.dmg`,
