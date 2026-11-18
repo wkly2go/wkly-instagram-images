@@ -269,3 +269,13 @@ body:has(.modal-col) .design-step-nav { padding-right: 0; padding-left: 96px; }
 .design-suggest-row > td { background: #fbfaf6; }
 .design-suggest ul { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 6px; }
 .design-suggest li { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; align-items: baseline; }
+
+/* 수량표 › 물가 기준에서 찾아 넣기 */
+.design-refpick { margin: 12px 0 6px; }
+.design-refpick ul { list-style: none; margin: 6px 0 0; padding: 0; border: 1px solid var(--line); border-radius: 8px; background: var(--white); max-height: 320px; overflow: auto; }
+.design-refpick li + li { border-top: 1px solid var(--line); }
+.design-refpick li.t-cap { padding: 6px 10px; }
+.design-refpick li button { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; width: 100%; padding: 7px 10px; border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.design-refpick li button:hover, .design-refpick li button:focus-visible { background: #f3f8f4; }
+.design-refpick li button b { flex: none; min-width: 92px; color: var(--tx-key, #1f6b4a); }
+.design-refpick li button .num { margin-left: auto; font-weight: 700; white-space: nowrap; }
