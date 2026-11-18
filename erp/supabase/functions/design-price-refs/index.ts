@@ -35,7 +35,7 @@ Deno.serve(async req => {
   if (used.error || used.data !== true) return json({ error: '권한 없음' }, 401)
   const key = Deno.env.get('DATA_GO_KR_SERVICE_KEY')?.trim()
   if (!key) return json({ error: 'DATA_GO_KR_SERVICE_KEY 비밀값이 없습니다' }, 503)
-  const body = (await req.json().catch(() => ({}))) as { mode?: string; ops?: string[]; params?: Record<string, string>; force?: boolean; keep?: string[]; wait?: boolean }
+  const body = (await req.json().catch(() => ({}))) as { mode?: string; ops?: string[]; params?: Record<string, string>; force?: boolean; keep?: string[]; wait?: boolean; budget_ms?: number; max_pages?: number }
   const call = async (op: string, page: number, rows: number, extra: Record<string, string> = {}) => {
     const u = new URL(BASE + op)
     u.search = new URLSearchParams({ serviceKey: key, type: 'json', pageNo: String(page), numOfRows: String(rows), ...extra }).toString()
@@ -62,13 +62,11 @@ Deno.serve(async req => {
   if (!['sync', 'catalog', 'mall'].includes(body.mode ?? '')) return json({ error: 'mode 를 확인해 주세요' }, 400)
   // 길게 걸리는 수집은 바로 답하고 뒤에서 돈다 — DB 의 pg_net 이 답을 기다리는 동안 다른 예약 호출(메일 · 슬랙 등)이 밀리지 않게
   const work = (async () => {
-    const end = started + BUDGET_MS
+    // 자재목록 · 계약 단가는 자기 예약(밤 시간 · 조금씩)으로만 돈다. 15분마다 도는 가격 동기화(sync)에 얹지 않는다
+    const end = started + Math.min(BUDGET_MS, Math.max(5_000, Number(body.budget_ms) || BUDGET_MS))
     if (body.mode === 'catalog') return await runCatalog(db, call, end, !!body.force)
-    if (body.mode === 'mall') return await runMall(db, call, end, !!body.force)
-    const report = await syncPrices()
-    if (Date.now() < end - 15_000) report.push(...await runCatalog(db, call, end))
-    if (Date.now() < end - 15_000) report.push(...await runMall(db, call, end))
-    return report
+    if (body.mode === 'mall') return await runMall(db, call, end, !!body.force, Number(body.max_pages) > 0 ? Number(body.max_pages) : Infinity)
+    return await syncPrices()
   })().catch(e => [{ error: String(e).slice(0, 300) }])
   const bg = (globalThis as { EdgeRuntime?: { waitUntil?(p: Promise<unknown>): void } }).EdgeRuntime
   if (bg?.waitUntil && !body.wait) { bg.waitUntil(work); return json({ ok: true, background: true }, 202) }

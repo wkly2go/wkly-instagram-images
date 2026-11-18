@@ -38,14 +38,17 @@ export function nextMallDay(state: Record<string, unknown>, now: number): { day:
   return b >= shift(yesterday, -BACK_DAYS) ? { day: b, page: 1, kind: 'back' } : null
 }
 
-export async function runMall(db: Db, call: Call, deadline: number, force = false) {
+/** maxPages: 한 번에 받는 쪽 수 한도 — 서버에 쓰기 부하가 몰리지 않게 조금씩 (2026-11-18 밤 한꺼번에 받다가 서버 쓰기량 경고) */
+export async function runMall(db: Db, call: Call, deadline: number, force = false, maxPages = Infinity) {
   const st = (((await db.rpc('design_g2b_plan')).data ?? []) as SyncRow[]).find(p => p.kind === 'mall')
+  if (st?.state?.paused) return [{ mall: 'skipped', reason: 'paused' }]
   if (!force && limitedToday(st)) return [{ mall: 'skipped', reason: 'daily limit' }]
   if (!force && st?.last_error?.includes('SERVICE_KEY') && Date.now() - Date.parse(st.updated_at) < 3600_000) return [{ mall: 'skipped', reason: 'key' }]
   let state = { ...(st?.state ?? {}) } as Record<string, unknown>
   const keep = (next: Record<string, unknown>, done: boolean, error: string | null) => db.rpc('design_g2b_save', { p_kind: 'mall', p_rows: [], p_state: next, p_done: done, p_error: error })
-  let saved = 0, days = 0
-  while (Date.now() < deadline) {
+  let saved = 0, days = 0, pages = 0
+  while (Date.now() < deadline && pages < maxPages) {
+    pages++
     const pick = nextMallDay(state, Date.now())
     if (!pick) { await keep(state, true, null); return [{ mall: 'up to date', saved, days }] }
     const res = await call(OP, pick.page, 999, { inqryDiv: '1', inqryBgnDate: pick.day, inqryEndDate: pick.day }).catch(e => ({ status: 0, text: String(e) }))

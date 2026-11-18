@@ -148,3 +148,15 @@ test('contract prices are fetched newest day first, then older days, one day at 
   assert.ok(String(states[1].front).length === 8 && !states[1].day)
   assert.ok(saved >= 2)
 })
+
+test('collection can be paused and is throttled to a few pages per run', async () => {
+  const mk = (state: Record<string, unknown>) => { let n = 0; return { n: () => n, db: { rpc: async (fn: string) => ({ data: fn === 'design_g2b_plan' ? [{ kind: 'mall', state, done_at: null, last_error: null, updated_at: new Date().toISOString() }] : 0, error: null }) }, call: async () => { n++; return { status: 200, text: JSON.stringify({ response: { header: { resultCode: '00' }, body: { totalCount: 99999, items: [] } } }) } } } }
+  const paused = mk({ paused: true, front: '20261117', back: '20261022' })
+  assert.deepEqual(await runMall(paused.db, paused.call, Date.now() + 500), [{ mall: 'skipped', reason: 'paused' }])
+  assert.equal(paused.n(), 0)
+  const slow = mk({ front: '20261117', back: '20261022' })
+  await runMall(slow.db, slow.call, Date.now() + 5000, false, 2)
+  assert.equal(slow.n(), 2)
+  const src = readFileSync(new URL('../supabase/functions/design-price-refs/index.ts', import.meta.url), 'utf8')
+  assert.match(src, /return await syncPrices\(\)/)
+})
