@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { ChevronDown, ChevronUp, ListTodo } from 'lucide-react'
+import { useState, type ReactNode } from 'react'
+import { CalendarDays, ChevronDown, ChevronUp, ListTodo } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { todayKey } from '../lib/date'
 import { Link } from '../lib/router'
@@ -8,13 +8,15 @@ import { AttendanceTodo, useAttendanceTodo } from './AttendanceTodo'
 import { todayTasks } from './TodayWork'
 
 const KEY = 'wkly-dock-todo'
+/** 위쪽 칸에 무엇을 둘지: 할 일 · 결재 / 달력 (대표 지시 2026-11-18 '이곳을 할 일 또는 캘린더로 선택할 수 있게') */
+const MODE_KEY = 'wkly-dock-mode'
 
 /**
  * 채팅 칸 위쪽 '오늘 할 일 · 결재 대기' (대표 지시 2026-11-13 "채팅창이 너무 길어 위쪽에 다른 아이템")
  *  - 내 오늘 업무(지연 포함) · 대기 결재 건수 · 관리자는 근태 결재(휴가 · 외근 · 휴대폰 출근)를 그 자리에서 승인 · 반려
  *  - 머리글을 누르면 접힘 (기억함) · 길어지면 이 칸 안에서만 스크롤
  */
-export function DockTodo() {
+export function DockTodo({ calendar }: { calendar?: ReactNode }) {
   const { api, me, version } = useApp()
   const { busy, run } = useAction()
   const today = todayKey()
@@ -25,6 +27,23 @@ export function DockTodo() {
       return true
     }
   })
+  const [mode, setModeState] = useState<'todo' | 'calendar'>(() => {
+    try {
+      return localStorage.getItem(MODE_KEY) === 'calendar' ? 'calendar' : 'todo'
+    } catch {
+      return 'todo'
+    }
+  })
+  const setMode = (m: 'todo' | 'calendar') => {
+    setModeState(m)
+    if (!open) setOpen(true)
+    try {
+      localStorage.setItem(MODE_KEY, m)
+      localStorage.setItem(KEY, 'open')
+    } catch {
+      /* 저장 못 해도 화면은 그대로 */
+    }
+  }
   const { data } = useAsync(
     async () => {
       const [tasks, approvals] = await Promise.all([api.listTasks(), api.listApprovals().catch(() => [] as ApprovalSummary[])])
@@ -49,14 +68,25 @@ export function DockTodo() {
   }
   return (
     <section className={`dock-todo${open ? '' : ' closed'}`} aria-label="오늘 할 일 · 결재 대기">
-      <button type="button" className="dock-todo-h" onClick={toggle} aria-expanded={open} title={open ? '접기' : '펼치기'}>
-        <ListTodo size={14} aria-hidden="true" />
-        <b>오늘 할 일 · 결재</b>
-        {count > 0 && <span className="side-n">{count > 99 ? '99+' : count}</span>}
+      <div className="dock-todo-h">
+        <div className="dock-mode" role="tablist" aria-label="위쪽 칸 보기">
+          <button type="button" role="tab" aria-selected={mode === 'todo'} className={mode === 'todo' ? 'on' : ''} onClick={() => setMode('todo')}>
+            <ListTodo size={14} aria-hidden="true" /> 할 일 · 결재
+            {count > 0 && <span className="side-n">{count > 99 ? '99+' : count}</span>}
+          </button>
+          {calendar && (
+            <button type="button" role="tab" aria-selected={mode === 'calendar'} className={mode === 'calendar' ? 'on' : ''} onClick={() => setMode('calendar')}>
+              <CalendarDays size={14} aria-hidden="true" /> 캘린더
+            </button>
+          )}
+        </div>
         <span className="grow" />
-        {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-      </button>
-      {open && (
+        <button type="button" className="icon-btn sm" onClick={toggle} aria-expanded={open} title={open ? '접기' : '펼치기'} aria-label={open ? '접기' : '펼치기'}>
+          {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+        </button>
+      </div>
+      {open && mode === 'calendar' && calendar && <div className="dock-todo-body dock-cal">{calendar}</div>}
+      {open && mode === 'todo' && (
         <div className="dock-todo-body">
           {att.admin && <AttendanceTodo todo={att} />}
           <Link to="/approvals" className="today-row dock-todo-link">

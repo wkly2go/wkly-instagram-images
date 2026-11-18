@@ -305,7 +305,7 @@ function ChatDock() {
           <ChevronLeft size={15} />
         </button>
       </div>
-      <DockTodo />
+      <DockTodo calendar={<MiniCalendar />} />
       <div className="quick q2 chat-dock-in">
         <QuickChat rooms={rooms} />
       </div>
