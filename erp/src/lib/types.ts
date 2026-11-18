@@ -1020,6 +1020,8 @@ export interface SalesInterview {
   post_url: string | null; note: string | null
   answers: Record<string, string>; answered_at: string | null; answered_note: string | null
   sales_info: InterviewSalesInfo; owner_id: string | null
+  /** 광고·콘텐츠에서 만든 콘텐츠 (인터뷰 피드 · growth_items) */
+  content_id: string | null
   /** 메일 자동 확인 (10분마다 · 읽기 전용) */
   mail_threads: string[]; mail_last_in_at: string | null; mail_last_out_at: string | null; mail_attach_at: string | null
   source: string | null; created_at: string; updated_at: string
