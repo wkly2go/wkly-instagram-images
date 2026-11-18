@@ -2,6 +2,7 @@ import { getCompany } from './company'
 import { createSupabaseSalesStrategyApi } from './salesStrategyApi'
 import { createSupabaseDesignApi } from './designApi'
 import { createSupabaseIlwiApi } from './ilwiApi'
+import { createSupabaseGovApi } from './govApi'
 import { createSupabaseCollabApi } from './collabApi'
 import { createSupabaseSalesReportApi } from './salesReport'
 import { createSupabaseGrowthApi } from './growthApi'
@@ -215,6 +216,7 @@ export function createSupabaseApi(url: string, key: string): Api {
     ...createSupabaseSalesStrategyApi(sb),
     ...createSupabaseDesignApi(sb),
     ...createSupabaseIlwiApi(sb),
+    ...createSupabaseGovApi(sb),
     ...createSupabaseCollabApi(sb),
     ...createSupabaseSalesReportApi(sb),
     ...createSupabaseGrowthApi(sb),

@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useId, useLayoutEffe
 import { useMyAgents } from './AgentDesk'
 import { MobileAppBar, TopAppButton } from './InstallCard'
 import { useTheme } from '../lib/theme'
-import { PencilRuler, Truck, Inbox, Calculator, Sigma, Building2, Layers, GraduationCap, Ruler, BookOpen, Bookmark, Bot, ListTodo, Plus, Search, Briefcase, HardDrive, ChevronDown, ChevronLeft, ChevronRight, CircleHelp, PanelLeftClose, PanelLeftOpen, ClipboardCheck, FolderKanban, Home, Library, Megaphone, MessageCircle, MoreHorizontal, Settings, Users, Landmark, FileQuestion, type LucideIcon } from 'lucide-react'
+import { PencilRuler, Truck, Inbox, Calculator, Sigma, Building2, Layers, GraduationCap, Ruler, BookOpen, Bookmark, Bot, ListTodo, Plus, Search, Briefcase, HardDrive, ChevronDown, ChevronLeft, ChevronRight, CircleHelp, PanelLeftClose, PanelLeftOpen, ClipboardCheck, FolderKanban, Home, Library, Megaphone, MessageCircle, MoreHorizontal, Settings, Users, Landmark, FileQuestion, HandCoins, type LucideIcon } from 'lucide-react'
 import { accessSource, isDesktopApp } from '../lib/desktop'
 import { useAttendance } from '../lib/attendance'
 import { AssignTaskModal } from './AssignTask'
@@ -35,7 +35,7 @@ import { AssistantSettingsButton } from './AssistantSettings'
 import type { ChatRoomSummary } from '../lib/types'
 import './ShellUsability.css'
 
-export type TabKey = 'design' | 'designOrders' | 'designCards' | 'designPrices' | 'ilwi' | 'designVendors' | 'designMaterials' | 'designLearn' | 'tenders' | 'leads' | 'sales' | 'home' | 'reportTemplates' | 'approvals' | 'chat' | 'work' | 'projects' | 'clients' | 'library' | 'drive' | 'team' | 'site' | 'agents' | 'ads' | 'ledger' | 'interviewQuestions' | 'admin'
+export type TabKey = 'design' | 'designOrders' | 'designCards' | 'designPrices' | 'ilwi' | 'designVendors' | 'designMaterials' | 'designLearn' | 'tenders' | 'leads' | 'sales' | 'home' | 'reportTemplates' | 'approvals' | 'chat' | 'work' | 'projects' | 'clients' | 'library' | 'drive' | 'team' | 'site' | 'agents' | 'ads' | 'ledger' | 'interviewQuestions' | 'gov' | 'admin'
 
 export const TABS: { key: TabKey; label: string; path: string; admin?: boolean; keywords?: string[] }[] = [
   { key: 'home', label: '홈', path: '/' },
@@ -63,6 +63,8 @@ export const TABS: { key: TabKey; label: string; path: string; admin?: boolean; 
   { key: 'ads', label: '광고·콘텐츠', path: '/ads', keywords: ['인스타그램', 'Instagram', 'Meta', '블로그', '유튜브', '캠페인', '소재', '마케팅', 'SEO'] },
   { key: 'ledger', label: '입출금 장부', path: '/ledger', admin: true },
   { key: 'interviewQuestions', label: '인터뷰 질문 은행', path: '/interview-questions', admin: true, keywords: ['인터뷰지', '질문 은행', '서면 인터뷰', '인터뷰 질문', '구글 폼'] },
+  // 정부지원사업: 공고 자동 수집 · 회사별 판정 · 마감 알림 (2026-11-19 대표 지시 · 관리자 전용)
+  { key: 'gov', label: '정부지원사업', path: '/gov', admin: true, keywords: ['지원사업', '정부 지원', '보조금', '바우처', 'K-Startup', '기업마당', '창업 지원', '공고'] },
   { key: 'admin', label: '관리', path: '/admin', admin: true },
   { key: 'leads', label: '연락처 검토함', path: '/leads' },
   { key: 'sales', label: '영업·수주', path: '/sales', keywords: ['나라장터', '공고', '입찰', '신규 영업', '인테리어'] },
@@ -96,6 +98,7 @@ const ICONS: Record<TabKey, LucideIcon> = {
   ads: Megaphone,
   ledger: Landmark,
   interviewQuestions: FileQuestion,
+  gov: HandCoins,
   admin: Settings,
 }
 const MAIN_TABS: TabKey[] = ['home', 'approvals', 'chat', 'projects', 'site']
@@ -108,7 +111,7 @@ const NAV_GROUPS: { label: string; tabs: TabKey[] }[] = [
   { label: '협업·자료', tabs: ['chat', 'drive', 'team'] },
   { label: '운영', tabs: ['sales', 'leads', 'ads'] },
   // AI 팀·비용은 관리 묶음으로 (대표 지시 2026-11-16) — 팀원에게는 이 묶음에 AI 팀·비용만 보이므로 이름을 '관리'로 보여 줌
-  { label: '관리자 전용', tabs: ['agents', 'ledger', 'interviewQuestions', 'admin'] },
+  { label: '관리자 전용', tabs: ['agents', 'ledger', 'interviewQuestions', 'gov', 'admin'] },
 ]
 
 export interface Summary {

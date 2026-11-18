@@ -1,0 +1,40 @@
+/* 정부지원사업 (관리자 전용) — 글자 크기는 공통 3단계(var(--fs-*))만 */
+.gov-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.gov-tile { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 12px 14px; text-align: left; background: var(--v8-card, #fff); border: 1px solid var(--v8-line-2, #e2ded5); border-radius: var(--v8-r-card, 12px); cursor: pointer; }
+.gov-tile:hover { background: var(--v8-hover, #f1efe9); }
+.gov-tile > b { font-size: var(--fs-title); font-weight: 800; color: var(--tx-title, #151d18); font-variant-numeric: tabular-nums; }
+.gov-bar { align-items: center; }
+.gov-sep { width: 1px; height: 18px; background: var(--v8-line-2, #e2ded5); }
+.gov-grow { flex: 1 1 0; }
+.gov-bar .btn svg, .gov-box .btn svg { vertical-align: -2px; }
+
+.gov-table tbody tr:not(.gov-detail) { cursor: pointer; }
+.gov-table tr.gov-open > td { background: #f3f8f4; }
+.gov-table .gov-detail > td { padding: 0; background: #fbfaf6; }
+.gov-table td .cell-sub { display: block; color: var(--tx-sub, #535c56); }
+.gov-title { all: unset; cursor: pointer; font-weight: 700; color: var(--tx-title, #151d18); overflow-wrap: anywhere; }
+.gov-title:focus-visible { outline: 2px solid var(--v8-green, #1f6b4a); outline-offset: 2px; border-radius: 4px; }
+.gov-fits { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.gov-status { min-width: 92px; }
+
+.gov-box { display: grid; gap: 12px; padding: 12px 14px 16px; }
+.gov-why { display: grid; gap: 6px; }
+.gov-why > div { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
+.gov-why > div > span:last-child { color: var(--tx-sub, #535c56); }
+.gov-dl { display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: 6px 12px; margin: 0; }
+.gov-dl dt { color: var(--tx-sub, #535c56); }
+.gov-dl dd { margin: 0; white-space: pre-line; overflow-wrap: anywhere; }
+.gov-note .input { flex: 1 1 320px; }
+
+.gov-rules { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; padding: 12px 14px; background: var(--v8-card, #fff); border: 1px solid var(--v8-line-2, #e2ded5); border-radius: var(--v8-r-card, 12px); }
+.gov-rules > p { grid-column: 1 / -1; margin: 0; }
+.gov-rule { display: grid; gap: 8px; align-content: start; }
+.gov-rule h2 { margin: 0; }
+.gov-rule textarea { width: 100%; resize: vertical; }
+
+@media (max-width: 720px) {
+  .gov-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .gov-dl { grid-template-columns: 1fr; gap: 2px 0; }
+  .gov-dl dd { margin-bottom: 6px; }
+}
+.gov-status, .gov-owner { width: auto; height: 30px; padding-top: 0; padding-bottom: 0; }
