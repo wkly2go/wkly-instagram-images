@@ -2,6 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { toRow } from '../supabase/functions/design-price-refs/row.ts'
+import { classRow, itemRow, parseList, runCatalog } from '../supabase/functions/design-price-refs/catalog.ts'
 
 test('material price rows keep name, spec, unit, region and notice date', () => {
   const r = toRow({ prdctClsfcNoNm: '석고보드', krnPrdctNm: '일반 9.5mm 900*1800', unit: '매', prce: '3,250', splyJrsdctRgnNm: '서울', prdctIdntNo: '24123456', nticeDt: '20260701', bsnsDivNm: '건축' })
@@ -48,4 +49,39 @@ test('price reference codes are added without dropping anything and stay service
   assert.doesNotMatch(reg, /\bdrop\s/i)
   assert.match(reg, /primary key \(source, item, spec, unit\)/)
   assert.doesNotMatch(sql, /grant (insert|update|delete)[^;]*price_ref[^;]*authenticated/i)
+})
+
+test('catalog rows: classes use the detail columns at level 10, deleted items are dropped', () => {
+  assert.deepEqual(classRow({ prdctClsfcNo: '3016', prdctClsfcNoNm: '내장마감재', prdctClsfcNoEngNm: 'Interior finishing', useYn: 'Y' }, 4), { code: '3016', name: '내장마감재', name_en: 'Interior finishing', level: 4, use_yn: true })
+  assert.equal(classRow({ dtilPrdctClsfcNo: '3016150901', dtilPrdctClsfcNoNm: '석고보드' }, 10)?.code, '3016150901')
+  assert.equal(classRow({ prdctClsfcNo: '', prdctClsfcNoNm: 'x' }, 4), null)
+  const it = { prdctIdntNo: '20153194', prdctClsfcNo: '30161509', dtilPrdctClsfcNo: '3016150901', krnPrdctNm: '석고보드, 평보드, 12.5×900×2400mm', mnfctCorpNm: '케이씨씨', prdlstDiv: '시설', chgDt: '2022-11-18 17:59:59', useYn: 'Y', dltYn: 'N' }
+  assert.equal(itemRow(it)?.chg_date, '2022-11-18')
+  assert.equal(itemRow({ ...it, dltYn: 'Y' }), null)
+  assert.equal(parseList('{"OpenAPI_ServiceResponse":{"cmmMsgHeader":{"errMsg":"SERVICE_KEY_IS_NOT_REGISTERED_ERROR"}}}').err, 'SERVICE_KEY_IS_NOT_REGISTERED_ERROR')
+})
+
+test('catalog run saves classes then items and remembers where it stopped', async () => {
+  const saves: { kind: string; n: number; state: Record<string, unknown>; done: boolean }[] = []
+  const db = { rpc: async (fn: string, a: Record<string, unknown> = {}) => {
+    if (fn === 'design_g2b_plan') return { data: [], error: null }
+    if (fn === 'design_g2b_item_classes') return { data: a.p_after ? [] : ['30161509'], error: null }
+    saves.push({ kind: String(a.p_kind), n: (a.p_rows as unknown[]).length, state: a.p_state as Record<string, unknown>, done: !!a.p_done })
+    return { data: (a.p_rows as unknown[]).length, error: null }
+  } }
+  const call = async (op: string) => ({ status: 200, text: JSON.stringify({ response: { header: { resultCode: '00' }, body: { totalCount: 1, items: op.includes('PrdlstSearch')
+    ? [{ prdctIdntNo: '20153194', prdctClsfcNo: '30161509', krnPrdctNm: '석고보드' }]
+    : [{ prdctClsfcNo: '30161509', prdctClsfcNoNm: '석고보드', dtilPrdctClsfcNo: '3016150901', dtilPrdctClsfcNoNm: '석고보드' }] } } }) })
+  await runCatalog(db, call, Date.now() + 5000)
+  assert.deepEqual(saves.filter(x => x.kind.startsWith('class')).map(x => x.kind), ['class2', 'class4', 'class6', 'class8', 'class10'])
+  const items = saves.filter(x => x.kind === 'items')
+  assert.deepEqual(items[0], { kind: 'items', n: 1, state: { after: '30161509' }, done: false })
+  assert.equal(items.at(-1)?.done, true)
+})
+
+test('catalog migration: members read only, nothing dropped, row cap in place', () => {
+  const sql = readFileSync(new URL('../supabase/migrations/20261118190000_design_g2b_catalog.sql', import.meta.url), 'utf8')
+  assert.doesNotMatch(sql, /\bdrop\s/i)
+  assert.match(sql, />= 300000/)
+  assert.doesNotMatch(sql, /grant (insert|update|delete|all)[^;]*g2b_[a-z]+[^;]*authenticated/i)
 })

@@ -5,7 +5,7 @@ import { validLibraryData, type LibraryEntry, type LibraryFinish, type LibraryFi
 import { readBoard } from './designBoard'
 import type {
   CostLine, DesignApi, DesignRender, ModelVersion, ProposalSection, ProposalTemplateSection, SpecItem, DesignCard, DesignDocument, DesignJob, PoLine, PurchaseOrder, DesignMaterial, DesignProject, DesignTrade, DesignVendor, Estimate, EstimateLine,
-  Knowledge, Placement, PriceRef, PriceRefMatch, PriceRefSuggestion, ScheduleTask, UnitCost, UnitPrice,
+  G2bClass, G2bItem, Knowledge, Placement, PriceRef, PriceRefMatch, PriceRefSuggestion, ScheduleTask, UnitCost, UnitPrice,
 } from './design'
 
 const fail = (e: { message: string; code?: string } | null) => {
@@ -235,6 +235,20 @@ export function createSupabaseDesignApi(sb: SupabaseClient): DesignApi {
       fail(r.error)
       return { rows: (r.data ?? []) as PriceRef[], total: r.count ?? 0 }
     },
+    async listG2bItems(search, cls) {
+      let q = sb.from('design_g2b_items').select('ident_no,class_no,class_name,name,maker,kind,chg_date', { count: 'exact' })
+      if (cls && /^\d{2,8}$/.test(cls)) q = q.like('class_no', `${cls}%`)
+      for (const w of search.trim().split(/\s+/).filter(Boolean).slice(0, 4)) q = /^\d{6,}$/.test(w) ? q.eq('ident_no', w) : q.or(`name.ilike.${like(w)},maker.ilike.${like(w)}`)
+      const r = await q.order('class_no').order('name').limit(300)
+      if (r.error && ['42P01', 'PGRST205'].includes(r.error.code ?? '')) return { rows: [], total: 0 }
+      fail(r.error)
+      return { rows: (r.data ?? []) as G2bItem[], total: r.count ?? 0 }
+    },
+    async listG2bGroups() {
+      const r = await sb.from('design_g2b_classes').select('code,name').eq('level', 4).or('code.like.30%,code.like.39%,code.like.40%,code.like.56%').order('code')
+      if (r.error) return []
+      return (r.data ?? []) as G2bClass[]
+    },
     async comparePriceRefs(ids) {
       if (!ids.length) return []
       const r = await sb.rpc('design_price_ref_compare', { p_ids: ids.slice(0, 400) })
@@ -373,6 +387,8 @@ export function createDemoDesignApi(): DesignApi {
     addScheduleTask: none, updateScheduleTask: none, deleteScheduleTask: none,
     async listUnitPrices() { return [] },
     async listPriceRefs() { return { rows: [], total: 0 } },
+    async listG2bItems() { return { rows: [], total: 0 } },
+    async listG2bGroups() { return [] },
     async comparePriceRefs() { return [] },
     async suggestPriceRefs() { return [] },
     addUnitPrice: none,
