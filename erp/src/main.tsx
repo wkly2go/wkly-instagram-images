@@ -1,6 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import { RouterProvider } from './lib/router'
 import { UpdateBanner } from './lib/update'
 import './styles.css'
@@ -14,10 +15,12 @@ import { startFoldLong } from './lib/foldLong'
 const start = () =>
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
-      <RouterProvider>
-        <App />
-        <UpdateBanner />
-      </RouterProvider>
+      <ErrorBoundary area="인트라넷" full>
+        <RouterProvider>
+          <App />
+          <UpdateBanner />
+        </RouterProvider>
+      </ErrorBoundary>
     </StrictMode>,
   )
 // 외부 협업방 (/c/<초대 링크> · 2026-11-17): 로그인 · 인트라넷 화면 없이 그 방 하나만 (src/pages/GuestRoom.tsx)

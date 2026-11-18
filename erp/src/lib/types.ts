@@ -1255,7 +1255,6 @@ export const SITE_TRADES: [group: string, trade: string, contract: string][] = [
   ['기타', '현장관리', ''],
   ['기타', '현장소장', ''],
 ]
-export const SITE_MATERIAL_ITEMS = ['운영비', '목공 노무비', '전기 노무비', '용역', '현장소장비', '전기공사']
 
 // ---------- 회의록 AI (녹음 → 화자 구분 받아쓰기 → 회의록 초안) ----------
 export interface MeetingRecording {

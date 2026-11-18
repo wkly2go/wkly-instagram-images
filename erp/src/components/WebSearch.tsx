@@ -2,7 +2,7 @@ import { WeekPanel } from './WeekPanel'
 import { RightSchedule } from './RightSchedule'
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { createPortal } from 'react-dom'
-import { ChevronDown, ChevronLeft, ChevronRight, ExternalLink, MonitorDown, PanelRightClose, PanelRightOpen, Search, X } from 'lucide-react'
+import { ChevronDown, ExternalLink, MonitorDown, PanelRightClose, PanelRightOpen, Search, X } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { desktop } from '../lib/desktop'
 
@@ -391,28 +391,6 @@ export function hidePanelNative() {
   app.searchBounds?.({ x: 0, y: 0, width: 0, height: 0 })
   app.searchClose?.()
 }
-/** 드라이브 탭: 웹 칸을 이 자리(rect)에 이 주소로 */
-export function claimNative(url: string, rect: Rect) {
-  const app = desktop()
-  if (!app?.searchOpen) return false
-  nativeOwner = 'drive'
-  nativeShowing = url
-  app.searchOpen(url, rect)
-  return true
-}
-export function moveNative(rect: Rect) {
-  if (nativeOwner === 'drive') desktop()?.searchBounds?.(rect)
-}
-/** 드라이브 탭을 떠날 때: 칸을 닫고 인터넷 창에 돌려줌 */
-export function releaseNative() {
-  if (nativeOwner !== 'drive') return
-  nativeOwner = 'panel'
-  nativeShowing = null
-  desktop()?.searchClose?.()
-  nativeEpoch++
-  for (const l of epochListeners) l()
-}
-
 /**
  * 검색 창이 들어갈 자리(DOM 한 개를 계속 재사용). 화면(탭)이 바뀌어 Shell 이 다시 그려져도
  * 이 요소를 새 .body 안으로 옮기기만 하므로 검색 창(구글 칸 포함)은 그대로 유지된다
@@ -494,59 +472,6 @@ export function TopMenu({ showDownload }: { showDownload: boolean }) {
   )
 }
 
-/** 상단 바: 검색 입력칸은 통합 검색창으로 합치고, 인터넷 창 이동 · 숨기기 버튼만 (2026-10-23) */
-export function WebSearchBox({ inputHidden = false }: { inputHidden?: boolean } = {}) {
-  const open = useOpenState()
-  const [q, setQ] = useState(open?.engine === 'url' ? '' : open?.q ?? '')
-  useEffect(() => {
-    if (open?.q && open.engine !== 'url') setQ(open.q)
-  }, [open?.q, open?.engine])
-  const setOpen = setOpenState
-  const submit = (engine: Engine = open?.engine && open.engine !== 'url' ? open.engine : 'google') => {
-    const v = q.trim()
-    if (!v) return
-    saveRecent([v, ...readRecent().filter(x => x !== v)])
-    setOpen({ q: v, engine })
-  }
-  const app = desktop()
-  const zoom = useZoom()
-  return (
-    <>
-      {!inputHidden && <form
-        className="web-search"
-        role="search"
-        onSubmit={e => {
-          e.preventDefault()
-          submit()
-        }}
-      >
-        <Search size={14} />
-        <input value={q} onChange={e => setQ(e.target.value)} placeholder={open?.engine === 'url' ? '구글 · 인터넷 검색 (오른쪽은 누른 링크)' : open?.engine === 'chatgpt' ? 'ChatGPT 에 질문 (Enter)' : open?.engine === 'perplexity' ? 'Perplexity 에 질문 (Enter)' : '구글 · 인터넷 검색'} aria-label="구글 · 인터넷 검색" enterKeyHint="search" title="검색어를 넣고 Enter · 결과는 오른쪽 검색 창에" />
-      </form>}
-      {app?.searchNav && (
-        <span className="web-nav" role="group" aria-label="인터넷 창 이동">
-          <button type="button" className="icon-btn sm" onClick={() => app.searchNav?.('back')} aria-label="뒤로" title="인터넷 창 뒤로">
-            <ChevronLeft size={14} />
-          </button>
-          <button type="button" className="icon-btn sm" onClick={() => app.searchNav?.('forward')} aria-label="앞으로" title="인터넷 창 앞으로">
-            <ChevronRight size={14} />
-          </button>
-        </span>
-      )}
-      <button type="button" className="quick-btn pc-only web-toggle" onClick={open ? hidePanel : showPanel} aria-pressed={!open} title={open ? '인터넷 창 숨기기 (본 화면 넓게)' : '인터넷 창 보이기'} aria-label={open ? '인터넷 창 숨기기' : '인터넷 창 보이기'}>
-        {open ? <PanelRightClose size={15} /> : <PanelRightOpen size={15} />}
-      </button>
-      <span className="web-zoom" role="group" aria-label="글자 크기" title={`글자 크기 ${zoom} (기본 10) · 인트라넷 모든 글자와 검색 창에 적용`}>
-        <button type="button" className="icon-btn sm" onClick={() => stepZoom(-1)} aria-label="글자 작게">
-          가−
-        </button>
-        <button type="button" className="icon-btn sm" onClick={() => stepZoom(1)} aria-label="글자 크게">
-          가+
-        </button>
-      </span>
-    </>
-  )
-}
 
 function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine; onSearch: (q: string, e: Engine) => void; onClose: () => void }) {
   // 첫 화면을 열어 둔 검색 종류는 켜진 것으로 표시
