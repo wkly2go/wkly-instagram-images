@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { ListTextarea } from '../components/ListTextarea'
 import { ProjectOptions } from '../components/ProjectOptions'
 import { TextLinks } from '../components/ui'
 import { Bot, ChevronLeft, ChevronRight, Plus } from 'lucide-react'
@@ -228,7 +229,7 @@ export function TaskAssignModal({ task, projects, tasks, presetProject, presetAs
           </div>
         )}
         <Field label="메모 (선택)" className="full">
-          <textarea className="textarea" value={f.memo} onChange={e => setF({ ...f, memo: e.target.value })} maxLength={2000} placeholder="참고 자료 · 요청 사항" />
+          <ListTextarea className="textarea" value={f.memo} onValue={memo => setF(x => ({ ...x, memo }))} placeholder="1. 참고 자료 · 요청 사항" />
           <TextLinks text={f.memo} />
         </Field>
       </div>
@@ -565,7 +566,7 @@ export function PersonalEventModal({ ev, presetDate, onClose }: { ev?: PersonalE
           </Field>
         </div>
         <Field label="메모 (선택)">
-          <textarea className="input" rows={3} value={f.memo} onChange={e => setF({ ...f, memo: e.target.value })} maxLength={2000} />
+          <ListTextarea className="input" rows={3} value={f.memo} onValue={memo => setF(x => ({ ...x, memo }))} />
         </Field>
         <div className="row pf-foot" style={{ justifyContent: 'flex-end' }}>
           {ev && (

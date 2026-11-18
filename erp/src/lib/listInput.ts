@@ -6,8 +6,9 @@ import type { KeyboardEvent } from 'react'
  *  - 번호만 있고 내용이 빈 줄에서 줄바꿈하면 그 번호를 지움(목록 끝)
  * 처리했으면 true (호출한 쪽은 그대로 return)
  */
-export function continueList(e: KeyboardEvent<HTMLTextAreaElement>, setValue: (v: string) => void, max = 4000): boolean {
-  if (e.key !== 'Enter' || !e.shiftKey || e.nativeEvent.isComposing) return false
+export function continueList(e: KeyboardEvent<HTMLTextAreaElement>, setValue: (v: string) => void, max = 4000, plainEnter = false): boolean {
+  // plainEnter: 메모 칸처럼 Enter 가 원래 줄바꿈인 곳은 Shift 없이도 이어씀
+  if (e.key !== 'Enter' || (!e.shiftKey && !plainEnter) || e.nativeEvent.isComposing) return false
   const box = e.currentTarget
   const { selectionStart: at, selectionEnd: end, value } = box
   if (at !== end) return false
@@ -35,4 +36,9 @@ export function continueList(e: KeyboardEvent<HTMLTextAreaElement>, setValue: (v
   box.setSelectionRange(caret, caret)
   setValue(next)
   return true
+}
+
+/** 번호만 있고 내용 없는 맨 끝 줄('3. ' 등)을 지움 — 메모 칸을 떠날 때 */
+export function trimEmptyItem(v: string): string {
+  return v.replace(/(^|\n)[ \t]*(?:\d{1,3}[.)]|[-·•*])[ \t]*$/, '')
 }
