@@ -11,6 +11,7 @@ export function createSupabaseSalesStrategyApi(sb: SupabaseClient): SalesStrateg
   async foldSalesDesk(kind,id,fold,label){const r=await sb.rpc('sales_desk_fold',{p_kind:kind,p_id:id,p_fold:fold,p_label:label});fail(r.error)},
   async submitSalesDesk(id,agent,action,instruction){const r=await sb.rpc('sales_desk_submit',{p_id:id,p_agent:agent,p_action:action,p_instruction:instruction}).retry(false);fail(r.error);return r.data},
   async listSalesStrategies(page) { const r=await sb.rpc('sales_strategies',{p_page:page});fail(r.error);return r.data },
+  async editSalesStrategy(id,revision,patch) { const r=await sb.rpc('sales_strategy_edit',{p_id:id,p_revision:revision,p_patch:patch}).retry(false);fail(r.error);return r.data as number },
   async getSalesEventBrands() { const r=await sb.rpc('sales_event_brands_overview');fail(r.error);return r.data },
   async requestSalesStrategy(id,feedback) { const r=await sb.rpc('sales_strategy_request',{p_id:id,p_feedback:feedback}).retry(false);fail(r.error);return r.data },
   async decideSalesStrategy(id,revision,decision,feedback) { const r=await sb.rpc('sales_strategy_decide',{p_id:id,p_revision:revision,p_decision:decision,p_feedback:feedback}).retry(false);fail(r.error) },
