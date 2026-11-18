@@ -621,11 +621,33 @@ function usePhone() {
   return on
 }
 
+// 달력 '팀 전체 | 내 업무만' (대표 지시 2026-11-18 '내 업무만 선택해서 볼 수 있게'):
+// 월별 · 주간 달력이 같은 선택을 쓰고 이 브라우저에 기억함
+const CAL_MINE_KEY = 'wkly-cal-mine'
+function useCalMine(): [boolean, (v: boolean) => void] {
+  const [mine, set] = useState(() => {
+    try {
+      return localStorage.getItem(CAL_MINE_KEY) === '1'
+    } catch {
+      return false
+    }
+  })
+  const setMine = (v: boolean) => {
+    set(v)
+    try {
+      localStorage.setItem(CAL_MINE_KEY, v ? '1' : '0')
+    } catch {
+      /* 저장 못 해도 이번 화면에서는 적용 */
+    }
+  }
+  return [mine, setMine]
+}
+
 export function MonthCalendar({ projects, tasks }: { projects: Project[]; tasks: Task[] }) {
   const { api, me, version, profileName } = useApp()
   const today = todayKey()
   const [month, setMonth] = useState(today.slice(0, 7))
-  const [mine, setMine] = useState(false)
+  const [mine, setMine] = useCalMine()
   const [editing, setEditing] = useState<Task | null>(null)
   const [openDay, setOpenDay] = useState<string | null>(null)
   // 캘린더에서 바로 새 일정 (대표 지시 2026-10-20): 날짜 칸의 빈 곳 · '+' 를 누르면 그 날로 새 일정
@@ -664,6 +686,8 @@ export function MonthCalendar({ projects, tasks }: { projects: Project[]; tasks:
     }
     for (const p of projects) {
       if (p.status === '보류') continue
+      // 내 업무만: 내가 담당인 프로젝트의 시작 · 종료만
+      if (mine && p.owner_id !== me.id) continue
       if (p.start_date) push(p.start_date, { key: `${p.id}s`, label: `${p.name} 시작`, tone: 'project', to: `/projects?id=${p.id}` })
       if (p.end_date) push(p.end_date, { key: `${p.id}e`, label: `${p.name} 종료`, tone: 'project', to: `/projects?id=${p.id}` })
     }
@@ -774,7 +798,7 @@ export function MonthCalendar({ projects, tasks }: { projects: Project[]; tasks:
             팀 전체
           </Chip>
           <Chip active={mine} onClick={() => setMine(true)}>
-            내 일정
+            내 업무만
           </Chip>
         </div>
       </div>
@@ -974,7 +998,7 @@ export function WeekView({ projects, tasks }: { projects: Project[]; tasks: Task
   const from = mondayOf(picked)
   const days = Array.from({ length: 7 }, (_, i) => addDays(from, i))
   const to = days[6]
-  const [mine, setMine] = useState(false)
+  const [mine, setMine] = useCalMine()
   const [allSpans, setAllSpans] = useState(false)
   const [editing, setEditing] = useState<Task | null>(null)
   const [creating, setCreating] = useState<string | null>(null)
@@ -1003,6 +1027,7 @@ export function WeekView({ projects, tasks }: { projects: Project[]; tasks: Task
     }
     for (const p of projects) {
       if (p.status === '보류') continue
+      if (mine && p.owner_id !== me.id) continue
       if (p.start_date && byDay.has(p.start_date)) byDay.get(p.start_date)!.events.push({ key: `${p.id}s`, label: `${p.name} 시작`, tone: 'project', to: `/projects?id=${p.id}` })
       if (p.end_date && byDay.has(p.end_date)) byDay.get(p.end_date)!.events.push({ key: `${p.id}e`, label: `${p.name} 종료`, tone: 'project', to: `/projects?id=${p.id}` })
     }
@@ -1061,7 +1086,7 @@ export function WeekView({ projects, tasks }: { projects: Project[]; tasks: Task
             팀 전체
           </Chip>
           <Chip active={mine} onClick={() => setMine(true)}>
-            내 일정
+            내 업무만
           </Chip>
         </div>
       </div>
