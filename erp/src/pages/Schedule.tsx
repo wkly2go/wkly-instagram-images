@@ -46,9 +46,11 @@ export function TaskAssignModal({ task, projects, tasks, presetProject, presetAs
     status: task?.status ?? ('할 일' as TaskStatus),
     memo: task?.memo ?? '',
   })
+  // 완료할 때 후속 업무 (대표 지시 2026-11-18 '업무완료 후 후속 업무 작성도 필요해') — 같은 프로젝트 · 단계로 새 할 일을 바로 만듦
+  const [follow, setFollow] = useState({ on: false, title: '', assignee_id: task?.assignee_id ?? presetAssignee ?? '', due_date: '' })
   const phases = useMemo(() => [...new Set([...PHASE_ORDER, ...tasks.map(t => t.phase).filter((p): p is string => !!p)])], [tasks])
   const assigneeOpen = tasks.filter(t => t.assignee_id === f.assignee_id && t.status !== '완료').length
-  const bad = !f.title.trim() || !f.assignee_id || (!!f.start_date && !!f.due_date && f.start_date > f.due_date)
+  const bad = !f.title.trim() || !f.assignee_id || (!!f.start_date && !!f.due_date && f.start_date > f.due_date) || (!!task && f.status === '완료' && follow.on && (!follow.title.trim() || !follow.assignee_id))
   const people = profiles.filter(p => p.active && !p.is_agent)
   // 내 AI 비서도 받는 사람으로 (대표 지시 2026-11-16 '여기에도 비서를 넣어줘') — 맡기면 비서 대화방에 업무 내용을 넘겨 바로 처리
   const [assistant, setAssistant] = useState<{ agent_id: string; room_id: string } | null>(null)
@@ -94,7 +96,22 @@ export function TaskAssignModal({ task, projects, tasks, presetProject, presetAs
     const toAssistant = !!assistant && f.assignee_id === assistant.agent_id
     const who = toAssistant ? assistantName : profiles.find(p => p.id === f.assignee_id)?.name ?? ''
     const msg = toAssistant ? `${who}에게 맡겼습니다. 비서 대화방에서 처리 결과를 알려 드려요.` : task ? '업무를 고쳤습니다.' : `${who}님에게 업무를 지시했습니다. 일정표와 할 일 목록에 들어갔어요.`
-    if (await run(async () => handToAssistant(await api.saveTask(draft)), msg)) onClose()
+    const withFollow = f.status === '완료' && follow.on && !!follow.title.trim() && !!follow.assignee_id
+    const done = await run(async () => {
+      handToAssistant(await api.saveTask(draft))
+      if (withFollow)
+        await api.saveTask({
+          title: follow.title.trim(),
+          assignee_id: follow.assignee_id,
+          project_id: f.project_id || null,
+          phase: f.phase.trim() || null,
+          start_date: todayKey(),
+          due_date: follow.due_date || null,
+          status: '할 일',
+          memo: `후속 업무 · 앞선 일: ${f.title.trim()}`,
+        })
+    }, withFollow ? `${msg} 후속 업무 '${follow.title.trim()}'도 만들었습니다.` : msg)
+    if (done) onClose()
   }
   const gLink = googleEventLink(
     { title: f.title.trim() || '업무', start_date: f.start_date || null, due_date: f.due_date || null, memo: f.memo.trim() || null },
@@ -188,6 +205,26 @@ export function TaskAssignModal({ task, projects, tasks, presetProject, presetAs
                 </Chip>
               ))}
             </div>
+          </div>
+        )}
+        {task && f.status === '완료' && (
+          <div className="full task-follow" role="group" aria-label="후속 업무">
+            <label className="row gap-6" style={{ alignItems: 'center' }}>
+              <input type="checkbox" checked={follow.on} onChange={e => setFollow({ ...follow, on: e.target.checked })} />
+              <span className="t-bodyb">후속 업무 만들기</span>
+            </label>
+            <span className="t-cap">완료와 함께 다음 할 일을 바로 등록합니다 (같은 프로젝트 · 단계)</span>
+            {follow.on && (
+              <div className="task-follow-row">
+                <input className="input" autoFocus value={follow.title} maxLength={200} onChange={e => setFollow({ ...follow, title: e.target.value })} placeholder="후속 업무 (예: 회의 결과 정리해 공유)" aria-label="후속 업무 제목" />
+                <select className="select" value={follow.assignee_id} onChange={e => setFollow({ ...follow, assignee_id: e.target.value })} aria-label="후속 업무 담당">
+                  <option value="">담당 고르기</option>
+                  {people.map(p => <option key={p.id} value={p.id}>{p.id === me.id ? `${p.name} (나)` : p.name}</option>)}
+                </select>
+                <input type="date" className="input" value={follow.due_date} min={todayKey()} onChange={e => setFollow({ ...follow, due_date: e.target.value })} aria-label="후속 업무 마감" />
+              </div>
+            )}
+            {follow.on && !follow.title.trim() && <span className="t-cap t-red">후속 업무 제목을 적어 주세요.</span>}
           </div>
         )}
         <Field label="메모 (선택)" className="full">

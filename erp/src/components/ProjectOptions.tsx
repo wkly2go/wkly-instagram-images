@@ -2,6 +2,9 @@ import { DIVISIONS, DIVISION_KEYS, projectBrand, type Division, type Project } f
 
 type P = Pick<Project, 'id' | 'name'> & Partial<Pick<Project, 'code' | 'division' | 'status'>>
 const DONE = new Set(['완료', '보류'])
+/** 상태 순서: 진행 → 기획 → NIC(계약 전) → 완료 → 보류 · 그 밖은 맨 뒤 (대표 지시 2026-11-18 '프로젝트 구분') */
+const STATUS_ORDER = ['진행', '기획', 'NIC', '완료', '보류']
+const statusRank = (s?: string | null) => { const i = STATUS_ORDER.indexOf(s ?? ''); return i < 0 ? STATUS_ORDER.length : i }
 
 /** 구분(아트리어 · 더위클리 · 내부 리서치)별로 묶고, 진행 중 먼저 · 연번 순으로 정렬 */
 export function groupProjects<T extends P>(projects: T[]): { division: Division; list: T[] }[] {
@@ -9,7 +12,7 @@ export function groupProjects<T extends P>(projects: T[]): { division: Division;
     division: d,
     list: projects
       .filter(p => projectBrand({ code: p.code ?? null, division: p.division }) === d)
-      .sort((a, b) => Number(DONE.has(a.status ?? '')) - Number(DONE.has(b.status ?? '')) || (a.code ?? '~').localeCompare(b.code ?? '~') || a.name.localeCompare(b.name)),
+      .sort((a, b) => statusRank(a.status) - statusRank(b.status) || (b.code ?? '').localeCompare(a.code ?? '') || a.name.localeCompare(b.name)),
   })).filter(g => g.list.length > 0)
 }
 export const projectOptionLabel = (p: P) => `${p.code ? `${p.code} ` : ''}${p.name}${p.status && DONE.has(p.status) ? ` · ${p.status}` : ''}`
@@ -21,15 +24,23 @@ export const projectOptionLabel = (p: P) => `${p.code ? `${p.code} ` : ''}${p.na
 export function ProjectOptions({ projects }: { projects: P[] }) {
   return (
     <>
-      {groupProjects(projects).map(g => (
-        <optgroup key={g.division} label={`${DIVISIONS[g.division].label} (${g.list.length})`}>
-          {g.list.map(p => (
-            <option key={p.id} value={p.id}>
-              {projectOptionLabel(p)}
-            </option>
-          ))}
-        </optgroup>
-      ))}
+      {groupProjects(projects).flatMap(g => {
+        // 구분 안에서 상태별로 다시 묶음: '아트리어 · 진행 (4)' · '아트리어 · 계약 전 (NIC) (61)' — 긴 목록에서도 진행 중이 맨 위
+        const byStatus = new Map<string, typeof g.list>()
+        for (const p of g.list) {
+          const k = p.status ?? '기타'
+          byStatus.set(k, [...(byStatus.get(k) ?? []), p])
+        }
+        return [...byStatus].map(([st, list]) => (
+          <optgroup key={`${g.division}-${st}`} label={`${DIVISIONS[g.division].label} · ${st === 'NIC' ? '계약 전 (NIC)' : st} (${list.length})`}>
+            {list.map(p => (
+              <option key={p.id} value={p.id}>
+                {projectOptionLabel(p)}
+              </option>
+            ))}
+          </optgroup>
+        ))
+      })}
     </>
   )
 }

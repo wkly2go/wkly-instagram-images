@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { AlarmInput } from '../components/AlarmInput'
 import { ChevronDown, AlarmClock, ArrowLeft, Building2, CalendarDays, CalendarRange, GanttChart, LayoutDashboard, ListChecks, Network, Repeat, Users, Wallet, Plus, CheckCircle2, ChevronLeft, ChevronRight, CircleSlash, FolderOpen, Search, Mail, Copy } from 'lucide-react'
 import { ProjectMaterials } from '../components/ProjectMaterials'
-import { SiteSurveySection } from '../components/SiteSurvey'
+import { SiteBody } from './Site'
 import { SiteLogsSection } from '../components/SiteLogs'
 import { ProjectDriveSection, useProjectFolderSync } from '../components/DriveFiles'
 import { SlackSection } from '../components/SlackSection'
@@ -871,8 +871,11 @@ function ProjectDetail({ project: p, data, onEdit, onBack, panel = false }: { pr
           <ContactTimeline logs={extra.logs} projects={[]} showContact contacts={extra.contacts} />
         </div>
       </div>
-      {/* 현장 실측 체크리스트 (대표 지시 2026-11-04) */}
-      <SiteSurveySection project={p} />
+      {/* 현장 실측: 체크리스트 · 사진 실측(치수선) · 도면을 프로젝트 안에서 바로 (대표 지시 2026-11-04 · 2026-11-18 '실측자료 프로젝트로 바로 들어오게') */}
+      <section className="proj-site">
+        <SectionHead title="현장 실측" right={<Link to="/site">현장 화면 ›</Link>} />
+        <SiteBody projectId={p.id} />
+      </section>
       {/* 인테리어(아트리어 · AR)는 현장 작업일지 늘, 다른 프로젝트는 작업일지가 있을 때만 */}
       <SiteLogsSection project={p} always={projectBrand(p) === 'AR'} clients={data.clients} />
       {/* 구글 드라이브 자료: 드라이브 파일을 가리켜 늘 최신 · 구글 문서는 편집 화면으로 */}

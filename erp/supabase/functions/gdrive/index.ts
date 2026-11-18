@@ -48,6 +48,27 @@ async function clientId(): Promise<string | null> {
 }
 
 let cached: { token: string; exp: number } | null = null
+// 브라우저에 넘기는 토큰은 드라이브 권한만 (회사 계정의 지메일 읽기 · 보내기 권한은 서버 안에만 둠 · 2026-11-17 보안 점검)
+const BROWSER_SCOPE = 'https://www.googleapis.com/auth/drive'
+let browserCached: { token: string; exp: number } | null = null
+async function browserToken(): Promise<{ token: string; exp: number }> {
+  if (browserCached && browserCached.exp > Date.now() + 60_000) return browserCached
+  const [id, sec, refresh] = await Promise.all([clientId(), secret('GOOGLE_CLIENT_SECRET'), secret('GOOGLE_DRIVE_REFRESH_TOKEN')])
+  if (!id || !sec || !refresh) throw new NotConnected('회사 구글 계정이 아직 연결되지 않았습니다.')
+  const r = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ client_id: id, client_secret: sec, refresh_token: refresh, grant_type: 'refresh_token', scope: BROWSER_SCOPE }),
+  })
+  const body = await r.json()
+  if (!r.ok || !body.access_token) throw new NotConnected(`구글 연결이 만료됐습니다. 관리자가 다시 연결해 주세요. (${body.error ?? r.status})`)
+  // 좁힌 권한이 실제로 지메일을 빼고 왔는지 확인 — 아니면 넘기지 않음
+  const granted = String(body.scope ?? '')
+  if (/gmail/.test(granted)) throw new Error('드라이브 전용 권한을 받지 못해 토큰을 넘기지 않았습니다.')
+  browserCached = { token: body.access_token, exp: Date.now() + (body.expires_in ?? 3600) * 1000 }
+  return browserCached
+}
+
 async function accessToken(): Promise<string> {
   if (cached && cached.exp > Date.now() + 60_000) return cached.token
   const [id, sec, refresh] = await Promise.all([clientId(), secret('GOOGLE_CLIENT_SECRET'), secret('GOOGLE_DRIVE_REFRESH_TOKEN')])
@@ -630,8 +651,8 @@ Deno.serve(async req => {
       return json(await syncAndSave(p as Proj))
     }
     if (body.action === 'token') {
-      const token = await accessToken()
-      return json({ token, expires_at: cached?.exp ?? Date.now() + 50 * 60_000 })
+      const t = await browserToken()
+      return json({ token: t.token, expires_at: t.exp })
     }
     if (body.action === 'sync') {
       if (admin !== true) return json({ error: '관리자만 할 수 있습니다.' }, 403)
