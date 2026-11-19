@@ -199,3 +199,14 @@ test('light collection migration: only the batch items get codes, unchanged rows
   assert.match(watch, /brake_until/)
   assert.match(watch, /greatest\(s\.every_min,2\)/)
 })
+
+test('codes are re-matched by item · spec · unit only (an item can hold tens of thousands of rows)', () => {
+  const sql = readFileSync(new URL('../supabase/migrations/20261119213000_price_codes_by_key.sql', import.meta.url), 'utf8')
+  assert.doesNotMatch(sql, /\bdrop\s/i)
+  assert.match(sql, /perform design\.price_refs_assign_codes_keys\(p_source, v_items, v_specs, v_units\)/)
+  assert.doesNotMatch(sql, /perform design\.price_refs_assign_codes(_for)?\(p_source(, v_items)?\)/)
+  // 바뀌기 전 값도 함께 본다 (규격이 바뀌면 예전 규격의 기호가 다른 줄로 넘어감)
+  assert.match(sql, /select item, spec, unit from up union select item, spec, unit from old/)
+  assert.doesNotMatch(sql, /item = any\(/)
+  assert.match(sql, /revoke all on function design\.price_refs_assign_codes_keys\(text, text\[\], text\[\], text\[\]\) from public, anon, authenticated/)
+})
