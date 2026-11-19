@@ -154,6 +154,12 @@ export function ContractGoal({ project, finance }: { project: Project; finance: 
         />
         <span>%</span>
       </label>
+      {/* 목표 마진 금액 (대표 지시 2026-11-19 '목표마진을 금액으로도 계산해서 노출') — 계약(VAT 별도) × 마진율 · 남는 예산 */}
+      <span className="t-cap goal-margin-amt">
+        {supply != null && finance?.target_margin != null
+          ? `= ${Math.round((supply * finance.target_margin) / 100).toLocaleString('ko-KR')}원 · 쓸 수 있는 비용 ${Math.round(supply - (supply * finance.target_margin) / 100).toLocaleString('ko-KR')}원`
+          : '마진 금액 –'}
+      </span>
       <label className="grow">
         <span>메모</span>
         <input className="ps-in" defaultValue={finance?.memo ?? ''} onBlur={e => save({ memo: e.target.value.trim() || null })} onKeyDown={e => e.key === 'Enter' && (e.target as HTMLInputElement).blur()} aria-label="계약 메모" />

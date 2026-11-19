@@ -3,6 +3,7 @@
 //  - 거래처(발주처)에 저장: 사업자등록번호 · 세금계산서 메일 · 사업자등록증 파일 → 다른 프로젝트에서도 같은 거래처면 그대로 보임
 //  - 거래처가 없으면 업체명으로 거래처를 만들고 이 프로젝트에 연결
 //  - 사업자등록증은 끌어다 놓거나 골라서 올림 → 수신방/날짜/프로젝트/분류 에 저장
+//  - 계약서(2026-11-19 대표 지시 '계약서도 저장하게')는 프로젝트마다 → projects.contract_file_url · 같은 수신방 방식
 import { useRef, useState } from 'react'
 import { FileText, Upload } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
@@ -27,6 +28,9 @@ export function TaxInfo({ projectId, payee }: { projectId: string; payee: string
   const [up, setUp] = useState<number | null>(null)
   const [drag, setDrag] = useState(false)
   const pick = useRef<HTMLInputElement>(null)
+  const [cup, setCup] = useState<number | null>(null)
+  const [cdrag, setCdrag] = useState(false)
+  const cpick = useRef<HTMLInputElement>(null)
   const client = data.clients.find(c => c.id === data.project?.client_id) ?? data.clients.find(c => norm(c.name) === norm(payee))
 
   /** 거래처가 없으면 만들고 프로젝트에 연결 */
@@ -60,6 +64,26 @@ export function TaxInfo({ projectId, payee }: { projectId: string; payee: string
       toast(e instanceof Error ? e.message : '사업자등록증을 올리지 못했습니다.')
     } finally {
       setUp(null)
+    }
+  }
+
+  /** 계약서: 이 프로젝트에 저장 (거래처가 아니라 프로젝트마다 다름) */
+  const uploadContract = async (file: File | undefined) => {
+    if (!file || cup != null || !data.project) return
+    try {
+      setCup(0)
+      const mime = file.type || 'application/octet-stream'
+      const s = await api.inboxUploadStart(projectId, { name: file.name, mime, size: file.size })
+      const g = await uploadLarge('', file, s.folder_id, async () => s.url, r => setCup(r))
+      if (!g.id) throw new Error('올린 뒤 파일 정보를 받지 못했습니다.')
+      await api.inboxUploadDone(projectId, { file_id: g.id, folder_id: s.folder_id, kind: s.kind, name: file.name })
+      await api.saveProject({ id: data.project.id, contract_file_url: g.webViewLink ?? `https://drive.google.com/file/d/${g.id}/view`, contract_file_name: file.name } as Partial<Project> as Project)
+      bump()
+      toast('계약서를 올렸습니다.')
+    } catch (e) {
+      toast(e instanceof Error ? e.message : '계약서를 올리지 못했습니다.')
+    } finally {
+      setCup(null)
     }
   }
 
@@ -125,6 +149,33 @@ export function TaxInfo({ projectId, payee }: { projectId: string; payee: string
               <Upload size={12} /> {up != null ? `올리는 중 ${Math.round(up * 100)}%` : client?.biz_cert_url ? '다시 올리기' : '올리기 (끌어다 놓기)'}
             </button>
             <input ref={pick} type="file" hidden accept=".pdf,image/*" onChange={e => (void uploadCert(e.target.files?.[0]), (e.target.value = ''))} />
+          </div>
+        </div>
+        <div className="label">
+          <span>계약서</span>
+          <div
+            className={`tax-drop${cdrag ? ' on' : ''}`}
+            onDragOver={e => {
+              if (![...e.dataTransfer.types].includes('Files')) return
+              e.preventDefault()
+              setCdrag(true)
+            }}
+            onDragLeave={() => setCdrag(false)}
+            onDrop={e => {
+              e.preventDefault()
+              setCdrag(false)
+              void uploadContract(e.dataTransfer.files[0])
+            }}
+          >
+            {data.project?.contract_file_url && (
+              <button type="button" className="link-btn" onClick={() => openLink(data.project!.contract_file_url!)} title="열기">
+                <FileText size={13} /> {data.project.contract_file_name ?? '계약서'}
+              </button>
+            )}
+            <button type="button" className="btn btn-outline btn-sm" disabled={busy || cup != null || !data.project} onClick={() => cpick.current?.click()}>
+              <Upload size={12} /> {cup != null ? `올리는 중 ${Math.round(cup * 100)}%` : data.project?.contract_file_url ? '다시 올리기' : '올리기 (끌어다 놓기)'}
+            </button>
+            <input ref={cpick} type="file" hidden accept=".pdf,image/*,.doc,.docx,.hwp,.hwpx" onChange={e => (void uploadContract(e.target.files?.[0]), (e.target.value = ''))} />
           </div>
         </div>
       </div>
