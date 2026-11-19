@@ -345,6 +345,9 @@ export interface Project {
   description: string | null
   /** 구글 드라이브 프로젝트 폴더 주소 (0035) */
   drive_url?: string | null
+  /** 계약서 파일 (드라이브 주소 · 이름 · 2026-11-19) */
+  contract_file_url?: string | null
+  contract_file_name?: string | null
   /** 구분 (0046): AR 아트리어 · TW 더위클리 · RS 내부 리서치 */
   division?: Division
   created_by: string | null
