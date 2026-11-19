@@ -197,4 +197,5 @@ test('light collection migration: only the batch items get codes, unchanged rows
   assert.match(watch, /interval '1 hour'/)
   assert.match(watch, /p\.title = '대표'/)
   assert.match(watch, /brake_until/)
+  assert.match(watch, /greatest\(s\.every_min,2\)/)
 })

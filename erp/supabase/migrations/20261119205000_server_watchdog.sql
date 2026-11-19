@@ -72,6 +72,18 @@ update private.sales_ops_steps set every_min = 5 where step = 'execution_materia
 update private.sales_ops_steps set every_min = 15 where step = 'contact_evidence' and every_min < 15;
 update private.sales_ops_steps set every_min = 30 where step = 'contact_discovery' and every_min < 30;
 
+-- ②-2 영업 '운영 점검' 판정 바로잡기: 맥박을 2분마다로 바꾼 뒤(20261119083000)에도 1분 간격 단계를 하루 1,440번 도는 것으로 기대해
+--      실패가 없어도 매일 '비정상'으로 나왔다. 기대 횟수를 맥박 간격(2분) 기준으로 센다. 같은 이름 · 같은 인자로 그 부분만 바꿔 다시 만든다.
+do $$
+declare def text;
+begin
+  def := pg_catalog.pg_get_functiondef('private.sales_ops_judge(date)'::regprocedure);
+  if position('greatest(s.every_min,2)' in def) = 0 then
+    def := replace(def, 'extract(epoch from end_at-start_at)/60/s.every_min)', 'extract(epoch from end_at-start_at)/60/greatest(s.every_min,2))');
+    if position('greatest(s.every_min,2)' in def) = 0 then raise notice 'sales_ops_judge: 바꿀 자리를 찾지 못함'; else execute def; end if;
+  end if;
+end $$;
+
 -- ③ 시스템 현황: 2만 줄 넘는 표는 통계 추정치(reltuples)로 · 작은 표만 정확히 센다 (한 번 6초 → 1초 아래 목표)
 create or replace function public.admin_overview() returns jsonb
 language plpgsql stable security definer set search_path = '' as $$
