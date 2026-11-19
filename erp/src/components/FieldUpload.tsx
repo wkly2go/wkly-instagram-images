@@ -27,7 +27,7 @@ export function FieldUploadBox() {
   const { data: root } = useAsync(() => api.fieldUploadFolder(), [], null as string | null)
   const { data: recent } = useAsync(() => api.listFieldUploads(12).catch(() => [] as Upload[]), [version], [] as Upload[])
   const { data: projects } = useAsync(() => api.listProjects(), [], [])
-  const open = useMemo(() => projects.filter(p => p.status === '문의' || p.status === '진행' || p.status === '상담협의').sort((a, b) => (a.code ?? '').localeCompare(b.code ?? '')), [projects])
+  const open = useMemo(() => projects.filter(p => p.status === '문의' || p.status === '진행').sort((a, b) => (a.code ?? '').localeCompare(b.code ?? '')), [projects])
 
   const pick = useRef<HTMLInputElement>(null)
   const [files, setFiles] = useState<File[]>([])
