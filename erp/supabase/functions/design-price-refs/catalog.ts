@@ -13,6 +13,13 @@ const CLASS_PAGES = 20
 const kstDay = (t: number | string) => new Date((typeof t === 'string' ? Date.parse(t) : t) + 9 * 3600_000).toISOString().slice(0, 10)
 /** 공공데이터포털 하루 호출 한도에 걸린 날은 더 부르지 않는다 (자정에 풀림) */
 export const limitedToday = (st?: SyncRow) => !!st?.last_error?.includes('LIMITED_NUMBER') && kstDay(st.updated_at) === kstDay(Date.now())
+/** 서버 지킴이(private.server_health_tick)가 이상을 보고 적어 둔 쉼 — 그 시각까지 받지 않는다 */
+export const braked = (st?: SyncRow, now = Date.now()) => { const t = Date.parse(String(st?.state?.brake_until ?? '')); return Number.isFinite(t) && t > now }
+/** 저장 한 번이 이보다 오래 걸리면 DB 가 힘든 것 → 그날 수집은 멈춘다 (2026-11-19 새벽 장애 뒤 · last_error 'SLOW …' 를 예약이 보고 20시간 쉼) */
+export const SLOW_SAVE_MS = 5_000
+export const slowNote = (ms: number) => `SLOW 저장 ${Math.round(ms)}ms — DB 가 바빠 오늘 수집을 멈춤`
+/** 저장 시간을 재며 부른다 */
+export async function timed<T>(p: PromiseLike<T>): Promise<[T, number]> { const t = Date.now(); const r = await p; return [r, Date.now() - t] }
 
 /** 물품 분류 한 줄 (10단위는 세부품명 칸을 쓴다) */
 export function classRow(it: Item, level: number) {
@@ -46,6 +53,7 @@ export async function runCatalog(db: Db, call: Call, deadline: number, force = f
   const cat = plan.filter(p => p.kind !== 'mall')
   if (!force && cat.some(p => p.last_error?.includes('SERVICE_KEY') && Date.now() - Date.parse(p.updated_at) < 3600_000)) return [{ catalog: 'skipped', reason: 'key' }]
   if (!force && cat.some(p => limitedToday(p))) return [{ catalog: 'skipped', reason: 'daily limit' }]
+  if (!force && braked(plan.find(p => p.kind === 'items'))) return [{ catalog: 'skipped', reason: 'brake' }]
   const save = (kind: string, rows: unknown[], state: Record<string, unknown>, done: boolean, error: string | null) => db.rpc('design_g2b_save', { p_kind: kind, p_rows: rows, p_state: state, p_done: done, p_error: error })
   for (const lv of LEVELS) {
     const st = plan.find(p => p.kind === lv.kind)
@@ -57,8 +65,9 @@ export async function runCatalog(db: Db, call: Call, deadline: number, force = f
       if (p.err || res.status !== 200) { await save(lv.kind, [], { page }, false, (p.err || `HTTP ${res.status}`).slice(0, 300)); report.push({ kind: lv.kind, error: p.err || res.status }); return report }
       const rows = p.list.map(x => classRow(x, lv.level)).filter(Boolean)
       const done = page * 500 >= p.total || p.list.length === 0
-      const r = await save(lv.kind, rows, done ? {} : { page: page + 1 }, done, null)
+      const [r, ms] = await timed(save(lv.kind, rows, done ? {} : { page: page + 1 }, done, null))
       if (r.error) { report.push({ kind: lv.kind, error: r.error.message }); return report }
+      if (ms > SLOW_SAVE_MS) { await save('items', [], (plan.find(p => p.kind === 'items')?.state ?? {}), false, slowNote(ms)); report.push({ kind: lv.kind, slow: ms }); return report }
       saved += rows.length
       if (done) break
       page++
@@ -88,9 +97,11 @@ export async function runCatalog(db: Db, call: Call, deadline: number, force = f
       if ((page + i) * 500 >= p.total || p.list.length === 0 || page + i >= CLASS_PAGES) { finished = true; break }
     }
     if (err) { await save('items', [], { after, cur, page }, false, err); report.push({ kind: 'items', error: err, at: code, saved, classes }); return report }
-    const w = await save('items', rows.slice(0, 2000), finished ? { after: code } : { after, cur, page: page + 3 }, false, null)
+    const next = finished ? { after: code } : { after, cur, page: page + 3 }
+    const [w, ms] = await timed(save('items', rows.slice(0, 2000), next, false, null))
     if (w.error) { report.push({ kind: 'items', error: w.error.message, at: code }); return report }
     if (Number(w.data) === -1) { report.push({ kind: 'items', capped: true, saved, classes }); return report }
+    if (ms > SLOW_SAVE_MS) { await save('items', [], next, false, slowNote(ms)); report.push({ kind: 'items', slow: ms, saved: saved + rows.length, at: code }); return report }
     saved += rows.length
     if (finished) { after = code; cur = ''; page = 1; classes++ } else page += 3
   }

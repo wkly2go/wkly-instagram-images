@@ -1,7 +1,9 @@
 import type { ReactNode } from 'react'
 import { useApp } from '../lib/app'
 import { Link } from '../lib/router'
-import { Shell } from '../components/Shell'
+import { Shell, TABS } from '../components/Shell'
+import { MANUAL } from '../lib/manual'
+import './Help.css'
 import { SectionHead } from '../components/ui'
 import { AutoStartGuide, PushToggle } from '../components/PushSetup'
 import { GuideCard } from '../components/GuideCard'
@@ -19,6 +21,34 @@ export default function Help() {
       <Part title="화면별 사용 안내 (사진 · 따라 하기 영상)">
         <span className="t-cap">모르는 것은 오른쪽 아래 '비서'에게 "할 일 미루는 법 알려 줘"처럼 물어보면 같은 안내를 사진 · 영상과 함께 보여 줍니다.</span>
         <div className="help-guides">{GUIDES.map(g => <GuideCard key={g.id} g={g} />)}</div>
+      </Part>
+
+      <Part title="메뉴별 사용법">
+        <span className="t-cap">메뉴 이름을 누르면 그 메뉴에서 저절로 되는 것과 사람이 할 일이 나옵니다.</span>
+        {TABS.filter(t => admin || !t.admin).map(t => {
+          const m = MANUAL[t.key]
+          if (!m) return null
+          return (
+            <details key={t.key} className="manual-item" id={`menu-${t.key}`}>
+              <summary>
+                <b>{t.label}</b>
+                <span>{m.what}</span>
+              </summary>
+              <div className="manual-body">
+                <div>
+                  <span className="t-smallb">저절로 되는 것</span>
+                  <ul>{m.auto.map(x => <li key={x}>{x}</li>)}</ul>
+                </div>
+                <div>
+                  <span className="t-smallb">사람이 하는 것</span>
+                  <ul>{m.you.map(x => <li key={x}>{x}</li>)}</ul>
+                </div>
+                {m.tip && <p className="manual-tip">{m.tip}</p>}
+                <Link to={t.path}>{t.label} 열기 ›</Link>
+              </div>
+            </details>
+          )
+        })}
       </Part>
 
       <Part title="처음 로그인했을 때">

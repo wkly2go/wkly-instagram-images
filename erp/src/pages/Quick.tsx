@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react'
-import { useChatTick, ENDED_PROJECT_STATUSES, ENDED_ROOMS_LABEL } from '../lib/chat'
+import { QUICK_OPEN_ROOM, takeQuickRoom, useChatTick, ENDED_PROJECT_STATUSES, ENDED_ROOMS_LABEL } from '../lib/chat'
 import { countedUnread } from '../lib/chat'
 import { ChevronDown, Pin, Send, X } from 'lucide-react'
 import { useApp, useAsync } from '../lib/app'
@@ -20,7 +20,7 @@ type Mode = 'log' | 'chat' | 'menu'
 
 const ROOM_KEY = 'wkly-quick-room'
 /** 빠른 채팅에서 이 방을 열어 달라는 신호 (detail = 방 id) */
-export const QUICK_OPEN_ROOM = 'wkly-quick-open-room'
+export { QUICK_OPEN_ROOM } from '../lib/chat'
 
 /**
  * 빠른 창 방 고르기 묶음 (대표 지시 2026-11-10 "사람 팀원과 프로젝트 구분 · 프로젝트 성격에 따라 · 진행 중과 완료")
@@ -219,12 +219,15 @@ export function QuickChat({ rooms }: { rooms: ChatRoomSummary[] }) {
   const [chosen, setChosen] = useState(load(ROOM_KEY))
   // 바깥(왼쪽 채팅 칸의 '내 비서' 등)에서 방을 골라 줄 때
   useEffect(() => {
-    const on = (e: Event) => {
-      const id = (e as CustomEvent<string>).detail
+    const open = (id: unknown) => {
       if (typeof id !== 'string' || !id) return
+      takeQuickRoom()
       setChosen(id)
       save(ROOM_KEY, id)
     }
+    const on = (e: Event) => open((e as CustomEvent<string>).detail)
+    // 이 칸이 뜨기 전에 온 요청(예: '내 비서'를 먼저 누름)도 놓치지 않는다
+    open(takeQuickRoom())
     window.addEventListener(QUICK_OPEN_ROOM, on)
     return () => window.removeEventListener(QUICK_OPEN_ROOM, on)
   }, [])

@@ -4,10 +4,12 @@
 //   이 키로 '조달청_나라장터 가격정보현황서비스'(data.go.kr 15129415) 활용신청이 되어 있어야 한다.
 // - 호출은 DB 안 private.design_run_price_refs() 만: 1회용 토큰(x-run-token)을 design_run_token_use 로 확인.
 // - 한 번에 약 100초까지 쪽을 받고, 남은 쪽은 다음 실행(15분마다)이 이어서. 다 받으면 30일 뒤 다시 받음.
+// - 자재목록(catalog) · 쇼핑몰 계약 단가(mall)는 하루 한 번 새벽에만 조금씩 (2026-11-19 · 예약 design_g2b_catalog · design_g2b_mall).
+//   저장이 5초를 넘기면 그날은 멈추고(SLOW), 서버 지킴이가 적은 brake_until 까지는 쉰다.
 // - 우리 판매 단가(design.unit_prices)는 바꾸지 않는다. 화면이 옆에 '물가 기준'으로 보여 준다.
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { toRow, type Item } from './row.ts'
-import { runCatalog } from './catalog.ts'
+import { runCatalog, SLOW_SAVE_MS, timed } from './catalog.ts'
 import { runMall } from './mall.ts'
 
 const BASE = 'https://apis.data.go.kr/1230000/ao/PriceInfoService/'
@@ -98,9 +100,11 @@ Deno.serve(async req => {
       const total = Number(data.response?.body?.totalCount ?? 0)
       const rows = list.map(toRow).filter(Boolean)
       const done = page * ROWS >= total || list.length === 0
-      const r = await db.rpc('design_price_refs_save', { p_source: src.source, p_name: src.name, p_rows: rows, p_next_page: page + 1, p_total: total, p_done: done, p_error: null })
+      const [r, ms] = await timed(db.rpc('design_price_refs_save', { p_source: src.source, p_name: src.name, p_rows: rows, p_next_page: page + 1, p_total: total, p_done: done, p_error: null }))
       if (r.error) { report.push({ source: src.source, error: r.error.message }); break }
       saved += Number(r.data ?? 0)
+      // 저장이 느리면 DB 가 바쁜 것 — 이번 실행은 여기서 끝내고 다음 15분 뒤 실행이 이어 받는다 (2026-11-19 새벽 장애 뒤)
+      if (ms > SLOW_SAVE_MS) { report.push({ source: src.source, saved, page, slow: ms }); return report }
       if (done) break
       page++
     }

@@ -14,6 +14,7 @@ import { EMPTY_HR, HrForm, PersonName } from '../components/Person'
 import { leaveBalance } from '../lib/leave'
 import { Badge, Button, Empty, Field, Modal } from '../components/ui'
 import { ask } from '../components/Ask'
+import { CapabilityBoard } from '../components/CapabilityBoard'
 
 export const SCOPE_LABEL: Record<AgentScope, string> = { read: '현황 조회', task: '할 일', daily_report: '일일 보고', notify: '알림', research: '리서치', contact: '브랜드 담당자', finance: '재무 요약(합계만)' }
 // 서버 요금제 한도 (2026-11-19 · Supabase Pro · 가장 작은 컴퓨트). 요금제를 바꾸면 여기만 고칠 것
@@ -70,6 +71,7 @@ export default function Admin() {
       </div>
       {error && <div className="err">{error}</div>}
       <AdminReports />
+      <CapabilityBoard />
       <SystemStatus overview={data.overview} />
       <PmAgent tokens={data.tokens} approvals={data.approvals} />
       <Members />

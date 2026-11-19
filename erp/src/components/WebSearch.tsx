@@ -1,11 +1,14 @@
-import { WeekPanel } from './WeekPanel'
-import { RightSchedule } from './RightSchedule'
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { createPortal } from 'react-dom'
 import { ChevronDown, ExternalLink, MonitorDown, PanelRightClose, PanelRightOpen, Search, X } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { desktop } from '../lib/desktop'
 
+import { ErrorBoundary } from './ErrorBoundary'
+
+// 오른쪽 일정 칸은 본 화면이 뜬 뒤 따로 불러온다 (첫 화면 묶음을 가볍게 · 2026-11-19 성능)
+const RightSchedule = lazy(() => import('./RightSchedule').then(m => ({ default: m.RightSchedule })))
+const WeekPanel = lazy(() => import('./WeekPanel').then(m => ({ default: m.WeekPanel })))
 type SiteGroup = 'popup' | 'design' | 'trend' | 'press' | 'social' | 'video' | 'shop' | 'estate' | 'expo' | 'gov' | 'bid'
 /** 사이트 하나: 주소 · 이름 · (있으면) 그 사이트 자체 검색 주소 */
 interface Site {
@@ -622,7 +625,7 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
               <PanelRightClose size={13} />
             </button>
           </div>
-          <RightSchedule />
+          <ErrorBoundary area="일정"><Suspense fallback={null}><RightSchedule /></Suspense></ErrorBoundary>
         </>
       ) : (
       <>
@@ -672,7 +675,7 @@ function WebPanel({ q, engine, onSearch, onClose }: { q: string; engine: Engine;
       </form>
       {/* 업무 사이트 묶음 버튼(팝업 · 디자인 · SNS …)도 뺌 (대표 지시 2026-10-31 "이건 제거해") */}
       {!q ? (
-        <WeekPanel />
+        <ErrorBoundary area="일정"><Suspense fallback={null}><WeekPanel /></Suspense></ErrorBoundary>
       ) : native ? (
         <>
           <div className="web-native" ref={nativeBox} />

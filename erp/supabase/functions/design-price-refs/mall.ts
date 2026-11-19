@@ -1,15 +1,15 @@
 // 나라장터 쇼핑몰 계약 단가: 조달청 쇼핑몰 품목정보(품목 등록 내역) → design.price_refs (source 'g2b_mall' · 기호 SM)
 // 이 서비스는 등록일 기간으로만 넓게 받을 수 있어(하루 6~7천 건) 하루씩 훑고, 건자재(30 · 마감자재 포함)와 조명(3911)만 남긴다.
 // 테스트: tests/design-price-refs.test.ts
-import { limitedToday, parseList, type Call, type Db, type Item, type SyncRow } from './catalog.ts'
+import { braked, limitedToday, parseList, slowNote, SLOW_SAVE_MS, timed, type Call, type Db, type Item, type SyncRow } from './catalog.ts'
 const s = (v: unknown) => (typeof v === 'string' ? v.trim() : typeof v === 'number' ? String(v) : '')
 const OP = '../../at/ShoppingMallPrdctInfoService/getShoppingMallPrdctInfoList'
 export const MALL_SOURCE = 'g2b_mall'
 export const MALL_NAME = '나라장터 쇼핑몰 계약 단가'
 /** 남길 물품 분류: 건자재 전체(외장 · 내장 마감재 포함) · 조명 */
 export const MALL_KEEP = /^(30|3911)/
-/** 지난 등록분은 2년 치까지 */
-const BACK_DAYS = 730
+/** 지난 등록분은 6개월 치까지 (2026-11-19 '매일 조금씩' · 예전 2년) */
+export const BACK_DAYS = 183
 const ymd = (t: number) => new Date(t + 9 * 3600_000).toISOString().slice(0, 10).replace(/-/g, '')
 const shift = (d: string, n: number) => ymd(Date.UTC(+d.slice(0, 4), +d.slice(4, 6) - 1, +d.slice(6, 8) + n) - 9 * 3600_000)
 const iso = (d: string) => (/^\d{8}/.test(d) ? `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}` : '')
@@ -42,11 +42,12 @@ export function nextMallDay(state: Record<string, unknown>, now: number): { day:
 export async function runMall(db: Db, call: Call, deadline: number, force = false, maxPages = Infinity) {
   const st = (((await db.rpc('design_g2b_plan')).data ?? []) as SyncRow[]).find(p => p.kind === 'mall')
   if (st?.state?.paused) return [{ mall: 'skipped', reason: 'paused' }]
+  if (!force && braked(st)) return [{ mall: 'skipped', reason: 'brake' }]
   if (!force && limitedToday(st)) return [{ mall: 'skipped', reason: 'daily limit' }]
   if (!force && st?.last_error?.includes('SERVICE_KEY') && Date.now() - Date.parse(st.updated_at) < 3600_000) return [{ mall: 'skipped', reason: 'key' }]
   let state = { ...(st?.state ?? {}) } as Record<string, unknown>
   const keep = (next: Record<string, unknown>, done: boolean, error: string | null) => db.rpc('design_g2b_save', { p_kind: 'mall', p_rows: [], p_state: next, p_done: done, p_error: error })
-  let saved = 0, days = 0, pages = 0
+  let saved = 0, days = 0, pages = 0, slow = 0
   while (Date.now() < deadline && pages < maxPages) {
     pages++
     const pick = nextMallDay(state, Date.now())
@@ -56,7 +57,8 @@ export async function runMall(db: Db, call: Call, deadline: number, force = fals
     if (p.err || res.status !== 200) { await keep({ ...state, day: pick.day, page: pick.page }, false, (p.err || `HTTP ${res.status}`).slice(0, 300)); return [{ mall: 'error', error: p.err || res.status, day: pick.day, saved, days }] }
     const rows = p.list.map(mallRow).filter(Boolean)
     if (rows.length) {
-      const w = await db.rpc('design_price_refs_save', { p_source: MALL_SOURCE, p_name: MALL_NAME, p_rows: rows, p_next_page: 1, p_total: null, p_done: false, p_error: null })
+      const [w, ms] = await timed(db.rpc('design_price_refs_save', { p_source: MALL_SOURCE, p_name: MALL_NAME, p_rows: rows, p_next_page: 1, p_total: null, p_done: false, p_error: null }))
+      if (ms > SLOW_SAVE_MS) slow = ms
       if (w.error) { await keep({ ...state, day: pick.day, page: pick.page }, false, w.error.message.slice(0, 300)); return [{ mall: 'error', error: w.error.message, day: pick.day }] }
       saved += rows.length
     }
@@ -66,8 +68,9 @@ export async function runMall(db: Db, call: Call, deadline: number, force = fals
       state = { front: !front || pick.day > front ? pick.day : front, back: !front ? shift(pick.day, -1) : pick.day > front ? back || shift(front, -1) : shift(pick.day, -1) }
       days++
     } else state = { ...state, day: pick.day, page: pick.page + 1 }
-    const k = await keep(state, false, null)
+    const k = await keep(state, false, slow ? slowNote(slow) : null)
     if (k.error) return [{ mall: 'error', error: k.error.message }]
+    if (slow) return [{ mall: 'slow', ms: slow, saved, days, state }]
   }
   return [{ mall: 'running', saved, days, state }]
 }

@@ -187,6 +187,20 @@ function dropDraft<T>(prev: Record<string, T>, id: string) {
   return next
 }
 
+/** 왼쪽 채팅 칸(빠른 창)에 '이 방을 열어라' 고 알리는 이벤트 이름 · 칸이 아직 안 떴으면 방 번호를 잠깐 맡아 둔다 */
+export const QUICK_OPEN_ROOM = 'wkly-quick-open-room'
+let pendingQuickRoom: string | null = null
+export function askQuickRoom(roomId: string) {
+  pendingQuickRoom = roomId
+  window.dispatchEvent(new CustomEvent(QUICK_OPEN_ROOM, { detail: roomId }))
+}
+/** 채팅 칸이 뜨면서 한 번 가져감 (뜨기 전에 온 요청을 놓치지 않게) */
+export function takeQuickRoom(): string | null {
+  const id = pendingQuickRoom
+  pendingQuickRoom = null
+  return id
+}
+
 /** 끝난 프로젝트 방 (대표 지시 2026-11-19 '아트리어와 더위클리 진행중인 목록이 상단에 노출되고 완료와 nic는 하단에 숨김') — 완료 · NIC · 보류 */
 export const ENDED_PROJECT_STATUSES = ['완료', 'NIC', '보류']
 export const ENDED_ROOMS_LABEL = '끝난 프로젝트 (완료 · NIC · 보류)'
