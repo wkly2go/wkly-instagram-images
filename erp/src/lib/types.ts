@@ -176,6 +176,8 @@ export interface WeeklyReport {
   summary: string | null
   next_plan: string | null
   submitted_at: string | null
+  /** 금요일에 서버가 초안을 채운 시각 (2026-11-19 · 사람이 쓴 보고에는 없음) */
+  auto_draft_at?: string | null
   created_at: string
   updated_at: string
 }

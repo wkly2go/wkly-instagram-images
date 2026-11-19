@@ -2,8 +2,8 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { toRow } from '../supabase/functions/design-price-refs/row.ts'
-import { classRow, itemRow, limitedToday, parseList, runCatalog } from '../supabase/functions/design-price-refs/catalog.ts'
-import { mallRow, nextMallDay, runMall } from '../supabase/functions/design-price-refs/mall.ts'
+import { classRow, itemRow, limitedToday, parseList, runCatalog, SLOW_SAVE_MS } from '../supabase/functions/design-price-refs/catalog.ts'
+import { BACK_DAYS, mallRow, nextMallDay, runMall } from '../supabase/functions/design-price-refs/mall.ts'
 
 test('material price rows keep name, spec, unit, region and notice date', () => {
   const r = toRow({ prdctClsfcNoNm: '석고보드', krnPrdctNm: '일반 9.5mm 900*1800', unit: '매', prce: '3,250', splyJrsdctRgnNm: '서울', prdctIdntNo: '24123456', nticeDt: '20260701', bsnsDivNm: '건축' })
@@ -159,4 +159,43 @@ test('collection can be paused and is throttled to a few pages per run', async (
   assert.equal(slow.n(), 2)
   const src = readFileSync(new URL('../supabase/functions/design-price-refs/index.ts', import.meta.url), 'utf8')
   assert.match(src, /return await syncPrices\(\)/)
+})
+
+test('light daily collection: a brake from the server watchdog skips the run, a slow save stops it for the day', async () => {
+  const later = new Date(Date.now() + 3600_000).toISOString()
+  const rows = (page: number) => ({ status: 200, text: JSON.stringify({ response: { header: { resultCode: '00' }, body: { totalCount: 99999, items: [{ prdctClsfcNo: '30161598', prdctClsfcNoNm: '흡음패널', prdctIdntNo: String(24000000 + page), prdctUnit: '㎡', cntrctPrceAmt: '1000' }] } } }) })
+  let calls = 0
+  const braked = { rpc: async (fn: string) => ({ data: fn === 'design_g2b_plan' ? [{ kind: 'mall', state: { front: '20261117', back: '20261022', brake_until: later }, done_at: null, last_error: null, updated_at: new Date().toISOString() }] : 0, error: null }) }
+  assert.deepEqual(await runMall(braked, async (_o: string, p: number) => { calls++; return rows(p) }, Date.now() + 500), [{ mall: 'skipped', reason: 'brake' }])
+  assert.equal(calls, 0)
+  const errors: unknown[] = []
+  const slowDb = { rpc: async (fn: string, a: Record<string, unknown> = {}) => {
+    if (fn === 'design_g2b_plan') return { data: [{ kind: 'mall', state: { front: '20261117', back: '20261022' }, done_at: null, last_error: null, updated_at: new Date().toISOString() }], error: null }
+    if (fn === 'design_price_refs_save') { await new Promise(r => setTimeout(r, SLOW_SAVE_MS + 30)); return { data: 1, error: null } }
+    errors.push(a.p_error); return { data: 0, error: null }
+  } }
+  calls = 0
+  const out = await runMall(slowDb, async (_o: string, p: number) => { calls++; return rows(p) }, Date.now() + 60_000, false, 10)
+  assert.equal(calls, 1)
+  assert.equal((out[0] as { mall: string }).mall, 'slow')
+  assert.match(String(errors.at(-1)), /^SLOW/)
+  assert.equal(BACK_DAYS, 183)
+})
+
+test('light collection migration: only the batch items get codes, unchanged rows are skipped, runs only before dawn', () => {
+  const sql = readFileSync(new URL('../supabase/migrations/20261119210000_g2b_light_collect.sql', import.meta.url), 'utf8')
+  assert.doesNotMatch(sql, /\bdrop\s/i)
+  assert.match(sql, /perform design\.price_refs_assign_codes_for\(p_source, v_items\)/)
+  assert.doesNotMatch(sql, /perform design\.price_refs_assign_codes\(p_source\)/)
+  assert.ok((sql.match(/is not distinct from/g) ?? []).length >= 3)
+  assert.match(sql, /'10 18 \* \* \*'/)
+  assert.match(sql, /'40 18 \* \* \*'/)
+  assert.ok((sql.match(/private\.db_calm\(\)/g) ?? []).length === 2)
+  assert.match(sql, /- 'paused' - 'brake_until'/)
+  const watch = readFileSync(new URL('../supabase/migrations/20261119205000_server_watchdog.sql', import.meta.url), 'utf8')
+  assert.doesNotMatch(watch, /\bdrop\s/i)
+  assert.match(watch, /interval '1 hour'/)
+  assert.match(watch, /p\.title = '대표'/)
+  assert.match(watch, /brake_until/)
+  assert.match(watch, /greatest\(s\.every_min,2\)/)
 })

@@ -1,0 +1,32 @@
+/* 능력 지표 (관리 화면 · 2026-11-19) — 밝은 화면 · v8 토큰 */
+.cap-board { display: flex; flex-direction: column; gap: 10px; }
+.cap-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.cap-total { font-size: var(--fs-title); font-weight: 800; color: var(--tx-title); font-variant-numeric: tabular-nums; }
+.cap-total.low { color: var(--red); }
+.cap-row { display: grid; grid-template-columns: 92px minmax(120px, 1fr) 54px 64px 18px; align-items: center; gap: 10px; width: 100%; padding: 8px 10px; border: 0; border-top: 1px solid var(--v8-line, #ece9e2); background: transparent; text-align: left; cursor: pointer; font: inherit; color: var(--tx-body); }
+.cap-row:first-of-type { border-top: 0; }
+.cap-row:hover { background: var(--v8-hover, #f1efe9); }
+.cap-row b { font-weight: 700; }
+.cap-bar { position: relative; height: 10px; border-radius: 999px; background: var(--v8-line, #ece9e2); overflow: visible; }
+.cap-bar > i { display: block; height: 100%; border-radius: 999px; background: var(--v8-green, #1f6b4a); }
+.cap-bar.low > i { background: #c9862b; }
+.cap-bar::after { content: ''; position: absolute; left: 80%; top: -3px; bottom: -3px; width: 2px; background: var(--tx-sub); opacity: .55; }
+.cap-score { font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; }
+.cap-score.low { color: var(--red); }
+.cap-delta { color: var(--tx-sub); text-align: right; font-variant-numeric: tabular-nums; }
+.cap-delta.up { color: var(--tx-key); }
+.cap-delta.down { color: var(--red); }
+.cap-detail { padding: 4px 10px 12px 10px; display: flex; flex-direction: column; gap: 8px; }
+.cap-metric { display: grid; grid-template-columns: minmax(150px, 1.2fr) 110px 52px minmax(160px, 2fr); gap: 10px; align-items: baseline; }
+.cap-metric .rule { color: var(--tx-sub); }
+.cap-items { display: flex; flex-wrap: wrap; gap: 5px; grid-column: 1 / -1; }
+.cap-chip { padding: 2px 9px; border-radius: 999px; background: var(--v8-tint, #e8f3ec); color: var(--tx-key); }
+.cap-chip.off { background: #f6e9e7; color: var(--red); }
+.cap-chip.half { background: #f7f0dd; color: #7a5a12; }
+.cap-list { border: 1px solid var(--v8-line, #ece9e2); border-radius: var(--v8-r-card, 12px); background: #fff; overflow: hidden; }
+@media (max-width: 720px) {
+  .cap-row { grid-template-columns: 78px minmax(60px, 1fr) 44px 18px; }
+  .cap-row .cap-delta { display: none; }
+  .cap-metric { grid-template-columns: 1fr 90px 44px; }
+  .cap-metric .rule { grid-column: 1 / -1; }
+}

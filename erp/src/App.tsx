@@ -7,7 +7,7 @@ import { WebPanelHost } from './components/WebSearch'
 import { DetailColumnHost } from './components/RightPanel'
 import { ShellFrame, TABS } from './components/Shell'
 import { AskHost } from './components/Ask'
-import { CommandPalette } from './components/CommandPalette'
+import { CommandPaletteHost } from './components/CommandPaletteHost'
 import { Shortcuts } from './components/Shortcuts'
 import { api, AppProvider } from './lib/app'
 import { friendlyError } from './lib/api'
@@ -16,7 +16,6 @@ import { normalizePath, useRouter } from './lib/router'
 import type { Profile } from './lib/types'
 import Home from './pages/Home'
 import Login from './pages/Login'
-import Quick from './pages/Quick'
 import { playAlert } from './lib/sound'
 import { pokeChat, wantsAlert } from './lib/chat'
 import { accessSource, desktop } from './lib/desktop'
@@ -24,6 +23,7 @@ import { LockScreen, useSessionPolicy } from './lib/session'
 import Download from './pages/Download'
 
 // 처음 화면(홈)만 바로 불러오고, 나머지 화면은 열 때 불러옴 (첫 로딩 단축)
+const Quick = lazy(() => import('./pages/Quick'))
 const Approvals = lazy(() => import('./pages/Approvals'))
 const Chat = lazy(() => import('./pages/Chat'))
 const Tenders = lazy(() => import('./pages/Growth').then(m => ({default:m.Tenders})))
@@ -213,7 +213,9 @@ export default function App() {
     <AppProvider me={me} profiles={profiles} version={version} bump={bump} toast={toast} openQuick={openQuick}>
       {path === '/quick' ? (
         <ErrorBoundary area="빠른 창">
-          <Quick />
+          <Suspense fallback={<div className="t-cap" style={{ padding: 24 }}>불러오는 중…</div>}>
+            <Quick />
+          </Suspense>
         </ErrorBoundary>
       ) : (
         <ShellFrame>
@@ -226,9 +228,9 @@ export default function App() {
       )}
       {path !== '/quick' && <DetailColumnHost />}
       {path !== '/quick' && <WebPanelHost />}
-      {pipWin && createPortal(<Quick onClose={() => pipWin.close()} />, pipWin.document.body)}
+      {pipWin && createPortal(<ErrorBoundary area="빠른 창"><Suspense fallback={null}><Quick onClose={() => pipWin.close()} /></Suspense></ErrorBoundary>, pipWin.document.body)}
       <AskHost />
-      {path !== '/quick' && <CommandPalette />}
+      {path !== '/quick' && <ErrorBoundary area="통합 검색"><CommandPaletteHost /></ErrorBoundary>}
       {path !== '/quick' && <Shortcuts />}
       {toastMsg && (
         <div className="toast" role="status">

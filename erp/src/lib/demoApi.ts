@@ -1829,6 +1829,12 @@ export function createDemoApi(): Api {
       persist()
     },
 
+    // 능력 지표: 체험 모드에는 자료를 두지 않는다 (대표 지시 '목업은 올리지 마')
+    async adminCapability() {
+      return null
+    },
+    async adminCapabilityBuild() {},
+
     async adminOverview() {
       requireAdmin()
       const tables: Record<string, number> = {
