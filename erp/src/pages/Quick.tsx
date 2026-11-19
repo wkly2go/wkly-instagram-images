@@ -39,11 +39,12 @@ function roomGroups(rooms: ChatRoomSummary[], projects: Project[], meId: string,
   const proj = rooms.filter(r => !r.members && r.project_id)
   const ended = proj.filter(r => status(r) === '완료' || status(r) === '보류')
   const live = proj.filter(r => !ended.includes(r))
+  // 대화창 네 칸 (2026-11-19 대표 지시 '개선해' · 기획 '메신저 협업 단순화'): 내 비서 · AI → 사람 → 프로젝트 → 공지, 끝난 프로젝트는 맨 아래
   const out: [string, ChatRoomSummary[]][] = [
-    ...(Object.keys(DIVISIONS) as Division[]).map(d => [`진행 중 · ${DIVISIONS[d].label}`, live.filter(r => div(r) === d)] as [string, ChatRoomSummary[]]),
-    ['채팅방', rooms.filter(r => !r.members && !r.project_id)],
-    ['사람 팀원 (1:1)', rooms.filter(r => r.members && !isAi(r))],
-    ['AI 팀원', rooms.filter(r => r.members && isAi(r))],
+    ['내 비서 · AI 팀원', rooms.filter(r => r.members && isAi(r))],
+    ['사람 (1:1 · 그룹)', rooms.filter(r => r.members && !isAi(r))],
+    ...(Object.keys(DIVISIONS) as Division[]).map(d => [`프로젝트 · ${DIVISIONS[d].label}`, live.filter(r => div(r) === d)] as [string, ChatRoomSummary[]]),
+    ['공지 · 전체방', rooms.filter(r => !r.members && !r.project_id)],
     ['끝난 프로젝트 (완료 · 보류)', ended],
   ]
   return out.filter(([, l]) => l.length)

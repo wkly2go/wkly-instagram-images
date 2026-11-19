@@ -25,6 +25,7 @@ import { KakaoSection } from '../components/KakaoSection'
 import { CollabSection } from '../components/CollabSection'
 import { ProjectClientLink } from '../components/ProjectClientLink'
 import { ProjectMails } from '../components/ProjectMails'
+import { ProjectTalk } from '../components/ProjectTalk'
 import { ProjectDashboard } from './ProjectDashboard'
 import { Payments } from './Payments'
 import { Subscriptions } from './Subscriptions'
@@ -880,6 +881,8 @@ function ProjectDetail({ project: p, data, onEdit, onBack, panel = false }: { pr
       <SiteLogsSection project={p} always={projectBrand(p) === 'AR'} clients={data.clients} />
       {/* 구글 드라이브 자료: 드라이브 파일을 가리켜 늘 최신 · 구글 문서는 편집 화면으로 */}
       <ProjectDriveSection project={p} />
+      {/* 대화 모아 보기: 인트라넷 채팅 · 슬랙 · 카톡 · 메일 · 협업방을 한 줄로 (2026-11-19 대표 지시 '개선해') */}
+      <ProjectTalk project={p} />
       {/* 외부 협업방: 발주처 · 협력사가 로그인 없이 링크로 이 방 하나만 (로드맵 2단계 · 2026-11-17) */}
       <CollabSection project={p} />
       {/* 슬랙 채널 대화 · 공유 파일 가져오기 (대표 지시 2026-11-05) */}

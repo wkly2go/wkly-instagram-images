@@ -2644,6 +2644,16 @@ export function createDemoApi(): Api {
       }
       return { messages: n, files: n ? 4 : 0, more: false, errors: [] }
     },
+    async projectTimeline(projectId, before = null) {
+      // 체험 모드: 이 프로젝트 대화방의 채팅만 (슬랙 · 카톡 · 메일 · 협업방 자료는 없음)
+      const rooms = new Set(store.chat_rooms.filter(r => r.project_id === projectId).map(r => r.id))
+      const name = (id: string | null) => store.profiles.find(p => p.id === id)?.name ?? ''
+      return store.chat_messages
+        .filter(m => rooms.has(m.room_id) && (!before || m.created_at < before))
+        .sort((a, b) => b.created_at.localeCompare(a.created_at))
+        .slice(0, 60)
+        .map(m => ({ source: '인트라넷' as const, at: m.created_at, who: name(m.user_id), body: m.content, ref: `chat:${m.room_id}:${m.id}` }))
+    },
     async listSlackMessages(projectId) {
       return demoSlack.messages.filter(m => m.project_id === projectId).sort((a, b) => b.posted_at.localeCompare(a.posted_at))
     },

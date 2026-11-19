@@ -94,7 +94,7 @@ export function KakaoSection({ project }: { project: Project }) {
   // DB(0105)가 아직 없으면 칸을 숨김
   if (data.ready === false) return null
   return (
-    <div className="kk">
+    <div className="kk" id="kakao">
       <SectionHead
         title="카카오톡 대화"
         count={data.messages.length ? String(data.messages.length) : undefined}

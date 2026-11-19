@@ -1,3 +1,4 @@
+import type { TimelineItem } from './projectTimeline'
 import type { BankQuestion, BankQuestionDraft, InterviewForm, InterviewFormPatch } from './interviewForms'
 import type { SalesStrategyApi } from './salesStrategy'
 import type { DesignApi } from './design'
@@ -570,6 +571,8 @@ export interface Api extends SalesStrategyApi, SalesApi, GrowthApi, SalesReportA
   slackUnlink(projectId: string, channelId: string): Promise<void>
   slackImport(projectId: string): Promise<{ messages: number; files: number; more: boolean; errors: string[] }>
   listSlackMessages(projectId: string, limit?: number): Promise<SlackMessage[]>
+  /** 프로젝트 대화 모아 보기: 인트라넷 채팅 · 슬랙 · 카톡 · 메일 · 외부 협업방 (최근 것부터 · before 보다 앞) */
+  projectTimeline(projectId: string, before?: string | null): Promise<TimelineItem[]>
   /** 메일 첨부를 드라이브 수신방에 저장한 파일 (프로젝트 · 거래처) */
   listMailFiles(projectId: string, clientId: string | null): Promise<MailFile[]>
   /** 끌어다 놓은 파일을 수신방/거래처/프로젝트/분류 에 올릴 주소 (2026-11-01) */
