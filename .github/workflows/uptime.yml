@@ -1,0 +1,73 @@
+name: Uptime
+
+# 서버 밖 감시 (2026-11-19 · 같은 날 새벽 DB 장애 뒤): DB 가 멈추면 DB 안의 서버 지킴이도 같이 멈추므로, 밖에서 10분마다 확인한다.
+#  - 로그인 서버(auth)와 DB 를 거치는 호출(rest · monitor_ping) 두 가지를 본다. 세 번 연속 실패하면 장애로 본다.
+#  - 장애면 이 실행이 실패로 끝나고(깃허브가 실패 메일을 보냄) 저장소에 이슈를 하나 연다. 돌아오면 이슈를 닫는다.
+#  - 주소 · 공개 키는 화면에 이미 들어 있는 공개 값(erp/.env.production)을 읽는다. 비밀 값은 쓰지 않는다.
+# 공개 저장소라 무료. 저장소를 비공개로 바꾸면 무료 분량(월 2,000분)을 넘으니 간격을 30분으로 늘릴 것.
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: uptime
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: erp/.env.production
+          sparse-checkout-cone-mode: false
+      - name: 접속 확인
+        id: check
+        shell: bash
+        run: |
+          set -u
+          url=$(grep '^VITE_SUPABASE_URL=' erp/.env.production | cut -d= -f2- | tr -d '\r"')
+          key=$(grep '^VITE_SUPABASE_ANON_KEY=' erp/.env.production | cut -d= -f2- | tr -d '\r"')
+          ok=0; auth=000; db=000
+          for i in 1 2 3; do
+            auth=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 -H "apikey: $key" "$url/auth/v1/health" || true)
+            db=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 -X POST -H "apikey: $key" -H "Authorization: Bearer $key" -H 'Content-Type: application/json' -d '{}' "$url/rest/v1/rpc/monitor_ping" || true)
+            echo "확인 $i: 로그인 서버 $auth · DB $db"
+            # DB 호출: 200 = 정상, 404 = 함수가 아직 없지만 DB 는 응답함(정상으로 봄), 5xx · 000 = 장애
+            if [ "$auth" = "200" ] && { [ "$db" = "200" ] || [ "$db" = "204" ] || [ "$db" = "404" ]; }; then ok=1; break; fi
+            sleep 25
+          done
+          echo "ok=$ok" >> "$GITHUB_OUTPUT"
+          echo "auth=$auth" >> "$GITHUB_OUTPUT"
+          echo "db=$db" >> "$GITHUB_OUTPUT"
+      - name: 이슈 열기 · 닫기
+        uses: actions/github-script@v7
+        env:
+          OK: ${{ steps.check.outputs.ok }}
+          AUTH: ${{ steps.check.outputs.auth }}
+          DB: ${{ steps.check.outputs.db }}
+        with:
+          script: |
+            const TITLE = '🚨 인트라넷 서버 응답 없음'
+            const { owner, repo } = context.repo
+            const open = (await github.rest.issues.listForRepo({ owner, repo, state: 'open', per_page: 50 })).data.filter(i => !i.pull_request && i.title.startsWith(TITLE))
+            const now = new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })
+            if (process.env.OK === '1') {
+              for (const i of open) {
+                await github.rest.issues.createComment({ owner, repo, issue_number: i.number, body: `${now} 다시 응답합니다.` })
+                await github.rest.issues.update({ owner, repo, issue_number: i.number, state: 'closed' })
+              }
+              return
+            }
+            const body = `${now} 밖에서 세 번 확인했지만 응답이 없습니다 (로그인 서버 ${process.env.AUTH} · DB ${process.env.DB}).\n\n대응 순서: erp/docs/RUNBOOK.md — Supabase 대시보드에서 Disk IO 를 보고, 응답이 없으면 프로젝트를 재시작합니다.`
+            if (open.length) await github.rest.issues.createComment({ owner, repo, issue_number: open[0].number, body })
+            else await github.rest.issues.create({ owner, repo, title: `${TITLE} (${now})`, body })
+      - name: 장애면 실패로 끝냄
+        if: steps.check.outputs.ok != '1'
+        run: exit 1

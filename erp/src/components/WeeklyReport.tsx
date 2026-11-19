@@ -299,6 +299,9 @@ export function WeeklyReportPane() {
         <SectionHead title="총평 · 다음 주 계획" right={report?.updated_at ? <span className="t-cap">마지막 저장 {shortDate(report.updated_at.slice(0, 10))}</span> : undefined} />
         {own ? (
           <>
+            {report?.auto_draft_at && !report.submitted_at && (
+              <div className="note">이번 주 기록 · 끝낸 할 일 · 다음 주 할 일로 초안을 채워 두었습니다. 읽어 보고 고칠 곳만 고친 뒤 <b>주간 보고 제출</b>을 눌러 주세요.</div>
+            )}
             <Field label="이번 주 총평 (성과 · 문제 · 요청)">
               <textarea className="input" rows={3} value={summary} onChange={e => setSummary(e.target.value)} maxLength={4000} />
             </Field>

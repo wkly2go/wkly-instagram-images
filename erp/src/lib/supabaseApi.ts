@@ -1,3 +1,4 @@
+import type { CapabilityResult } from './capability'
 import { getCompany } from './company'
 import { createSupabaseSalesStrategyApi } from './salesStrategyApi'
 import { createSupabaseDesignApi } from './designApi'
@@ -842,6 +843,15 @@ export function createSupabaseApi(url: string, key: string): Api {
 
     async adminOverview() {
       return must(await sb.rpc('admin_overview')) as AdminOverview
+    },
+    async adminCapability(refresh) {
+      const { data, error } = await sb.rpc('admin_capability', { p_refresh: refresh })
+      // 서버 함수를 아직 적용하지 않았으면(없는 함수) 칸을 숨긴다
+      if (error) { if (refresh) throw error; return null }
+      return data as CapabilityResult
+    },
+    async adminCapabilityBuild(stats) {
+      await sb.rpc('admin_capability_build', { p: stats })
     },
     async createMember(m) {
       await invokeAdminFn(m)

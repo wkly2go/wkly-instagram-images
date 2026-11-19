@@ -1,3 +1,4 @@
+import type { BuildStats, CapabilityResult } from './capability'
 import type { TimelineItem } from './projectTimeline'
 import type { BankQuestion, BankQuestionDraft, InterviewForm, InterviewFormPatch } from './interviewForms'
 import type { SalesStrategyApi } from './salesStrategy'
@@ -399,6 +400,10 @@ export interface Api extends SalesStrategyApi, SalesApi, GrowthApi, SalesReportA
 
   // 관리자
   adminOverview(): Promise<AdminOverview>
+  /** 능력 지표 (관리자) — 서버 함수가 아직 없으면 null */
+  adminCapability(refresh: boolean): Promise<CapabilityResult | null>
+  /** 빌드 값(묶음 크기 · 시험 수 · 설명서 수)을 능력 지표에 넘김 */
+  adminCapabilityBuild(stats: BuildStats): Promise<void>
   /** 팀원(사람·AI) 계정 만들기: Supabase Edge Function 'admin-create-user' */
   createMember(m: NewMember): Promise<void>
   /** AI 팀원: 설정 목록 · 만들기(관리자, 로그인하지 않는 계정을 만듦) · 고치기 */

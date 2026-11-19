@@ -1,7 +1,9 @@
 import type { ReactNode } from 'react'
 import { useApp } from '../lib/app'
 import { Link } from '../lib/router'
-import { Shell } from '../components/Shell'
+import { Shell, TABS } from '../components/Shell'
+import { MANUAL } from '../lib/manual'
+import './Help.css'
 import { SectionHead } from '../components/ui'
 import { AutoStartGuide, PushToggle } from '../components/PushSetup'
 
@@ -13,6 +15,34 @@ export default function Help() {
     <Shell active="team">
       <SectionHead title="사용법" right={<Link to="/team">‹ 팀으로</Link>} />
       <div className="note">업무 기록 · 승인 · 프로젝트를 한곳에서 관리하는 사내 인트라넷입니다. 왼쪽 사진 아래가 메뉴(숫자 = 처리할 것)이고, 맨 위 '+ 새로 만들기'로 할 일 · 결재 · 프로젝트를 바로 만듭니다. 휴대폰은 아래 메뉴입니다.</div>
+
+      <Part title="메뉴별 사용법">
+        <span className="t-cap">메뉴 이름을 누르면 그 메뉴에서 저절로 되는 것과 사람이 할 일이 나옵니다.</span>
+        {TABS.filter(t => admin || !t.admin).map(t => {
+          const m = MANUAL[t.key]
+          if (!m) return null
+          return (
+            <details key={t.key} className="manual-item" id={`menu-${t.key}`}>
+              <summary>
+                <b>{t.label}</b>
+                <span>{m.what}</span>
+              </summary>
+              <div className="manual-body">
+                <div>
+                  <span className="t-smallb">저절로 되는 것</span>
+                  <ul>{m.auto.map(x => <li key={x}>{x}</li>)}</ul>
+                </div>
+                <div>
+                  <span className="t-smallb">사람이 하는 것</span>
+                  <ul>{m.you.map(x => <li key={x}>{x}</li>)}</ul>
+                </div>
+                {m.tip && <p className="manual-tip">{m.tip}</p>}
+                <Link to={t.path}>{t.label} 열기 ›</Link>
+              </div>
+            </details>
+          )
+        })}
+      </Part>
 
       <Part title="처음 로그인했을 때">
         <Step n={1}>관리자에게 받은 회사 이메일과 임시 비밀번호로 로그인합니다.</Step>
