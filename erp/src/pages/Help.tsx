@@ -4,6 +4,8 @@ import { Link } from '../lib/router'
 import { Shell } from '../components/Shell'
 import { SectionHead } from '../components/ui'
 import { AutoStartGuide, PushToggle } from '../components/PushSetup'
+import { GuideCard } from '../components/GuideCard'
+import { GUIDES } from '../lib/guides'
 
 /** 사용법: 직원·관리자용 짧은 설명서 (관리자 전용 부분은 관리자에게만 보임) */
 export default function Help() {
@@ -13,6 +15,11 @@ export default function Help() {
     <Shell active="team">
       <SectionHead title="사용법" right={<Link to="/team">‹ 팀으로</Link>} />
       <div className="note">업무 기록 · 승인 · 프로젝트를 한곳에서 관리하는 사내 인트라넷입니다. 왼쪽 사진 아래가 메뉴(숫자 = 처리할 것)이고, 맨 위 '+ 새로 만들기'로 할 일 · 결재 · 프로젝트를 바로 만듭니다. 휴대폰은 아래 메뉴입니다.</div>
+
+      <Part title="화면별 사용 안내 (사진 · 따라 하기 영상)">
+        <span className="t-cap">모르는 것은 오른쪽 아래 '비서'에게 "할 일 미루는 법 알려 줘"처럼 물어보면 같은 안내를 사진 · 영상과 함께 보여 줍니다.</span>
+        <div className="help-guides">{GUIDES.map(g => <GuideCard key={g.id} g={g} />)}</div>
+      </Part>
 
       <Part title="처음 로그인했을 때">
         <Step n={1}>관리자에게 받은 회사 이메일과 임시 비밀번호로 로그인합니다.</Step>
