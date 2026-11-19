@@ -55,7 +55,7 @@ begin
       select t.title, t.due_date from public.tasks t
       where coalesce(t.assignee_id, t.created_by) = u.id and t.status <> '완료' and t.due_date < v_mon + 7
       order by t.due_date limit 5) t;
-    v_plan := concat_ws(E'\n', v_plan, case when v_late is not null then '지연 · 이번 주에 못 끝낸 일: ' || v_late end);
+    v_plan := nullif(concat_ws(E'\n', v_plan, case when v_late is not null then '지연 · 이번 주에 못 끝낸 일: ' || v_late end), '');
     if v_logs = 0 and v_done = 0 and v_plan is null then continue; end if;
     n := n + 1;
     if p_dry then continue; end if;
