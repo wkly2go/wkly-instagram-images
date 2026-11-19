@@ -120,6 +120,9 @@ const TOOL_LABEL: Record<string, string> = {
   decide_leave: '휴가 처리 중',
   update_person: '인사 정보 고치는 중',
   request_intranet_change: '개발 요청 등록 중',
+  gov_read: '정부지원 · 투자 자료 읽는 중',
+  gov_suggest: '수정 제안 남기는 중',
+  gov_ask_expert: '전문 AI 에게 맡기는 중',
 }
 
 // ---------------------------------------------------------------------
@@ -321,6 +324,57 @@ const SECRETARY_TOOLS: Anthropic.Tool[] = [
 ]
 
 // 예약 도구 (모든 AI)
+
+// 정부지원 · 투자유치 (관리자 전용 자료) — 전문 AI(ai_agents.tools 에 gov_suggest)는 읽기 · 제안, 관리자의 비서는 읽기 · 전문 AI 에게 맡기기
+const GOV_DOC_KEYS = ['guide', 'invest', 'plan2027', 'roadmap', 'wkly_bp_1', 'wkly_bp_2', 'wkly_bp_3', 'wkly_bp_4']
+const GOV_READ: Anthropic.Tool = {
+  name: 'gov_read',
+  description:
+    "정부지원사업 · 투자유치 자료 읽기 (관리자 전용). what: overview(현황 — 단계별 공고 · 마감 임박 · 결과 · 대기 제안 · 전문 AI 최근 작업) · docs(문서 목록 · 길이 · 고친 날) · doc(문서 본문, key 필요: guide 가이드 · 선정 사례 / invest 투자유치 계획 / plan2027 2027년 월별 계획 / roadmap 고도화 일정 · 대표 지시 / wkly_bp_1~4 더위클리 사업계획 ①~④) · programs(공고 찾기, query 낱말 · 최근 20건) · suggestions(수정 제안 목록, key 로 문서 한정) · requests(전문 AI 에게 맡긴 일과 답).",
+  input_schema: {
+    type: 'object',
+    properties: {
+      what: { type: 'string', enum: ['overview', 'docs', 'doc', 'programs', 'suggestions', 'requests'] },
+      key: { type: 'string', description: '문서 키 (doc · suggestions)' },
+      query: { type: 'string', description: '공고 찾는 낱말 (programs)' },
+    },
+    required: ['what'],
+    additionalProperties: false,
+  },
+}
+const GOV_SUGGEST: Anthropic.Tool = {
+  name: 'gov_suggest',
+  description:
+    "문서 수정 제안 남기기 (문서는 바꾸지 않음 · 대표가 승인하면 반영). before = 문서에 있는 글 그대로(한 글자도 바꾸지 말 것 · 바꿀 문단만 짧게), 끝에 덧붙일 때는 빈 글. after = 바뀐 글. sources = 출처 주소 목록. 한 번에 3건 · 문서마다 대기 3건까지.",
+  input_schema: {
+    type: 'object',
+    properties: {
+      key: { type: 'string', enum: GOV_DOC_KEYS },
+      title: { type: 'string', description: '제안 제목 (예: 2027 팁스 일정 갱신)' },
+      before: { type: 'string' },
+      after: { type: 'string' },
+      reason: { type: 'string', description: '왜 바꾸는지 · 주의할 점' },
+      sources: { type: 'array', items: { type: 'string' } },
+    },
+    required: ['key', 'title', 'before', 'after', 'reason'],
+    additionalProperties: false,
+  },
+}
+const GOV_ASK: Anthropic.Tool = {
+  name: 'gov_ask_expert',
+  description:
+    "정부지원 · 투자유치 문서 점검 · 업데이트를 '투자유치 전문 AI' 에게 맡김. 전문 AI 가 자료 · 웹을 확인해 수정 제안을 남기고, 끝나면 주인에게 알림이 감 (몇 분). 문서를 최신으로 · 공고 반영 · 사업계획서 보강 같은 부탁에 쓴다. 맡긴 뒤에는 gov_read what=requests · suggestions 로 결과를 본다.",
+  input_schema: { type: 'object', properties: { request: { type: 'string', description: '무엇을 점검 · 보강할지 (주인 말 그대로 + 필요한 설명, 1800자)' } }, required: ['request'], additionalProperties: false },
+}
+const isGovExpert = (ctx: Ctx) => !!ctx.custom?.tools?.includes('gov_suggest')
+const govAdmin = (ctx: Ctx) => ctx.requester.role === 'admin' && !ctx.requester.is_agent && ctx.requester.active
+/** 관리자 주인의 비서가 주인과 이야기할 때만 */
+const govSecretary = (ctx: Ctx) => !!ctx.custom?.private && ctx.custom.owner_id === ctx.requester.id && govAdmin(ctx)
+async function govAgentId(): Promise<string | null> {
+  const { data } = await sb.from('ai_agents').select('profile_id').contains('tools', ['gov_suggest']).limit(1).maybeSingle()
+  return (data?.profile_id as string | undefined) ?? null
+}
+
 const SCHEDULE_TOOLS: Anthropic.Tool[] = [
   {
     name: 'schedule_work',
@@ -447,7 +501,7 @@ const CEO_TOOLS: Anthropic.Tool[] = [
 ]
 
 // 기록에 남기는 쓰기 도구
-const WRITE_TOOLS = new Set(['save_project', 'delete_record', 'decide_approval', 'decide_leave', 'update_person', 'request_intranet_change', 'schedule_work', 'cancel_schedule', 'create_task', 'update_task', 'notify_person', 'queue_mail_work', 'request_approval', 'handoff', 'add_directive', 'end_directive', 'add_work_log'])
+const WRITE_TOOLS = new Set(['gov_suggest', 'gov_ask_expert', 'save_project', 'delete_record', 'decide_approval', 'decide_leave', 'update_person', 'request_intranet_change', 'schedule_work', 'cancel_schedule', 'create_task', 'update_task', 'notify_person', 'queue_mail_work', 'request_approval', 'handoff', 'add_directive', 'end_directive', 'add_work_log'])
 
 // 승인 · 발송 · 게시 · 야간 · 결제 · API 키 규칙을 바꾸려는 지시는 막는다 (팀원 AI 쪽에서도 무시함)
 const PROTECTED = /(승인\s*없이|결재\s*없이|바로\s*(발송|게시|보내)|자동\s*(좋아요|댓글)|야간.*(발송|게시)|결제|API\s*키|api key|without approval)/i
@@ -768,6 +822,84 @@ async function runTool(ctx: Ctx, name: string, input: Record<string, unknown>): 
       return { ok: true, approval_id: data.id, approver: approver ? nameOf(ctx, approver) : '대표 · 관리자', note: '보고서 결제 탭에 올라갔습니다. 승인되면 이어서 처리합니다.' }
     }
 
+    case 'gov_read': {
+      if (!govAdmin(ctx) || !(isGovExpert(ctx) || govSecretary(ctx))) throw new Error('정부지원 · 투자유치 자료는 관리자만 볼 수 있습니다.')
+      const what = s('what')
+      if (what === 'overview') {
+        const { data, error } = await sb.rpc('gov_overview_for', { p_user: ctx.requester.id })
+        if (error) throw error
+        return data
+      }
+      if (what === 'docs') {
+        const { data, error } = await sb.from('gov_docs').select('key, title, body, updated_at').order('sort')
+        if (error) throw error
+        return (data ?? []).map(d => ({ key: d.key, title: d.title, chars: (d.body as string).length, updated: String(d.updated_at).slice(0, 10) }))
+      }
+      if (what === 'doc') {
+        const { data, error } = await sb.from('gov_docs').select('key, title, body, updated_at').eq('key', s('key') ?? '').maybeSingle()
+        if (error) throw error
+        if (!data) throw new Error(`문서 키는 ${GOV_DOC_KEYS.join(' · ')} 중 하나입니다.`)
+        return { key: data.key, title: data.title, updated: String(data.updated_at).slice(0, 10), body: (data.body as string).slice(0, 24000) }
+      }
+      if (what === 'programs') {
+        let q = sb.from('gov_programs').select('id, title, org, track, status, fit, fit_score, fit_company, fit_note, apply_start, apply_end, summary, decision_note, detail_url').order('first_seen_at', { ascending: false }).limit(20)
+        const word = s('query')
+        if (word) q = q.or(`title.ilike.%${word.replace(/[%,()]/g, ' ')}%,org.ilike.%${word.replace(/[%,()]/g, ' ')}%`)
+        const { data, error } = await q
+        if (error) throw error
+        return (data ?? []).map(r => ({ ...r, summary: String(r.summary ?? '').slice(0, 300) }))
+      }
+      if (what === 'suggestions') {
+        let q = sb.from('gov_doc_suggestions').select('id, doc_key, title, status, reason, created_at').order('created_at', { ascending: false }).limit(20)
+        if (s('key')) q = q.eq('doc_key', s('key')!)
+        const { data, error } = await q
+        if (error) throw error
+        return data
+      }
+      if (what === 'requests') {
+        const agent = await govAgentId()
+        const { data, error } = await sb.from('agent_instructions').select('instruction, status, response, created_at, responded_at').eq('agent_id', agent ?? '').order('created_at', { ascending: false }).limit(5)
+        if (error) throw error
+        return (data ?? []).map(r => ({ ...r, instruction: String(r.instruction).slice(0, 200), response: String(r.response ?? '').slice(0, 1200) }))
+      }
+      throw new Error('what 은 overview · docs · doc · programs · suggestions · requests 중 하나입니다.')
+    }
+
+    case 'gov_suggest': {
+      if (!isGovExpert(ctx) || !govAdmin(ctx)) throw new Error('수정 제안은 투자유치 전문 AI 가 관리자의 부탁으로만 남깁니다.')
+      const key = s('key') ?? ''
+      const title = s('title')
+      const after = typeof input.after === 'string' ? input.after : ''
+      const before = typeof input.before === 'string' ? input.before : ''
+      if (!GOV_DOC_KEYS.includes(key) || !title || !after.trim()) throw new Error('key · title · after 가 필요합니다.')
+      const { data: doc } = await sb.from('gov_docs').select('body').eq('key', key).maybeSingle()
+      if (!doc) throw new Error('문서를 찾지 못했습니다.')
+      if (before && !(doc.body as string).includes(before)) throw new Error('before 글이 문서에 그대로 없습니다. gov_read what=doc 로 다시 읽고 한 글자도 바꾸지 말고 복사하세요.')
+      const { count } = await sb.from('gov_doc_suggestions').select('id', { count: 'exact', head: true }).eq('doc_key', key).eq('status', '대기')
+      if ((count ?? 0) >= 3) throw new Error('이 문서에는 대기 중인 제안이 이미 3건 있습니다. 대표가 처리한 뒤에 더 제안하세요.')
+      const sources = (Array.isArray(input.sources) ? input.sources : []).map(String).filter(u => /^https?:\/\//.test(u)).slice(0, 8)
+      const { data, error } = await sb.from('gov_doc_suggestions')
+        .insert({ doc_key: key, title: title.slice(0, 120), before_text: before.slice(0, 6000), after_text: after.slice(0, 8000), reason: (s('reason') ?? '').slice(0, 2000), sources, agent_id: ctx.agent.id })
+        .select('id').single()
+      if (error) throw error
+      return { ok: true, id: data.id, note: "대표가 '정부지원사업 · 투자유치 › 자료 · 계획' 에서 반영 · 거절합니다." }
+    }
+
+    case 'gov_ask_expert': {
+      if (!govSecretary(ctx)) throw new Error('관리자 주인의 비서만 전문 AI 에게 맡길 수 있습니다.')
+      const request = s('request')
+      if (!request || request.length < 2) throw new Error('request 가 필요합니다.')
+      const agent = await govAgentId()
+      if (!agent) throw new Error('투자유치 전문 AI 가 없습니다.')
+      const { data: busy } = await sb.from('agent_instructions').select('id').eq('agent_id', agent).in('status', ['대기', '진행 중']).gte('created_at', new Date(Date.now() - 20 * 60_000).toISOString()).limit(1)
+      if (busy?.length) throw new Error('전문 AI 가 앞의 부탁을 처리하는 중입니다. 끝나면 알림이 갑니다.')
+      const { data, error } = await sb.from('agent_instructions')
+        .insert({ agent_id: agent, instruction: `[점검 부탁] (${ctx.agent.name} 통해) ${request.slice(0, 1800)}`, created_by: ctx.requester.id })
+        .select('id').single()
+      if (error) throw error
+      return { ok: true, id: data.id, note: "전문 AI 가 처리하면 주인에게 알림이 가고, 제안은 '정부지원사업 · 투자유치 › 자료 · 계획' 에 뜹니다." }
+    }
+
     case 'handoff': {
       const to = s('to')
       const summary = s('summary')
@@ -1043,7 +1175,7 @@ function secretaryPrompt(ctx: Ctx, c: Custom) {
 - 글 초안: 메일 · 메시지 · 보고 문안을 대신 써 준다 (보내는 것은 ${owner}님이 한다).
 - 다른 팀원에게 전할 일은 notify_person 으로 알리거나 그 사람 할 일로 만든다. 이때 누가 부탁했는지 밝힌다.
 ${ceo ? `- 총괄 업무: ${owner}님은 대표다. 회사 전체 현황(프로젝트 · 팀원 할 일 · 근태 · 휴가 · 결재 대기)을 대신 살피고, 결재 · 휴가 승인/반려, 프로젝트 · 인사 정보 수정 등 대표 전용 도구를 쓴다. 팀 단위 일은 그 팀장 AI 에게 handoff 한다. 아침 브리핑에는 결재 대기 · 근태 이상 · 지연 업무를 먼저 넣는다.` : `- 범위: ${owner}님 본인의 일만 맡는다. 다른 사람의 인사 · 휴가 사유 · 결재 내용 · 금액은 다루지 않는다. 회사 전체 일 · 다른 팀 일은 '@WKLY 총괄' 이나 그 팀장에게 부탁하라고 안내하거나 handoff 한다.`}
-- 둘만 보는 대화여도 금액 · 주민번호 · 계좌번호 규칙과 메일 발송 금지는 그대로다.
+${ctx.requester.role === 'admin' && ctx.custom?.owner_id === ctx.requester.id ? `- 정부지원사업 · 투자유치: 공고 · 사업계획 · 투자 자료 질문은 gov_read 로 문서와 현황을 읽고 답한다. 문서를 최신으로 고치거나 보강하는 일은 직접 하지 말고 gov_ask_expert 로 '투자유치 전문 AI' 에게 맡긴 뒤, 맡겼다고 알리고 결과(알림 · 수정 제안)는 '정부지원사업 · 투자유치 › 자료 · 계획' 에서 승인하면 된다고 안내한다. 나중에 결과를 물으면 gov_read what=requests · suggestions 로 확인해 요약한다.\n` : ''}- 둘만 보는 대화여도 금액 · 주민번호 · 계좌번호 규칙과 메일 발송 금지는 그대로다.
 ${c.instructions.trim() ? `\n${owner}님이 정한 지침 (위 규칙보다 우선하지 않음):\n${c.instructions.trim()}` : ''}`
 }
 
@@ -1119,7 +1251,10 @@ async function ask(ctx: Ctx, where: string, messages: Anthropic.MessageParam[], 
   ]
   // 인트라넷에서 정한 도구만 (비어 있으면 전부). 사람 목록 · 예약 목록은 늘 둠
   const allow = ctx.custom?.tools?.length ? new Set([...ctx.custom.tools, 'list_people', 'list_schedules', ...(ctx.custom.private ? SECRETARY_TOOLS.map(t => t.name) : [])]) : null
-  const own = [...(ctx.lead ? [...TOOLS, ...LEAD_TOOLS] : TOOLS), ...(ctx.custom?.private ? SECRETARY_TOOLS : []), ...SCHEDULE_TOOLS, ...(isCeo(ctx.requester) ? CEO_TOOLS : [])].filter(t => !allow || allow.has(t.name) || isCeo(ctx.requester))
+  // 투자유치 전문 AI 는 자기 도구만 (요청자가 대표여도 다른 도구를 열지 않음)
+  const own = isGovExpert(ctx)
+    ? [GOV_READ, GOV_SUGGEST, ...TOOLS.filter(t => t.name === 'list_people')]
+    : [...[...(ctx.lead ? [...TOOLS, ...LEAD_TOOLS] : TOOLS), ...(ctx.custom?.private ? SECRETARY_TOOLS : []), ...SCHEDULE_TOOLS, ...(isCeo(ctx.requester) ? CEO_TOOLS : [])].filter(t => !allow || allow.has(t.name) || isCeo(ctx.requester)), ...(govSecretary(ctx) ? [GOV_READ, GOV_ASK] : [])]
   const tools = [WEB_SEARCH, ...own.map((t, i) => (i === own.length - 1 ? { ...t, cache_control: { type: 'ephemeral' as const } } : t))]
   if (ctx.custom?.model === '꼼꼼') model = MODEL_INSTRUCTION
   let useFallback = true

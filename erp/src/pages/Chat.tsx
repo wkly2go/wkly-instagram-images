@@ -6,7 +6,7 @@ import { RoomMembersModal } from '../components/RoomMembers'
 import { PanelLeft, ArrowLeft, AtSign, BellOff, Bookmark, Check, ChevronDown, ChevronRight, Folder, Pin, Plus, Send, Trash2, UserPlus } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
 import { friendlyError } from '../lib/api'
-import { countedUnread, pokeChat, roomTitle, useChatTick, useRoomMessages } from '../lib/chat'
+import { countedUnread, ENDED_PROJECT_STATUSES, ENDED_ROOMS_LABEL, pokeChat, roomDivisionOf, roomTitle, useChatTick, useRoomMessages } from '../lib/chat'
 import { parseSlash, parseTaskText, remindIso, slashMenu } from '../lib/slash'
 import { approvalKindOf, ROOM_LEVEL_LABEL, type RoomLevel } from '../lib/types'
 import { useMyAgents } from '../components/AgentDesk'
@@ -19,7 +19,7 @@ import { Badge, Button, Empty, Field, Modal } from '../components/ui'
 import { AssignTaskButton } from '../components/AssignTask'
 import { CardDataProvider } from '../components/ChatCards'
 import { continueList } from '../lib/listInput'
-import { AgentTyping, AttachButton, DropHint, MessageList, useFileDrop } from '../components/ChatMessages'
+import { AgentTyping, AttachButton, DropHint, MessageList, pastedFiles, useFileDrop } from '../components/ChatMessages'
 
 const ACTIVITY_KINDS: NotificationKind[] = ['멘션', '승인', '할 일', '알람']
 const ACTIVITY_FILTERS: [string, NotificationKind[]][] = [
@@ -153,29 +153,29 @@ export default function Chat() {
       }
       return next
     })
-  const [showOther, setShowOther] = useState(() => {
-    try {
-      return localStorage.getItem('wkly-chat-other') === '1'
-    } catch {
-      return false
-    }
-  })
   const pins = usePins()
   const pinnedRooms = pins.map(id => rooms.find(r => r.id === id)).filter((r): r is ChatRoomSummary => !!r)
   const unpinned = rooms.filter(r => !pins.includes(r.id))
   const isAiRoom = (r: ChatRoomSummary) => !!r.members?.some(id => id !== me.id && profiles.find(x => x.id === id)?.is_agent)
   const projRooms = unpinned.filter(r => !r.members && r.project_id)
-  const myProj = projRooms.filter(r => r.level === 'all' || (r.mentions ?? 0) > 0 || r.id === roomId)
-  const otherProj = projRooms.filter(r => !myProj.includes(r))
-  const groups: [string, ChatRoomSummary[]][] = [
+  const endedProj = projRooms.filter(r => ENDED_PROJECT_STATUSES.includes(r.project_status ?? ''))
+  const liveProj = projRooms.filter(r => !endedProj.includes(r))
+  const divOf = (r: ChatRoomSummary) => roomDivisionOf(r.name)
+  const groups = ([
     ...(pinnedRooms.length ? ([['고정', pinnedRooms]] as [string, ChatRoomSummary[]][]) : []),
-    // 대화창 네 칸 (2026-11-19 대표 지시 '개선해' · 기획 '메신저 협업 단순화'): 내 비서 · 사람 · 프로젝트 · 공지
+    // 2026-11-19 대표 지시 '아트리어와 더위클리 진행중인 목록이 상단에 노출되고 완료와 nic는 하단에 숨김': 진행 중 프로젝트(구분별)를 맨 위로
+    ['프로젝트 · 아트리어', liveProj.filter(r => divOf(r) === 'AR')],
+    ['프로젝트 · 더위클리', liveProj.filter(r => divOf(r) === 'TW')],
+    ...(liveProj.some(r => divOf(r) === 'RS') ? ([['프로젝트 · 내부 리서치', liveProj.filter(r => divOf(r) === 'RS')]] as [string, ChatRoomSummary[]][]) : []),
     // AI 팀원과의 1:1 은 따로 (대표 지시 2026-11-06 "AI 팀원끼리 구분해줘")
     ['내 비서 · AI 팀원', unpinned.filter(r => r.members && isAiRoom(r))],
     ['사람 (1:1 · 그룹)', unpinned.filter(r => r.members && !isAiRoom(r))],
-    ['프로젝트 대화', showOther ? [...myProj, ...otherProj] : myProj],
     ['공지 · 전체방', unpinned.filter(r => !r.members && !r.project_id)],
-  ]
+    // 끝난 프로젝트는 맨 아래 · 처음엔 접힘 (펼친 것만 기억)
+    ...(endedProj.length ? ([[ENDED_ROOMS_LABEL, endedProj]] as [string, ChatRoomSummary[]][]) : []),
+  ] as [string, ChatRoomSummary[]][]).filter(([l, list]) => list.length > 0 || !l.startsWith('프로젝트 · ') || (l === '프로젝트 · 아트리어' && !liveProj.length))
+  /** 끝난 프로젝트 묶음은 거꾸로: 목록에 있으면 '펼침' */
+  const shut = (label: string) => (label === ENDED_ROOMS_LABEL ? !folded.includes(label) : folded.includes(label))
   // Alt+↑↓ 방 이동 · Alt+Shift+↑↓ 안 읽은 방
   const order = groups.flatMap(([, l]) => l)
   useEffect(() => {
@@ -263,12 +263,12 @@ export default function Chat() {
             {groups.map(([label, list]) => (
               <div key={label}>
                 <div className="room-group">
-                  <button type="button" className="room-fold grow" onClick={() => toggleFold(label)} aria-expanded={!folded.includes(label)} title={folded.includes(label) ? '펼치기' : '접기'}>
-                    {folded.includes(label) ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
+                  <button type="button" className="room-fold grow" onClick={() => toggleFold(label)} aria-expanded={!shut(label)} title={shut(label) ? '펼치기' : '접기'}>
+                    {shut(label) ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
                     {label}
-                    {folded.includes(label) && (() => {
-                      const n = (label === '프로젝트 대화' ? projRooms : list).reduce((t, r) => t + countedUnread(r), 0)
-                      return n > 0 ? <Badge tone="blue">{n}</Badge> : <span className="t-meta">{label === '프로젝트 대화' ? projRooms.length : list.length}</span>
+                    {shut(label) && (() => {
+                      const n = list.reduce((t, r) => t + countedUnread(r), 0)
+                      return n > 0 ? <Badge tone="blue">{n}</Badge> : <span className="t-meta">{list.length}</span>
                     })()}
                   </button>
                   {label === '사람 (1:1 · 그룹)' ? (
@@ -281,29 +281,11 @@ export default function Chat() {
                     </button>
                   ) : null}
                 </div>
-                {(folded.includes(label) ? list.filter(r => r.id === roomId) : list).map(r => (
+                {(shut(label) ? list.filter(r => r.id === roomId) : list).map(r => (
                   <RoomItem key={r.id} r={r} active={r.id === roomId} to={withQuery(path, query, { room: r.id, view: null, thread: null })} />
                 ))}
-                {label === '프로젝트 대화' && !folded.includes(label) && otherProj.length > 0 && (
-                  <button
-                    type="button"
-                    className="item t-cap room-more"
-                    onClick={() => {
-                      setShowOther(v => {
-                        try {
-                          localStorage.setItem('wkly-chat-other', v ? '0' : '1')
-                        } catch {
-                          /* 저장 못 해도 화면은 그대로 */
-                        }
-                        return !v
-                      })
-                    }}
-                  >
-                    {showOther ? <ChevronDown size={12} /> : <ChevronRight size={12} />} {showOther ? '다른 프로젝트 접기' : `다른 프로젝트 ${otherProj.length}개`}
-                  </button>
-                )}
-                {label === '프로젝트 대화' && !folded.includes(label) && !projRooms.length && <span className="item t-cap">기획 · 진행 중인 프로젝트마다 대화방이 생깁니다.</span>}
-                {label === '사람 (1:1 · 그룹)' && !folded.includes(label) && !list.length && (
+                {label === '프로젝트 · 아트리어' && !shut(label) && !liveProj.length && <span className="item t-cap">진행 중인 프로젝트마다 대화방이 생깁니다.</span>}
+                {label === '사람 (1:1 · 그룹)' && !shut(label) && !list.length && (
                   <button type="button" className="item t-cap" onClick={() => setDmPicking(true)}>
                     + 팀원을 골라 1:1 대화를 시작하세요
                   </button>
@@ -682,10 +664,10 @@ function Room({ room }: { room: ChatRoomSummary }) {
           onChange={e => setText(e.target.value)}
           onKeyDown={onKey}
           onPaste={e => {
-            const files = [...e.clipboardData.files]
+            const files = pastedFiles(e.clipboardData)
             if (files.length) {
               e.preventDefault()
-              sendFiles(files)
+              void sendFiles(files)
             }
           }}
           maxLength={4000}
