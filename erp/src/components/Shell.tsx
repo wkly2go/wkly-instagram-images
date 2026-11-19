@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
+import { createContext, lazy, Suspense, useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { useMyAgents } from './AgentDesk'
 import { MobileAppBar, TopAppButton } from './InstallCard'
 import { useTheme } from '../lib/theme'
@@ -8,7 +8,7 @@ import { useAttendance } from '../lib/attendance'
 import { AssignTaskModal } from './AssignTask'
 import { NotificationBell } from './Notifications'
 import { TopMenu, webSlot } from './WebSearch'
-import { openCommandPalette } from './CommandPalette'
+import { openCommandPalette } from './CommandPaletteHost'
 import { detailSlot } from './RightPanel'
 
 /** 검색 창 자리(한 개뿐인 DOM)를 이 화면의 .body 끝으로 옮김 */
@@ -26,14 +26,17 @@ import { inQuickWindow } from '../lib/pip'
 import { Link, useRouter } from '../lib/router'
 import { TODAY_STATUSES, type TodayStatus } from '../lib/types'
 import { Presence, toneOf } from './ui'
-import { countedUnread, rememberRoomLevels, useChatTick } from '../lib/chat'
-import { QuickChat, QUICK_OPEN_ROOM } from '../pages/Quick'
+import { askQuickRoom, countedUnread, rememberRoomLevels, useChatTick } from '../lib/chat'
 import { DockTodo } from './DockTodo'
 import { TopbarEvent } from './TopbarEvent'
-import { AssistantFloat } from './AssistantFloat'
 import { AssistantSettingsButton } from './AssistantSettings'
+import { ErrorBoundary } from './ErrorBoundary'
 import type { ChatRoomSummary } from '../lib/types'
 import './ShellUsability.css'
+
+// 왼쪽 채팅 칸 안의 대화 부품 · 비서 창은 본 화면이 뜬 뒤 따로 불러온다 (첫 화면 묶음을 가볍게 · 2026-11-19 성능)
+const QuickChat = lazy(() => import('../pages/Quick').then(m => ({ default: m.QuickChat })))
+const AssistantFloat = lazy(() => import('./AssistantFloat').then(m => ({ default: m.AssistantFloat })))
 
 export type TabKey = 'design' | 'designOrders' | 'designCards' | 'designPrices' | 'ilwi' | 'designVendors' | 'designMaterials' | 'designLearn' | 'tenders' | 'leads' | 'sales' | 'home' | 'reportTemplates' | 'approvals' | 'chat' | 'work' | 'projects' | 'clients' | 'library' | 'drive' | 'team' | 'site' | 'agents' | 'ads' | 'ledger' | 'interviewQuestions' | 'gov' | 'admin'
 
@@ -269,8 +272,8 @@ function ChatDock() {
       const { room_id } = await api.openMyAssistant()
       bump()
       // 방 목록이 새로 읽힌 뒤 그 방을 고르게 함
-      window.setTimeout(() => window.dispatchEvent(new CustomEvent(QUICK_OPEN_ROOM, { detail: room_id })), 400)
-      window.dispatchEvent(new CustomEvent(QUICK_OPEN_ROOM, { detail: room_id }))
+      window.setTimeout(() => askQuickRoom(room_id), 400)
+      askQuickRoom(room_id)
     } catch (e) {
       toast(friendlyError(e))
     }
@@ -315,7 +318,11 @@ function ChatDock() {
       </div>
       <DockTodo calendar={<MiniCalendar />} />
       <div className="quick q2 chat-dock-in">
-        <QuickChat rooms={rooms} />
+        <ErrorBoundary area="채팅">
+          <Suspense fallback={<span className="t-cap" style={{ padding: 12 }}>대화 불러오는 중…</span>}>
+            <QuickChat rooms={rooms} />
+          </Suspense>
+        </ErrorBoundary>
       </div>
       <div
         className="chat-dock-resize"
@@ -875,7 +882,11 @@ export function ShellFrame({ children, initial }: { children: ReactNode; initial
         </div>
         <MobileNav active={active} summary={summary} />
         {/* 모든 화면의 AI 비서 창 (2026-11-16) */}
-        <AssistantFloat pageLabel={TABS.find(t => t.key === active)?.label ?? '업무'} />
+        <ErrorBoundary area="비서">
+          <Suspense fallback={null}>
+            <AssistantFloat pageLabel={TABS.find(t => t.key === active)?.label ?? '업무'} />
+          </Suspense>
+        </ErrorBoundary>
       </div>
     </div>
     </ShellCtx.Provider>

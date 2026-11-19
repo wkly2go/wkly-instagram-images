@@ -2,17 +2,20 @@
 //   "인터넷 창은 삭제하고 주간 일정표 위치에 프로젝트 스케줄을 이동시켜서 둘 중 하나 선택할 수 있게")
 //   - 프로젝트를 열어 둔 동안: 그 프로젝트 일정(타임라인 · 한 줄 일정 넣기 · 일지로 편집)
 //   - 프로젝트를 열지 않았을 때: 진행 · 기획 중 프로젝트들의 기간 · 다가오는 일정 목록 (누르면 그 프로젝트로)
-import { useState, useSyncExternalStore } from 'react'
+import { lazy, Suspense, useState, useSyncExternalStore } from 'react'
 import { ChevronDown, X } from 'lucide-react'
 import { useApp, useAsync } from '../lib/app'
 import { addDays, shortDate, todayKey } from '../lib/date'
 import { useRouter } from '../lib/router'
 import { DIVISIONS, DIVISION_KEYS, projectBrand, type Client, type Payment, type Project, type Task } from '../lib/types'
-import { ClientDetail } from '../pages/Clients'
 import { useAction } from '../lib/app'
 import { manwon } from '../lib/date'
 import { ProjectVizLoader } from './ProjectViz'
 import { WeekPanel } from './WeekPanel'
+import { ErrorBoundary } from './ErrorBoundary'
+
+// 업체 상세는 눌렀을 때만 불러옴 (거래처 화면 전체가 첫 화면 묶음에 딸려 오지 않게 · 2026-11-19 성능)
+const ClientDetail = lazy(() => import('../pages/Clients').then(m => ({ default: m.ClientDetail })))
 
 const KEY = 'wkly-right-tab'
 
@@ -249,7 +252,11 @@ function VendorPane({ v, onClose }: { v: NonNullable<VendorOpen>; onClose: () =>
         </button>
       </div>
       {client ? (
-        <ClientDetail key={client.id} client={client} clients={data.clients} onEdit={() => navigate(`/clients?id=${client.id}`)} onBack={onClose} />
+        <ErrorBoundary area="업체 상세">
+          <Suspense fallback={<span className="t-cap">불러오는 중…</span>}>
+            <ClientDetail key={client.id} client={client} clients={data.clients} onEdit={() => navigate(`/clients?id=${client.id}`)} onBack={onClose} />
+          </Suspense>
+        </ErrorBoundary>
       ) : (
         <div className="col gap-6">
           <span className="t-cap">거래처로 등록되지 않은 업체입니다. 등록하면 연락처 · 주고받은 자료 · 리서치가 이 칸에 함께 나옵니다.</span>

@@ -23,6 +23,8 @@
   --v8-shadow: 0 1px 2px rgba(31, 42, 36, .05), 0 4px 16px rgba(31, 42, 36, .05);
   --v8-shadow-pop: 0 8px 28px rgba(31, 42, 36, .14);
   --font: 'Pretendard Variable', Pretendard, 'Noto Sans KR', system-ui, -apple-system, 'Apple SD Gothic Neo', sans-serif;
+  /* 큰 숫자: 숫자 · 영문은 Inter, 한글(만 · 원 · 건)은 본문과 같은 Pretendard (2026-11-19 · Noto Sans KR 을 더 불러오지 않음) */
+  --display: 'Inter', 'Pretendard Variable', Pretendard, system-ui, -apple-system, 'Apple SD Gothic Neo', sans-serif;
 }
 
 /* ---------- 색 토큰 (밝은 화면만) ---------- */

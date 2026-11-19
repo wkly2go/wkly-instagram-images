@@ -186,3 +186,17 @@ function dropDraft<T>(prev: Record<string, T>, id: string) {
   delete next[id]
   return next
 }
+
+/** 왼쪽 채팅 칸(빠른 창)에 '이 방을 열어라' 고 알리는 이벤트 이름 · 칸이 아직 안 떴으면 방 번호를 잠깐 맡아 둔다 */
+export const QUICK_OPEN_ROOM = 'wkly-quick-open-room'
+let pendingQuickRoom: string | null = null
+export function askQuickRoom(roomId: string) {
+  pendingQuickRoom = roomId
+  window.dispatchEvent(new CustomEvent(QUICK_OPEN_ROOM, { detail: roomId }))
+}
+/** 채팅 칸이 뜨면서 한 번 가져감 (뜨기 전에 온 요청을 놓치지 않게) */
+export function takeQuickRoom(): string | null {
+  const id = pendingQuickRoom
+  pendingQuickRoom = null
+  return id
+}
