@@ -169,11 +169,12 @@ export default function Chat() {
   const otherProj = projRooms.filter(r => !myProj.includes(r))
   const groups: [string, ChatRoomSummary[]][] = [
     ...(pinnedRooms.length ? ([['고정', pinnedRooms]] as [string, ChatRoomSummary[]][]) : []),
-    ['프로젝트 대화', showOther ? [...myProj, ...otherProj] : myProj],
-    ['채팅방', unpinned.filter(r => !r.members && !r.project_id)],
+    // 대화창 네 칸 (2026-11-19 대표 지시 '개선해' · 기획 '메신저 협업 단순화'): 내 비서 · 사람 · 프로젝트 · 공지
     // AI 팀원과의 1:1 은 따로 (대표 지시 2026-11-06 "AI 팀원끼리 구분해줘")
-    ['1:1 대화', unpinned.filter(r => r.members && !isAiRoom(r))],
-    ['AI 팀원', unpinned.filter(r => r.members && isAiRoom(r))],
+    ['내 비서 · AI 팀원', unpinned.filter(r => r.members && isAiRoom(r))],
+    ['사람 (1:1 · 그룹)', unpinned.filter(r => r.members && !isAiRoom(r))],
+    ['프로젝트 대화', showOther ? [...myProj, ...otherProj] : myProj],
+    ['공지 · 전체방', unpinned.filter(r => !r.members && !r.project_id)],
   ]
   // Alt+↑↓ 방 이동 · Alt+Shift+↑↓ 안 읽은 방
   const order = groups.flatMap(([, l]) => l)
@@ -270,11 +271,11 @@ export default function Chat() {
                       return n > 0 ? <Badge tone="blue">{n}</Badge> : <span className="t-meta">{label === '프로젝트 대화' ? projRooms.length : list.length}</span>
                     })()}
                   </button>
-                  {label === '1:1 대화' ? (
+                  {label === '사람 (1:1 · 그룹)' ? (
                     <button type="button" className="icon-btn sm" onClick={() => setDmPicking(true)} aria-label="1:1 대화 시작" title="팀원과 1:1 대화 시작">
                       <Plus size={14} />
                     </button>
-                  ) : label === '채팅방' ? (
+                  ) : label === '공지 · 전체방' ? (
                     <button type="button" className="icon-btn sm" onClick={() => setCreating(true)} aria-label="채팅방 만들기" title="채팅방 만들기">
                       <Plus size={14} />
                     </button>
@@ -302,7 +303,7 @@ export default function Chat() {
                   </button>
                 )}
                 {label === '프로젝트 대화' && !folded.includes(label) && !projRooms.length && <span className="item t-cap">기획 · 진행 중인 프로젝트마다 대화방이 생깁니다.</span>}
-                {label === '1:1 대화' && !folded.includes(label) && !list.length && (
+                {label === '사람 (1:1 · 그룹)' && !folded.includes(label) && !list.length && (
                   <button type="button" className="item t-cap" onClick={() => setDmPicking(true)}>
                     + 팀원을 골라 1:1 대화를 시작하세요
                   </button>

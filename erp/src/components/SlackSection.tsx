@@ -185,7 +185,7 @@ function SlackProjectSection({ project }: { project: Project }) {
     </button>
   )
   return (
-    <section className={`section slack-sec${open ? '' : ' folded'}`} aria-label="슬랙 대화 · 자료">
+    <section id="slack" className={`section slack-sec${open ? '' : ' folded'}`} aria-label="슬랙 대화 · 자료">
       <SectionHead
         title="슬랙 대화 · 자료"
         count={msgs.length ? String(msgs.length) : undefined}

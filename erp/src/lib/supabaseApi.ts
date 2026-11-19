@@ -18,6 +18,7 @@ import { createSignedUrlCache } from './signedUrlCache'
 import { resolveUploadedRecord } from './uploadRecord'
 import { removeStoredObject } from './storageRemoval'
 import type { BankQuestion, InterviewForm } from './interviewForms'
+import { PAGE_SIZE, type TimelineItem } from './projectTimeline'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { startMeetingProcessing } from './meetingProgress'
 import { isHiddenName, isReferencePath } from './gdrive'
@@ -1458,6 +1459,14 @@ export function createSupabaseApi(url: string, key: string): Api {
       const { data, error } = await sb.functions.invoke('slack-import', { body: { action: 'import', project_id: projectId } })
       if (error || data?.error) throw new ApiError(data?.error ?? (await fnError(error, '슬랙 가져오기 실패')))
       return { messages: data.messages ?? 0, files: data.files ?? 0, more: !!data.more, errors: data.errors ?? [] }
+    },
+    async projectTimeline(projectId, before = null) {
+      const r = await sb.rpc('project_timeline', { p_project: projectId, p_before: before, p_limit: PAGE_SIZE })
+      if (r.error) {
+        if (r.error.code === 'PGRST202') return []
+        throw new Error(r.error.message)
+      }
+      return (r.data ?? []) as TimelineItem[]
     },
     async listSlackMessages(projectId, limit = 80) {
       const { data, error } = await sb.from('slack_messages').select('*').eq('project_id', projectId).order('posted_at', { ascending: false }).limit(limit)
