@@ -8,7 +8,7 @@ import { useMemo, useState } from 'react'
 import { MoreHorizontal, Plus } from 'lucide-react'
 import { useAction, useApp } from '../lib/app'
 import { todayKey } from '../lib/date'
-import { isOverdue, supply } from '../lib/finance'
+import { categoryForDirection, isOverdue, supply, withSalesCategory } from '../lib/finance'
 import { CONTRACT_TYPES, PAYMENT_STATUSES, TAX_INVOICE_STATES, type Payment } from '../lib/types'
 import { Button } from './ui'
 
@@ -40,7 +40,7 @@ export function PaySheet({ rows, all, projectId, sel, setSel, onOpen }: { rows: 
   const { busy, run } = useAction()
   const today = todayKey()
   const list = useMemo(() => [...rows].sort((a, b) => order(a).localeCompare(order(b)) || a.created_at.localeCompare(b.created_at)), [rows])
-  const categories = useMemo(() => [...new Set(all.map(p => p.category).filter((c): c is string => !!c))].sort((a, b) => a.localeCompare(b, 'ko')), [all])
+  const categories = useMemo(() => withSalesCategory([...new Set(all.map(p => p.category).filter((c): c is string => !!c))].sort((a, b) => a.localeCompare(b, 'ko'))), [all])
   const payees = useMemo(() => [...new Set(all.map(p => p.payee?.trim()).filter((c): c is string => !!c))].sort((a, b) => a.localeCompare(b, 'ko')), [all])
 
   const save = (p: Payment, patch: Patch) => {
@@ -58,6 +58,7 @@ export function PaySheet({ rows, all, projectId, sel, setSel, onOpen }: { rows: 
       () =>
         api.savePayment({
           ...draft,
+          category: draft.direction === '수금' ? categoryForDirection('수금', draft.category) : draft.category ?? null,
           project_id: projectId,
           title,
           payee: draft.payee?.trim() || null,
@@ -133,7 +134,7 @@ export function PaySheet({ rows, all, projectId, sel, setSel, onOpen }: { rows: 
             </td>
             <td><input className="ps-in" type="date" value={draft.requested_date ?? ''} onChange={e => setD({ requested_date: e.target.value || null })} aria-label="결제요청일" /></td>
             <td>
-              <select className="ps-in" value={draft.direction} onChange={e => setD({ direction: e.target.value as Payment['direction'] })} aria-label="구분">
+              <select className="ps-in" value={draft.direction} onChange={e => setD({ direction: e.target.value as Payment['direction'], category: categoryForDirection(e.target.value, draft.category) })} aria-label="구분">
                 <option>지급</option>
                 <option>수금</option>
               </select>
@@ -238,7 +239,7 @@ function Row({ p, late, checked, onCheck, save, remember, onOpen }: { p: Payment
       </td>
       <td>{date('requested_date', '결제요청일')}</td>
       <td>
-        <select className="ps-in" defaultValue={p.direction} onChange={e => save({ direction: e.target.value as Payment['direction'] })} aria-label="구분">
+        <select className="ps-in" defaultValue={p.direction} onChange={e => save({ direction: e.target.value as Payment['direction'], category: categoryForDirection(e.target.value, p.category) })} aria-label="구분">
           <option>지급</option>
           <option>수금</option>
         </select>

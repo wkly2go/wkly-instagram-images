@@ -417,3 +417,14 @@ export function laborPeople(list: Payment[]): LaborPerson[] {
   }
   return [...map.values()].sort((a, b) => b.total - a.total || b.open - a.open)
 }
+
+/** 매출(수금) 공사구분 기본값 (대표 지시 2026-11-19 '광고주 항목을 넣어줘 · 매출은 자동으로 광고주 선택') */
+export const SALES_CATEGORY = '광고주'
+/** 공사구분 고르기 목록: 쓴 적 없어도 '광고주'는 늘 맨 앞에 */
+export const withSalesCategory = (list: string[]) => [SALES_CATEGORY, ...list.filter(c => c !== SALES_CATEGORY)]
+/** 구분을 바꿀 때 공사구분: 매출로 바꾸면 비어 있을 때 '광고주', 매입으로 되돌리면 자동으로 넣은 '광고주'는 지움 */
+export function categoryForDirection(direction: string, category: string | null | undefined): string | null {
+  const c = (category ?? '').trim()
+  if (direction === '수금') return c || SALES_CATEGORY
+  return c === SALES_CATEGORY ? null : c || null
+}

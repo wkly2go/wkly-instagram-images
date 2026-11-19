@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { Download, ExternalLink, X } from 'lucide-react'
 import { previewUrl } from '../lib/gdrive'
 import { ImageViewer } from './ImageViewer'
+import { DrivePreview } from './DrivePreview'
 
 /**
  * 자료를 인트라넷 안에서 보기 (대표 지시 2026-10-22 "자료를 인트라넷에서 볼 수 있게")
@@ -53,7 +54,7 @@ export function FileViewer({ name, mime, url, onClose, onDownload }: { name: str
     ) : kind === 'office' ? (
       <iframe className="file-view-frame" src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(url)}`} title={name} />
     ) : kind === 'google' ? (
-      <iframe className="file-view-frame" src={previewUrl(url)!} title={name} allow="autoplay" />
+      <DrivePreview url={url} name={name} className="file-view-frame" />
     ) : kind === 'video' ? (
       <video className="file-view-media" src={url} controls autoPlay />
     ) : kind === 'audio' ? (

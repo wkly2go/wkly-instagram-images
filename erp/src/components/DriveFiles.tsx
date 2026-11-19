@@ -42,6 +42,7 @@ import {
   type GFile,
 } from "../lib/gdrive";
 import { openLink } from "./WebSearch";
+import { DrivePreview, saveBlob, type DriveBlob } from "./DrivePreview";
 import { Button, Empty, Modal, SectionHead } from "./ui";
 import { ask } from "./Ask";
 
@@ -159,6 +160,8 @@ export function ProjectDriveSection({ project }: { project: Project }) {
   // 누르면 화면 안에서 원본 보기 (대표 지시 2026-11-02 "클릭해서 원본 보기")
   const [viewer, setViewer] = useState<{ url: string; name: string } | null>(null);
   const [err, setErr] = useState("");
+  // 위 '프로젝트 폴더' 단추 → 아래 폴더 파일 목록을 펼침 (2026-11-19 대표 지시 '링크로 열리지 말고 인트라넷에서')
+  const [folderSignal, setFolderSignal] = useState(0);
   const upload = useRef<HTMLInputElement>(null);
   const folder = projectDriveUrl(project);
   const folderId = folder.exact ? driveIdOf(folder.url) : null;
@@ -313,11 +316,12 @@ export function ProjectDriveSection({ project }: { project: Project }) {
               kind="outline"
               size="sm"
               onClick={() =>
-                native ? openDoc(folder.url) : openLink(folder.url)
+                // 2026-11-19 대표 지시 '프로젝트 폴더가 링크로 열리지 말고 인트라넷에서 열리게': 아래 '프로젝트 폴더 파일'을 펼치고 그 자리로
+                folder.exact ? setFolderSignal((n) => n + 1) : native ? openDoc(folder.url) : openLink(folder.url)
               }
               title={
                 folder.exact
-                  ? "프로젝트 드라이브 폴더"
+                  ? "프로젝트 폴더 파일을 인트라넷 안에서 보기"
                   : "연번 · 이름으로 드라이브 검색 (프로젝트 수정에서 폴더 주소를 넣을 수 있음)"
               }
             >
@@ -493,15 +497,11 @@ export function ProjectDriveSection({ project }: { project: Project }) {
               <X size={13} />
             </button>
           </div>
-          <iframe
-            className="drive-preview"
-            src={previewUrl(preview)!}
-            title="드라이브 미리 보기"
-          />
+          <DrivePreview url={preview} name="드라이브 미리 보기" className="drive-preview" />
         </div>
       )}
       <InboxFiles project={project} onView={(url, name) => setViewer({ url, name })} />
-      <FolderFiles project={project} onOpen={openDoc} onView={(url, name) => setViewer({ url, name })} />
+      <FolderFiles project={project} onOpen={openDoc} onView={(url, name) => setViewer({ url, name })} openSignal={folderSignal} />
       {viewer && <FileViewer url={viewer.url} name={viewer.name} onClose={() => setViewer(null)} />}
       {err && <span className="err">{err}</span>}
       {picking && token && (
@@ -589,10 +589,13 @@ function FolderFiles({
   project,
   onOpen,
   onView,
+  openSignal = 0,
 }: {
   project: Project;
   onOpen: (url: string) => void;
   onView: (url: string, name: string) => void;
+  /** 위 '프로젝트 폴더' 단추를 누를 때마다 커짐 → 목록을 펼치고 그 자리로 */
+  openSignal?: number;
 }) {
   const { api, version } = useApp();
   const { data: rows } = useAsync(
@@ -604,6 +607,12 @@ function FolderFiles({
   const [all, setAll] = useState(false);
   // 접기 · 펼치기 (대표 지시 2026-10-31 "접을 수 있게, 기본은 접혀 있게")
   const [open, setOpen] = useState(false);
+  const boxRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!openSignal) return;
+    setOpen(true);
+    window.setTimeout(() => boxRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+  }, [openSignal]);
   if (!rows.length) return null;
   const files = rows.filter((r) => r.mime_type !== FOLDER_MIME);
   const words = q.trim().toLowerCase();
@@ -616,7 +625,7 @@ function FolderFiles({
     : files;
   const shown = all || words ? hit : hit.slice(0, 30);
   return (
-    <div className="col gap-4">
+    <div className="col gap-4" ref={boxRef}>
       <div className="row gap-6">
         <button
           type="button"
@@ -872,10 +881,10 @@ function DrivePicker({
   );
 }
 
-/** 원본 보기: 화면 위에 크게 띄움 (이미지 · PDF · 문서 · AI 등 드라이브 미리보기) · 새 창 · 내려받기 */
+/** 원본 보기: 화면 위에 크게 띄움 · 회사 계정으로 받아 이 창 안에서 바로 보여 줌(구글 로그인 없이 · 2026-11-19 '현재 창에서 볼 수 있게') · 새 창 · 내려받기 */
 function FileViewer({ url, name, onClose }: { url: string; name: string; onClose: () => void }) {
-  const src = previewUrl(url);
   const id = driveIdOf(url);
+  const [got, setGot] = useState<DriveBlob | null>(null);
   useEffect(() => {
     const k = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", k);
@@ -890,20 +899,20 @@ function FileViewer({ url, name, onClose }: { url: string; name: string; onClose
           <button type="button" className="btn btn-outline btn-sm" onClick={() => openLink(url)}>
             <ExternalLink size={12} /> 새 창
           </button>
-          {id && (
+          {got ? (
+            <button type="button" className="btn btn-outline btn-sm" onClick={() => saveBlob(got)}>
+              내려받기
+            </button>
+          ) : id ? (
             <a className="btn btn-outline btn-sm" href={`https://drive.google.com/uc?export=download&id=${id}`} target="_blank" rel="noreferrer">
               내려받기
             </a>
-          )}
+          ) : null}
           <button type="button" className="icon-btn sm" onClick={onClose} aria-label="닫기" title="닫기 (Esc)">
             <X size={14} />
           </button>
         </div>
-        {src ? (
-          <iframe className="fv-frame" src={src} title={`${name} 원본`} allow="autoplay" />
-        ) : (
-          <div className="fv-frame center t-cap">이 파일은 미리 볼 수 없습니다. [새 창]으로 열어 주세요.</div>
-        )}
+        <DrivePreview url={url} name={name} onLoaded={setGot} />
       </div>
     </div>
   );

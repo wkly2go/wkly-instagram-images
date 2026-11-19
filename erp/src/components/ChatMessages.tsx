@@ -1,4 +1,6 @@
 import { UserPic } from './UserPic'
+import { GuideCard } from './GuideCard'
+import { GUIDE_TOKEN_RE, guideById } from '../lib/guides'
 import { CardView } from './ChatCards'
 import { Linkify } from './ui'
 import { useEffect, useRef, useState, type DragEvent } from 'react'
@@ -394,7 +396,20 @@ export function MessageList({ messages, reads = [], members, onRemove, onEdit, o
 }
 
 /** 맨 앞의 '> ' 줄은 인용(고른 부분)으로 보여 줌 */
+/** 비서가 보낸 사용 안내 '[[안내:id]]' 는 글에서 빼고 아래에 카드로 */
 function QuotedText({ text }: { text: string }) {
+  const ids = [...text.matchAll(GUIDE_TOKEN_RE)].map(m => m[1]).filter((id, i, a) => a.indexOf(id) === i)
+  if (!ids.length) return <QuotedPlain text={text} />
+  const guides = ids.map(guideById).filter((g): g is NonNullable<ReturnType<typeof guideById>> => !!g).slice(0, 3)
+  return (
+    <span>
+      <QuotedPlain text={text.replace(GUIDE_TOKEN_RE, '').replace(/\n{3,}/g, '\n\n').trim()} />
+      {guides.map(g => <GuideCard key={g.id} g={g} />)}
+    </span>
+  )
+}
+
+function QuotedPlain({ text }: { text: string }) {
   // 비서 창 · 업무 창에서 보낸 글: 화면 · 업무 정보는 접고 질문만 (2026-11-16)
   const ask = text.indexOf('\n\n질문: ')
   if (ask > 0 && /^\[(화면|업무 상담)\]/.test(text)) {
