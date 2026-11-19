@@ -117,6 +117,14 @@ export function ContractGoal({ project, finance }: { project: Project; finance: 
     void run(() => api.saveFinance({ project_id: project.id, ...next }), '계약 · 목표를 저장했습니다.')
   }
   const supply = finance?.contract_amount ?? null
+  // 입력하는 대로 바로 계산 (저장 전에도) · 마진율이 비어 있으면 기본 30% 로 보여 줌 (2026-11-19 '목표 마진 금액 노출해')
+  const [typedSupply, setTypedSupply] = useState<string | null>(null)
+  const [typedMargin, setTypedMargin] = useState<string | null>(null)
+  const liveSupply = typedSupply != null ? (typedSupply.trim() ? Math.max(0, parseMoney(typedSupply)) : null) : supply
+  const typedRate = typedMargin != null && typedMargin.trim() !== '' ? Number(typedMargin) : null
+  const savedRate = typedMargin != null && typedMargin.trim() === '' ? null : finance?.target_margin ?? null
+  const rate = typedRate != null && isFinite(typedRate) ? typedRate : savedRate
+  const usedRate = rate ?? 30
   return (
     <div className="contract-goal" key={finance?.updated_at ?? 'none'}>
       <label>
@@ -126,6 +134,7 @@ export function ContractGoal({ project, finance }: { project: Project; finance: 
           inputMode="numeric"
           defaultValue={supply != null ? supply.toLocaleString('ko-KR') : ''}
           placeholder="예) 45,000,000"
+          onChange={e => setTypedSupply(e.target.value)}
           onBlur={e => {
             const t = e.target.value.trim()
             const n = t ? Math.max(0, parseMoney(t)) : null
@@ -135,7 +144,7 @@ export function ContractGoal({ project, finance }: { project: Project; finance: 
           aria-label="매출 계약 금액 (VAT 별도)"
         />
       </label>
-      <span className="t-cap">VAT 포함 {supply != null ? Math.round(supply * 1.1).toLocaleString('ko-KR') : '–'}</span>
+      <span className="t-cap">VAT 포함 {liveSupply != null ? Math.round(liveSupply * 1.1).toLocaleString('ko-KR') : '–'}</span>
       <label>
         <span>목표 마진</span>
         <input
@@ -143,6 +152,7 @@ export function ContractGoal({ project, finance }: { project: Project; finance: 
           inputMode="decimal"
           defaultValue={finance?.target_margin ?? ''}
           placeholder="30"
+          onChange={e => setTypedMargin(e.target.value)}
           onBlur={e => {
             const t = e.target.value.trim()
             const v = t === '' ? null : Number(t)
@@ -155,10 +165,10 @@ export function ContractGoal({ project, finance }: { project: Project; finance: 
         <span>%</span>
       </label>
       {/* 목표 마진 금액 (대표 지시 2026-11-19 '목표마진을 금액으로도 계산해서 노출') — 계약(VAT 별도) × 마진율 · 남는 예산 */}
-      <span className="t-cap goal-margin-amt">
-        {supply != null && finance?.target_margin != null
-          ? `= ${Math.round((supply * finance.target_margin) / 100).toLocaleString('ko-KR')}원 · 쓸 수 있는 비용 ${Math.round(supply - (supply * finance.target_margin) / 100).toLocaleString('ko-KR')}원`
-          : '마진 금액 –'}
+      <span className="goal-margin-amt tx-key">
+        {liveSupply
+          ? `마진 ${Math.round((liveSupply * usedRate) / 100).toLocaleString('ko-KR')}원${rate == null ? ' (기본 30%)' : ''} · 쓸 수 있는 비용 ${Math.round(liveSupply - (liveSupply * usedRate) / 100).toLocaleString('ko-KR')}원`
+          : '마진 금액은 매출 계약을 넣으면 계산됩니다'}
       </span>
       <label className="grow">
         <span>메모</span>
