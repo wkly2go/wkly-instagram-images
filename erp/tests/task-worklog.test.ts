@@ -44,3 +44,13 @@ test('weekly gaps treat a completed task with a linked log as already written', 
   const types = readFileSync(new URL('../src/lib/types.ts', import.meta.url), 'utf8')
   assert.match(types, /task_id\?: string \| null/)
 })
+
+test('postpone moves the due date to the next day (late or empty → tomorrow)', async () => {
+  const { postponePatch } = await import('../src/lib/taskPostpone.ts')
+  const today = '2026-11-19'
+  assert.deepEqual(postponePatch({ due_date: '2026-11-19', start_date: null, remind_at: null }, today), { due_date: '2026-11-20' })
+  assert.deepEqual(postponePatch({ due_date: '2026-11-25', start_date: '2026-11-20', remind_at: null }, today), { due_date: '2026-11-26' })
+  assert.deepEqual(postponePatch({ due_date: '2026-11-18', start_date: '2026-11-18', remind_at: null }, today), { due_date: '2026-11-20', start_date: '2026-11-20' })
+  assert.deepEqual(postponePatch({ due_date: null, start_date: null, remind_at: null }, today), { due_date: '2026-11-20' })
+  assert.deepEqual(postponePatch({ due_date: '2026-11-19', start_date: null, remind_at: '2026-11-19T00:00:00.000Z' }, today), { due_date: '2026-11-20', remind_at: '2026-11-20T00:00:00.000Z' })
+})

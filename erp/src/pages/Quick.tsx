@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react'
-import { useChatTick } from '../lib/chat'
+import { useChatTick, ENDED_PROJECT_STATUSES, ENDED_ROOMS_LABEL } from '../lib/chat'
 import { countedUnread } from '../lib/chat'
 import { ChevronDown, Pin, Send, X } from 'lucide-react'
 import { useApp, useAsync } from '../lib/app'
@@ -12,7 +12,7 @@ import { DIVISIONS, projectBrand, TODAY_STATUSES, type ChatRoomSummary, type Div
 import { QuickLogForm } from '../components/LogForm'
 import { AssignTaskButton } from '../components/AssignTask'
 import { continueList } from '../lib/listInput'
-import { AgentTyping, AttachButton, DropHint, MessageList, useFileDrop } from '../components/ChatMessages'
+import { AgentTyping, AttachButton, DropHint, MessageList, pastedFiles, useFileDrop } from '../components/ChatMessages'
 import { TABS, useSummary } from '../components/Shell'
 import { Empty, KindBadge } from '../components/ui'
 
@@ -37,15 +37,16 @@ function roomGroups(rooms: ChatRoomSummary[], projects: Project[], meId: string,
   const status = (r: ChatRoomSummary) => projects.find(x => x.id === r.project_id)?.status ?? r.project_status
   const isAi = (r: ChatRoomSummary) => !!r.members?.some(id => id !== meId && profiles.find(x => x.id === id)?.is_agent)
   const proj = rooms.filter(r => !r.members && r.project_id)
-  const ended = proj.filter(r => status(r) === '완료' || status(r) === '보류')
+  const ended = proj.filter(r => ENDED_PROJECT_STATUSES.includes(status(r) ?? ''))
   const live = proj.filter(r => !ended.includes(r))
   // 대화창 네 칸 (2026-11-19 대표 지시 '개선해' · 기획 '메신저 협업 단순화'): 내 비서 · AI → 사람 → 프로젝트 → 공지, 끝난 프로젝트는 맨 아래
+  // 2026-11-19 대표 지시 '아트리어와 더위클리 진행중인 목록이 상단에 · 완료와 nic는 하단에': 진행 중 프로젝트(구분별)를 맨 위로, 끝난 것(완료 · NIC · 보류)은 맨 아래
   const out: [string, ChatRoomSummary[]][] = [
+    ...(Object.keys(DIVISIONS) as Division[]).map(d => [`프로젝트 · ${DIVISIONS[d].label}`, live.filter(r => div(r) === d)] as [string, ChatRoomSummary[]]),
     ['내 비서 · AI 팀원', rooms.filter(r => r.members && isAi(r))],
     ['사람 (1:1 · 그룹)', rooms.filter(r => r.members && !isAi(r))],
-    ...(Object.keys(DIVISIONS) as Division[]).map(d => [`프로젝트 · ${DIVISIONS[d].label}`, live.filter(r => div(r) === d)] as [string, ChatRoomSummary[]]),
     ['공지 · 전체방', rooms.filter(r => !r.members && !r.project_id)],
-    ['끝난 프로젝트 (완료 · 보류)', ended],
+    [ENDED_ROOMS_LABEL, ended],
   ]
   return out.filter(([, l]) => l.length)
 }
@@ -320,7 +321,22 @@ export function QuickChat({ rooms }: { rooms: ChatRoomSummary[] }) {
           <AttachButton onFiles={sendFiles} />
           <AssignTaskButton assignee={dmPartner} className="assign-chip" label="지시" title={dmPartner ? `${profileName(dmPartner)}님에게 업무 지시` : '업무 지시'} />
         </div>
-        <textarea className="textarea" placeholder="메시지 (Enter 전송)" value={text} onChange={e => setText(e.target.value)} onKeyDown={onKey} maxLength={4000} aria-label="메시지" />
+        <textarea
+          className="textarea"
+          placeholder="메시지 (Enter 전송 · 사진은 Ctrl+V 붙여넣기)"
+          value={text}
+          onChange={e => setText(e.target.value)}
+          onKeyDown={onKey}
+          onPaste={e => {
+            const files = pastedFiles(e.clipboardData)
+            if (files.length) {
+              e.preventDefault()
+              void sendFiles(files)
+            }
+          }}
+          maxLength={4000}
+          aria-label="메시지"
+        />
         <button type="button" className="send-btn" onClick={submit} disabled={!text.trim() || sending} aria-label="보내기">
           <Send size={16} />
         </button>

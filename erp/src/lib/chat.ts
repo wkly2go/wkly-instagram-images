@@ -186,3 +186,12 @@ function dropDraft<T>(prev: Record<string, T>, id: string) {
   delete next[id]
   return next
 }
+
+/** 끝난 프로젝트 방 (대표 지시 2026-11-19 '아트리어와 더위클리 진행중인 목록이 상단에 노출되고 완료와 nic는 하단에 숨김') — 완료 · NIC · 보류 */
+export const ENDED_PROJECT_STATUSES = ['완료', 'NIC', '보류']
+export const ENDED_ROOMS_LABEL = '끝난 프로젝트 (완료 · NIC · 보류)'
+/** 방 이름(연번)에서 구분: TW 더위클리 · RS 내부 리서치 · 나머지 아트리어 */
+export const roomDivisionOf = (title: string): 'AR' | 'TW' | 'RS' => {
+  const c = title.replace(/^#\s*/, '').trim().slice(0, 2).toUpperCase()
+  return c === 'TW' || c === 'RS' ? c : 'AR'
+}
