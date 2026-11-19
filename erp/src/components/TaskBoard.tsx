@@ -86,7 +86,7 @@ export function TaskBoard({ list, late, projects, onStatus, onEdit, onDelete }: 
     {
       key: 'project',
       label: '프로젝트',
-      width: 170,
+      width: 150,
       hideNarrow: true,
       cell: t => (
         <span className="task-inline" onClick={stop}>
@@ -129,8 +129,8 @@ export function TaskBoard({ list, late, projects, onStatus, onEdit, onDelete }: 
       ),
     },
     // 완료일 (대표 지시 2026-11-18 '완료일까지 표시해') — 완료로 바꾼 날을 서버가 기록(tasks.completed_at)
-    { key: 'doneAt', label: '완료일', width: 90, cell: t => (t.status === '완료' && t.completed_at ? <span className="t-meta t-green" title={`${shortDate(toDateKey(t.completed_at))} ${timeLabel(t.completed_at)} 완료`}>{shortDate(toDateKey(t.completed_at))} {weekday(toDateKey(t.completed_at))}</span> : '-') },
-    { key: 'alarm', label: '알람', width: 100, hideNarrow: true, cell: t => (t.remind_at && t.status !== '완료' ? <span className="t-meta">{alarmLabel(t.remind_at)}</span> : '-') },
+    { key: 'doneAt', label: '완료일', width: 80, cell: t => (t.status === '완료' && t.completed_at ? <span className="t-meta t-green" title={`${shortDate(toDateKey(t.completed_at))} ${timeLabel(t.completed_at)} 완료`}>{shortDate(toDateKey(t.completed_at))} {weekday(toDateKey(t.completed_at))}</span> : '-') },
+    { key: 'alarm', label: '알람', width: 104, hideNarrow: true, cell: t => (t.remind_at && t.status !== '완료' ? <span className="t-meta">{alarmLabel(t.remind_at)}</span> : '-') },
     {
       key: 'act',
       label: '',
@@ -157,7 +157,7 @@ export function TaskBoard({ list, late, projects, onStatus, onEdit, onDelete }: 
       ),
     },
   ]
-  return <Board rows={list} cols={cols} rowKey={t => t.id} onRow={onEdit} rowClass={t => (t.status === '완료' ? 'done' : undefined)} compact empty="할 일이 없습니다." />
+  return <Board rows={list} cols={cols} rowKey={t => t.id} onRow={onEdit} rowClass={t => (t.status === '완료' ? 'done' : undefined)} compact className="task-board" empty="할 일이 없습니다." />
 }
 
 

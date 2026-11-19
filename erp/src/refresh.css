@@ -618,3 +618,10 @@ td > .task-inline-sel, td .task-inline-sel:only-child { min-width: 76px; }
 .guide-media-btns { gap: 12px; }
 .help-guides { display: grid; gap: 10px; }
 
+
+/* 할 일 표: 묶음(지연 · 오늘 · 이번 주 …)마다 따로 그려도 열 위치가 같게 · 내용 길이로 움직이지 않게 (2026-11-19 대표 지시 '열을 맞추고 움직이지 않게 고정해') */
+@media (min-width: 801px) {
+  .task-board .board { table-layout: fixed; }
+  .task-board .board td { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .task-board .board th { white-space: nowrap; overflow: visible; text-overflow: clip; }
+}

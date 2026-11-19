@@ -42,7 +42,7 @@ export function Board<T>({ rows, cols, rowKey, onRow, selectedId, numbered = tru
         <colgroup>
           {numbered && <col style={{ width: 44 }} />}
           {cols.map(c => (
-            <col key={c.key} style={c.width ? { width: c.width } : undefined} />
+            <col key={c.key} className={c.hideNarrow ? 'hide-narrow' : undefined} style={c.width ? { width: c.width } : undefined} />
           ))}
         </colgroup>
         <thead>
