@@ -1,4 +1,4 @@
-import { Pencil, Trash2 } from 'lucide-react'
+import { CalendarClock, Pencil, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useApp } from '../lib/app'
 import { shortDate, timeLabel, toDateKey, todayKey, weekday } from '../lib/date'
@@ -7,6 +7,7 @@ import type { Project, Task, TaskStatus } from '../lib/types'
 import { Board, type BoardCol } from './Board'
 import { ProjectOptions } from './ProjectOptions'
 import { StatusBadge } from './ui'
+import { postponePatch } from '../lib/taskPostpone'
 
 /** 상태를 누를 때마다 다음 단계로 (할 일 → 진행 중 → 완료 → 할 일) */
 export const NEXT_TASK_STATUS: Record<TaskStatus, TaskStatus> = { '할 일': '진행 중', '진행 중': '완료', 완료: '할 일' }
@@ -31,8 +32,10 @@ export function TaskBoard({ list, late, projects, onStatus, onEdit, onDelete }: 
     try {
       await api.saveTask({ id: t.id, ...p })
       bump()
+      return true
     } catch (e) {
       toast(e instanceof Error ? e.message : '저장하지 못했습니다.')
+      return false
     }
   }
   const people = profiles.filter(p => p.active !== false && !p.is_agent)
@@ -131,10 +134,15 @@ export function TaskBoard({ list, late, projects, onStatus, onEdit, onDelete }: 
     {
       key: 'act',
       label: '',
-      width: onDelete ? 56 : 34,
+      width: onDelete ? 82 : 60,
       kind: 'center',
       cell: t => (
         <>
+          {t.status !== '완료' && (
+            <button type="button" className="icon-btn sm" onClick={e => { e.stopPropagation(); const p = postponePatch(t, today); void patch(t, p).then(ok => ok && toast(`${shortDate(p.due_date!)} ${weekday(p.due_date!)}로 미뤘습니다`)) }} aria-label={`${t.title} 다음날로 연기`} title="다음날로 연기 (지났으면 내일로)">
+              <CalendarClock size={13} />
+            </button>
+          )}
           {onEdit && (
             <button type="button" className="icon-btn sm" onClick={e => (e.stopPropagation(), onEdit(t))} aria-label={`${t.title} 고치기`} title="고치기 (제목 · 담당 · 날짜 · 메모)">
               <Pencil size={13} />

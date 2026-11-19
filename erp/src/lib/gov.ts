@@ -60,12 +60,37 @@ export type GovCompany = {
 
 /** 자료 · 계획 문서 (마크다운 · 관리자 전용) */
 export type GovDoc = { key: string; title: string; body: string; sort: number; updated_at: string }
+/** 투자유치 전문 AI 의 문서 수정 제안 (대표가 반영 · 거절) */
+export type GovSuggestion = { id: string; doc_key: string; title: string; before_text: string; after_text: string; reason: string; sources: string[]; status: '대기' | '반영' | '거절' | '적용 불가'; created_at: string; decided_at: string | null }
+/** 문서의 이전 글 (고칠 때마다 자동 보관) */
+export type GovDocVersion = { id: string; doc_key: string; note: string; saved_at: string; chars: number }
+/** 현황 — DB 가 늘 계산 (AI 없음) */
+export type GovOverview = {
+  today: string
+  by_status: Record<string, number>
+  recommended: number
+  new_7d: number
+  deadlines: { id: string; title: string; org: string | null; apply_end: string; d: number; fit: string; status: string; track: string | null }[]
+  results: { title: string; status: string; updated_at: string }[]
+  pending: Record<string, number>
+  agent_id: string | null
+  agent_last: { at: string; status: string; instruction: string; response: string } | null
+}
 /** 사업계획서 초안 — 입력값과 AI 가 쓴 네 항목 */
 export type GovPlanDraft = { id: string; program_id: string | null; company: string; title: string; inputs: Record<string, string>; sections: Record<string, string>; updated_at: string }
 
 export interface GovApi {
   listGovDocs(): Promise<GovDoc[]>
   saveGovDoc(key: string, body: string): Promise<void>
+  govOverview(): Promise<GovOverview | null>
+  /** 대기 제안 전부 + 최근 처리한 것 */
+  listGovSuggestions(): Promise<GovSuggestion[]>
+  /** 반영(true) · 거절(false) — 결과 '반영' | '거절' | '적용 불가' */
+  decideGovSuggestion(id: string, accept: boolean): Promise<string>
+  listGovDocVersions(key: string): Promise<GovDocVersion[]>
+  restoreGovDoc(versionId: string): Promise<void>
+  /** 투자유치 전문 AI 에게 점검 맡기기 */
+  askGovAgent(text: string): Promise<void>
   /** 그 공고의 가장 최근 초안 (없으면 null) */
   getGovPlanDraft(programId: string): Promise<GovPlanDraft | null>
   /** id 가 없으면 새로 — 저장한 초안의 id */

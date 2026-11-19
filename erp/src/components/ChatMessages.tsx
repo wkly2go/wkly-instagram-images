@@ -543,6 +543,20 @@ function AttachmentView({ att }: { att: ChatAttachment }) {
   )
 }
 
+/** 붙여넣기(Ctrl+V)로 들어온 사진 · 파일 (대표 지시 2026-11-19 '채팅창에 클립보드에 저장한 이미지도 전송될 수 있도록').
+ *  캡처 도구 · 웹 이미지 복사는 files 가 비고 items 에만 오는 브라우저가 있어 둘 다 본다. 이름 없는 캡처는 '붙여넣은 사진 날짜-시각.png' */
+export function pastedFiles(data: DataTransfer | null): File[] {
+  if (!data) return []
+  const fromItems = [...(data.items ?? [])].filter(i => i.kind === 'file').map(i => i.getAsFile()).filter((f): f is File => !!f)
+  const list = fromItems.length ? fromItems : [...(data.files ?? [])]
+  const stamp = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).replace(/[-: ]/g, '').slice(2, 14)
+  return list.map((f, i) => {
+    if (f.name && !/^image\.(png|jpe?g|gif|webp)$/i.test(f.name)) return f
+    const ext = (f.type.split('/')[1] || 'png').replace('jpeg', 'jpg').replace(/[^a-z0-9]/gi, '') || 'png'
+    return new File([f], `붙여넣은 사진 ${stamp.slice(0, 6)}-${stamp.slice(6)}${list.length > 1 ? `-${i + 1}` : ''}.${ext}`, { type: f.type || 'image/png' })
+  })
+}
+
 /** 📎 사진 · 파일 첨부 버튼 (여러 개 고르면 차례로 보냄) */
 export function AttachButton({ onFiles, disabled }: { onFiles: (files: File[]) => Promise<void>; disabled?: boolean }) {
   const input = useRef<HTMLInputElement>(null)

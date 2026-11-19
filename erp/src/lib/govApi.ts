@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { ApiError } from './api'
-import type { GovApi, GovCompany, GovDoc, GovPlanDraft, GovProgram } from './gov'
+import type { GovApi, GovCompany, GovDoc, GovDocVersion, GovOverview, GovPlanDraft, GovProgram, GovSuggestion } from './gov'
 
 const fail = (e: { message: string; code?: string } | null) => {
   if (!e) return
@@ -34,6 +34,35 @@ export function createSupabaseGovApi(sb: SupabaseClient): GovApi {
     async saveGovDoc(key, body) {
       const me = (await sb.auth.getUser()).data.user?.id ?? null
       fail((await sb.from('gov_docs').update({ body, updated_by: me, updated_at: new Date().toISOString() }).eq('key', key)).error)
+    },
+    async govOverview() {
+      const r = await sb.rpc('gov_overview')
+      if (r.error && ['PGRST202', '42883'].includes(r.error.code ?? '')) return null
+      fail(r.error)
+      return (r.data ?? null) as GovOverview | null
+    },
+    async listGovSuggestions() {
+      const r = await sb.from('gov_doc_suggestions').select('id,doc_key,title,before_text,after_text,reason,sources,status,created_at,decided_at').order('created_at', { ascending: false }).limit(60)
+      if (r.error && ['42P01', 'PGRST205'].includes(r.error.code ?? '')) return []
+      fail(r.error)
+      return (r.data ?? []) as GovSuggestion[]
+    },
+    async decideGovSuggestion(id, accept) {
+      const r = await sb.rpc('gov_suggestion_decide', { p_id: id, p_accept: accept })
+      fail(r.error)
+      return String(r.data ?? '')
+    },
+    async listGovDocVersions(key) {
+      const r = await sb.from('gov_doc_versions').select('id,doc_key,note,saved_at,body').eq('doc_key', key).order('saved_at', { ascending: false }).limit(30)
+      if (r.error && ['42P01', 'PGRST205'].includes(r.error.code ?? '')) return []
+      fail(r.error)
+      return ((r.data ?? []) as (Omit<GovDocVersion, 'chars'> & { body: string })[]).map(({ body, ...v }) => ({ ...v, chars: body.length }))
+    },
+    async restoreGovDoc(versionId) {
+      fail((await sb.rpc('gov_doc_restore', { p_version: versionId })).error)
+    },
+    async askGovAgent(text) {
+      fail((await sb.rpc('gov_agent_request', { p_text: text })).error)
     },
     async getGovPlanDraft(programId) {
       const r = await sb.from('gov_plan_drafts').select('id,program_id,company,title,inputs,sections,updated_at').eq('program_id', programId).order('updated_at', { ascending: false }).limit(1)
@@ -73,6 +102,12 @@ export function createDemoGovApi(): GovApi {
     async listGovCompanies() { return dev ? (await import('../dev/govSample')).SAMPLE_COMPANIES : [] },
     async listGovDocs() { return dev ? (await import('../dev/govSample')).SAMPLE_DOCS : [] },
     saveGovDoc: none,
+    async govOverview() { return dev ? (await import('../dev/govSample')).SAMPLE_OVERVIEW : null },
+    async listGovSuggestions() { return dev ? (await import('../dev/govSample')).SAMPLE_SUGGESTIONS : [] },
+    decideGovSuggestion: none,
+    async listGovDocVersions() { return [] },
+    restoreGovDoc: none,
+    askGovAgent: none,
     async getGovPlanDraft() { return null },
     saveGovPlanDraft: none,
     updateGovProgram: none,

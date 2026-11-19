@@ -1,5 +1,5 @@
 // 개발 서버(체험 모드)에서 정부지원사업 화면을 확인하기 위한 지어낸 자료. 실제 공고 · 회사 서류가 아니며 배포 묶음에 들어가지 않는다.
-import type { GovCompany, GovDoc, GovProgram } from '../lib/gov'
+import type { GovCompany, GovDoc, GovProgram, GovOverview, GovSuggestion } from '../lib/gov'
 
 const day = (n: number) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10)
 const base = { source: 'sample', supervising: '공공기관', target: '일반기업', biz_years: '7년미만', exclude_detail: null, apply_start: day(-10), detail_url: 'https://example.com/notice', apply_url: null, contact: '시험 기관 02-000-0000', owner_id: null, decision_note: null, first_seen_at: new Date().toISOString(), fit_company: 'wkly', track: '지원' } as const
@@ -20,4 +20,15 @@ export const SAMPLE_PROGRAMS: GovProgram[] = [
 export const SAMPLE_DOCS: GovDoc[] = [
   { key: 'guide', title: '사업계획서 가이드 · 선정 사례', sort: 1, updated_at: new Date().toISOString(), body: '## 공통 구조\n\n| 항목 | 묻는 것 |\n| --- | --- |\n| 문제인식 | 누구의 어떤 불편인가 |\n| 실현가능성 | 기간 안에 무엇을 만드는가 |\n\n- 시험 자료입니다.' },
   { key: 'invest', title: '투자유치 계획', sort: 2, updated_at: new Date().toISOString(), body: '## 자금 사다리\n\n1. 지원사업\n2. 시드 투자\n3. 후속 사업\n\n시험 자료입니다.' },
+]
+
+const today = new Date().toISOString().slice(0, 10)
+export const SAMPLE_OVERVIEW: GovOverview = {
+  today, by_status: { 신규: 12, '검토 중': 2, '신청 준비': 1, 마감: 4 }, recommended: 5, new_7d: 2,
+  deadlines: [{ id: 'p1', title: '시험 공고 · 예비창업패키지', org: '창업진흥원', apply_end: today, d: 3, fit: '추천', status: '검토 중', track: '지원' }],
+  results: [], pending: { invest: 1 }, agent_id: 'a1',
+  agent_last: { at: new Date().toISOString(), status: '완료', instruction: '[예약 · 매주] 정부지원 · 투자유치 주간 점검', response: '투자유치 계획에 팁스 일정 갱신 제안 1건을 남겼습니다.' },
+}
+export const SAMPLE_SUGGESTIONS: GovSuggestion[] = [
+  { id: 's1', doc_key: 'invest', title: '시드 투자 단계 설명 보강', before_text: '2. 시드 투자', after_text: '2. 시드 투자 (팁스 운영사 · 액셀러레이터 데모데이 [확인 필요])', reason: '시험 자료입니다.', sources: ['https://example.com'], status: '대기', created_at: new Date().toISOString(), decided_at: null },
 ]
