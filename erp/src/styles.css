@@ -1416,13 +1416,10 @@ html.detail-open .web-panel { max-width: 28vw; }
 .brand-AR .brand-head { border-bottom-color: var(--green); }
 .brand-AR .brand-head .t-bodyb { color: var(--green); font-size: var(--fs-sub); }
 .brand-TW .brand-head .t-bodyb { font-size: var(--fs-sub); }
-.proj-mini-cal { flex: 1 1 250px; max-width: 280px; min-width: 0; }
-@media (max-width: 900px) { .proj-mini-cal { max-width: none; flex-basis: 100%; } }
 .mini-cal-ev { gap: 6px; align-items: baseline; min-width: 0; }
 .mini-cal-ev .truncate { flex: 1 1 auto; min-width: 0; }
 .nowrap { white-space: nowrap; }
 .proj-list-wrap { container-type: inline-size; flex: 1; min-height: 0; }
-@container (max-width: 640px) { .proj-mini-cal { max-width: none; flex-basis: 100%; } }
 
 /* 회의록 AI */
 .meet-rec { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border: 1.5px solid var(--blue); border-radius: var(--r-panel); background: var(--blue-tint); color: var(--blue); }
