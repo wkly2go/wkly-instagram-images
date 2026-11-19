@@ -267,7 +267,7 @@ export function Gantt({ projects, tasks }: { projects: Project[]; tasks: Task[] 
   const { profileName } = useApp()
   const { query, path, navigate } = useRouter()
   const today = todayKey()
-  const active = projects.filter(p => p.status === '진행' || p.status === '문의' || p.status === '상담협의' || p.status === 'NIC')
+  const active = projects.filter(p => p.status === '진행' || p.status === '문의' || p.status === 'NIC')
   const projectId = query.get('project') ?? 'all'
   const project = projects.find(p => p.id === projectId) ?? null
   const [editing, setEditing] = useState<Task | 'new' | null>(null)
@@ -342,7 +342,7 @@ export function Gantt({ projects, tasks }: { projects: Project[]; tasks: Task[] 
           aria-label="프로젝트 고르기"
         >
           <option value="all">전체 프로젝트 ({active.length})</option>
-          {(['진행', '문의', '상담협의', 'NIC'] as const).map(st => {
+          {(['진행', '문의', 'NIC'] as const).map(st => {
             const list = active.filter(p => p.status === st)
             return list.length ? (
               <optgroup key={st} label={st === 'NIC' ? `NIC (계약 전) ${list.length}` : `${st} ${list.length}`}>

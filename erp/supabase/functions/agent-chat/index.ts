@@ -441,7 +441,7 @@ const SCHEDULE_TOOLS: Anthropic.Tool[] = [
 //   요청자가 대표(관리자 · 직함 '대표')일 때만 붙는다. 다른 사람이 부탁하면 도구 자체가 없다.
 //   그대로 막아 두는 것: 메일 발송 · 금액 · 주민번호/계좌번호 · 드라이브 기존 자료 수정/삭제 (대표가 고른 범위 밖)
 // ---------------------------------------------------------------------
-const PROJECT_STATUS = ['상담협의', '문의', '진행', 'NIC', '완료', '보류']
+const PROJECT_STATUS = ['문의', '진행', 'NIC', '완료', '보류']
 const PROJECT_CATEGORY = ['팝업', '캠페인', '콘텐츠', '기타']
 const isCeo = (p: Person) => p.role === 'admin' && !p.is_agent && (p.title ?? '').includes('대표')
 const SAVE_PROJECT: Anthropic.Tool = {

@@ -103,7 +103,7 @@ export default function Home() {
             <span className="t-cap">진행 프로젝트</span>
             <b>{count('진행')}</b>
             <span className="t-cap">
-              상담협의 {count('상담협의')} · 문의 {count('문의')} · NIC {count('NIC')} · 보류 {count('보류')}
+              문의 {count('문의')} · NIC {count('NIC')} · 보류 {count('보류')}
             </span>
           </Link>
           <Link to="/chat" className="home-kpi">
