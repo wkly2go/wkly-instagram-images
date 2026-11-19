@@ -10,7 +10,7 @@ import { Fragment, useMemo, useState } from 'react'
 import { Copy, Plus } from 'lucide-react'
 import { useAction, useApp } from '../lib/app'
 import { manwon, todayKey } from '../lib/date'
-import { isDone } from '../lib/finance'
+import { categoryForDirection, isDone, withSalesCategory } from '../lib/finance'
 import { CONTRACT_TYPES, type BudgetLine, type Payment, type ProjectFinance } from '../lib/types'
 import { Button } from './ui'
 import { openVendor } from './RightSchedule'
@@ -124,7 +124,7 @@ export function VendorSheet({ projectId, payments, all, lines, finance, onOpen }
   const stages = [{ key: 'pre', label: '선금' }, ...Array.from({ length: midCols }, (_, i) => ({ key: `mid${i}`, label: `중도금 ${i + 1}차` })), { key: 'bal', label: '잔금' }]
   const pick = (v: Vendor, k: string) => (k === 'pre' ? v.pre : k === 'bal' ? v.bal : v.mids[Number(k.slice(3))])
 
-  const categories = useMemo(() => [...new Set([...all.map(p => p.category), ...lines.map(l => l.category)].filter((c): c is string => !!c))].sort((a, b) => a.localeCompare(b, 'ko')), [all, lines])
+  const categories = useMemo(() => withSalesCategory([...new Set([...all.map(p => p.category), ...lines.map(l => l.category)].filter((c): c is string => !!c))].sort((a, b) => a.localeCompare(b, 'ko'))), [all, lines])
   const payees = useMemo(() => [...new Set(all.map(p => p.payee?.trim()).filter((c): c is string => !!c))].sort((a, b) => a.localeCompare(b, 'ko')), [all])
 
   /** 업체 공통 칸 (구분 · 공사구분 · 업체명 · 항목 · 계약형태 · 계좌 · 계산서) → 그 업체의 모든 결제에 */
@@ -225,7 +225,7 @@ export function VendorSheet({ projectId, payments, all, lines, finance, onOpen }
           project_id: projectId,
           direction: d.dir,
           payee,
-          category: d.category.trim() || null,
+          category: d.dir === '수금' ? categoryForDirection('수금', d.category) : d.category.trim() || null,
           title: d.title.trim() || payee,
           contract_type: type,
           bank_name: d.bank.trim() || null,
@@ -396,7 +396,7 @@ export function VendorSheet({ projectId, payments, all, lines, finance, onOpen }
                         <div className="vf-grid">
                           {field(
                             '구분',
-                            <select className="input" defaultValue={v.dir} onChange={e => saveVendor(v, { direction: e.target.value as Payment['direction'] })} disabled={!v.items.length}>
+                            <select className="input" defaultValue={v.dir} onChange={e => saveVendor(v, { direction: e.target.value as Payment['direction'], category: categoryForDirection(e.target.value, v.category) })} disabled={!v.items.length}>
                               <option value="지급">매입</option>
                               <option value="수금">매출</option>
                             </select>,
@@ -533,7 +533,7 @@ export function VendorSheet({ projectId, payments, all, lines, finance, onOpen }
           <div className="vf-grid">
             {field(
               '구분',
-              <select className="input" value={d.dir} onChange={e => setD({ ...d, dir: e.target.value as Payment['direction'] })}>
+              <select className="input" value={d.dir} onChange={e => setD({ ...d, dir: e.target.value as Payment['direction'], category: categoryForDirection(e.target.value, d.category) ?? '' })}>
                 <option value="지급">매입</option>
                 <option value="수금">매출</option>
               </select>,
