@@ -39,7 +39,7 @@ const TABS: [Tab, string][] = [
   ['team', '광고 운영팀'],
 ]
 const GROUPS = [
-  { label: '콘텐츠·배포', icon: Images, tabs: ['content', 'interview'] as Tab[], description: '네이버 블로그·인스타그램·유튜브 글을 작성하고, 검수·발행 기록과 연결 광고를 관리하세요.' },
+  { label: '콘텐츠·배포', icon: Images, tabs: ['content', 'interview'] as Tab[], description: '네이버 블로그·인스타그램·유튜브·홈페이지 글을 작성하고, 검수·발행 기록과 연결 광고를 관리하세요.' },
   { label: '캠페인 준비', icon: Megaphone, tabs: ['studio'] as Tab[], description: '기획부터 소재 준비, 집행 전 확인까지 순서대로 진행하세요.' },
   { label: '소재 관리', icon: Images, tabs: ['creatives'] as Tab[], description: '등록된 광고 소재와 성과를 확인하세요. 새 문구와 이미지는 캠페인 준비에서 관리합니다.' },
   { label: '성과·보고서', icon: BarChart3, tabs: ['summary', 'platform', 'charts', 'daily-table', 'daily'] as Tab[], description: '대시보드에서 광고 현황을 확인하고, 매체별 성과·추이·일일 보고를 살펴보세요.' },

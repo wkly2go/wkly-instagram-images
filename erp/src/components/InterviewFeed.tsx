@@ -53,7 +53,7 @@ export function InterviewFeed() {
         original: text.original,
         versions: (draft.document.versions ?? []).map(v =>
           v.channel === '인스타그램' ? { ...v, title: text.title, body: text.instagram, tags: text.tags }
-            : v.channel === '네이버 블로그' ? { ...v, title: `${r.brand} 팝업 인터뷰`.slice(0, 300), body: text.blog, tags: text.tags }
+            : v.channel === '네이버 블로그' || v.channel === '홈페이지' ? { ...v, title: `${r.brand} 팝업 인터뷰`.slice(0, 300), body: text.blog, tags: text.tags }
               : v),
       }
       const item = await api.saveGrowth(crypto.randomUUID(), draft, 0)

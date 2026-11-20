@@ -12,7 +12,7 @@ import { InstagramContacts } from './InstagramContacts'
 import { InstagramPublish } from './InstagramPublish'
 import { TenderSearch } from './TenderSearch'
 import { DiscoveryIntake } from './DiscoveryIntake'
-import { CHANNELS, GROWTH_LABELS, GROWTH_STATUSES, koreaDateTimeInput, appendGrowthNote, changeChannel, patchGrowthDocument, contactCandidates, newGrowth, safeWebUrl, validateGrowth, type GrowthDraft, type GrowthItem, type GrowthKind, type GrowthDocument, type ChannelDraft } from '../lib/growth'
+import { CHANNELS, GROWTH_LABELS, GROWTH_STATUSES, koreaDateTimeInput, appendGrowthNote, changeChannel, patchGrowthDocument, withAllChannels, contactCandidates, newGrowth, safeWebUrl, validateGrowth, type GrowthDraft, type GrowthItem, type GrowthKind, type GrowthDocument, type ChannelDraft } from '../lib/growth'
 import { methodInputFromGrowth, recommendSalesMethod } from '../lib/salesMethods'
 import './GrowthWorkspace.css'
 
@@ -221,7 +221,7 @@ function GrowthDetail({id,channel,onChannelChange,onClose,onChanged,onPlanCandid
 function GrowthEditor({kind,initial,seed,channel,onChannelChange,onClose,onSaved,onPlanCandidate,contactPlanOpen=false,inline=false}:{kind:GrowthKind;initial:GrowthItem|null;seed?:GrowthDraft;onClose:()=>void;onSaved:(row:GrowthItem)=>void;onPlanCandidate?:PlanCandidate;contactPlanOpen?:boolean;inline?:boolean}&ChannelSelection){
   const {api,me,profiles}=useApp()
   const channelId=useId()
-  const [draft,setDraft]=useState<GrowthDraft>(()=>initial?{kind:initial.kind,title:initial.title,owner_id:initial.owner_id,status:initial.status,document:structuredClone(initial.document),campaign_id:initial.campaign_id}:seed?structuredClone(seed):newGrowth(kind,me.id))
+  const [draft,setDraft]=useState<GrowthDraft>(()=>initial?{kind:initial.kind,title:initial.title,owner_id:initial.owner_id,status:initial.status,document:withAllChannels(structuredClone(initial.document)),campaign_id:initial.campaign_id}:seed?structuredClone(seed):newGrowth(kind,me.id))
   const [error,setError]=useState(''),[busy,setBusy]=useState(false),[aiBusy,setAiBusy]=useState(false),[aiDirty,setAiDirty]=useState(false)
   const [confirmedSalesId,setConfirmedSalesId]=useState<string|null>(initial?.linked_sales_id??null),[linkNeedsRefresh,setLinkNeedsRefresh]=useState(false)
   const working=busy||aiBusy
