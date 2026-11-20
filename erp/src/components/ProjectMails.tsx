@@ -9,7 +9,8 @@ import { gmailThreadUrl, type MailFile, type MailItem, type Project } from '../l
 import { openLink } from './WebSearch'
 import { SectionHead } from './ui'
 
-export function ProjectMails({ project }: { project: Project }) {
+/** toolsOnly: '대화 모아 보기' 안에서 메일 칩을 골랐을 때 — 메일 줄은 모아 보기가 보여 주므로 새로고침 · 받은 파일만 (2026-11-20) */
+export function ProjectMails({ project, toolsOnly = false }: { project: Project; toolsOnly?: boolean }) {
   const { api, version, bump, toast } = useApp()
   const [refreshing, setRefreshing] = useState(false)
   // 새로고침 (대표 지시 2026-11-11 "이메일 연결이 원활하지 않아"): 회사 메일함 최근 2일 바로 받고 목록 다시 읽기
@@ -37,6 +38,27 @@ export function ProjectMails({ project }: { project: Project }) {
   const [all, setAll] = useState(false)
   // 같은 대화는 최신 한 통만
   const threads = [...new Map(data.map(m => [m.thread_id, m])).values()]
+  const files = saved.length > 0 && (
+    <div className="mail-files">
+      <span className="t-cap">받은 파일 · 드라이브 수신방</span>
+      {saved.slice(0, 24).map(f => (
+        <button key={f.id} type="button" className="chip" onClick={() => openLink(f.drive_url)} title={`${f.vendor} · ${f.kind}`}>
+          <FileText size={11} /> {f.kind !== '첨부' ? `[${f.kind}] ` : ''}
+          {f.name}
+        </button>
+      ))}
+    </div>
+  )
+  if (toolsOnly)
+    return (
+      <div className="mail-tools" aria-label="메일 새로고침 · 받은 파일">
+        <span className="row" style={{ gap: 8, justifyContent: 'space-between', flexWrap: 'wrap' }}>
+          <span className="t-cap">회사 메일함 · 연번 · 프로젝트 이름으로 자동 연결 (10분마다) · 줄을 누르면 지메일에서 엽니다</span>
+          {refreshBtn}
+        </span>
+        {files}
+      </div>
+    )
   // 연결된 메일이 없어도 새로고침은 할 수 있게
   if (!threads.length)
     return (
@@ -77,17 +99,7 @@ export function ProjectMails({ project }: { project: Project }) {
           </li>
         ))}
       </ul>
-      {saved.length > 0 && (
-        <div className="mail-files">
-          <span className="t-cap">받은 파일 · 드라이브 수신방</span>
-          {saved.slice(0, 24).map(f => (
-            <button key={f.id} type="button" className="chip" onClick={() => openLink(f.drive_url)} title={`${f.vendor} · ${f.kind}`}>
-              <FileText size={11} /> {f.kind !== '첨부' ? `[${f.kind}] ` : ''}
-              {f.name}
-            </button>
-          ))}
-        </div>
-      )}
+      {files}
       {threads.length > 6 && (
         <button type="button" className="link-btn t-cap" onClick={() => setAll(v => !v)}>
           {all ? '접기' : `${threads.length - 6}개 더 보기`}
