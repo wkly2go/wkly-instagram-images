@@ -196,14 +196,14 @@ test('saving new and existing content keeps the selected channel and its approva
   assert.equal(editor.getByRole('tab', { name: '인스타그램', exact: true }).getAttribute('aria-selected'), 'true')
   assert.equal(editor.getByLabelText('채널 상태').value, '승인')
   const versions = JSON.parse(localStorage.getItem('wkly-growth-demo-v1'))[0].document.versions
-  assert.deepEqual(versions.map(v => v.status), ['초안', '승인', '초안'])
+  assert.deepEqual(versions.map(v => v.status), ['초안', '승인', '초안', '초안'])
   await type(editor.getByLabelText('채널 본문'), '승인 후 수정한 본문')
   assert.equal(editor.getByLabelText('채널 상태').value, '초안')
   await click(editor.getByRole('button', { name: '저장', exact: true }))
   editor = panel('인스타 검수 흐름')
   assert.equal(editor.getByLabelText('채널 본문').value, '승인 후 수정한 본문')
   assert.equal(editor.getByRole('tab', { name: '인스타그램', exact: true }).getAttribute('aria-selected'), 'true')
-  assert.deepEqual(JSON.parse(localStorage.getItem('wkly-growth-demo-v1'))[0].document.versions.map(v => v.status), ['초안', '초안', '초안'])
+  assert.deepEqual(JSON.parse(localStorage.getItem('wkly-growth-demo-v1'))[0].document.versions.map(v => v.status), ['초안', '초안', '초안', '초안'])
 })
 
 test('content saving disables channel changes and keeps the selected channel after completion', async () => {
