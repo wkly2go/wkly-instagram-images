@@ -71,3 +71,5 @@ html[data-theme="dark"] :is(.ap-card, .ap-cap, .ap-mode, .ap-f input, .ap-token 
 .ap-score-bar .b { background: #b42318; }
 .ap-score-advice { margin: 0; padding: 6px 8px; border-radius: var(--v8-r-ctl); background: #fdf3df; color: #7a4a00; }
 html[data-theme="dark"] .ap-score-card { background: #15291c; border-color: var(--line); color: var(--ink); }
+.ap-plat { padding: 1px 8px; border-radius: 999px; background: #e7f6ec; color: #03a94d; font-weight: 700; }
+.ap-token input + input { margin-left: 0; }

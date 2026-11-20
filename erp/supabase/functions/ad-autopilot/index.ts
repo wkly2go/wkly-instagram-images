@@ -3,9 +3,11 @@
 //  - 관리자(로그인): run(지금 받기 · 판단 · 알림 없음) · decide(제안 승인 → 실행 / 거절) · check(열쇠 · 계정 확인만)
 //  - 규칙은 rules.ts (AI 없음 · 시험 tests/ad-autopilot.test.ts). 메타 쓰기는 캠페인 · 소재 '멈춤'과 캠페인 '하루 예산 변경'뿐.
 //  - 실행 직전에 메타의 지금 예산 · 상태를 다시 읽어 제안 때와 다르면 실행하지 않음(다른 사람이 바꾼 것을 덮지 않음).
+//  - 4단계: 네이버 검색광고(naver.ts) — 같은 규칙 · 한도(두 매체 합계) · 모드 · 기록. 네이버 쓰기는 캠페인 멈춤(userLock) · 하루 예산뿐.
 //  - 2단계: 소재(광고) 피로 멈춤(마지막 소재는 안 멈춤) · 실행 7일 뒤 효과 확인(effect) → 화면 '규칙 성적표'.
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2.117.3'
 import { canExecute, evaluate, fatigue, judge, KIND_LABEL, leadsOf, type AdDay, type AutopilotSettings, type InsightDay, type MetaAd, type MetaCampaign, type Proposal } from './rules.ts'
+import { naverCampaign, naverClient, naverDays, NaverError } from './naver.ts'
 
 const URL_ = Deno.env.get('SUPABASE_URL')!
 const ANON = Deno.env.get('SUPABASE_ANON_KEY')!
@@ -16,7 +18,8 @@ const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...CORS, 'Content-Type': 'application/json' } })
 class Fail extends Error { constructor(msg: string, public status = 400) { super(msg) } }
 
-type Settings = AutopilotSettings & { meta_account_id: string | null }
+type Settings = AutopilotSettings & { meta_account_id: string | null; naver_customer_id: string | null }
+type Platform = 'meta' | 'naver'
 const kstToday = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
 const addDays = (key: string, n: number) => { const d = new Date(`${key}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10) }
 
@@ -29,6 +32,44 @@ async function token(): Promise<string> {
   const { data } = await sb.rpc('ad_meta_token_get')
   if (typeof data !== 'string' || !data) throw new Fail('메타 광고 열쇠가 아직 없습니다. 광고·콘텐츠 › 광고 운영팀 › 자동 운영에서 넣어 주세요.', 409)
   return data
+}
+
+async function naverKeys(): Promise<{ key: string; secret: string } | null> {
+  const { data } = await sb.rpc('ad_naver_keys_get')
+  const d = data as { key?: string | null; secret?: string | null } | null
+  return d?.key && d?.secret ? { key: d.key, secret: d.secret } : null
+}
+async function naver(s: Settings) {
+  const k = await naverKeys()
+  if (!k || !s.naver_customer_id) throw new Fail('네이버 검색광고 열쇠 · 고객 번호가 아직 없습니다.', 409)
+  return naverClient(k.key, k.secret, s.naver_customer_id)
+}
+
+/** 네이버 받기: 캠페인 · 지난 14일 일별 수치 · 이번 달 비용 → ad_naver_campaigns · ad_daily(Naver) */
+async function syncNaver(s: Settings, today: string) {
+  const nv = await naver(s)
+  const raw = await nv.campaigns()
+  const campaigns = (raw ?? []).map(naverCampaign)
+  if (raw?.length) {
+    const up = await sb.from('ad_naver_campaigns').upsert(raw.map(c => ({ id: c.nccCampaignId, name: c.name.slice(0, 300), status: c.status ?? '', user_lock: !!c.userLock, daily_budget: c.dailyBudget ? Math.round(c.dailyBudget) : null, use_daily_budget: !!c.useDailyBudget, campaign_type: c.campaignTp ?? null, synced_at: new Date().toISOString() })))
+    if (up.error) throw new Fail(`네이버 캠페인 저장 실패: ${up.error.message}`, 500)
+  }
+  const ids = campaigns.map(c => c.id)
+  const names = new Map(campaigns.map(c => [c.id, c.name]))
+  const days = ids.length ? naverDays(await nv.stats(ids, addDays(today, -14), addDays(today, -1)), names) : []
+  const rows = new Map<string, { date: string; platform: string; campaign: string; impressions: number; clicks: number; cost: number; conversions: number; note: string; updated_at: string }>()
+  for (const d of days) {
+    const k = `${d.date}|${d.campaign_name}`
+    const x = rows.get(k) ?? { date: d.date, platform: 'Naver', campaign: d.campaign_name.slice(0, 300), impressions: 0, clicks: 0, cost: 0, conversions: 0, note: `naver:${d.campaign_id} · 자동 받기`, updated_at: new Date().toISOString() }
+    x.impressions += d.impressions; x.clicks += d.clicks; x.cost += d.spend; x.conversions += d.leads
+    rows.set(k, x)
+  }
+  if (rows.size) {
+    const up = await sb.from('ad_daily').upsert([...rows.values()], { onConflict: 'date,platform,campaign' })
+    if (up.error) throw new Fail(`네이버 수치 저장 실패: ${up.error.message}`, 500)
+  }
+  const mtd = ids.length ? await nv.spend(ids, `${today.slice(0, 8)}01`, today) : 0
+  return { campaigns, days, mtd, saved: rows.size }
 }
 
 /** 메타 그래프 API (읽기 GET · 쓰기 POST) — 오류는 메타가 준 문장 그대로 */
@@ -136,6 +177,21 @@ async function execute(tk: string, a: { id: string; campaign_id: string; kind: s
   return { ok: true, result: `메타에서 하루 예산을 ${a.from_budget!.toLocaleString('ko-KR')}원 → ${a.to_budget.toLocaleString('ko-KR')}원으로 바꿨습니다.` }
 }
 
+/** 네이버 한 건 실행: 지금 상태 · 예산을 다시 읽어 제안 때와 같을 때만 */
+async function executeNaver(s: Settings, a: { campaign_id: string; kind: string; from_budget: number | null; to_budget: number | null }): Promise<{ ok: boolean; result: string }> {
+  const nv = await naver(s)
+  const now = naverCampaign(await nv.campaign(a.campaign_id))
+  if (now.status !== 'ACTIVE') return { ok: false, result: '네이버 캠페인이 이미 꺼져 있어 실행하지 않았습니다.' }
+  if (a.kind === 'pause') { await nv.pause(a.campaign_id); return { ok: true, result: '네이버에서 캠페인을 멈췄습니다 (사용자 OFF).' } }
+  if (now.daily_budget == null || now.daily_budget !== a.from_budget) return { ok: false, result: `제안 뒤 하루 예산이 바뀌어(${now.daily_budget ?? '없음'}) 실행하지 않았습니다. 내일 다시 판단합니다.` }
+  if (!a.to_budget || a.to_budget <= 0) return { ok: false, result: '바꿀 예산이 없습니다.' }
+  await nv.setBudget(a.campaign_id, a.to_budget)
+  return { ok: true, result: `네이버에서 하루 예산을 ${a.from_budget!.toLocaleString('ko-KR')}원 → ${a.to_budget.toLocaleString('ko-KR')}원으로 바꿨습니다.` }
+}
+async function executeAny(s: Settings, a: { id: string; platform?: string | null; campaign_id: string; kind: string; from_budget: number | null; to_budget: number | null; ad_id?: string | null }) {
+  return a.platform === 'naver' ? executeNaver(s, a) : execute(await token(), a)
+}
+
 async function record(status: string, a: { id: string }, r: { ok: boolean; result: string }, by: string | null) {
   await sb.from('ad_autopilot_actions').update({
     status: r.ok ? '실행' : status, result: r.result.slice(0, 500), executed_at: r.ok ? new Date().toISOString() : null,
@@ -147,12 +203,31 @@ async function record(status: string, a: { id: string }, r: { ok: boolean; resul
 async function run(auto: boolean) {
   const s = await settings()
   if (s.mode === 'off') return { skipped: '자동 운영이 꺼져 있습니다.' }
-  if (!s.meta_account_id) throw new Fail('메타 광고 계정 번호를 먼저 넣어 주세요.', 409)
-  const tk = await token()
   const today = kstToday()
+  const metaOn = !!s.meta_account_id && !!(await sb.rpc('ad_meta_token_get')).data
+  const naverOn = !!s.naver_customer_id && !!(await naverKeys())
+  if (!metaOn && !naverOn) throw new Fail('메타 광고 계정 번호 · 열쇠 또는 네이버 고객 번호 · 열쇠를 먼저 넣어 주세요.', 409)
   // 지난 제안은 만료 (어제 이전 · 아직 결정 안 된 것)
   await sb.from('ad_autopilot_actions').update({ status: '만료', result: '하루가 지나 다시 판단합니다.' }).eq('status', '제안').lt('day', today)
-  const { campaigns, days, mtd, saved, ads, adDays, freq, adError } = await sync(tk, s.meta_account_id, today)
+  // 매체마다 따로 받음 — 한쪽이 실패해도 다른 쪽은 판단 (오류는 기록)
+  const platformOf = new Map<string, Platform>()
+  let campaigns: MetaCampaign[] = [], days: InsightDay[] = [], mtd = 0, saved = 0, ads: MetaAd[] = [], adDays: AdDay[] = [], freq: Record<string, number> = {}, adError: string | null = null
+  const errors: string[] = []
+  if (metaOn) {
+    try {
+      const m = await sync(await token(), s.meta_account_id!, today)
+      campaigns.push(...m.campaigns); days.push(...m.days); mtd += m.mtd; saved += m.saved; ads = m.ads; adDays = m.adDays; freq = m.freq; adError = m.adError
+      for (const c of m.campaigns) platformOf.set(c.id, 'meta')
+    } catch (e) { errors.push(`메타: ${e instanceof Error ? e.message : '실패'}`) }
+  }
+  if (naverOn) {
+    try {
+      const n = await syncNaver(s, today)
+      campaigns.push(...n.campaigns); days.push(...n.days); mtd += n.mtd; saved += n.saved
+      for (const c of n.campaigns) platformOf.set(c.id, 'naver')
+    } catch (e) { errors.push(`네이버: ${e instanceof Error ? e.message : '실패'}`) }
+  }
+  if (!platformOf.size && errors.length) throw new Fail(errors.join(' · '), 502)
   const proposals: (Proposal & { ad_id?: string; ad_name?: string })[] = judge(today, campaigns, days, s, mtd)
   // 오늘 이미 판단한 캠페인은 건너뜀 (한 캠페인 하루 한 가지 · 캠페인 판단이 소재 판단보다 먼저)
   const { data: done } = await sb.from('ad_autopilot_actions').select('campaign_id').eq('day', today)
@@ -177,13 +252,13 @@ async function run(auto: boolean) {
     const ins = await sb.from('ad_autopilot_actions').insert({
       day: today, campaign_id: p.campaign_id, campaign_name: p.campaign_name.slice(0, 300), kind: p.kind,
       from_budget: p.from_budget, to_budget: p.to_budget, reason: p.reason.slice(0, 1000), metrics: p.metrics, auto: s.mode === 'auto',
-      ad_id: p.ad_id ?? null, ad_name: p.ad_name ? p.ad_name.slice(0, 300) : null,
+      ad_id: p.ad_id ?? null, ad_name: p.ad_name ? p.ad_name.slice(0, 300) : null, platform: platformOf.get(p.campaign_id) ?? 'meta',
     }).select('id').single()
     if (ins.error) continue
     let tag = '제안'
     if (auto && canExecute(s, false)) {
       try {
-        const r = await execute(tk, { id: ins.data.id, ...p })
+        const r = await executeAny(s, { id: ins.data.id, platform: platformOf.get(p.campaign_id) ?? 'meta', ...p })
         await record('실패', ins.data, r, null)
         if (r.ok) { executed++; tag = '실행' } else { failed++; tag = '실행 안 함' }
       } catch (e) {
@@ -191,9 +266,9 @@ async function run(auto: boolean) {
         await record('실패', ins.data, { ok: false, result: e instanceof Error ? e.message : '실행 실패' }, null)
       }
     }
-    lines.push(`· [${tag}] ${p.ad_id ? '소재 ' : ''}${KIND_LABEL[p.kind]} — ${p.campaign_name}${p.ad_name ? ` › ${p.ad_name}` : ''}: ${p.reason}`)
+    lines.push(`· [${tag}] ${platformOf.get(p.campaign_id) === 'naver' ? '네이버 ' : ''}${p.ad_id ? '소재 ' : ''}${KIND_LABEL[p.kind]} — ${p.campaign_name}${p.ad_name ? ` › ${p.ad_name}` : ''}: ${p.reason}`)
   }
-  const info = { ran_at: new Date().toISOString(), ok: true, error: null, saved_rows: saved, campaigns: campaigns.length, active: campaigns.filter(c => c.status === 'ACTIVE').length, proposals: fresh.length, executed, failed, mtd_spend: mtd, ads: ads.length, evaluated, ad_error: adError }
+  const info = { ran_at: new Date().toISOString(), ok: true, error: null, saved_rows: saved, campaigns: campaigns.length, active: campaigns.filter(c => c.status === 'ACTIVE').length, proposals: fresh.length, executed, failed, mtd_spend: mtd, ads: ads.length, evaluated, ad_error: adError, platform_errors: errors.length ? errors.join(' · ').slice(0, 400) : null, meta: metaOn, naver: naverOn }
   await sb.from('app_settings').upsert({ key: 'ad_autopilot_info', value: info, updated_at: new Date().toISOString() })
   return { ...info, lines: [...lines, ...effects], mode: s.mode, kill: s.kill_switch }
 }
@@ -245,6 +320,11 @@ Deno.serve(async req => {
       }
     }
     const me = await admin(req.headers.get('authorization'))
+    if (action === 'check_naver') {
+      const s = await settings()
+      const list = await (await naver(s)).campaigns()
+      return json({ ok: true, campaigns: list?.length ?? 0, active: (list ?? []).map(naverCampaign).filter(c => c.status === 'ACTIVE').length })
+    }
     if (action === 'check') {
       const s = await settings()
       if (!s.meta_account_id) throw new Fail('메타 광고 계정 번호를 먼저 넣어 주세요.', 409)
@@ -255,7 +335,7 @@ Deno.serve(async req => {
     if (action === 'decide') {
       const id = String(body.id ?? '')
       const approve = body.approve === true
-      const { data: a } = await sb.from('ad_autopilot_actions').select('id,campaign_id,ad_id,kind,from_budget,to_budget,status,day').eq('id', id).single()
+      const { data: a } = await sb.from('ad_autopilot_actions').select('id,campaign_id,ad_id,kind,from_budget,to_budget,status,day,platform').eq('id', id).single()
       if (!a) throw new Fail('제안을 찾지 못했습니다.', 404)
       if (a.status !== '제안') throw new Fail(`이미 '${a.status}' 처리된 제안입니다.`, 409)
       if (!approve) {
@@ -267,7 +347,7 @@ Deno.serve(async req => {
       if (s.mode === 'suggest' || s.mode === 'off') throw new Fail("지금 모드는 '제안만'이라 메타에 반영하지 않습니다. 모드를 '승인 뒤 실행'으로 바꿔 주세요.", 409)
       if (a.day !== kstToday()) throw new Fail('어제 이전 제안이라 실행하지 않습니다. 오늘 판단을 기다려 주세요.', 409)
       try {
-        const r = await execute(await token(), a)
+        const r = await executeAny(s, a)
         await record('실패', a, r, me)
         return json({ ok: r.ok, status: r.ok ? '실행' : '실패', result: r.result })
       } catch (e) {
@@ -278,7 +358,7 @@ Deno.serve(async req => {
     }
     throw new Fail('알 수 없는 요청입니다.')
   } catch (e) {
-    if (e instanceof Fail) return json({ error: e.message }, e.status)
+    if (e instanceof Fail || e instanceof NaverError) return json({ error: e.message }, e.status)
     console.error(e)
     return json({ error: '서버 오류가 났습니다.' }, 500)
   }
