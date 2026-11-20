@@ -38,3 +38,13 @@
 .ivp { word-break: keep-all; overflow-wrap: anywhere; }
 .ivp-dates { align-items: center; }
 .ivp-dates small { flex-basis: 100%; font-size: var(--fs-body); color: var(--tx-sub, #535c56); }
+
+/* 사진 · 자료 올리기 (2026-11-20) */
+.ivp-files h2 small { font-weight: 400; color: var(--tx-sub, #535c56); margin-left: 6px; }
+.ivp-sub { margin: 0; color: var(--tx-sub, #535c56); line-height: 1.6; }
+.ivp-drop { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 14px; border: 1.5px dashed var(--v8-line-2, #d5d0c4); border-radius: 10px !important; background: #fdfcfa; color: var(--tx-sub, #535c56); }
+.ivp-file-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.ivp-file-list li { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 6px 12px; border: 1px solid var(--v8-line-2, #d5d0c4); border-radius: 8px !important; background: #fff; }
+.ivp-file-list .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ivp-file-list .size { color: var(--tx-sub, #535c56); }
+.ivp-link { border: 0; background: none; color: #b42318; cursor: pointer; padding: 4px; font: inherit; }

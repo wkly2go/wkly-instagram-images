@@ -6,6 +6,7 @@ import { inquiryMailUrl } from '../lib/inquiryThreads'
 import { INTERVIEW_QUESTIONS, STAGE_TONE, byUpload, daysBetween, draftOf, interviewContentText, mdWithDay, todayKst, uploadConflicts } from '../lib/interviews'
 import { Link, useRouter } from '../lib/router'
 import type { MailFile, SalesInterview } from '../lib/types'
+import { InterviewFiles } from './InterviewFiles'
 import { InterviewSchedule } from './SalesInterviews'
 import { Button } from './ui'
 import './SalesInterviews.css'
@@ -166,6 +167,7 @@ function FeedDetail({ r }: { r: SalesInterview }) {
           {r.mail_attach_at && <p className="sales-iv-note">마지막 첨부 메일 {dateTimeLabel(r.mail_attach_at)}</p>}
         </div>
       )}
+      <InterviewFiles interviewId={r.id} />
       {qa.length ? (
         <dl className="sales-iv-qa-list">
           {qa.map(q => <div key={q.no}><dt>{q.no} · {q.label}</dt><dd>{r.answers[q.no]}</dd></div>)}

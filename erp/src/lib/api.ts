@@ -1,6 +1,6 @@
 import type { BuildStats, CapabilityResult } from './capability'
 import type { TimelineItem } from './projectTimeline'
-import type { BankQuestion, BankQuestionDraft, InterviewForm, InterviewFormPatch } from './interviewForms'
+import type { BankQuestion, BankQuestionDraft, InterviewFile, InterviewForm, InterviewFormPatch } from './interviewForms'
 import type { SalesStrategyApi } from './salesStrategy'
 import type { DesignApi } from './design'
 import type { IlwiApi } from './ilwi'
@@ -460,6 +460,10 @@ export interface Api extends SalesStrategyApi, SalesApi, GrowthApi, SalesReportA
   getInterviewForm(interviewId: string): Promise<InterviewForm | null>
   /** 없으면 만들고 있으면 고친다. status '열림' 은 처음 열 때 opened_at 을 남긴다 */
   saveInterviewForm(interviewId: string, patch: InterviewFormPatch): Promise<InterviewForm>
+  /** 브랜드가 인터뷰지에서 올린 사진 · 자료 (2026-11-20 · 비공개 보관함 interview-files) */
+  listInterviewFiles(interviewId: string): Promise<InterviewFile[]>
+  /** 내려받기 주소 (10분) */
+  interviewFileUrl(path: string, name: string): Promise<string>
   /** 메일 대화에 붙은 받은 자료 (수신방 드라이브 파일) */
   listMailFilesByThreads(threadIds: string[]): Promise<Pick<MailFile, 'id' | 'name' | 'drive_url' | 'sent_at' | 'thread_id' | 'kind'>[]>
   listAdDaily(from: string, to: string): Promise<AdDaily[]>

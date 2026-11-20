@@ -82,3 +82,22 @@ test('the question bank lives in the admin-only menu, and only admins can change
   assert.match(shell, /label: '관리자 전용', tabs: \[[^\]]*'interviewQuestions'/)
   assert.doesNotMatch(readFileSync(new URL('../src/components/SalesInterviews.tsx', import.meta.url), 'utf8'), /질문 은행'\]/)
 })
+
+test('brand uploads: storage path stays inside the form token folder and uses only safe characters', async () => {
+  const { guestFilePath } = await import('../src/lib/interviewForms.ts')
+  const token = 'a'.repeat(36)
+  const p = guestFilePath(token, '팝업 현장 사진 (1).JPG', 1_700_000_000_000, 0.5)
+  assert.ok(p.startsWith(`${token}/`))
+  assert.match(p.slice(37), /^[a-z0-9-]+\.jpg$/)
+  assert.ok(guestFilePath(token, '확장자없음').endsWith('.bin'))
+})
+
+test('brand upload SQL: private bucket, guest writes only to open-form folders, no anon table access, no drop', () => {
+  const sql = readFileSync(new URL('../supabase/migrations/20261120090000_interview_form_files.sql', import.meta.url), 'utf8')
+  assert.match(sql, /'interview-files', 'interview-files', false/)
+  assert.match(sql, /interview_files_guest_insert[\s\S]*interview_upload_open\(\(storage\.foldername\(name\)\)\[1\]\)/)
+  assert.match(sql, /revoke all on table public\.sales_interview_files from anon/)
+  assert.match(sql, /split_part\(p_path, '\/', 1\) <> p_token/)
+  assert.match(sql, /< 30\)/)
+  assert.doesNotMatch(sql, /\bdrop\s/i)
+})
