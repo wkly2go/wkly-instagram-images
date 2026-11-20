@@ -812,15 +812,10 @@ function ProjectDetail({ project: p, data, onEdit, onBack, panel = false }: { pr
       {/* 구글 드라이브 자료: 드라이브 파일을 가리켜 늘 최신 · 구글 문서는 편집 화면으로 */}
       <ProjectDriveSection project={p} />
       {/* 대화 모아 보기: 인트라넷 채팅 · 슬랙 · 카톡 · 메일 · 협업방을 한 줄로 (2026-11-19 대표 지시 '개선해') */}
-      <ProjectTalk project={p} />
+      {/* 2026-11-20 대표 지시 '중복되어있어 대화방에서 선택할 수 있게 합쳐': 슬랙 · 카톡 · 메일 칸은 여기 칩으로 */}
+      <ProjectTalk project={p} tools={{ 슬랙: <SlackSection project={p} />, 카톡: <KakaoSection project={p} />, 메일: <ProjectMails project={p} toolsOnly /> }} />
       {/* 외부 협업방: 발주처 · 협력사가 로그인 없이 링크로 이 방 하나만 (로드맵 2단계 · 2026-11-17) */}
       <CollabSection project={p} />
-      {/* 슬랙 채널 대화 · 공유 파일 가져오기 (대표 지시 2026-11-05) */}
-      <SlackSection project={p} />
-      {/* 카카오톡 대화 내보내기 파일 가져오기 (로드맵 1-3 · 2026-11-11) */}
-      <KakaoSection project={p} />
-      {/* 회사 메일함에서 이 프로젝트 · 거래처와 연결된 메일 (지메일 · 읽기만) */}
-      <ProjectMails project={p} />
       {/* 이 프로젝트의 결재 · 보고: 올린 결재가 있을 때만 (대표 지시 2026-10-31 빈 칸 삭제) */}
       {extra.approvals.length > 0 && <SectionHead title="결재 · 보고" count={String(extra.approvals.length)} right={<Link to="/approvals">보고서 결제 ›</Link>} />}
       {extra.approvals.length === 0 ? null : (

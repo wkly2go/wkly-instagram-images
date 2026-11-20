@@ -17,3 +17,10 @@ a.ptalk-row:hover { background: #f7faf7; }
 .ptalk-who { font-weight: 700; white-space: nowrap; max-width: 12em; overflow: hidden; text-overflow: ellipsis; }
 .ptalk-body { min-width: 0; overflow-wrap: anywhere; white-space: pre-wrap; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
 @media (max-width: 640px) { .ptalk-row { grid-template-columns: auto auto 1fr; } .ptalk-body { grid-column: 1 / -1; } }
+
+/* 2026-11-20 슬랙 · 카톡 · 메일 칸을 출처 칩 아래로 합침 */
+.ptalk-tool { margin: 0 0 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: #fbfaf7; }
+.ptalk-tool > section { margin: 0; padding: 0; border: 0; box-shadow: none; background: none; }
+.ptalk-tool .mail-files { margin-top: 8px; }
+button.ptalk-row { width: 100%; background: none; border: 0; border-top: 1px solid var(--line); font: inherit; text-align: left; cursor: pointer; }
+button.ptalk-row:hover { background: #f7faf7; }
