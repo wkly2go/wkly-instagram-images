@@ -4,6 +4,7 @@ import { createDemoIlwiApi } from './ilwiApi'
 import { createDemoGovApi } from './govApi'
 import { createDemoCollabApi } from './collabApi'
 import { createDemoBoardApi } from './boardApi'
+import { createDemoFigmaApi } from './figmaApi'
 import { createDemoSalesReportApi } from './salesReport'
 import { createDemoGrowthApi } from './growthApi'
 import { createDemoSalesApi } from './salesApi'
@@ -679,6 +680,7 @@ export function createDemoApi(): Api {
     ...createDemoGovApi(),
     ...createDemoCollabApi(),
     ...createDemoBoardApi(),
+    ...createDemoFigmaApi(),
     ...createDemoSalesReportApi(),
     ...createDemoGrowthApi(meProfile, createDemoSalesApi(meProfile)),
     ...createDemoMarketingApi(meProfile),
