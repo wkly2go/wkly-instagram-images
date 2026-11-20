@@ -5,6 +5,7 @@ import { createSupabaseDesignApi } from './designApi'
 import { createSupabaseIlwiApi } from './ilwiApi'
 import { createSupabaseGovApi } from './govApi'
 import { createSupabaseCollabApi } from './collabApi'
+import { createSupabaseBoardApi } from './boardApi'
 import { createSupabaseSalesReportApi } from './salesReport'
 import { createSupabaseGrowthApi } from './growthApi'
 import { createSupabaseSalesApi } from './salesApi'
@@ -221,6 +222,7 @@ export function createSupabaseApi(url: string, key: string): Api {
     ...createSupabaseIlwiApi(sb),
     ...createSupabaseGovApi(sb),
     ...createSupabaseCollabApi(sb),
+    ...createSupabaseBoardApi(sb),
     ...createSupabaseSalesReportApi(sb),
     ...createSupabaseGrowthApi(sb),
     ...createSupabaseMarketingApi(sb, signedUrls),

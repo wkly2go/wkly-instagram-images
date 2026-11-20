@@ -23,6 +23,7 @@ import { ProjectVizLoader } from '../components/ProjectViz'
 import { ProjectBrief } from '../components/ProjectBrief'
 import { KakaoSection } from '../components/KakaoSection'
 import { CollabSection } from '../components/CollabSection'
+import { ProjectBoards } from '../components/ProjectBoards'
 import { ProjectClientLink } from '../components/ProjectClientLink'
 import { ProjectMails } from '../components/ProjectMails'
 import { ProjectTalk } from '../components/ProjectTalk'
@@ -815,6 +816,8 @@ function ProjectDetail({ project: p, data, onEdit, onBack, panel = false }: { pr
       {/* 2026-11-20 대표 지시 '중복되어있어 대화방에서 선택할 수 있게 합쳐': 슬랙 · 카톡 · 메일 칸은 여기 칩으로 */}
       <ProjectTalk project={p} tools={{ 슬랙: <SlackSection project={p} />, 카톡: <KakaoSection project={p} />, 메일: <ProjectMails project={p} toolsOnly /> }} />
       {/* 외부 협업방: 발주처 · 협력사가 로그인 없이 링크로 이 방 하나만 (로드맵 2단계 · 2026-11-17) */}
+      {/* 협업 화이트보드: 프로젝트마다 여러 장 · 함께 그리기 (로드맵 3단계 · 2026-11-20) */}
+      <ProjectBoards project={p} />
       <CollabSection project={p} />
       {/* 이 프로젝트의 결재 · 보고: 올린 결재가 있을 때만 (대표 지시 2026-10-31 빈 칸 삭제) */}
       {extra.approvals.length > 0 && <SectionHead title="결재 · 보고" count={String(extra.approvals.length)} right={<Link to="/approvals">보고서 결제 ›</Link>} />}
