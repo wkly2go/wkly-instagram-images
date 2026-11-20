@@ -356,6 +356,17 @@ export function createSupabaseApi(url: string, key: string): Api {
     async saveForLater(item) {
       return must(await sb.from('saved_items').insert({ ...item, preview: item.preview.slice(0, 300) || '메시지' }).select().single()) as SavedItem
     },
+    async tagChatProject(messageId, projectId, on) {
+      must(await sb.rpc('chat_message_tag', { p_message: messageId, p_project: projectId, p_on: on }))
+    },
+    async chatMessageProjects(ids) {
+      const out: Record<number, { project_id: string; auto: boolean }[]> = {}
+      const list = ids.filter(id => id > 0).slice(-300)
+      if (!list.length) return out
+      const rows = must(await sb.from('chat_message_projects').select('message_id, project_id, auto').in('message_id', list)) as { message_id: number; project_id: string; auto: boolean }[]
+      for (const r of rows) (out[r.message_id] ??= []).push({ project_id: r.project_id, auto: r.auto })
+      return out
+    },
     async finishSaved(id) {
       must(await sb.from('saved_items').update({ done_at: new Date().toISOString() }).eq('id', id))
     },

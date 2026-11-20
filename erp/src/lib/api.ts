@@ -280,6 +280,10 @@ export interface Api extends SalesStrategyApi, SalesApi, GrowthApi, SalesReportA
   listSaved(): Promise<SavedItem[]>
   saveForLater(item: { message_id: number | null; room_id: string | null; preview: string; remind_at: string | null }): Promise<SavedItem>
   finishSaved(id: number): Promise<void>
+  /** 대화 글을 프로젝트에 붙이기 · 떼기 (프로젝트 '대화 모아 보기'에 나옴 · 2026-11-20) */
+  tagChatProject(messageId: number, projectId: string, on: boolean): Promise<void>
+  /** 이 글들이 붙어 있는 프로젝트 (글 id → 프로젝트 id 목록 · 자동 태그 포함) */
+  chatMessageProjects(messageIds: number[]): Promise<Record<number, { project_id: string; auto: boolean }[]>>
   /** 카드 메시지 보내기 (/할일 · /결재 · /일정 으로 만든 것) */
   sendCard(roomId: string, content: string, card: ChatCard): Promise<ChatMessage>
   /** 방 참여자들의 마지막 읽은 시각 (누가 읽었는지 표시) */
