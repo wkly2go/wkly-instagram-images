@@ -2,25 +2,13 @@
 
 사용자 지시 2026-11-15. 인트라넷 영업 자동화의 설계, 구현, 화면, 검증, 운영 절차에 적용한다.
 
+> 2026-11-20 정리: Codex(영업 담당) 공동 개발은 끝났다(2026-11-16 종료 · 2026-11-20 대표 지시 'codex 작업은 끝났어 정리해'). 영업 · 설계를 포함한 모든 인트라넷 개발은 Claude 세션이 맡는다. 예전 공동 개발 분담 · main 병합 보류 규칙은 `erp/docs/archive/DEVELOPMENT_COORDINATION_20261115.md` 에 기록으로만 남긴다. 대화 · 작업 규칙의 기준은 `CLAUDE.md`.
+
 ## 개발 진행 방식 — 사용자 추가 지시 2026-11-15
 
-- **지속 진행은 상시 규칙이다.** 사용자 추가 지시 ‘멈추지마 이건 규칙이야 저장해’에 따라, 승인된 범위의 구현·검증·수정·개발 PR 기록을 이어가고 매 단계마다 계속할지 묻지 않는다. 필수 승인·사용자 결정 또는 독립 해결이 불가능한 실제 장애가 있을 때만 해당 작업을 멈춘다. 턴 종료 후에도 실행 중이라고 주장하지 않고 실제 실행 상태를 보고한다.
-- 승인이나 필수 사용자 결정이 필요한 단계 외에는 독립 개발·수정·검증·개발 PR 기록을 계속 진행한다. 이미 승인된 작업에 반복 확인을 요청하지 않는다.
+- **지속 진행은 상시 규칙이다.** 승인된 범위의 구현·검증·수정·PR 기록을 이어가고 매 단계마다 계속할지 묻지 않는다. 필수 승인·사용자 결정 또는 독립 해결이 불가능한 실제 장애가 있을 때만 해당 작업을 멈춘다. 턴 종료 후에도 실행 중이라고 주장하지 않고 실제 실행 상태를 보고한다.
 - 실제 승인 요청 전에는 구현·검증과 검토 가능한 결과 준비를 마친다. 진행 보고는 완료한 변경, 확인한 증거, 남은 한계를 구분한다.
-- 명시된 운영 배포 보류와 공동 작업 경계는 유지한다. 일반적인 ‘계속 진행’ 지시를 기존 운영 보류 해제로 해석하지 않는다.
-
-## 공동 개발 소유권 — 사용자 확정 2026-11-15
-
-- `claude/design-integration` 브랜치, DB `design` 스키마, **설계·견적 메뉴 관련 파일은 Claude 전담**이다. 이 작업에서는 수정·삭제·정리·리팩터링·브랜치 이동/삭제·운영 DB 변경을 하지 않는다. 아직 원격에 보이지 않아도 이 보호 규칙은 적용한다.
-- ChatGPT/Codex는 **Sales·Growth 화면과 그 관련 테이블**을 담당한다. 앞서 제안된 Claude의 영업 화면 담당 분담은 적용하지 않는다.
-- 각자 별도 브랜치와 작업 폴더를 사용한다. 같은 Mac의 다른 작업 폴더, 진행 중 변경, 브라우저 편집 화면을 덮어쓰지 않는다. 상대 작업을 정리하기 위한 reset/clean/stash/force push를 하지 않는다.
-- 공통 메뉴·라우터·타입·스타일·패키지 파일은 공유 경계다. 필요한 최소 변경만 별도 PR로 명시하고 상대 작업과 대조한다. 설계·견적 메뉴 연결을 제거하거나 이름·경로를 임의로 바꾸지 않는다.
-- main 병합 직전에 최신 main과 두 PR의 DB 변경 파일 번호를 비교한다. `erp/scripts/check-migration-numbers.mjs --base-ref origin/main`을 실행하고, 아직 main에 없는 상대 변경도 공개된 작업 브랜치 기준으로 추가 확인한다. 원격에 없는 상대 변경은 확인 완료로 표시하지 않는다.
-- 번호가 겹치면 **자신의 미적용 migration** 번호만 조정한다. 운영에 이미 적용한 파일이나 상대 작업 파일은 번호/내용을 바꾸지 않는다. 번호 배정 전 상대의 예약 번호를 확인한다.
-- DB 스키마·함수·정책의 이름 충돌과 공통 파일의 동작 충돌도 검토한다. Git의 자동 병합 성공만으로 통합 검증 완료로 판단하지 않는다.
-- main 병합/운영 SQL/서버 배포는 동시에 실행하지 않는다. 배포 차례와 대상 커밋·migration 목록을 인수인계한 뒤 한 작업자가 실행하고 결과를 기록한다.
-
-현재 담당 범위와 인수인계는 [DEVELOPMENT_COORDINATION.md](DEVELOPMENT_COORDINATION.md)를 함께 확인한다.
+- 여러 세션이 함께 일할 때는 각자 별도 브랜치를 쓰고 다른 세션의 진행 중 변경을 덮어쓰지 않는다. main 병합 전 `node erp/scripts/check-migration-numbers.mjs --base-ref origin/main` 으로 마이그레이션 번호 중복을 확인하고, 겹치면 자신의 미적용 파일 번호만 바꾼다.
 
 ## 사람 팀원에게 데이터 실무를 넘기지 않는다
 
@@ -40,11 +28,6 @@
 - 자동 처리 불가 건은 사유와 다음 자동 처리 계획이 있는 보류 상태로 보고한다. 수동 가공 대기열을 만들어 자동화 완료로 표시하지 않는다.
 - 구현·테스트·운영 배포·실제 외부 실행 확인을 구분하여 보고한다.
 
-## Working language — latest user instruction, 2026-11-15
-
-Use English for development communication and progress updates. Ask necessary approval questions in Korean. Preserve the existing Korean product interface unless the user requests a translation.
-
-
 ## Approval-only human role — explicit user correction, 2026-11-15
 
 - Human teammates only approve or reject system-prepared, verified execution packages. Do not use human research, contact lookup, raw-source review, spreadsheet cleanup, field mapping, drafting, reply classification or CRM updates as a required fallback.
@@ -53,8 +36,7 @@ Use English for development communication and progress updates. Ask necessary ap
 - Missing evidence triggers automated re-collection/research/verification. Errors trigger bounded recovery with visible reasons. When recovery is impossible, preserve records and report the blocking dependency plus a prepared alternative; do not hand data-processing work to a person.
 - Approval must cover the exact recipients, purpose/evidence, message, attachments, schedule and follow-up conditions. Changed material requires a fresh approval. An internal planning decision must never be presented as authorization to send.
 - Full completion requires an end-to-end run from target acquisition to follow-up/reporting with approval/rejection as the only recurring human action. Independent implementation/local validation does not establish deployment or operational completion.
-- The existing Claude production hold and protected ownership boundaries still apply. Do not activate real sending to meet a percentage target.
 
-## Latest response language — 2026-11-15
+## 답하는 말
 
-The user subsequently asked for Korean answers (한글로 답해). Use Korean for user-facing explanations and progress updates. Code identifiers and technical artifacts may remain English.
+대표에게는 한국어 존댓말로 답한다(2026-11-15 '한글로 답해'). 코드 이름 · 기술 자료는 영어여도 된다.
