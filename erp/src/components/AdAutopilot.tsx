@@ -27,6 +27,7 @@ export function AdAutopilot() {
   const camps = useAsync<MetaCampaignRow[]>(() => (admin ? api.metaCampaigns().catch(() => []) : Promise.resolve([])), [api, version, admin], [])
   const [form, setForm] = useState<AutopilotSettings | null>(null)
   const [tokenValue, setTokenValue] = useState('')
+  const [naverKey, setNaverKey] = useState({ key: '', secret: '' })
   const [busy, setBusy] = useState<string | null>(null)
   useEffect(() => { if (status.data) setForm({ ...status.data.settings }) }, [status.data])
 
@@ -41,7 +42,8 @@ export function AdAutopilot() {
   const waiting = actions.data.filter(a => a.status === '제안')
   const history = actions.data.filter(a => a.status !== '제안')
   const capPct = st && st.settings.monthly_cap > 0 ? Math.min(100, Math.round((st.mtd_spend / st.settings.monthly_cap) * 100)) : null
-  const connected = !!(st?.token && st.settings.meta_account_id)
+  const connected = !!(st?.token && st.settings.meta_account_id) || !!(st?.naver_token && st.settings.naver_customer_id)
+  const naverReady = !!(st?.naver_token && st.settings.naver_customer_id)
   const score = ruleScorecard(actions.data)
   const scored = score.some(r => r.executed > 0)
 
@@ -63,7 +65,7 @@ export function AdAutopilot() {
         <div className="ap-band-main">
           <ShieldCheck size={16} aria-hidden="true" />
           <b>{st?.settings.kill_switch ? '긴급 정지 중' : `지금 모드: ${MODE_LABEL[st?.settings.mode ?? 'suggest']}`}</b>
-          <span className="tx-sub">{st?.info?.ran_at ? `마지막 판단 ${dateTimeLabel(st.info.ran_at)}${st.info.ok === false ? ` · 실패: ${st.info.error ?? ''}` : ` · 캠페인 ${st.info.campaigns ?? 0}개 · 소재 ${st.info.ads ?? 0}개 · 제안 ${st.info.proposals ?? 0} · 실행 ${st.info.executed ?? 0}${st.info.evaluated ? ` · 효과 확인 ${st.info.evaluated}` : ''}${st.info.ad_error ? ` · 소재 수치 실패: ${st.info.ad_error}` : ''}`}` : '아직 한 번도 판단하지 않았습니다. 매일 07:07 에 자동으로 합니다.'}</span>
+          <span className="tx-sub">{st?.info?.ran_at ? `마지막 판단 ${dateTimeLabel(st.info.ran_at)}${st.info.ok === false ? ` · 실패: ${st.info.error ?? ''}` : ` · 캠페인 ${st.info.campaigns ?? 0}개 · 소재 ${st.info.ads ?? 0}개 · 제안 ${st.info.proposals ?? 0} · 실행 ${st.info.executed ?? 0}${st.info.evaluated ? ` · 효과 확인 ${st.info.evaluated}` : ''}${st.info.ad_error ? ` · 소재 수치 실패: ${st.info.ad_error}` : ''}${st.info.platform_errors ? ` · ${st.info.platform_errors}` : ''}`}` : '아직 한 번도 판단하지 않았습니다. 매일 07:07 에 자동으로 합니다.'}</span>
         </div>
         <div className="ap-band-act">
           {connected && <Button kind="outline" size="sm" disabled={!!busy} onClick={() => void run('run', async () => { const r = await api.autopilotRun(); toast(r.skipped ?? `수치 ${r.saved_rows ?? 0}줄을 받고 제안 ${r.proposals ?? 0}건을 만들었습니다.`) })}><RefreshCw size={13} /> {busy === 'run' ? '받는 중…' : '지금 받고 판단'}</Button>}
@@ -74,7 +76,7 @@ export function AdAutopilot() {
       {/* 이번 달 한도 */}
       {st && (
         <div className="ap-cap">
-          <div className="ap-cap-row"><span>이번 달 메타 광고비</span><b>{won(st.mtd_spend)}</b><span className="tx-sub">{st.settings.monthly_cap ? `월 한도 ${won(st.settings.monthly_cap)} 의 ${capPct}%` : '월 한도 미설정 — 증액은 하지 않습니다'}</span></div>
+          <div className="ap-cap-row"><span>이번 달 광고비 (메타 + 네이버)</span><b>{won(st.mtd_spend)}</b><span className="tx-sub">{st.settings.monthly_cap ? `월 한도 ${won(st.settings.monthly_cap)} 의 ${capPct}%` : '월 한도 미설정 — 증액은 하지 않습니다'}</span></div>
           {capPct != null && <div className="ap-cap-bar" role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={capPct} aria-label="월 한도 사용"><i style={{ width: `${capPct}%` }} className={capPct >= 90 ? 'hot' : ''} /></div>}
         </div>
       )}
@@ -124,6 +126,7 @@ export function AdAutopilot() {
             <label className="ap-f"><span>목표 문의당 비용 (원)</span><input inputMode="numeric" value={form.target_cpl ? form.target_cpl.toLocaleString('ko-KR') : ''} placeholder="비우면 클릭률 · 클릭당 비용으로 판단" onChange={e => set('target_cpl', numIn(e.target.value) || null)} /><small>2배 넘으면 멈춤 · 1.3배 넘으면 줄임 · 0.8배 이하면 늘림</small></label>
             <label className="ap-f"><span>판단 최소 금액 (원 · 7일)</span><input inputMode="numeric" value={form.min_spend.toLocaleString('ko-KR')} onChange={e => set('min_spend', numIn(e.target.value))} /><small>이보다 적게 쓴 캠페인은 자료 부족으로 두고 봄</small></label>
             <label className="ap-f"><span>메타 광고 계정 번호</span><input value={form.meta_account_id ?? ''} placeholder="act_ 뒤 숫자" onChange={e => set('meta_account_id', e.target.value.replace(/^act_/, '').replace(/[^\d]/g, '') || null)} /><small>광고 관리자 주소의 act= 뒤 숫자</small></label>
+            <label className="ap-f"><span>네이버 검색광고 고객 번호</span><input inputMode="numeric" value={form.naver_customer_id ?? ''} placeholder="searchad.naver.com 오른쪽 위 숫자" onChange={e => set('naver_customer_id', e.target.value.replace(/[^\d]/g, '') || null)} /><small>네이버와 메타 한도는 합계로 셉니다</small></label>
           </div>
         </section>
       )}
@@ -135,6 +138,17 @@ export function AdAutopilot() {
         <form className="ap-token" onSubmit={e => { e.preventDefault(); if (tokenValue.trim()) void run('token', async () => { await api.setMetaAdsToken(tokenValue); setTokenValue('') }, '열쇠를 금고에 넣었습니다.') }}>
           <input type="password" autoComplete="off" value={tokenValue} onChange={e => setTokenValue(e.target.value)} placeholder="시스템 사용자 접근 토큰" aria-label="메타 광고 열쇠" />
           <Button type="submit" disabled={!tokenValue.trim() || !!busy}><KeyRound size={13} /> {st?.token ? '열쇠 바꾸기' : '열쇠 넣기'}</Button>
+        </form>
+      </section>
+
+      {/* 네이버 검색광고 연결 (4단계) */}
+      <section className="ap-sec">
+        <SectionHead title="네이버 검색광고 연결" right={naverReady ? <Button kind="outline" size="sm" disabled={!!busy} onClick={() => void run('checkn', async () => { const r = await api.autopilotCheckNaver(); toast(`네이버 연결됨: 캠페인 ${r.campaigns}개 · 켜짐 ${r.active}개`) })}>{busy === 'checkn' ? '확인 중…' : '계정 확인'}</Button> : undefined} />
+        <p className="ap-note">{st?.naver_token ? '네이버 열쇠가 들어 있습니다 (다시 보여 주지 않음). 바꿀 때만 아래에 넣으세요.' : '네이버 검색광고(searchad.naver.com) › 도구 › API 사용 관리에서 엑세스라이선스와 비밀키를 받아 넣어 주세요. 대화로 보내지 말고 여기에만 넣습니다. 고객 번호는 위 안전장치 칸에 넣고 저장합니다.'}</p>
+        <form className="ap-token" onSubmit={e => { e.preventDefault(); if (naverKey.key.trim() && naverKey.secret.trim()) void run('nkey', async () => { await api.setNaverAdsKeys(naverKey.key, naverKey.secret); setNaverKey({ key: '', secret: '' }) }, '네이버 열쇠를 금고에 넣었습니다.') }}>
+          <input type="password" autoComplete="off" value={naverKey.key} onChange={e => setNaverKey({ ...naverKey, key: e.target.value })} placeholder="엑세스라이선스" aria-label="네이버 엑세스라이선스" />
+          <input type="password" autoComplete="off" value={naverKey.secret} onChange={e => setNaverKey({ ...naverKey, secret: e.target.value })} placeholder="비밀키" aria-label="네이버 비밀키" />
+          <Button type="submit" disabled={!naverKey.key.trim() || !naverKey.secret.trim() || !!busy}><KeyRound size={13} /> {st?.naver_token ? '열쇠 바꾸기' : '열쇠 넣기'}</Button>
         </form>
       </section>
 
@@ -160,6 +174,7 @@ function ActionCard({ a, busy, canRun, killed, onDecide }: { a: AutopilotAction;
   return (
     <li className={`ap-card k-${a.kind} s-${a.status}`}>
       <div className="ap-card-top">
+        {a.platform === 'naver' && <span className="ap-plat">네이버</span>}
         <span className="ap-kind">{a.ad_id ? '소재 ' : ''}{KIND_LABEL[a.kind]}</span>
         <b className="ap-camp">{a.campaign_name}{a.ad_name && <span className="ap-ad"> › {a.ad_name}</span>}</b>
         {a.kind !== 'pause' && <span className="ap-budget">{won(a.from_budget)} → {won(a.to_budget)}</span>}

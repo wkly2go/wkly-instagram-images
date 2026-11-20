@@ -153,3 +153,20 @@ test('규칙 성적표: 실행한 것만 · 효과 확인한 것으로 성공률
   const great = ruleScorecard([up('좋아짐'), up('좋아짐'), up('좋아짐'), up('비슷')])
   assert.match(great[0].advice!, /키워도/)
 })
+
+// ── 4단계: 네이버 검색광고 ──
+import { naverCampaign, naverDays, naverSignature } from '../supabase/functions/ad-autopilot/naver.ts'
+import { createHmac } from 'node:crypto'
+
+test('네이버 서명: HMAC-SHA256(비밀키, 시각.방법.경로) base64', async () => {
+  const want = createHmac('sha256', 'secret-key').update('1700000000000.GET./ncc/campaigns').digest('base64')
+  assert.equal(await naverSignature('1700000000000', 'get', '/ncc/campaigns', 'secret-key'), want)
+})
+
+test('네이버 캠페인 · 일별 수치 변환', () => {
+  assert.deepEqual(naverCampaign({ nccCampaignId: 'cmp-1', name: '파워링크', userLock: false, status: 'ELIGIBLE', dailyBudget: 30000, useDailyBudget: true }), { id: 'cmp-1', name: '파워링크', status: 'ACTIVE', daily_budget: 30000 })
+  assert.equal(naverCampaign({ nccCampaignId: 'c', name: 'x', userLock: true }).status, 'PAUSED')
+  assert.equal(naverCampaign({ nccCampaignId: 'c', name: 'x', useDailyBudget: false, dailyBudget: 9000 }).daily_budget, null)
+  const d = naverDays([{ id: 'cmp-1', dateStart: '2026-11-19', impCnt: '120', clkCnt: 7, salesAmt: '4200.4', ccnt: 1 }, { id: 'cmp-1', impCnt: 1 }], new Map([['cmp-1', '파워링크']]))
+  assert.deepEqual(d, [{ date: '2026-11-19', campaign_id: 'cmp-1', campaign_name: '파워링크', impressions: 120, clicks: 7, spend: 4200, leads: 1 }])
+})
