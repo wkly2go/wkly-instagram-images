@@ -24,6 +24,7 @@ import { ProjectBrief } from '../components/ProjectBrief'
 import { KakaoSection } from '../components/KakaoSection'
 import { CollabSection } from '../components/CollabSection'
 import { ProjectBoards } from '../components/ProjectBoards'
+import { ProjectFigma } from '../components/ProjectFigma'
 import { ProjectClientLink } from '../components/ProjectClientLink'
 import { ProjectMails } from '../components/ProjectMails'
 import { ProjectTalk } from '../components/ProjectTalk'
@@ -818,6 +819,8 @@ function ProjectDetail({ project: p, data, onEdit, onBack, panel = false }: { pr
       {/* 외부 협업방: 발주처 · 협력사가 로그인 없이 링크로 이 방 하나만 (로드맵 2단계 · 2026-11-17) */}
       {/* 협업 화이트보드: 프로젝트마다 여러 장 · 함께 그리기 (로드맵 3단계 · 2026-11-20) */}
       <ProjectBoards project={p} />
+      {/* 피그잼 · 피그마: 편집은 피그잼에서, 보관 · 제출용 PDF 는 인트라넷에서 (2026-11-20) */}
+      <ProjectFigma project={p} />
       <CollabSection project={p} />
       {/* 이 프로젝트의 결재 · 보고: 올린 결재가 있을 때만 (대표 지시 2026-10-31 빈 칸 삭제) */}
       {extra.approvals.length > 0 && <SectionHead title="결재 · 보고" count={String(extra.approvals.length)} right={<Link to="/approvals">보고서 결제 ›</Link>} />}
