@@ -4,7 +4,7 @@
 
 ## 개발 체계 (2026-11-20 정리)
 
-Codex 공동 개발은 끝났다(2026-11-16 종료 · 2026-11-20 대표 지시 'codex 작업은 끝났어 정리해'). 영업(Sales · Growth) · 설계(`design` · `/design`)를 포함한 모든 인트라넷 개발은 Claude 세션이 맡는다. 예전 분담 · main 병합 보류 규칙은 `erp/docs/archive/DEVELOPMENT_COORDINATION_20261115.md` 에 기록으로만 남긴다. 정리 때 확인한 것: `codex/*` 브랜치 20개 중 19개는 PR 로 main 에 합쳐졌고, 합치지 않고 닫힌 #399(sales-evidence-foundation)의 파일 · 영업 마이그레이션 0901xx 도 main 과 운영 DB 에 모두 들어 있음 → 원격 `codex/*` 브랜치 삭제(PR 기록 refs/pull 에 남음).
+Codex 공동 개발은 끝났다(2026-11-16 종료 · 2026-11-20 대표 지시 'codex 작업은 끝났어 정리해'). 영업(Sales · Growth) · 설계(`design` · `/design`)를 포함한 모든 인트라넷 개발은 Claude 세션이 맡는다. 예전 분담 · main 병합 보류 규칙은 `erp/docs/archive/DEVELOPMENT_COORDINATION_20261115.md` 에 기록으로만 남긴다. 정리 때 확인한 것: `codex/*` 브랜치 20개 중 19개는 PR 로 main 에 합쳐졌고, 합치지 않고 닫힌 #399(sales-evidence-foundation)의 파일 · 영업 마이그레이션 0901xx 도 main 과 운영 DB 에 모두 들어 있음 → 원격 `codex/*` 브랜치 20개는 지워도 됨(PR 기록은 남음) · 이 세션은 자기 브랜치 밖으로 쓸 권한이 없어(403) 못 지움 — 대표가 GitHub › Branches 에서 지울 것.
 
 영업 자동화 규칙(사람 팀원에게 원자료 검색 · DB 가공을 맡기지 않음 · 승인한 실행 묶음만 발송 · 개발 중 임의 발송 금지)은 `AGENTS.md`, 계획은 `erp/docs/SALES_AUTOMATION_PLAN.md`. 여러 세션이 함께 일하면 각자 별도 브랜치를 쓰고 남의 진행 중 변경을 덮어쓰지 않으며, main 병합 전 마이그레이션 번호 중복을 확인한다(`node erp/scripts/check-migration-numbers.mjs --base-ref origin/main`).
 
