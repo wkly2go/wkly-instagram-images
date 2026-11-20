@@ -6,6 +6,7 @@ import { createDemoCollabApi } from './collabApi'
 import { createDemoBoardApi } from './boardApi'
 import { createDemoFigmaApi } from './figmaApi'
 import { createDemoAdAutopilotApi } from './adAutopilotApi'
+import { createDemoCompetitorApi } from './competitorApi'
 import { createDemoSalesReportApi } from './salesReport'
 import { createDemoGrowthApi } from './growthApi'
 import { createDemoSalesApi } from './salesApi'
@@ -683,6 +684,7 @@ export function createDemoApi(): Api {
     ...createDemoBoardApi(),
     ...createDemoFigmaApi(),
     ...createDemoAdAutopilotApi(),
+    ...createDemoCompetitorApi(),
     ...createDemoSalesReportApi(),
     ...createDemoGrowthApi(meProfile, createDemoSalesApi(meProfile)),
     ...createDemoMarketingApi(meProfile),

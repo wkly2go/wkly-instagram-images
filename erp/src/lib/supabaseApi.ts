@@ -8,6 +8,7 @@ import { createSupabaseCollabApi } from './collabApi'
 import { createSupabaseBoardApi } from './boardApi'
 import { createSupabaseFigmaApi } from './figmaApi'
 import { createSupabaseAdAutopilotApi } from './adAutopilotApi'
+import { createSupabaseCompetitorApi } from './competitorApi'
 import { createSupabaseSalesReportApi } from './salesReport'
 import { createSupabaseGrowthApi } from './growthApi'
 import { createSupabaseSalesApi } from './salesApi'
@@ -227,6 +228,7 @@ export function createSupabaseApi(url: string, key: string): Api {
     ...createSupabaseBoardApi(sb),
     ...createSupabaseFigmaApi(sb),
     ...createSupabaseAdAutopilotApi(sb),
+    ...createSupabaseCompetitorApi(sb),
     ...createSupabaseSalesReportApi(sb),
     ...createSupabaseGrowthApi(sb),
     ...createSupabaseMarketingApi(sb, signedUrls),
