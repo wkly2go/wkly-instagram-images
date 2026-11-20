@@ -1,5 +1,6 @@
 import { AdTeamPlan } from '../components/AdTeamPlan'
 import { AdAutopilot } from '../components/AdAutopilot'
+import { AdCompetitors } from '../components/AdCompetitors'
 import { GrowthWorkspace } from '../components/GrowthWorkspace'
 import { InterviewFeed } from '../components/InterviewFeed'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -110,7 +111,7 @@ export default function Ads() {
           {tab === 'autopilot' ? <AdAutopilot /> : tab === 'team' ? <AdTeamPlan /> : tab === 'interview' ? <InterviewFeed /> : tab === 'content' ? <GrowthWorkspace kind="content" /> : tab === 'studio' ? <MarketingDesk key={query.get('id')??'default'} initialCampaignId={query.get('id')??undefined} /> : NUMBER_TABS.includes(tab) ? <NumbersWorkspace tab={tab} range={range} platform={platform} period={period} setRange={setRange} setPlatform={setPlatform} goTab={setTab} />
             : tab === 'creatives' ? <CreativeWorkspace period={period} />
             : tab === 'seo' ? <SearchWorkspace />
-            : <ReportWorkspace key={tab} kind={tab === 'competitors' ? '경쟁사 분석' : tab === 'overseas' ? '해외 사례' : '일일 보고'} />}
+            : <>{tab === 'competitors' && <AdCompetitors />}<ReportWorkspace key={tab} kind={tab === 'competitors' ? '경쟁사 분석' : tab === 'overseas' ? '해외 사례' : '일일 보고'} /></>}
         </section>
       </div>
     </Shell>

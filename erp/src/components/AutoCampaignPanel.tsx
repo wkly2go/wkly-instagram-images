@@ -41,7 +41,8 @@ type Made = { r: AutoResult; campaign: MarketingCampaign; item: GrowthItem; imag
 export function AutoCampaignPanel({ onCampaign }: { onCampaign?: (id: string) => void }) {
   const { api, me, toast } = useApp()
   const today = marketingTodayKST()
-  const [input, setInput] = useState<AutoInput>(() => ({ topic: '', brand: 'wkly', link: '', facts: '', shopUrl: readShop(), ...autoDates(today) }))
+  // 경쟁사 추적의 '이 주제로 만들기'가 ?topic= 으로 넘김 (2026-11-20)
+  const [input, setInput] = useState<AutoInput>(() => ({ topic: (typeof location !== 'undefined' ? new URLSearchParams(location.search).get('topic') ?? '' : '').slice(0, 500), brand: 'wkly', link: '', facts: '', shopUrl: readShop(), ...autoDates(today) }))
   const [photo, setPhoto] = useState<File | null>(null)
   const [busy, setBusy] = useState(false)
   const [log, setLog] = useState<string[]>([])
