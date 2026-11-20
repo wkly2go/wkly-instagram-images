@@ -2037,6 +2037,22 @@ export function createDemoApi(): Api {
       return []
     },
     async updateWebInquiry() {},
+    async salesPipeline() {
+      // 체험 모드: 프로젝트 상태만 실제로 세고 나머지는 비워 둠 (목업 자료 넣지 않음)
+      const ps = store.projects ?? []
+      const pick = (st: string) => ps.filter(p => p.status === st)
+      const items = (st: string) => pick(st).slice(0, 5).map(p => ({ title: [p.code, p.name].filter(Boolean).join(' '), sub: st, at: p.created_at ?? null, link: `/projects?id=${p.id}` }))
+      const empty = (key: string, label: string, hint: string) => ({ key, label, hint, count: 0, items: [] })
+      return [
+        empty('inquiry', '새 문의', '홈페이지 문의 · 리포트 신청 중 아직 안 본 것'),
+        empty('prospect', '영업 대상', '우선 검토로 판정된 대상'),
+        empty('strategy', '기획 승인 대기', '대표 승인을 기다리는 영업 기획안'),
+        empty('package', '실행 준비', '승인된 기획의 메일 · DM 묶음'),
+        { key: 'consult', label: '상담 중', hint: '프로젝트 상태 문의', count: pick('문의').length, items: items('문의') },
+        { key: 'nic', label: '계약 전', hint: 'NIC · 최근 60일 안에 움직인 것', count: pick('NIC').length, items: items('NIC') },
+        { key: 'won', label: '진행 (수주)', hint: '계약해 진행 중인 프로젝트', count: pick('진행').length, items: items('진행') },
+      ]
+    },
     async listInquiryThreads() {
       return []
     },

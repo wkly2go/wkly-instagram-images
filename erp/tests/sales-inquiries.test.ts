@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
-import { DAY_MS, WAIT_DAYS, agoLabel, followupStage, inquiryGroup, inquiryMailUrl, urgency, waitDays, waitFrom } from '../src/lib/inquiryThreads.ts'
+import { DAY_MS, WAIT_DAYS, agoLabel, followupStage, inquiryComposeUrl, inquiryFollowup, inquiryGroup, inquiryMailUrl, urgency, waitDays, waitFrom } from '../src/lib/inquiryThreads.ts'
 
 const NOW = Date.parse('2026-11-18T04:00:00Z')
 const iso = (msAgo: number) => new Date(NOW - msAgo).toISOString()
@@ -98,4 +98,22 @@ test('mail tracking in the database only reads mail and alerts politely', async 
   assert.ok(sql.includes('grant execute on function public.sales_inquiry_threads() to authenticated'))
   assert.ok(sql.includes('grant execute on function public.sales_inquiry_thread_dismiss(uuid) to authenticated'))
   assert.ok(!/drop\s+function/i.test(sql), 'keep the deployed function signature (no drop)')
+})
+
+test('follow-up drafts: three different templates, reply subject, company name, no amounts', () => {
+  const q = { site: 'TW', brand: '테스트 브랜드', title: '성수 팝업', category: null }
+  const a = inquiryFollowup(q, 3, 'Re: [더위클리] 문의 주셔서 감사합니다')
+  const b = inquiryFollowup(q, 7, null)
+  const c = inquiryFollowup({ ...q, site: 'AR' }, 14, '')
+  assert.equal(a.subject, 'Re: [더위클리] 문의 주셔서 감사합니다')
+  assert.equal(b.subject, 'Re: [더위클리] 성수 팝업')
+  assert.ok(c.subject.includes('아트리어') && c.body.includes('아트리어 드림'))
+  assert.notEqual(a.body, b.body); assert.notEqual(b.body, c.body)
+  for (const d of [a, b, c]) {
+    assert.ok(d.body.startsWith('안녕하세요, 테스트 브랜드 담당자님.'))
+    assert.ok(!/\d+\s*(만\s*)?원/.test(d.body), 'no prices in a follow-up')
+  }
+  const url = inquiryComposeUrl('a@b.co', a.subject, a.body)
+  assert.ok(url.startsWith('https://mail.google.com/mail/?authuser=info%40thewklyn.com&view=cm'))
+  assert.ok(url.includes('to=a%40b.co'))
 })

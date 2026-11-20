@@ -987,6 +987,11 @@ export function createSupabaseApi(url: string, key: string): Api {
       const { error } = await sb.from('web_inquiries').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', id)
       if (error) throw new Error(error.message)
     },
+    async salesPipeline() {
+      const { data, error } = await sb.rpc('sales_pipeline')
+      if (error) throw new Error(error.message)
+      return (data ?? []) as import('./api').SalesPipelineStage[]
+    },
     async listInquiryThreads() {
       const { data, error } = await sb.rpc('sales_inquiry_threads')
       if (error) throw new Error(error.message)

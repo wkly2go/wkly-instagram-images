@@ -48,6 +48,35 @@ export function followupStage(days: number | null): 3 | 7 | 14 | null {
   return days >= 14 ? 14 : days >= 7 ? 7 : days >= 3 ? 3 : null
 }
 
+/** 후속 메일 초안 (2026-11-20 메신저 협업 · 영업 '후속 메일 초안') — 3 · 7 · 14일 단계마다 다른 틀 · AI 없음 · 자동 발송 없음.
+ *  3일: 짧게 되짚기 / 7일: 결정에 필요한 자료 하나 제안 / 14일: 정리 메일(부담 없이 닫기). 받는 사람 · 제목은 이전 대화 기준. */
+export function inquiryFollowup(
+  q: Pick<WebInquiry, 'site' | 'brand' | 'title' | 'category'>,
+  stage: 3 | 7 | 14,
+  lastSubject?: string | null,
+): { subject: string; body: string } {
+  const company = q.site === 'AR' ? '아트리어' : '더위클리'
+  const what = (q.title || q.category || '문의').trim()
+  const hello = `안녕하세요${q.brand ? `, ${q.brand} 담당자님` : ''}.`
+  const lines =
+    stage === 3
+      ? [hello, `${company}입니다. 지난번 보내 드린 메일을 확인하셨는지 여쭤봅니다.`, '',
+         `${what} 관련해 일정 · 규모 · 예산 중 정해진 것 하나만 알려 주셔도 맞춰서 진행 방법을 정리해 드리겠습니다.`, '', '편하실 때 회신 부탁드립니다.']
+      : stage === 7
+        ? [hello, `${company}입니다. ${what} 검토에 도움이 되실 것 같아 다시 연락드립니다.`, '',
+           '비슷한 규모로 진행한 사례와 대략의 진행 일정표를 정리해 보내 드릴 수 있습니다. 필요하시면 받으실 분과 편한 방식(메일 · 통화)을 알려 주세요.', '',
+           '내부 검토가 진행 중이시면 결정 시기만 알려 주셔도 그때 맞춰 연락드리겠습니다.']
+        : [hello, `${company}입니다. ${what} 건으로 마지막으로 연락드립니다.`, '',
+           '지금은 진행이 어려우신 것으로 이해하고 이 건은 정리해 두겠습니다. 이후 일정이 다시 잡히면 이 메일에 답장만 주셔도 바로 이어서 도와드리겠습니다.', '',
+           '관심 가져 주셔서 감사합니다.']
+  const base = (lastSubject ?? '').replace(/^(re|회신|답장)\s*:\s*/i, '').trim() || `[${company}] ${what}`
+  return { subject: `Re: ${base}`.slice(0, 120), body: [...lines, '', `${company} 드림`].join('\n') }
+}
+
+/** 회사 메일함(info@)에서 새 메일 쓰기 창 (보내기는 사람이 누름) */
+export const inquiryComposeUrl = (to: string, subject: string, body: string) =>
+  `https://mail.google.com/mail/?authuser=${encodeURIComponent(INQUIRY_MAILBOX)}&view=cm&fs=1&to=${encodeURIComponent(to)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+
 /** 메일 기록(mail_index)은 회사 공용 메일함 기준이라 그 계정으로 대화를 연다 */
 export const INQUIRY_MAILBOX = 'info@thewklyn.com'
 export const inquiryMailUrl = (threadId: string) => `https://mail.google.com/mail/u/?authuser=${encodeURIComponent(INQUIRY_MAILBOX)}#all/${encodeURIComponent(threadId)}`

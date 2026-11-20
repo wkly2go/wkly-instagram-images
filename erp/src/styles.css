@@ -4634,3 +4634,21 @@ tr.lg-review td:first-child { box-shadow: inset 3px 0 0 #e0a800; }
 .msg-projects { display: flex; flex-wrap: wrap; gap: 4px; margin: 2px 0 4px 44px; }
 .msg-project-tag { display: inline-flex; align-items: center; gap: 3px; font-size: var(--fs-body); color: var(--tx-key, #1f6b4a); background: #eef5f0; border-radius: 999px; padding: 1px 9px; text-decoration: none; }
 .msg-project-tag:hover { text-decoration: underline; }
+
+/* 영업 파이프라인 한 화면 (2026-11-20) */
+.sales-pipe { background: var(--v8-card, #fff); border-radius: 12px; padding: 12px 14px; margin-bottom: 12px; }
+.sales-pipe h2 { margin: 0 0 8px; }
+.sales-pipe-row { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.sales-pipe-row li { position: relative; }
+.sales-pipe-row li + li::before { content: '›'; position: absolute; left: -6px; top: 50%; transform: translate(-50%, -50%); color: var(--tx-sub, #535c56); }
+.sales-pipe-step { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 4px; border: 1px solid var(--line, #e3e1da); border-radius: 10px; background: #f8f7f3; cursor: pointer; color: var(--tx-body, #222a25); }
+.sales-pipe-step .n { font-size: var(--fs-title); font-weight: 800; color: var(--tx-title, #151d18); }
+.sales-pipe-step .l { font-size: var(--fs-body); text-align: center; }
+.sales-pipe-step.zero .n { color: var(--tx-sub, #535c56); font-weight: 400; }
+.sales-pipe-step.on { border-color: var(--tx-key, #1f6b4a); background: #eef5f0; }
+.sales-pipe-step.on .l { color: var(--tx-key, #1f6b4a); font-weight: 700; }
+.sales-pipe-list { margin-top: 10px; }
+.sales-pipe-list ul { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.sales-pipe-list li { display: flex; justify-content: space-between; gap: 10px; font-size: var(--fs-body); }
+.sales-pipe-list a { color: var(--tx-key, #1f6b4a); min-width: 0; }
+@media (max-width: 760px) { .sales-pipe-row { grid-template-columns: repeat(4, minmax(0, 1fr)); } .sales-pipe-row li::before { display: none; } }
