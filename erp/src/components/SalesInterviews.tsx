@@ -250,6 +250,18 @@ function SalesInfo({ rows, onEdit }: { rows: SalesInterview[]; onEdit: (id: stri
   )
 }
 
+/** 고치기 창 맨 위 진행 띠: 단계와 그 단계의 날짜를 한 줄로 (2026-11-18 대표 지시 '한눈에 보고 파악할 수 있게') */
+const FLOW: InterviewStage[] = ['발송', '답변', '인터뷰지 발송', '자료 수령', '제작', '업로드 완료']
+const dayOf = (iso: string | null) => (iso ? shortMd(toLocalInput(iso).slice(0, 10)) : '')
+function flowDate(stage: InterviewStage, d: SalesInterviewDraft): string {
+  if (stage === '발송') return d.sent_on ? shortMd(d.sent_on) : ''
+  if (stage === '답변') return dayOf(d.replied_at)
+  if (stage === '인터뷰지 발송') return dayOf(d.form_sent_at)
+  if (stage === '자료 수령') return d.material_due ? `${mdWithDay(d.material_due)} 예정` : ''
+  if (stage === '업로드 완료') return d.upload_on ? `${mdWithDay(d.upload_on)}${d.post_url ? '' : ' 예정'}` : ''
+  return ''
+}
+
 function Editor({ row, onSaved, onClose }: { row: SalesInterview | null; onSaved: (r: SalesInterview) => void; onClose: () => void }) {
   const { api, toast, profiles } = useApp()
   const [d, setD] = useState<SalesInterviewDraft>(() => (row ? draftOf(row) : emptyInterview()))
@@ -264,8 +276,8 @@ function Editor({ row, onSaved, onClose }: { row: SalesInterview | null; onSaved
   const people = profiles.filter(p => p.active && !p.is_agent)
   const set = (patch: Partial<SalesInterviewDraft>) => setD(x => ({ ...x, ...patch }))
   type TextKey = { [K in keyof SalesInterviewDraft]: SalesInterviewDraft[K] extends string | null ? K : never }[keyof SalesInterviewDraft]
-  const text = (label: string, key: TextKey, opts: { full?: boolean; area?: number; type?: string; placeholder?: string } = {}) => (
-    <Field label={label} className={opts.full ? 'full' : ''}>
+  const text = (label: string, key: TextKey, opts: { full?: boolean; span2?: boolean; area?: number; type?: string; placeholder?: string } = {}) => (
+    <Field label={label} className={opts.full ? 'full' : opts.span2 ? 'span2' : ''}>
       {opts.area
         ? <textarea className="textarea" rows={opts.area} value={(d[key] as string | null) ?? ''} placeholder={opts.placeholder} onChange={e => set({ [key]: e.target.value } as Partial<SalesInterviewDraft>)} />
         : <input className="input" type={opts.type ?? 'text'} value={(d[key] as string | null) ?? ''} placeholder={opts.placeholder} onChange={e => set({ [key]: e.target.value } as Partial<SalesInterviewDraft>)} />}
@@ -311,39 +323,70 @@ function Editor({ row, onSaved, onClose }: { row: SalesInterview | null; onSaved
   return (
     <div className={`sales-iv-edit${row ? '' : ' new'}`}>
       {!row && <h3>새 섭외</h3>}
-      <div className="grid2">
-        {text('브랜드 *', 'brand')}
-        {text('팝업 · 행사', 'event_name')}
-        {text('장소 · 일정', 'venue', { full: true, placeholder: '예: 더현대 서울 B2 · 11/5~11/11' })}
-        <Field label="단계">
-          <select className="input" value={d.stage} onChange={e => set({ stage: e.target.value as InterviewStage })}>
-            {INTERVIEW_STAGES.map(s => <option key={s}>{s}</option>)}
-          </select>
-        </Field>
-        <Field label="담당 (알림 받는 사람)">
-          <select className="input" value={d.owner_id ?? ''} onChange={e => set({ owner_id: e.target.value || null })}>
-            <option value="">정하지 않음</option>
-            {people.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-          </select>
-        </Field>
-        {text('발송 묶음', 'batch')}
-        {text('발송 채널', 'send_channel', { placeholder: '이메일 · DM' })}
-        {text('발송일', 'sent_on', { type: 'date' })}
-        {text('답변 채널', 'reply_channel')}
-        {text('연락처 (메일 · 담당자 · 참조)', 'contact', { full: true, area: 2, placeholder: '메일 주소를 적어 두면 오간 메일을 10분마다 자동으로 확인합니다' })}
-        <Field label="답변 일시"><input className="input" type="datetime-local" value={toLocalInput(d.replied_at)} onChange={e => set({ replied_at: fromLocalInput(e.target.value) })} /></Field>
-        {text('이미지 사용', 'image_use', { placeholder: '가능 · 미확인 · 조건' })}
-        {text('서면 인터뷰', 'interview_ok', { placeholder: '가능 · 작성 완료 · 불가' })}
-        {text('인터뷰지 링크', 'form_url', { type: 'url', full: true, placeholder: 'https://docs.google.com/forms/…' })}
-        <Field label="인터뷰지 발송"><input className="input" type="datetime-local" value={toLocalInput(d.form_sent_at)} onChange={e => set({ form_sent_at: fromLocalInput(e.target.value) })} /></Field>
-        {text('인터뷰지 메모', 'form_note')}
-        {text('자료 수령 예정일', 'material_due', { type: 'date' })}
-        {text('자료 수령 메모', 'material_note', { placeholder: '예외 · 잠정 · 수령 완료' })}
-        {text('인스타 업로드 예정일', 'upload_on', { type: 'date' })}
-        {text('업로드 메모', 'upload_note', { placeholder: '오후 · 예외 · 잠정' })}
-        {text('게시 링크', 'post_url', { type: 'url', full: true, placeholder: '업로드한 게시물 주소' })}
-        {text('비고', 'note', { full: true, area: 4 })}
-      </div>
+      {row && (
+        <ol className="sales-iv-flow" aria-label="진행 단계">
+          {FLOW.map((s, i) => {
+            const at = FLOW.indexOf(d.stage)
+            const when = flowDate(s, d)
+            return (
+              <li key={s} className={at < 0 ? 'off' : i < at ? 'done' : i === at ? 'now' : ''}>
+                <b>{s}</b>
+                <span>{when || '–'}</span>
+              </li>
+            )
+          })}
+          {FLOW.indexOf(d.stage) < 0 && <li className="now side"><b>{d.stage}</b><span>진행 밖</span></li>}
+        </ol>
+      )}
+
+      <section className="sales-iv-sec">
+        <h4>기본</h4>
+        <div className="grid4">
+          {text('브랜드 *', 'brand')}
+          {text('팝업 · 행사', 'event_name')}
+          <Field label="단계">
+            <select className="input" value={d.stage} onChange={e => set({ stage: e.target.value as InterviewStage })}>
+              {INTERVIEW_STAGES.map(s => <option key={s}>{s}</option>)}
+            </select>
+          </Field>
+          <Field label="담당 (알림 받는 사람)">
+            <select className="input" value={d.owner_id ?? ''} onChange={e => set({ owner_id: e.target.value || null })}>
+              <option value="">정하지 않음</option>
+              {people.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </Field>
+          {text('장소 · 일정', 'venue', { span2: true, placeholder: '예: 더현대 서울 B2 · 11/5~11/11' })}
+          {text('연락처 (메일 · 담당자 · 참조)', 'contact', { span2: true, placeholder: '메일 주소를 적어 두면 오간 메일을 10분마다 자동으로 확인합니다' })}
+        </div>
+      </section>
+
+      <section className="sales-iv-sec">
+        <h4>발송 · 답변</h4>
+        <div className="grid4">
+          {text('발송 묶음', 'batch')}
+          {text('발송 채널', 'send_channel', { placeholder: '이메일 · DM' })}
+          {text('발송일', 'sent_on', { type: 'date' })}
+          {text('답변 채널', 'reply_channel')}
+          <Field label="답변 일시"><input className="input" type="datetime-local" value={toLocalInput(d.replied_at)} onChange={e => set({ replied_at: fromLocalInput(e.target.value) })} /></Field>
+          {text('이미지 사용', 'image_use', { placeholder: '가능 · 미확인 · 조건' })}
+          {text('서면 인터뷰', 'interview_ok', { placeholder: '가능 · 작성 완료 · 불가' })}
+        </div>
+      </section>
+
+      <section className="sales-iv-sec">
+        <h4>인터뷰지 · 자료 · 업로드</h4>
+        <div className="grid4">
+          <Field label="인터뷰지 발송"><input className="input" type="datetime-local" value={toLocalInput(d.form_sent_at)} onChange={e => set({ form_sent_at: fromLocalInput(e.target.value) })} /></Field>
+          {text('인터뷰지 메모', 'form_note')}
+          {text('인터뷰지 링크', 'form_url', { type: 'url', span2: true, placeholder: 'https://docs.google.com/forms/…' })}
+          {text('자료 수령 예정일', 'material_due', { type: 'date' })}
+          {text('자료 수령 메모', 'material_note', { placeholder: '예외 · 잠정 · 수령 완료' })}
+          {text('인스타 업로드 예정일', 'upload_on', { type: 'date' })}
+          {text('업로드 메모', 'upload_note', { placeholder: '오후 · 예외 · 잠정' })}
+          {text('게시 링크', 'post_url', { type: 'url', full: true, placeholder: '업로드한 게시물 주소' })}
+          {text('비고', 'note', { full: true, area: 2 })}
+        </div>
+      </section>
 
       {row && (
         <details className="sales-iv-sub" open={row.stage === '답변' || row.stage === '인터뷰지 발송'}>
