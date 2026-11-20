@@ -1,5 +1,6 @@
 import { SalesStrategyDesk } from '../components/SalesStrategyDesk'
 import { SalesInquiries } from '../components/SalesInquiries'
+import { SalesPipeline as SalesFunnel } from '../components/SalesPipeline'
 import { SalesInterviews } from '../components/SalesInterviews'
 import { SalesDevelopmentProgress } from '../components/SalesDevelopmentProgress'
 import { showPanel } from '../components/WebSearch'
@@ -74,6 +75,7 @@ export default function Sales() {
   return <Shell active="sales"><div className={`sales-page${wide?' sales-wide':''}`}>
     {me.role==='admin'&&<SalesDevelopmentProgress />}
     <div className="sales-page-tools"><Button kind="outline" aria-expanded={!wide} onClick={()=>{setWide(!wide);if(wide)showPanel()}}>{wide?'일정 펼치기':'본문 넓게 보기'}</Button></div>
+    <SalesFunnel />
     <SalesInquiries />
     <SalesInterviews />
     <SalesStrategyDesk />

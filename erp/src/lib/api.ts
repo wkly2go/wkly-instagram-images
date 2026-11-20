@@ -108,6 +108,7 @@ import type { LedgerEntry, LedgerFile, LedgerRecurring, LedgerStatus, MaterialIt
 } from './types'
 
 /** 구글 드라이브 탭에 거는 회사 공용 폴더 */
+export interface SalesPipelineStage { key: string; label: string; hint: string; count: number; items: { title: string; sub: string; at: string | null; link: string }[] }
 export interface DriveFolder {
   name: string
   url: string
@@ -453,6 +454,8 @@ export interface Api extends SalesStrategyApi, SalesApi, GrowthApi, SalesReportA
   updateWebInquiry(id: string, patch: { status?: string; memo?: string | null }): Promise<void>
   /** 문의별 메일 대화 상태 (회사 메일과 10분마다 맞춰 봄) */
   listInquiryThreads(): Promise<InquiryThread[]>
+  /** 영업 파이프라인 한 줄 (새 문의 → 영업 대상 → 기획안 → 실행 준비 → 상담 → 계약 전 → 진행 · 단계마다 건수 + 최근 5건) */
+  salesPipeline(): Promise<SalesPipelineStage[]>
   /** 고객의 마지막 메일에 답이 필요 없음 → 회신 대기 (새 메일이 오면 다시 바로 응대) */
   dismissInquiryThread(inquiryId: string): Promise<void>
   /** 서면 인터뷰 (더위클리 팝업 큐레이션 · 영업·수주) */
