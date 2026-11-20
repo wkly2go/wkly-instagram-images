@@ -64,6 +64,22 @@
 .sales-iv-edit h3 { margin: 0 0 8px; font-size: var(--fs-sub); }
 .sales-iv-edit .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; }
 .sales-iv-edit .grid2 .full { grid-column: 1 / -1; }
+/* 고치기 창: 진행 띠 + 묶음별 4칸 (2026-11-18 대표 지시 '한눈에 보고 파악할 수 있게') */
+.sales-iv-flow { list-style: none; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 4px; margin: 0 0 10px; padding: 0; }
+.sales-iv-flow li { display: grid; gap: 1px; padding: 6px 8px; border-radius: 8px; border-top: 3px solid #d9ddd7; background: var(--white); color: var(--tx-sub, #535c56); min-width: 0; }
+.sales-iv-flow li b { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sales-iv-flow li span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sales-iv-flow li.done { border-top-color: #8fc2a4; background: #f1f8f3; color: #1f6b4a; }
+.sales-iv-flow li.now { border-top-color: #1f6b4a; background: #1f6b4a; color: #fff; }
+.sales-iv-flow li.side { background: #7a5b00; border-top-color: #7a5b00; }
+.sales-iv-sec { margin-top: 8px; padding: 8px 10px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--white); }
+.sales-iv-sec > h4 { margin: 0 0 6px; font-size: var(--fs-body); font-weight: 700; color: #1f6b4a; }
+.sales-iv-edit .grid4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px 10px; }
+.sales-iv-edit .grid4 .full { grid-column: 1 / -1; }
+.sales-iv-edit .grid4 .span2 { grid-column: span 2; }
+.sales-iv-edit .grid4 .input { min-height: 34px; padding-top: 5px; padding-bottom: 5px; }
+@container (max-width: 900px) { .sales-iv-edit .grid4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 1100px) { .sales-iv-edit .grid4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .sales-iv-sub { margin-top: 12px; border-top: 1px dashed var(--line); padding-top: 8px; }
 .sales-iv-sub > summary { cursor: pointer; font-weight: 700; }
 .sales-iv-sub > summary span { margin-left: 6px; color: var(--gray); font-weight: 400; }
@@ -80,7 +96,9 @@
   .sales-iv-row { flex-wrap: wrap; }
   .sales-iv-row .what { flex-basis: 100%; }
   .sales-iv-edit { padding-left: 4px; }
-  .sales-iv-edit .grid2 { grid-template-columns: minmax(0, 1fr); }
+  .sales-iv-edit .grid2, .sales-iv-edit .grid4 { grid-template-columns: minmax(0, 1fr); }
+  .sales-iv-edit .grid4 .span2 { grid-column: auto; }
+  .sales-iv-flow { grid-auto-flow: row; grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .sales-iv-bar .input { flex: 1 1 100%; }
 }
 
