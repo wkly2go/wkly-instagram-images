@@ -89,3 +89,67 @@ test('도움 함수: 문의 수 · 계정 번호 · 남은 날 · 천 원 단위
   assert.equal(roundBudget(23456), 23000)
   assert.equal(roundBudget(300), 1000)
 })
+
+// ── 2단계: 소재 피로 · 효과 확인 ──
+import { evaluate, fatigue, type AdDay, type MetaAd } from '../supabase/functions/ad-autopilot/rules.ts'
+
+const adWeek = (id: string, start: number, d: { imp: number; clk: number }): AdDay[] =>
+  Array.from({ length: 7 }, (_, i) => ({ date: `2026-11-${String(start + i).padStart(2, '0')}`, ad_id: id, impressions: d.imp, clicks: d.clk, spend: 5000, leads: 0 }))
+const ad = (id: string, cid = 'c', status = 'ACTIVE'): MetaAd => ({ id, name: `소재 ${id}`, campaign_id: cid, status })
+
+test('소재 피로: 클릭률 30% 이상 하락 + 빈도 3 이상이면 가장 나쁜 소재 하나만 멈춤', () => {
+  const days = [
+    ...adWeek('x', 6, { imp: 1000, clk: 20 }), ...adWeek('x', 13, { imp: 1000, clk: 12 }), // 2% → 1.2% (-40%)
+    ...adWeek('y', 6, { imp: 1000, clk: 20 }), ...adWeek('y', 13, { imp: 1000, clk: 8 }), // 2% → 0.8% (-60%)
+    ...adWeek('z', 6, { imp: 1000, clk: 20 }), ...adWeek('z', 13, { imp: 1000, clk: 19 }),
+  ]
+  const p = fatigue(today, [camp('c')], [ad('x'), ad('y'), ad('z')], days, { x: 3.4, y: 1.2 }, new Set())
+  assert.equal(p.length, 1)
+  assert.equal(p[0].ad_id, 'y') // 빈도는 낮지만 절반 넘게 떨어짐 → 더 나쁨
+  assert.match(p[0].reason, /60% 떨어졌습니다/)
+  assert.ok(p[0].metrics.base_cpc != null)
+})
+
+test('소재 피로: 마지막 소재 · 이미 판단한 캠페인 · 빈도 낮고 덜 떨어진 소재는 그대로', () => {
+  const one = [...adWeek('x', 6, { imp: 1000, clk: 20 }), ...adWeek('x', 13, { imp: 1000, clk: 5 })]
+  assert.equal(fatigue(today, [camp('c')], [ad('x'), ad('w', 'c', 'PAUSED')], one, {}, new Set()).length, 0)
+  const two = [...one, ...adWeek('w', 6, { imp: 1000, clk: 20 }), ...adWeek('w', 13, { imp: 1000, clk: 20 })]
+  assert.equal(fatigue(today, [camp('c')], [ad('x'), ad('w')], two, {}, new Set(['c'])).length, 0)
+  const mild = [...adWeek('x', 6, { imp: 1000, clk: 20 }), ...adWeek('x', 13, { imp: 1000, clk: 13 }), ...adWeek('w', 6, { imp: 1000, clk: 20 }), ...adWeek('w', 13, { imp: 1000, clk: 20 })]
+  assert.equal(fatigue(today, [camp('c')], [ad('x'), ad('w')], mild, { x: 2 }, new Set()).length, 0) // -35% 지만 빈도 2
+})
+
+test('효과 확인: 7일이 지나야 · 늘림/줄임/멈춤 판정', () => {
+  const after = (cid: string, spend: number, leads: number, clicks = 100): InsightDay[] =>
+    Array.from({ length: 7 }, (_, i) => ({ date: `2026-11-${String(11 + i).padStart(2, '0')}`, campaign_id: cid, campaign_name: cid, impressions: 1000, clicks, spend, leads }))
+  // 11/10 실행 → 11/11~17 이 지나야 함 (오늘 11/20 이면 됨 · 11/15 면 아직)
+  assert.equal(evaluate('2026-11-15', { kind: 'scale_up', day: '2026-11-10', campaign_id: 'a', metrics: { cpl: 10000, leads: 5 } }, after('a', 10000, 1)), null)
+  const up = evaluate(today, { kind: 'scale_up', day: '2026-11-10', campaign_id: 'a', metrics: { cpl: 10000, leads: 5 } }, after('a', 10000, 1))! // 7만 / 7건 = 1만
+  assert.equal(up.verdict, '좋아짐')
+  const upBad = evaluate(today, { kind: 'scale_up', day: '2026-11-10', campaign_id: 'a', metrics: { cpl: 10000, leads: 5 } }, after('a', 20000, 0).map((d, i) => ({ ...d, leads: i < 4 ? 1 : 0 })))! // 14만 / 4 = 3.5만
+  assert.equal(upBad.verdict, '나빠짐')
+  const down = evaluate(today, { kind: 'scale_down', day: '2026-11-10', campaign_id: 'a', metrics: { cpl: 30000, leads: 2 } }, after('a', 4000, 0).map((d, i) => ({ ...d, leads: i < 2 ? 1 : 0 })))! // 2.8만 / 2 = 1.4만
+  assert.equal(down.verdict, '좋아짐')
+  // 캠페인 멈춤: 나머지 계정(b)의 문의당 비용이 기준 2만 → 1만 이면 좋아짐 · 아낀 돈 기록
+  const pause = evaluate(today, { kind: 'pause', day: '2026-11-10', campaign_id: 'a', metrics: { spend: 70000, base_cpl: 20000 } }, [...after('a', 0, 0), ...after('b', 10000, 1)])!
+  assert.equal(pause.verdict, '좋아짐')
+  assert.match(pause.note, /70,000원 아낌/)
+})
+
+import { ruleScorecard } from '../src/lib/adScorecard.ts'
+
+test('규칙 성적표: 실행한 것만 · 효과 확인한 것으로 성공률 · 4건 이상일 때만 제안', () => {
+  const up = (effect: '좋아짐' | '나빠짐' | '비슷' | null) => ({ kind: 'scale_up' as const, status: '실행', effect })
+  const s = ruleScorecard([up('좋아짐'), up('나빠짐'), up('나빠짐'), up('비슷'), up(null), { kind: 'scale_up', status: '제안', effect: null },
+    { kind: 'pause', ad_id: 'a1', status: '실행', effect: '좋아짐' }, { kind: 'pause', status: '실행', effect: '나빠짐' }])
+  const byKey = Object.fromEntries(s.map(r => [r.key, r]))
+  assert.equal(byKey.scale_up.executed, 5)
+  assert.equal(byKey.scale_up.checked, 4)
+  assert.equal(byKey.scale_up.rate, 0.25)
+  assert.match(byKey.scale_up.advice!, /엄격하게/)
+  assert.equal(byKey.pause_ad.good, 1)
+  assert.equal(byKey.pause.bad, 1)
+  assert.equal(byKey.pause.advice, null) // 1건뿐
+  const great = ruleScorecard([up('좋아짐'), up('좋아짐'), up('좋아짐'), up('비슷')])
+  assert.match(great[0].advice!, /키워도/)
+})

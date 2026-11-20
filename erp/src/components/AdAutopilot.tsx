@@ -9,6 +9,8 @@ import { KeyRound, OctagonX, Play, RefreshCw, ShieldCheck } from 'lucide-react'
 import { useApp, useAsync } from '../lib/app'
 import { dateTimeLabel } from '../lib/date'
 import { KIND_LABEL, MODE_HELP, MODE_LABEL, type AutopilotAction, type AutopilotMode, type AutopilotSettings, type AutopilotStatus, type MetaCampaignRow } from '../lib/adAutopilotApi'
+import { ruleScorecard } from '../lib/adScorecard'
+import { Link } from '../lib/router'
 import { ask } from './Ask'
 import { Button, SectionHead } from './ui'
 import './AdAutopilot.css'
@@ -40,6 +42,8 @@ export function AdAutopilot() {
   const history = actions.data.filter(a => a.status !== '제안')
   const capPct = st && st.settings.monthly_cap > 0 ? Math.min(100, Math.round((st.mtd_spend / st.settings.monthly_cap) * 100)) : null
   const connected = !!(st?.token && st.settings.meta_account_id)
+  const score = ruleScorecard(actions.data)
+  const scored = score.some(r => r.executed > 0)
 
   const save = () => form && run('save', async () => {
     if (form.mode === 'auto' && !(await ask('자동 실행으로 바꾸면 매일 아침 규칙과 한도 안에서 메타 캠페인을 바로 멈추거나 예산을 바꿉니다. 바꿀까요?'))) throw new Error('바꾸지 않았습니다.')
@@ -47,7 +51,7 @@ export function AdAutopilot() {
   }, '자동 운영 설정을 저장했습니다.')
   const kill = (on: boolean) => run('kill', () => api.autopilotKill(on), on ? '긴급 정지했습니다. 어떤 실행도 하지 않습니다.' : '긴급 정지를 풀었습니다.')
   const decide = (a: AutopilotAction, approve: boolean) => run(a.id, async () => {
-    if (approve && !(await ask(`${a.campaign_name}\n${KIND_LABEL[a.kind]}${a.kind === 'pause' ? '' : ` ${won(a.from_budget)} → ${won(a.to_budget)}`}\n메타에 바로 반영할까요?`))) throw new Error('반영하지 않았습니다.')
+    if (approve && !(await ask(`${a.campaign_name}${a.ad_name ? ` › ${a.ad_name}` : ''}\n${a.ad_id ? '소재 ' : ''}${KIND_LABEL[a.kind]}${a.kind === 'pause' ? '' : ` ${won(a.from_budget)} → ${won(a.to_budget)}`}\n메타에 바로 반영할까요?`))) throw new Error('반영하지 않았습니다.')
     const r = await api.autopilotDecide(a.id, approve)
     if (r.result) toast(r.result)
   }, approve ? undefined : '거절했습니다.')
@@ -59,7 +63,7 @@ export function AdAutopilot() {
         <div className="ap-band-main">
           <ShieldCheck size={16} aria-hidden="true" />
           <b>{st?.settings.kill_switch ? '긴급 정지 중' : `지금 모드: ${MODE_LABEL[st?.settings.mode ?? 'suggest']}`}</b>
-          <span className="tx-sub">{st?.info?.ran_at ? `마지막 판단 ${dateTimeLabel(st.info.ran_at)}${st.info.ok === false ? ` · 실패: ${st.info.error ?? ''}` : ` · 캠페인 ${st.info.campaigns ?? 0}개 · 제안 ${st.info.proposals ?? 0} · 실행 ${st.info.executed ?? 0}`}` : '아직 한 번도 판단하지 않았습니다. 매일 07:07 에 자동으로 합니다.'}</span>
+          <span className="tx-sub">{st?.info?.ran_at ? `마지막 판단 ${dateTimeLabel(st.info.ran_at)}${st.info.ok === false ? ` · 실패: ${st.info.error ?? ''}` : ` · 캠페인 ${st.info.campaigns ?? 0}개 · 소재 ${st.info.ads ?? 0}개 · 제안 ${st.info.proposals ?? 0} · 실행 ${st.info.executed ?? 0}${st.info.evaluated ? ` · 효과 확인 ${st.info.evaluated}` : ''}${st.info.ad_error ? ` · 소재 수치 실패: ${st.info.ad_error}` : ''}`}` : '아직 한 번도 판단하지 않았습니다. 매일 07:07 에 자동으로 합니다.'}</span>
         </div>
         <div className="ap-band-act">
           {connected && <Button kind="outline" size="sm" disabled={!!busy} onClick={() => void run('run', async () => { const r = await api.autopilotRun(); toast(r.skipped ?? `수치 ${r.saved_rows ?? 0}줄을 받고 제안 ${r.proposals ?? 0}건을 만들었습니다.`) })}><RefreshCw size={13} /> {busy === 'run' ? '받는 중…' : '지금 받고 판단'}</Button>}
@@ -82,6 +86,23 @@ export function AdAutopilot() {
           <ul className="ap-list">
             {waiting.map(a => <ActionCard key={a.id} a={a} busy={busy === a.id} canRun={st?.settings.mode === 'approve' || st?.settings.mode === 'auto'} killed={!!st?.settings.kill_switch} onDecide={approve => void decide(a, approve)} />)}
           </ul>
+        )}
+      </section>
+
+      {/* 규칙 성적표 — 실행 7일 뒤 효과 */}
+      <section className="ap-sec">
+        <SectionHead title="규칙 성적표" />
+        {!scored ? <p className="ap-note">실행한 뒤 7일이 지나면 규칙마다 '좋아짐 · 비슷 · 나빠짐'을 매겨 여기 모읍니다. 4건 넘게 쌓이면 기준을 어떻게 고칠지 제안합니다.</p> : (
+          <div className="ap-score">
+            {score.map(r => (
+              <div key={r.key} className="ap-score-card">
+                <div className="ap-score-top"><b>{r.label}</b><span className="tx-sub">실행 {r.executed} · 확인 {r.checked}</span></div>
+                <div className="ap-score-rate">{r.rate == null ? '–' : `${Math.round(r.rate * 100)}%`}<span className="tx-sub"> 좋아짐</span></div>
+                {r.checked > 0 && <div className="ap-score-bar" aria-label={`좋아짐 ${r.good} · 비슷 ${r.same} · 나빠짐 ${r.bad}`}><i className="g" style={{ flex: r.good }} /><i className="s" style={{ flex: r.same }} /><i className="b" style={{ flex: r.bad }} /></div>}
+                {r.advice && <p className="ap-score-advice">{r.advice}</p>}
+              </div>
+            ))}
+          </div>
         )}
       </section>
 
@@ -139,8 +160,8 @@ function ActionCard({ a, busy, canRun, killed, onDecide }: { a: AutopilotAction;
   return (
     <li className={`ap-card k-${a.kind} s-${a.status}`}>
       <div className="ap-card-top">
-        <span className="ap-kind">{KIND_LABEL[a.kind]}</span>
-        <b className="ap-camp">{a.campaign_name}</b>
+        <span className="ap-kind">{a.ad_id ? '소재 ' : ''}{KIND_LABEL[a.kind]}</span>
+        <b className="ap-camp">{a.campaign_name}{a.ad_name && <span className="ap-ad"> › {a.ad_name}</span>}</b>
         {a.kind !== 'pause' && <span className="ap-budget">{won(a.from_budget)} → {won(a.to_budget)}</span>}
         <span className={`ap-status s-${a.status}`}>{a.status}{a.auto && a.status === '실행' ? ' (자동)' : ''}</span>
       </div>
@@ -151,6 +172,8 @@ function ActionCard({ a, busy, canRun, killed, onDecide }: { a: AutopilotAction;
         <span>{a.day}</span>
       </div>
       {a.result && <p className="ap-result">{a.result}</p>}
+      {a.effect && <p className={`ap-effect e-${a.effect}`}><b>7일 뒤 효과: {a.effect}</b> {a.effect_note}</p>}
+      {a.ad_id && <div className="ap-card-act"><Link to="/ads?tab=studio" className="btn btn-outline btn-sm">새 소재 한 번에 만들기 ›</Link></div>}
       {onDecide && (
         <div className="ap-card-act">
           {canRun && !killed ? <Button size="sm" disabled={busy} onClick={() => onDecide(true)}><Play size={13} /> {busy ? '반영 중…' : '승인 · 메타에 반영'}</Button>

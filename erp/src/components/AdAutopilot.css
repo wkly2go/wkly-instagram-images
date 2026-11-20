@@ -52,3 +52,22 @@
 .ap-table th, .ap-table td { padding: 8px 10px; border-bottom: 1px solid var(--v8-line); text-align: left; white-space: nowrap; }
 .ap-table td:first-child { white-space: normal; }
 html[data-theme="dark"] :is(.ap-card, .ap-cap, .ap-mode, .ap-f input, .ap-token input) { background: #15291c; color: var(--ink); border-color: var(--line); }
+/* 2단계: 소재 · 효과 · 규칙 성적표 */
+.ap-ad { font-weight: 400; color: var(--tx-sub); }
+.ap-effect { margin: 0; padding: 6px 10px; border-radius: var(--v8-r-ctl); background: #f1efe9; }
+.ap-effect.e-좋아짐 { background: var(--v8-tint); color: var(--v8-green); }
+.ap-effect.e-나빠짐 { background: #fdecec; color: #b42318; }
+.ap-effect b { font-weight: 700; margin-right: 4px; }
+.ap-score { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; }
+.ap-score-card { padding: 12px 14px; border-radius: var(--v8-r-card); background: var(--v8-card); border: 1px solid var(--v8-line); display: flex; flex-direction: column; gap: 6px; }
+.ap-score-top { display: flex; justify-content: space-between; gap: 6px; flex-wrap: wrap; }
+.ap-score-top b { font-weight: 700; color: var(--v8-ink); }
+.ap-score-rate { font-size: var(--fs-title); font-weight: 800; color: var(--v8-ink); font-variant-numeric: tabular-nums; }
+.ap-score-rate .tx-sub { font-size: var(--fs-body); font-weight: 400; }
+.ap-score-bar { display: flex; gap: 2px; height: 8px; border-radius: 999px; overflow: hidden; background: #eeebe4; }
+.ap-score-bar i { display: block; min-width: 0; }
+.ap-score-bar .g { background: var(--v8-green); }
+.ap-score-bar .s { background: #c9c4b8; }
+.ap-score-bar .b { background: #b42318; }
+.ap-score-advice { margin: 0; padding: 6px 8px; border-radius: var(--v8-r-ctl); background: #fdf3df; color: #7a4a00; }
+html[data-theme="dark"] .ap-score-card { background: #15291c; border-color: var(--line); color: var(--ink); }
