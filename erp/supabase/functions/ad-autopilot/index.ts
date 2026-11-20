@@ -1,0 +1,250 @@
+// 광고 자동 운영 서버 함수 (2026-11-20 · DB 20261120210000_ad_autopilot)
+//  - 예약(x-sync-key = 금고 GDRIVE_SYNC_KEY): tick — 메타 수치 받기 → 규칙 판단 → (자동 모드면) 실행 → 대표에게 정리 알림
+//  - 관리자(로그인): run(지금 받기 · 판단 · 알림 없음) · decide(제안 승인 → 실행 / 거절) · check(열쇠 · 계정 확인만)
+//  - 규칙은 rules.ts (AI 없음 · 시험 tests/ad-autopilot.test.ts). 메타 쓰기는 캠페인 '멈춤'과 '하루 예산 변경' 두 가지뿐.
+//  - 실행 직전에 메타의 지금 예산 · 상태를 다시 읽어 제안 때와 다르면 실행하지 않음(다른 사람이 바꾼 것을 덮지 않음).
+import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2.117.3'
+import { canExecute, judge, KIND_LABEL, leadsOf, type AutopilotSettings, type InsightDay, type MetaCampaign, type Proposal } from './rules.ts'
+
+const URL_ = Deno.env.get('SUPABASE_URL')!
+const ANON = Deno.env.get('SUPABASE_ANON_KEY')!
+const SERVICE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+const sb = createClient(URL_, SERVICE, { auth: { persistSession: false, autoRefreshToken: false } })
+const GRAPH = 'https://graph.facebook.com/v21.0'
+const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type', 'Access-Control-Allow-Methods': 'POST, OPTIONS' }
+const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...CORS, 'Content-Type': 'application/json' } })
+class Fail extends Error { constructor(msg: string, public status = 400) { super(msg) } }
+
+type Settings = AutopilotSettings & { meta_account_id: string | null }
+const kstToday = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10)
+const addDays = (key: string, n: number) => { const d = new Date(`${key}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10) }
+
+async function settings(): Promise<Settings> {
+  const { data, error } = await sb.from('ad_autopilot_settings').select('*').eq('id', 1).single()
+  if (error || !data) throw new Fail('자동 운영 설정을 읽지 못했습니다.', 500)
+  return data as Settings
+}
+async function token(): Promise<string> {
+  const { data } = await sb.rpc('ad_meta_token_get')
+  if (typeof data !== 'string' || !data) throw new Fail('메타 광고 열쇠가 아직 없습니다. 광고·콘텐츠 › 광고 운영팀 › 자동 운영에서 넣어 주세요.', 409)
+  return data
+}
+
+/** 메타 그래프 API (읽기 GET · 쓰기 POST) — 오류는 메타가 준 문장 그대로 */
+async function meta<T>(tk: string, path: string, params: Record<string, string> = {}, method: 'GET' | 'POST' = 'GET'): Promise<T> {
+  const qs = new URLSearchParams(params)
+  const url = path.startsWith('http') ? path : `${GRAPH}/${path}`
+  const r = method === 'GET'
+    ? await fetch(`${url}${url.includes('?') ? '&' : '?'}${qs}`, { headers: { Authorization: `Bearer ${tk}` } })
+    : await fetch(url, { method: 'POST', headers: { Authorization: `Bearer ${tk}`, 'Content-Type': 'application/x-www-form-urlencoded' }, body: qs })
+  const j = await r.json().catch(() => ({})) as { error?: { message?: string; code?: number } }
+  if (!r.ok || j.error) {
+    const m = j.error?.message ?? `HTTP ${r.status}`
+    if (j.error?.code === 190) throw new Fail(`메타 열쇠가 만료됐거나 맞지 않습니다: ${m}`, 401)
+    if (j.error?.code === 17 || j.error?.code === 4 || r.status === 429) throw new Fail(`메타 요청 한도에 걸렸습니다. 잠시 뒤 다시 해 주세요: ${m}`, 429)
+    throw new Fail(`메타 응답 오류: ${m}`, 502)
+  }
+  return j as T
+}
+/** 쪽 넘김을 따라 모두 받기 (최대 10쪽) */
+async function metaAll<T>(tk: string, path: string, params: Record<string, string>): Promise<T[]> {
+  const out: T[] = []
+  let page = await meta<{ data?: T[]; paging?: { next?: string } }>(tk, path, params)
+  for (let i = 0; i < 10; i++) {
+    out.push(...(page.data ?? []))
+    if (!page.paging?.next) break
+    page = await meta(tk, page.paging.next)
+  }
+  return out
+}
+
+interface RawCampaign { id: string; name: string; status: string; effective_status?: string; objective?: string; daily_budget?: string; lifetime_budget?: string }
+interface RawInsight { date_start: string; campaign_id: string; campaign_name: string; impressions?: string; clicks?: string; spend?: string; actions?: { action_type?: string; value?: string }[] }
+const intOrNull = (v: string | undefined) => (v == null || v === '' ? null : Math.round(Number(v)))
+
+/** 받기: 캠페인 목록 · 지난 14일 일별 수치(어제까지) · 이번 달 광고비 → ad_meta_campaigns · ad_daily(Meta) */
+async function sync(tk: string, acct: string, today: string) {
+  const raw = await metaAll<RawCampaign>(tk, `act_${acct}/campaigns`, { fields: 'id,name,status,effective_status,objective,daily_budget,lifetime_budget', limit: '200' })
+  const campaigns: MetaCampaign[] = raw.map(c => ({ id: c.id, name: c.name, status: c.status, daily_budget: intOrNull(c.daily_budget) }))
+  if (raw.length) {
+    const up = await sb.from('ad_meta_campaigns').upsert(raw.map(c => ({ id: c.id, name: c.name.slice(0, 300), status: c.status, effective_status: c.effective_status ?? null, objective: c.objective ?? null, daily_budget: intOrNull(c.daily_budget), lifetime_budget: intOrNull(c.lifetime_budget), synced_at: new Date().toISOString() })))
+    if (up.error) throw new Fail(`캠페인 저장 실패: ${up.error.message}`, 500)
+  }
+  const since = addDays(today, -14), until = addDays(today, -1)
+  const ins = await metaAll<RawInsight>(tk, `act_${acct}/insights`, {
+    level: 'campaign', time_increment: '1', limit: '500',
+    time_range: JSON.stringify({ since, until }),
+    fields: 'campaign_id,campaign_name,impressions,clicks,spend,actions',
+  })
+  const days: InsightDay[] = ins.map(r => ({
+    date: r.date_start, campaign_id: r.campaign_id, campaign_name: r.campaign_name,
+    impressions: Number(r.impressions ?? 0), clicks: Number(r.clicks ?? 0), spend: Math.round(Number(r.spend ?? 0)), leads: leadsOf(r.actions),
+  }))
+  // ad_daily 는 (날짜 · 매체 · 캠페인 이름) 이 열쇠 — 같은 이름 캠페인이 둘이면 합침
+  const rows = new Map<string, { date: string; platform: string; campaign: string; impressions: number; clicks: number; cost: number; conversions: number; note: string; updated_at: string }>()
+  for (const d of days) {
+    const k = `${d.date}|${d.campaign_name}`
+    const x = rows.get(k) ?? { date: d.date, platform: 'Meta', campaign: d.campaign_name.slice(0, 300), impressions: 0, clicks: 0, cost: 0, conversions: 0, note: `meta:${d.campaign_id} · 자동 받기`, updated_at: new Date().toISOString() }
+    x.impressions += d.impressions; x.clicks += d.clicks; x.cost += d.spend; x.conversions += d.leads
+    rows.set(k, x)
+  }
+  if (rows.size) {
+    const up = await sb.from('ad_daily').upsert([...rows.values()], { onConflict: 'date,platform,campaign' })
+    if (up.error) throw new Fail(`수치 저장 실패: ${up.error.message}`, 500)
+  }
+  // 이번 달 쓴 돈 (오늘 포함 · 메타 기준)
+  const month = await meta<{ data?: { spend?: string }[] }>(tk, `act_${acct}/insights`, { fields: 'spend', date_preset: 'this_month' })
+  const mtd = Math.round(Number(month.data?.[0]?.spend ?? 0))
+  return { campaigns, days, mtd, saved: rows.size }
+}
+
+/** 한 건 실행: 메타의 지금 값을 다시 읽어 제안 때와 같을 때만 */
+async function execute(tk: string, a: { id: string; campaign_id: string; kind: string; from_budget: number | null; to_budget: number | null }): Promise<{ ok: boolean; result: string }> {
+  const now = await meta<{ status?: string; daily_budget?: string }>(tk, a.campaign_id, { fields: 'status,daily_budget' })
+  if (now.status !== 'ACTIVE') return { ok: false, result: `캠페인이 이미 '${now.status}' 상태라 실행하지 않았습니다.` }
+  if (a.kind === 'pause') {
+    await meta(tk, a.campaign_id, { status: 'PAUSED' }, 'POST')
+    return { ok: true, result: '메타에서 캠페인을 멈췄습니다.' }
+  }
+  const cur = intOrNull(now.daily_budget)
+  if (cur == null || cur !== a.from_budget) return { ok: false, result: `제안 뒤 하루 예산이 바뀌어(${cur ?? '없음'}) 실행하지 않았습니다. 내일 다시 판단합니다.` }
+  if (!a.to_budget || a.to_budget <= 0) return { ok: false, result: '바꿀 예산이 없습니다.' }
+  await meta(tk, a.campaign_id, { daily_budget: String(a.to_budget) }, 'POST')
+  return { ok: true, result: `메타에서 하루 예산을 ${a.from_budget!.toLocaleString('ko-KR')}원 → ${a.to_budget.toLocaleString('ko-KR')}원으로 바꿨습니다.` }
+}
+
+async function record(status: string, a: { id: string }, r: { ok: boolean; result: string }, by: string | null) {
+  await sb.from('ad_autopilot_actions').update({
+    status: r.ok ? '실행' : status, result: r.result.slice(0, 500), executed_at: r.ok ? new Date().toISOString() : null,
+    decided_by: by, decided_at: by ? new Date().toISOString() : null,
+  }).eq('id', a.id)
+}
+
+/** 받기 → 판단 → 기록 → (자동이면) 실행 */
+async function run(auto: boolean) {
+  const s = await settings()
+  if (s.mode === 'off') return { skipped: '자동 운영이 꺼져 있습니다.' }
+  if (!s.meta_account_id) throw new Fail('메타 광고 계정 번호를 먼저 넣어 주세요.', 409)
+  const tk = await token()
+  const today = kstToday()
+  // 지난 제안은 만료 (어제 이전 · 아직 결정 안 된 것)
+  await sb.from('ad_autopilot_actions').update({ status: '만료', result: '하루가 지나 다시 판단합니다.' }).eq('status', '제안').lt('day', today)
+  const { campaigns, days, mtd, saved } = await sync(tk, s.meta_account_id, today)
+  const proposals = judge(today, campaigns, days, s, mtd)
+  // 오늘 이미 판단한 캠페인은 건너뜀 (한 캠페인 하루 한 가지)
+  const { data: done } = await sb.from('ad_autopilot_actions').select('campaign_id').eq('day', today)
+  const seen = new Set((done ?? []).map(r => r.campaign_id as string))
+  const fresh = proposals.filter(p => !seen.has(p.campaign_id))
+  let executed = 0, failed = 0
+  const lines: string[] = []
+  for (const p of fresh) {
+    const ins = await sb.from('ad_autopilot_actions').insert({
+      day: today, campaign_id: p.campaign_id, campaign_name: p.campaign_name.slice(0, 300), kind: p.kind,
+      from_budget: p.from_budget, to_budget: p.to_budget, reason: p.reason.slice(0, 1000), metrics: p.metrics, auto: s.mode === 'auto',
+    }).select('id').single()
+    if (ins.error) continue
+    let tag = '제안'
+    if (auto && canExecute(s, false)) {
+      try {
+        const r = await execute(tk, { id: ins.data.id, ...p })
+        await record('실패', ins.data, r, null)
+        if (r.ok) { executed++; tag = '실행' } else { failed++; tag = '실행 안 함' }
+      } catch (e) {
+        failed++; tag = '실패'
+        await record('실패', ins.data, { ok: false, result: e instanceof Error ? e.message : '실행 실패' }, null)
+      }
+    }
+    lines.push(`· [${tag}] ${KIND_LABEL[p.kind]} — ${p.campaign_name}: ${p.reason}`)
+  }
+  const info = { ran_at: new Date().toISOString(), ok: true, error: null, saved_rows: saved, campaigns: campaigns.length, active: campaigns.filter(c => c.status === 'ACTIVE').length, proposals: fresh.length, executed, failed, mtd_spend: mtd }
+  await sb.from('app_settings').upsert({ key: 'ad_autopilot_info', value: info, updated_at: new Date().toISOString() })
+  return { ...info, lines, mode: s.mode, kill: s.kill_switch }
+}
+
+/** 대표에게 하루 한 번 정리 (제목에 금액 없음) */
+async function notifyCeo(title: string, body: string) {
+  const { data: ceo } = await sb.from('profiles').select('id').eq('active', true).eq('is_agent', false).eq('role', 'admin').eq('title', '대표')
+  const since = new Date(Date.now() - 20 * 3600_000).toISOString()
+  for (const p of ceo ?? []) {
+    const { count } = await sb.from('notifications').select('id', { count: 'exact', head: true }).eq('user_id', p.id).eq('title', title).gt('created_at', since)
+    if (count) continue
+    await sb.from('notifications').insert({ user_id: p.id, kind: 'system', title, body: body.slice(0, 3000), link: '/ads?tab=autopilot' })
+  }
+}
+
+async function admin(authorization: string | null): Promise<string> {
+  if (!authorization) throw new Fail('로그인이 필요합니다.', 401)
+  const c: SupabaseClient = createClient(URL_, ANON, { global: { headers: { Authorization: authorization } }, auth: { persistSession: false, autoRefreshToken: false } })
+  const { data: { user } } = await c.auth.getUser()
+  if (!user) throw new Fail('로그인이 필요합니다.', 401)
+  const p = await sb.from('profiles').select('active,role,is_agent').eq('id', user.id).single()
+  if (!p.data?.active || p.data.is_agent || p.data.role !== 'admin') throw new Fail('관리자만 쓸 수 있습니다.', 403)
+  return user.id
+}
+
+Deno.serve(async req => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
+  if (req.method !== 'POST') return json({ error: 'POST 요청만 받습니다.' }, 405)
+  try {
+    const body = await req.json().catch(() => ({})) as Record<string, unknown>
+    const action = String(body.action ?? '')
+    if (action === 'tick') {
+      const { data: want } = await sb.rpc('gdrive_secret_get', { p_name: 'GDRIVE_SYNC_KEY' })
+      if (!want || req.headers.get('x-sync-key') !== want) return json({ error: '열쇠가 맞지 않습니다.' }, 403)
+      try {
+        const r = await run(true)
+        if ('skipped' in r) return json(r)
+        const modeLabel = r.kill ? '긴급 정지 중 — 실행 없음' : r.mode === 'auto' ? '자동 실행' : r.mode === 'approve' ? '승인 뒤 실행' : '제안만'
+        if (r.proposals || r.failed) {
+          await notifyCeo(`[광고 자동 운영] 오늘 판단 ${r.proposals}건 · 실행 ${r.executed}건`,
+            `모드: ${modeLabel}\n켜진 캠페인 ${r.active}개 · 받은 수치 ${r.saved_rows}줄\n\n${r.lines.join('\n')}\n\n${r.mode === 'approve' && !r.kill ? '광고·콘텐츠 › 광고 운영팀 › 자동 운영에서 승인하면 메타에 바로 반영됩니다.' : ''}`)
+        }
+        return json(r)
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : '실패'
+        await sb.from('app_settings').upsert({ key: 'ad_autopilot_info', value: { ran_at: new Date().toISOString(), ok: false, error: msg.slice(0, 300) }, updated_at: new Date().toISOString() })
+        await notifyCeo('[광고 자동 운영] 오늘 수치를 받지 못했습니다', `사유: ${msg}\n광고·콘텐츠 › 광고 운영팀 › 자동 운영에서 열쇠 · 계정 번호를 확인해 주세요.`)
+        return json({ error: msg }, 200)
+      }
+    }
+    const me = await admin(req.headers.get('authorization'))
+    if (action === 'check') {
+      const s = await settings()
+      if (!s.meta_account_id) throw new Fail('메타 광고 계정 번호를 먼저 넣어 주세요.', 409)
+      const a = await meta<{ name?: string; currency?: string; account_status?: number; timezone_name?: string }>(await token(), `act_${s.meta_account_id}`, { fields: 'name,currency,account_status,timezone_name' })
+      return json({ ok: true, name: a.name ?? '', currency: a.currency ?? '', status: a.account_status ?? null, timezone: a.timezone_name ?? '' })
+    }
+    if (action === 'run') return json(await run(false))
+    if (action === 'decide') {
+      const id = String(body.id ?? '')
+      const approve = body.approve === true
+      const { data: a } = await sb.from('ad_autopilot_actions').select('id,campaign_id,kind,from_budget,to_budget,status,day').eq('id', id).single()
+      if (!a) throw new Fail('제안을 찾지 못했습니다.', 404)
+      if (a.status !== '제안') throw new Fail(`이미 '${a.status}' 처리된 제안입니다.`, 409)
+      if (!approve) {
+        await sb.from('ad_autopilot_actions').update({ status: '거절', decided_by: me, decided_at: new Date().toISOString() }).eq('id', id)
+        return json({ ok: true, status: '거절' })
+      }
+      const s = await settings()
+      if (s.kill_switch) throw new Fail('긴급 정지 중이라 실행하지 않습니다. 정지를 풀고 다시 승인해 주세요.', 409)
+      if (s.mode === 'suggest' || s.mode === 'off') throw new Fail("지금 모드는 '제안만'이라 메타에 반영하지 않습니다. 모드를 '승인 뒤 실행'으로 바꿔 주세요.", 409)
+      if (a.day !== kstToday()) throw new Fail('어제 이전 제안이라 실행하지 않습니다. 오늘 판단을 기다려 주세요.', 409)
+      try {
+        const r = await execute(await token(), a)
+        await record('실패', a, r, me)
+        return json({ ok: r.ok, status: r.ok ? '실행' : '실패', result: r.result })
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : '실행 실패'
+        await record('실패', a, { ok: false, result: msg }, me)
+        throw e
+      }
+    }
+    throw new Fail('알 수 없는 요청입니다.')
+  } catch (e) {
+    if (e instanceof Fail) return json({ error: e.message }, e.status)
+    console.error(e)
+    return json({ error: '서버 오류가 났습니다.' }, 500)
+  }
+})
+
+export type { Proposal }
