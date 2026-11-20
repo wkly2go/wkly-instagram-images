@@ -28,7 +28,7 @@ export default function Gov() {
         <div className="design-page gov">
           <header className="design-head">
             <h1 className="t-title">정부지원사업 · 투자유치</h1>
-            <p className="t-cap">매일 아침 공공데이터에서 모집 중인 지원사업 · 투자유치 공고를 받아 회사별로 맞는지 판정합니다. 판정은 참고용이며, 신청 자격은 공고 원문으로 확인해 주세요. 신청 · 제출은 각 기관 누리집에서 직접 합니다.</p>
+            <p className="t-cap">매일 아침 공공데이터(K-Startup · 기업마당)에서 모집 중인 지원사업 · 투자유치 공고를 받아 회사별로 맞는지 판정합니다. 판정은 참고용이며, 신청 자격은 공고 원문으로 확인해 주세요. 신청 · 제출은 각 기관 누리집에서 직접 합니다.</p>
           </header>
           <div className="row wrap gov-views" role="tablist" aria-label="보기">
             <button type="button" role="tab" aria-selected={view === 'list'} className={`chip${view === 'list' ? ' active' : ''}`} onClick={() => setView('list')}>공고</button>
@@ -166,7 +166,7 @@ function Detail({ p, short, companies }: { p: GovProgram; short: (k: string) => 
         <dt>접수</dt><dd>{p.apply_start ? shortDate(p.apply_start) : '?'} ~ {p.apply_end ? shortDate(p.apply_end) : '상시'}{p.contact ? ` · 문의 ${p.contact}` : ''}</dd>
       </dl>
       <div className="row wrap">
-        {p.detail_url && <a className="btn btn-outline btn-sm" href={p.detail_url} target="_blank" rel="noreferrer"><ExternalLink size={13} /> 공고 원문</a>}
+        {p.detail_url && <a className="btn btn-outline btn-sm" href={p.detail_url} target="_blank" rel="noreferrer"><ExternalLink size={13} /> 공고 원문 ({p.source === 'bizinfo' ? '기업마당' : p.source === 'kstartup' ? 'K-Startup' : p.source})</a>}
         {p.apply_url && /^https?:\/\//.test(p.apply_url) && <a className="btn btn-outline btn-sm" href={p.apply_url} target="_blank" rel="noreferrer"><ExternalLink size={13} /> 신청 누리집</a>}
         <select className="select gov-owner" value={p.owner_id ?? ''} disabled={busy} aria-label="담당자" onChange={e => void run(async () => { await api.updateGovProgram(p.id, { owner_id: e.target.value || null }); bump() }, '담당자를 바꿨습니다')}>
           <option value="">담당자 없음</option>
