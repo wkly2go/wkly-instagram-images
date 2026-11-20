@@ -16,13 +16,17 @@ export interface AutopilotSettings {
   meta_account_id: string | null
   updated_at?: string
 }
-export interface AutopilotInfo { ran_at?: string; ok?: boolean; error?: string | null; saved_rows?: number; campaigns?: number; active?: number; proposals?: number; executed?: number; failed?: number; mtd_spend?: number }
+export interface AutopilotInfo { ads?: number; evaluated?: number; ad_error?: string | null; ran_at?: string; ok?: boolean; error?: string | null; saved_rows?: number; campaigns?: number; active?: number; proposals?: number; executed?: number; failed?: number; mtd_spend?: number }
 export interface AutopilotStatus { settings: AutopilotSettings; token: boolean; info: AutopilotInfo | null; mtd_spend: number; waiting: number }
 export interface AutopilotAction {
   id: string; created_at: string; day: string; campaign_id: string; campaign_name: string
   kind: 'pause' | 'scale_up' | 'scale_down'; from_budget: number | null; to_budget: number | null
   reason: string; metrics: { spend?: number; impressions?: number; clicks?: number; leads?: number; ctr?: number | null; cpc?: number | null; cpl?: number | null; prev_spend?: number; prev_leads?: number }
   status: '제안' | '실행' | '거절' | '실패' | '만료'; auto: boolean; decided_at: string | null; executed_at: string | null; result: string | null
+  /** 소재 멈춤이면 그 소재 */
+  ad_id?: string | null; ad_name?: string | null
+  /** 실행 7일 뒤 효과 */
+  effect?: '좋아짐' | '나빠짐' | '비슷' | null; effect_note?: string | null
 }
 export interface MetaCampaignRow { id: string; name: string; status: string; effective_status: string | null; objective: string | null; daily_budget: number | null; lifetime_budget: number | null; synced_at: string }
 
@@ -70,7 +74,7 @@ export function createSupabaseAdAutopilotApi(sb: SupabaseClient): AdAutopilotApi
     async autopilotKill(on) { await rpc('ad_autopilot_kill', { p_on: on }) },
     async setMetaAdsToken(value) { await rpc('ad_meta_token_set', { p_value: value }) },
     async autopilotActions() {
-      const r = await sb.from('ad_autopilot_actions').select('id,created_at,day,campaign_id,campaign_name,kind,from_budget,to_budget,reason,metrics,status,auto,decided_at,executed_at,result').order('created_at', { ascending: false }).limit(60)
+      const r = await sb.from('ad_autopilot_actions').select('id,created_at,day,campaign_id,campaign_name,kind,from_budget,to_budget,reason,metrics,status,auto,decided_at,executed_at,result,ad_id,ad_name,effect,effect_note').order('created_at', { ascending: false }).limit(60)
       if (r.error) throw new ApiError(r.error.message)
       return (r.data ?? []) as AutopilotAction[]
     },
@@ -92,7 +96,8 @@ export function createDemoAdAutopilotApi(): AdAutopilotApi {
   const sample: AutopilotAction[] = harness ? [
     { id: 'h1', created_at: new Date().toISOString(), day: '2026-11-20', campaign_id: '1', campaign_name: '[시험] 성수 대관 리드', kind: 'pause', from_budget: 20000, to_budget: null, reason: '7일 동안 63,000원 (목표 문의당 비용의 2배 이상)를 썼는데 문의가 없습니다.', metrics: { spend: 63000, impressions: 9100, clicks: 88, leads: 0, ctr: 0.97, cpc: 716, cpl: null }, status: '제안', auto: false, decided_at: null, executed_at: null, result: null },
     { id: 'h2', created_at: new Date().toISOString(), day: '2026-11-20', campaign_id: '2', campaign_name: '[시험] 연말 팝업 문의', kind: 'scale_up', from_budget: 20000, to_budget: 24000, reason: '문의 6건 · 문의당 비용 14,500원이 목표 25,000원보다 20% 이상 낮습니다. 하루 예산을 20% 늘립니다 (하루 합계 44,000원 · 한도 60,000원).', metrics: { spend: 87000, impressions: 15200, clicks: 240, leads: 6, ctr: 1.58, cpc: 362, cpl: 14500 }, status: '제안', auto: false, decided_at: null, executed_at: null, result: null },
-    { id: 'h3', created_at: new Date(Date.now() - 86400000).toISOString(), day: '2026-11-19', campaign_id: '3', campaign_name: '[시험] 아트리어 포트폴리오', kind: 'scale_down', from_budget: 15000, to_budget: 12000, reason: '문의당 비용 34,000원이 목표 25,000원보다 30% 이상 높아 하루 예산을 20% 줄입니다.', metrics: { spend: 68000, impressions: 12000, clicks: 130, leads: 2, ctr: 1.08, cpc: 523, cpl: 34000 }, status: '실행', auto: true, decided_at: null, executed_at: new Date(Date.now() - 86000000).toISOString(), result: '메타에서 하루 예산을 15,000원 → 12,000원으로 바꿨습니다.' },
+    { id: 'h4', created_at: new Date().toISOString(), day: '2026-11-20', campaign_id: '4', campaign_name: '[시험] 매거진 구독', kind: 'pause', from_budget: null, to_budget: null, ad_id: 'ad9', ad_name: '카드뉴스 A안', reason: '소재 피로: 클릭률이 앞 주보다 46% 떨어졌습니다 (한 사람에게 7일 평균 3.8번 노출). 같은 캠페인의 다른 소재 2개는 그대로 돕니다. 새 소재는 \'한 번에 만들기\'로 채워 주세요.', metrics: { spend: 41000, impressions: 8800, clicks: 61, leads: 1, ctr: 0.69, cpc: 672, cpl: 41000 }, status: '제안', auto: false, decided_at: null, executed_at: null, result: null },
+    { id: 'h3', created_at: new Date(Date.now() - 86400000).toISOString(), day: '2026-11-19', campaign_id: '3', campaign_name: '[시험] 아트리어 포트폴리오', kind: 'scale_down', from_budget: 15000, to_budget: 12000, reason: '문의당 비용 34,000원이 목표 25,000원보다 30% 이상 높아 하루 예산을 20% 줄입니다.', metrics: { spend: 68000, impressions: 12000, clicks: 130, leads: 2, ctr: 1.08, cpc: 523, cpl: 34000 }, status: '실행', auto: true, decided_at: null, executed_at: new Date(Date.now() - 86000000).toISOString(), result: '메타에서 하루 예산을 15,000원 → 12,000원으로 바꿨습니다.', effect: '좋아짐', effect_note: '문의당 비용 34,000원 → 22,600원 (-34%) · 문의 2 → 3건.' },
   ] : []
   return {
     async autopilotStatus() { return { settings: s, token: harness, info: harness ? { ran_at: new Date().toISOString(), ok: true, saved_rows: 42, campaigns: 5, active: 3, proposals: 2, executed: 0 } : null, mtd_spend: harness ? 812_000 : 0, waiting: sample.filter(a => a.status === '제안').length } },

@@ -1,10 +1,11 @@
 // 광고 자동 운영 서버 함수 (2026-11-20 · DB 20261120210000_ad_autopilot)
 //  - 예약(x-sync-key = 금고 GDRIVE_SYNC_KEY): tick — 메타 수치 받기 → 규칙 판단 → (자동 모드면) 실행 → 대표에게 정리 알림
 //  - 관리자(로그인): run(지금 받기 · 판단 · 알림 없음) · decide(제안 승인 → 실행 / 거절) · check(열쇠 · 계정 확인만)
-//  - 규칙은 rules.ts (AI 없음 · 시험 tests/ad-autopilot.test.ts). 메타 쓰기는 캠페인 '멈춤'과 '하루 예산 변경' 두 가지뿐.
+//  - 규칙은 rules.ts (AI 없음 · 시험 tests/ad-autopilot.test.ts). 메타 쓰기는 캠페인 · 소재 '멈춤'과 캠페인 '하루 예산 변경'뿐.
 //  - 실행 직전에 메타의 지금 예산 · 상태를 다시 읽어 제안 때와 다르면 실행하지 않음(다른 사람이 바꾼 것을 덮지 않음).
+//  - 2단계: 소재(광고) 피로 멈춤(마지막 소재는 안 멈춤) · 실행 7일 뒤 효과 확인(effect) → 화면 '규칙 성적표'.
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2.117.3'
-import { canExecute, judge, KIND_LABEL, leadsOf, type AutopilotSettings, type InsightDay, type MetaCampaign, type Proposal } from './rules.ts'
+import { canExecute, evaluate, fatigue, judge, KIND_LABEL, leadsOf, type AdDay, type AutopilotSettings, type InsightDay, type MetaAd, type MetaCampaign, type Proposal } from './rules.ts'
 
 const URL_ = Deno.env.get('SUPABASE_URL')!
 const ANON = Deno.env.get('SUPABASE_ANON_KEY')!
@@ -60,6 +61,8 @@ async function metaAll<T>(tk: string, path: string, params: Record<string, strin
 
 interface RawCampaign { id: string; name: string; status: string; effective_status?: string; objective?: string; daily_budget?: string; lifetime_budget?: string }
 interface RawInsight { date_start: string; campaign_id: string; campaign_name: string; impressions?: string; clicks?: string; spend?: string; actions?: { action_type?: string; value?: string }[] }
+interface RawAd { id: string; name: string; campaign_id: string; status: string; effective_status?: string; creative?: { thumbnail_url?: string } }
+interface RawAdInsight { date_start: string; ad_id: string; impressions?: string; clicks?: string; spend?: string; frequency?: string; actions?: { action_type?: string; value?: string }[] }
 const intOrNull = (v: string | undefined) => (v == null || v === '' ? null : Math.round(Number(v)))
 
 /** 받기: 캠페인 목록 · 지난 14일 일별 수치(어제까지) · 이번 달 광고비 → ad_meta_campaigns · ad_daily(Meta) */
@@ -95,11 +98,31 @@ async function sync(tk: string, acct: string, today: string) {
   // 이번 달 쓴 돈 (오늘 포함 · 메타 기준)
   const month = await meta<{ data?: { spend?: string }[] }>(tk, `act_${acct}/insights`, { fields: 'spend', date_preset: 'this_month' })
   const mtd = Math.round(Number(month.data?.[0]?.spend ?? 0))
-  return { campaigns, days, mtd, saved: rows.size }
+  // 소재(광고) 목록 · 일별 수치 · 지난 7일 빈도 (소재 피로 판단용 · 실패해도 캠페인 판단은 이어감)
+  let ads: MetaAd[] = [], adDays: AdDay[] = [], freq: Record<string, number> = {}, adError: string | null = null
+  try {
+    const rawAds = await metaAll<RawAd>(tk, `act_${acct}/ads`, { fields: 'id,name,campaign_id,status,effective_status,creative{thumbnail_url}', limit: '300' })
+    ads = rawAds.map(a => ({ id: a.id, name: a.name, campaign_id: a.campaign_id, status: a.status }))
+    if (rawAds.length) await sb.from('ad_meta_ads').upsert(rawAds.map(a => ({ id: a.id, campaign_id: a.campaign_id, name: a.name.slice(0, 300), status: a.status, effective_status: a.effective_status ?? null, thumbnail_url: a.creative?.thumbnail_url ?? null, synced_at: new Date().toISOString() })))
+    const adIns = await metaAll<RawAdInsight>(tk, `act_${acct}/insights`, { level: 'ad', time_increment: '1', limit: '500', time_range: JSON.stringify({ since, until }), fields: 'ad_id,impressions,clicks,spend,actions' })
+    adDays = adIns.map(r => ({ date: r.date_start, ad_id: r.ad_id, impressions: Number(r.impressions ?? 0), clicks: Number(r.clicks ?? 0), spend: Math.round(Number(r.spend ?? 0)), leads: leadsOf(r.actions) }))
+    const week = await metaAll<RawAdInsight>(tk, `act_${acct}/insights`, { level: 'ad', limit: '500', time_range: JSON.stringify({ since: addDays(today, -7), until }), fields: 'ad_id,frequency' })
+    for (const r of week) if (r.frequency) freq[r.ad_id] = Number(r.frequency)
+  } catch (e) { adError = e instanceof Error ? e.message.slice(0, 200) : '소재 수치 실패' }
+  return { campaigns, days, mtd, saved: rows.size, ads, adDays, freq, adError }
 }
 
 /** 한 건 실행: 메타의 지금 값을 다시 읽어 제안 때와 같을 때만 */
-async function execute(tk: string, a: { id: string; campaign_id: string; kind: string; from_budget: number | null; to_budget: number | null }): Promise<{ ok: boolean; result: string }> {
+async function execute(tk: string, a: { id: string; campaign_id: string; kind: string; from_budget: number | null; to_budget: number | null; ad_id?: string | null }): Promise<{ ok: boolean; result: string }> {
+  if (a.ad_id) {
+    // 소재 멈춤: 그 소재가 켜져 있고, 같은 캠페인에 켜진 소재가 하나 더 있을 때만 (마지막 소재는 멈추지 않음)
+    const ad = await meta<{ status?: string }>(tk, a.ad_id, { fields: 'status' })
+    if (ad.status !== 'ACTIVE') return { ok: false, result: `소재가 이미 '${ad.status}' 상태라 실행하지 않았습니다.` }
+    const sib = await metaAll<{ id: string; status: string }>(tk, `${a.campaign_id}/ads`, { fields: 'id,status', limit: '200' })
+    if (sib.filter(x => x.status === 'ACTIVE' && x.id !== a.ad_id).length < 1) return { ok: false, result: '캠페인에 켜진 소재가 이것 하나뿐이라 멈추지 않았습니다. 새 소재를 먼저 넣어 주세요.' }
+    await meta(tk, a.ad_id, { status: 'PAUSED' }, 'POST')
+    return { ok: true, result: '메타에서 이 소재를 멈췄습니다. 캠페인의 다른 소재는 그대로 돕니다.' }
+  }
   const now = await meta<{ status?: string; daily_budget?: string }>(tk, a.campaign_id, { fields: 'status,daily_budget' })
   if (now.status !== 'ACTIVE') return { ok: false, result: `캠페인이 이미 '${now.status}' 상태라 실행하지 않았습니다.` }
   if (a.kind === 'pause') {
@@ -129,18 +152,32 @@ async function run(auto: boolean) {
   const today = kstToday()
   // 지난 제안은 만료 (어제 이전 · 아직 결정 안 된 것)
   await sb.from('ad_autopilot_actions').update({ status: '만료', result: '하루가 지나 다시 판단합니다.' }).eq('status', '제안').lt('day', today)
-  const { campaigns, days, mtd, saved } = await sync(tk, s.meta_account_id, today)
-  const proposals = judge(today, campaigns, days, s, mtd)
-  // 오늘 이미 판단한 캠페인은 건너뜀 (한 캠페인 하루 한 가지)
+  const { campaigns, days, mtd, saved, ads, adDays, freq, adError } = await sync(tk, s.meta_account_id, today)
+  const proposals: (Proposal & { ad_id?: string; ad_name?: string })[] = judge(today, campaigns, days, s, mtd)
+  // 오늘 이미 판단한 캠페인은 건너뜀 (한 캠페인 하루 한 가지 · 캠페인 판단이 소재 판단보다 먼저)
   const { data: done } = await sb.from('ad_autopilot_actions').select('campaign_id').eq('day', today)
   const seen = new Set((done ?? []).map(r => r.campaign_id as string))
+  const busy = new Set([...seen, ...proposals.map(p => p.campaign_id)])
+  if (!(s.monthly_cap > 0 && mtd >= s.monthly_cap)) proposals.push(...fatigue(today, campaigns, ads, adDays, freq, busy))
   const fresh = proposals.filter(p => !seen.has(p.campaign_id))
+  // 실행 7일 뒤 효과 확인 (받은 14일 안에 뒤 7일이 다 들어오는 것만)
+  let evaluated = 0
+  const { data: toCheck } = await sb.from('ad_autopilot_actions').select('id,kind,day,campaign_id,ad_id,metrics').eq('status', '실행').is('effect', null).gte('day', addDays(today, -15)).lte('day', addDays(today, -8))
+  const effects: string[] = []
+  for (const a of toCheck ?? []) {
+    const r = evaluate(today, a as Parameters<typeof evaluate>[1], days)
+    if (!r) continue
+    await sb.from('ad_autopilot_actions').update({ effect: r.verdict, effect_note: r.note.slice(0, 500), effect_at: new Date().toISOString() }).eq('id', a.id)
+    evaluated++
+    effects.push(`· [효과 ${r.verdict}] ${KIND_LABEL[a.kind as keyof typeof KIND_LABEL]}: ${r.note}`)
+  }
   let executed = 0, failed = 0
   const lines: string[] = []
   for (const p of fresh) {
     const ins = await sb.from('ad_autopilot_actions').insert({
       day: today, campaign_id: p.campaign_id, campaign_name: p.campaign_name.slice(0, 300), kind: p.kind,
       from_budget: p.from_budget, to_budget: p.to_budget, reason: p.reason.slice(0, 1000), metrics: p.metrics, auto: s.mode === 'auto',
+      ad_id: p.ad_id ?? null, ad_name: p.ad_name ? p.ad_name.slice(0, 300) : null,
     }).select('id').single()
     if (ins.error) continue
     let tag = '제안'
@@ -154,11 +191,11 @@ async function run(auto: boolean) {
         await record('실패', ins.data, { ok: false, result: e instanceof Error ? e.message : '실행 실패' }, null)
       }
     }
-    lines.push(`· [${tag}] ${KIND_LABEL[p.kind]} — ${p.campaign_name}: ${p.reason}`)
+    lines.push(`· [${tag}] ${p.ad_id ? '소재 ' : ''}${KIND_LABEL[p.kind]} — ${p.campaign_name}${p.ad_name ? ` › ${p.ad_name}` : ''}: ${p.reason}`)
   }
-  const info = { ran_at: new Date().toISOString(), ok: true, error: null, saved_rows: saved, campaigns: campaigns.length, active: campaigns.filter(c => c.status === 'ACTIVE').length, proposals: fresh.length, executed, failed, mtd_spend: mtd }
+  const info = { ran_at: new Date().toISOString(), ok: true, error: null, saved_rows: saved, campaigns: campaigns.length, active: campaigns.filter(c => c.status === 'ACTIVE').length, proposals: fresh.length, executed, failed, mtd_spend: mtd, ads: ads.length, evaluated, ad_error: adError }
   await sb.from('app_settings').upsert({ key: 'ad_autopilot_info', value: info, updated_at: new Date().toISOString() })
-  return { ...info, lines, mode: s.mode, kill: s.kill_switch }
+  return { ...info, lines: [...lines, ...effects], mode: s.mode, kill: s.kill_switch }
 }
 
 /** 대표에게 하루 한 번 정리 (제목에 금액 없음) */
@@ -195,7 +232,7 @@ Deno.serve(async req => {
         const r = await run(true)
         if ('skipped' in r) return json(r)
         const modeLabel = r.kill ? '긴급 정지 중 — 실행 없음' : r.mode === 'auto' ? '자동 실행' : r.mode === 'approve' ? '승인 뒤 실행' : '제안만'
-        if (r.proposals || r.failed) {
+        if (r.proposals || r.failed || r.evaluated) {
           await notifyCeo(`[광고 자동 운영] 오늘 판단 ${r.proposals}건 · 실행 ${r.executed}건`,
             `모드: ${modeLabel}\n켜진 캠페인 ${r.active}개 · 받은 수치 ${r.saved_rows}줄\n\n${r.lines.join('\n')}\n\n${r.mode === 'approve' && !r.kill ? '광고·콘텐츠 › 광고 운영팀 › 자동 운영에서 승인하면 메타에 바로 반영됩니다.' : ''}`)
         }
@@ -218,7 +255,7 @@ Deno.serve(async req => {
     if (action === 'decide') {
       const id = String(body.id ?? '')
       const approve = body.approve === true
-      const { data: a } = await sb.from('ad_autopilot_actions').select('id,campaign_id,kind,from_budget,to_budget,status,day').eq('id', id).single()
+      const { data: a } = await sb.from('ad_autopilot_actions').select('id,campaign_id,ad_id,kind,from_budget,to_budget,status,day').eq('id', id).single()
       if (!a) throw new Fail('제안을 찾지 못했습니다.', 404)
       if (a.status !== '제안') throw new Fail(`이미 '${a.status}' 처리된 제안입니다.`, 409)
       if (!approve) {
