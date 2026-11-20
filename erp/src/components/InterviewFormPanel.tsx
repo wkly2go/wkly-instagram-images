@@ -6,6 +6,7 @@ import { useApp, useAsync } from '../lib/app'
 import { dateTimeLabel } from '../lib/date'
 import { buildForm, contextOf, fillTemplate, formPath, formProblems, shareText, toFormQuestion, type BankQuestion, type FormContext, type FormQuestion, type InterviewForm } from '../lib/interviewForms'
 import type { SalesInterview } from '../lib/types'
+import { InterviewFiles } from './InterviewFiles'
 import { InterviewFormView } from './InterviewFormView'
 import { Button, Field } from './ui'
 
@@ -105,6 +106,7 @@ export function InterviewFormPanel({ row, onLinked }: { row: SalesInterview; onL
           <a className="btn btn-outline btn-sm" href={url} target="_blank" rel="noopener noreferrer">브랜드 화면 열기</a>
         </div>
       )}
+      {form.status !== '작성 중' && <InterviewFiles interviewId={row.id} />}
       {form.status === '제출' && <p className="sales-iv-note">받은 답은 아래 '인터뷰 답'(Q1~Q10)에 자동으로 들어갔고, 단계가 '자료 수령'으로 바뀌었습니다. 브랜드가 고쳐 보내면 새 답으로 바뀝니다.</p>}
 
       {editable ? (
@@ -169,3 +171,4 @@ export function InterviewFormPanel({ row, onLinked }: { row: SalesInterview; onL
     </div>
   )
 }
+

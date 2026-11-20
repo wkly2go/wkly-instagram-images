@@ -18,7 +18,7 @@ import { createPendingReads } from './pendingReads'
 import { createSignedUrlCache } from './signedUrlCache'
 import { resolveUploadedRecord } from './uploadRecord'
 import { removeStoredObject } from './storageRemoval'
-import type { BankQuestion, InterviewForm } from './interviewForms'
+import type { BankQuestion, InterviewFile, InterviewForm } from './interviewForms'
 import { PAGE_SIZE, type TimelineItem } from './projectTimeline'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { startMeetingProcessing } from './meetingProgress'
@@ -1034,6 +1034,16 @@ export function createSupabaseApi(url: string, key: string): Api {
         : await sb.from('sales_interview_forms').insert({ interview_id: interviewId, title: '', ...row }).select('*').single()
       if (r.error) throw new Error(r.error.message)
       return r.data as InterviewForm
+    },
+    async listInterviewFiles(interviewId) {
+      const r = await sb.from('sales_interview_files').select('*').eq('interview_id', interviewId).order('created_at', { ascending: false })
+      if (r.error) throw new Error(r.error.message)
+      return (r.data ?? []) as InterviewFile[]
+    },
+    async interviewFileUrl(path, name) {
+      const r = await sb.storage.from('interview-files').createSignedUrl(path, 600, { download: name })
+      if (r.error || !r.data) throw new Error(r.error?.message ?? '내려받기 주소를 만들지 못했습니다.')
+      return r.data.signedUrl
     },
     async listMailFilesByThreads(threadIds) {
       if (!threadIds.length) return []

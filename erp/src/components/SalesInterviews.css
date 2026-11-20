@@ -133,3 +133,8 @@ a.sales-iv-row { text-decoration: none; }
 .sales-iv-bank .edit { margin-top: 8px; padding: 10px; border-radius: 10px; background: #f7faf7; }
 .sales-iv-bank .checks { display: flex; flex-wrap: wrap; gap: 6px 16px; }
 .sales-iv-bank .checks label { display: inline-flex; align-items: center; gap: 4px; }
+
+/* 브랜드가 올린 자료 (2026-11-20) */
+.sales-iv-files { margin: 8px 0; padding: 10px 12px; border: 1px solid var(--v8-line, var(--line)); border-radius: 8px; background: #fbfaf6; }
+.sales-iv-files ul { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 4px; }
+.sales-iv-files li { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }

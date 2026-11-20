@@ -2058,6 +2058,13 @@ export function createDemoApi(): Api {
       demoQuestions = id ? demoQuestions.map(q => (q.id === id ? row : q)) : [...demoQuestions, row]
       return row
     },
+    // 체험 모드에는 브랜드가 올린 자료가 없음
+    async listInterviewFiles() {
+      return []
+    },
+    async interviewFileUrl() {
+      throw new Error('체험 모드에서는 내려받을 파일이 없습니다.')
+    },
     async getInterviewForm(interviewId) {
       return demoForms.find(f => f.interview_id === interviewId) ?? null
     },

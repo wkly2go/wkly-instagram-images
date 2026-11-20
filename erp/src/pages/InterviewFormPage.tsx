@@ -6,7 +6,7 @@ import { createRoot } from 'react-dom/client'
 import { ErrorBoundary } from '../components/ErrorBoundary'
 import { InterviewFormView } from '../components/InterviewFormView'
 import { ANSWER_HINT_CHARS, checkAnswers, shortAnswers, SUBMIT_REASONS, type FormQuestion } from '../lib/interviewForms'
-import { clearDraft, FORM_TOKEN_RE, getGuestForm, loadDraft, saveDraft, submitGuestForm, type GuestDraft, type GuestForm } from '../lib/interviewFormGuest'
+import { clearDraft, FORM_TOKEN_RE, getGuestForm, GUEST_FILE_ACCEPT, GUEST_FILE_LIMIT, GUEST_FILE_REASONS, loadDraft, removeGuestFile, saveDraft, submitGuestForm, uploadGuestFile, type GuestDraft, type GuestFile, type GuestForm } from '../lib/interviewFormGuest'
 import './InterviewFormPage.css'
 
 const CONSENTS = ['제공한 이미지를 더위클리 콘텐츠에 써도 됩니다', '쓰기 전에 확인이 필요합니다', '이미지는 제공하지 않습니다']
@@ -134,6 +134,7 @@ function InterviewFormPage({ token }: { token: string | null }) {
         {!form.closed && form.submitted_at && <p className="ivp-banner ok">이미 보내 주신 답입니다. 고친 뒤 다시 보내면 새 답으로 바뀝니다.</p>}
         {!form.closed && restored && !form.submitted_at && <p className="ivp-banner ok">이 기기에서 쓰던 글을 이어서 불러왔습니다.</p>}
         <InterviewFormView questions={form.questions} answers={d.answers} errorNo={error?.no} errorText={error?.message} onAnswer={form.closed ? undefined : (no, v) => patch({ answers: { ...d.answers, [no]: v } })} />
+        {!form.closed && <GuestFiles token={token!} initial={form.files ?? []} />}
         {!form.closed && (
           <section className="ivp-card ivp-end">
             <h2>보내는 분</h2>
@@ -161,5 +162,63 @@ function InterviewFormPage({ token }: { token: string | null }) {
         <footer className="ivp-foot">더위클리(THE WKLY) · 팝업 큐레이션 콘텐츠 서면 인터뷰</footer>
       </main>
     </div>
+  )
+}
+
+const sizeLabel = (n: number | null) => (n == null ? '' : n >= 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)}MB` : `${Math.max(1, Math.round(n / 1024))}KB`)
+
+/** 사진 · 자료 올리기 (2026-11-20 · 선택): 고르는 즉시 올라가고 목록에 남는다. 답 보내기와 따로 · 접수 마감 전까지 지울 수 있음 */
+function GuestFiles({ token, initial }: { token: string; initial: GuestFile[] }) {
+  const [files, setFiles] = useState<GuestFile[]>(initial)
+  const [going, setGoing] = useState<string[]>([])
+  const [err, setErr] = useState<string | null>(null)
+  const pick = useRef<HTMLInputElement>(null)
+  const add = async (list: FileList | null) => {
+    if (!list?.length) return
+    setErr(null)
+    const all = [...list].slice(0, Math.max(0, GUEST_FILE_LIMIT - files.length))
+    if (all.length < list.length) setErr(`자료는 ${GUEST_FILE_LIMIT}개까지 올릴 수 있습니다.`)
+    for (const f of all) {
+      setGoing(g => [...g, f.name])
+      const r = await uploadGuestFile(token, f)
+      setGoing(g => g.filter(x => x !== f.name))
+      if (r.ok) setFiles(r.files)
+      else setErr(`${f.name}: ${GUEST_FILE_REASONS[r.reason] ?? '올리지 못했습니다. 인터넷 연결을 확인하고 다시 올려 주세요.'}`)
+    }
+  }
+  const remove = async (f: GuestFile) => {
+    if (!window.confirm(`${f.name} 을(를) 지울까요?`)) return
+    const r = await removeGuestFile(token, f)
+    if (r.ok) setFiles(r.files)
+    else setErr('지우지 못했습니다. 다시 시도해 주세요.')
+  }
+  return (
+    <section className="ivp-card ivp-end ivp-files">
+      <h2>사진 · 자료 올리기 <small>선택</small></h2>
+      <p className="ivp-sub">팝업 현장 · 제품 사진, 소개서 PDF 같은 자료를 올려 주세요. 고르는 즉시 더위클리에 전달되고, 답 보내기와는 따로입니다. 파일 하나 30MB · 모두 {GUEST_FILE_LIMIT}개까지.</p>
+      <div
+        className="ivp-drop"
+        onDragOver={e => { if ([...e.dataTransfer.types].includes('Files')) e.preventDefault() }}
+        onDrop={e => { e.preventDefault(); void add(e.dataTransfer.files) }}
+      >
+        <button type="button" className="ivp-btn ghost" disabled={going.length > 0 || files.length >= GUEST_FILE_LIMIT} onClick={() => pick.current?.click()}>
+          {going.length ? `올리는 중 (${going.length})…` : '파일 고르기'}
+        </button>
+        <span>또는 여기에 끌어다 놓기</span>
+        <input ref={pick} type="file" multiple hidden accept={GUEST_FILE_ACCEPT} onChange={e => { void add(e.target.files); e.target.value = '' }} />
+      </div>
+      {err && <p className="ivp-error" role="alert">{err}</p>}
+      {files.length > 0 && (
+        <ul className="ivp-file-list">
+          {files.map(f => (
+            <li key={f.id}>
+              <span className="name">{f.name}</span>
+              <span className="size">{sizeLabel(f.size)}</span>
+              <button type="button" className="ivp-link" onClick={() => void remove(f)}>지우기</button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   )
 }
