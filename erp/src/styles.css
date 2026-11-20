@@ -4623,3 +4623,14 @@ tr.lg-review td:first-child { box-shadow: inset 3px 0 0 #e0a800; }
 .task-detail-facts dd { margin: 4px 0 0; overflow-wrap: anywhere; }
 .task-detail-memo { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.75; }
 @media(max-width:640px){.task-detail-page{padding:18px}.task-detail-facts{grid-template-columns:1fr}}
+
+/* 프로젝트에 붙이기 (2026-11-20 메신저 협업 2단계) */
+.project-pick { display: flex; flex-direction: column; gap: 6px; max-width: 360px; }
+.project-pick input { font-size: var(--fs-body); padding: 5px 8px; border: 1px solid var(--line, #d9dcd6); border-radius: 8px; }
+.project-pick-list { display: flex; flex-direction: column; gap: 2px; max-height: 240px; overflow-y: auto; }
+.project-pick-list button { text-align: left; font-size: var(--fs-body); padding: 4px 8px; border: 0; border-radius: 6px; background: transparent; color: var(--tx-body, #222a25); cursor: pointer; display: flex; align-items: center; gap: 4px; }
+.project-pick-list button:hover { background: var(--v8-hover, #f1efe9); }
+.project-pick-list button.on { color: var(--tx-key, #1f6b4a); font-weight: 700; }
+.msg-projects { display: flex; flex-wrap: wrap; gap: 4px; margin: 2px 0 4px 44px; }
+.msg-project-tag { display: inline-flex; align-items: center; gap: 3px; font-size: var(--fs-body); color: var(--tx-key, #1f6b4a); background: #eef5f0; border-radius: 999px; padding: 1px 9px; text-decoration: none; }
+.msg-project-tag:hover { text-decoration: underline; }

@@ -316,7 +316,7 @@ export function QuickChat({ rooms }: { rooms: ChatRoomSummary[] }) {
           stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 60
         }}
       >
-        <MessageList messages={messages} reads={reads} members={room?.members} onRemove={remove} onEdit={edit} onReply={(id, c) => send(c, id)} onReact={react} />
+        <MessageList messages={messages} reads={reads} members={room?.members} onRemove={remove} onEdit={edit} onReply={(id, c) => send(c, id)} onReact={react} onTagProject={!!room && !room.project_id} />
         <AgentTyping drafts={drafts} messages={messages} members={room?.members} />
       </div>
       <div className="quick-composer">

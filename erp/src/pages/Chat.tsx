@@ -620,7 +620,7 @@ function Room({ room }: { room: ChatRoomSummary }) {
         }}
       >
         <CardDataProvider>
-          <MessageList messages={messages} reads={reads} members={room.members} onRemove={remove} onEdit={edit} onReply={(id, c) => sendMessage(c, id)} onReact={react} thread={threadId} />
+          <MessageList messages={messages} reads={reads} members={room.members} onRemove={remove} onEdit={edit} onReply={(id, c) => sendMessage(c, id)} onReact={react} thread={threadId} onTagProject={!!room && !room.project_id} />
         </CardDataProvider>
         <AgentTyping drafts={drafts} messages={messages} members={room.members} />
       </div>

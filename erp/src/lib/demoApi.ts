@@ -1019,6 +1019,12 @@ export function createDemoApi(): Api {
       emit('saved_items')
       return clone(row)
     },
+    async tagChatProject() {
+      // 체험 모드: 붙이기는 저장하지 않음
+    },
+    async chatMessageProjects() {
+      return {}
+    },
     async finishSaved(id) {
       const row = store.saved_items?.find(x => x.id === id && x.user_id === requireMe())
       if (row) row.done_at = now()
