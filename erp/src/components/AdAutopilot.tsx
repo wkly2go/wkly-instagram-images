@@ -126,6 +126,8 @@ export function AdAutopilot() {
             <label className="ap-f"><span>목표 문의당 비용 (원)</span><input inputMode="numeric" value={form.target_cpl ? form.target_cpl.toLocaleString('ko-KR') : ''} placeholder="비우면 클릭률 · 클릭당 비용으로 판단" onChange={e => set('target_cpl', numIn(e.target.value) || null)} /><small>2배 넘으면 멈춤 · 1.3배 넘으면 줄임 · 0.8배 이하면 늘림</small></label>
             <label className="ap-f"><span>판단 최소 금액 (원 · 7일)</span><input inputMode="numeric" value={form.min_spend.toLocaleString('ko-KR')} onChange={e => set('min_spend', numIn(e.target.value))} /><small>이보다 적게 쓴 캠페인은 자료 부족으로 두고 봄</small></label>
             <label className="ap-f"><span>메타 광고 계정 번호</span><input value={form.meta_account_id ?? ''} placeholder="act_ 뒤 숫자" onChange={e => set('meta_account_id', e.target.value.replace(/^act_/, '').replace(/[^\d]/g, '') || null)} /><small>광고 관리자 주소의 act= 뒤 숫자</small></label>
+            <label className="ap-f"><span>더위클리 페이스북 페이지 번호</span><input value={form.meta_page_id ?? ''} placeholder="숫자" onChange={e => set('meta_page_id', e.target.value.replace(/[^\d]/g, '') || null)} /><small>광고에 내 이름으로 나갈 페이지 · 페이지 › 정보 › 페이지 ID (광고 만들기에 필요)</small></label>
+            <label className="ap-f"><span>인스타그램 번호</span><input value={form.meta_ig_user_id ?? ''} placeholder="숫자" onChange={e => set('meta_ig_user_id', e.target.value.replace(/[^\d]/g, '') || null)} /><small>@theweekly_magazine (기본값이 들어가 있음)</small></label>
             <label className="ap-f"><span>네이버 검색광고 고객 번호</span><input inputMode="numeric" value={form.naver_customer_id ?? ''} placeholder="searchad.naver.com 오른쪽 위 숫자" onChange={e => set('naver_customer_id', e.target.value.replace(/[^\d]/g, '') || null)} /><small>네이버와 메타 한도는 합계로 셉니다</small></label>
           </div>
         </section>
