@@ -2603,6 +2603,12 @@ export function createDemoApi(): Api {
     async listProjectMails() {
       return []
     },
+    async setMailProject() {
+      return 0
+    },
+    async searchMailsToLink() {
+      return []
+    },
     // 데모: 드라이브 연결 없음 → 올리기 안 됨
     async listMailFiles() {
       return []
