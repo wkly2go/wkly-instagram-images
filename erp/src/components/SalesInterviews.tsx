@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { InterviewCompare } from './InterviewCompare'
 import { InterviewFormPanel } from './InterviewFormPanel'
 import { useApp, useAsync } from '../lib/app'
 import { dateTimeLabel } from '../lib/date'
@@ -19,8 +20,8 @@ import './SalesInterviews.css'
  * 구글 시트 '인터뷰피드 발송현황'의 탭을 그대로 화면으로: 진행 현황(답변 온 브랜드) · 업로드 일정 · 발송 전체 · 인터뷰 답(로우 데이터) · 영업 정보(1차 가공)
  * 연락처 메일로 오간 메일 · 첨부는 서버가 10분마다 확인(private.sales_interview_mail_tick). 메일은 보내지 않는다. 규칙은 lib/interviews.ts
  */
-type View = 'active' | 'schedule' | 'all' | 'answers' | 'sales'
-const VIEWS: [View, string][] = [['active', '진행 현황'], ['schedule', '업로드 일정'], ['all', '발송 전체'], ['answers', '인터뷰 답'], ['sales', '영업 정보']]
+type View = 'active' | 'compare' | 'schedule' | 'all' | 'answers' | 'sales'
+const VIEWS: [View, string][] = [['active', '진행 현황'], ['compare', '한 화면 · 비교'], ['schedule', '업로드 일정'], ['all', '발송 전체'], ['answers', '인터뷰 답'], ['sales', '영업 정보']]
 const CLOSED: InterviewStage[] = ['답장 없음', '불가', '보류']
 const FILTERS: [string, (s: InterviewStage) => boolean][] = [
   ['전체', () => true],
@@ -132,6 +133,8 @@ export function SalesInterviews() {
             )
           })}
         </>
+      ) : view === 'compare' ? (
+        <InterviewCompare rows={shown} onEdit={id => focusRow(id)} />
       ) : view === 'answers' ? (
         <Answers rows={answered} onEdit={id => focusRow(id)} />
       ) : (

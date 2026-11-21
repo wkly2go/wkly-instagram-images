@@ -156,3 +156,38 @@ a.sales-iv-row { text-decoration: none; }
 .sales-iv-files { margin: 8px 0; padding: 10px 12px; border: 1px solid var(--v8-line, var(--line)); border-radius: 8px; background: #fbfaf6; }
 .sales-iv-files ul { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 4px; }
 .sales-iv-files li { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+
+/* 한 화면 · 비교 (2026-11-21) */
+.iv-cmp-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.iv-cmp-check { display: inline-flex; gap: 6px; align-items: center; color: var(--gray); }
+.iv-cmp-grid { display: grid; grid-template-columns: minmax(200px, 250px) 1fr; gap: 14px; margin-top: 10px; align-items: start; }
+.iv-cmp-pick { list-style: none; margin: 0; padding: 0; max-height: 70vh; overflow: auto; border: 1px solid var(--line); border-radius: 10px; }
+.iv-cmp-pick li + li { border-top: 1px solid var(--line); }
+.iv-cmp-pick label { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; padding: 7px 10px; cursor: pointer; }
+.iv-cmp-pick label.on { background: #eef6f0; }
+.iv-cmp-name { flex: 1 1 100px; min-width: 0; }
+.iv-cmp-pick .iv-stage { min-width: 0; }
+.iv-cmp-main { min-width: 0; }
+.iv-dossier > header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+.iv-dossier > header .btn { margin-left: auto; }
+.iv-dossier section { margin-top: 14px; }
+.iv-dossier h4 { margin: 0 0 6px; font-size: var(--fs-sub); color: var(--tx-key, #1f6b4a); }
+.iv-facts { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 6px 14px; margin: 0; }
+.iv-facts dt, .iv-qa dt { color: var(--gray); }
+.iv-facts dd, .iv-qa dd { margin: 0; white-space: pre-wrap; word-break: break-word; }
+.iv-qa { margin: 0; display: flex; flex-direction: column; gap: 10px; }
+.iv-qa .empty dd { color: var(--gray); }
+.iv-report { border-top: 1px solid var(--line); padding: 6px 0; }
+.iv-cmp-table-wrap { overflow-x: auto; }
+.iv-cmp-table { width: 100%; min-width: calc(180px + var(--n) * 220px); table-layout: fixed; margin-top: 8px; }
+.iv-cmp-table th:first-child { width: 180px; }
+.iv-cmp-table th, .iv-cmp-table td { vertical-align: top; white-space: pre-wrap; word-break: break-word; text-align: left; }
+.iv-cmp-table thead th { position: sticky; top: 0; background: var(--white); }
+.iv-cmp-table thead th .icon-btn { margin-left: 4px; }
+.iv-cmp-table td.empty { color: var(--gray); }
+.iv-cmp-group td { background: #f4f2ec; font-weight: 700; }
+.iv-qview-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; }
+.iv-qview-list li { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: var(--white); }
+.iv-qview-list p { margin: 6px 0 0; white-space: pre-wrap; word-break: break-word; }
+.iv-qview-list .t-cap { margin-left: 8px; }
+@media (max-width: 760px) { .iv-cmp-grid { grid-template-columns: 1fr; } .iv-cmp-pick { max-height: 240px; } }

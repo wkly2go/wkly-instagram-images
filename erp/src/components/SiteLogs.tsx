@@ -1,3 +1,4 @@
+import { DocContent } from './DocFullText'
 import { DayReport, SiteEntryBar } from './SiteDaily'
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { Camera, ExternalLink, Pencil, Printer, Trash2, X } from 'lucide-react'
@@ -529,7 +530,7 @@ function DrivePreview({ log, onEdit, onClose }: { log: SiteLog; onEdit: () => vo
           <X size={14} />
         </button>
       </div>
-      {id ? <iframe className="drive-frame" title="작업일지 (구글 드라이브)" src={`https://docs.google.com/document/d/${id}/preview`} /> : <span className="t-cap">아직 드라이브에 저장되지 않았습니다.</span>}
+      {id ? <DocContent url={`https://docs.google.com/document/d/${id}/edit`} className="drive-frame" /> : <span className="t-cap">아직 드라이브에 저장되지 않았습니다.</span>}
       {log.synced_at && log.updated_at > log.synced_at && <span className="t-cap">고친 내용은 다음 저장(평일 08 · 11 · 17시) 때 드라이브에 반영됩니다.</span>}
     </div>
   )

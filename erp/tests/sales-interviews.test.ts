@@ -151,3 +151,18 @@ test('interview feed: prospects once, content link, tab in ads', async () => {
   const growth = await readFile(new URL('../src/components/GrowthWorkspace.tsx', import.meta.url), 'utf8')
   assert.ok(growth.includes("router.query.get('item')"))
 })
+
+test('한 화면 보기 · 비교: 줄 구성 · 다른 것만 · 문항별', async () => {
+  const { compareLines, filterLines, answersFor, completeness } = await import('../src/lib/interviews.ts')
+  const a = { id: 'a', brand: 'A', stage: '자료 수령', event_name: '성수 팝업', venue: '성수', sent_on: '2026-11-01', replied_at: null, material_due: null, upload_on: null, post_url: null, note: null, image_use: null, answers: { Q1: '공간', Q3: '5천' }, sales_info: { budget: '5천' } }
+  const b = { ...a, id: 'b', brand: 'B', venue: '한남', answers: { Q1: '공간', Q2: '1만 명' }, sales_info: {} }
+  const lines = compareLines([a, b] as never)
+  assert.equal(lines.filter(l => l.group === '인터뷰 답').length, 10)
+  assert.equal(lines.find(l => l.key === 'Q3')?.sales, true)
+  const diff = filterLines(lines, 'diff').map(l => l.key)
+  assert.ok(diff.includes('venue') && diff.includes('Q2') && diff.includes('Q3'))
+  assert.ok(!diff.includes('Q1') && !diff.includes('stage') && !diff.includes('Q4'))
+  assert.ok(filterLines(lines, 'filled').some(l => l.key === 'Q1'))
+  assert.deepEqual(answersFor([a, b] as never, 'Q2').map(x => x.row.id), ['b'])
+  assert.deepEqual(completeness(a as never), { answers: 2, sales: 1 })
+})
