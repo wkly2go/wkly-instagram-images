@@ -1449,6 +1449,21 @@ export function createSupabaseApi(url: string, key: string): Api {
       const { data, error } = await q
       return error ? [] : (data as MailItem[])
     },
+    async setMailProject(mailId, projectId, on) {
+      const { data, error } = await sb.rpc('mail_project_set', { p_mail: mailId, p_project: projectId, p_on: on, p_thread: true })
+      if (error) throw new ApiError(error.message)
+      return (data as number) ?? 0
+    },
+    async searchMailsToLink(projectId, q) {
+      const t = q.trim().replace(/[%,()]/g, ' ').trim()
+      if (t.length < 2) return []
+      const { data, error } = await sb.from('mail_index').select('id,thread_id,from_name,from_addr,to_addr,subject,snippet,sent_at,labels,has_attachment,attachments,project_ids,client_id')
+        .or(`subject.ilike.%${t}%,from_addr.ilike.%${t}%,from_name.ilike.%${t}%,to_addr.ilike.%${t}%`)
+        .not('project_ids', 'cs', `{${projectId}}`)
+        .order('sent_at', { ascending: false }).limit(30)
+      if (error) throw new ApiError(error.message)
+      return data as MailItem[]
+    },
     async listKakao(projectId) {
       const [imp, msg] = await Promise.all([
         sb.from('kakao_imports').select('*').eq('project_id', projectId).order('created_at', { ascending: false }),

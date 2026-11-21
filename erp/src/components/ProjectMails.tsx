@@ -1,8 +1,9 @@
 // 프로젝트 메일 (대표 지시 2026-10-31 "지메일 연동해"): 회사 메일함(info@)에서 이 프로젝트 · 거래처와 연결된 메일
 //  - 연번 · 프로젝트 이름 · 거래처 · 연락처 메일 주소로 자동 연결 (서버 10분마다)
 //  - 읽기만 · 누르면 지메일에서 그 대화를 엶
+//  - 2026-11-21 '연결 고치기': 자동 연결이 틀린 대화는 떼고, 빠진 대화는 찾아 붙임(같은 대화 전체 · 다시 동기화돼도 유지 · RPC mail_project_set)
 import { useState } from 'react'
-import { FileText, Mail, Paperclip, RefreshCw } from 'lucide-react'
+import { FileText, Link2, Mail, Paperclip, RefreshCw, Search, X } from 'lucide-react'
 import { useApp, useAsync } from '../lib/app'
 import { shortDate } from '../lib/date'
 import { gmailThreadUrl, type MailFile, type MailItem, type Project } from '../lib/types'
@@ -56,6 +57,7 @@ export function ProjectMails({ project, toolsOnly = false }: { project: Project;
           <span className="t-cap">회사 메일함 · 연번 · 프로젝트 이름으로 자동 연결 (10분마다) · 줄을 누르면 지메일에서 엽니다</span>
           {refreshBtn}
         </span>
+        <MailLinkFix project={project} threads={threads} />
         {files}
       </div>
     )
@@ -106,5 +108,88 @@ export function ProjectMails({ project, toolsOnly = false }: { project: Project;
         </button>
       )}
     </section>
+  )
+}
+
+/** 연결 고치기: 붙은 대화 떼기 · 안 붙은 대화 찾아 붙이기 */
+function MailLinkFix({ project, threads }: { project: Project; threads: MailItem[] }) {
+  const { api, bump, toast } = useApp()
+  const [open, setOpen] = useState(false)
+  const [q, setQ] = useState('')
+  const [found, setFound] = useState<MailItem[] | null>(null)
+  const [busy, setBusy] = useState('')
+  const search = async () => {
+    if (q.trim().length < 2) return toast('두 글자 이상 넣어 주세요.')
+    setBusy('search')
+    try {
+      const rows = await api.searchMailsToLink(project.id, q)
+      setFound([...new Map(rows.map(m => [m.thread_id, m])).values()])
+    } catch (e) {
+      toast(e instanceof Error ? e.message : '메일을 찾지 못했습니다.')
+    } finally {
+      setBusy('')
+    }
+  }
+  const set = async (m: MailItem, on: boolean) => {
+    setBusy(m.id)
+    try {
+      const n = await api.setMailProject(m.id, project.id, on)
+      toast(on ? `이 프로젝트에 붙였습니다 (같은 대화 ${n}통).` : `이 프로젝트에서 뗐습니다 (같은 대화 ${n}통). 다시 동기화돼도 붙지 않습니다.`)
+      if (on) setFound(f => (f ?? []).filter(x => x.thread_id !== m.thread_id))
+      bump()
+    } catch (e) {
+      toast(e instanceof Error ? e.message : '바꾸지 못했습니다.')
+    } finally {
+      setBusy('')
+    }
+  }
+  const line = (m: MailItem) => (
+    <span className="mail-fix-text">
+      <b className="truncate">{m.subject || '(제목 없음)'}</b>
+      <span className="t-cap truncate">
+        {m.from_name || m.from_addr} · {m.sent_at ? shortDate(m.sent_at.slice(0, 10)) : ''}
+      </span>
+    </span>
+  )
+  if (!open)
+    return (
+      <button type="button" className="btn btn-outline btn-sm mail-fix-open" onClick={() => setOpen(true)} title="자동 연결이 틀린 메일을 떼거나 빠진 메일을 찾아 붙입니다">
+        <Link2 size={13} /> 연결 고치기
+      </button>
+    )
+  return (
+    <div className="mail-fix" aria-label="메일 연결 고치기">
+      <div className="row" style={{ justifyContent: 'space-between', gap: 8 }}>
+        <b className="tx-em">메일 연결 고치기</b>
+        <button type="button" className="link-btn t-cap" onClick={() => setOpen(false)}>닫기</button>
+      </div>
+      <span className="t-cap">같은 대화 전체에 적용됩니다. 고친 내용은 메일이 다시 동기화돼도 그대로 지켜집니다.</span>
+      <form className="row mail-fix-search" onSubmit={e => { e.preventDefault(); void search() }}>
+        <input className="input" value={q} onChange={e => setQ(e.target.value)} placeholder="제목 · 보낸 사람 · 메일 주소로 찾기" aria-label="붙일 메일 찾기" />
+        <button type="submit" className="btn btn-sm" disabled={busy === 'search'}><Search size={13} /> 찾기</button>
+      </form>
+      {found && (
+        <ul className="mail-fix-list" aria-label="찾은 메일">
+          {found.length === 0 && <li className="t-cap">이 프로젝트에 아직 안 붙은 메일 중 맞는 것이 없습니다.</li>}
+          {found.map(m => (
+            <li key={m.id}>
+              {line(m)}
+              <button type="button" className="btn btn-outline btn-sm" disabled={busy === m.id} onClick={() => void set(m, true)}>붙이기</button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <span className="t-cap">지금 붙어 있는 대화 {threads.length}개</span>
+      <ul className="mail-fix-list" aria-label="붙어 있는 메일">
+        {threads.slice(0, 40).map(m => (
+          <li key={m.id}>
+            {line(m)}
+            <button type="button" className="icon-btn" disabled={busy === m.id} onClick={() => void set(m, false)} title="이 프로젝트에서 떼기" aria-label={`${m.subject || '메일'} 떼기`}>
+              <X size={13} />
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
   )
 }

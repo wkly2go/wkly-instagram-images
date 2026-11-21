@@ -578,6 +578,10 @@ export interface Api extends SalesStrategyApi, SalesApi, GrowthApi, SalesReportA
   listDriveIndex(projectId?: string): Promise<DriveIndexFile[]>
   /** 회사 지메일: 이 프로젝트(또는 그 거래처)와 연결된 메일 */
   listProjectMails(projectId: string, clientId: string | null): Promise<MailItem[]>
+  /** 메일 → 프로젝트 손으로 붙이기 · 떼기 (2026-11-21 · 같은 대화 전체 · 바뀐 메일 수) */
+  setMailProject(mailId: string, projectId: string, on: boolean): Promise<number>
+  /** 이 프로젝트에 아직 안 붙은 메일 찾기 (제목 · 보낸 사람 · 받는 사람) */
+  searchMailsToLink(projectId: string, q: string): Promise<MailItem[]>
   /** 슬랙 (0088 · slack-import 함수): 연결 상태 · 토큰 저장(관리자) · 채널 목록 · 프로젝트 연결 · 가져오기 */
   /** 카카오톡 대화 가져오기 (0105) */
   listKakao(projectId: string): Promise<{ imports: KakaoImport[]; messages: KakaoMessage[]; ready?: boolean }>
