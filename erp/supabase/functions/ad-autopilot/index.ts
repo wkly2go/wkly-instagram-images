@@ -8,6 +8,7 @@
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2.117.3'
 import { canExecute, evaluate, fatigue, judge, KIND_LABEL, leadsOf, type AdDay, type AutopilotSettings, type InsightDay, type MetaAd, type MetaCampaign, type Proposal } from './rules.ts'
 import { naverCampaign, naverClient, naverDays, NaverError } from './naver.ts'
+import { buildMetaSpec, launchProblem, metaProblems, type CampaignDoc } from './metaCreate.ts'
 
 const URL_ = Deno.env.get('SUPABASE_URL')!
 const ANON = Deno.env.get('SUPABASE_ANON_KEY')!
@@ -280,7 +281,7 @@ async function notifyCeo(title: string, body: string) {
   for (const p of ceo ?? []) {
     const { count } = await sb.from('notifications').select('id', { count: 'exact', head: true }).eq('user_id', p.id).eq('title', title).gt('created_at', since)
     if (count) continue
-    await sb.from('notifications').insert({ user_id: p.id, kind: 'system', title, body: body.slice(0, 3000), link: '/ads?tab=autopilot' })
+    await sb.from('notifications').insert({ user_id: p.id, kind: '시스템', title, body: body.slice(0, 3000), link: '/ads?tab=autopilot' })
   }
 }
 
@@ -292,6 +293,85 @@ async function admin(authorization: string | null): Promise<string> {
   const p = await sb.from('profiles').select('active,role,is_agent').eq('id', user.id).single()
   if (!p.data?.active || p.data.is_agent || p.data.role !== 'admin') throw new Fail('관리자만 쓸 수 있습니다.', 403)
   return user.id
+}
+
+// ── 메타 광고 만들기 (2026-11-21 · metaCreate.ts) ─────────────────────────────
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+async function draftRow(id: string) {
+  const { data } = await sb.from('ad_meta_drafts').select('*').eq('campaign_id', id).maybeSingle()
+  return data as null | { status: string; meta_campaign_id: string | null; meta_adset_id: string | null; meta_ad_id: string | null; daily_budget: number | null; updated_at: string }
+}
+const saveDraft = (id: string, v: Record<string, unknown>) => sb.from('ad_meta_drafts').upsert({ campaign_id: id, ...v, updated_at: new Date().toISOString() })
+
+/** 준비 완료 캠페인 → 메타에 모두 '멈춤'으로 만들기 */
+async function metaCreate(id: string, me: string) {
+  if (!UUID.test(id)) throw new Fail('캠페인을 찾지 못했습니다.', 404)
+  const prev = await draftRow(id)
+  if (prev && (prev.status === '멈춤' || prev.status === '켜짐')) throw new Fail('이미 메타에 만든 캠페인입니다. 켜기 · 끄기만 할 수 있습니다.', 409)
+  if (prev?.status === '만드는 중' && Date.now() - Date.parse(prev.updated_at) < 5 * 60_000) throw new Fail('지금 만드는 중입니다. 잠시 뒤 확인해 주세요.', 409)
+  const { data: c } = await sb.from('marketing_campaigns').select('document').eq('id', id).single()
+  if (!c) throw new Fail('캠페인을 찾지 못했습니다.', 404)
+  const doc = c.document as CampaignDoc
+  const { data: assets } = await sb.from('marketing_assets').select('name,mime,path').eq('campaign_id', id).is('deleted_at', null).order('created_at')
+  const imgs = (assets ?? []).filter(a => a.mime === 'image/jpeg' || a.mime === 'image/png').slice(0, 10)
+  const s = await settings() as Settings & { meta_page_id: string | null; meta_ig_user_id: string | null }
+  if (!s.meta_account_id) throw new Fail('메타 광고 계정 번호를 먼저 넣어 주세요.', 409)
+  const problems = metaProblems(doc, { pageId: s.meta_page_id ?? undefined, igUserId: s.meta_ig_user_id }, imgs.length)
+  if (problems.length) throw new Fail(problems.join(' / '), 409)
+  const tk = await token()
+  const acct = `act_${s.meta_account_id}`
+  const spec = buildMetaSpec(doc, { pageId: s.meta_page_id!, igUserId: s.meta_ig_user_id })
+  await saveDraft(id, { status: '만드는 중', error: null, created_by: me, meta_campaign_id: null, meta_adset_id: null, meta_creative_id: null, meta_ad_id: null, daily_budget: spec.dailyBudget, images: imgs.length })
+  try {
+    const hashes: string[] = []
+    for (const a of imgs) {
+      const f = await sb.storage.from('marketing-assets').download(a.path)
+      if (f.error || !f.data) throw new Fail(`이미지를 읽지 못했습니다: ${a.name}`, 500)
+      const buf = new Uint8Array(await f.data.arrayBuffer())
+      let bin = ''
+      for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode(...buf.subarray(i, i + 0x8000))
+      const up = await meta<{ images?: Record<string, { hash?: string }> }>(tk, `${acct}/adimages`, { bytes: btoa(bin) }, 'POST')
+      const h = Object.values(up.images ?? {})[0]?.hash
+      if (!h) throw new Fail(`메타가 이미지를 받지 못했습니다: ${a.name}`, 502)
+      hashes.push(h)
+    }
+    const camp = await meta<{ id: string }>(tk, `${acct}/campaigns`, spec.campaign, 'POST')
+    await saveDraft(id, { meta_campaign_id: camp.id })
+    const adset = await meta<{ id: string }>(tk, `${acct}/adsets`, { ...spec.adset, campaign_id: camp.id }, 'POST')
+    await saveDraft(id, { meta_adset_id: adset.id })
+    const cr = await meta<{ id: string }>(tk, `${acct}/adcreatives`, spec.creative(hashes), 'POST')
+    await saveDraft(id, { meta_creative_id: cr.id })
+    const ad = await meta<{ id: string }>(tk, `${acct}/ads`, spec.ad(adset.id, cr.id), 'POST')
+    await saveDraft(id, { meta_ad_id: ad.id, status: '멈춤' })
+    return { ok: true, status: '멈춤', campaign_id: camp.id, ad_id: ad.id, images: hashes.length }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : '만들지 못했습니다.'
+    await saveDraft(id, { status: '실패', error: msg.slice(0, 500) })
+    throw e
+  }
+}
+
+/** 켜기(대표 승인) · 끄기 — 켜기 전에 긴급 정지 · 하루 한도 확인 */
+async function metaSwitch(id: string, on: boolean, me: string) {
+  const d = await draftRow(id)
+  if (!d?.meta_campaign_id || !d.meta_adset_id || !d.meta_ad_id) throw new Fail('메타에 만든 광고가 없습니다.', 404)
+  const tk = await token()
+  if (on) {
+    if (d.status === '켜짐') throw new Fail('이미 켜져 있습니다.', 409)
+    const s = await settings()
+    const { data: act } = await sb.from('ad_meta_campaigns').select('id,daily_budget').eq('status', 'ACTIVE')
+    const { data: live } = await sb.from('ad_meta_drafts').select('meta_campaign_id,daily_budget').eq('status', '켜짐')
+    const liveIds = new Set((live ?? []).map(x => x.meta_campaign_id))
+    const activeDaily = (act ?? []).filter(x => !liveIds.has(x.id)).reduce((n, x) => n + (x.daily_budget ?? 0), 0) + (live ?? []).reduce((n, x) => n + (x.daily_budget ?? 0), 0)
+    const p = launchProblem(s.daily_cap, activeDaily, d.daily_budget, s.kill_switch)
+    if (p) throw new Fail(p, 409)
+    for (const obj of [d.meta_ad_id, d.meta_adset_id, d.meta_campaign_id]) await meta(tk, obj, { status: 'ACTIVE' }, 'POST')
+    await saveDraft(id, { status: '켜짐', launched_by: me, launched_at: new Date().toISOString(), error: null })
+    return { ok: true, status: '켜짐' }
+  }
+  await meta(tk, d.meta_campaign_id, { status: 'PAUSED' }, 'POST')
+  await saveDraft(id, { status: '멈춤' })
+  return { ok: true, status: '멈춤' }
 }
 
 Deno.serve(async req => {
@@ -356,6 +436,9 @@ Deno.serve(async req => {
         throw e
       }
     }
+    if (action === 'meta_create') return json(await metaCreate(String(body.campaign_id ?? ''), me))
+    if (action === 'meta_launch') return json(await metaSwitch(String(body.campaign_id ?? ''), true, me))
+    if (action === 'meta_pause') return json(await metaSwitch(String(body.campaign_id ?? ''), false, me))
     throw new Fail('알 수 없는 요청입니다.')
   } catch (e) {
     if (e instanceof Fail || e instanceof NaverError) return json({ error: e.message }, e.status)
