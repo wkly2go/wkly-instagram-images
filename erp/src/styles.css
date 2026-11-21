@@ -4652,3 +4652,5 @@ tr.lg-review td:first-child { box-shadow: inset 3px 0 0 #e0a800; }
 .sales-pipe-list li { display: flex; justify-content: space-between; gap: 10px; font-size: var(--fs-body); }
 .sales-pipe-list a { color: var(--tx-key, #1f6b4a); min-width: 0; }
 @media (max-width: 760px) { .sales-pipe-row { grid-template-columns: repeat(4, minmax(0, 1fr)); } .sales-pipe-row li::before { display: none; } }
+/* 문서를 못 받았을 때 (2026-11-21 · 구글로 보내지 않고 인트라넷 안에서 다시 시도 · 내려받기) */
+.doc-full-fail { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 24px; text-align: center; }

@@ -2,10 +2,10 @@
 // 예전엔 drive.google.com/file/d/<id>/preview 를 틀에 넣어, 브라우저가 구글 로그인 쿠키를 막으면 'Google 계정에 로그인하십시오'만 보였다.
 // 이제 회사 계정 서버 토큰(api.driveAccessToken · 드라이브 권한만)으로 파일을 받아 이 브라우저 안에서만 보여 준다(어디에도 저장 안 함).
 //  - PDF · 사진 · 영상 · 소리 · 글: 원본 그대로 / 구글 문서 · 시트 · 슬라이드: PDF 로 바꿔서
-//  - 워드 · 엑셀 · 한글 등이나 60MB 넘는 파일: 구글 미리보기(로그인 필요할 수 있음) + 새 창 · 내려받기 안내
+//  - 워드 · 엑셀 · 한글 등이나 60MB 넘는 파일: 인트라넷 안에서 내려받기 (2026-11-21 대표 지시 '구글로 보내지 말고 인트라넷에서' · 구글 미리보기 틀 없앰)
 import { useEffect, useState } from 'react'
 import { useApp } from '../lib/app'
-import { driveIdOf, previewUrl, serverDriveToken } from '../lib/gdrive'
+import { driveIdOf, serverDriveToken } from '../lib/gdrive'
 
 const MAX = 60 * 1024 * 1024
 const GOOGLE_EXPORT = /^application\/vnd\.google-apps\.(document|spreadsheet|presentation|drawing)$/
@@ -63,14 +63,42 @@ export function DrivePreview({ url, name, className, onLoaded }: { url: string; 
   if (shown.kind === 'video') return <video className={cls} src={shown.url} controls autoPlay />
   if (shown.kind === 'audio') return <div className={`${cls} center`}><audio src={shown.url} controls autoPlay style={{ width: 'min(560px, 90%)' }} /></div>
   if (shown.kind === 'text') return <pre className={`${cls} file-view-text`}>{shown.text}</pre>
-  const g = previewUrl(url)
   const reason = shown.kind === 'fallback' ? shown.reason : ''
   return (
-    <div className={`${cls} col`} style={{ display: 'flex', flexDirection: 'column' }}>
-      <div className="t-cap" style={{ padding: '8px 12px' }}>{reason} 아래 구글 미리보기가 로그인을 물으면 위의 [새 창]으로 열어 주세요.</div>
-      {g && <iframe style={{ flex: 1, border: 0, width: '100%' }} src={g} title={`${name} 구글 미리보기`} allow="autoplay" />}
+    <div className={`${cls} center col doc-full-fail`}>
+      <p className="t-cap">{reason}</p>
+      <DriveDownload url={url} name={name} />
     </div>
   )
+}
+
+/** 회사 계정 서버 열쇠로 받아 이 브라우저에 바로 저장 (구글 화면으로 보내지 않음 · 구글 문서 · 시트 · 슬라이드는 PDF 로) */
+export function DriveDownload({ url, name = '문서' }: { url: string; name?: string }) {
+  const { api, toast } = useApp()
+  const [busy, setBusy] = useState(false)
+  const run = async () => {
+    setBusy(true)
+    try {
+      const id = driveIdOf(url)
+      const token = id ? await serverDriveToken(() => api.driveAccessToken()).catch(() => null) : null
+      if (!id || !token) throw new Error('회사 구글 연결을 확인하지 못했습니다.')
+      const h = { Authorization: `Bearer ${token}` }
+      const meta = await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(id)}?fields=mimeType,name&supportsAllDrives=true`, { headers: h }).then(r => (r.ok ? r.json() : null)) as { mimeType: string; name?: string } | null
+      if (!meta) throw new Error('회사 계정에 이 파일을 볼 권한이 없습니다.')
+      const exportPdf = GOOGLE_EXPORT.test(meta.mimeType)
+      const src = exportPdf
+        ? `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(id)}/export?mimeType=application/pdf`
+        : `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(id)}?alt=media&supportsAllDrives=true`
+      const r = await fetch(src, { headers: h })
+      if (!r.ok) throw new Error('파일을 받지 못했습니다.')
+      saveBlob({ blob: await r.blob(), name: exportPdf ? `${meta.name ?? name}.pdf` : meta.name ?? name })
+    } catch (e) {
+      toast(e instanceof Error ? e.message : '내려받지 못했습니다.')
+    } finally {
+      setBusy(false)
+    }
+  }
+  return <button type="button" className="btn btn-outline btn-sm" disabled={busy} onClick={() => void run()}>{busy ? '받는 중…' : '내려받기'}</button>
 }
 
 /** 받아 둔 파일을 이름 그대로 내려받기 */

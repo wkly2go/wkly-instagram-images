@@ -503,6 +503,8 @@ function seed(): Store {
 export function createDemoApi(): Api {
   // 서면 인터뷰는 체험 모드에 자료를 두지 않음 (대표 지시 '목업은 올리지 마') · 새로 추가한 것만 창이 열린 동안 보관
   let demoInterviews: SalesInterview[] = []
+  // 화면 확인용 시험 자료는 개발 서버 + VITE_INTERVIEW_HARNESS=1 일 때만 (체험 모드 · 배포에는 자료 없음)
+  if (import.meta.env.DEV && import.meta.env.VITE_INTERVIEW_HARNESS === '1') void import('../dev/interviewHarness').then(m => { demoInterviews = m.HARNESS_INTERVIEWS })
   // 인터뷰지: 체험 모드에는 질문 은행 기본 문안만 둔다 (브랜드 자료 없음)
   let demoQuestions: BankQuestion[] = DEMO_INTERVIEW_QUESTIONS.map(q => ({ ...q }))
   let demoForms: InterviewForm[] = []
