@@ -54,11 +54,13 @@ export interface SalesStrategyApi extends SalesExecutionApi {
   /** Instagram DM 연결 상태 (관리자만). 저장된 토큰 · 시크릿 값은 돌려주지 않는다. */
   getInstagramStatus(): Promise<InstagramStatus|null>;
   setInstagramSecret(name: 'INSTAGRAM_ACCESS_TOKEN'|'INSTAGRAM_APP_SECRET', value: string): Promise<void>;
+  /** 인스타그램 다시 연결: 로그인 주소(15분 · 한 번) */
+  instagramOauthStart(): Promise<string>;
 }
 export interface SalesOpsStep {step: string; label: string; last_ok: string|null; consecutive_fails: number; last_error: string|null}
 export interface SalesOpsProblem {step: string; label: string; expected: number; ok: number; fails: number}
 export interface SalesOpsStatus {streak: number; today: {day: string; healthy: boolean; problems: SalesOpsProblem[]; checked_at: string}|null; days: {day: string; healthy: boolean; final: boolean; partial: boolean; problems: number}[]; steps: SalesOpsStep[]}
-export interface InstagramStatus {token: boolean; app_secret: boolean; verify_token: string|null; inbound: number; people: number; open_windows: number; last_inbound: string|null; sent: number}
+export interface InstagramStatus {token: boolean; app_secret: boolean; token_error?: string|null; expires_at?: string|null; verify_token: string|null; inbound: number; people: number; open_windows: number; last_inbound: string|null; sent: number}
 export type RecipientScope='미정'|'거래·문의'|'공개 창구 포함'
 export interface AdAudienceRow {email: string; phone: string; segment: string}
 /** Google Ads Customer Match upload: English headers and E.164 phones. No Country column: Google accepts it only together with first name, last name and postcode (confirmed on upload 2026-11-16). */
