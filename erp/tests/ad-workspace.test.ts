@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { adPeriod, parseAdRange, selectAdRows } from '../src/lib/adWorkspace.ts'
+import { adFreshness, adPeriod, inquiryTotals, parseAdRange, resultLabel, selectAdRows } from '../src/lib/adWorkspace.ts'
 
 test('지원하는 URL 기간만 해석하고 잘못된 값은 14일로 돌아간다', () => {
   assert.equal(parseAdRange('7'), 7)
@@ -89,4 +89,35 @@ test('0원·0노출 기록도 보존하며 필터가 원본 데이터나 순서�
   assert.equal(selected[0].cost, 0)
   assert.deepEqual(rows, [zero, earlier])
   assert.deepEqual(selectAdRows([], '2026-11-04', '2026-11-10', null), [])
+})
+
+test('전환 칸 이름은 Google 만 전환, 나머지 매체는 문의', () => {
+  assert.equal(resultLabel('Google'), '전환')
+  assert.equal(resultLabel('Meta'), '문의')
+  assert.equal(resultLabel('Naver'), '문의')
+  assert.equal(resultLabel('기타'), '문의')
+})
+
+test('문의 합계와 문의당 비용에는 Google 전환 · 광고비를 섞지 않는다', () => {
+  const rows = [
+    { platform: 'Google', cost: 50000, conversions: 40 },
+    { platform: 'Meta', cost: 30000, conversions: 2 },
+    { platform: 'Naver', cost: 10000, conversions: '2' },
+    { platform: 'Meta', cost: null, conversions: null },
+  ]
+  assert.deepEqual(inquiryTotals(rows), { inquiries: 4, cost: 40000, costPer: 10000, googleConversions: 40 })
+})
+
+test('문의가 없으면 문의당 비용은 비워 둔다 (0 으로 나누지 않음)', () => {
+  assert.deepEqual(inquiryTotals([{ platform: 'Meta', cost: 12000, conversions: 0 }]), { inquiries: 0, cost: 12000, costPer: null, googleConversions: 0 })
+  assert.deepEqual(inquiryTotals([]), { inquiries: 0, cost: 0, costPer: null, googleConversions: 0 })
+})
+
+test('마지막 기록이 어제 · 그제면 정상, 그보다 오래되면 멈춘 날 수를 알린다', () => {
+  assert.deepEqual(adFreshness(null, '2026-11-21'), { state: 'none' })
+  assert.deepEqual(adFreshness('2026-11-20', '2026-11-21'), { state: 'fresh', last: '2026-11-20' })
+  assert.deepEqual(adFreshness('2026-11-19', '2026-11-21'), { state: 'fresh', last: '2026-11-19' })
+  assert.deepEqual(adFreshness('2026-11-18', '2026-11-21'), { state: 'stale', last: '2026-11-18', gapDays: 2 })
+  assert.deepEqual(adFreshness('2026-10-22', '2026-11-21'), { state: 'stale', last: '2026-10-22', gapDays: 29 })
+  assert.deepEqual(adFreshness('2025-12-30', '2026-01-02'), { state: 'stale', last: '2025-12-30', gapDays: 2 })
 })

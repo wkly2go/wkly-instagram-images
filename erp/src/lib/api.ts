@@ -478,6 +478,8 @@ export interface Api extends SalesStrategyApi, SalesApi, GrowthApi, SalesReportA
   /** 메일 대화에 붙은 받은 자료 (수신방 드라이브 파일) */
   listMailFilesByThreads(threadIds: string[]): Promise<Pick<MailFile, 'id' | 'name' | 'drive_url' | 'sent_at' | 'thread_id' | 'kind'>[]>
   listAdDaily(from: string, to: string): Promise<AdDaily[]>
+  /** 광고 일별 기록의 가장 최근 날짜 (없으면 null) */
+  lastAdDailyDate(): Promise<string | null>
   /** 매체에서 내려받은 일별 · 캠페인별 수치 올리기 (관리자 · 같은 날 · 캠페인은 덮어씀) */
   importAdDaily(rows: { date: string; platform: string; campaign: string; impressions: number; clicks: number; cost: number; conversions: number | null }[]): Promise<{ saved: number; skipped: number }>
   listAdCampaigns(): Promise<AdCampaign[]>

@@ -2130,6 +2130,10 @@ export function createDemoApi(): Api {
       if (!store.ad_daily) seedAds()
       return clone((store.ad_daily ?? []).filter(r => r.date >= from && r.date <= to))
     },
+    async lastAdDailyDate() {
+      if (!store.ad_daily) seedAds()
+      return (store.ad_daily ?? []).reduce<string | null>((a, r) => (!a || r.date > a ? r.date : a), null)
+    },
     async listAdCampaigns() {
       if (!store.ad_campaigns) seedAds()
       return clone(store.ad_campaigns ?? [])
