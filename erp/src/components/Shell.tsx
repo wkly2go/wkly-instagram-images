@@ -353,7 +353,7 @@ function SideNav({ active, summary, onExpand }: { active: TabKey; summary: Summa
   const { me } = useApp()
   const { navigate } = useRouter()
   const tabs = TABS.filter(t => !t.admin || me.role === 'admin')
-  // 큰 묶음(업무 · 설계·견적 …) 접기 (대표 지시 2026-11-16) — 접어도 지금 보는 화면 줄은 남김
+  // 큰 묶음(업무 · 설계·견적 …) 접기 (대표 지시 2026-11-16 · 2026-11-22 '접으면 모두 접히게' — 지금 보는 화면 줄도 숨김, 숨은 숫자 합은 묶음 이름 옆)
   const [shut, setShut] = useState<string[]>(() => {
     try {
       const v = JSON.parse(localStorage.getItem(NAV_SHUT_KEY) ?? '[]')
@@ -380,7 +380,7 @@ function SideNav({ active, summary, onExpand }: { active: TabKey; summary: Summa
         const items = group.tabs.map(key => tabs.find(t => t.key === key)).filter((t): t is typeof tabs[number] => !!t)
         if (!items.length) return null
         const closed = shut.includes(group.label)
-        const hidden = closed ? items.filter(t => t.key !== active && t.key !== 'projects').reduce((a, t) => a + count(t.key), 0) : 0
+        const hidden = closed ? items.filter(t => t.key !== 'projects').reduce((a, t) => a + count(t.key), 0) : 0
         return <div className={`side-nav-group${closed ? ' shut' : ''}`} key={group.label}>
           <button type="button" className="side-group-label" onClick={() => toggleGroup(group.label)} aria-expanded={!closed} title={closed ? `${group.label} 펼치기` : `${group.label} 접기`}>
             <ChevronDown size={12} aria-hidden="true" /><span className="grow">{group.label === '관리자 전용' && me.role !== 'admin' ? '관리' : group.label}</span>

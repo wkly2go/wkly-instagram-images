@@ -82,6 +82,6 @@
 .app-page button.side-group-label:hover { color: var(--blue); }
 .app-page button.side-group-label > svg { flex: none; transition: transform .15s; }
 .app-page .side-nav-group.shut > .side-group-label > svg { transform: rotate(-90deg); }
-html:not(.side-rail) .app-page .side-nav-group.shut > .side-item:not(.on) { display: none; }
+html:not(.side-rail) .app-page .side-nav-group.shut > .side-item { display: none; }
 html.side-rail .app-page button.side-group-label { display: none; }
 @media (prefers-reduced-motion: reduce) { .app-page button.side-group-label > svg { transition: none; } }
