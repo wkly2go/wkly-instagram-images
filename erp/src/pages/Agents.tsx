@@ -7,6 +7,7 @@ import { AGENT_VERDICTS, type AgentAction, type AgentJob, type AgentActionLog, t
 import { Shell } from '../components/Shell'
 import { AiTeam } from '../components/AiTeam'
 import { GrowthAiSettings } from '../components/GrowthAi'
+import { ApiAgents } from '../components/ApiAgents'
 import { DocFullText } from '../components/DocFullText'
 import { usePanelWide, useRightPanel } from '../components/RightPanel'
 import { Badge, Button, Chip, Empty, Field, Linkify, Modal, SectionHead, type Tone } from '../components/ui'
@@ -15,9 +16,10 @@ const V_TONE: Record<string, Tone> = { 완료: 'acid', '변동 없음': 'outline
 const R_TONE: Record<string, Tone> = { 대기: 'yellow', '처리 중': 'blue', 완료: 'acid', '수동 필요': 'red', 거절: 'gray' }
 const MANAGER = 'WKLY 총괄 에이전트 관리'
 
-type Tab = 'team' | 'usage' | 'jobs' | 'org' | 'reports' | 'requests' | 'actions'
+type Tab = 'team' | 'api' | 'usage' | 'jobs' | 'org' | 'reports' | 'requests' | 'actions'
 const AI_TABS: { key: Tab; label: string; admin?: boolean }[] = [
   { key: 'team', label: '팀원·지시·예약' },
+  { key: 'api', label: 'API 에이전트', admin: true },
   { key: 'usage', label: '사용·비용' },
   { key: 'jobs', label: '예약 작업 점검', admin: true },
   { key: 'org', label: '조직도·관리자', admin: true },
@@ -48,7 +50,7 @@ export default function Agents() {
         {tabs.map(t => <button key={t.key} type="button" className={`chip${tab.key === t.key ? ' active' : ''}`} aria-current={tab.key === t.key ? 'page' : undefined} onClick={() => go(t.key)}>{t.label}</button>)}
       </nav>
       <section key={tab.key} aria-label={tab.label}>
-        {tab.key === 'team' ? <AiTeam /> : tab.key === 'usage' ? <GrowthAiSettings embedded /> : <>
+        {tab.key === 'team' ? <AiTeam /> : tab.key === 'api' ? <ApiAgents /> : tab.key === 'usage' ? <GrowthAiSettings embedded /> : <>
           <p className="t-cap">예약 작업 점검·보고·관리 요청·처리 기록은 관리자에게 표시됩니다.</p>
           <FailureBanner />
           {tab.key === 'jobs' ? <Jobs /> : tab.key === 'org' ? <AgentOrg /> : tab.key === 'reports' ? <Reports /> : tab.key === 'actions' ? <Actions /> : <Requests />}

@@ -631,3 +631,15 @@ td > .task-inline-sel, td .task-inline-sel:only-child { min-width: 76px; }
   .task-board .board td { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .task-board .board th { white-space: nowrap; overflow: visible; text-overflow: clip; }
 }
+
+/* AI 팀·비용 › API 에이전트 (2026-11-22) */
+.api-agents .api-budget { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin: 10px 0 14px; }
+.api-agents .api-bar { position: relative; width: 160px; height: 8px; border-radius: 4px; background: var(--v8-line, #e4e1d8); overflow: hidden; }
+.api-agents .api-bar > span { position: absolute; inset: 0 auto 0 0; background: var(--tx-key); }
+.api-agents .api-bar > span.warn { background: #c0392b; }
+.api-agents .api-table { width: 100%; margin-bottom: 18px; }
+.api-agents .api-table tr.off { opacity: .55; }
+.api-agents .api-sum { max-width: 360px; white-space: pre-wrap; }
+.api-agents .api-actions { white-space: nowrap; display: flex; gap: 6px; }
+.api-agents .api-instr { white-space: pre-wrap; font-size: var(--fs-body); background: #faf8f3; padding: 10px; border-radius: 8px; max-width: 720px; margin-top: 6px; }
+.api-agents button.link { background: none; border: 0; padding: 0; color: var(--tx-key); font-weight: 700; cursor: pointer; }
