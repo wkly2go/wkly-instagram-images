@@ -26,8 +26,32 @@ import { findGuides, GUIDES, guideById } from './guides.ts'
 
 const sb = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } })
 // 모델: 채팅 답변은 Sonnet(비용 1/2), '지시' 처리는 Opus (2026-10-18 대표 승인 · API 크레딧 배분)
-const MODEL_CHAT = 'claude-sonnet-5-5'
+// 2026-11-22 대표 지시: 모든 비서 · AI 팀원은 Opus, '꼼꼼'으로 정한 팀원은 Fable (못 쓰면 Opus 로 이어감)
+const MODEL_CHAT = 'claude-opus-5-5'
 const MODEL_INSTRUCTION = 'claude-opus-5-5'
+const MODEL_DEEP = 'claude-fable-5-2'
+
+/** 호출 한 번의 토큰 · 금액을 적는다. 기록이 실패해도 답은 막지 않는다. */
+async function recordUsage(ctx: { agent?: { id?: string } }, res: Anthropic.Message) {
+  try {
+    // deno-lint-ignore no-explicit-any
+    const u = (res.usage ?? {}) as any
+    await sb.rpc('ai_usage_record', {
+      p_source: 'agent-chat', p_agent: ctx.agent?.id ?? null, p_model: res.model,
+      p_input: u.input_tokens ?? 0, p_output: u.output_tokens ?? 0,
+      p_cache_read: u.cache_read_input_tokens ?? 0, p_cache_write: u.cache_creation_input_tokens ?? 0,
+      p_web: u.server_tool_use?.web_search_requests ?? 0,
+    })
+  } catch { /* 기록 실패는 넘어감 */ }
+}
+
+/** 이번 달 한도 안인지. 확인이 안 되면 막지 않는다. */
+async function budgetOk(): Promise<boolean> {
+  try {
+    const { data } = await sb.rpc('ai_month_state')
+    return (data as { ok?: boolean } | null)?.ok !== false
+  } catch { return true }
+}
 const MAX_STEPS = 12
 const MAX_LEADS_PER_MESSAGE = 3
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
@@ -1317,11 +1341,13 @@ async function ask(ctx: Ctx, where: string, messages: Anthropic.MessageParam[], 
     ? [GOV_READ, GOV_SUGGEST, ...TOOLS.filter(t => t.name === 'list_people')]
     : [...[...(ctx.lead ? [...TOOLS, ...LEAD_TOOLS] : TOOLS), ...(ctx.custom?.private ? SECRETARY_TOOLS : []), ...SCHEDULE_TOOLS, ...(isCeo(ctx.requester) ? CEO_TOOLS : [])].filter(t => !allow || allow.has(t.name) || isCeo(ctx.requester)), ...(ownSecretary(ctx) ? memberTools().filter(t => !(isCeo(ctx.requester) && t.name === 'save_project')) : [INTRANET_HELP]), ...(govSecretary(ctx) ? [GOV_READ, GOV_ASK] : [])]
   const tools = [WEB_SEARCH, ...own.map((t, i) => (i === own.length - 1 ? { ...t, cache_control: { type: 'ephemeral' as const } } : t))]
-  if (ctx.custom?.model === '꼼꼼') model = MODEL_INSTRUCTION
+  if (ctx.custom?.model === '꼼꼼') model = MODEL_DEEP
+  if (!(await budgetOk())) return '이번 달 AI 사용 한도에 닿아 답을 만들지 않았습니다. 관리자 › AI 팀·비용에서 한도를 확인해 주세요.'
   let useFallback = true
   for (let step = 0; step < MAX_STEPS; step++) {
     let res: Anthropic.Message
-    const params = { model, max_tokens: 16000, system, tools, messages, output_config: { effort: 'medium' } }
+    // Fable 은 생각하는 토큰도 max_tokens 에 들어가 넉넉히 둔다
+    const params = { model, max_tokens: model === MODEL_DEEP ? 32000 : 16000, system, tools, messages, output_config: { effort: 'medium' } }
     try {
       if (onDraft) {
         // 실시간: 쓰는 대로 화면에 보냄
@@ -1355,8 +1381,16 @@ async function ask(ctx: Ctx, where: string, messages: Anthropic.MessageParam[], 
         step--
         continue
       }
+      // Fable 을 못 쓰는 계정(보존 설정 · 한도)이면 Opus 로 이어감
+      if (model === MODEL_DEEP && e instanceof Anthropic.APIError && (e.status === 400 || e.status === 403 || e.status === 404 || e.status === 429)) {
+        model = MODEL_INSTRUCTION
+        useFallback = true
+        step--
+        continue
+      }
       throw e
     }
+    await recordUsage(ctx, res)
     if (res.stop_reason === 'refusal') return '이 요청은 처리할 수 없습니다. 다르게 표현해 주시면 다시 해 보겠습니다.'
     messages.push({ role: 'assistant', content: res.content })
     if (res.stop_reason === 'pause_turn') continue
