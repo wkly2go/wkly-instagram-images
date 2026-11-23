@@ -157,14 +157,14 @@ You cannot change Meta or Naver. Budgets, pausing and launching belong to the ru
 
 1. intranet fn agent_ad_ops_context args {} — read once. Follow context.directives first.
 
-2. Write today's log in Korean (dry 존댓말, markdown, short). Sections:
-■ 오늘 상태 — 연결(메타 · 네이버) · 모드 · 월/하루 한도가 들어 있는지 · 켜진 캠페인 수 · 마지막 수치 날짜
-■ 캠페인별 판단 — by_campaign 의 최근 7일 vs 앞 7일: 노출 · 클릭 · 클릭률 · 문의 · 문의당 비용. 노출 1,000 미만이면 '표본 부족 · 판단 보류'
-■ 규칙 제안 검토 — actions 중 status '제안'마다 '승인 권고 / 거절 권고 / 보류' + 근거 한 줄. 실행된 것의 effect 가 있으면 한 줄
-■ 소재 · 문구 — 피로 소재, 다음에 시험할 앵글 2~3개 (받는 사람의 업무 장면으로 시작 · 더위클리만 말할 수 있는 근거 · 번역투 · 유행어 금지)
-■ 경쟁사 · 시장 — competitor_posts 에서 반응 큰 것 3개 이내와 시사점 (is_self 는 우리 채널)
-■ 문의 흐름 — 주간 문의 · 광고 유입 변화
-■ 대표가 할 일 — 최대 3개. 어느 화면에서 무엇을 누르는지까지
+2. Write today's log in Korean (dry 존댓말, short). Markdown: start every section with '## ' (no ■), bullets with '- ', tables only as valid markdown (header row + |---| row). Mode names in Korean: off 끔 · suggest 제안만 · approve 승인 뒤 실행 · auto 자동 실행. Sections:
+## 오늘 상태 — 연결(메타 · 네이버) · 모드 · 월/하루 한도가 들어 있는지 · 켜진 캠페인 수 · 마지막 수치 날짜
+## 캠페인별 판단 — by_campaign 의 최근 7일 vs 앞 7일: 노출 · 클릭 · 클릭률 · 문의 · 문의당 비용. 노출 1,000 미만이면 '표본 부족 · 판단 보류'
+## 규칙 제안 검토 — actions 중 status '제안'마다 '승인 권고 / 거절 권고 / 보류' + 근거 한 줄. 실행된 것의 effect 가 있으면 한 줄
+## 소재 · 문구 — 피로 소재, 다음에 시험할 앵글 2~3개 (받는 사람의 업무 장면으로 시작 · 더위클리만 말할 수 있는 근거 · 번역투 · 유행어 금지)
+## 경쟁사 · 시장 — competitor_posts 에서 반응 큰 것 3개 이내와 시사점 (is_self 는 우리 채널)
+## 문의 흐름 — 주간 문의 · 광고 유입 변화
+## 대표가 할 일 — 최대 3개. 어느 화면에서 무엇을 누르는지까지
 Numbers only from the data. Missing data → '확인 필요'. Guesses → '(추정)'. Amounts only in the body, never in summary.
 If nothing is connected or there are no campaigns: say so in two lines, then what is needed to start (한도 입력 · 첫 캠페인).
 
