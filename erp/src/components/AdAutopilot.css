@@ -73,3 +73,12 @@ html[data-theme="dark"] :is(.ap-card, .ap-cap, .ap-mode, .ap-f input, .ap-token 
 html[data-theme="dark"] .ap-score-card { background: #15291c; border-color: var(--line); color: var(--ink); }
 .ap-plat { padding: 1px 8px; border-radius: 999px; background: #e7f6ec; color: #03a94d; font-weight: 700; }
 .ap-token input + input { margin-left: 0; }
+/* 광고 자동화 AI 일지 (2026-11-23) */
+.ap-logs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.ap-log { border: 1px solid var(--v8-line); border-radius: var(--v8-r-card); background: var(--v8-card); }
+.ap-log-head { display: flex; align-items: baseline; gap: 10px; width: 100%; padding: 10px 14px; border: 0; background: none; text-align: left; cursor: pointer; color: var(--v8-ink); font: inherit; }
+.ap-log-head b { font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.ap-log-sum { color: var(--tx-sub); min-width: 0; white-space: pre-line; }
+.ap-log.on .ap-log-head { border-bottom: 1px solid var(--v8-line); }
+.ap-log-body { padding: 12px 14px; }
+html[data-theme="dark"] .ap-log { background: #15291c; border-color: var(--line); color: var(--ink); }
