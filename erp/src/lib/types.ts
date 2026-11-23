@@ -350,7 +350,7 @@ export interface Project {
   /** 계약서 파일 (드라이브 주소 · 이름 · 2026-11-19) */
   contract_file_url?: string | null
   contract_file_name?: string | null
-  /** 구분 (0046): AR 아트리어 · TW 더위클리 · RS 내부 리서치 */
+  /** 구분 (0046): AR 아트리어 · TW 더위클리 · RS 공통 회사운영업무 */
   division?: Division
   created_by: string | null
   created_at: string
@@ -397,14 +397,14 @@ export function projectDriveUrl(p: Pick<Project, 'drive_url' | 'description' | '
 }
 
 /**
- * 프로젝트 구분 · 대표 색상 (대표 지시 2026-10-21): AR 아트리어(그린) · TW 더위클리(블루) · RS 내부 리서치(핑크)
+ * 프로젝트 구분 · 대표 색상 (대표 지시 2026-10-21): AR 아트리어(그린) · TW 더위클리(블루) · RS 공통 회사운영업무(핑크)
  * 연번 = 구분 + 시작 연월 + '-' + 그달 일련번호 (예: AR2610-01) — 프로젝트마다 다름 (0046)
  */
 export type Division = 'AR' | 'TW' | 'RS'
 export const DIVISIONS: Record<Division, { label: string; full: string; color: string }> = {
   AR: { label: '아트리어', full: '아트리어 프로젝트', color: '#1264a3' },
   TW: { label: '더위클리', full: '더위클리 프로젝트', color: 'var(--blue)' },
-  RS: { label: '내부 리서치', full: '내부 리서치 프로젝트', color: 'var(--pink)' },
+  RS: { label: '공통 회사운영업무', full: '공통 회사운영업무 프로젝트', color: 'var(--pink)' },
 }
 export const DIVISION_KEYS = Object.keys(DIVISIONS) as Division[]
 /** 구분 (division 이 없으면 연번 앞자리로) */

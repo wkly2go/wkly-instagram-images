@@ -24,7 +24,7 @@ export { QUICK_OPEN_ROOM } from '../lib/chat'
 
 /**
  * 빠른 창 방 고르기 묶음 (대표 지시 2026-11-10 "사람 팀원과 프로젝트 구분 · 프로젝트 성격에 따라 · 진행 중과 완료")
- *  진행 중 프로젝트(구분별: 아트리어 · 더위클리 · 내부 리서치) → 채팅방 → 사람 팀원 → AI 팀원 → 끝난 프로젝트
+ *  진행 중 프로젝트(구분별: 아트리어 · 더위클리 · 공통 회사운영업무) → 채팅방 → 사람 팀원 → AI 팀원 → 끝난 프로젝트
  */
 function roomGroups(rooms: ChatRoomSummary[], projects: Project[], meId: string, profiles: { id: string; is_agent?: boolean }[], profileName: (id: string | null | undefined) => string): [string, ChatRoomSummary[]][] {
   const name = (r: ChatRoomSummary) => roomTitle(r, meId, profileName).replace(/^#\s*/, '')

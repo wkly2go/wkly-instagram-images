@@ -221,7 +221,7 @@ function ProgressBoard({ projects, tasks, today }: { projects: Project[]; tasks:
       return { p, ts, done, late, elapsed, progress, next, behind }
     })
     .sort((a, b) => Number(b.behind) - Number(a.behind) || b.late - a.late || (a.p.end_date ?? '').localeCompare(b.p.end_date ?? ''))
-  // 프로젝트 목록과 같게 구분해서 보기 (대표 지시 2026-10-23): 아트리어 · 더위클리 · 내부 리서치, NIC 는 따로
+  // 프로젝트 목록과 같게 구분해서 보기 (대표 지시 2026-10-23): 아트리어 · 더위클리 · 공통 회사운영업무, NIC 는 따로
   const groups = [
     ...DIVISION_KEYS.map(k => ({ key: k as string, title: DIVISIONS[k].full, color: DIVISIONS[k].color, list: rows.filter(r => r.p.status !== 'NIC' && projectBrand(r.p) === k) })),
     { key: 'NIC', title: 'NIC 프로젝트', color: 'var(--gray)', list: rows.filter(r => r.p.status === 'NIC') },

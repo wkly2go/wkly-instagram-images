@@ -1,0 +1,55 @@
+# 서버 함수 배포 (2026-11-23) — 저장소 main 의 함수를 Supabase 에 그대로 올린다
+#  - 왜: 큰 함수(agent-chat 100KB 이상)는 대화 세션이 손으로 옮겨 배포할 수 없어 저장소와 운영이 어긋났다
+#  - 쓰는 법: Actions › '서버 함수 배포' › Run workflow › 함수 이름(폴더 이름) · 로그인 확인 끔 여부
+#  - 필요한 것: 저장소 Settings › Secrets and variables › Actions 의 SUPABASE_ACCESS_TOKEN
+#    (Supabase 대시보드 › Account › Access Tokens 에서 대표가 만든 값 · 대화 · 코드에 적지 않는다)
+#  - 손으로 눌러야만 돈다(저장소에 쓰기 권한이 있는 사람만) · 다른 저장소에서 온 PR 은 비밀 값을 못 쓴다
+name: 서버 함수 배포
+
+on:
+  workflow_dispatch:
+    inputs:
+      name:
+        description: '함수 이름 (erp/supabase/functions 아래 폴더 이름 · 예: agent-chat)'
+        required: true
+        type: string
+      no_verify_jwt:
+        description: '로그인 확인(verify_jwt) 끔 — 지금 운영 설정과 같게 고를 것'
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-function-${{ inputs.name }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: 함수 이름 확인
+        env:
+          NAME: ${{ inputs.name }}
+        run: |
+          case "$NAME" in (*[!a-z0-9-]*|'') echo "함수 이름은 영문 소문자 · 숫자 · - 만 됩니다"; exit 1;; esac
+          test -f "erp/supabase/functions/$NAME/index.ts" || { echo "erp/supabase/functions/$NAME/index.ts 가 없습니다"; exit 1; }
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: 배포
+        working-directory: erp
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          NAME: ${{ inputs.name }}
+          NO_VERIFY: ${{ inputs.no_verify_jwt }}
+        run: |
+          test -n "$SUPABASE_ACCESS_TOKEN" || { echo "저장소 비밀 값 SUPABASE_ACCESS_TOKEN 이 없습니다 (Settings › Secrets and variables › Actions)"; exit 1; }
+          if [ "$NO_VERIFY" = "true" ]; then FLAG="--no-verify-jwt"; else FLAG=""; fi
+          supabase functions deploy "$NAME" --project-ref hophgcpszenrvchvbkav $FLAG

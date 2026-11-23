@@ -246,7 +246,7 @@ export default function Projects() {
               </label>
             </div>
             {/* 회사별로 나눠 보기: 아트리어(AR) · 더위클리(TW) — 회사 칩을 고르면 그 회사만 */}
-            {/* 구분별 카드 (조직 · 진행 현황과 같은 모양): 아트리어 · 더위클리 · 내부 리서치 — 위쪽 색 띠 = 대표 색상 */}
+            {/* 구분별 카드 (조직 · 진행 현황과 같은 모양): 아트리어 · 더위클리 · 공통 회사운영업무 — 위쪽 색 띠 = 대표 색상 */}
             <div className="div-cards">
               {DIVISION_KEYS.filter(k => !brand || brand === k).map(k => {
                 const rows = sorted(shown.filter(p => projectBrand(p) === k && (status === 'all' ? OPEN.includes(p.status) : p.status === status)))
