@@ -19,3 +19,9 @@ test('자료: API 에이전트는 모두 소넷 · 꼼꼼은 대표의 개인 �
   assert.match(sql, /set model = '꼼꼼'[\s\S]*a\.private[\s\S]*o\.title = '대표'/)
   assert.match(sql, /set model = '기본'[\s\S]*and not \(a\.private and exists/)
 })
+
+test('예외: 투자유치 전문 AI 는 다시 오퍼스 (같은 날 대표 지시)', () => {
+  const gov = readFileSync(new URL('../supabase/migrations/20261123154000_gov_expert_opus.sql', import.meta.url), 'utf8')
+  assert.match(gov, /set model = '꼼꼼'[^;]*'gov_suggest' = any \(tools\)/)
+  assert.doesNotMatch(gov, /\bdrop\s|\bdelete\s/i)
+})
