@@ -3,6 +3,11 @@ import { createDemoDesignApi } from './designApi'
 import { createDemoIlwiApi } from './ilwiApi'
 import { createDemoGovApi } from './govApi'
 import { createDemoCollabApi } from './collabApi'
+import { createDemoBoardApi } from './boardApi'
+import { createDemoFigmaApi } from './figmaApi'
+import { createDemoAdAutopilotApi } from './adAutopilotApi'
+import { createDemoApiAgentsApi } from './apiAgentsApi'
+import { createDemoCompetitorApi } from './competitorApi'
 import { createDemoSalesReportApi } from './salesReport'
 import { createDemoGrowthApi } from './growthApi'
 import { createDemoSalesApi } from './salesApi'
@@ -499,6 +504,8 @@ function seed(): Store {
 export function createDemoApi(): Api {
   // 서면 인터뷰는 체험 모드에 자료를 두지 않음 (대표 지시 '목업은 올리지 마') · 새로 추가한 것만 창이 열린 동안 보관
   let demoInterviews: SalesInterview[] = []
+  // 화면 확인용 시험 자료는 개발 서버 + VITE_INTERVIEW_HARNESS=1 일 때만 (체험 모드 · 배포에는 자료 없음)
+  if (import.meta.env.DEV && import.meta.env.VITE_INTERVIEW_HARNESS === '1') void import('../dev/interviewHarness').then(m => { demoInterviews = m.HARNESS_INTERVIEWS })
   // 인터뷰지: 체험 모드에는 질문 은행 기본 문안만 둔다 (브랜드 자료 없음)
   let demoQuestions: BankQuestion[] = DEMO_INTERVIEW_QUESTIONS.map(q => ({ ...q }))
   let demoForms: InterviewForm[] = []
@@ -677,6 +684,11 @@ export function createDemoApi(): Api {
     ...createDemoIlwiApi(),
     ...createDemoGovApi(),
     ...createDemoCollabApi(),
+    ...createDemoBoardApi(),
+    ...createDemoFigmaApi(),
+    ...createDemoAdAutopilotApi(),
+    ...createDemoApiAgentsApi(),
+    ...createDemoCompetitorApi(),
     ...createDemoSalesReportApi(),
     ...createDemoGrowthApi(meProfile, createDemoSalesApi(meProfile)),
     ...createDemoMarketingApi(meProfile),
@@ -1018,6 +1030,12 @@ export function createDemoApi(): Api {
       persist()
       emit('saved_items')
       return clone(row)
+    },
+    async tagChatProject() {
+      // 체험 모드: 붙이기는 저장하지 않음
+    },
+    async chatMessageProjects() {
+      return {}
     },
     async finishSaved(id) {
       const row = store.saved_items?.find(x => x.id === id && x.user_id === requireMe())
@@ -2031,6 +2049,22 @@ export function createDemoApi(): Api {
       return []
     },
     async updateWebInquiry() {},
+    async salesPipeline() {
+      // 체험 모드: 프로젝트 상태만 실제로 세고 나머지는 비워 둠 (목업 자료 넣지 않음)
+      const ps = store.projects ?? []
+      const pick = (st: string) => ps.filter(p => p.status === st)
+      const items = (st: string) => pick(st).slice(0, 5).map(p => ({ title: [p.code, p.name].filter(Boolean).join(' '), sub: st, at: p.created_at ?? null, link: `/projects?id=${p.id}` }))
+      const empty = (key: string, label: string, hint: string) => ({ key, label, hint, count: 0, items: [] })
+      return [
+        empty('inquiry', '새 문의', '홈페이지 문의 · 리포트 신청 중 아직 안 본 것'),
+        empty('prospect', '영업 대상', '우선 검토로 판정된 대상'),
+        empty('strategy', '기획 승인 대기', '대표 승인을 기다리는 영업 기획안'),
+        empty('package', '실행 준비', '승인된 기획의 메일 · DM 묶음'),
+        { key: 'consult', label: '상담 중', hint: '프로젝트 상태 문의', count: pick('문의').length, items: items('문의') },
+        { key: 'nic', label: '계약 전', hint: 'NIC · 최근 60일 안에 움직인 것', count: pick('NIC').length, items: items('NIC') },
+        { key: 'won', label: '진행 (수주)', hint: '계약해 진행 중인 프로젝트', count: pick('진행').length, items: items('진행') },
+      ]
+    },
     async listInquiryThreads() {
       return []
     },
@@ -2057,6 +2091,13 @@ export function createDemoApi(): Api {
       if (row.is_default && row.active) demoQuestions = demoQuestions.map(q => (q.slot === row.slot ? { ...q, is_default: false } : q))
       demoQuestions = id ? demoQuestions.map(q => (q.id === id ? row : q)) : [...demoQuestions, row]
       return row
+    },
+    // 체험 모드에는 브랜드가 올린 자료가 없음
+    async listInterviewFiles() {
+      return []
+    },
+    async interviewFileUrl() {
+      throw new Error('체험 모드에서는 내려받을 파일이 없습니다.')
     },
     async getInterviewForm(interviewId) {
       return demoForms.find(f => f.interview_id === interviewId) ?? null
@@ -2564,6 +2605,12 @@ export function createDemoApi(): Api {
       return null
     },
     async listProjectMails() {
+      return []
+    },
+    async setMailProject() {
+      return 0
+    },
+    async searchMailsToLink() {
       return []
     },
     // 데모: 드라이브 연결 없음 → 올리기 안 됨

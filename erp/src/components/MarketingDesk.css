@@ -311,3 +311,7 @@
 .marketing-desk .md-copy-check li.warn { color: #7a5600; }
 .marketing-desk .md-copy-ok { margin: 0 0 15px; color: var(--v8-green, #1f6b4a); display: flex; align-items: center; gap: 4px; }
 @media (max-width: 640px) { .marketing-desk .md-plan-draft dl > div { grid-template-columns: 1fr; gap: 2px; } }
+
+/* 메타에 광고로 올리기 (2026-11-21) */
+.md-meta-launch { margin-top: 14px; border-top: 1px solid var(--line, #e3e1da); padding-top: 14px; }
+.md-meta-state { margin: 6px 0 0; color: var(--tx-sub); }

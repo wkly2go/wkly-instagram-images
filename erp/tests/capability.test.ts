@@ -96,7 +96,7 @@ test('checks run before merging and an outside monitor watches the server, witho
   const ci = read('../../.github/workflows/ci.yml')
   for (const step of ['npx tsc --noEmit -p .', 'npm run test:all', 'npm run test:ui', 'npm run build', 'npm run check:bundle']) assert.ok(ci.includes(step), step)
   const up = read('../../.github/workflows/uptime.yml')
-  assert.match(up, /cron: '\*\/10 \* \* \* \*'/)
+  assert.match(up, /cron: '7,22,37,52 \* \* \* \*'/)
   assert.match(up, /rest\/v1\/rpc\/monitor_ping/)
   assert.doesNotMatch(up, /secrets\./)
   assert.match(read('../docs/RUNBOOK.md'), /Restart project/)

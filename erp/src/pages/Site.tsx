@@ -177,7 +177,7 @@ export function Site() {
 export function SiteBody({ projectId }: { projectId?: string }) {
   const { api, version } = useApp()
   const { data: projects } = useAsync(() => api.listProjects(), [version], [] as Project[])
-  const active = useMemo(() => projects.filter(p => p.status === '진행' || p.status === '문의' || p.status === '상담협의').sort((a, b) => (b.code ?? '').localeCompare(a.code ?? '')), [projects])
+  const active = useMemo(() => projects.filter(p => p.status === '진행' || p.status === '문의').sort((a, b) => (b.code ?? '').localeCompare(a.code ?? '')), [projects])
   const [pid, setPid] = useState<string | null>(readLast())
   const project = projectId ? projects.find(p => p.id === projectId) ?? null : projects.find(p => p.id === pid) ?? active[0] ?? null
   // 체크리스트가 맨 앞 · 기본 (대표 지시 2026-11-04 "현장 실측에 체크리스트도") · 마지막에 본 탭 기억

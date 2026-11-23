@@ -328,8 +328,8 @@ export interface Contact {
 export const PROJECT_CATEGORIES = ['팝업', '캠페인', '콘텐츠', '기타'] as const
 export type ProjectCategory = (typeof PROJECT_CATEGORIES)[number]
 /** NIC = Not In Contract (계약 전) */
-// 상담협의 (2026-11-18 대표 지시 '상담협의 항목을 추가해') · '기획' 상태는 '문의'로 이름 바꿈 (2026-11-19 대표 지시 '기획을 문의로 변경해')
-export const PROJECT_STATUSES = ['상담협의', '문의', '진행', 'NIC', '완료', '보류'] as const
+// 상담협의 (2026-11-18 추가 → 2026-11-19 대표 지시 '문의와 상담협의를 합쳐'로 '문의'에 합침 · DB 트리거가 '상담협의'를 '문의'로 바꿔 저장) · '기획' 상태는 '문의'로 이름 바꿈 (2026-11-19 대표 지시 '기획을 문의로 변경해')
+export const PROJECT_STATUSES = ['문의', '진행', 'NIC', '완료', '보류'] as const
 export type ProjectStatus = (typeof PROJECT_STATUSES)[number]
 
 export interface Project {

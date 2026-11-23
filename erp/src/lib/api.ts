@@ -1,11 +1,16 @@
 import type { BuildStats, CapabilityResult } from './capability'
 import type { TimelineItem } from './projectTimeline'
-import type { BankQuestion, BankQuestionDraft, InterviewForm, InterviewFormPatch } from './interviewForms'
+import type { BankQuestion, BankQuestionDraft, InterviewFile, InterviewForm, InterviewFormPatch } from './interviewForms'
 import type { SalesStrategyApi } from './salesStrategy'
 import type { DesignApi } from './design'
 import type { IlwiApi } from './ilwi'
 import type { GovApi } from './gov'
 import type { CollabApi } from './collabApi'
+import type { BoardApi } from './boardApi'
+import type { FigmaApi } from './figmaApi'
+import type { AdAutopilotApi } from './adAutopilotApi'
+import type { ApiAgentsApi } from './apiAgentsApi'
+import type { CompetitorApi } from './competitorApi'
 import type { SalesReportApi } from './salesReport'
 import type { GrowthApi } from './growth'
 import type { SalesApi } from './sales'
@@ -108,6 +113,7 @@ import type { LedgerEntry, LedgerFile, LedgerRecurring, LedgerStatus, MaterialIt
 } from './types'
 
 /** 구글 드라이브 탭에 거는 회사 공용 폴더 */
+export interface SalesPipelineStage { key: string; label: string; hint: string; count: number; items: { title: string; sub: string; at: string | null; link: string }[] }
 export interface DriveFolder {
   name: string
   url: string
@@ -181,7 +187,7 @@ export type AgentDraft = { agent_id: string; seq: number; text: string; status: 
  * - supabaseApi: 실제 운영 (Supabase)
  * - demoApi: 환경변수가 없을 때 브라우저 저장소로 동작하는 체험판
  */
-export interface Api extends SalesStrategyApi, SalesApi, GrowthApi, SalesReportApi, DesignApi, IlwiApi, GovApi, CollabApi {
+export interface Api extends SalesStrategyApi, SalesApi, GrowthApi, SalesReportApi, DesignApi, IlwiApi, GovApi, CollabApi, BoardApi, FigmaApi, AdAutopilotApi, CompetitorApi, ApiAgentsApi {
   mode: 'supabase' | 'demo'
 
   // 인증
@@ -280,6 +286,10 @@ export interface Api extends SalesStrategyApi, SalesApi, GrowthApi, SalesReportA
   listSaved(): Promise<SavedItem[]>
   saveForLater(item: { message_id: number | null; room_id: string | null; preview: string; remind_at: string | null }): Promise<SavedItem>
   finishSaved(id: number): Promise<void>
+  /** 대화 글을 프로젝트에 붙이기 · 떼기 (프로젝트 '대화 모아 보기'에 나옴 · 2026-11-20) */
+  tagChatProject(messageId: number, projectId: string, on: boolean): Promise<void>
+  /** 이 글들이 붙어 있는 프로젝트 (글 id → 프로젝트 id 목록 · 자동 태그 포함) */
+  chatMessageProjects(messageIds: number[]): Promise<Record<number, { project_id: string; auto: boolean }[]>>
   /** 카드 메시지 보내기 (/할일 · /결재 · /일정 으로 만든 것) */
   sendCard(roomId: string, content: string, card: ChatCard): Promise<ChatMessage>
   /** 방 참여자들의 마지막 읽은 시각 (누가 읽었는지 표시) */
@@ -449,6 +459,8 @@ export interface Api extends SalesStrategyApi, SalesApi, GrowthApi, SalesReportA
   updateWebInquiry(id: string, patch: { status?: string; memo?: string | null }): Promise<void>
   /** 문의별 메일 대화 상태 (회사 메일과 10분마다 맞춰 봄) */
   listInquiryThreads(): Promise<InquiryThread[]>
+  /** 영업 파이프라인 한 줄 (새 문의 → 영업 대상 → 기획안 → 실행 준비 → 상담 → 계약 전 → 진행 · 단계마다 건수 + 최근 5건) */
+  salesPipeline(): Promise<SalesPipelineStage[]>
   /** 고객의 마지막 메일에 답이 필요 없음 → 회신 대기 (새 메일이 오면 다시 바로 응대) */
   dismissInquiryThread(inquiryId: string): Promise<void>
   /** 서면 인터뷰 (더위클리 팝업 큐레이션 · 영업·수주) */
@@ -460,6 +472,10 @@ export interface Api extends SalesStrategyApi, SalesApi, GrowthApi, SalesReportA
   getInterviewForm(interviewId: string): Promise<InterviewForm | null>
   /** 없으면 만들고 있으면 고친다. status '열림' 은 처음 열 때 opened_at 을 남긴다 */
   saveInterviewForm(interviewId: string, patch: InterviewFormPatch): Promise<InterviewForm>
+  /** 브랜드가 인터뷰지에서 올린 사진 · 자료 (2026-11-20 · 비공개 보관함 interview-files) */
+  listInterviewFiles(interviewId: string): Promise<InterviewFile[]>
+  /** 내려받기 주소 (10분) */
+  interviewFileUrl(path: string, name: string): Promise<string>
   /** 메일 대화에 붙은 받은 자료 (수신방 드라이브 파일) */
   listMailFilesByThreads(threadIds: string[]): Promise<Pick<MailFile, 'id' | 'name' | 'drive_url' | 'sent_at' | 'thread_id' | 'kind'>[]>
   listAdDaily(from: string, to: string): Promise<AdDaily[]>
@@ -563,6 +579,10 @@ export interface Api extends SalesStrategyApi, SalesApi, GrowthApi, SalesReportA
   listDriveIndex(projectId?: string): Promise<DriveIndexFile[]>
   /** 회사 지메일: 이 프로젝트(또는 그 거래처)와 연결된 메일 */
   listProjectMails(projectId: string, clientId: string | null): Promise<MailItem[]>
+  /** 메일 → 프로젝트 손으로 붙이기 · 떼기 (2026-11-21 · 같은 대화 전체 · 바뀐 메일 수) */
+  setMailProject(mailId: string, projectId: string, on: boolean): Promise<number>
+  /** 이 프로젝트에 아직 안 붙은 메일 찾기 (제목 · 보낸 사람 · 받는 사람) */
+  searchMailsToLink(projectId: string, q: string): Promise<MailItem[]>
   /** 슬랙 (0088 · slack-import 함수): 연결 상태 · 토큰 저장(관리자) · 채널 목록 · 프로젝트 연결 · 가져오기 */
   /** 카카오톡 대화 가져오기 (0105) */
   listKakao(projectId: string): Promise<{ imports: KakaoImport[]; messages: KakaoMessage[]; ready?: boolean }>

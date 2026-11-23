@@ -406,8 +406,14 @@ html[data-theme="dark"] .ast-head { background: #20392a; color: var(--ink); bord
 .home-proj-name { font-size: var(--fs-body); color: var(--v8-ink); line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 2.7em; }
 .home-proj-bar { display: block; height: 5px; margin: 4px 0 2px; border-radius: 999px !important; background: #eeebe4; overflow: hidden; }
 .home-proj-bar i { display: block; height: 100%; border-radius: 999px !important; background: var(--div, var(--v8-green)); opacity: .75; }
-@media (max-width: 1100px) { .home-hero { grid-template-columns: 1fr; grid-template-areas: 'hello' 'focus' 'kpis'; } .home-kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
-@media (max-width: 720px) { .home-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .home-hero { padding: 16px; } .home-hello h1 { font-size: var(--fs-title); } }
+/* 2026-11-20 홈 맨 위 칸은 화면 폭이 아니라 '자기 폭'으로 배치 — 채팅 칸 · 오른쪽 일정 칸이 열려 본문이 좁아도 숫자 카드 이름이 사라지지 않게 */
+.home-hero-wrap { container-type: inline-size; container-name: hero; margin-bottom: 8px; }
+.home-hero-wrap > .home-hero { margin-bottom: 0; }
+.home-kpi .t-cap { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.35; word-break: keep-all; }
+@container hero (max-width: 920px) { .home-hero { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'hello' 'focus' 'kpis'; } .home-kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@container hero (max-width: 700px) { .home-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@container hero (max-width: 520px) { .home-hero { padding: 16px; } .home-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .home-hello h1 { font-size: var(--fs-title); } .home-focus-proj { display: none; } }
+@container hero (max-width: 360px) { .home-kpis { grid-template-columns: minmax(0, 1fr); } }
 html[data-theme="dark"] .home-hero { background: var(--white); }
 html[data-theme="dark"] :is(.home-focus-row, .home-kpi, .home-proj) { background: #15291c; border-color: var(--line); color: var(--ink); }
 html[data-theme="dark"] :is(.home-kpi b, .home-hello h1, .home-proj-name) { color: var(--ink); }
@@ -625,3 +631,15 @@ td > .task-inline-sel, td .task-inline-sel:only-child { min-width: 76px; }
   .task-board .board td { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .task-board .board th { white-space: nowrap; overflow: visible; text-overflow: clip; }
 }
+
+/* AI 팀·비용 › API 에이전트 (2026-11-22) */
+.api-agents .api-budget { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin: 10px 0 14px; }
+.api-agents .api-bar { position: relative; width: 160px; height: 8px; border-radius: 4px; background: var(--v8-line, #e4e1d8); overflow: hidden; }
+.api-agents .api-bar > span { position: absolute; inset: 0 auto 0 0; background: var(--tx-key); }
+.api-agents .api-bar > span.warn { background: #c0392b; }
+.api-agents .api-table { width: 100%; margin-bottom: 18px; }
+.api-agents .api-table tr.off { opacity: .55; }
+.api-agents .api-sum { max-width: 360px; white-space: pre-wrap; }
+.api-agents .api-actions { white-space: nowrap; display: flex; gap: 6px; }
+.api-agents .api-instr { white-space: pre-wrap; font-size: var(--fs-body); background: #faf8f3; padding: 10px; border-radius: 8px; max-width: 720px; margin-top: 6px; }
+.api-agents button.link { background: none; border: 0; padding: 0; color: var(--tx-key); font-weight: 700; cursor: pointer; }

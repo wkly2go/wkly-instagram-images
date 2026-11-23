@@ -119,3 +119,12 @@ export const DEMO_INTERVIEW_QUESTIONS: BankQuestion[] = [
   {"id": "seed-Q9", "slot": "Q9", "section": "인사이트 및 향후 비전", "title": "실무자에게 주는 조언", "body": "팝업을 준비하는 실무자(공간 디자이너 · 마케터)에게 기획 · 제작 · 오픈 일정과 사전 점검 항목을 중심으로 조언을 부탁드립니다. 준비하면서 가장 어려웠던 점과 해결한 방법도 알려 주세요.", "help": "", "kind": "long", "options": [], "use": "콘텐츠", "required": false, "variant": "기본", "is_default": true, "active": true, "sort": 9},
   {"id": "seed-Q10", "slot": "Q10", "section": "인사이트 및 향후 비전", "title": "향후 계획 · 파트너 선정 기준", "body": "{브랜드}의 추가 팝업 등 앞으로의 오프라인 전개 방향과, 기획사 · 대행사 · 협업 파트너를 고를 때 가장 중요하게 보는 기준을 알려 주세요.", "help": "", "kind": "long", "options": [], "use": "영업", "required": true, "variant": "기본", "is_default": true, "active": true, "sort": 10},
 ]
+
+/** 브랜드가 인터뷰지에서 올린 파일 (sales_interview_files) */
+export interface InterviewFile { id: string; form_id: string; interview_id: string; path: string; name: string; size: number | null; mime: string | null; created_at: string }
+
+/** 브랜드가 올리는 파일의 보관 경로: <토큰>/<시각>-<난수>.<확장자> (한글 이름은 목록에만 · 경로는 영문 · 숫자) */
+const extOf = (name: string) => (/\.([a-z0-9]{1,6})$/i.exec(name)?.[1] ?? 'bin').toLowerCase()
+export function guestFilePath(token: string, name: string, now = Date.now(), rand = Math.random()) {
+  return `${token}/${now.toString(36)}-${Math.floor(rand * 1e8).toString(36)}.${extOf(name)}`
+}

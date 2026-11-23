@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { AlarmInput } from '../components/AlarmInput'
-import { ChevronDown, AlarmClock, ArrowLeft, Building2, CalendarDays, CalendarRange, GanttChart, LayoutDashboard, ListChecks, Network, Repeat, Users, Wallet, Plus, CheckCircle2, ChevronLeft, ChevronRight, CircleSlash, FolderOpen, Search, Mail, Copy } from 'lucide-react'
+import { ChevronDown, AlarmClock, ArrowLeft, Building2, CalendarDays, CalendarRange, GanttChart, LayoutDashboard, ListChecks, Network, Repeat, Users, Wallet, Plus, CheckCircle2, CircleSlash, FolderOpen, Search, Mail, Copy } from 'lucide-react'
 import { ProjectMaterials } from '../components/ProjectMaterials'
 import { SiteBody } from './Site'
 import { SiteLogsSection } from '../components/SiteLogs'
@@ -9,7 +9,7 @@ import { SlackSection } from '../components/SlackSection'
 import { usePanelWide, useRightPanel } from '../components/RightPanel'
 import type { ApprovalSummary } from '../lib/types'
 import { useAction, useApp, useAsync } from '../lib/app'
-import { addMonths, dateLabel, monthGrid, shortDate, todayKey, weekRange, weekday, periodLabel } from '../lib/date'
+import { dateLabel, todayKey, weekRange, periodLabel } from '../lib/date'
 import { Link, useRouter, withQuery } from '../lib/router'
 import { PROJECT_CATEGORIES, PROJECT_STATUSES, type ChatRoomSummary, type Client, type Contact, type Project, type ProjectStatus, type Task, type WorkLog, projectBrand, projectDriveUrl, DIVISIONS, DIVISION_KEYS, type Division, mailSubjectPrefix, gmailComposeUrl } from '../lib/types'
 import { ContactTimeline, ExchangeFilesSection, ProjectContactsSection } from '../components/ContactHistory'
@@ -23,6 +23,8 @@ import { ProjectVizLoader } from '../components/ProjectViz'
 import { ProjectBrief } from '../components/ProjectBrief'
 import { KakaoSection } from '../components/KakaoSection'
 import { CollabSection } from '../components/CollabSection'
+import { ProjectBoards } from '../components/ProjectBoards'
+import { ProjectFigma } from '../components/ProjectFigma'
 import { ProjectClientLink } from '../components/ProjectClientLink'
 import { ProjectMails } from '../components/ProjectMails'
 import { ProjectTalk } from '../components/ProjectTalk'
@@ -120,7 +122,7 @@ export default function Projects() {
   // 목록: 회사(AR 아트리어 · TW 더위클리) 거르기 + 정렬(연번 · 이름 · 최근)
   const brand = query.get('brand')
   const sort = query.get('sort')
-  const OPEN: ProjectStatus[] = ['진행', '문의', '상담협의']
+  const OPEN: ProjectStatus[] = ['진행', '문의']
   const shown = brand ? data.projects.filter(p => projectBrand(p) === brand) : data.projects
   const sorted = (rows: Project[]) =>
     [...rows].sort((a, b) =>
@@ -259,7 +261,7 @@ export default function Projects() {
                     {layout === 'cards' ? <ProjectCards projects={rows} tasks={data.tasks} /> : <ProjectBoard list={rows} data={data} loading={loading} onOpen={id => go({ id })} />}
                     {/* 다른 상태에 있는 이 회사 프로젝트 (2026-10-31 "아트리어 프로젝트가 이 화면에 안 보임" → 기획 · NIC · 보류 · 완료도 바로 보이게) */}
                     {(() => {
-                      const others = (['진행', '문의', '상담협의', 'NIC', '보류', '완료'] as ProjectStatus[])
+                      const others = (['진행', '문의', 'NIC', '보류', '완료'] as ProjectStatus[])
                         .filter(st => status === 'all' ? !OPEN.includes(st) : st !== status)
                         .map(st => [st, shown.filter(p => projectBrand(p) === k && p.status === st).length] as const)
                         .filter(([, n]) => n > 0)
@@ -299,7 +301,6 @@ export default function Projects() {
               )
             })}
           </div>
-          <MiniCalendar data={data} />
         </div>
         </div>
       ) : (
@@ -431,75 +432,6 @@ function ProjectBoard({ list, data, loading, onOpen }: { list: Project[]; data: 
     },
   ]
   return <Board rows={list} cols={cols} rowKey={p => p.id} onRow={p => onOpen(p.id)} numbered={false} empty={loading ? '불러오는 중…' : '프로젝트가 없습니다.'} />
-}
-
-function MiniCalendar({ data }: { data: Data }) {
-  const today = todayKey()
-  const [month, setMonth] = useState(today.slice(0, 7))
-  const [sel, setSel] = useState<string | null>(null)
-  const events = useMemo(() => {
-    const m = new Map<string, { label: string; red?: boolean; to: string }[]>()
-    const push = (d: string | null, e: { label: string; red?: boolean; to: string }) => d && m.set(d, [...(m.get(d) ?? []), e])
-    for (const t of data.tasks) if (t.status !== '완료') push(t.due_date, { label: t.title, to: t.project_id ? `/projects?id=${t.project_id}` : '/projects?view=tasks' })
-    for (const p of data.projects) if (p.status !== '완료') push(p.end_date, { label: `${p.name} 종료`, red: true, to: `/projects?id=${p.id}` })
-    return m
-  }, [data])
-  const [ws, we] = weekRange(today)
-  const listDays = sel ? [sel] : [...events.keys()].filter(d => d >= ws && d <= we).sort()
-  return (
-    <aside className="box col gap-6 proj-mini-cal" aria-label="일정 달력">
-      <div className="row">
-        <button type="button" className="icon-btn sm" onClick={() => setMonth(addMonths(month, -1))} aria-label="이전 달">
-          <ChevronLeft size={14} />
-        </button>
-        <span className="t-meta t-blue">{month.replace('-', '.')}</span>
-        <button type="button" className="icon-btn sm" onClick={() => setMonth(addMonths(month, 1))} aria-label="다음 달">
-          <ChevronRight size={14} />
-        </button>
-        <span className="grow" />
-        {month !== today.slice(0, 7) && (
-          <button type="button" className="btn btn-ghost btn-sm" onClick={() => setMonth(today.slice(0, 7))}>
-            오늘
-          </button>
-        )}
-      </div>
-      <div className="cal">
-        {['일', '월', '화', '수', '목', '금', '토'].map(d => (
-          <span key={d} className="dow">
-            {d}
-          </span>
-        ))}
-        {monthGrid(month).map((d, i) =>
-          d ? (
-            <button key={d} type="button" className={`${d === today ? 'today' : ''} ${d === sel ? 'sel' : ''}`} onClick={() => setSel(d === sel ? null : d)} aria-label={`${dateLabel(d)} 일정 ${events.get(d)?.length ?? 0}건`}>
-              <span className="n">{Number(d.slice(8))}</span>
-              <span className="dots">
-                {(events.get(d) ?? []).slice(0, 3).map((e, j) => (
-                  <i key={j} className={e.red ? 'red' : ''} />
-                ))}
-              </span>
-            </button>
-          ) : (
-            <span key={`e${i}`} />
-          ),
-        )}
-      </div>
-      <div className="dashed" />
-      <span className="t-smallb">{sel ? dateLabel(sel) : '이번 주 일정'}</span>
-      {/* 최신 날짜가 위로 (대표 지시 2026-10-23) */}
-      {[...listDays].reverse().flatMap(d =>
-        (events.get(d) ?? []).map((e, j) => (
-          <Link key={`${d}-${j}`} to={e.to} className="row t-cap mini-cal-ev" title={e.label}>
-            <span className={`t-meta nowrap ${e.red ? 't-red' : ''}`}>
-              {shortDate(d)} {weekday(d)}
-            </span>
-            <span className="truncate">{e.label}</span>
-          </Link>
-        )),
-      )}
-      {listDays.every(d => !(events.get(d) ?? []).length) && <span className="t-cap">일정이 없습니다.</span>}
-    </aside>
-  )
 }
 
 /** 그룹 아래 '+ 새 프로젝트' 줄: 이름만 쓰고 Enter → 바로 만들고 열기 (진행 · 담당 나 · 연번 자동) */
@@ -678,7 +610,7 @@ function ProjectDetail({ project: p, data, onEdit, onBack, panel = false }: { pr
   const todoSorted = [...myTodos.filter(t => t.status !== '완료'), ...myTodos.filter(t => t.status === '완료')]
   const [todoAll, setTodoAll] = useState(false)
   const client = data.clients.find(c => c.id === p.client_id)
-  const [pickSt, setPickSt] = useState<'진행' | '문의' | '상담협의' | 'NIC' | '보류' | '완료' | '전체'>('진행')
+  const [pickSt, setPickSt] = useState<'진행' | '문의' | 'NIC' | '보류' | '완료' | '전체'>('진행')
   const pickList = data.projects.filter(x => pickSt === '전체' || x.status === pickSt).sort((a, b) => (b.code ?? '').localeCompare(a.code ?? ''))
   // 이 프로젝트에 연결된 자료는 오른쪽 칸(검색 창 자리)에 표시
   useRightPanel(panel ? null : `project:${p.id}`, '프로젝트 자료', <ProjectMaterials projectId={p.id} />)
@@ -716,7 +648,7 @@ function ProjectDetail({ project: p, data, onEdit, onBack, panel = false }: { pr
         {p.code && <span className="proj-code" style={{ background: DIVISIONS[projectBrand(p)].color }} title={DIVISIONS[projectBrand(p)].full}>{p.code}</span>}
         {/* 프로젝트 고르기 (대표 지시 2026-11-11): 이름을 누르면 '진행' 프로젝트만, 다른 상태는 옆 드롭다운으로 바꿔서 */}
         <select className="proj-scope" value={pickSt} onChange={e => setPickSt(e.target.value as typeof pickSt)} aria-label="고를 프로젝트 상태" title="이름 목록에 나올 프로젝트 상태">
-          {(['진행', '문의', '상담협의', 'NIC', '보류', '완료', '전체'] as const).map(st => (
+          {(['진행', '문의', 'NIC', '보류', '완료', '전체'] as const).map(st => (
             <option key={st} value={st}>
               {st} {st === '전체' ? data.projects.length : data.projects.filter(x => x.status === st).length}
             </option>
@@ -882,15 +814,14 @@ function ProjectDetail({ project: p, data, onEdit, onBack, panel = false }: { pr
       {/* 구글 드라이브 자료: 드라이브 파일을 가리켜 늘 최신 · 구글 문서는 편집 화면으로 */}
       <ProjectDriveSection project={p} />
       {/* 대화 모아 보기: 인트라넷 채팅 · 슬랙 · 카톡 · 메일 · 협업방을 한 줄로 (2026-11-19 대표 지시 '개선해') */}
-      <ProjectTalk project={p} />
+      {/* 2026-11-20 대표 지시 '중복되어있어 대화방에서 선택할 수 있게 합쳐': 슬랙 · 카톡 · 메일 칸은 여기 칩으로 */}
+      <ProjectTalk project={p} tools={{ 슬랙: <SlackSection project={p} />, 카톡: <KakaoSection project={p} />, 메일: <ProjectMails project={p} toolsOnly /> }} />
       {/* 외부 협업방: 발주처 · 협력사가 로그인 없이 링크로 이 방 하나만 (로드맵 2단계 · 2026-11-17) */}
+      {/* 협업 화이트보드: 프로젝트마다 여러 장 · 함께 그리기 (로드맵 3단계 · 2026-11-20) */}
+      <ProjectBoards project={p} />
+      {/* 피그잼 · 피그마: 편집은 피그잼에서, 보관 · 제출용 PDF 는 인트라넷에서 (2026-11-20) */}
+      <ProjectFigma project={p} />
       <CollabSection project={p} />
-      {/* 슬랙 채널 대화 · 공유 파일 가져오기 (대표 지시 2026-11-05) */}
-      <SlackSection project={p} />
-      {/* 카카오톡 대화 내보내기 파일 가져오기 (로드맵 1-3 · 2026-11-11) */}
-      <KakaoSection project={p} />
-      {/* 회사 메일함에서 이 프로젝트 · 거래처와 연결된 메일 (지메일 · 읽기만) */}
-      <ProjectMails project={p} />
       {/* 이 프로젝트의 결재 · 보고: 올린 결재가 있을 때만 (대표 지시 2026-10-31 빈 칸 삭제) */}
       {extra.approvals.length > 0 && <SectionHead title="결재 · 보고" count={String(extra.approvals.length)} right={<Link to="/approvals">보고서 결제 ›</Link>} />}
       {extra.approvals.length === 0 ? null : (

@@ -5,7 +5,10 @@ import { CardView } from './ChatCards'
 import { Linkify } from './ui'
 import { useEffect, useRef, useState, type DragEvent } from 'react'
 import { createPortal } from 'react-dom'
-import { Bookmark, Check, Download, FileText, Loader2, Copy, MessageSquare, MessageSquareQuote, Paperclip, Pencil, Send, SmilePlus, Trash2, X } from 'lucide-react'
+import { Bookmark, Check, Download, FileText, FolderInput, Loader2, Copy, MessageSquare, MessageSquareQuote, Paperclip, Pencil, Send, SmilePlus, Trash2, X } from 'lucide-react'
+import { Link } from '../lib/router'
+import { projectPickItems } from './ProjectOptions'
+import type { Project } from '../lib/types'
 import { useApp } from '../lib/app'
 import { continueList } from '../lib/listInput'
 import { addDays, dateLabel, timeLabel, toDateKey, todayKey } from '../lib/date'
@@ -49,6 +52,62 @@ function LaterMenu({ m, onDone }: { m: ChatMessage; onDone: () => void }) {
   )
 }
 
+/** 붙은 프로젝트 이름표에 쓸 이름 (연번 · 이름) — 한 번만 불러옴 */
+function useProjectTags(messages: ChatMessage[], on: boolean) {
+  const { api } = useApp()
+  const [projects, setProjects] = useState<Record<string, string>>({})
+  const any = on && messages.length > 0
+  useEffect(() => {
+    if (!any) return
+    let live = true
+    api.listProjects().then(list => { if (live) setProjects(Object.fromEntries(list.map(p => [p.id, p.code ? `${p.code} ${p.name}` : p.name]))) }).catch(() => {})
+    return () => { live = false }
+  }, [api, any])
+  return { api, projects }
+}
+
+/** 프로젝트에 붙이기 (2026-11-20 메신저 협업 2단계): 1:1 · 그룹방 글을 프로젝트 '대화 모아 보기'에 넣음 · 이미 붙은 것은 눌러서 뗌 */
+function ProjectMenu({ m, tagged, onDone }: { m: ChatMessage; tagged: string[]; onDone: (next: string[]) => void }) {
+  const { api, toast } = useApp()
+  const [projects, setProjects] = useState<Project[] | null>(null)
+  const [q, setQ] = useState('')
+  const [busy, setBusy] = useState(false)
+  useEffect(() => {
+    let live = true
+    api.listProjects().then(list => { if (live) setProjects(list) }).catch(() => { if (live) setProjects([]) })
+    return () => { live = false }
+  }, [api])
+  const items = projectPickItems((projects ?? []).filter(p => !['완료', '보류'].includes(p.status ?? '') || tagged.includes(p.id)))
+  const word = q.trim().toLowerCase()
+  const shown = (word ? items.filter(i => `${i.label} ${i.sub ?? ''}`.toLowerCase().includes(word)) : items).slice(0, 12)
+  const toggle = async (id: string, label: string) => {
+    if (busy) return
+    const on = !tagged.includes(id)
+    setBusy(true)
+    try {
+      await api.tagChatProject(m.id, id, on)
+      toast(on ? `'${label}' 프로젝트 대화에 붙였습니다.` : `'${label}'에서 뗐습니다.`)
+      onDone(on ? [...tagged, id] : tagged.filter(x => x !== id))
+    } catch (e) {
+      toast(friendlyError(e))
+      setBusy(false)
+    }
+  }
+  return (
+    <div className="react-pick project-pick" role="menu" aria-label="프로젝트에 붙이기">
+      <input autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder={projects ? '프로젝트 이름 · 연번 찾기' : '불러오는 중…'} aria-label="프로젝트 찾기" />
+      <div className="project-pick-list">
+        {shown.map(i => (
+          <button key={i.id} type="button" role="menuitemcheckbox" aria-checked={tagged.includes(i.id)} className={tagged.includes(i.id) ? 'on' : ''} disabled={busy} onClick={() => void toggle(i.id, i.label)}>
+            {tagged.includes(i.id) && <Check size={12} />} {i.sub ? `${i.sub} · ` : ''}{i.label}
+          </button>
+        ))}
+        {projects && !shown.length && <span className="t-cap">찾는 프로젝트가 없습니다.</span>}
+      </div>
+    </div>
+  )
+}
+
 export const REACTION_EMOJIS = ['👍', '✅', '👀', '🙏', '😂', '🎉']
 
 type ListProps = {
@@ -62,16 +121,31 @@ type ListProps = {
   onReact?: (id: number, emoji: string) => void
   /** 처음부터 펼쳐 둘 스레드 (알림에서 들어온 경우) */
   thread?: number | null
+  /** 프로젝트방이 아닌 대화방: 글을 프로젝트에 붙이기 단추를 보임 */
+  onTagProject?: boolean
 }
 
 /** 말풍선 목록 (날짜 구분 · 3분 안 연속 메시지 묶음 · 읽음 표시 · 스레드 답글 · 이모지 반응 · 내 메시지/관리자 삭제) */
-export function MessageList({ messages, reads = [], members, onRemove, onEdit, onReply, onReact, thread = null }: ListProps) {
+export function MessageList({ messages, reads = [], members, onRemove, onEdit, onReply, onReact, thread = null, onTagProject = false }: ListProps) {
   const { me, profiles, profileName, toast } = useApp()
   const [openId, setOpenId] = useState<number | null>(null)
   const [editId, setEditId] = useState<number | null>(null)
   const [draft, setDraft] = useState('')
   const [pickId, setPickId] = useState<number | null>(null)
   const [laterId, setLaterId] = useState<number | null>(null)
+  // 프로젝트에 붙인 글 (프로젝트방이 아닌 대화방에서만 단추를 보임)
+  const { api, projects: projectNames } = useProjectTags(messages, onTagProject)
+  const [tags, setTags] = useState<Record<number, { project_id: string; auto: boolean }[]>>({})
+  const [projId, setProjId] = useState<number | null>(null)
+  const idsKey = messages.filter(x => !x.pending && x.id > 0).map(x => x.id).slice(-300).join(',')
+  useEffect(() => {
+    if (!onTagProject) return
+    const ids = idsKey ? idsKey.split(',').map(Number) : []
+    if (!ids.length) return
+    let live = true
+    api.chatMessageProjects(ids).then(t => { if (live) setTags(t) }).catch(() => {})
+    return () => { live = false }
+  }, [api, idsKey, onTagProject])
   const [threads, setThreads] = useState<Set<number>>(() => new Set(thread ? [thread] : []))
   const [replyText, setReplyText] = useState<Record<number, string>>({})
   const [replying, setReplying] = useState<number | null>(null)
@@ -262,6 +336,11 @@ export function MessageList({ messages, reads = [], members, onRemove, onEdit, o
                   <button type="button" className="icon-btn sm del" onClick={() => setLaterId(laterId === m.id ? null : m.id)} aria-label="나중에 보기" title="나중에 보기 (다시 알림)">
                     <Bookmark size={13} />
                   </button>
+                  {onTagProject && !m.pending && (
+                    <button type="button" className="icon-btn sm del" onClick={() => setProjId(projId === m.id ? null : m.id)} aria-label="프로젝트에 붙이기" title="프로젝트에 붙이기 (프로젝트 '대화 모아 보기'에 나옴)">
+                      <FolderInput size={13} />
+                    </button>
+                  )}
                   {onReact && (
                     <button type="button" className="icon-btn sm del" onClick={() => setPickId(pickId === m.id ? null : m.id)} aria-label="반응 남기기" title="반응 남기기">
                       <SmilePlus size={13} />
@@ -295,6 +374,21 @@ export function MessageList({ messages, reads = [], members, onRemove, onEdit, o
               )}
             </div>
             {laterId === m.id && <LaterMenu m={m} onDone={() => setLaterId(null)} />}
+            {projId === m.id && (
+              <ProjectMenu m={m} tagged={(tags[m.id] ?? []).map(t => t.project_id)} onDone={next => {
+                setProjId(null)
+                setTags(prev => ({ ...prev, [m.id]: next.map(id => ({ project_id: id, auto: (prev[m.id] ?? []).find(t => t.project_id === id)?.auto ?? false })) }))
+              }} />
+            )}
+            {onTagProject && !!tags[m.id]?.length && (
+              <div className="msg-projects">
+                {tags[m.id].map(t => (
+                  <Link key={t.project_id} to={`/projects?id=${t.project_id}`} className="msg-project-tag" title={t.auto ? '글에 적힌 연번으로 자동으로 붙음' : '프로젝트에 붙인 글'}>
+                    <FolderInput size={11} /> {projectNames[t.project_id] ?? '프로젝트'}{t.auto ? ' · 자동' : ''}
+                  </Link>
+                ))}
+              </div>
+            )}
             {pickId === m.id && onReact && (
               <div className="react-pick" role="menu">
                 {REACTION_EMOJIS.map(e => (

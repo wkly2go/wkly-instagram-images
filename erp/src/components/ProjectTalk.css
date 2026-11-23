@@ -17,3 +17,20 @@ a.ptalk-row:hover { background: #f7faf7; }
 .ptalk-who { font-weight: 700; white-space: nowrap; max-width: 12em; overflow: hidden; text-overflow: ellipsis; }
 .ptalk-body { min-width: 0; overflow-wrap: anywhere; white-space: pre-wrap; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
 @media (max-width: 640px) { .ptalk-row { grid-template-columns: auto auto 1fr; } .ptalk-body { grid-column: 1 / -1; } }
+
+/* 2026-11-20 슬랙 · 카톡 · 메일 칸을 출처 칩 아래로 합침 */
+.ptalk-tool { margin: 0 0 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: #fbfaf7; }
+.ptalk-tool > section { margin: 0; padding: 0; border: 0; box-shadow: none; background: none; }
+.ptalk-tool .mail-files { margin-top: 8px; }
+button.ptalk-row { width: 100%; background: none; border: 0; border-top: 1px solid var(--line); font: inherit; text-align: left; cursor: pointer; }
+button.ptalk-row:hover { background: #f7faf7; }
+
+/* 메일 연결 고치기 (2026-11-21) */
+.mail-fix-open { align-self: flex-start; margin: 6px 0; }
+.mail-fix { display: flex; flex-direction: column; gap: 8px; margin: 8px 0; padding: 10px 12px; border: 1px solid var(--line, #e3e0d8); border-radius: 10px; background: #fff; }
+.mail-fix-search { gap: 6px; }
+.mail-fix-search .input { flex: 1; min-width: 0; }
+.mail-fix-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; max-height: 260px; overflow: auto; }
+.mail-fix-list li { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--line, #eeebe4); }
+.mail-fix-list li:last-child { border-bottom: 0; }
+.mail-fix-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }

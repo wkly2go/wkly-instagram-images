@@ -2,7 +2,7 @@
 //  - 10분 예약(DB cron → x-sync-key = Vault GDRIVE_SYNC_KEY)만 받음 · 로그인 확인 없음(verify_jwt false)
 //  - 회사 구글 계정(gdrive 함수와 같은 갱신 토큰)으로 drive_index 사진 중 하나를 골라(cover.ts pickCover)
 //    드라이브가 만들어 둔 미리보기(긴 변 800px)만 받아 비공개 보관함 project-covers 에 넣음 · 드라이브는 읽기만
-//  - 한 번에 4곳 · 사진 없는 프로젝트 먼저(진행 · 문의 · 상담협의 먼저) · 자동으로 고른 사진은 3일마다 다시 고름 · 'manual' 은 그대로
+//  - 한 번에 4곳 · 사진 없는 프로젝트 먼저(진행 · 문의 먼저) · 자동으로 고른 사진은 3일마다 다시 고름 · 'manual' 은 그대로
 import { createClient } from 'npm:@supabase/supabase-js@2.117.3'
 import { pickCover, type CoverFile } from './cover.ts'
 
@@ -38,7 +38,7 @@ async function refreshCovers(deadline: number, max = 4) {
   ])
   type Cover = { drive_id: string; path: string; source: string; updated_at: string }
   const have = new Map((covers ?? []).map(c => [c.project_id as string, c as Cover]))
-  const active = (s: string) => s === '진행' || s === '문의' || s === '상담협의'
+  const active = (s: string) => s === '진행' || s === '문의'
   const stale = (c: Cover) => c.source === 'auto' && Date.now() - Date.parse(c.updated_at) > 3 * 864e5
   const todo = ((projs ?? []) as { id: string; status: string }[])
     .filter(p => !have.has(p.id) || stale(have.get(p.id)!))

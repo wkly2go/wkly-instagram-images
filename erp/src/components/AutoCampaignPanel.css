@@ -1,0 +1,25 @@
+/* 한 번에 만들기 (2026-11-20) — 밝은 화면 · 글자 3단계 */
+.auto-camp { border: 1px solid var(--line); border-left: 4px solid var(--tx-key); border-radius: 12px; background: #fff; padding: 16px 18px; margin: 0 0 16px; display: grid; gap: 12px; }
+.auto-camp-head h3 { display: flex; align-items: center; gap: 6px; margin: 0; font-size: var(--fs-sub); font-weight: 700; color: var(--tx-title); }
+.auto-camp-head p { margin: 4px 0 0; color: var(--tx-sub); }
+.auto-camp-form { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px 12px; }
+.auto-camp-form label { display: grid; gap: 4px; min-width: 0; }
+.auto-camp-form label > span:first-child { color: var(--tx-sub); }
+.auto-camp-form .wide { grid-column: 1 / -1; }
+.auto-camp-form .auto-camp-photo { grid-column: span 2; }
+.auto-camp-form input, .auto-camp-form select, .auto-camp-form textarea { width: 100%; min-width: 0; }
+.auto-camp-run { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.auto-camp-run small, .auto-camp-note { color: var(--tx-sub); }
+.auto-camp-log { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; color: var(--tx-body); }
+.auto-camp-log li { display: flex; align-items: center; gap: 6px; }
+.auto-camp-err { color: #b42318; margin: 0; }
+.auto-camp-result { display: grid; gap: 12px; }
+.auto-camp-cards { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
+.auto-camp-cards img { width: 168px; aspect-ratio: 4 / 5; object-fit: cover; border-radius: 8px; border: 1px solid var(--line); flex: none; }
+.auto-camp-publish { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.auto-camp-done { display: flex; align-items: center; gap: 6px; margin: 0; color: var(--tx-key); font-weight: 700; }
+.auto-camp-channels { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.auto-camp-channels article { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; display: grid; gap: 4px; align-content: start; min-width: 0; }
+.auto-camp-channels header { display: flex; justify-content: space-between; align-items: center; gap: 6px; flex-wrap: wrap; }
+.auto-camp-channels p { margin: 0; color: var(--tx-sub); white-space: pre-wrap; overflow-wrap: anywhere; }
+@media (max-width: 760px) { .auto-camp-form { grid-template-columns: 1fr 1fr; } .auto-camp-form .auto-camp-photo { grid-column: 1 / -1; } .auto-camp-channels { grid-template-columns: 1fr; } }

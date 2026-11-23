@@ -24,10 +24,10 @@ const norm = (s: string) => s.replace(/\s|㈜|\(주\)|주식회사/g, '').toLowe
 const order = (p: Payment) => p.requested_date ?? p.due_date ?? p.paid_date ?? p.created_at.slice(0, 10)
 const vatOf = (amount: number, type: Payment['contract_type'], prev?: Payment) => (prev ? (prev.vat ? Math.round(amount / 11) : 0) : type === '세금계산서' ? Math.round(amount / 11) : 0)
 const live = (p: Payment) => p.status !== '취소' && !p.is_estimate
-/** 부가세 포함 여부 (대표 지시 2026-11-19 '부가세 포함여부 선택하게 하고 선택하면 자동으로 부가세가 포함되게 계산'):
- *  금액 칸 = 공급가 · '부가세 포함'이면 10% 를 더한 합계를 amount 에, 그 차이를 vat 에 저장 (amount 는 예전처럼 실제 주고받는 합계) */
-const vatSplit = (supply: number, on: boolean) => {
-  const amount = on ? Math.round(supply * 1.1) : supply
+/** 부가세 포함 여부 (대표 지시 2026-11-19 '부가세 포함여부 선택하게' → 같은 날 '부가세 포함일 경우 -10% 적용해'):
+ *  금액 칸 = 실제 주고받는 금액 그대로(amount) · '부가세 포함'이면 그 안의 부가세를 덜어 냄 → 공급가 = 금액 ÷ 1.1, vat = 금액 − 공급가 */
+const vatSplit = (amount: number, on: boolean) => {
+  const supply = on ? Math.round(amount / 1.1) : amount
   return { amount, vat: amount - supply }
 }
 const supplyOf = (p?: Payment) => (p ? p.amount - (p.vat ?? 0) : 0)
@@ -164,10 +164,10 @@ export function VendorSheet({ projectId, payments, all, lines, finance, onOpen }
     if (cur) {
       const p: Patch = {}
       if (patch.amount !== undefined || patch.vatOn !== undefined) {
-        const supply = patch.amount ?? supplyOf(cur)
-        const next = vatSplit(supply, patch.vatOn ?? (cur.vat ?? 0) > 0)
+        const total = patch.amount ?? cur.amount
+        const next = vatSplit(total, patch.vatOn ?? (cur.vat ?? 0) > 0)
         if (next.amount === cur.amount && next.vat === (cur.vat ?? 0)) return
-        if (!supply) Object.assign(p, { status: '취소', memo: [cur.memo, '협력업체 관리에서 금액 지움'].filter(Boolean).join(' · ') })
+        if (!total) Object.assign(p, { status: '취소', memo: [cur.memo, '협력업체 관리에서 금액 지움'].filter(Boolean).join(' · ') })
         else Object.assign(p, next)
       }
       if (patch.requested_date !== undefined) {
@@ -464,10 +464,10 @@ export function VendorSheet({ projectId, payments, all, lines, finance, onOpen }
                                     key={`${cur?.id ?? 'new'}-${cur?.amount ?? 0}-${cur?.vat ?? 0}`}
                                     className="input num"
                                     inputMode="numeric"
-                                    defaultValue={money(supplyOf(cur))}
+                                    defaultValue={money(cur?.amount ?? 0)}
                                     onBlur={e => saveStage(v, s.label, cur, { amount: parseMoney(e.target.value), vatOn: cur ? undefined : vatPick[`${v.key}|${s.key}`] ?? vatDefault(v) })}
                                     onKeyDown={blurOnEnter}
-                                    title="공급가를 넣으세요 · '부가세 포함'이면 10% 를 더해 저장합니다"
+                                    title="주고받는 금액을 넣으세요 · '부가세 포함'이면 공급가 = 금액 ÷ 1.1 로 나눠 저장합니다"
                                   />,
                                 )}
                                 <label className="vs-inv">
@@ -476,9 +476,9 @@ export function VendorSheet({ projectId, payments, all, lines, finance, onOpen }
                                     checked={cur ? (cur.vat ?? 0) > 0 : vatPick[`${v.key}|${s.key}`] ?? vatDefault(v)}
                                     onChange={e => (cur ? saveStage(v, s.label, cur, { vatOn: e.target.checked }) : setVatPick(m => ({ ...m, [`${v.key}|${s.key}`]: e.target.checked })))}
                                   />
-                                  부가세 포함 (+10%)
+                                  부가세 포함 (공급가 −10%)
                                 </label>
-                                {cur && (cur.vat ?? 0) > 0 && <span className="t-cap vs-vat-sum">합계 {money(cur.amount)}원 (부가세 {money(cur.vat)})</span>}
+                                {cur && (cur.vat ?? 0) > 0 && <span className="t-cap vs-vat-sum">공급가 {money(supplyOf(cur))}원 · 부가세 {money(cur.vat)}원</span>}
                                 {field('입금 예정일', <input className="input" type="date" defaultValue={cur?.due_date ?? ''} disabled={!cur} onChange={e => cur && saveStage(v, s.label, cur, { due_date: e.target.value || null })} title={cur ? '입금(지급) 예정일 · 날짜를 고르면 바로 저장' : '금액을 먼저 넣어 주세요'} aria-label={`${s.label} 입금 예정일`} />)}
                                 {field('결제일', <input className="input" type="date" defaultValue={cur?.paid_date ?? ''} disabled={!cur} onChange={e => cur && saveStage(v, s.label, cur, { paid_date: e.target.value || null })} title={cur ? '넣으면 결제 완료' : '금액을 먼저 넣어 주세요'} />)}
                                 <label className={`vs-inv${cur ? '' : ' off'}`}>

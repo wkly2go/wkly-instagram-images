@@ -1,0 +1,31 @@
+/* 협업 화이트보드 (2026-11-20) — 밝은 화면 · 글자 3단계 */
+.board-page { display: flex; flex-direction: column; height: calc(100dvh - 96px); min-height: 480px; gap: 8px; }
+.board-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+.board-back { display: inline-flex; align-items: center; gap: 4px; color: var(--tx-key); text-decoration: none; white-space: nowrap; }
+.board-title { flex: 1 1 220px; min-width: 0; max-width: 420px; font-size: var(--fs-sub); font-weight: 700; border: 1px solid transparent; border-radius: 8px; padding: 4px 8px; background: transparent; color: var(--tx-title); }
+.board-title:hover, .board-title:focus { border-color: var(--line); background: #fff; outline: none; }
+.board-state { color: var(--tx-sub); white-space: nowrap; }
+.board-state.s-저장실패 { color: #b42318; font-weight: 700; }
+.board-state.s-저장중, .board-state.s-고치는중 { color: var(--tx-key); }
+.board-peers { display: inline-flex; align-items: center; gap: 4px; color: var(--tx-sub); white-space: nowrap; max-width: 320px; overflow: hidden; text-overflow: ellipsis; }
+.board-canvas { flex: 1; min-height: 0; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: #fff; position: relative; }
+.board-canvas .excalidraw { --color-primary: #1f6b4a; --color-primary-darker: #155338; --color-primary-darkest: #0f3d29; --color-primary-light: #e3f1e8; }
+.board-msg { padding: 24px; color: var(--tx-sub); }
+.board-page.board-msg { display: block; height: auto; }
+/* 넓게 보기: 보드를 연 동안 채팅 칸 · 오른쪽 일정 칸 숨김 (휴대폰은 원래 한 칸) */
+@media (min-width: 761px) {
+  html[data-board-wide] .app-page .body > .chat-dock,
+  html[data-board-wide] .app-page .body > .web-slot { display: none !important; }
+  html[data-board-wide] .app-page .inner, html[data-board-wide] .app-page .main { --web-w: 0px; }
+}
+@media (max-width: 760px) { .board-page { height: calc(100dvh - 150px); } .board-peers { display: none; } }
+
+/* 프로젝트 화면 '화이트보드' 칸 */
+.pboards-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
+.pboards-item { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: #fff; color: inherit; text-decoration: none; }
+.pboards-item:hover { border-color: var(--tx-key); background: #f7faf7; }
+.pboards-item b { font-weight: 700; color: var(--tx-title); }
+.pboards-meta { color: var(--tx-sub); }
+.pboards-row { position: relative; }
+.pboards-del { position: absolute; top: 6px; right: 6px; }
+.pboards-note { color: var(--tx-sub); margin: 4px 0 8px; }

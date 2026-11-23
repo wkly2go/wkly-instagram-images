@@ -5,6 +5,11 @@ import { createSupabaseDesignApi } from './designApi'
 import { createSupabaseIlwiApi } from './ilwiApi'
 import { createSupabaseGovApi } from './govApi'
 import { createSupabaseCollabApi } from './collabApi'
+import { createSupabaseBoardApi } from './boardApi'
+import { createSupabaseFigmaApi } from './figmaApi'
+import { createSupabaseAdAutopilotApi } from './adAutopilotApi'
+import { createSupabaseApiAgentsApi } from './apiAgentsApi'
+import { createSupabaseCompetitorApi } from './competitorApi'
 import { createSupabaseSalesReportApi } from './salesReport'
 import { createSupabaseGrowthApi } from './growthApi'
 import { createSupabaseSalesApi } from './salesApi'
@@ -18,7 +23,7 @@ import { createPendingReads } from './pendingReads'
 import { createSignedUrlCache } from './signedUrlCache'
 import { resolveUploadedRecord } from './uploadRecord'
 import { removeStoredObject } from './storageRemoval'
-import type { BankQuestion, InterviewForm } from './interviewForms'
+import type { BankQuestion, InterviewFile, InterviewForm } from './interviewForms'
 import { PAGE_SIZE, type TimelineItem } from './projectTimeline'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { startMeetingProcessing } from './meetingProgress'
@@ -221,6 +226,11 @@ export function createSupabaseApi(url: string, key: string): Api {
     ...createSupabaseIlwiApi(sb),
     ...createSupabaseGovApi(sb),
     ...createSupabaseCollabApi(sb),
+    ...createSupabaseBoardApi(sb),
+    ...createSupabaseFigmaApi(sb),
+    ...createSupabaseAdAutopilotApi(sb),
+    ...createSupabaseApiAgentsApi(sb),
+    ...createSupabaseCompetitorApi(sb),
     ...createSupabaseSalesReportApi(sb),
     ...createSupabaseGrowthApi(sb),
     ...createSupabaseMarketingApi(sb, signedUrls),
@@ -355,6 +365,17 @@ export function createSupabaseApi(url: string, key: string): Api {
     },
     async saveForLater(item) {
       return must(await sb.from('saved_items').insert({ ...item, preview: item.preview.slice(0, 300) || '메시지' }).select().single()) as SavedItem
+    },
+    async tagChatProject(messageId, projectId, on) {
+      must(await sb.rpc('chat_message_tag', { p_message: messageId, p_project: projectId, p_on: on }))
+    },
+    async chatMessageProjects(ids) {
+      const out: Record<number, { project_id: string; auto: boolean }[]> = {}
+      const list = ids.filter(id => id > 0).slice(-300)
+      if (!list.length) return out
+      const rows = must(await sb.from('chat_message_projects').select('message_id, project_id, auto').in('message_id', list)) as { message_id: number; project_id: string; auto: boolean }[]
+      for (const r of rows) (out[r.message_id] ??= []).push({ project_id: r.project_id, auto: r.auto })
+      return out
     },
     async finishSaved(id) {
       must(await sb.from('saved_items').update({ done_at: new Date().toISOString() }).eq('id', id))
@@ -976,6 +997,11 @@ export function createSupabaseApi(url: string, key: string): Api {
       const { error } = await sb.from('web_inquiries').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', id)
       if (error) throw new Error(error.message)
     },
+    async salesPipeline() {
+      const { data, error } = await sb.rpc('sales_pipeline')
+      if (error) throw new Error(error.message)
+      return (data ?? []) as import('./api').SalesPipelineStage[]
+    },
     async listInquiryThreads() {
       const { data, error } = await sb.rpc('sales_inquiry_threads')
       if (error) throw new Error(error.message)
@@ -1034,6 +1060,16 @@ export function createSupabaseApi(url: string, key: string): Api {
         : await sb.from('sales_interview_forms').insert({ interview_id: interviewId, title: '', ...row }).select('*').single()
       if (r.error) throw new Error(r.error.message)
       return r.data as InterviewForm
+    },
+    async listInterviewFiles(interviewId) {
+      const r = await sb.from('sales_interview_files').select('*').eq('interview_id', interviewId).order('created_at', { ascending: false })
+      if (r.error) throw new Error(r.error.message)
+      return (r.data ?? []) as InterviewFile[]
+    },
+    async interviewFileUrl(path, name) {
+      const r = await sb.storage.from('interview-files').createSignedUrl(path, 600, { download: name })
+      if (r.error || !r.data) throw new Error(r.error?.message ?? '내려받기 주소를 만들지 못했습니다.')
+      return r.data.signedUrl
     },
     async listMailFilesByThreads(threadIds) {
       if (!threadIds.length) return []
@@ -1414,6 +1450,21 @@ export function createSupabaseApi(url: string, key: string): Api {
       q = q.contains('project_ids', [projectId])
       const { data, error } = await q
       return error ? [] : (data as MailItem[])
+    },
+    async setMailProject(mailId, projectId, on) {
+      const { data, error } = await sb.rpc('mail_project_set', { p_mail: mailId, p_project: projectId, p_on: on, p_thread: true })
+      if (error) throw new ApiError(error.message)
+      return (data as number) ?? 0
+    },
+    async searchMailsToLink(projectId, q) {
+      const t = q.trim().replace(/[%,()]/g, ' ').trim()
+      if (t.length < 2) return []
+      const { data, error } = await sb.from('mail_index').select('id,thread_id,from_name,from_addr,to_addr,subject,snippet,sent_at,labels,has_attachment,attachments,project_ids,client_id')
+        .or(`subject.ilike.%${t}%,from_addr.ilike.%${t}%,from_name.ilike.%${t}%,to_addr.ilike.%${t}%`)
+        .not('project_ids', 'cs', `{${projectId}}`)
+        .order('sent_at', { ascending: false }).limit(30)
+      if (error) throw new ApiError(error.message)
+      return data as MailItem[]
     },
     async listKakao(projectId) {
       const [imp, msg] = await Promise.all([

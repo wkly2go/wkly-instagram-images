@@ -170,3 +170,46 @@ export function cleanDraft(d: SalesInterviewDraft): SalesInterviewDraft {
   const pick = (o: Record<string, string | undefined>) => Object.fromEntries(Object.entries(o).filter(([, v]) => v && v.trim()).map(([k, v]) => [k, (v as string).trim()]))
   return { ...(out as SalesInterviewDraft), answers: pick(d.answers), sales_info: pick(d.sales_info as Record<string, string | undefined>) }
 }
+
+/**
+ * 한 화면 보기 · 비교 (2026-11-21 대표 지시 '한 화면에서 모든 자료를 확인할 수 있도록 · 자유롭게 다른 인터뷰지와 비교')
+ * 비교 표의 줄: 기본 정보 → 인터뷰 답 Q1~Q10 → 영업 정보. 값이 없으면 ''.
+ */
+export interface CompareLine { key: string; group: '기본' | '인터뷰 답' | '영업 정보'; label: string; sales?: boolean; values: string[] }
+type CompareRow = Pick<SalesInterview, 'stage' | 'event_name' | 'venue' | 'sent_on' | 'replied_at' | 'material_due' | 'upload_on' | 'post_url' | 'answers' | 'sales_info' | 'note' | 'image_use'>
+export function compareLines(rows: CompareRow[]): CompareLine[] {
+  const base: [string, string, (r: CompareRow) => string | null | undefined][] = [
+    ['stage', '단계', r => r.stage],
+    ['event', '팝업 · 행사', r => r.event_name],
+    ['venue', '장소', r => r.venue],
+    ['sent', '발송일', r => r.sent_on],
+    ['replied', '답 받은 날', r => r.replied_at?.slice(0, 10)],
+    ['material', '자료 수령 예정', r => r.material_due],
+    ['upload', '업로드 예정', r => r.upload_on],
+    ['image', '이미지 사용', r => r.image_use],
+    ['post', '게시 링크', r => r.post_url],
+    ['note', '비고', r => r.note],
+  ]
+  const out: CompareLine[] = base.map(([key, label, get]) => ({ key, group: '기본', label, values: rows.map(r => (get(r) ?? '').trim()) }))
+  for (const q of INTERVIEW_QUESTIONS) out.push({ key: q.no, group: '인터뷰 답', label: `${q.no} · ${q.label}`, sales: q.use === '영업', values: rows.map(r => (r.answers?.[q.no] ?? '').trim()) })
+  for (const [k, label] of SALES_INFO_FIELDS) out.push({ key: `s_${k}`, group: '영업 정보', label, values: rows.map(r => (r.sales_info?.[k] ?? '').trim()) })
+  return out
+}
+/** '다른 것만': 비교하는 브랜드끼리 값이 다르거나 일부만 답한 줄 · '답 있는 것만': 하나라도 값이 있는 줄 */
+export function filterLines(lines: CompareLine[], mode: 'all' | 'filled' | 'diff'): CompareLine[] {
+  if (mode === 'all') return lines
+  const filled = lines.filter(l => l.values.some(v => v))
+  if (mode === 'filled') return filled
+  return filled.filter(l => new Set(l.values.map(v => v.replace(/\s+/g, ' ').toLowerCase())).size > 1)
+}
+/** 문항별로 모아 보기: 그 문항에 답한 브랜드만 · 글자 수 함께 */
+export function answersFor<T extends Pick<SalesInterview, 'id' | 'brand' | 'answers'>>(rows: T[], qno: string): { row: T; text: string; chars: number }[] {
+  return rows.map(row => ({ row, text: (row.answers?.[qno] ?? '').trim() })).filter(x => x.text).map(x => ({ ...x, chars: x.text.length }))
+}
+/** 한 브랜드 자료가 얼마나 모였는지 (답 n/10 · 영업 정보 n/5) */
+export function completeness(r: Pick<SalesInterview, 'answers' | 'sales_info'>): { answers: number; sales: number } {
+  return {
+    answers: INTERVIEW_QUESTIONS.filter(q => (r.answers?.[q.no] ?? '').trim()).length,
+    sales: SALES_INFO_FIELDS.filter(([k]) => (r.sales_info?.[k] ?? '').trim()).length,
+  }
+}

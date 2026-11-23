@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useApp, useAsync } from '../lib/app'
 import { dateTimeLabel, shortDate } from '../lib/date'
-import { agoLabel, followupStage, inquiryGroup, inquiryMailUrl, urgency, waitDays, type InquiryGroup } from '../lib/inquiryThreads'
+import { agoLabel, followupStage, inquiryComposeUrl, inquiryFollowup, inquiryGroup, inquiryMailUrl, urgency, waitDays, type InquiryGroup } from '../lib/inquiryThreads'
 import { useRouter } from '../lib/router'
 import type { InquiryThread, WebInquiry } from '../lib/types'
 import { Button } from './ui'
@@ -176,6 +176,7 @@ export function SalesInquiries() {
                               <div className="sales-inq-actions">
                                 {t?.thread_id && <a className="btn btn-blue btn-sm" href={inquiryMailUrl(t.thread_id)} target="_blank" rel="noopener noreferrer">메일 대화 열기</a>}
                                 {t?.state === '우리 답 필요' && <Button kind="outline" size="sm" disabled={busy === q.id} onClick={() => void dismiss(q)} title="고객의 마지막 메일이 '감사합니다'처럼 답할 필요가 없을 때 누르세요. 새 메일이 오면 다시 올라옵니다.">답장 필요 없음</Button>}
+                                {stage && q.email && (() => { const f = inquiryFollowup(q, stage, t?.last_in_subject); return <a className="btn btn-blue btn-sm" href={inquiryComposeUrl(q.email, f.subject, f.body)} target="_blank" rel="noopener noreferrer" title="회사 메일함에 초안이 열립니다. 고쳐서 직접 보내 주세요.">후속 메일 쓰기 ({stage}일째 틀)</a> })()}
                                 {q.kind === '문의' && q.email && !t?.out_count && <a className={`btn btn-sm ${t?.thread_id ? 'btn-outline' : 'btn-blue'}`} href={mailto(q)}>답장 쓰기</a>}
                                 {q.kind !== '문의' && !inquiryConsent(q) && <Button size="sm" disabled={busy === q.id} onClick={() => void consent(q, true)} title="전화 · 미팅 · 회신 등으로 동의를 받았을 때만 누르세요">수신 동의로 표시</Button>}
                                 {q.kind !== '문의' && q.newsletter !== true && (q.memo ?? '').includes(CONSENT_MARK) && <Button kind="ghost" size="sm" disabled={busy === q.id} onClick={() => void consent(q, false)}>미동의로 되돌리기</Button>}

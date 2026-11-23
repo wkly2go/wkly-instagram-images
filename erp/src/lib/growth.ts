@@ -3,7 +3,8 @@ import type { TenderSearchQuery, TenderSearchResult } from './tenderSearch'
 
 export type GrowthKind = 'tender' | 'content' | 'contact'
 export const GROWTH_LABELS = { tender: '나라장터', content: '콘텐츠·배포', contact: '연락처 검토함' }
-export const CHANNELS = ['네이버 블로그', '인스타그램', '유튜브'] as const
+// 2026-11-20 대표 지시 '홈페이지도 포함해': 홈페이지(아임웹 게시판 · 소식) 채널 추가 — 예전 콘텐츠(3채널)는 열 때 withAllChannels 로 채움
+export const CHANNELS = ['네이버 블로그', '인스타그램', '유튜브', '홈페이지'] as const
 export type Channel = typeof CHANNELS[number]
 export interface ChannelDraft { channel: Channel; title: string; body: string; tags: string; status: '초안' | '검수' | '승인' | '발행'; rights: boolean; publication_url: string; external_id: string }
 export interface GrowthDocument {
@@ -50,7 +51,7 @@ export function validateGrowth(d: GrowthDraft): string | null {
   }
   if (d.kind === 'content') {
     if (!x.original?.trim() || x.original.length > 20000) return '원본 내용을 20,000자 이내로 입력해 주세요.'
-    if (!x.versions || x.versions.length !== 3 || new Set(x.versions.map(v => v.channel)).size !== 3) return '채널 버전을 확인해 주세요.'
+    if (!x.versions || x.versions.length < 3 || x.versions.length > CHANNELS.length || new Set(x.versions.map(v => v.channel)).size !== x.versions.length) return '채널 버전을 확인해 주세요.'
     for (const v of x.versions) {
       if (!CHANNELS.includes(v.channel) || v.title.length > 300 || v.body.length > 10000 || v.tags.length > 500 || !safeWebUrl(v.publication_url)) return '채널 본문·태그·발행 주소를 확인해 주세요.'
       if (['승인', '발행'].includes(v.status) && (!v.title.trim() || !v.body.trim() || !v.rights)) return '제목·본문·사용 권리를 확인한 뒤 승인해 주세요.'
@@ -58,6 +59,13 @@ export function validateGrowth(d: GrowthDraft): string | null {
     }
   }
   return null
+}
+/** 예전 콘텐츠(채널 3개)에 없는 채널 칸을 빈 초안으로 채움 · 순서는 CHANNELS 순 */
+export function withAllChannels(document: GrowthDocument): GrowthDocument {
+  if (!document.versions) return document
+  const have = new Map(document.versions.map(v => [v.channel, v]))
+  if (CHANNELS.every(c => have.has(c))) return document
+  return { ...document, versions: CHANNELS.map(channel => have.get(channel) ?? { channel, title: '', body: '', tags: '', status: '초안', rights: false, publication_url: '', external_id: '' }) }
 }
 export function changeChannel(v: ChannelDraft, patch: Partial<ChannelDraft>): ChannelDraft {
   const changed = (['title', 'body', 'tags', 'rights'] as const).some(k => k in patch && v[k] !== patch[k])

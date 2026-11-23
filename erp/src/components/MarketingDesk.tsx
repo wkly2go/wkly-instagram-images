@@ -1,3 +1,4 @@
+import { AutoCampaignPanel } from './AutoCampaignPanel'
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from 'react'
 import { ArrowDownToLine, ArrowLeft, ArrowRight, Check, CheckCircle2, ChevronDown, Clipboard, ExternalLink, Eye, FileText, FolderOpen, ImagePlus, Loader2, Plus, RefreshCw, Save, Search, Trash2, Upload } from 'lucide-react'
 import { useApp } from '../lib/app'
@@ -12,6 +13,7 @@ import {
 import { ask } from './Ask'
 import { AiAssist } from './GrowthAi'
 import { AdCreativeMaker } from './AdCreativeMaker'
+import { MetaAdLaunch } from './MetaAdLaunch'
 import { adCopyRequest, adPlanRequest, lintAdCopy, parseAdCopyVariants, parseAdPlan, type AdCopyVariant, type AdPlanDraft } from '../lib/adCopy'
 import './MarketingDesk.css'
 
@@ -442,6 +444,8 @@ export function MarketingDesk({ onDirtyChange, initialCampaignId }: { onDirtyCha
 
       <div className="md-note"><span className="md-note-dot" />{api.mode === 'demo' ? '체험용 작업 공간 · 이 브라우저에 저장' : canEdit ? '회사 공용 작업 공간 · 관리자 작성 · 팀원 조회' : '회사 공용 작업 공간 · 읽기 전용'}<span>광고 등록과 결제는 각 광고 관리자에서 최종 실행합니다.</span></div>
 
+      {/* 2026-11-20 대표 지시 '실행 버튼 한 번에 광고가 만들어지고 배포까지' */}
+      {canEdit && !loadError && <AutoCampaignPanel onCampaign={id => void load(id)} />}
       {loadError && <div className="md-error" role="alert"><strong>공용 캠페인을 불러오지 못했습니다.</strong><p>{loadError}</p><p>저장소 연결과 접근 권한을 확인한 뒤 다시 시도해 주세요.</p><button type="button" className="md-button" disabled={loading} onClick={() => void load(draft?.id ?? initialCampaignId)}>다시 불러오기</button></div>}
       {actionError && <div id="md-action-error" className="md-error" role="alert"><strong>확인이 필요합니다.</strong><p>{actionError}</p><div className="md-actions">{draft && validation.errors.length > 0 && <button type="button" className="md-text-button" onClick={() => goToStep('handoff')}>검토할 항목 보기<ArrowRight size={13} /></button>}<button type="button" className="md-text-button" onClick={() => setActionError('')}>안내 닫기</button></div></div>}
 
@@ -571,6 +575,7 @@ export function MarketingDesk({ onDirtyChange, initialCampaignId }: { onDirtyCha
             {validation.warnings.length > 0 && <div className="md-warning"><strong>매체 등록 시 확인할 내용</strong><ul>{validation.warnings.map((warning, index) => <li key={index}>{warning}</li>)}</ul></div>}
             <div className="md-utm"><h4>추적 링크 (UTM)</h4><code>{draft.landingUrl ? (() => { try { return buildMarketingUTM(draft) || '랜딩 페이지 주소를 확인해 주세요.' } catch { return '랜딩 페이지 주소를 확인해 주세요.' } })() : '랜딩 페이지 주소를 입력해 주세요.'}</code><button type="button" className="md-text-button" disabled={!draft.landingUrl} onClick={() => { try { const url = buildMarketingUTM(draft); if (!url) throw new Error('랜딩 페이지 주소를 확인해 주세요.'); void copy(url, '추적 링크를 복사했습니다.') } catch (error) { setActionError(friendlyError(error)) } }}><Clipboard size={13} />링크 복사</button></div>
             <div className="md-handoff"><div><h4>광고 등록 자료 내려받기</h4><p>검토한 문구·예산·일정·추적 링크를 광고 관리자에 옮겨 등록합니다. 이미지는 소재 화면에서 원본을 받으세요.</p>{dirty ? <p className="md-warning-text">변경 내용을 먼저 저장해 주세요.</p> : draft.status !== 'ready' && <p className="md-warning-text">검토 후 ‘준비 완료로 저장’하면 자료를 내려받을 수 있습니다.</p>}</div><div className="md-actions"><button type="button" className="md-button" disabled={!exportReady} onClick={() => handoff('txt')}><ArrowDownToLine size={14} />TXT</button><button type="button" className="md-button" disabled={!exportReady} onClick={() => handoff('json')}><ArrowDownToLine size={14} />JSON</button></div>{platform && <a className="md-manager-link" href={platform.managerUrl} target="_blank" rel="noreferrer"><ExternalLink size={14} />{platform.label} 광고 관리자 열기<ArrowRight size={14} /></a>}<small>자료 다운로드와 관리자 열기는 광고를 집행하거나 결제하지 않습니다.</small></div>
+            {canEdit && isSaved && draft.platform === 'meta' && <MetaAdLaunch campaignId={draft.id} ready={draft.status === 'ready' && !dirty && validation.ready} title={draft.title} />}
           </div>}
 
           <footer className="md-save-bar">

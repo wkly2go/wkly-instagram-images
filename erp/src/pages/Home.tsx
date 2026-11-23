@@ -54,6 +54,7 @@ export default function Home() {
   return (
     <Shell active="home">
       {/* 홈 맨 위: 인사 · 오늘 할 일 3개 · 숫자 카드 (디자인 개편 2단계 · 2026-11-16) */}
+      <div className="home-hero-wrap">
       <section className="home-hero" aria-label="오늘 한눈에">
         <div className="home-hello">
           <h1>
@@ -103,7 +104,7 @@ export default function Home() {
             <span className="t-cap">진행 프로젝트</span>
             <b>{count('진행')}</b>
             <span className="t-cap">
-              상담협의 {count('상담협의')} · 문의 {count('문의')} · NIC {count('NIC')} · 보류 {count('보류')}
+              문의 {count('문의')} · NIC {count('NIC')} · 보류 {count('보류')}
             </span>
           </Link>
           <Link to="/chat" className="home-kpi">
@@ -114,6 +115,7 @@ export default function Home() {
           </Link>
         </div>
       </section>
+      </div>
 
       {/* 내 할 일 표: 지연 · 오늘 · 이번 주를 홈에서 바로 처리 (대표 지시 2026-11-17 '홈에 내할일 넣어줘') */}
       <HomeMyTasks tasks={data.tasks} projects={data.projects} loading={loading} />

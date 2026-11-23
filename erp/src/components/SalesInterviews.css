@@ -64,6 +64,22 @@
 .sales-iv-edit h3 { margin: 0 0 8px; font-size: var(--fs-sub); }
 .sales-iv-edit .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; }
 .sales-iv-edit .grid2 .full { grid-column: 1 / -1; }
+/* 고치기 창: 진행 띠 + 묶음별 4칸 (2026-11-18 대표 지시 '한눈에 보고 파악할 수 있게') */
+.sales-iv-flow { list-style: none; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 4px; margin: 0 0 10px; padding: 0; }
+.sales-iv-flow li { display: grid; gap: 1px; padding: 6px 8px; border-radius: 8px; border-top: 3px solid #d9ddd7; background: var(--white); color: var(--tx-sub, #535c56); min-width: 0; }
+.sales-iv-flow li b { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sales-iv-flow li span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sales-iv-flow li.done { border-top-color: #8fc2a4; background: #f1f8f3; color: #1f6b4a; }
+.sales-iv-flow li.now { border-top-color: #1f6b4a; background: #1f6b4a; color: #fff; }
+.sales-iv-flow li.side { background: #7a5b00; border-top-color: #7a5b00; }
+.sales-iv-sec { margin-top: 8px; padding: 8px 10px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--white); }
+.sales-iv-sec > h4 { margin: 0 0 6px; font-size: var(--fs-body); font-weight: 700; color: #1f6b4a; }
+.sales-iv-edit .grid4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px 10px; }
+.sales-iv-edit .grid4 .full { grid-column: 1 / -1; }
+.sales-iv-edit .grid4 .span2 { grid-column: span 2; }
+.sales-iv-edit .grid4 .input { min-height: 34px; padding-top: 5px; padding-bottom: 5px; }
+@container (max-width: 900px) { .sales-iv-edit .grid4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 1100px) { .sales-iv-edit .grid4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .sales-iv-sub { margin-top: 12px; border-top: 1px dashed var(--line); padding-top: 8px; }
 .sales-iv-sub > summary { cursor: pointer; font-weight: 700; }
 .sales-iv-sub > summary span { margin-left: 6px; color: var(--gray); font-weight: 400; }
@@ -80,7 +96,9 @@
   .sales-iv-row { flex-wrap: wrap; }
   .sales-iv-row .what { flex-basis: 100%; }
   .sales-iv-edit { padding-left: 4px; }
-  .sales-iv-edit .grid2 { grid-template-columns: minmax(0, 1fr); }
+  .sales-iv-edit .grid2, .sales-iv-edit .grid4 { grid-template-columns: minmax(0, 1fr); }
+  .sales-iv-edit .grid4 .span2 { grid-column: auto; }
+  .sales-iv-flow { grid-auto-flow: row; grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .sales-iv-bar .input { flex: 1 1 100%; }
 }
 
@@ -133,3 +151,43 @@ a.sales-iv-row { text-decoration: none; }
 .sales-iv-bank .edit { margin-top: 8px; padding: 10px; border-radius: 10px; background: #f7faf7; }
 .sales-iv-bank .checks { display: flex; flex-wrap: wrap; gap: 6px 16px; }
 .sales-iv-bank .checks label { display: inline-flex; align-items: center; gap: 4px; }
+
+/* 브랜드가 올린 자료 (2026-11-20) */
+.sales-iv-files { margin: 8px 0; padding: 10px 12px; border: 1px solid var(--v8-line, var(--line)); border-radius: 8px; background: #fbfaf6; }
+.sales-iv-files ul { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 4px; }
+.sales-iv-files li { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+
+/* 한 화면 · 비교 (2026-11-21) */
+.iv-cmp-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.iv-cmp-check { display: inline-flex; gap: 6px; align-items: center; color: var(--gray); }
+.iv-cmp-grid { display: grid; grid-template-columns: minmax(200px, 250px) 1fr; gap: 14px; margin-top: 10px; align-items: start; }
+.iv-cmp-pick { list-style: none; margin: 0; padding: 0; max-height: 70vh; overflow: auto; border: 1px solid var(--line); border-radius: 10px; }
+.iv-cmp-pick li + li { border-top: 1px solid var(--line); }
+.iv-cmp-pick label { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; padding: 7px 10px; cursor: pointer; }
+.iv-cmp-pick label.on { background: #eef6f0; }
+.iv-cmp-name { flex: 1 1 100px; min-width: 0; }
+.iv-cmp-pick .iv-stage { min-width: 0; }
+.iv-cmp-main { min-width: 0; }
+.iv-dossier > header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+.iv-dossier > header .btn { margin-left: auto; }
+.iv-dossier section { margin-top: 14px; }
+.iv-dossier h4 { margin: 0 0 6px; font-size: var(--fs-sub); color: var(--tx-key, #1f6b4a); }
+.iv-facts { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 6px 14px; margin: 0; }
+.iv-facts dt, .iv-qa dt { color: var(--gray); }
+.iv-facts dd, .iv-qa dd { margin: 0; white-space: pre-wrap; word-break: break-word; }
+.iv-qa { margin: 0; display: flex; flex-direction: column; gap: 10px; }
+.iv-qa .empty dd { color: var(--gray); }
+.iv-report { border-top: 1px solid var(--line); padding: 6px 0; }
+.iv-cmp-table-wrap { overflow-x: auto; }
+.iv-cmp-table { width: 100%; min-width: calc(180px + var(--n) * 220px); table-layout: fixed; margin-top: 8px; }
+.iv-cmp-table th:first-child { width: 180px; }
+.iv-cmp-table th, .iv-cmp-table td { vertical-align: top; white-space: pre-wrap; word-break: break-word; text-align: left; }
+.iv-cmp-table thead th { position: sticky; top: 0; background: var(--white); }
+.iv-cmp-table thead th .icon-btn { margin-left: 4px; }
+.iv-cmp-table td.empty { color: var(--gray); }
+.iv-cmp-group td { background: #f4f2ec; font-weight: 700; }
+.iv-qview-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; }
+.iv-qview-list li { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: var(--white); }
+.iv-qview-list p { margin: 6px 0 0; white-space: pre-wrap; word-break: break-word; }
+.iv-qview-list .t-cap { margin-left: 8px; }
+@media (max-width: 760px) { .iv-cmp-grid { grid-template-columns: 1fr; } .iv-cmp-pick { max-height: 240px; } }
