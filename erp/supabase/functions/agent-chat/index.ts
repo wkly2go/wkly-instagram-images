@@ -1517,7 +1517,7 @@ async function handleInstruction(id: string) {
   let reply: string
   let status = '완료'
   try {
-    reply = await ask(ctx, secretary ? '개인 비서 예약 · 지시 (주인만 봄)' : "인트라넷 'AI 팀원에게 지시' 패널 (팀원 모두가 봄)", [{ role: 'user', content: `${requester.name}님의 지시: ${ins.instruction}` }], MODEL_INSTRUCTION)
+    reply = await ask(ctx, secretary ? '개인 비서 예약 · 지시 (주인만 봄)' : "인트라넷 'AI 팀원에게 지시' 패널 (팀원 모두가 봄)", [{ role: 'user', content: `${requester.name}님의 지시: ${ins.instruction}` }], MODEL_CHAT) // 2026-11-23 대표 지시 '내 비서만 오퍼스 · 나머지는 소넷': 지시 · 예약도 기본은 소넷, '꼼꼼'(대표 비서)만 ask 안에서 오퍼스로
     if (reply.startsWith('AI 연결 키')) status = '대기'
   } catch (e) {
     reply = `처리 중 오류가 났습니다: ${(e as Error).message ?? e}`.slice(0, 500)
