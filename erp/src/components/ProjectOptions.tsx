@@ -6,7 +6,7 @@ const DONE = new Set(['완료', '보류'])
 const STATUS_ORDER = ['진행', '문의', 'NIC', '완료', '보류']
 const statusRank = (s?: string | null) => { const i = STATUS_ORDER.indexOf(s ?? ''); return i < 0 ? STATUS_ORDER.length : i }
 
-/** 구분(아트리어 · 더위클리 · 내부 리서치)별로 묶고, 진행 중 먼저 · 연번 순으로 정렬 */
+/** 구분(아트리어 · 더위클리 · 공통 회사운영업무)별로 묶고, 진행 중 먼저 · 연번 순으로 정렬 */
 export function groupProjects<T extends P>(projects: T[]): { division: Division; list: T[] }[] {
   return DIVISION_KEYS.map(d => ({
     division: d,
