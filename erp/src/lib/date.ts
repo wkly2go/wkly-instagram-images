@@ -54,7 +54,9 @@ export function periodLabel(start: string | null | undefined, end: string | null
 
 /** 'HH:mm' (KST) */
 export function timeLabel(iso: string): string {
-  return hm.format(new Date(iso))
+  // 시각이 비었거나 읽을 수 없으면 빈 글 (예전에는 화면이 통째로 멈췄음)
+  const d = new Date(iso)
+  return Number.isNaN(d.getTime()) ? '' : hm.format(d)
 }
 
 /** 오늘이면 'HH:mm', 어제면 '어제', 그 외 'MM.DD' */
