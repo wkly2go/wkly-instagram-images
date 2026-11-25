@@ -206,7 +206,7 @@ function ProjectFoldersSync() {
     <div className="web-setting col gap-4">
       <div className="row wrap" style={{ gap: 6 }}>
         <span className="t-cap grow">
-          프로젝트 폴더 정리 (관리자) · 회사 구글 계정 드라이브에 새로 만든 <b>#2026</b> 안의 <b>#ARTERIOR_2026</b> / <b>#WKLY_2026</b>(더위클리 · 내부 리서치) 아래 '연번_이름' 폴더를 만들어 연결합니다. 이미 폴더가 연결된
+          프로젝트 폴더 정리 (관리자) · 회사 구글 계정 드라이브에 새로 만든 <b>#2026</b> 안의 <b>#ARTERIOR_2026</b> / <b>#WKLY_2026</b>(더위클리 · 공통 회사운영업무) 아래 '연번_이름' 폴더를 만들어 연결합니다. 이미 폴더가 연결된
           프로젝트와 기존 드라이브 자료는 건드리지 않습니다. 연도가 바뀌면 #2027 을 새로 만듭니다.
         </span>
       </div>

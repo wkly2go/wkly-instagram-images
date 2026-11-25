@@ -166,7 +166,7 @@ export default function Chat() {
     // 2026-11-19 대표 지시 '아트리어와 더위클리 진행중인 목록이 상단에 노출되고 완료와 nic는 하단에 숨김': 진행 중 프로젝트(구분별)를 맨 위로
     ['프로젝트 · 아트리어', liveProj.filter(r => divOf(r) === 'AR')],
     ['프로젝트 · 더위클리', liveProj.filter(r => divOf(r) === 'TW')],
-    ...(liveProj.some(r => divOf(r) === 'RS') ? ([['프로젝트 · 내부 리서치', liveProj.filter(r => divOf(r) === 'RS')]] as [string, ChatRoomSummary[]][]) : []),
+    ...(liveProj.some(r => divOf(r) === 'RS') ? ([['프로젝트 · 공통 회사운영업무', liveProj.filter(r => divOf(r) === 'RS')]] as [string, ChatRoomSummary[]][]) : []),
     // AI 팀원과의 1:1 은 따로 (대표 지시 2026-11-06 "AI 팀원끼리 구분해줘")
     ['내 비서 · AI 팀원', unpinned.filter(r => r.members && isAiRoom(r))],
     ['사람 (1:1 · 그룹)', unpinned.filter(r => r.members && !isAiRoom(r))],
