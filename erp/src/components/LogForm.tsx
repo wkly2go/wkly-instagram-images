@@ -6,7 +6,7 @@ import { todayKey } from '../lib/date'
 import { openGmail } from '../lib/links'
 import { DIVISIONS, LOG_KINDS, projectBrand, type Client, type Division, type LogKind, type Project } from '../lib/types'
 
-// 프로젝트 목록 구분 순서: 더위클리 → 아트리어 → 내부 리서치
+// 프로젝트 목록 구분 순서: 더위클리 → 아트리어 → 공통 회사운영업무
 const DIVISION_ORDER: Division[] = ['TW', 'AR', 'RS']
 import { Button, Chip, Field } from './ui'
 
@@ -91,7 +91,7 @@ export interface PickItem {
   label: string
   sub?: string
   group?: string
-  /** 묶음 안 작은 구분 (예: 더위클리 · 아트리어 · 내부 리서치) */
+  /** 묶음 안 작은 구분 (예: 더위클리 · 아트리어 · 공통 회사운영업무) */
   section?: { key: string; label: string; color: string; order: number }
 }
 

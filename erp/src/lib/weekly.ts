@@ -13,7 +13,7 @@ export interface ProjectLogs { project: Project | null; logs: WorkLog[]; minutes
 export interface DivisionLogs { division: Division | null; projects: ProjectLogs[]; count: number; minutes: number }
 
 /**
- * 업무 일지를 구분(아트리어 · 더위클리 · 내부 리서치) → 프로젝트로 나눔 (대표 지시 2026-11-16)
+ * 업무 일지를 구분(아트리어 · 더위클리 · 공통 회사운영업무) → 프로젝트로 나눔 (대표 지시 2026-11-16)
  *  - 프로젝트 없는 기록은 맨 뒤 '프로젝트 미지정'
  *  - 프로젝트 순서는 연번, 그 안의 기록은 날짜 · 쓴 순서
  */
