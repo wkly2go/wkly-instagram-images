@@ -5,13 +5,14 @@
 // ③ 오늘 판단: 매일 07:07 서버가 수치를 받아 규칙으로 판단한 제안 → 승인(메타에 바로 반영) · 거절
 // ④ 기록: 지난 판단 · 실행 결과 전부 · 메타 캠페인 목록
 import { useEffect, useState } from 'react'
-import { KeyRound, OctagonX, Play, RefreshCw, ShieldCheck } from 'lucide-react'
+import { Bot, KeyRound, OctagonX, Play, RefreshCw, ShieldCheck } from 'lucide-react'
 import { useApp, useAsync } from '../lib/app'
 import { dateTimeLabel } from '../lib/date'
-import { KIND_LABEL, MODE_HELP, MODE_LABEL, type AutopilotAction, type AutopilotMode, type AutopilotSettings, type AutopilotStatus, type MetaCampaignRow } from '../lib/adAutopilotApi'
+import { AD_AGENT_CODE, KIND_LABEL, MODE_HELP, MODE_LABEL, type AdAgentLog, type AutopilotAction, type AutopilotMode, type AutopilotSettings, type AutopilotStatus, type MetaCampaignRow } from '../lib/adAutopilotApi'
 import { ruleScorecard } from '../lib/adScorecard'
 import { Link } from '../lib/router'
 import { ask } from './Ask'
+import { ReportBody } from './Reports'
 import { Button, SectionHead } from './ui'
 import './AdAutopilot.css'
 
@@ -25,6 +26,8 @@ export function AdAutopilot() {
   const status = useAsync<AutopilotStatus | null>(() => (admin ? api.autopilotStatus().catch(() => null) : Promise.resolve(null)), [api, version, admin], null)
   const actions = useAsync<AutopilotAction[]>(() => (admin ? api.autopilotActions().catch(() => []) : Promise.resolve([])), [api, version, admin], [])
   const camps = useAsync<MetaCampaignRow[]>(() => (admin ? api.metaCampaigns().catch(() => []) : Promise.resolve([])), [api, version, admin], [])
+  const logs = useAsync<AdAgentLog[]>(() => (admin ? api.adAgentLogs().catch(() => []) : Promise.resolve([])), [api, version, admin], [])
+  const [logOpen, setLogOpen] = useState<string | null>(null)
   const [form, setForm] = useState<AutopilotSettings | null>(null)
   const [tokenValue, setTokenValue] = useState('')
   const [naverKey, setNaverKey] = useState({ key: '', secret: '' })
@@ -81,6 +84,28 @@ export function AdAutopilot() {
         </div>
       )}
 
+      {/* 광고 자동화 AI 일지 — 매일 07:23 규칙 판단 바로 뒤에 AI 가 읽고 남김 (메타는 바꾸지 않음) */}
+      <section className="ap-sec">
+        <SectionHead title="광고 자동화 AI 일지" right={<Button kind="outline" size="sm" disabled={!!busy} onClick={() => void run('agent', () => api.apiAgentRunNow(AD_AGENT_CODE), 'AI 에게 맡겼습니다. 1~2분 뒤 일지가 올라옵니다.')}><Bot size={13} /> {busy === 'agent' ? '맡기는 중…' : 'AI 에게 지금 맡기기'}</Button>} />
+        {logs.data.length === 0 ? <p className="ap-note">매일 07:23 에 AI 가 수치 · 규칙 제안 · 경쟁사 · 문의 흐름을 읽고 일지를 남깁니다. 제안마다 승인 · 거절 권고를 적고, 필요하면 캠페인 초안을 '캠페인 준비'에 만들어 둡니다. 메타 · 예산은 AI 가 바꾸지 않습니다.</p> : (
+          <ul className="ap-logs">
+            {logs.data.map((l, i) => {
+              const shown = logOpen === null ? i === 0 : logOpen === l.id
+              return (
+                <li key={l.id} className={`ap-log${shown ? ' on' : ''}`}>
+                  <button type="button" className="ap-log-head" aria-expanded={shown} onClick={() => setLogOpen(shown ? '' : l.id)}>
+                    <b>{l.report_date}</b>
+                    {l.verdict && l.verdict !== '완료' && <span className="tag">{l.verdict}</span>}
+                    <span className="ap-log-sum">{l.summary}</span>
+                  </button>
+                  {shown && l.body && <div className="ap-log-body"><ReportBody body={l.body} /></div>}
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      </section>
+
       {/* 오늘 판단 */}
       <section className="ap-sec">
         <SectionHead title="오늘 판단 (대기)" count={waiting.length || undefined} />
@@ -126,6 +151,8 @@ export function AdAutopilot() {
             <label className="ap-f"><span>목표 문의당 비용 (원)</span><input inputMode="numeric" value={form.target_cpl ? form.target_cpl.toLocaleString('ko-KR') : ''} placeholder="비우면 클릭률 · 클릭당 비용으로 판단" onChange={e => set('target_cpl', numIn(e.target.value) || null)} /><small>2배 넘으면 멈춤 · 1.3배 넘으면 줄임 · 0.8배 이하면 늘림</small></label>
             <label className="ap-f"><span>판단 최소 금액 (원 · 7일)</span><input inputMode="numeric" value={form.min_spend.toLocaleString('ko-KR')} onChange={e => set('min_spend', numIn(e.target.value))} /><small>이보다 적게 쓴 캠페인은 자료 부족으로 두고 봄</small></label>
             <label className="ap-f"><span>메타 광고 계정 번호</span><input value={form.meta_account_id ?? ''} placeholder="act_ 뒤 숫자" onChange={e => set('meta_account_id', e.target.value.replace(/^act_/, '').replace(/[^\d]/g, '') || null)} /><small>광고 관리자 주소의 act= 뒤 숫자</small></label>
+            <label className="ap-f"><span>더위클리 페이스북 페이지 번호</span><input value={form.meta_page_id ?? ''} placeholder="숫자" onChange={e => set('meta_page_id', e.target.value.replace(/[^\d]/g, '') || null)} /><small>광고에 내 이름으로 나갈 페이지 · 페이지 › 정보 › 페이지 ID (광고 만들기에 필요)</small></label>
+            <label className="ap-f"><span>인스타그램 번호</span><input value={form.meta_ig_user_id ?? ''} placeholder="숫자" onChange={e => set('meta_ig_user_id', e.target.value.replace(/[^\d]/g, '') || null)} /><small>@theweekly_magazine (기본값이 들어가 있음)</small></label>
             <label className="ap-f"><span>네이버 검색광고 고객 번호</span><input inputMode="numeric" value={form.naver_customer_id ?? ''} placeholder="searchad.naver.com 오른쪽 위 숫자" onChange={e => set('naver_customer_id', e.target.value.replace(/[^\d]/g, '') || null)} /><small>네이버와 메타 한도는 합계로 셉니다</small></label>
           </div>
         </section>

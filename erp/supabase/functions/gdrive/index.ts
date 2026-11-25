@@ -17,8 +17,10 @@
 //   - sync              : 5분 예약(x-sync-key) · 관리자 · 프로젝트 폴더 안 파일 목록을 drive_index 에 맞춤 (드라이브는 읽기만)
 //                         처음 · 하루 한 번은 전체 훑기, 그 사이엔 changes API 로 바뀐 것만
 //                         + 새로 넣은 자료를 수신방에 분류 · 정리 (fileInbox)
+//                         + 드라이브에만 있는 '연번 이름' 프로젝트 폴더를 인트라넷 프로젝트로 (importFolders · 2026-11-25)
 //  필요한 값: app_settings.google_oauth_client_id (관리자 등록) · Vault GOOGLE_CLIENT_SECRET (대표가 직접 등록)
 import { createClient } from 'npm:@supabase/supabase-js@2.117.3'
+import { GROUP_DIVISION, categoryOf, holdingStatus, parseProjectFolder } from './folders.ts'
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -262,6 +264,77 @@ async function ensureNewProjects(): Promise<number> {
   const next = (await readPending()).sort((a, b) => a.at.localeCompare(b.at))[0]
   if (next && Date.now() < deadline - 5_000) await fillTemplate(next.project, next.folder, deadline)
   return n
+}
+
+/**
+ * 드라이브 폴더 → 인트라넷 프로젝트 자동 가져오기 (대표 지시 2026-11-25 '드라이브 폴더 자동으로 인트라넷에 넣는 기능 만들어')
+ *  - 내 드라이브 맨 위 '#ARTERIOR_연도' · '#WKLY_연도' · '#RESEARCH_연도'(올해만 · 작년 묶음의 예전 자료는 가져오지 않음) 바로 아래 'AR2611-15 이름' 꼴 폴더 → 상태 '문의'
+ *    그 안의 보관 폴더 'AR0000 NIC' → 'NIC' · 'AR0000 …완료…' → '완료'
+ *  - 이미 어느 프로젝트에 연결된 폴더 · 이미 있는 연번은 건너뜀 (연번이 같고 폴더 주소가 비어 있으면 그 폴더를 연결만)
+ *  - 드라이브는 읽기만 · 새 폴더를 만들지 않음 · 한 번에 10개 · 가져오면 대표에게 알림 한 통
+ *  - 기록 app_settings 'drive_folder_import' (최근 50건)
+ */
+async function importFolders(deadline: number): Promise<number> {
+  const { data: rows } = await sb.from('projects').select('id,code,drive_url')
+  const projects = (rows ?? []) as { id: string; code: string | null; drive_url: string | null }[]
+  const linked = new Set(projects.map(p => (p.drive_url ? idOf(p.drive_url) : null)).filter(Boolean) as string[])
+  const byCode = new Map(projects.filter(p => p.code).map(p => [p.code!, p]))
+  const year = new Date(Date.now() + 9 * 3600_000).getUTCFullYear()
+  const made: { code: string; name: string; status: string }[] = []
+  const fixed: string[] = []
+  const folderKids = async (parent: string) =>
+    (await drive<{ files?: Meta[] }>(`files?${new URLSearchParams({ q: `'${parent}' in parents and mimeType = '${FOLDER}' and trashed = false`, fields: 'files(id,name)', pageSize: '300' })}`)).files ?? []
+  for (const [group, division] of Object.entries(GROUP_DIVISION)) {
+    for (const y of [year]) {
+      if (Date.now() > deadline || made.length >= 10) break
+      const root = await find(`#${group}_${y}`, 'root').catch(() => null)
+      if (!root) continue
+      const top = await folderKids(root.id).catch(() => [] as Meta[])
+      const cand: { f: Meta; status: string }[] = top.map(f => ({ f, status: '문의' }))
+      for (const h of top) {
+        const st = holdingStatus(h.name)
+        if (st && Date.now() < deadline) for (const f of await folderKids(h.id).catch(() => [] as Meta[])) cand.push({ f, status: st })
+      }
+      for (const { f, status } of cand) {
+        if (made.length >= 10 || Date.now() > deadline) break
+        if (linked.has(f.id)) continue
+        const pick = parseProjectFolder(f.name, division)
+        if (!pick) continue
+        const same = byCode.get(pick.code)
+        if (same) {
+          if (!same.drive_url) {
+            await sb.from('projects').update({ drive_url: folderUrl(f.id) }).eq('id', same.id).is('drive_url', null)
+            linked.add(f.id)
+            fixed.push(pick.code)
+          }
+          continue
+        }
+        const { error } = await sb.from('projects').insert({
+          code: pick.code, name: pick.name, division: pick.division, category: categoryOf(pick.name), status,
+          drive_url: folderUrl(f.id), description: '드라이브 폴더에서 자동으로 가져옴',
+        })
+        if (error) continue
+        linked.add(f.id)
+        byCode.set(pick.code, { id: '', code: pick.code, drive_url: folderUrl(f.id) })
+        made.push({ code: pick.code, name: pick.name, status })
+      }
+    }
+  }
+  if (made.length || fixed.length) {
+    const now = new Date().toISOString()
+    const { data: prev } = await sb.from('app_settings').select('value').eq('key', 'drive_folder_import').maybeSingle()
+    const log = [...made.map(m => ({ ...m, at: now })), ...fixed.map(code => ({ code, linked: true, at: now })), ...(((prev?.value as { items?: unknown[] } | null)?.items) ?? [])].slice(0, 50)
+    await sb.from('app_settings').upsert({ key: 'drive_folder_import', value: { items: log, at: now }, updated_at: now })
+  }
+  if (made.length) {
+    const { data: ceo } = await sb.from('profiles').select('id').eq('title', '대표').eq('active', true).limit(1).maybeSingle()
+    if (ceo?.id)
+      await sb.from('notifications').insert({
+        user_id: ceo.id, kind: '시스템', title: `드라이브에서 새 프로젝트 ${made.length}건을 가져왔습니다`,
+        body: `${made.map(m => `${m.code} ${m.name} (${m.status})`).join('\n')}\n담당자를 정해 주세요.`, link: '/projects',
+      })
+  }
+  return made.length
 }
 
 // ---------------------------------------------------------------- 파일 목록 동기화 (읽기만)
@@ -594,10 +667,12 @@ Deno.serve(async req => {
     try {
       // 화면 밖에서 만든 새 프로젝트(AI 비서 등)도 폴더를 자동으로 (대표 지시 2026-11-16) — 폴더 주소가 아직 없는 새 프로젝트만, 한 번에 3개
       const made = await ensureNewProjects().catch(() => 0)
+      // 드라이브에만 있는 프로젝트 폴더 → 인트라넷 프로젝트로 (대표 지시 2026-11-25) · 목록 동기화 전에 넣어 같은 실행에서 파일 목록까지
+      const imported = await importFolders(Date.now() + 20_000).catch(() => 0)
       // 수신방 정리를 먼저 (짧게) → 그다음 목록 동기화 (오래 걸릴 수 있음)
       const inbox = await fileInbox(Date.now() + 40_000).catch(e => ({ error: e instanceof Error ? e.message : '수신방 정리 실패' }))
       const r = await syncAll(false)
-      return json({ ...r, inbox, made })
+      return json({ ...r, inbox, made, imported })
     } catch (e) {
       if (e instanceof NotConnected) return json({ error: e.message, not_connected: true }, 409)
       return json({ error: e instanceof Error ? e.message : '동기화 실패' }, 500)

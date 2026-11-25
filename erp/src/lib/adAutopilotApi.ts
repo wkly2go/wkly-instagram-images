@@ -16,6 +16,9 @@ export interface AutopilotSettings {
   meta_account_id: string | null
   /** 네이버 검색광고 고객 번호 (4단계) */
   naver_customer_id?: string | null
+  /** 메타 광고 만들기: 더위클리 페이스북 페이지 번호 · 인스타그램 번호 */
+  meta_page_id?: string | null
+  meta_ig_user_id?: string | null
   updated_at?: string
 }
 export interface AutopilotInfo { platform_errors?: string | null; ads?: number; evaluated?: number; ad_error?: string | null; ran_at?: string; ok?: boolean; error?: string | null; saved_rows?: number; campaigns?: number; active?: number; proposals?: number; executed?: number; failed?: number; mtd_spend?: number }
@@ -33,7 +36,16 @@ export interface AutopilotAction {
 }
 export interface MetaCampaignRow { id: string; name: string; status: string; effective_status: string | null; objective: string | null; daily_budget: number | null; lifetime_budget: number | null; synced_at: string }
 
+/** 인트라넷 광고 캠페인 → 메타에 만든 광고 (ad_meta_drafts) */
+export interface MetaDraft { campaign_id: string; status: '만드는 중' | '멈춤' | '켜짐' | '실패'; meta_campaign_id: string | null; meta_ad_id: string | null; daily_budget: number | null; images: number; error: string | null; created_at: string; launched_at: string | null; updated_at: string }
+
+/** 광고 자동화 AI(API 에이전트 코드 AD · 20261123100000_ad_agent)가 매일 07:23 에 남기는 운영 일지 */
+export interface AdAgentLog { id: string; report_date: string; run_at: string | null; verdict: string | null; title: string; summary: string | null; body: string | null }
+export const AD_AGENT_CODE = 'AD'
+export const AD_AGENT_JOB = 'AD 광고 자동화'
+
 export interface AdAutopilotApi {
+  adAgentLogs(): Promise<AdAgentLog[]>
   autopilotStatus(): Promise<AutopilotStatus | null>
   saveAutopilot(s: AutopilotSettings): Promise<void>
   autopilotKill(on: boolean): Promise<void>
@@ -45,6 +57,9 @@ export interface AdAutopilotApi {
   autopilotCheckNaver(): Promise<{ campaigns: number; active: number }>
   autopilotRun(): Promise<{ skipped?: string; proposals?: number; saved_rows?: number; campaigns?: number }>
   autopilotDecide(id: string, approve: boolean): Promise<{ ok: boolean; status: string; result?: string }>
+  metaDraft(campaignId: string): Promise<MetaDraft | null>
+  metaCreate(campaignId: string): Promise<{ ok: boolean; status: string; images: number }>
+  metaSwitch(campaignId: string, on: boolean): Promise<{ ok: boolean; status: string }>
 }
 
 export const MODE_LABEL: Record<AutopilotMode, string> = { off: '끔', suggest: '제안만', approve: '승인 뒤 실행', auto: '자동 실행' }
@@ -74,6 +89,11 @@ export function createSupabaseAdAutopilotApi(sb: SupabaseClient): AdAutopilotApi
     return r.data as T
   }
   return {
+    async adAgentLogs() {
+      const r = await sb.from('agent_reports').select('id,report_date,run_at,verdict,title,summary,body').eq('job_name', AD_AGENT_JOB).order('run_at', { ascending: false }).limit(7)
+      if (r.error) throw new ApiError(r.error.message)
+      return (r.data ?? []) as AdAgentLog[]
+    },
     async autopilotStatus() { return await rpc<AutopilotStatus | null>('ad_autopilot_status') },
     async saveAutopilot(s) { await rpc('ad_autopilot_save', { p: s }) },
     async autopilotKill(on) { await rpc('ad_autopilot_kill', { p_on: on }) },
@@ -93,6 +113,13 @@ export function createSupabaseAdAutopilotApi(sb: SupabaseClient): AdAutopilotApi
     async autopilotCheckNaver() { return await call('check_naver') },
     async autopilotRun() { return await call('run') },
     async autopilotDecide(id, approve) { return await call('decide', { id, approve }) },
+    async metaDraft(campaignId) {
+      const r = await sb.from('ad_meta_drafts').select('*').eq('campaign_id', campaignId).maybeSingle()
+      if (r.error) return null
+      return (r.data ?? null) as MetaDraft | null
+    },
+    async metaCreate(campaignId) { return await call('meta_create', { campaign_id: campaignId }) },
+    async metaSwitch(campaignId, on) { return await call(on ? 'meta_launch' : 'meta_pause', { campaign_id: campaignId }) },
   }
 }
 
@@ -100,13 +127,16 @@ export function createSupabaseAdAutopilotApi(sb: SupabaseClient): AdAutopilotApi
 export function createDemoAdAutopilotApi(): AdAutopilotApi {
   const harness = import.meta.env.DEV && import.meta.env.VITE_AUTOPILOT_HARNESS === '1'
   let s: AutopilotSettings = { mode: 'suggest', monthly_cap: harness ? 1_500_000 : 0, daily_cap: harness ? 60_000 : 0, max_step_pct: 20, kill_switch: false, target_cpl: harness ? 25000 : null, min_spend: 30000, meta_account_id: harness ? '1234567890' : null }
+  const drafts = new Map<string, MetaDraft>()
   const sample: AutopilotAction[] = harness ? [
     { id: 'h1', created_at: new Date().toISOString(), day: '2026-11-20', campaign_id: '1', campaign_name: '[시험] 성수 대관 리드', kind: 'pause', from_budget: 20000, to_budget: null, reason: '7일 동안 63,000원 (목표 문의당 비용의 2배 이상)를 썼는데 문의가 없습니다.', metrics: { spend: 63000, impressions: 9100, clicks: 88, leads: 0, ctr: 0.97, cpc: 716, cpl: null }, status: '제안', auto: false, decided_at: null, executed_at: null, result: null },
     { id: 'h2', created_at: new Date().toISOString(), day: '2026-11-20', campaign_id: '2', platform: 'naver', campaign_name: '[시험] 파워링크 · 팝업 대행', kind: 'scale_up', from_budget: 20000, to_budget: 24000, reason: '문의 6건 · 문의당 비용 14,500원이 목표 25,000원보다 20% 이상 낮습니다. 하루 예산을 20% 늘립니다 (하루 합계 44,000원 · 한도 60,000원).', metrics: { spend: 87000, impressions: 15200, clicks: 240, leads: 6, ctr: 1.58, cpc: 362, cpl: 14500 }, status: '제안', auto: false, decided_at: null, executed_at: null, result: null },
     { id: 'h4', created_at: new Date().toISOString(), day: '2026-11-20', campaign_id: '4', campaign_name: '[시험] 매거진 구독', kind: 'pause', from_budget: null, to_budget: null, ad_id: 'ad9', ad_name: '카드뉴스 A안', reason: '소재 피로: 클릭률이 앞 주보다 46% 떨어졌습니다 (한 사람에게 7일 평균 3.8번 노출). 같은 캠페인의 다른 소재 2개는 그대로 돕니다. 새 소재는 \'한 번에 만들기\'로 채워 주세요.', metrics: { spend: 41000, impressions: 8800, clicks: 61, leads: 1, ctr: 0.69, cpc: 672, cpl: 41000 }, status: '제안', auto: false, decided_at: null, executed_at: null, result: null },
     { id: 'h3', created_at: new Date(Date.now() - 86400000).toISOString(), day: '2026-11-19', campaign_id: '3', campaign_name: '[시험] 아트리어 포트폴리오', kind: 'scale_down', from_budget: 15000, to_budget: 12000, reason: '문의당 비용 34,000원이 목표 25,000원보다 30% 이상 높아 하루 예산을 20% 줄입니다.', metrics: { spend: 68000, impressions: 12000, clicks: 130, leads: 2, ctr: 1.08, cpc: 523, cpl: 34000 }, status: '실행', auto: true, decided_at: null, executed_at: new Date(Date.now() - 86000000).toISOString(), result: '메타에서 하루 예산을 15,000원 → 12,000원으로 바꿨습니다.', effect: '좋아짐', effect_note: '문의당 비용 34,000원 → 22,600원 (-34%) · 문의 2 → 3건.' },
   ] : []
+  const logs: AdAgentLog[] = harness ? [{ id: 'l1', report_date: '2026-11-20', run_at: new Date().toISOString(), verdict: '완료', title: '광고 운영 일지 · 2026-11-20', summary: '[시험] 제안 3건 중 2건 승인 권고 · 소재 1개 피로 · 새 앵글 2개', body: '## 오늘 상태\n[시험] 메타 연결 · 모드 제안만 · 켜진 캠페인 3개\n\n## 규칙 제안 검토\n- [시험] 성수 대관 리드 멈춤 — 승인 권고: 7일 동안 문의가 없습니다.\n- [시험] 파워링크 예산 늘림 — 승인 권고: 문의당 비용이 목표보다 낮습니다.\n\n## 대표가 할 일\n1. 위 제안 2건을 오늘 판단에서 승인' }] : []
   return {
+    async adAgentLogs() { return logs },
     async autopilotStatus() { return { settings: s, token: harness, info: harness ? { ran_at: new Date().toISOString(), ok: true, saved_rows: 42, campaigns: 5, active: 3, proposals: 2, executed: 0 } : null, mtd_spend: harness ? 812_000 : 0, waiting: sample.filter(a => a.status === '제안').length } },
     async saveAutopilot(n) { s = { ...n } },
     async autopilotKill(on) { s = { ...s, kill_switch: on } },
@@ -118,5 +148,13 @@ export function createDemoAdAutopilotApi(): AdAutopilotApi {
     async autopilotCheckNaver() { throw new ApiError('체험 모드에서는 계정을 확인할 수 없습니다.') },
     async autopilotRun() { throw new ApiError('체험 모드에서는 수치를 받을 수 없습니다.') },
     async autopilotDecide(id, approve) { const a = sample.find(x => x.id === id); if (a) a.status = approve ? '실행' : '거절'; return { ok: true, status: approve ? '실행' : '거절' } },
+    async metaDraft(campaignId) { return drafts.get(campaignId) ?? null },
+    async metaCreate(campaignId) {
+      if (!harness) throw new ApiError('체험 모드에서는 메타에 광고를 만들 수 없습니다.')
+      const now = new Date().toISOString()
+      drafts.set(campaignId, { campaign_id: campaignId, status: '멈춤', meta_campaign_id: '[시험]', meta_ad_id: '[시험]', daily_budget: 20000, images: 1, error: null, created_at: now, launched_at: null, updated_at: now })
+      return { ok: true, status: '멈춤', images: 1 }
+    },
+    async metaSwitch(campaignId, on) { const d = drafts.get(campaignId); if (!d) throw new ApiError('만든 광고가 없습니다.'); d.status = on ? '켜짐' : '멈춤'; return { ok: true, status: d.status } },
   }
 }
