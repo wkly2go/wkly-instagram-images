@@ -630,6 +630,9 @@ td > .task-inline-sel, td .task-inline-sel:only-child { min-width: 76px; }
   .task-board .board { table-layout: fixed; }
   .task-board .board td { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .task-board .board th { white-space: nowrap; overflow: visible; text-overflow: clip; }
+  /* 지시일 · 시작일 · 마감일 칸이 늘어 좁은 칸(홈)에서 '할 일' 칸이 0 이 되지 않게: 표는 최소 폭을 지키고 옆으로 밀어 봄 (2026-11-25) */
+  .task-board.board-wrap { overflow-x: auto; }
+  .task-board .board { min-width: 900px; }
 }
 
 /* AI 팀·비용 › API 에이전트 (2026-11-22) */
@@ -643,3 +646,11 @@ td > .task-inline-sel, td .task-inline-sel:only-child { min-width: 76px; }
 .api-agents .api-actions { white-space: nowrap; display: flex; gap: 6px; }
 .api-agents .api-instr { white-space: pre-wrap; font-size: var(--fs-body); background: #faf8f3; padding: 10px; border-radius: 8px; max-width: 720px; margin-top: 6px; }
 .api-agents button.link { background: none; border: 0; padding: 0; color: var(--tx-key); font-weight: 700; cursor: pointer; }
+
+/* 홈 팀원별 할 일 (2026-11-25) */
+.home-team-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 10px; }
+.home-team-chips .home-team-n { margin-left: 4px; font-weight: 700; }
+.home-team-chips .home-team-late { margin-left: 6px; color: #c0392b; }
+.home-team-chips .chip.active .home-team-late { color: #ffd9d4; }
+.task-ordered { display: flex; flex-direction: column; gap: 4px; }
+.task-ordered > span:first-child { font-weight: 700; color: var(--tx-sub); }
