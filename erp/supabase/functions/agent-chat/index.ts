@@ -28,6 +28,28 @@ const sb = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SE
 // 모델: 채팅 답변은 Sonnet(비용 1/2), '지시' 처리는 Opus (2026-10-18 대표 승인 · API 크레딧 배분)
 const MODEL_CHAT = 'claude-sonnet-5-5'
 const MODEL_INSTRUCTION = 'claude-opus-5-5'
+
+/** 호출 한 번의 토큰 · 금액을 적는다 (표 ai_usage_log). 기록이 실패해도 답은 막지 않는다. */
+async function recordUsage(ctx: { agent?: { id?: string } }, res: Anthropic.Message) {
+  try {
+    // deno-lint-ignore no-explicit-any
+    const u = (res.usage ?? {}) as any
+    await sb.rpc('ai_usage_record', {
+      p_source: 'agent-chat', p_agent: ctx.agent?.id ?? null, p_model: res.model,
+      p_input: u.input_tokens ?? 0, p_output: u.output_tokens ?? 0,
+      p_cache_read: u.cache_read_input_tokens ?? 0, p_cache_write: u.cache_creation_input_tokens ?? 0,
+      p_web: u.server_tool_use?.web_search_requests ?? 0,
+    })
+  } catch { /* 기록 실패는 넘어감 */ }
+}
+
+/** 이번 달 한도(app_settings ai_month_cap_usd) 안인지. 확인이 안 되면 막지 않는다. */
+async function budgetOk(): Promise<boolean> {
+  try {
+    const { data } = await sb.rpc('ai_month_state')
+    return (data as { ok?: boolean } | null)?.ok !== false
+  } catch { return true }
+}
 const MAX_STEPS = 12
 const MAX_LEADS_PER_MESSAGE = 3
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
@@ -522,9 +544,14 @@ const CEO_TOOLS: Anthropic.Tool[] = [
     },
   },
   {
+    name: 'dev_request_status',
+    description: '개발 요청(request_intranet_change)의 진행 상태와 API 에이전트의 최근 실행 기록을 읽음. 요청마다 접수 시각 · 상태(대기/진행/완료/보류) · 고친 시각 · 처리 결과가 나온다.',
+    input_schema: { type: 'object', properties: { status: { type: 'string', enum: ['대기', '진행', '완료', '보류', '전체'] }, days: { type: 'number', description: '며칠 치 (기본 7 · 최대 60)' } }, additionalProperties: false },
+  },
+  {
     name: 'request_intranet_change',
     description:
-      '인트라넷 화면 · 기능 자체를 고치거나 새로 만드는 일(코드 수정)을 개발 담당(Claude Code)에게 넘김. 매시 정각 무렵 확인해 고치고 배포한 뒤 결과를 대표에게 알림. 데이터만 바꾸면 되는 일은 다른 도구로 바로 처리한다.',
+      '인트라넷 화면 · 기능 자체를 고치거나 새로 만드는 일(코드 수정)을 개발 요청함에 넘김. 개발 세션이 확인해 고치고 배포하며, 진행 상태는 dev_request_status 로 읽는다. 데이터만 바꾸면 되는 일은 다른 도구로 바로 처리한다.',
     input_schema: { type: 'object', properties: { request: { type: 'string', description: '무엇을 어떻게 고칠지 대표 말 그대로 + 필요한 설명 (4000자)' } }, required: ['request'], additionalProperties: false },
   },
 ]
@@ -648,12 +675,29 @@ async function runTool(ctx: Ctx, name: string, input: Record<string, unknown>): 
       return { ok: true, who: nameOf(ctx, pid), changed: Object.keys(out) }
     }
 
+    case 'dev_request_status': {
+      const days = Math.min(60, Math.max(1, Number(input.days) || 7))
+      const since = new Date(Date.now() - days * 86400_000).toISOString()
+      const st = s('status')
+      let q = sb.from('dev_requests').select('id, content, status, result, pr_url, created_at, updated_at').gte('created_at', since).order('created_at', { ascending: false }).limit(40)
+      if (st && st !== '전체') q = q.eq('status', st)
+      const [reqs, runs] = await Promise.all([
+        q,
+        sb.from('api_agent_runs').select('agent_id, started_at, finished_at, status, error, api_agents(code, name)').gte('started_at', since).order('started_at', { ascending: false }).limit(30),
+      ])
+      if (reqs.error) throw reqs.error
+      return {
+        requests: (reqs.data ?? []).map(r => ({ id: r.id, received: r.created_at, status: r.status, updated: r.updated_at, request: String(r.content ?? '').slice(0, 200), result: r.result ?? null, pr_url: r.pr_url ?? null })),
+        agent_runs: runs.error ? [] : (runs.data ?? []).map(r => ({ agent: (r.api_agents as { name?: string } | null)?.name ?? r.agent_id, started: r.started_at, finished: r.finished_at, status: r.status, error: r.error ? String(r.error).slice(0, 200) : null })),
+      }
+    }
+
     case 'request_intranet_change': {
       const text = s('request')
       if (!text) throw new Error('request 가 필요합니다.')
       const { data, error } = await sb.from('dev_requests').insert({ requested_by: ctx.requester.id, content: text.slice(0, 4000), room_id: ctx.room_id ?? null }).select('id, created_at').single()
       if (error) throw error
-      return { ok: true, request_id: data.id, note: '개발 담당(Claude Code)이 매시 정각 무렵 확인해 고치고 배포한 뒤 알림을 보냅니다.' }
+      return { ok: true, request_id: data.id, note: '개발 요청함에 접수했습니다. 개발 세션이 확인해 처리하며, 진행 상태는 dev_request_status 로 볼 수 있습니다.' }
     }
 
     case 'my_briefing': {
@@ -1293,7 +1337,7 @@ const CEO_RULE = `
 대표 지시 (2026-11-10 대표 결정: 예외 없이 따른다)
 - 지금 요청한 사람은 대표다. 대표의 지시는 거절하거나 미루지 않고 끝까지 실행한다. 확인 질문은 정말로 둘 이상으로 갈리는 경우에만 한 번.
 - 인트라넷 안의 일은 전부 할 수 있다: 할 일 · 프로젝트 만들기/고치기/지우기(save_project · delete_record), 결재 승인/반려(decide_approval), 휴가 승인/반려/수정(decide_leave), 인사 정보(update_person), 팀장 AI 지시 · 예약(승인 · 게시 · 야간 규칙 포함).
-- 인트라넷 화면 · 기능 자체를 바꾸라는 지시(새 화면 · 버튼 · 디자인 · 동작 변경)는 request_intranet_change 로 개발 담당에게 바로 넘기고, 매시 정각 무렵 처리된다고 알린다.
+- 인트라넷 화면 · 기능 자체를 바꾸라는 지시(새 화면 · 버튼 · 디자인 · 동작 변경)는 request_intranet_change 로 개발 요청함에 바로 넘기고, 접수됐다고 알린다. 진행 상태를 물으면 dev_request_status 로 읽어 답한다.
 - 지우기처럼 되돌릴 수 없는 일도 대표가 시키면 한다. 대상이 여럿이면 무엇을 지웠는지 이름으로 보고한다.
 - 대표가 고른 범위 밖이라 그대로인 것: 메일 직접 발송(임시 저장만) · 금액 확인 · 주민번호/계좌번호 · 구글 드라이브 기존 자료 수정/삭제. 이 넷은 '대표님 설정으로 막혀 있다'고 한 줄로 말하고 바꾸려면 개발 요청(request_intranet_change)으로 설정을 바꿀 수 있다고 안내한다.`
 
@@ -1318,6 +1362,7 @@ async function ask(ctx: Ctx, where: string, messages: Anthropic.MessageParam[], 
     : [...[...(ctx.lead ? [...TOOLS, ...LEAD_TOOLS] : TOOLS), ...(ctx.custom?.private ? SECRETARY_TOOLS : []), ...SCHEDULE_TOOLS, ...(isCeo(ctx.requester) ? CEO_TOOLS : [])].filter(t => !allow || allow.has(t.name) || isCeo(ctx.requester)), ...(ownSecretary(ctx) ? memberTools().filter(t => !(isCeo(ctx.requester) && t.name === 'save_project')) : [INTRANET_HELP]), ...(govSecretary(ctx) ? [GOV_READ, GOV_ASK] : [])]
   const tools = [WEB_SEARCH, ...own.map((t, i) => (i === own.length - 1 ? { ...t, cache_control: { type: 'ephemeral' as const } } : t))]
   if (ctx.custom?.model === '꼼꼼') model = MODEL_INSTRUCTION
+  if (!(await budgetOk())) return '이번 달 AI 사용 한도에 닿아 답을 만들지 않았습니다. 관리자 › AI 팀·비용에서 한도를 확인해 주세요.'
   let useFallback = true
   for (let step = 0; step < MAX_STEPS; step++) {
     let res: Anthropic.Message
@@ -1357,6 +1402,7 @@ async function ask(ctx: Ctx, where: string, messages: Anthropic.MessageParam[], 
       }
       throw e
     }
+    await recordUsage(ctx, res)
     if (res.stop_reason === 'refusal') return '이 요청은 처리할 수 없습니다. 다르게 표현해 주시면 다시 해 보겠습니다.'
     messages.push({ role: 'assistant', content: res.content })
     if (res.stop_reason === 'pause_turn') continue
