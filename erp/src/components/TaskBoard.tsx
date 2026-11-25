@@ -74,7 +74,7 @@ export function TaskBoard({ list, late, projects, onStatus, onEdit, onDelete }: 
       kind: 'title',
       cell: t => {
         const creator = profileOf(t.created_by)
-        const sub = [t.phase, creator?.is_agent ? `${creator.name} 배정` : creator && creator.id !== t.assignee_id ? `${creator.name} 지시` : null, t.start_date && t.due_date && t.start_date !== t.due_date ? `${shortDate(t.start_date)}~${shortDate(t.due_date)}` : null].filter(Boolean).join(' · ')
+        const sub = [t.phase, creator?.is_agent ? `${creator.name} 배정` : creator && creator.id !== t.assignee_id ? `${creator.name} 지시` : null, ].filter(Boolean).join(' · ')
         return (
           <>
             <InlineTitle task={t} onSave={title => void patch(t, { title })} />
@@ -82,6 +82,54 @@ export function TaskBoard({ list, late, projects, onStatus, onEdit, onDelete }: 
           </>
         )
       },
+    },
+    // 지시일 · 시작일 · 마감일 (대표 지시 2026-11-25 '업무 지시일과 시작일 마감일을 모두 표시 · 업무 지시일을 우선으로') — 지시일 = 할 일을 만든 날
+    {
+      key: 'ordered',
+      label: '지시일',
+      width: 78,
+      cell: t => {
+        const d = toDateKey(t.created_at)
+        const by = profileOf(t.created_by)
+        return <span className="t-meta" title={`${shortDate(d)} ${timeLabel(t.created_at)}${by ? ` · ${by.name} 지시` : ''}`}>{shortDate(d)} {weekday(d)}</span>
+      },
+    },
+    {
+      key: 'start',
+      label: '시작일',
+      width: 78,
+      cell: t => (
+        <label className="task-inline task-inline-due t-meta" onClick={stop} title="눌러서 시작일 바꾸기">
+          {t.start_date ? `${shortDate(t.start_date)} ${weekday(t.start_date)}` : '-'}
+          <input
+            type="date"
+            className="task-inline-date"
+            value={t.start_date ?? ''}
+            max={t.due_date ?? undefined}
+            onClick={e => { try { (e.currentTarget as HTMLInputElement & { showPicker?: () => void }).showPicker?.() } catch { /* 눌러 고르기 */ } }}
+            onChange={e => void patch(t, { start_date: e.target.value || null })}
+            aria-label={`${t.title} 시작일`}
+          />
+        </label>
+      ),
+    },
+    {
+      key: 'due',
+      label: '마감일',
+      width: 96,
+      cell: t => (
+        <label className={`task-inline task-inline-due t-meta ${t.status !== '완료' && t.due_date && t.due_date < today ? 't-red' : ''}`} onClick={stop} title="눌러서 마감 바꾸기">
+          {t.due_date ? (t.due_date === today ? '오늘' : `${shortDate(t.due_date)} ${weekday(t.due_date)}`) : '마감 정하기'}
+          <input
+            type="date"
+            className="task-inline-date"
+            value={t.due_date ?? ''}
+            onClick={e => { try { (e.currentTarget as HTMLInputElement & { showPicker?: () => void }).showPicker?.() } catch { /* 눌러 고르기 */ } }}
+            onChange={e => void patch(t, { due_date: e.target.value || null })}
+            aria-label={`${t.title} 마감`}
+          />
+        </label>
+      ),
     },
     {
       key: 'project',
@@ -108,24 +156,6 @@ export function TaskBoard({ list, late, projects, onStatus, onEdit, onDelete }: 
           {t.assignee_id && !people.some(p => p.id === t.assignee_id) && <option value={t.assignee_id}>{profileName(t.assignee_id)}</option>}
           {people.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
         </select>
-      ),
-    },
-    {
-      key: 'due',
-      label: '마감',
-      width: 96,
-      cell: t => (
-        <label className={`task-inline task-inline-due t-meta ${t.status !== '완료' && t.due_date && t.due_date < today ? 't-red' : ''}`} onClick={stop} title="눌러서 마감 바꾸기">
-          {t.due_date ? (t.due_date === today ? '오늘' : `${shortDate(t.due_date)} ${weekday(t.due_date)}`) : '마감 정하기'}
-          <input
-            type="date"
-            className="task-inline-date"
-            value={t.due_date ?? ''}
-            onClick={e => { try { (e.currentTarget as HTMLInputElement & { showPicker?: () => void }).showPicker?.() } catch { /* 눌러 고르기 */ } }}
-            onChange={e => void patch(t, { due_date: e.target.value || null })}
-            aria-label={`${t.title} 마감`}
-          />
-        </label>
       ),
     },
     // 완료일 (대표 지시 2026-11-18 '완료일까지 표시해') — 완료로 바꾼 날을 서버가 기록(tasks.completed_at)

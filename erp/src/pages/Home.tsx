@@ -12,6 +12,8 @@ import { DecideButtons } from '../components/ApprovalParts'
 import { MonthCalendar } from './Schedule'
 import { ProjectCards } from '../components/ProjectCards'
 import { HomeMyTasks } from '../components/HomeMyTasks'
+import { HomeSentTasks } from '../components/HomeSentTasks'
+import { HomeTeamTasks } from '../components/HomeTeamTasks'
 
 interface HomeData {
   approvals: ApprovalSummary[]
@@ -119,6 +121,8 @@ export default function Home() {
 
       {/* 내 할 일 표: 지연 · 오늘 · 이번 주를 홈에서 바로 처리 (대표 지시 2026-11-17 '홈에 내할일 넣어줘') */}
       <HomeMyTasks tasks={data.tasks} projects={data.projects} loading={loading} />
+      <HomeSentTasks tasks={data.tasks} projects={data.projects} />
+      <HomeTeamTasks tasks={data.tasks} projects={data.projects} />
 
       {/* 진행 프로젝트 카드 줄 (구분 색 · 남은 기간 · 진행 막대 · 남은 할 일) */}
       {active.length > 0 && (
