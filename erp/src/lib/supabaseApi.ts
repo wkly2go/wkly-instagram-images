@@ -1088,6 +1088,10 @@ export function createSupabaseApi(url: string, key: string): Api {
       const r = await sb.from('ad_daily').select('*').gte('date', from).lte('date', to).order('date').limit(5000)
       return must(r) as AdDaily[]
     },
+    async lastAdDailyDate() {
+      const r = await sb.from('ad_daily').select('date').order('date', { ascending: false }).limit(1)
+      return (must(r) as { date: string }[])[0]?.date ?? null
+    },
     async listAdCampaigns() {
       const r = await sb.from('ad_campaigns').select('*').order('platform').order('campaign')
       return must(r) as AdCampaign[]
