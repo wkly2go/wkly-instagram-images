@@ -2,17 +2,21 @@
 // 모든 프로젝트에 연결한 피그마 · 피그잼(프로젝트 화면 '피그잼 · 피그마' 칸)의 프레임을 골라 PNG 그림으로 보드에 붙임.
 // 2026-11-27 '모든 프로젝트에서 공통으로': 이 보드의 프로젝트 것이 먼저, 다른 프로젝트 · 공통 보드에서도 모두 고를 수 있음.
 // 피그마는 읽기만 · 한 번에 6개 · 그림은 보드 사진처럼 비공개 보관함에 저장됨(보드 자동 저장이 올림).
+// 2026-11-27 대표 '프레임말고 모든 컨텐츠를 불러와서 수정할 수 있게': 기본은 '수정 가능한 요소로'(글 · 도형 · 선 · 포스트잇 · 연결선은
+// 보드 요소, 아이콘 · 로고 · 사진은 그림 요소 · 한 번에 3개) · '그림 한 장으로'는 예전처럼. 피그마 원본은 바뀌지 않음.
 import { useState } from 'react'
 import { X } from 'lucide-react'
 import { useApp, useAsync } from '../lib/app'
 import type { ProjectFigma } from '../lib/figmaApi'
+import type { FigmaContent } from '../lib/figmaToBoard'
 import type { Project } from '../lib/types'
 
 export interface FigmaPicked { fileId: string; name: string; w: number; h: number; mime: string; dataURL: string }
 
-const MAX = 6
+const MAX_IMAGE = 6
+const MAX_EDIT = 3
 
-export function BoardFigmaImport({ projectId, onClose, onPick }: { projectId: string | null; onClose: () => void; onPick: (p: FigmaPicked[]) => void }) {
+export function BoardFigmaImport({ projectId, onClose, onPick, onContent }: { projectId: string | null; onClose: () => void; onPick: (p: FigmaPicked[]) => void; onContent: (c: FigmaContent) => void }) {
   const { api, toast } = useApp()
   const list = useAsync(async () => {
     const [all, projects] = await Promise.all([api.listAllFigma(), api.listProjects().catch(() => [] as Project[])])
@@ -23,6 +27,8 @@ export function BoardFigmaImport({ projectId, onClose, onPick }: { projectId: st
   const [fileId, setFileId] = useState<string | null>(null)
   const [sel, setSel] = useState<string[]>([])
   const [busy, setBusy] = useState(false)
+  const [mode, setMode] = useState<'edit' | 'image'>('edit')
+  const MAX = mode === 'edit' ? MAX_EDIT : MAX_IMAGE
   const files = list.data.files
   const file = files.find(f => f.id === (fileId ?? files[0]?.id)) ?? null
   const toggle = (id: string) => setSel(s => (s.includes(id) ? s.filter(x => x !== id) : s.length >= MAX ? s : [...s, id]))
@@ -30,6 +36,7 @@ export function BoardFigmaImport({ projectId, onClose, onPick }: { projectId: st
     if (!file || !sel.length) return
     setBusy(true)
     try {
+      if (mode === 'edit') { onContent(await api.figmaContent(file.id, sel)); return }
       const imgs = await api.figmaFrameImages(file.id, sel)
       onPick(imgs.map(i => ({ fileId: `figma-${file.file_key}-${i.id.replace(/[^0-9a-z]/gi, '_')}-${Date.now().toString(36)}`, name: i.name, w: i.w, h: i.h, mime: i.mime, dataURL: `data:${i.mime};base64,${i.data}` })))
     } catch (e) { toast(e instanceof Error ? e.message : '피그마 그림을 불러오지 못했습니다.') } finally { setBusy(false) }
@@ -53,7 +60,11 @@ export function BoardFigmaImport({ projectId, onClose, onPick }: { projectId: st
               ))}
             </select>
           </label>
-          <p className="board-figma-note">붙일 프레임을 고르세요 (한 번에 {MAX}개까지 · 고른 순서대로 오른쪽에 나란히).</p>
+          <div className="board-figma-mode" role="radiogroup" aria-label="불러오는 방식">
+            <label><input type="radio" checked={mode === 'edit'} onChange={() => { setMode('edit'); setSel(s => s.slice(0, MAX_EDIT)) }} /> 수정 가능한 요소로 <span className="board-figma-meta">글 · 도형 · 선 · 포스트잇을 보드에서 바로 고침 · 아이콘 · 사진은 그림</span></label>
+            <label><input type="radio" checked={mode === 'image'} onChange={() => setMode('image')} /> 그림 한 장으로 <span className="board-figma-meta">보이는 그대로 · 고칠 수 없음</span></label>
+          </div>
+          <p className="board-figma-note">불러올 프레임을 고르세요 (한 번에 {MAX}개까지{mode === 'edit' ? ' · 피그마에서 보던 배치 그대로' : ' · 고른 순서대로 오른쪽에 나란히'}). 피그마 원본은 바뀌지 않습니다.</p>
           <ul className="board-figma-list">
             {(file?.frames ?? []).map(fr => (
               <li key={fr.id}>
@@ -70,7 +81,7 @@ export function BoardFigmaImport({ projectId, onClose, onPick }: { projectId: st
             <span className="board-figma-meta">{sel.length ? `${sel.length}개 고름` : ''}</span>
             <span className="grow" />
             <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>취소</button>
-            <button type="button" className="btn btn-primary btn-sm" onClick={() => void load()} disabled={busy || !sel.length}>{busy ? '불러오는 중…' : '보드에 붙이기'}</button>
+            <button type="button" className="btn btn-primary btn-sm" onClick={() => void load()} disabled={busy || !sel.length}>{busy ? (mode === 'edit' ? '요소로 바꾸는 중…' : '불러오는 중…') : '보드에 붙이기'}</button>
           </div>
         </>
       )}

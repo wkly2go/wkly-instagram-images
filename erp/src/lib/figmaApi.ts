@@ -1,6 +1,7 @@
 // 피그잼 · 피그마 연결 API (2026-11-20 · DB 20261120180000_project_figma · 서버 함수 figma)
 //  - 목록 · 내보낸 PDF 읽기는 DB 권한(RLS · 활성 팀원)으로, 연결 · 다시 읽기 · PDF 만들기는 서버 함수 figma 로
 //  - PDF 를 프로젝트 드라이브에 올린 뒤 주소만 figma_exports 에 적음
+import type { FigmaContent } from './figmaToBoard'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { ApiError } from './api'
 import type { FigmaKind } from './figma'
@@ -43,6 +44,8 @@ export interface FigmaApi {
   exportFigmaPdf(id: string, nodeIds: string[], title: string): Promise<{ id: string; path: string; pages: number; url: string | null }>
   /** 프레임을 PNG(base64)로 · 화이트보드에 불러오기 (한 번에 6개) */
   figmaFrameImages(id: string, nodeIds: string[]): Promise<FigmaFrameImage[]>
+  /** 프레임 안 글 · 도형 · 선 · 그림을 수정 가능한 요소로 (한 번에 3개) */
+  figmaContent(id: string, nodeIds: string[]): Promise<FigmaContent>
   figmaExportBlob(path: string): Promise<Blob>
   markFigmaExportDrive(id: string, driveFileId: string, driveUrl: string): Promise<void>
 }
@@ -98,6 +101,7 @@ export function createSupabaseFigmaApi(sb: SupabaseClient): FigmaApi {
       if (!r.data?.length) throw new ApiError('연결한 사람이나 관리자만 뗄 수 있습니다.')
     },
     async exportFigmaPdf(id, nodeIds, title) { return await call('export', { id, node_ids: nodeIds, title }) },
+    async figmaContent(id, nodeIds) { const r = await call<FigmaContent & { ok: boolean }>('content', { id, node_ids: nodeIds }); return { frames: r.frames ?? [], images: r.images ?? {}, skipped: r.skipped ?? 0 } },
     async figmaFrameImages(id, nodeIds) { return (await call<{ images: FigmaFrameImage[] }>('images', { id, node_ids: nodeIds })).images },
     async figmaExportBlob(path) {
       const r = await sb.storage.from('figma-files').download(path)
@@ -114,12 +118,23 @@ export function createSupabaseFigmaApi(sb: SupabaseClient): FigmaApi {
 /** 체험 모드: 자료 없음 */
 export function createDemoFigmaApi(): FigmaApi {
   const none = async (): Promise<never> => { throw new ApiError('피그잼 연결은 운영 계정에서만 쓸 수 있습니다.') }
+  // 화면 확인용(개발 서버 + VITE_BOARD_HARNESS 일 때만): 시험 도구가 넣은 피그마 자료로 '피그마 불러오기'를 띄움 · 배포 묶음에는 없음
+  const fx = import.meta.env?.DEV && import.meta.env?.VITE_BOARD_HARNESS === '1'
+    ? (globalThis as { __WKLY_FIGMA_FIXTURE?: { files: ProjectFigma[]; content: FigmaContent } }).__WKLY_FIGMA_FIXTURE : undefined
+  if (fx) {
+    return {
+      async figmaStatus() { return { token: true } }, async figmaTokenInfo() { return null }, setFigmaToken: none,
+      async listProjectFigma() { return { files: fx.files, exports: [] } }, async listAllFigma() { return fx.files },
+      linkFigma: none, refreshFigma: none, unlinkFigma: none, exportFigmaPdf: none, figmaFrameImages: none,
+      async figmaContent() { return fx.content }, figmaExportBlob: none, markFigmaExportDrive: none,
+    }
+  }
   return {
     async figmaStatus() { return { token: false } },
     async figmaTokenInfo() { return null },
     setFigmaToken: none,
     async listProjectFigma() { return { files: [], exports: [] } },
     async listAllFigma() { return [] },
-    linkFigma: none, refreshFigma: none, unlinkFigma: none, exportFigmaPdf: none, figmaFrameImages: none, figmaExportBlob: none, markFigmaExportDrive: none,
+    linkFigma: none, refreshFigma: none, unlinkFigma: none, exportFigmaPdf: none, figmaFrameImages: none, figmaContent: none, figmaExportBlob: none, markFigmaExportDrive: none,
   }
 }
