@@ -32,7 +32,12 @@ export interface CollabApi {
   collabFileUrl(roomId: string, fileId: string, inline?: boolean): Promise<string>
   saveCollabEvent(e: Partial<CollabEvent> & Pick<CollabEvent, 'kind' | 'title' | 'day'> & { room_id: string }): Promise<CollabEvent>
   deleteCollabEvent(id: string): Promise<void>
+  /** 방에 공유한 화이트보드 (2026-11-27 · 표 collab_room_boards) */
+  listCollabBoards(roomId: string): Promise<CollabBoardShare[]>
+  /** 공유 켜기/끄기 · 고칠 수 있음/보기만 (share false 면 공유 해제) */
+  setCollabBoard(roomId: string, boardId: string, share: boolean, canEdit?: boolean): Promise<void>
 }
+export interface CollabBoardShare { room_id: string; board_id: string; can_edit: boolean }
 
 /** 외부인이 열 초대 주소 */
 export const collabInviteUrl = (token: string) => `${window.location.origin}/c/${token}`
@@ -120,6 +125,15 @@ export function createSupabaseCollabApi(sb: SupabaseClient): CollabApi {
       if (e.id) return must(await sb.from('collab_events').update(row).eq('id', e.id).select(EVENT_COLS).single()) as CollabEvent
       return must(await sb.from('collab_events').insert({ ...row, room_id: e.room_id }).select(EVENT_COLS).single()) as CollabEvent
     },
+    async listCollabBoards(roomId) {
+      return must(await sb.from('collab_room_boards').select('room_id,board_id,can_edit').eq('room_id', roomId)) as CollabBoardShare[]
+    },
+    async setCollabBoard(roomId, boardId, share, canEdit = true) {
+      const r = share
+        ? await sb.from('collab_room_boards').upsert({ room_id: roomId, board_id: boardId, can_edit: canEdit }, { onConflict: 'room_id,board_id' })
+        : await sb.from('collab_room_boards').delete().eq('room_id', roomId).eq('board_id', boardId)
+      if (r.error) throw new ApiError(r.error.message)
+    },
     async deleteCollabEvent(id) {
       must(await sb.from('collab_events').delete().eq('id', id))
     },
@@ -158,5 +172,9 @@ export function createDemoCollabApi(): CollabApi {
     collabFileUrl: none,
     saveCollabEvent: none,
     deleteCollabEvent: none,
+    async listCollabBoards() {
+      return []
+    },
+    setCollabBoard: none,
   }
 }

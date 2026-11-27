@@ -3,7 +3,7 @@
 //  - 대화 · 자료(드라이브 01.협의자료/03.외부공유/<방>) · 공유 일정(미팅 · 마일스톤)
 //  - 외부인이 쓴 글은 담당 · 참여 팀원에게 알림 (서버 함수가 보냄)
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowUp, CalendarDays, Download, ExternalLink, Eye, Folder, Link2, Lock, MessageSquare, MonitorSmartphone, Paperclip, Pencil, Plus, Settings2, Trash2, UserPlus, X } from 'lucide-react'
+import { ArrowUp, CalendarDays, Download, ExternalLink, Eye, Folder, Link2, Lock, MessageSquare, MonitorSmartphone, Paperclip, PenLine, Pencil, Plus, Settings2, Trash2, UserPlus, X } from 'lucide-react'
 import { useApp, useAsync } from '../lib/app'
 import { useRouter } from '../lib/router'
 import { collabInviteUrl } from '../lib/collabApi'
@@ -151,7 +151,7 @@ function CreateRoom({ project, first, onClose, onDone }: { project: Project; fir
   )
 }
 
-type Tab = 'chat' | 'files' | 'events'
+type Tab = 'chat' | 'files' | 'events' | 'boards'
 function RoomPanel({ room, project, guests, events, onChange }: { room: CollabRoom; project: Project; guests: CollabGuest[]; events: CollabEvent[]; onChange: () => void }) {
   const { api, toast } = useApp()
   const [tab, setTab] = useState<Tab>('chat')
@@ -235,10 +235,14 @@ function RoomPanel({ room, project, guests, events, onChange }: { room: CollabRo
         <button type="button" role="tab" aria-selected={tab === 'events'} className={tab === 'events' ? 'on' : ''} onClick={() => setTab('events')}>
           <CalendarDays size={14} /> 공유 일정{upcoming ? <span className="cl-n">{upcoming}</span> : null}
         </button>
+        <button type="button" role="tab" aria-selected={tab === 'boards'} className={tab === 'boards' ? 'on' : ''} onClick={() => setTab('boards')}>
+          <PenLine size={14} /> 화이트보드
+        </button>
       </nav>
       {tab === 'chat' && <StaffChat room={room} guests={guests} />}
       {tab === 'files' && <StaffFiles room={room} guests={guests} onFolder={onChange} />}
       {tab === 'events' && <StaffEvents room={room} events={events} onChange={onChange} />}
+      {tab === 'boards' && <StaffBoards room={room} project={project} />}
       {inviting && (
         <InviteModal
           room={room}
@@ -254,6 +258,62 @@ function RoomPanel({ room, project, guests, events, onChange }: { room: CollabRo
       {editing && <GuestModal guest={editing} onClose={() => setEditing(null)} onDone={() => { setEditing(null); onChange() }} />}
       {devices && <DevicesModal room={room} guest={devices} onClose={() => setDevices(null)} />}
       {settings && <RoomSettings room={room} onClose={() => setSettings(false)} onDone={() => { setSettings(false); onChange() }} />}
+    </div>
+  )
+}
+
+// ── 화이트보드 공유 (2026-11-27 대표 지시 '외부 협업가능하게 만들어') ─────────
+// 이 프로젝트의 화이트보드 가운데 이 방 외부인에게 보일 것을 고름. 고칠 수 있음 / 보기만. 공유를 끄면 외부인 화면에서 바로 사라짐.
+function StaffBoards({ room, project }: { room: CollabRoom; project: Project }) {
+  const { api, toast } = useApp()
+  const [tick, setTick] = useState(0)
+  const [busy, setBusy] = useState<string | null>(null)
+  const data = useAsync(async () => {
+    const [boards, shares] = await Promise.all([api.listBoards(project.id), api.listCollabBoards(room.id)])
+    return { boards, shares }
+  }, [api, project.id, room.id, tick], { boards: [], shares: [] })
+  const set = async (boardId: string, share: boolean, canEdit: boolean) => {
+    setBusy(boardId)
+    try {
+      await api.setCollabBoard(room.id, boardId, share, canEdit)
+      setTick(t => t + 1)
+      toast(share ? (canEdit ? '외부인이 이 보드를 함께 고칠 수 있습니다.' : '외부인이 이 보드를 볼 수 있습니다 (보기만).') : '이 보드 공유를 껐습니다.')
+    } catch (e) {
+      toast(e instanceof Error ? e.message : '바꾸지 못했습니다.')
+    } finally {
+      setBusy(null)
+    }
+  }
+  const { boards, shares } = data.data
+  return (
+    <div className="cl-boards">
+      <p className="t-cap">이 방 외부인에게 보일 화이트보드를 고릅니다. 공유한 보드만 외부인 화면 ‘화이트보드’ 탭에 보이고, 고친 내용은 서로 자동으로 합쳐집니다.</p>
+      {data.loading && !boards.length ? (
+        <p className="t-cap">불러오는 중입니다.</p>
+      ) : !boards.length ? (
+        <p className="t-cap">이 프로젝트에 화이트보드가 없습니다. 아래 ‘화이트보드’ 칸에서 보드를 먼저 만들어 주세요.</p>
+      ) : (
+        <ul className="cl-board-list">
+          {boards.map(b => {
+            const sh = shares.find(x => x.board_id === b.id)
+            return (
+              <li key={b.id} className={sh ? 'on' : ''}>
+                <label className="cl-board-pick">
+                  <input type="checkbox" checked={!!sh} disabled={busy === b.id || !!room.closed_at} onChange={e => void set(b.id, e.target.checked, sh?.can_edit ?? true)} />
+                  <b>{b.title}</b>
+                  <span className="t-cap">요소 {b.count ?? 0}개</span>
+                </label>
+                {sh && (
+                  <select className="input cl-board-mode" value={sh.can_edit ? 'edit' : 'view'} disabled={busy === b.id} onChange={e => void set(b.id, true, e.target.value === 'edit')} aria-label={`${b.title} 외부인 권한`}>
+                    <option value="edit">함께 고칠 수 있음</option>
+                    <option value="view">보기만</option>
+                  </select>
+                )}
+              </li>
+            )
+          })}
+        </ul>
+      )}
     </div>
   )
 }
