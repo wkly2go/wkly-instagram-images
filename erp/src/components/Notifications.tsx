@@ -10,6 +10,7 @@ import { Badge } from './ui'
 import { PushToggle } from './PushSetup'
 import { pushOn } from '../lib/push'
 import { playAlert, setSoundLevel, soundLevel, type SoundLevel } from '../lib/sound'
+import { NOTIF_PREVIEW_LINES, parseNotifBody } from '../lib/notifBody'
 
 const seenKey = (userId: string) => `wkly-erp-notified-max:${userId}`
 
@@ -177,19 +178,31 @@ export function NotificationBell() {
           </div>
           {shown.length === 0 && <div className="empty">알림이 없습니다.</div>}
           {shown.map(n => (
-            <button key={n.id} type="button" className={`notif ${n.read_at ? '' : 'unread'}`} onClick={() => go(n)}>
+            <div
+              key={n.id}
+              role="button"
+              tabIndex={0}
+              className={`notif ${n.read_at ? '' : 'unread'}`}
+              onClick={() => go(n)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  go(n)
+                }
+              }}
+            >
               <span className="t-meta nowrap notif-kind">{n.kind}</span>
-              <span className="col gap-2 grow">
+              <span className="col gap-2 grow" style={{ minWidth: 0 }}>
                 <span className="t-smallb" style={{ whiteSpace: 'normal' }}>
                   {n.title}
                 </span>
-                {n.body && <span className="t-cap">{n.body}</span>}
+                {n.body && <NotifBodyView body={n.body} />}
               </span>
               <span className="t-meta" style={{ whiteSpace: 'nowrap' }}>
                 {relativeLabel(n.created_at)}
               </span>
               <span className={`dot ${n.read_at ? 'read' : ''}`} aria-hidden="true" />
-            </button>
+            </div>
           ))}
           <div className="head" style={{ position: 'sticky', bottom: 0, borderTop: '1px solid var(--line)', borderBottom: 0 }}>
             <span className="t-cap">PC 알림 (창을 닫아도)</span>
@@ -231,5 +244,59 @@ function SoundSetting() {
         <Volume2 size={13} style={{ verticalAlign: -2 }} aria-hidden="true" /> 들어보기
       </button>
     </div>
+  )
+}
+
+/** 알림 본문: 묶음 제목 · 항목 줄 · 늦은 항목은 빨간 점 · 근거 줄은 맨 아래 작게 · 길면 접기 */
+function NotifBodyView({ body }: { body: string }) {
+  const [more, setMore] = useState(false)
+  const { lines, meta } = parseNotifBody(body)
+  const long = lines.length > NOTIF_PREVIEW_LINES
+  const shown = more || !long ? lines : lines.slice(0, NOTIF_PREVIEW_LINES)
+  return (
+    <span className="notif-body">
+      {shown.map((l, i) =>
+        l.kind === 'head' ? (
+          <span key={i} className="nb-head">{l.text}</span>
+        ) : l.kind === 'item' ? (
+          <span key={i} className={`nb-item${l.late ? ' late' : ''}`}>
+            <span className="nb-text">{l.text}</span>
+            {l.detail.length > 0 && (
+              <span className="nb-detail">
+                {l.detail.map((d, j) => (
+                  <span key={j} className={/\d+\s*일\s*(지남|지연|째)/.test(d) ? 'nb-late' : undefined}>
+                    {j > 0 && <span className="nb-sep"> · </span>}
+                    {d}
+                  </span>
+                ))}
+              </span>
+            )}
+          </span>
+        ) : (
+          <span key={i} className="nb-line">{l.text}</span>
+        ),
+      )}
+      {long && (
+        <span
+          role="button"
+          tabIndex={0}
+          className="nb-more"
+          onClick={e => {
+            e.stopPropagation()
+            setMore(m => !m)
+          }}
+          onKeyDown={e => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              e.stopPropagation()
+              setMore(m => !m)
+            }
+          }}
+        >
+          {more ? '접기' : `${lines.length - NOTIF_PREVIEW_LINES}줄 더 보기`}
+        </span>
+      )}
+      {meta && (more || !long) && <span className="nb-meta">{meta}</span>}
+    </span>
   )
 }
