@@ -32,6 +32,8 @@ export interface FigmaApi {
   figmaStatus(): Promise<{ token: boolean }>
   setFigmaToken(value: string): Promise<void>
   listProjectFigma(projectId: string): Promise<{ files: ProjectFigma[]; exports: FigmaExport[] }>
+  /** 모든 프로젝트에 연결한 피그마 (화이트보드 공통 불러오기 · 2026-11-27) */
+  listAllFigma(): Promise<ProjectFigma[]>
   linkFigma(projectId: string, url: string): Promise<void>
   refreshFigma(id: string): Promise<void>
   unlinkFigma(id: string): Promise<void>
@@ -75,6 +77,11 @@ export function createSupabaseFigmaApi(sb: SupabaseClient): FigmaApi {
       }
       return { files, exports: (x.data ?? []) as FigmaExport[] }
     },
+    async listAllFigma() {
+      const f = await sb.from('project_figma').select('*').order('created_at', { ascending: false }).limit(200)
+      if (f.error) throw new ApiError(['42P01', 'PGRST205'].includes(f.error.code ?? '') ? '피그잼 연결을 준비 중입니다.' : f.error.message)
+      return (f.data ?? []) as ProjectFigma[]
+    },
     async linkFigma(projectId, url) { await call('link', { project_id: projectId, url }) },
     async refreshFigma(id) { await call('refresh', { id }) },
     async unlinkFigma(id) {
@@ -103,6 +110,7 @@ export function createDemoFigmaApi(): FigmaApi {
     async figmaStatus() { return { token: false } },
     setFigmaToken: none,
     async listProjectFigma() { return { files: [], exports: [] } },
+    async listAllFigma() { return [] },
     linkFigma: none, refreshFigma: none, unlinkFigma: none, exportFigmaPdf: none, figmaFrameImages: none, figmaExportBlob: none, markFigmaExportDrive: none,
   }
 }

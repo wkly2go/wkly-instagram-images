@@ -91,7 +91,7 @@ export function PaySheet({ rows, all, projectId, sel, setSel, onOpen }: { rows: 
           <option key={c} value={c} />
         ))}
       </datalist>
-      <table className="pay-sheet">
+      <table className="pay-sheet pay-grid">
         <thead>
           <tr>
             <th className="ck">

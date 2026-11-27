@@ -703,3 +703,13 @@ td > .task-inline-sel, td .task-inline-sel:only-child { min-width: 76px; }
 .vendor-scroll .vendor-sum td:first-child { text-align: center; }
 .vendor-scroll .vs-prog { display: block; width: 100%; margin: 4px 0 4px; }
 .vendor-scroll .vs-prog + .t-cap { display: block; white-space: nowrap; }
+
+/* 결제 화면 공통 표 모양 (2026-11-27 대표 '결제 표 모양 공통' · 업체별 결제 표와 같은 원칙): 모든 칸 가로 세로 선 · 숫자는 한 줄 · 넘치면 표를 옆으로 밀어 봄 */
+.table-wrap:has(> .pay-grid) { overflow-x: auto; border: 1px solid #d9ddd6; border-radius: 8px; background: #fff; }
+.pay-grid { border-collapse: collapse; }
+.pay-grid th, .pay-grid td { border: 1px solid #e3e6e0; }
+.pay-grid thead th { background: #f6f7f4; border-bottom: 2px solid var(--blue); white-space: nowrap; }
+.pay-grid tr > :first-child { border-left: 0; }
+.pay-grid tr > :last-child { border-right: 0; }
+.pay-grid td.num, .pay-grid th.num, .pay-grid td.mono, .pay-grid .mono { white-space: nowrap; }
+.pay-grid td { vertical-align: top; }

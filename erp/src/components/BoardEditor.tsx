@@ -262,7 +262,7 @@ export default function BoardEditor({ id, embedded = false, onClose }: { id: str
   return (
     <div className={`board-page${embedded ? ' embedded' : ''}${full ? ' is-full' : ''}`} ref={wrap}>
       <div className="board-bar">
-        {!embedded && <Link to={board ? `/projects?id=${board.project_id}` : '/projects'} className="board-back" title="프로젝트로"><ArrowLeft size={14} /> 프로젝트</Link>}
+        {!embedded && (board?.project_id ? <Link to={`/projects?id=${board.project_id}`} className="board-back" title="프로젝트로"><ArrowLeft size={14} /> 프로젝트</Link> : <Link to="/boards" className="board-back" title="화이트보드 목록으로"><ArrowLeft size={14} /> 화이트보드</Link>)}
         <input className="board-title" value={title} maxLength={60} aria-label="보드 이름" onChange={e => setTitle(e.target.value)} onBlur={() => void rename()} onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }} disabled={!board} />
         <span className={`board-state s-${state.replace(/\s/g, '')}`} role="status">{state}</span>
         <span className="board-peers" title={peers.map(p => p.name).join(', ')}><Users size={13} /> {others.length ? `${others.map(p => p.name).join(' · ')} 함께 보는 중` : '혼자 보는 중'}</span>

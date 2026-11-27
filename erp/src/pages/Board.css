@@ -47,3 +47,17 @@
 .board-figma-meta { color: var(--tx-sub); }
 .board-figma-foot { display: flex; align-items: center; gap: 6px; }
 button.pboards-item { width: 100%; text-align: left; font: inherit; cursor: pointer; padding-right: 64px; }
+/* 공통 화이트보드 · 템플릿 · 복사 (2026-11-27) */
+.pboards-tools { position: absolute; top: 6px; right: 6px; display: inline-flex; gap: 2px; }
+.pboards-full, .pboards-del { position: static; }
+button.pboards-item { padding-right: 120px; }
+.pboards-new { position: relative; }
+.pboards-pick { position: absolute; right: 0; top: calc(100% + 4px); z-index: 30; min-width: 240px; max-height: 320px; overflow: auto; display: flex; flex-direction: column; padding: 6px; background: #fff; border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 10px 24px rgba(20, 30, 24, 0.14); }
+.pboards-pick > button { display: flex; align-items: center; gap: 6px; text-align: left; padding: 8px 10px; border: 0; background: none; border-radius: 8px; cursor: pointer; font: inherit; color: var(--tx-body); }
+.pboards-pick > button:hover { background: #f2f8f4; }
+.pboards-pick > .pboards-meta { padding: 6px 10px; }
+.pboards-common { margin: 4px 0 0; }
+.pboards-common > .link-btn { color: var(--tx-key); font-weight: 700; background: none; border: 0; padding: 4px 0; cursor: pointer; }
+.pboards-compact { margin-top: 6px; }
+.boards-proj { margin: 10px 0 4px; }
+.boards-proj-name { display: inline-block; margin-bottom: 6px; font-weight: 700; color: var(--tx-key); text-decoration: none; }
