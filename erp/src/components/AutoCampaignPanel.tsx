@@ -7,6 +7,7 @@
 // ③ (선택 · 2026-11-27) '릴스 편집도 함께 요청' 을 켜고 촬영 폴더를 고르면 같은 캠페인 말로 영상 편집 요청까지 쌓는다. 게시는 사람이 한다.
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { analysisPicks, pickReference, type AnalysisPick } from '../lib/analysisPicks'
+import { coverFile, rankCoverPhotos, type CoverPick } from '../lib/coverPicks'
 import { Check, Clapperboard, Copy, ExternalLink, ImagePlus, Loader2, Send, Sparkles, X } from 'lucide-react'
 import { useApp } from '../lib/app'
 import { friendlyError } from '../lib/api'
@@ -48,6 +49,23 @@ export function AutoCampaignPanel({ onCampaign }: { onCampaign?: (id: string) =>
   // 경쟁사 추적의 '이 주제로 만들기'가 ?topic= 으로 넘김 (2026-11-20)
   const [input, setInput] = useState<AutoInput>(() => ({ topic: (typeof location !== 'undefined' ? new URLSearchParams(location.search).get('topic') ?? '' : '').slice(0, 500), brand: 'wkly', link: '', facts: '', shopUrl: readShop(), ...autoDates(today) }))
   const [photo, setPhoto] = useState<File | null>(null)
+  // 프로젝트 사진에서 고르기: 누를 때만 대표 사진을 불러와 알릴 내용과 맞는 순서로 (AI 없음)
+  const [covers, setCovers] = useState<{ open: boolean; loading: boolean; all: { projects: Awaited<ReturnType<typeof api.listProjects>>; urls: Record<string, string> } | null; chosen: string; busy: string }>({ open: false, loading: false, all: null, chosen: '', busy: '' })
+  const coverList: CoverPick[] = useMemo(() => covers.all ? rankCoverPhotos(input.topic, input.brand, covers.all.projects, covers.all.urls) : [], [covers.all, input.topic, input.brand])
+  const openCovers = async () => {
+    if (covers.open) { setCovers(c => ({ ...c, open: false })); return }
+    setCovers(c => ({ ...c, open: true, loading: !c.all }))
+    if (covers.all) return
+    const [projects, urls] = await Promise.all([api.listProjects().catch(() => []), api.projectCovers().catch(() => ({}))])
+    setCovers(c => ({ ...c, loading: false, all: { projects, urls } }))
+  }
+  const chooseCover = async (pick: CoverPick) => {
+    setCovers(c => ({ ...c, busy: pick.projectId }))
+    try {
+      const f = await coverFile(pick)
+      setPhoto(f); setCovers(c => ({ ...c, chosen: pick.name, busy: '', open: false }))
+    } catch (e) { setCovers(c => ({ ...c, busy: '' })); toast(friendlyError(e)) }
+  }
   const [busy, setBusy] = useState(false)
   const [log, setLog] = useState<string[]>([])
   const [error, setError] = useState('')
@@ -184,8 +202,22 @@ export function AutoCampaignPanel({ onCampaign }: { onCampaign?: (id: string) =>
         <label className="wide"><span>확인된 사실 (선택 · 날짜 · 장소 · 혜택 — 적은 것만 사실로 씀)</span><textarea rows={2} maxLength={1200} value={input.facts} onChange={e => set({ facts: e.target.value })} /></label>
         <label><span>네이버 크리에이터샵 주소 (선택)</span><input value={input.shopUrl ?? ''} placeholder="https://… (블로그 글 끝에 자동으로)" onChange={e => set({ shopUrl: e.target.value })} /></label>
         <label className="auto-camp-photo"><span>표지 사진 (선택)</span>
-          <span className="row"><input type="file" accept="image/jpeg,image/png,image/webp" onChange={e => setPhoto(e.target.files?.[0] ?? null)} />{photo ? <small>{photo.name}</small> : <small><ImagePlus size={12} /> 없으면 브랜드 색 표지</small>}</span>
+          <span className="row"><input type="file" accept="image/jpeg,image/png,image/webp" onChange={e => { setPhoto(e.target.files?.[0] ?? null); setCovers(c => ({ ...c, chosen: '' })) }} />{photo ? <small>{covers.chosen ? `프로젝트 사진 · ${covers.chosen}` : photo.name}</small> : <small><ImagePlus size={12} /> 없으면 브랜드 색 표지</small>}</span>
         </label>
+        <div className="auto-camp-cover-pick wide">
+          <button type="button" className="btn btn-outline btn-sm" aria-expanded={covers.open} onClick={() => void openCovers()}>프로젝트 사진에서 고르기</button>
+          {photo && <button type="button" className="md-text-button" onClick={() => { setPhoto(null); setCovers(c => ({ ...c, chosen: '' })) }}>사진 빼기</button>}
+          {!covers.open && <small>지난 프로젝트 대표 사진 중 알릴 내용과 맞는 것을 앞에 보여 줍니다.</small>}
+          {covers.open && (covers.loading ? <p className="auto-camp-cover-empty">불러오는 중…</p> : coverList.length === 0 ? <p className="auto-camp-cover-empty">대표 사진이 있는 프로젝트가 없습니다. 프로젝트 화면에서 대표 사진을 정하면 여기에 나옵니다.</p> : (
+            <ul className="auto-camp-cover-list">{coverList.map((c, i) => (
+              <li key={c.projectId}><button type="button" disabled={!!covers.busy} aria-label={`${c.name} 사진을 표지로`} onClick={() => void chooseCover(c)}>
+                <img src={c.url} alt="" loading="lazy" />
+                <span className="auto-camp-cover-name">{i === 0 && c.score >= 3 && <b>추천 </b>}{c.name}</span>
+                <small>{covers.busy === c.projectId ? '가져오는 중…' : c.reasons.join(' · ') || c.place || ' '}</small>
+              </button></li>
+            ))}</ul>
+          ))}
+        </div>
         <div className="auto-camp-reel wide">
           <label className="row"><input type="checkbox" checked={reel.on} onChange={() => void toggleReel()} /> <Clapperboard size={14} /> 릴스 편집도 함께 요청 <small>(선택 · 촬영 폴더의 영상으로 자동 편집 · 게시는 직접)</small></label>
           {reel.on && (reel.loading ? <p className="auto-camp-reel-empty">촬영 폴더를 불러오는 중…</p> : reel.folders.length === 0 ? <p className="auto-camp-reel-empty">촬영 폴더가 아직 없습니다. 작업 처리기(맥)가 드라이브의 촬영 폴더를 읽어 오면 여기에 나옵니다.</p> : (
