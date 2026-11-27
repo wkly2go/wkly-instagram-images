@@ -655,3 +655,51 @@ td > .task-inline-sel, td .task-inline-sel:only-child { min-width: 76px; }
 .home-team-chips .chip.active .home-team-late { color: #ffd9d4; }
 .task-ordered { display: flex; flex-direction: column; gap: 4px; }
 .task-ordered > span:first-child { font-weight: 700; color: var(--tx-sub); }
+
+/* 알림 본문 나눠 보기 (2026-11-27 대표 '보고를 읽기 좋게') */
+.notif-body { display: flex; flex-direction: column; gap: 3px; white-space: normal; color: var(--tx-body); font-size: var(--fs-body); line-height: 1.5; }
+.notif-body .nb-head { font-weight: 700; color: var(--tx-title); margin-top: 4px; }
+.notif-body .nb-head:first-child { margin-top: 0; }
+.notif-body .nb-line { color: var(--tx-body); }
+.notif-body .nb-item { position: relative; padding-left: 12px; display: flex; flex-direction: column; }
+.notif-body .nb-item::before { content: ''; position: absolute; left: 2px; top: 0.62em; width: 4px; height: 4px; border-radius: 2px; background: var(--tx-sub); }
+.notif-body .nb-item.late::before { background: #c8372d; }
+.notif-body .nb-detail { color: var(--tx-sub); }
+.notif-body .nb-late { color: #b3352b; font-weight: 700; }
+.notif-body .nb-more { align-self: flex-start; color: var(--tx-key); font-weight: 700; cursor: pointer; padding: 2px 0; }
+.notif-body .nb-meta { color: var(--tx-sub); border-top: 1px dashed var(--line); padding-top: 4px; margin-top: 4px; }
+.notif-body .nb-sep { color: var(--tx-sub); font-weight: 400; }
+@media (min-width: 641px) { .notif-panel { width: min(420px, calc(100vw - 24px)); max-height: 560px; } }
+
+/* 채팅 글 묶음 · 항목 (2026-11-27 대표 '읽기 쉽게 만들어서 보고해') */
+.chat-rich { display: flex; flex-direction: column; gap: 3px; white-space: normal; }
+.chat-rich .cr-gap { height: 6px; }
+.chat-rich .cr-head { font-weight: 700; color: var(--tx-title); margin-top: 2px; }
+.chat-rich .cr-item { position: relative; padding-left: 14px; }
+.chat-rich .cr-item::before { content: ''; position: absolute; left: 3px; top: 0.66em; width: 5px; height: 5px; border-radius: 3px; background: var(--tx-key); }
+.chat-rich .cr-item.num { padding-left: 20px; }
+.chat-rich .cr-item.num::before { content: attr(data-mark); width: auto; height: auto; background: none; top: 0; left: 0; color: var(--tx-key); font-weight: 700; }
+.bubble.mine .chat-rich .cr-item::before { background: currentColor; }
+.bubble.mine .chat-rich .cr-item.num::before { background: none; color: inherit; }
+
+/* 업체별 결제 표: 숫자 겹침 금지 · 가로 세로 선 (2026-11-27 대표 지시) */
+.vendor-scroll { overflow-x: auto; border: 1px solid #d9ddd6; border-radius: 8px; background: #fff; }
+.vendor-scroll .vendor-sum { width: 100%; border-collapse: collapse; }
+.vendor-scroll .vendor-sum th, .vendor-scroll .vendor-sum td { border: 1px solid #e3e6e0; }
+.vendor-scroll .vendor-sum thead th { border-bottom: 2px solid var(--blue); background: #f6f7f4; text-align: center; white-space: nowrap; }
+.vendor-scroll .vendor-sum tr > :first-child { border-left: 0; }
+.vendor-scroll .vendor-sum tr > :last-child { border-right: 0; }
+.vendor-scroll .vendor-sum td.num { overflow: hidden; vertical-align: top; padding: 8px 8px; }
+.vendor-scroll .vs-cell { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; width: 100%; min-width: 0; }
+.vendor-scroll .vs-amt { max-width: 100%; align-items: flex-end; }
+.vendor-scroll .vs-amt, .vendor-scroll .vs-amt em { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; text-align: right; }
+.vendor-scroll .vs-amt { display: flex; flex-direction: column; }
+.vendor-scroll .vs-empty { color: #c3c8c1; }
+.vendor-scroll .vendor-sum tr.vs-edit > td { white-space: normal; }
+.vendor-scroll td.vs-who { display: table-cell; vertical-align: top; }
+.vendor-scroll td.vs-who > span { display: flex; }
+.vendor-scroll td.vs-who > .t-cap { display: block; margin-top: 2px; }
+.vendor-scroll .vendor-sum td { vertical-align: top; }
+.vendor-scroll .vendor-sum td:first-child { text-align: center; }
+.vendor-scroll .vs-prog { display: block; width: 100%; margin: 4px 0 4px; }
+.vendor-scroll .vs-prog + .t-cap { display: block; white-space: nowrap; }

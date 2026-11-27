@@ -3,6 +3,7 @@ import { GuideCard } from './GuideCard'
 import { GUIDE_TOKEN_RE, guideById } from '../lib/guides'
 import { CardView } from './ChatCards'
 import { Linkify } from './ui'
+import { chatBlocks } from '../lib/chatText'
 import { useEffect, useRef, useState, type DragEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { Bookmark, Check, Download, FileText, FolderInput, Loader2, Copy, MessageSquare, MessageSquareQuote, Paperclip, Pencil, Send, SmilePlus, Trash2, X } from 'lucide-react'
@@ -520,12 +521,33 @@ function QuotedPlain({ text }: { text: string }) {
   const lines = text.split('\n')
   let n = 0
   while (n < lines.length && lines[n].startsWith('> ')) n++
-  if (!n) return <span><Linkify text={text} /></span>
+  if (!n) return <StructuredText text={text} />
   const rest = lines.slice(n).join('\n')
   return (
     <span>
       <span className="msg-quote">{lines.slice(0, n).map(l => l.slice(2)).join('\n')}</span>
-      {rest && <Linkify text={rest} />}
+      {rest && <StructuredText text={rest} />}
+    </span>
+  )
+}
+
+/** 항목 표시가 있는 글은 묶음 제목 · 항목으로 나눠 보여 줌 (없으면 예전처럼) */
+function StructuredText({ text }: { text: string }) {
+  const blocks = chatBlocks(text)
+  if (!blocks) return <span><Linkify text={text} /></span>
+  return (
+    <span className="chat-rich">
+      {blocks.map((b, i) =>
+        b.kind === 'gap' ? (
+          <span key={i} className="cr-gap" />
+        ) : b.kind === 'head' ? (
+          <span key={i} className="cr-head"><Linkify text={b.text} /></span>
+        ) : b.kind === 'item' ? (
+          <span key={i} className={`cr-item${b.mark ? ' num' : ''}`} data-mark={b.mark ?? undefined}><Linkify text={b.text} /></span>
+        ) : (
+          <span key={i} className="cr-line"><Linkify text={b.text} /></span>
+        ),
+      )}
     </span>
   )
 }
