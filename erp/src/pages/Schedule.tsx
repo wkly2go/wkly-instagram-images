@@ -4,7 +4,7 @@ import { ProjectOptions } from '../components/ProjectOptions'
 import { TextLinks } from '../components/ui'
 import { Bot, ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
-import { addDays, addMonths, monthGrid, shortDate, todayKey, weekday, periodLabel } from '../lib/date'
+import { addDays, addMonths, monthGrid, shortDate, toDateKey, todayKey, weekday, periodLabel } from '../lib/date'
 import { Link, useRouter, withQuery } from '../lib/router'
 import { TASK_STATUSES, type LeaveRecord, type PersonalEvent, type Project, type Task, type TaskStatus } from '../lib/types'
 import { Badge, Button, Chip, Empty, Field, Modal, StatusBadge } from '../components/ui'
@@ -190,6 +190,11 @@ export function TaskAssignModal({ task, projects, tasks, presetProject, presetAs
             ))}
           </datalist>
         </Field>
+        {/* 업무 지시일 (대표 지시 2026-11-25) — 만든 날 · 지시한 사람, 새 업무는 오늘 */}
+        <div className="label full task-ordered" aria-label="업무 지시일">
+          <span>업무 지시일</span>
+          <span className="t-body">{task ? `${shortDate(toDateKey(task.created_at))} ${weekday(toDateKey(task.created_at))} · ${profiles.find(p => p.id === task.created_by)?.name ?? '지시한 사람 모름'} 지시` : `${shortDate(todayKey())} ${weekday(todayKey())} (오늘 · 저장하면 기록)`}</span>
+        </div>
         <Field label="시작일">
           <input className="input" type="date" value={f.start_date} onChange={e => setF({ ...f, start_date: e.target.value })} />
         </Field>

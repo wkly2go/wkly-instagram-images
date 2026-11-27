@@ -15,7 +15,7 @@ import { ReportBody } from '../components/Reports'
 import { CompareBars, DayChart, Spark, type Series } from '../components/AdCharts'
 import { SeoPanel } from '../components/SeoPanel'
 import { MarketingDesk } from '../components/MarketingDesk'
-import { adPeriod, parseAdRange, selectAdRows, type AdRange } from '../lib/adWorkspace'
+import { adFreshness, adPeriod, inquiryTotals, parseAdRange, resultLabel, selectAdRows, type AdRange } from '../lib/adWorkspace'
 import './Ads.css'
 
 const P_COLOR: Record<AdPlatform, string> = { Google: 'var(--blue)', Meta: 'var(--pink)', Naver: 'var(--green)', 기타: 'var(--gray)' }
@@ -52,14 +52,15 @@ const GROUPS = [
 const NUMBER_TABS: Tab[] = ['summary', 'platform', 'charts', 'daily-table']
 type Period = ReturnType<typeof adPeriod>
 
-type MetricKey = 'cost' | 'impressions' | 'clicks' | 'ctr' | 'cpc' | 'conversions'
+type MetricKey = 'cost' | 'impressions' | 'clicks' | 'ctr' | 'cpc' | 'conversions' | 'cpl'
 const METRICS: { key: MetricKey; label: string; mode: 'stack' | 'line'; format: (n: number) => string }[] = [
   { key: 'cost', label: '광고비', mode: 'stack', format: n => `${shortNum(n)}원` },
   { key: 'impressions', label: '노출', mode: 'stack', format: shortNum },
   { key: 'clicks', label: '클릭', mode: 'stack', format: shortNum },
   { key: 'ctr', label: '클릭률(CTR)', mode: 'line', format: n => `${n.toFixed(2)}%` },
   { key: 'cpc', label: '클릭당 비용(CPC)', mode: 'line', format: n => `${shortNum(n)}원` },
-  { key: 'conversions', label: '전환 (Google)', mode: 'stack', format: num },
+  { key: 'conversions', label: '전환 · 문의', mode: 'stack', format: num },
+  { key: 'cpl', label: '건당 비용', mode: 'line', format: n => `${shortNum(n)}원` },
 ]
 
 interface Agg {
@@ -70,7 +71,7 @@ interface Agg {
 }
 const agg = (list: AdDaily[]): Agg => list.reduce((a, r) => ({ cost: a.cost + (r.cost ?? 0), imp: a.imp + (r.impressions ?? 0), clk: a.clk + (r.clicks ?? 0), conv: a.conv + Number(r.conversions ?? 0) }), { cost: 0, imp: 0, clk: 0, conv: 0 })
 const metricOf = (a: Agg, k: MetricKey): number | null =>
-  k === 'cost' ? a.cost : k === 'impressions' ? a.imp : k === 'clicks' ? a.clk : k === 'conversions' ? a.conv : k === 'ctr' ? (a.imp ? (a.clk / a.imp) * 100 : null) : a.clk ? a.cost / a.clk : null
+  k === 'cost' ? a.cost : k === 'impressions' ? a.imp : k === 'clicks' ? a.clk : k === 'conversions' ? a.conv : k === 'ctr' ? (a.imp ? (a.clk / a.imp) * 100 : null) : k === 'cpl' ? (a.conv ? a.cost / a.conv : null) : a.clk ? a.cost / a.clk : null
 
 /** 업무별 탐색은 기존 tab 링크와 작성 중 이동 보호를 유지한다. */
 export default function Ads() {
@@ -131,15 +132,16 @@ function NumbersWorkspace({ tab, range, platform, period, setRange, setPlatform,
   const { from, to, previousFrom, days } = period
   const requestKey = `${previousFrom}:${to}:${version}`
   const { data, loading, error, reload } = useAsync(async () => {
-    const [rows, campaigns] = await Promise.all([api.listAdDaily(previousFrom, to), api.listAdCampaigns()])
-    return { rows, campaigns, requestKey }
-  }, [requestKey], { rows: [] as AdDaily[], campaigns: [] as AdCampaign[], requestKey: '' })
+    const [rows, campaigns, last] = await Promise.all([api.listAdDaily(previousFrom, to), api.listAdCampaigns(), api.lastAdDailyDate().catch(() => null)])
+    return { rows, campaigns, last, requestKey }
+  }, [requestKey], { rows: [] as AdDaily[], campaigns: [] as AdCampaign[], last: null as string | null, requestKey: '' })
   const current = data.requestKey === requestKey
   const rows = current ? selectAdRows(data.rows, from, to, platform) : []
   const prev = current ? selectAdRows(data.rows, previousFrom, addDays(from, -1), platform) : []
   const platforms = AD_PLATFORMS.filter(pl => (!platform || pl === platform) && (data.rows.some(r => r.platform === pl) || data.campaigns.some(c => c.platform === pl)))
   const lastUpdate = current ? data.rows.reduce<string | null>((a, r) => (!a || r.updated_at > a ? r.updated_at : a), null) : null
   const coveredDays = new Set(rows.map(r => r.date)).size
+  const fresh = adFreshness(current ? data.last : null, todayKey())
   return <>
     <div className="ads-filters">
       <div className="ads-period"><span className="ads-filter-label">조회 기간</span><div className="ads-segment" role="group" aria-label="조회 기간">{([7, 14, 30, 'month'] as AdRange[]).map(r => <button key={r} type="button" aria-pressed={range === r} className={range === r ? 'active' : ''} onClick={() => setRange(r)}>{r === 'month' ? '이번 달' : `${r}일`}</button>)}</div></div>
@@ -149,6 +151,7 @@ function NumbersWorkspace({ tab, range, platform, period, setRange, setPlatform,
     </div>
     {loading ? <LoadState /> : error ? <LoadState error={error} retry={reload} /> : !current ? <LoadState /> : <>
       <div className="ads-data-meta"><span>{lastUpdate ? `최근 읽은 기록 갱신 ${dateTimeLabel(lastUpdate)}` : '조회 범위에 갱신 기록이 없습니다'}</span>{rows.length > 0 && <span>{days.length}일 중 {coveredDays}일 기록 · 합계는 수집된 기록 기준</span>}</div>
+      {fresh.state === 'stale' && <div className="ads-inline-status ads-stale" role="status"><TriangleAlert size={15} /><span className="grow">마지막 광고 기록은 <strong>{shortDate(fresh.last)}</strong>입니다. 그 뒤 {fresh.gapDays}일 동안 받은 수치가 없습니다. 자동 운영에서 매체 연결을 확인하거나, 광고 운영팀에서 매체 수치 파일을 올려 주세요.</span><button type="button" className="link-btn" onClick={() => goTab('autopilot')}>자동 운영 연결 확인</button><button type="button" className="link-btn" onClick={() => goTab('team')}>수치 파일 올리기</button></div>}
       {rows.length === 0 ? <>
         <div className="ads-empty"><BarChart3 size={30} /><h2>{days.length ? '선택한 기간에 광고 기록이 없습니다' : '이번 달의 일별 집계가 아직 없습니다'}</h2><p>{days.length ? '광고비와 성과를 확인할 기록이 없습니다. 기간 또는 매체를 바꿔 확인해 주세요.' : '최근 7일을 선택하면 지난달 말의 기록을 확인할 수 있습니다.'}</p><div className="ads-empty-actions">{range !== 30 && <button type="button" className="btn" onClick={() => setRange(days.length ? 30 : 7)}>{days.length ? '최근 30일 보기' : '최근 7일 보기'}</button>}{platform && <button type="button" className="btn" onClick={() => setPlatform(null)}>전체 매체 보기</button>}<button type="button" className="btn primary" onClick={() => goTab('studio')}>캠페인 준비하기 <ArrowRight size={14} /></button></div></div>
         {tab === 'summary' && <LatestReport goTab={goTab} />}
@@ -200,6 +203,7 @@ function Kpis({ rows, prev, days }: { rows: AdDaily[]; prev: AdDaily[]; days: st
   const t = agg(rows)
   const p = agg(prev)
   const recordedDays = new Set(rows.map(r => r.date)).size
+  const inq = inquiryTotals(rows)
   const delta = (a: number, b: number) => (b ? `${a >= b ? '▲' : '▼'} ${Math.abs(((a - b) / b) * 100).toFixed(0)}%` : '')
   return (
     <><div className="kpis kpis-4">
@@ -225,7 +229,7 @@ function Kpis({ rows, prev, days }: { rows: AdDaily[]; prev: AdDaily[]; days: st
       <div className="kpi">
         <span className="t-cap">클릭당 비용</span>
         <span className="v">{t.clk ? won(t.cost / t.clk) : '–'}</span>
-        <span className="sub">전환 {num(t.conv)} (Google 기준)</span>
+        <span className="sub">{inq.inquiries ? `문의 ${num(inq.inquiries)}건 · 문의당 ${won(inq.costPer!)}` : '문의 기록 없음'}{inq.googleConversions ? ` · Google 전환 ${num(inq.googleConversions)}` : ''}</span>
       </div>
     </div><span className="t-cap ads-comparison-note">{days.length}일 집계 · 비교는 직전 동일 기간의 수집 기록 기준</span></>
   )
@@ -239,7 +243,6 @@ function seriesFor(rows: AdDaily[], days: string[], platforms: AdPlatform[], k: 
     values: days.map(d => {
       const list = rows.filter(r => r.platform === pl && r.date === d)
       if (!list.length) return null
-      if (k === 'conversions' && pl !== 'Google') return null
       return metricOf(agg(list), k)
     }),
   }))
@@ -357,7 +360,8 @@ function PlatformReport({ rows, days, platforms, campaigns }: { rows: AdDaily[];
                     <th className="num">클릭</th>
                     <th className="num">CTR</th>
                     <th className="num">CPC</th>
-                    {pl === 'Google' && <th className="num">전환</th>}
+                    <th className="num">{resultLabel(pl)}</th>
+                    <th className="num">{resultLabel(pl)}당 비용</th>
                     <th>추세</th>
                   </tr>
                 </thead>
@@ -384,7 +388,8 @@ function PlatformReport({ rows, days, platforms, campaigns }: { rows: AdDaily[];
                         <td className="num">{cl.length ? num(a.clk) : '–'}</td>
                         <td className="num">{pct(a.clk, a.imp)}</td>
                         <td className="num">{a.clk ? won(a.cost / a.clk) : '–'}</td>
-                        {pl === 'Google' && <td className="num">{cl.length ? num(a.conv) : '–'}</td>}
+                        <td className="num">{cl.some(r => r.conversions != null) ? num(a.conv) : '–'}</td>
+                        <td className="num">{a.conv ? won(a.cost / a.conv) : '–'}</td>
                         <td>{cl.length ? <Spark values={days.map(d => cl.find(r => r.date === d)?.cost ?? 0)} color={P_COLOR[pl]} /> : <span className="t-meta">기록 없음</span>}</td>
                       </tr>
                     )
@@ -396,7 +401,7 @@ function PlatformReport({ rows, days, platforms, campaigns }: { rows: AdDaily[];
           </section>
         )
       })}
-      <span className="t-cap">숫자는 각 광고 관리자에서 전날 기준으로 읽은 값입니다(원, VAT 별도). Google 전환은 페이지 조회가 포함되어 실제보다 많을 수 있습니다.</span>
+      <span className="t-cap">숫자는 각 광고 관리자에서 전날 기준으로 읽은 값입니다(원, VAT 별도). Google 전환은 페이지 조회가 포함되어 실제보다 많을 수 있습니다. Meta · Naver 의 문의는 자동 운영이 받은 문의(리드) 건수입니다.</span>
     </>
   )
 }
@@ -410,7 +415,7 @@ function Charts({ rows, days, platforms, campaigns }: { rows: AdDaily[]; days: s
       .map(k => {
         const [pl, c] = k.split('|') as [AdPlatform, string]
         const v = metricOf(agg(rows.filter(r => r.platform === pl && r.campaign === c)), metric)
-        return { key: k, label: `${pl} · ${c}`, value: v ?? 0, color: P_COLOR[pl], skip: v == null || (metric === 'conversions' && pl !== 'Google') }
+        return { key: k, label: `${pl} · ${c}`, value: v ?? 0, color: P_COLOR[pl], skip: v == null }
       })
       .filter(r => !r.skip)
       .sort((a, b) => b.value - a.value)

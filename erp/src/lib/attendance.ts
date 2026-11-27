@@ -45,7 +45,16 @@ export function useAttendance(day: string = todayKey()) {
 export function useAccessLog(day: string = todayKey()) {
   const { api, version } = useApp()
   const { data, reload } = useAsync(() => api.listAccessLog(day), [version, day], [] as AccessLog[])
-  useEffect(() => api.subscribeChanges(['access_log'], reload), [api, reload])
+  // 접속 기록은 실시간 감시에서 뺐음(서버 부하 · 2026-11-25) — 화면이 보일 때 2분마다 다시 읽음
+  useEffect(() => {
+    const tick = () => document.visibilityState === 'visible' && reload()
+    const id = window.setInterval(tick, 2 * 60_000)
+    document.addEventListener('visibilitychange', tick)
+    return () => {
+      window.clearInterval(id)
+      document.removeEventListener('visibilitychange', tick)
+    }
+  }, [reload])
   const m = new Map<string, AccessLog[]>()
   for (const a of data) m.set(a.user_id, [...(m.get(a.user_id) ?? []), a])
   return m
