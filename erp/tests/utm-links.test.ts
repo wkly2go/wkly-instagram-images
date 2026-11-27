@@ -39,3 +39,8 @@ test('채널별 출처 · 홈페이지 채널은 붙이지 않음 · 바뀐 게 
   assert.equal(out[2].body, 'https://thewklyn.com/a')
   assert.equal(tagContentVersions('연말 팝업', out), out)
 })
+
+test('승인 · 발행된 채널 본문은 바꾸지 않는다 (서버가 승인 뒤 변경을 거절함)', () => {
+  const v = [{ channel: '인스타그램', body: 'https://thewklyn.com/a', status: '승인' }, { channel: '네이버 블로그', body: 'https://thewklyn.com/a', status: '발행' }]
+  assert.equal(tagContentVersions('제목', v), v)
+})

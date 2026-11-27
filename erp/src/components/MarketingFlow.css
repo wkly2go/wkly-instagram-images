@@ -106,3 +106,20 @@ button.mf-kpi:focus-visible { outline: 2px solid var(--tx-key); outline-offset: 
 }
 html[data-theme="dark"] .mf-step, html[data-theme="dark"] .mf-day, html[data-theme="dark"] .mf-post { background: #15291c; border-color: var(--line); color: var(--ink); }
 html[data-theme="dark"] .mf-todos a, html[data-theme="dark"] .mf-kpi.on, html[data-theme="dark"] .mf-bar { background: #1d3526; color: var(--ink); }
+
+/* 콘텐츠 달력 — 주 옮기기 · 게시 예정일 */
+.mf-cal-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.mf-cal-nav { display: inline-flex; gap: 4px; }
+.mf-day.past .mf-day-head b { color: var(--tx-sub); }
+.mf-post.planned { border-left-color: #d8a200; }
+.mf-post-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.mf-post-st.plan { background: #fff; color: #6b5200; box-shadow: inset 0 0 0 1px #e8cf7a; }
+.mf-h5 { margin: 0 0 6px; font-size: var(--fs-body); font-weight: 700; display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
+.mf-h5 small { font-weight: 400; color: var(--tx-sub); font-size: var(--fs-body); }
+.mf-plan ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.mf-plan li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto 64px; align-items: center; gap: 10px; padding: 6px 0; border-top: 1px solid var(--v8-line); min-height: 40px; }
+.mf-plan-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mf-plan input[type="date"] { min-height: 32px; padding: 2px 8px; border: 1px solid var(--v8-line); border-radius: 8px; background: #fff; font: inherit; }
+@container (max-width: 620px) { .mf-plan li { grid-template-columns: minmax(0, 1fr) auto; } .mf-plan-title { grid-column: 1 / -1; white-space: normal; } .mf-plan input[type="date"] { min-height: 44px; } }
+.mf-plan li .mf-post-st { align-self: center; }
+.mf-plan li .btn { white-space: nowrap; }

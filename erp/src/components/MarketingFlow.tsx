@@ -2,10 +2,10 @@
 // 광고·콘텐츠 › 콘텐츠·배포 › 자동화 흐름 — 숫자 띠 + 추이 그래프 · 지금 할 일 · 유입 경로 · 캠페인 · 문의 종류 · 이번 주 달력 · 여섯 단계
 // 이 화면은 스스로 만들거나 보내지 않는다 (제작은 사람이 원할 때만 · CRM 은 문의 · 요청이 있을 때만)
 import { useState } from 'react'
-import { ArrowDownRight, ArrowRight, ArrowUpRight, Film, RefreshCw } from 'lucide-react'
+import { ArrowDownRight, ArrowRight, ArrowUpRight, ChevronLeft, ChevronRight, Film, RefreshCw } from 'lucide-react'
 import { useApp, useAsync } from '../lib/app'
 import { dateTimeLabel } from '../lib/date'
-import { flowKpis, flowSteps, shareWidths, trendScale, weekDays, type FlowTrend, type MarketingFlow as Flow } from '../lib/marketingFlow'
+import { calendarDays, flowKpis, flowSteps, shareWidths, shiftWeek, trendScale, weekLabel, type FlowTrend, type MarketingCalendar, type MarketingFlow as Flow } from '../lib/marketingFlow'
 import { Link } from '../lib/router'
 import { Button } from './ui'
 import './MarketingFlow.css'
@@ -79,7 +79,7 @@ export function MarketingFlow() {
         </section>
       </div>
 
-      {t && <WeekBoard t={t} />}
+      <WeekBoard />
 
       <section className="card mf-card">
         <h4 className="mf-h4">분석에서 수주까지</h4>
@@ -150,27 +150,65 @@ function Donut({ parts }: { parts: { name: string; value: number }[] }) {
   )
 }
 
-function WeekBoard({ t }: { t: FlowTrend }) {
-  const days = weekDays(t, Date.now())
+function WeekBoard() {
+  const { api, version, toast } = useApp()
+  const [start, setStart] = useState<string | undefined>(undefined)
+  const [tick, setTick] = useState(0)
+  const [saving, setSaving] = useState('')
+  const cal = useAsync<MarketingCalendar | null>(() => api.marketingCalendar(start).catch(() => null), [api, version, start, tick], null)
+  const c = cal.data
+  if (!c) return <section className="card mf-card"><h4 className="mf-h4">콘텐츠 달력</h4><p className="mf-empty">{cal.loading ? '불러오는 중…' : '달력 자료를 불러오지 못했습니다.'}</p></section>
+  const days = calendarDays(c, Date.now())
+  const plan = async (id: string, date: string | null) => {
+    if (saving) return
+    setSaving(id)
+    try { await api.setContentPlan(id, date); setTick(t => t + 1); toast(date ? '게시 예정일을 정했습니다.' : '게시 예정일을 지웠습니다.') }
+    catch (e) { toast(e instanceof Error ? e.message : '저장하지 못했습니다.') }
+    finally { setSaving('') }
+  }
+  const planned = c.items.filter(x => x.type === 'content' && x.planned)
   return (
     <section className="card mf-card">
-      <h4 className="mf-h4">이번 주 만든 것 <small>콘텐츠 · 영상 · 고친 날 기준</small></h4>
+      <div className="mf-cal-head">
+        <h4 className="mf-h4">콘텐츠 달력 <small>{weekLabel(c.week_start)}</small></h4>
+        <div className="mf-cal-nav">
+          <button type="button" className="btn btn-outline btn-sm" aria-label="이전 주" onClick={() => setStart(shiftWeek(c.week_start, -1))}><ChevronLeft size={13} /></button>
+          <button type="button" className="btn btn-outline btn-sm" onClick={() => setStart(undefined)}>이번 주</button>
+          <button type="button" className="btn btn-outline btn-sm" aria-label="다음 주" onClick={() => setStart(shiftWeek(c.week_start, 1))}><ChevronRight size={13} /></button>
+        </div>
+      </div>
       <div className="mf-week">
         {days.map(d => (
-          <div key={d.date} className={`mf-day${d.today ? ' today' : ''}`}>
+          <div key={d.date} className={`mf-day${d.today ? ' today' : ''}${d.past ? ' past' : ''}`}>
             <div className="mf-day-head"><span>{d.name}</span><b>{d.day}</b><em>{d.items.length || ''}</em></div>
             <div className="mf-day-body">
               {d.items.map(w => (
-                <Link key={`${w.type}-${w.id}`} to={w.type === 'video' ? '/ads?tab=video' : `/ads?tab=content&item=${w.id}`} className={`mf-post ${w.type}`}>
+                <Link key={`${w.type}-${w.id}-${w.planned}`} to={w.type === 'video' ? '/ads?tab=video' : `/ads?tab=content&item=${w.id}`} className={`mf-post ${w.type}${w.planned ? ' planned' : ''}`}>
                   <span className="mf-post-ch">{w.type === 'video' && <Film size={12} />}{w.channels.join(' · ') || '채널 없음'}</span>
                   <span className="mf-post-title">{w.title}</span>
-                  <span className={`mf-post-st${/발행|완료/.test(w.status) ? ' done' : ''}`}>{w.status}</span>
+                  <span className="mf-post-tags"><span className={`mf-post-st${/발행|완료/.test(w.status) ? ' done' : ''}`}>{w.status}</span>{w.planned && <span className="mf-post-st plan">게시 예정</span>}</span>
                 </Link>
               ))}
             </div>
           </div>
         ))}
       </div>
+      {(c.unplanned.length > 0 || planned.length > 0) && (
+        <div className="mf-plan">
+          <h5 className="mf-h5">게시 예정일 <small>날짜를 정하면 그날 칸에 놓입니다. 게시는 사람이 합니다.</small></h5>
+          <ul>
+            {planned.map(x => (
+              <li key={x.id}><span className="mf-plan-title">{x.title}</span><span className="mf-post-st">{x.status}</span>
+                <input type="date" aria-label={`${x.title} 게시 예정일`} value={x.day} disabled={saving === x.id} onChange={e => void plan(x.id, e.target.value || null)} />
+                <button type="button" className="btn btn-ghost btn-sm" disabled={saving === x.id} onClick={() => void plan(x.id, null)}>지우기</button></li>
+            ))}
+            {c.unplanned.map(x => (
+              <li key={x.id}><span className="mf-plan-title">{x.title}</span><span className="mf-post-st">{x.status}</span>
+                <input type="date" aria-label={`${x.title} 게시 예정일`} value="" disabled={saving === x.id} onChange={e => e.target.value && void plan(x.id, e.target.value)} /><span /></li>
+            ))}
+          </ul>
+        </div>
+      )}
     </section>
   )
 }

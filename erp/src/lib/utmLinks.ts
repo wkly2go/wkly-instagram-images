@@ -44,14 +44,15 @@ export function tagLinksInText(text: string, tag: UtmTag): string {
   })
 }
 
-export interface ChannelText { channel: string; body: string }
-/** 콘텐츠 한 건의 채널별 본문에 꼬리표를 붙인다. 바뀐 것이 없으면 같은 배열을 돌려준다 */
+export interface ChannelText { channel: string; body: string; status?: string }
+/** 콘텐츠 한 건의 채널별 본문에 꼬리표를 붙인다. 바뀐 것이 없으면 같은 배열을 돌려준다.
+ *  승인 · 발행된 채널은 건드리지 않는다 — 서버(growth_save)가 승인 뒤 본문이 바뀐 저장을 거절하기 때문 */
 export function tagContentVersions<T extends ChannelText>(title: string, versions: T[]): T[] {
   const campaign = campaignSlug(title)
   let changed = false
   const next = versions.map(v => {
     const t = CHANNEL_TAGS[v.channel]
-    if (!t || !v.body) return v
+    if (!t || !v.body || v.status === '승인' || v.status === '발행') return v
     const body = tagLinksInText(v.body, { ...t, campaign })
     if (body === v.body) return v
     changed = true
