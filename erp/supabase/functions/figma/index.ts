@@ -1,5 +1,6 @@
 // 피그잼 · 피그마 연결 서버 함수 (2026-11-20 · DB 20261120180000_project_figma)
 //  - 팀원(로그인 · 활성)만: status · link(프로젝트에 보드 연결) · refresh(다시 읽기) · export(프레임을 골라 PDF 한 부)
+//    · images(프레임을 PNG 로 · 화이트보드에 불러오기 · 2026-11-27 대표 '화이트보드에 피그마 불러오기')
 //  - 예약(x-sync-key = 금고 GDRIVE_SYNC_KEY): tick — 30분마다 바뀐 보드만 다시 읽음
 //  - 피그마는 읽기만 (금고 FIGMA_TOKEN · 개인 접근 토큰 · 읽기 권한). 보드 내용은 바꾸지 않음
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2.117.3'
@@ -87,6 +88,29 @@ async function exportPdf(tk: string, row: Row, ids: string[], title: string, who
   return { id: ins.data.id, path, pages: out.getPageCount(), url: signed.data?.signedUrl ?? null }
 }
 
+/** 프레임을 PNG 로 받아 화면에 넘김 (화이트보드에 붙이기용 · 한 번에 6개 · 긴 변 2,400px 안) */
+async function frameImages(tk: string, row: Row, ids: string[]) {
+  if (!ids.length) throw new Fail('불러올 프레임을 골라 주세요.')
+  const pick = ids.slice(0, 6)
+  const { data: rec } = await sb.from('project_figma').select('frames').eq('id', row.id).maybeSingle()
+  const frames = ((rec?.frames ?? []) as { id: string; name: string; w: number; h: number }[])
+  const out: { id: string; name: string; w: number; h: number; mime: string; data: string }[] = []
+  for (const id of pick) {
+    const f = frames.find(x => x.id === id)
+    const long = Math.max(f?.w ?? 0, f?.h ?? 0)
+    const scale = long > 0 ? Math.max(0.1, Math.min(2, 2400 / long)) : 1
+    const r = await figma<{ err?: string | null; images?: Record<string, string | null> }>(tk, `images/${row.file_key}?ids=${encodeURIComponent(id)}&format=png&scale=${scale.toFixed(2)}`)
+    const u = r.images?.[id]
+    if (r.err || !u) throw new Fail('피그마가 그림을 만들지 못했습니다. 프레임이 지워졌는지 확인해 주세요.', 502)
+    const bytes = new Uint8Array(await (await fetch(u)).arrayBuffer())
+    if (bytes.length > 8 * 1024 * 1024) throw new Fail(`'${f?.name ?? id}' 그림이 너무 큽니다 (8MB 넘음).`, 413)
+    let bin = ''
+    for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000))
+    out.push({ id, name: f?.name ?? id, w: Math.round((f?.w ?? 0) * scale), h: Math.round((f?.h ?? 0) * scale), mime: 'image/png', data: btoa(bin) })
+  }
+  return out
+}
+
 async function member(authorization: string | null): Promise<{ id: string; admin: boolean }> {
   if (!authorization) throw new Fail('로그인이 필요합니다.', 401)
   const c: SupabaseClient = createClient(URL_, ANON, { global: { headers: { Authorization: authorization } }, auth: { persistSession: false, autoRefreshToken: false } })
@@ -148,6 +172,7 @@ Deno.serve(async req => {
       const title = String(body.title ?? '').replace(/[\\/:*?"<>|\n\r]/g, ' ').trim().slice(0, 80) || '제안서'
       return json({ ok: true, ...(await exportPdf(await token(), row as Row, cleanNodeIds(body.node_ids), title, me.id)) })
     }
+    if (action === 'images') return json({ ok: true, images: await frameImages(await token(), row as Row, cleanNodeIds(body.node_ids)) })
     throw new Fail('알 수 없는 요청입니다.')
   } catch (e) {
     const status = e instanceof Fail ? e.status : 500
