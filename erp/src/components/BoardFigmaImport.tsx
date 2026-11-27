@@ -13,7 +13,8 @@ import type { FigmaFrame, ProjectFigma } from '../lib/figmaApi'
 import { mergeContents, pickAllFrames, type FigmaContent } from '../lib/figmaToBoard'
 import type { Project } from '../lib/types'
 
-export interface FigmaPicked { fileId: string; name: string; w: number; h: number; mime: string; dataURL: string }
+import type { FigmaPicked } from './BoardEditorCore'
+export type { FigmaPicked }
 
 const MAX_IMAGE = 6
 const MAX_EDIT = 30

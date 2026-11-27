@@ -91,3 +91,19 @@ export async function pool<T, R>(items: readonly T[], n: number, fn: (item: T) =
   await Promise.all(Array.from({ length: Math.max(1, Math.min(n, items.length)) }, run))
   return out
 }
+
+// ── 전체 보기 지도 (2026-11-27 대표 '페이지 전체가 보이는 네비게이션이 있으면 좋겠어') ─────────
+export interface Box { x: number; y: number; w: number; h: number }
+/** 요소 전체와 지금 보는 화면을 모두 담는 범위 → 지도(가로 mw · 세로 mh) 안에 맞춘 축척 · 여백. 요소가 없으면 화면 범위만 */
+export function minimapFit(items: readonly Box[], view: Box, mw: number, mh: number, pad = 6): { scale: number; ox: number; oy: number; bounds: Box } {
+  let x1 = view.x, y1 = view.y, x2 = view.x + view.w, y2 = view.y + view.h
+  for (const b of items) { x1 = Math.min(x1, b.x); y1 = Math.min(y1, b.y); x2 = Math.max(x2, b.x + b.w); y2 = Math.max(y2, b.y + b.h) }
+  const w = Math.max(1, x2 - x1), h = Math.max(1, y2 - y1)
+  const scale = Math.min((mw - pad * 2) / w, (mh - pad * 2) / h)
+  return { scale, ox: (mw - w * scale) / 2 - x1 * scale, oy: (mh - h * scale) / 2 - y1 * scale, bounds: { x: x1, y: y1, w, h } }
+}
+/** 지도에서 누른 자리(지도 좌표) → 그 자리가 화면 가운데에 오게 하는 Excalidraw scrollX · scrollY */
+export function minimapScroll(px: number, py: number, fit: { scale: number; ox: number; oy: number }, view: Box): { scrollX: number; scrollY: number } {
+  const sx = (px - fit.ox) / fit.scale, sy = (py - fit.oy) / fit.scale
+  return { scrollX: view.w / 2 - sx, scrollY: view.h / 2 - sy }
+}

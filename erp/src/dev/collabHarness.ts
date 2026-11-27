@@ -45,6 +45,15 @@ const links: CollabLink[] = [
   { id: 'l2', guest_id: G2, pending: true, invite_expires_at: at(-20000), device: null, created_at: at(200), redeemed_at: null, last_seen_at: null, revoked_at: null },
 ]
 
+// 방에 공유한 화이트보드 (지어낸 시험용)
+const rect = (id: string, x: number, y: number, w: number, h: number, bg: string) => ({ id, type: 'rectangle', x, y, width: w, height: h, angle: 0, strokeColor: '#1f6b4a', backgroundColor: bg, fillStyle: 'solid', strokeWidth: 2, strokeStyle: 'solid', roughness: 0, opacity: 100, groupIds: [], frameId: null, roundness: { type: 3 }, seed: 1, version: 1, versionNonce: 1, isDeleted: false, boundElements: null, updated: Date.now(), link: null, locked: false, index: null })
+const text = (id: string, x: number, y: number, t: string, size = 20) => ({ id, type: 'text', x, y, width: t.length * size * 0.9, height: size * 1.25, angle: 0, strokeColor: '#151d18', backgroundColor: 'transparent', fillStyle: 'solid', strokeWidth: 1, strokeStyle: 'solid', roughness: 0, opacity: 100, groupIds: [], frameId: null, roundness: null, seed: 2, version: 1, versionNonce: 2, isDeleted: false, boundElements: null, updated: Date.now(), link: null, locked: false, index: null, text: t, fontSize: size, fontFamily: 2, textAlign: 'left', verticalAlign: 'top', containerId: null, originalText: t, autoResize: true, lineHeight: 1.25 })
+const boardRows = [
+  { id: 'bbbbbbbb-0000-4000-8000-000000000001', title: '[시험] 카운터 배치 A · B안', version: 3, updated_at: at(40), shared: true, can_edit: true, scene: { elements: [text('t0', 40, 20, '[시험] 카운터 배치 비교', 28), rect('r1', 40, 90, 360, 220, '#e7f2ec'), text('t1', 60, 110, 'A안 — 입구 정면'), rect('r2', 460, 90, 360, 220, '#fff4e0'), text('t2', 480, 110, 'B안 — 창가 쪽 (동선 좋음)'), text('t3', 40, 340, '의견을 이 보드에 바로 적어 주세요.')] as Record<string, unknown>[], files: {} } },
+  { id: 'bbbbbbbb-0000-4000-8000-000000000002', title: '[시험] 마감재 보드', version: 1, updated_at: at(600), shared: true, can_edit: false, scene: { elements: [text('m0', 40, 20, '[시험] 마감재 (보기만)', 28), rect('m1', 40, 90, 200, 140, '#d9cfc1'), rect('m2', 260, 90, 200, 140, '#8a9a8f')] as Record<string, unknown>[], files: {} } },
+  { id: 'bbbbbbbb-0000-4000-8000-000000000003', title: '[시험] 내부 검토 (공유 안 함)', version: 1, updated_at: at(900), shared: false, can_edit: true, scene: { elements: [] as Record<string, unknown>[], files: {} } },
+]
+
 export function installCollabHarness() {
   Object.assign(api, {
     listCollab: async (projectId: string) => ({ rooms: [{ ...room, project_id: projectId }], guests, events }),
@@ -58,6 +67,13 @@ export function installCollabHarness() {
     },
     inviteCollabGuest: async (_room: string, g: { name: string; org?: string }) => ({ guest: { ...guests[0], id: 'new', name: g.name, org: g.org ?? null, last_seen_at: null }, token: 'HarnessInviteToken_0123456789abcdefghijklmnopq' }),
     relinkCollabGuest: async () => 'HarnessInviteToken_0123456789abcdefghijklmnopq',
+    listBoards: async () => boardRows.map(b => ({ id: b.id, project_id: 'x', title: b.title, version: b.version, created_by: ADMIN, updated_by: ADMIN, created_at: b.updated_at, updated_at: b.updated_at, count: (b.scene.elements as unknown[]).length })),
+    createBoard: async (_p: string, title: string) => { const b = { id: `bbbbbbbb-0000-4000-8000-00000000000${boardRows.length + 1}`, title, version: 1, updated_at: new Date().toISOString(), shared: false, can_edit: true, scene: { elements: [] as Record<string, unknown>[], files: {} } }; boardRows.push(b); return { id: b.id, project_id: 'x', title, version: 1, created_by: ADMIN, updated_by: ADMIN, created_at: b.updated_at, updated_at: b.updated_at } },
+    listCollabBoards: async () => boardRows.filter(b => b.shared).map(b => ({ room_id: ROOM, board_id: b.id, can_edit: b.can_edit })),
+    setCollabBoard: async (_room: string, id: string, share: boolean, canEdit = true) => {
+      const b = boardRows.find(x => x.id === id)
+      if (b) { b.shared = share; b.can_edit = canEdit }
+    },
   })
 }
 
@@ -78,6 +94,16 @@ export function installGuestHarness() {
   Object.assign(guestApi, {
     sync: async (_k: string, since: number) => (since ? { ...sync, messages: messages.filter(m => m.id > since), room: undefined, events: undefined } : sync),
     read: async () => ({ ok: true }),
+    boards: async () => boardRows.filter(b => b.shared).map(b => ({ id: b.id, title: b.title, version: b.version, updated_at: b.updated_at, can_edit: b.can_edit })),
+    boardGet: async (_k: string, id: string) => { const b = boardRows.find(x => x.id === id)!; return { board: { id: b.id, title: b.title, version: b.version, updated_at: b.updated_at, can_edit: b.can_edit }, scene: b.scene, urls: {} } },
+    boardVersion: async (_k: string, id: string) => boardRows.find(x => x.id === id)!.version,
+    boardSave: async (_k: string, id: string, scene: unknown, version: number) => {
+      const b = boardRows.find(x => x.id === id)!
+      if (b.version !== version) return { ok: false, version: b.version, scene: b.scene, updated_by_name: '박서연' }
+      b.scene = scene as typeof b.scene; b.version += 1; b.updated_at = new Date().toISOString()
+      return { ok: true, version: b.version }
+    },
+    boardUpload: async () => ({ exists: true }),
     files: async () => ({ folder: true, files }),
     post: async (_k: string, body: string) => {
       const m: CollabMessage = { id: messages.length + 1, room_id: ROOM, user_id: null, guest_id: G1, body, files: [], created_at: new Date().toISOString(), deleted_at: null }

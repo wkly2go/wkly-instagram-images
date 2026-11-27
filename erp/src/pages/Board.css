@@ -74,3 +74,12 @@ button.pboards-item { padding-right: 120px; }
 .board-figma-link { display: flex; gap: 6px; }
 .board-figma-link .input { flex: 1; min-width: 0; }
 .board-figma-tools { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+
+/* 전체 보기 지도 (2026-11-27) — 오른쪽 아래 · 누르거나 끌어 이동 */
+.board-map { position: absolute; right: 12px; bottom: 64px; z-index: 5; background: #fff; border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 6px 18px rgba(20, 30, 24, 0.14); padding: 6px; display: flex; flex-direction: column; gap: 4px; user-select: none; }
+.board-map-head { display: flex; align-items: center; gap: 6px; font-size: var(--fs-body); color: var(--tx-sub); }
+.board-map-head b { font-weight: 700; color: var(--tx-title); }
+.board-map-head button { border: 0; background: none; font: inherit; color: var(--tx-key); cursor: pointer; padding: 0 4px; }
+.board-map canvas { display: block; border-radius: 6px; cursor: pointer; touch-action: none; }
+.board-mapbtn.on { color: var(--tx-key); background: var(--v8-tint, #e7f2ec); }
+@media (max-width: 760px) { .board-map { bottom: 76px; right: 8px; transform: scale(0.8); transform-origin: bottom right; } }

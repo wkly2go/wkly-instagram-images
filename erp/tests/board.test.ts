@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { boardFilePath, boardTitle, mergeElements, pool, readScene, sceneForSave, sceneSignature, type BoardElement } from '../src/lib/board.ts'
+import { boardFilePath, boardTitle, mergeElements, minimapFit, minimapScroll, pool, readScene, sceneForSave, sceneSignature, type BoardElement } from '../src/lib/board.ts'
 
 const el = (id: string, version: number, extra: Partial<BoardElement> = {}): BoardElement => ({ id, version, versionNonce: 10, ...extra })
 
@@ -67,4 +67,19 @@ test('합치기: 요소가 많아도 빠름 (8천 개 · 0.2초 안)', () => {
   const m = mergeElements(a, b)
   assert.ok(Date.now() - t < 200)
   assert.equal(m.length, 12000)
+})
+
+test('전체 보기 지도: 요소와 지금 화면이 모두 지도 안에 들어오고, 누른 자리가 화면 가운데로', () => {
+  const view = { x: 0, y: 0, w: 1000, h: 600 }
+  const f = minimapFit([{ x: -500, y: -200, w: 100, h: 100 }, { x: 3000, y: 1500, w: 400, h: 300 }], view, 208, 136)
+  assert.deepEqual(f.bounds, { x: -500, y: -200, w: 3900, h: 2000 })
+  for (const [x, y] of [[-500, -200], [3400, 1800]]) {
+    const px = x * f.scale + f.ox, py = y * f.scale + f.oy
+    assert.ok(px >= 5.9 && px <= 202.1 && py >= 5.9 && py <= 130.1)
+  }
+  // 두 번째 요소 가운데(3200, 1650)를 누르면 그 점이 화면 가운데(scroll = 화면 절반 - 점)
+  const s = minimapScroll(3200 * f.scale + f.ox, 1650 * f.scale + f.oy, f, view)
+  assert.ok(Math.abs(s.scrollX - (500 - 3200)) < 0.01 && Math.abs(s.scrollY - (300 - 1650)) < 0.01)
+  // 요소가 없어도 화면 범위로 그림
+  assert.deepEqual(minimapFit([], view, 208, 136).bounds, { x: 0, y: 0, w: 1000, h: 600 })
 })
