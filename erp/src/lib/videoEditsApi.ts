@@ -3,7 +3,7 @@
 //  - 원본 영상은 올리지 않는다 — 드라이브에 동기화된 촬영 폴더를 고름. 미리보기만 보관함 video-edits
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { ApiError } from './api'
-import type { MarketingFlow } from './marketingFlow'
+import type { FlowTrend, MarketingFlow } from './marketingFlow'
 
 import type { VideoEditInput, VideoEditJob, VideoSourceFolder } from './videoEdits'
 export * from './videoEdits'
@@ -17,6 +17,8 @@ export interface VideoEditsApi {
   videoPreviewUrl(path: string): Promise<string>
   /** 마케팅 자동화 한 화면 흐름 숫자 (DB 함수 marketing_flow) */
   marketingFlow(): Promise<MarketingFlow | null>
+  /** 마케팅 대시보드 추이 (DB 함수 marketing_flow_trend) */
+  marketingTrend(): Promise<FlowTrend | null>
 }
 
 export function createSupabaseVideoEditsApi(sb: SupabaseClient): VideoEditsApi {
@@ -37,6 +39,7 @@ export function createSupabaseVideoEditsApi(sb: SupabaseClient): VideoEditsApi {
     },
     async videoCancel(id) { const r = await sb.rpc('video_edit_cancel', { p_id: id }); fail(r.error) },
     async marketingFlow() { const r = await sb.rpc('marketing_flow'); fail(r.error); return (r.data as MarketingFlow | null) ?? null },
+    async marketingTrend() { const r = await sb.rpc('marketing_flow_trend'); fail(r.error); return (r.data as FlowTrend | null) ?? null },
     async videoPreviewUrl(path) {
       const r = await sb.storage.from('video-edits').createSignedUrl(path, 3600)
       if (r.error || !r.data) throw new ApiError(r.error?.message ?? '미리보기를 열지 못했습니다.')
@@ -76,6 +79,23 @@ export function createDemoVideoEditsApi(): VideoEditsApi {
         inquiries: { total_30d: 79, new: 13, from_ads_30d: 18, tagged_30d: 30, direct_30d: 12 },
         deals: { linked_90d: 1, by_status: { 문의: 1 } },
         by_campaign: [{ campaign: '(꼬리표 없음)', source: '–', inquiries: 31, direct: 12, projects: 1, won: 0 }, { campaign: '[시험] report26h1', source: 'meta', inquiries: 18, direct: 0, projects: 0, won: 0 }] }
+    },
+    async marketingTrend() {
+      if (!harness) return null
+      const shape = [2, 3, 1, 4, 2, 0, 1, 3, 5, 4, 2, 1, 0, 2, 3, 6, 9, 5, 3, 2, 1, 2, 4, 3, 2, 1, 3, 4, 2, 3]
+      return {
+        daily: shape.map((v, i) => ({ d: new Date(now - (29 - i) * 86_400_000).toISOString().slice(0, 10), total: v, direct: Math.round(v / 4), ads: Math.round(v / 3) })),
+        prev: { total: 61, direct: 9, ads: 22, tagged: 19 },
+        by_source: [{ source: '직접 · 출처 모름', inquiries: 49, projects: 1 }, { source: '[시험] meta', inquiries: 18, projects: 0 }, { source: '[시험] naver', inquiries: 8, projects: 0 }, { source: '[시험] instagram', inquiries: 4, projects: 0 }],
+        by_kind: [{ kind: '리포트 신청', inquiries: 52 }, { kind: '구독', inquiries: 15 }, { kind: '문의', inquiries: 12 }],
+        week_start: (() => { const k = new Date(now + 9 * 3600_000); const dow = (k.getUTCDay() + 6) % 7; return new Date(k.getTime() - dow * 86_400_000).toISOString().slice(0, 10) })(),
+        week: [
+          { id: 'w1', type: 'content', title: '[시험] 연말 팝업 준비 체크리스트', status: '작성 중', at: new Date(now - 3 * 86_400_000).toISOString(), channels: ['인스타그램', '블로그'] },
+          { id: 'w2', type: 'content', title: '[시험] 성수 팝업 상권 리포트', status: '발행 기록', at: new Date(now - 2 * 86_400_000).toISOString(), channels: ['블로그', '뉴스레터', '홈페이지'] },
+          { id: 'w3', type: 'video', title: '[시험] 팝업 빠른 컷', status: '완료', at: new Date(now - 86_400_000).toISOString(), channels: ['영상'] },
+          { id: 'w4', type: 'content', title: '[시험] 브랜드 인터뷰 · 서면', status: '검수 중', at: new Date(now).toISOString(), channels: ['인스타그램'] },
+        ],
+      }
     },
     async videoPreviewUrl() { throw new ApiError('체험 모드에는 미리보기가 없습니다.') },
   }
