@@ -2,6 +2,7 @@ import { createDemoSalesStrategyApi } from './salesStrategyApi'
 import { createDemoDesignApi } from './designApi'
 import { createDemoIlwiApi } from './ilwiApi'
 import { createDemoGovApi } from './govApi'
+import { createDemoAcctApi } from './acctApi'
 import { createDemoCollabApi } from './collabApi'
 import { createDemoBoardApi } from './boardApi'
 import { createDemoFigmaApi } from './figmaApi'
@@ -525,6 +526,12 @@ export function createDemoApi(): Api {
     }
   }
   persist()
+  // 장부 › 세무 · 결산 화면 확인용 [시험] 자료 (개발 서버 + VITE_ACCT_HARNESS=1 일 때만 · 배포에는 없음)
+  if (import.meta.env.DEV && import.meta.env.VITE_ACCT_HARNESS === '1')
+    void import('../dev/acctHarness').then(m => {
+      m.seedAcct(store, todayKey())
+      persist()
+    })
   // 업무 일지 상대방: contact_id 가 없으면 메일 상대 주소로 담당자 찾기 (서버 트리거 흉내)
   const matchContact = (l: WorkLog, contactId: string) => {
     if (l.contact_id) return l.contact_id === contactId
@@ -684,6 +691,7 @@ export function createDemoApi(): Api {
     ...createDemoDesignApi(),
     ...createDemoIlwiApi(),
     ...createDemoGovApi(),
+    ...createDemoAcctApi(),
     ...createDemoCollabApi(),
     ...createDemoBoardApi(),
     ...createDemoFigmaApi(),

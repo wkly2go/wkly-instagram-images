@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
-import { BarChart3, CalendarClock, FolderInput, PieChart, Receipt, ChevronLeft, ChevronRight, Download, KeyRound, Lock, Pencil, Search, Trash2, Wallet, X } from 'lucide-react'
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
+import { BarChart3, CalendarClock, FolderInput, Landmark, PieChart, Receipt, ChevronLeft, ChevronRight, Download, KeyRound, Lock, Pencil, Search, Trash2, Wallet, X } from 'lucide-react'
 import { CompareView, RecurringView } from '../components/LedgerViews'
 import { InvoiceView } from '../components/LedgerInvoice'
 import { LedgerStats } from '../components/LedgerStats'
@@ -22,6 +22,23 @@ import { LEDGER_CATEGORIES, LEDGER_METHODS, type LedgerDirection, type LedgerEnt
  *  - 계좌번호는 받지 않음 (결제 수단은 계좌 · 카드 · 현금 구분만)
  */
 const IDLE_MS = 10 * 60_000
+// 세무 · 결산 (2026-11-27 대표 지시 '경리 회계관련 전문성있게 고도화') — 열 때만 불러옴
+const AccountingHub = lazy(() => import('../components/Accounting'))
+type LedgerTab = 'month' | 'recurring' | 'compare' | 'invoice' | 'stats' | 'folder' | 'acct'
+const LEDGER_TABS: LedgerTab[] = ['month', 'recurring', 'compare', 'invoice', 'stats', 'folder', 'acct']
+const TAB_KEY = 'wkly-ledger-tab'
+/** 처음 탭: 주소 ?tab=acct (세무 일정 알림) → 이 창에서 마지막으로 본 탭 (회사를 바꿔도 그대로) → 월 장부 */
+const firstTab = (): LedgerTab => {
+  try {
+    const q = new URLSearchParams(window.location.search).get('tab')
+    if (q && (LEDGER_TABS as string[]).includes(q)) return q as LedgerTab
+    const v = sessionStorage.getItem(TAB_KEY)
+    if (v && (LEDGER_TABS as string[]).includes(v)) return v as LedgerTab
+  } catch {
+    /* 기억 못 하면 월 장부 */
+  }
+  return 'month'
+}
 
 export default function Ledger() {
   const { api, me } = useApp()
@@ -122,7 +139,11 @@ function LedgerBoard({ onLock, onExpired }: { onLock: () => void; onExpired: () 
   const [q, setQ] = useState('')
   const [changingPw, setChangingPw] = useState(false)
   // 이번 달 · 정기 출금 · 월별 비교 (2026-10-28 "정기 출금일과 금액 · 월별 비교 대시보드")
-  const [tab, setTab] = useState<'month' | 'recurring' | 'compare' | 'invoice' | 'stats' | 'folder'>('month')
+  const [tab, setTabState] = useState<LedgerTab>(firstTab)
+  const setTab = (t: LedgerTab) => {
+    setTabState(t)
+    try { sessionStorage.setItem(TAB_KEY, t) } catch { /* 기억 못 해도 화면은 바뀜 */ }
+  }
   const amountRef = useRef<HTMLInputElement>(null)
   const [reloadKey, setReloadKey] = useState(0)
   // 회계 자료 폴더에 새 파일이 있으면 장부를 열 때 자동 기입 (대표 지시 2026-11-11)
@@ -254,12 +275,13 @@ function LedgerBoard({ onLock, onExpired }: { onLock: () => void; onExpired: () 
           { key: 'invoice' as const, label: '계산서 기준', icon: <Receipt size={14} /> },
           { key: 'stats' as const, label: '통계', icon: <PieChart size={14} /> },
           { key: 'folder' as const, label: '회계 자료', icon: <FolderInput size={14} /> },
+          { key: 'acct' as const, label: '세무 · 결산', icon: <Landmark size={14} /> },
         ]}
         active={tab}
         onPick={setTab}
       />
       <div className="row ledger-head">
-        {tab !== 'recurring' && tab !== 'folder' && (
+        {tab !== 'recurring' && tab !== 'folder' && tab !== 'acct' && (
           <select className="select ledger-year" value={y} onChange={e => pickYear(e.target.value)} aria-label="장부 연도" title="연도별 장부">
             {years.map(yy => (
               <option key={yy} value={yy}>
@@ -291,6 +313,7 @@ function LedgerBoard({ onLock, onExpired }: { onLock: () => void; onExpired: () 
         {tab === 'recurring' && <b className="t-title">매달 나가는 돈</b>}
         {tab === 'stats' && <b className="t-title">입출금 통계</b>}
         {tab === 'folder' && <b className="t-title">은행 · 홈택스 자료 자동 기입</b>}
+        {tab === 'acct' && <b className="t-title">세무 · 결산</b>}
         <span className="grow" />
         <Button kind="ghost" size="sm" onClick={exportCsv} disabled={!rows.length || tab !== 'month'} title="이 달 장부를 엑셀(CSV)로">
           <Download size={14} /> 엑셀
@@ -303,7 +326,11 @@ function LedgerBoard({ onLock, onExpired }: { onLock: () => void; onExpired: () 
         </Button>
       </div>
 
-      {tab === 'folder' ? (
+      {tab === 'acct' ? (
+        <Suspense fallback={<Empty>불러오는 중…</Empty>}>
+          <AccountingHub onExpired={onExpired} />
+        </Suspense>
+      ) : tab === 'folder' ? (
         <LedgerFolder onExpired={onExpired} />
       ) : tab === 'stats' ? (
         <LedgerStats year={y} onExpired={onExpired} />

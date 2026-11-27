@@ -11,7 +11,7 @@ export type CompanyPick = CompanyKey | 'all'
 export const COMPANY_KEYS: CompanyKey[] = ['AR', 'TW']
 export const COMPANIES: Record<CompanyKey, { label: string; full: string; biz: string | null; color: string }> = {
   AR: { label: '아트리어', full: '아트리어디자인스튜디오', biz: '302-88-02334', color: '#8a6d3b' },
-  TW: { label: '더위클리', full: '더위클리컴퍼니', biz: null, color: '#1f6b4a' },
+  TW: { label: '더위클리', full: '더위클리컴퍼니', biz: '218-87-03900', color: '#1f6b4a' },
 }
 
 const KEY = 'wkly-company'
@@ -47,6 +47,7 @@ const digits = (s: string | null | undefined) => (s ?? '').replace(/\D/g, '')
 /** 세금계산서 → 회사 (우리 쪽 사업자번호 · 이름) */
 export function companyOfInvoice(inv: { our_biz_no?: string | null; our_name?: string | null }): CompanyKey {
   if (digits(inv.our_biz_no) === digits(COMPANIES.AR.biz)) return 'AR'
+  if (digits(inv.our_biz_no) === digits(COMPANIES.TW.biz)) return 'TW'
   if (/위클리|weekly/i.test(inv.our_name ?? '')) return 'TW'
   return /아트리어|아크리어|arterior/i.test(inv.our_name ?? '') ? 'AR' : 'TW'
 }
