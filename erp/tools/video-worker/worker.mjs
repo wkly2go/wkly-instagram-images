@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // 더위클리 영상 편집 작업 처리기 (맥에서 늘 돌림 · 2026-11-27)
 //  인트라넷의 '영상 편집 요청'을 1분마다 확인 → 드라이브에 동기화된 촬영 원본을 읽어
-//  장면 사진을 만들고 → 맥의 Claude 가 쓸 장면 · 순서 · 자막을 정하고 → ffmpeg 로 9:16 영상을 만든다.
+//  장면 사진을 만들고 → 인트라넷 서버 함수(video-worker · Claude Console)가 쓸 장면 · 순서 · 자막을 정하고 → ffmpeg 로 9:16 영상을 만든다.
+//  · AI 는 이 맥에서 부르지 않는다 (2026-11-27 대표 지시 'ai들은 모두 클로드 콘솔에' — 예전의 맥 Claude Code 개인 로그인 방식은 없앰). 서버가 지시서를 못 주면 규칙으로 고르게 자른다.
 //  · 원본은 읽기만 한다. 완성본은 같은 폴더의 '편집본' 폴더에 새 파일로 둔다 (기존 파일을 고치거나 지우지 않음)
 //  · 음악은 넣지 않는다 (게시할 때 앱에서 붙임)
 //  · 설정: ~/.wkly-video-worker/config.json · 열쇠: ~/.wkly-video-worker/token (저장소에 넣지 않음)
@@ -23,7 +24,6 @@ const TOKEN = (await fs.readFile(path.join(DIR, 'token'), 'utf8')).trim()
 const WORKER = cfg.worker || os.hostname()
 const FFMPEG = cfg.ffmpeg || 'ffmpeg'
 const FFPROBE = cfg.ffprobe || 'ffprobe'
-const CLAUDE = cfg.claude || 'claude'
 const FONT = cfg.font || '/System/Library/Fonts/AppleSDGothicNeo.ttc'
 const VIDEO_RE = /\.(mp4|mov|m4v)$/i
 const OUT_DIR = '편집본'
@@ -93,7 +93,7 @@ async function contactSheet(clip, index, tmp) {
   const step = Math.max(clip.duration / cells, 0.5)
   const times = Array.from({ length: cells }, (_, i) => Math.min(clip.duration - 0.1, step * i + step / 2)).map(t => Math.max(0, Number(t.toFixed(1))))
   const file = path.join(tmp, `clip${String(index + 1).padStart(2, '0')}.jpg`)
-  await run(FFMPEG, ['-v', 'error', '-y', '-i', clip.file, '-vf', `fps=1/${step.toFixed(3)},scale=270:-2,tile=4x2`, '-frames:v', '1', '-q:v', '5', file], { timeout: 180000 })
+  await run(FFMPEG, ['-v', 'error', '-y', '-i', clip.file, '-vf', `fps=1/${step.toFixed(3)},scale=240:-2,tile=4x2`, '-frames:v', '1', '-q:v', '6', file], { timeout: 180000 })
   return { file, times }
 }
 
@@ -134,43 +134,17 @@ function cleanPlan(raw, clips, target) {
   return { by: 'claude', title_caption: String(raw.title_caption ?? '').trim().slice(0, 28), note: String(raw.note ?? '').slice(0, 300), segments: kept }
 }
 
-const TEMPLATES = {
-  cuts: '빠른 컷 몽타주: 한 장면 1.5~3초, 처음 2초에 가장 눈에 띄는 장면.',
-  walkthrough: '공간 걸어 보기: 입구 → 안쪽 순서, 한 장면 3~5초, 흐름이 이어지게.',
-  detail: '디테일 클로즈업: 소품 · 마감 · 굿즈 가까이 찍은 장면 위주, 한 장면 2~3초.',
-}
-
-async function askClaude(job, clips, sheets, tmp) {
-  const list = clips.map((c, i) => `클립 ${i + 1}: ${path.basename(c.file)} · ${c.duration.toFixed(1)}초 · 장면 사진 ${path.basename(sheets[i].file)} (왼쪽 위부터 오른쪽으로, 윗줄 다음 아랫줄 · 각 칸 시각(초): ${sheets[i].times.join(', ')})`).join('\n')
-  const prompt = `너는 더위클리(팝업스토어 매거진) 릴스 편집자다. 이 폴더의 장면 사진 파일(clipNN.jpg)을 Read 도구로 모두 보고 편집 지시서를 만든다.
-
-제목: ${job.title}
-틀: ${TEMPLATES[job.template] ?? TEMPLATES.cuts}
-목표 길이: 약 ${job.target_seconds}초 (세로 9:16 · 음악 없음)
-대표 지시: ${job.instructions || '없음'}
-${job.parent ? `이전 편집 지시서(고쳐 달라는 요청임): ${JSON.stringify(job.parent.plan?.segments ?? []).slice(0, 1500)}` : ''}
-
-${list}
-
-구성 (시청 지속률이 높은 숏폼의 공통 구조):
-- 첫 장면(1.2초 안팎)은 가장 눈에 띄거나 '이게 뭐지?' 싶은 장면. 간판 · 입구 · 넓은 전경처럼 느린 시작은 쓰지 않는다.
-- 처음 3초 안에 장면이 두 번 이상 바뀐다(앞 3컷은 0.8~1.3초). 그 뒤는 1.5~2.5초로, 넓은 장면과 가까운 장면을 번갈아.
-- 가운데에 이 팝업에서만 볼 수 있는 장면(체험 · 굿즈 · 포토존)을 가장 길게 한 번.
-- 마지막 장면은 첫 장면과 이어져 다시 보게 되는 장면(같은 대상의 다른 각도)으로 끝낸다. 인사 · 로고 화면으로 끝내지 않는다.
-- title_caption 은 궁금하게 만드는 한 줄(예: '성수에 생긴 ○○'). 사실만.
-
-규칙:
-- 흔들리거나 어둡거나 바닥 · 손만 찍힌 장면은 쓰지 않는다. 비슷한 장면은 하나만.
-- 자막은 한국어 14자 이내, 화면에 보이는 사실만. 과장 · 이모지 · 느낌표 연속 금지. 자막이 필요 없으면 빈 글.
-- 사진에서 확인 못 한 브랜드 이름 · 숫자는 쓰지 않는다.
-- start 는 그 클립 안의 시작 초, duration 은 0.8~6초.
-
-다른 말 없이 JSON 하나만 출력:
-{"title_caption":"첫 장면 제목 (16자 이내)","segments":[{"clip":1,"start":0.0,"duration":2.5,"caption":""}],"note":"고른 이유 한 줄"}`
-  const { stdout } = await run(CLAUDE, ['-p', prompt, '--allowedTools', 'Read', '--output-format', 'text'], { cwd: tmp, timeout: 600000, maxBuffer: 8 * 1024 * 1024 })
-  const a = stdout.indexOf('{'), b = stdout.lastIndexOf('}')
-  if (a < 0 || b <= a) throw new Error('지시서 형식이 아님')
-  return JSON.parse(stdout.slice(a, b + 1))
+/** 편집 지시서를 인트라넷 서버 함수에 묻는다 (서버가 Claude Console 로 장면 사진을 봄). 이 맥에서는 AI 를 부르지 않는다 */
+async function askServer(job, clips, sheets) {
+  const body = {
+    token: TOKEN, job_id: job.id, action: 'plan',
+    clips: await Promise.all(clips.map(async (c, i) => ({ name: path.basename(c.file), duration: Number(c.duration.toFixed(1)), times: sheets[i].times, image: (await fs.readFile(sheets[i].file)).toString('base64') }))),
+  }
+  const res = await fetch(`${cfg.url}/functions/v1/video-worker`, { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: cfg.anon }, body: JSON.stringify(body), signal: AbortSignal.timeout(240000) })
+  const j = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(j.error || `지시서 요청 ${res.status}`)
+  if (!j.plan) throw new Error(j.reason || '지시서를 받지 못했습니다.')
+  return j.plan
 }
 
 function drawtext(textFile, size, yExpr) {
@@ -238,7 +212,7 @@ async function processJob(job) {
     for (const [i, c] of clips.entries()) sheets.push(await contactSheet(c, i, tmp))
 
     let plan = null
-    try { plan = cleanPlan(await askClaude(job, clips, sheets, tmp), clips, job.target_seconds) } catch (e) { log('Claude 지시서 실패 → 규칙으로 대신:', String(e.message).slice(0, 160)) }
+    try { plan = cleanPlan(await askServer(job, clips, sheets), clips, job.target_seconds) } catch (e) { log('AI 지시서 없음 → 규칙으로 대신:', String(e.message).slice(0, 160)) }
     if (!plan) plan = fallbackPlan(clips, job.target_seconds, job.title.replace(/^\[[^\]]*\]\s*/, '').slice(0, 16))
     plan.clips = clips.map(c => path.basename(c.file))
 
