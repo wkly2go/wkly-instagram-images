@@ -5,6 +5,7 @@
 // ② 미리보기 확인 → '승인하고 인스타그램에 게시' 한 번(사용 권리 확인 포함) → 캐러셀로 바로 게시 · 발행 주소 자동 기록
 // 블로그 · 유튜브 · 홈페이지는 자동 게시 연결이 없어 글 복사 + 글쓰기 창 열기. 유료 광고 집행 · 결제는 하지 않음(광고 관리자에서 사람이).
 import { useEffect, useRef, useState } from 'react'
+import { analysisPicks, pickReference, type AnalysisPick } from '../lib/analysisPicks'
 import { Check, Copy, ExternalLink, ImagePlus, Loader2, Send, Sparkles, X } from 'lucide-react'
 import { useApp } from '../lib/app'
 import { friendlyError } from '../lib/api'
@@ -49,6 +50,19 @@ export function AutoCampaignPanel({ onCampaign }: { onCampaign?: (id: string) =>
   const [error, setError] = useState('')
   const [made, setMade] = useState<Made | null>(null)
   const [publish, setPublish] = useState<{ open: boolean; rights: boolean; busy: string; done: string | null }>({ open: false, rights: false, busy: '', done: null })
+  // 분석 → 제작: 최근 분석 자료를 골라 주제 · 참고 자료로 넘김 (고를 때만 불러옴 · AI 없음)
+  const [picks, setPicks] = useState<{ open: boolean; loading: boolean; list: AnalysisPick[]; chosen: AnalysisPick | null }>({ open: false, loading: false, list: [], chosen: null })
+  const openPicks = async () => {
+    if (picks.open) { setPicks(p => ({ ...p, open: false })); return }
+    setPicks(p => ({ ...p, open: true, loading: !p.list.length }))
+    if (picks.list.length) return
+    const [research, comp] = await Promise.all([api.listResearch().catch(() => []), api.listCompetitors().catch(() => ({ competitors: [], posts: [] }))])
+    const owner = new Map(comp.competitors.filter(c => !c.is_self).map(c => [c.id, c.name]))
+    const posts = comp.posts.filter(p => owner.has(p.competitor_id)).map(p => ({ ...p, owner: owner.get(p.competitor_id) }))
+    setPicks(p => ({ ...p, loading: false, list: analysisPicks(research, posts, Date.now()) }))
+  }
+  const choose = (p: AnalysisPick) => { setPicks(v => ({ ...v, chosen: p, open: false })); setInput(v => ({ ...v, topic: v.topic.trim() ? v.topic : p.title.slice(0, 500), reference: pickReference(p) })) }
+  const unchoose = () => { setPicks(v => ({ ...v, chosen: null })); setInput(v => ({ ...v, reference: '' })) }
   const urls = useRef<string[]>([])
   useEffect(() => () => urls.current.forEach(u => URL.revokeObjectURL(u)), [])
   const set = (p: Partial<AutoInput>) => setInput(v => ({ ...v, ...p }))
@@ -120,6 +134,17 @@ export function AutoCampaignPanel({ onCampaign }: { onCampaign?: (id: string) =>
       <header className="auto-camp-head">
         <div><h3><Sparkles size={15} /> 한 번에 만들기</h3><p>알릴 내용 한 줄이면 기획 · 광고 문구 · 카드뉴스 이미지 · 블로그 · 인스타 · 유튜브 · 홈페이지 글까지 만들고, 승인 한 번으로 인스타그램에 게시합니다.</p></div>
       </header>
+      <div className="auto-camp-picks">
+        <button type="button" className="btn btn-outline btn-sm" aria-expanded={picks.open} onClick={() => void openPicks()}>분석에서 고르기</button>
+        {picks.chosen
+          ? <span className="auto-camp-picked"><b>{picks.chosen.group}</b> {picks.chosen.title} <button type="button" className="md-text-button" onClick={unchoose}>빼기</button></span>
+          : <small>최근 트렌드 · 팝업 정보 · 경쟁사 인기 글을 골라 주제와 참고 자료로 넘깁니다.</small>}
+        {picks.open && (picks.loading ? <p className="auto-camp-picks-empty">불러오는 중…</p> : picks.list.length === 0 ? <p className="auto-camp-picks-empty">최근 2주 분석 자료가 없습니다.</p> : (
+          <ul className="auto-camp-pick-list">{picks.list.map(p => (
+            <li key={p.key}><button type="button" onClick={() => choose(p)}><span className="auto-camp-pick-group">{p.group}</span><span className="auto-camp-pick-title">{p.title}</span>{p.source && <small>{p.source}</small>}</button></li>
+          ))}</ul>
+        ))}
+      </div>
       <div className="auto-camp-form">
         <label className="wide"><span>무엇을 알릴까요? *</span><textarea rows={2} maxLength={500} value={input.topic} placeholder="예: 성수 팝업 공간 12월 대관 오픈 — 연말 팝업을 준비하는 브랜드 담당자에게" onChange={e => set({ topic: e.target.value })} /></label>
         <label><span>회사</span><select value={input.brand} onChange={e => set({ brand: e.target.value as MarketingBrand })}><option value="wkly">더위클리</option><option value="arterior">아트리어</option></select></label>

@@ -3,7 +3,7 @@
 //  - 원본 영상은 올리지 않는다 — 드라이브에 동기화된 촬영 폴더를 고름. 미리보기만 보관함 video-edits
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { ApiError } from './api'
-import type { FlowTrend, MarketingFlow } from './marketingFlow'
+import type { FlowTrend, MarketingCalendar, MarketingFlow } from './marketingFlow'
 
 import type { VideoEditInput, VideoEditJob, VideoSourceFolder } from './videoEdits'
 export * from './videoEdits'
@@ -19,6 +19,10 @@ export interface VideoEditsApi {
   marketingFlow(): Promise<MarketingFlow | null>
   /** 마케팅 대시보드 추이 (DB 함수 marketing_flow_trend) */
   marketingTrend(): Promise<FlowTrend | null>
+  /** 주간 달력 (DB 함수 marketing_calendar). weekStart 는 월요일 날짜 · 없으면 이번 주 */
+  marketingCalendar(weekStart?: string): Promise<MarketingCalendar | null>
+  /** 콘텐츠 게시 예정일 정하기 · 지우기 (표 growth_schedule) */
+  setContentPlan(itemId: string, date: string | null): Promise<void>
 }
 
 export function createSupabaseVideoEditsApi(sb: SupabaseClient): VideoEditsApi {
@@ -40,6 +44,11 @@ export function createSupabaseVideoEditsApi(sb: SupabaseClient): VideoEditsApi {
     async videoCancel(id) { const r = await sb.rpc('video_edit_cancel', { p_id: id }); fail(r.error) },
     async marketingFlow() { const r = await sb.rpc('marketing_flow'); fail(r.error); return (r.data as MarketingFlow | null) ?? null },
     async marketingTrend() { const r = await sb.rpc('marketing_flow_trend'); fail(r.error); return (r.data as FlowTrend | null) ?? null },
+    async marketingCalendar(weekStart) { const r = await sb.rpc('marketing_calendar', { p_start: weekStart ?? null }); fail(r.error); return (r.data as MarketingCalendar | null) ?? null },
+    async setContentPlan(itemId, date) {
+      const r = date ? await sb.from('growth_schedule').upsert({ item_id: itemId, planned_on: date, set_at: new Date().toISOString() }) : await sb.from('growth_schedule').delete().eq('item_id', itemId)
+      fail(r.error)
+    },
     async videoPreviewUrl(path) {
       const r = await sb.storage.from('video-edits').createSignedUrl(path, 3600)
       if (r.error || !r.data) throw new ApiError(r.error?.message ?? '미리보기를 열지 못했습니다.')
@@ -61,6 +70,7 @@ export function createDemoVideoEditsApi(): VideoEditsApi {
     { path: '#WKLY_2026/01. 매거진 촬영본/[시험] 11월/성수/4주차_시험 팝업/원본', files: 14, bytes: 2_100_000_000, newest_at: new Date(now - 86400_000).toISOString() },
     { path: '#WKLY_2026/01. 매거진 촬영본/[시험] 11월/한남/3주차_시험 팝업/원본', files: 9, bytes: 1_300_000_000, newest_at: new Date(now - 8 * 86400_000).toISOString() },
   ] : []
+  const plans = new Map<string, string>()
   return {
     async videoJobs() { return jobs },
     async videoFolders() { return folders },
@@ -80,6 +90,22 @@ export function createDemoVideoEditsApi(): VideoEditsApi {
         deals: { linked_90d: 1, by_status: { 문의: 1 } },
         by_campaign: [{ campaign: '(꼬리표 없음)', source: '–', inquiries: 31, direct: 12, projects: 1, won: 0 }, { campaign: '[시험] report26h1', source: 'meta', inquiries: 18, direct: 0, projects: 0, won: 0 }] }
     },
+    async marketingCalendar(weekStart) {
+      if (!harness) return null
+      const k = new Date(now + 9 * 3600_000); const dow = (k.getUTCDay() + 6) % 7
+      const monday = new Date(k.getTime() - dow * 86_400_000).toISOString().slice(0, 10)
+      const start = weekStart ?? monday
+      const day = (i: number) => new Date(Date.parse(`${start}T00:00:00Z`) + i * 86_400_000).toISOString().slice(0, 10)
+      const all = [
+        { id: 'w1', type: 'content' as const, title: '[시험] 연말 팝업 준비 체크리스트', status: '작성 중', channels: ['인스타그램', '네이버 블로그'], at: 1 },
+        { id: 'w2', type: 'content' as const, title: '[시험] 성수 팝업 상권 리포트', status: '발행 기록', channels: ['네이버 블로그', '홈페이지'], at: 2 },
+        { id: 'w3', type: 'video' as const, title: '[시험] 팝업 빠른 컷', status: '완료', channels: ['영상'], at: 3 },
+        { id: 'w4', type: 'content' as const, title: '[시험] 브랜드 인터뷰 · 서면', status: '검수 중', channels: ['인스타그램'], at: 4 },
+      ]
+      const items = all.filter(x => start === monday || plans.has(x.id)).map(x => ({ ...x, day: plans.get(x.id) ?? day(x.at), planned: plans.has(x.id) })).filter(x => x.day >= start && x.day <= day(6))
+      return { week_start: start, items, unplanned: all.filter(x => x.type === 'content' && x.status !== '발행 기록' && !plans.has(x.id)).map(({ id, title, status }) => ({ id, title, status })) }
+    },
+    async setContentPlan(itemId, date) { if (date) plans.set(itemId, date); else plans.delete(itemId) },
     async marketingTrend() {
       if (!harness) return null
       const shape = [2, 3, 1, 4, 2, 0, 1, 3, 5, 4, 2, 1, 0, 2, 3, 6, 9, 5, 3, 2, 1, 2, 4, 3, 2, 1, 3, 4, 2, 3]

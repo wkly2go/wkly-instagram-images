@@ -116,7 +116,7 @@ const DAY_NAMES = ['월', '화', '수', '목', '금', '토', '일']
 export interface WeekDay { date: string; name: string; day: number; today: boolean; items: WeekItem[] }
 
 /** 이번 주 월~일 일곱 칸. 항목은 한국 날짜 기준으로 그날 칸에 */
-export function weekDays(t: FlowTrend, nowMs: number): WeekDay[] {
+export function weekDays(t: Pick<FlowTrend, 'week_start' | 'week'>, nowMs: number): WeekDay[] {
   const kst = (ms: number) => new Date(ms + 9 * 3600_000).toISOString().slice(0, 10)
   const start = Date.parse(`${t.week_start}T00:00:00Z`)
   const today = kst(nowMs)
@@ -124,4 +124,28 @@ export function weekDays(t: FlowTrend, nowMs: number): WeekDay[] {
     const date = new Date(start + i * 86_400_000).toISOString().slice(0, 10)
     return { date, name, day: Number(date.slice(8)), today: date === today, items: t.week.filter(w => kst(Date.parse(w.at)) === date) }
   })
+}
+
+// ── 주간 달력 (게시 예정일) — DB 함수 marketing_calendar(p_start) · 표 growth_schedule ──
+export interface CalItem { id: string; type: 'content' | 'video'; title: string; status: string; day: string; planned: boolean; channels: string[] }
+export interface MarketingCalendar { week_start: string; items: CalItem[]; unplanned: { id: string; title: string; status: string }[] }
+export interface CalDay { date: string; name: string; day: number; today: boolean; past: boolean; items: CalItem[] }
+
+/** 한 주 일곱 칸 — 예정일이 있으면 그날, 없으면 고친 날 칸에 */
+export function calendarDays(c: MarketingCalendar, nowMs: number): CalDay[] {
+  const today = new Date(nowMs + 9 * 3600_000).toISOString().slice(0, 10)
+  const start = Date.parse(`${c.week_start}T00:00:00Z`)
+  return DAY_NAMES.map((name, i) => {
+    const date = new Date(start + i * 86_400_000).toISOString().slice(0, 10)
+    return { date, name, day: Number(date.slice(8)), today: date === today, past: date < today, items: c.items.filter(x => x.day === date) }
+  })
+}
+/** 주 옮기기: 월요일 날짜에 7일씩 */
+export function shiftWeek(weekStart: string, weeks: number): string {
+  return new Date(Date.parse(`${weekStart}T00:00:00Z`) + weeks * 7 * 86_400_000).toISOString().slice(0, 10)
+}
+export function weekLabel(weekStart: string): string {
+  const end = shiftWeek(weekStart, 1)
+  const last = new Date(Date.parse(`${end}T00:00:00Z`) - 86_400_000).toISOString().slice(0, 10)
+  return `${Number(weekStart.slice(5, 7))}.${Number(weekStart.slice(8))} ~ ${Number(last.slice(5, 7))}.${Number(last.slice(8))}`
 }

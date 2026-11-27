@@ -63,6 +63,20 @@ export function metaProblems(doc: CampaignDoc, ids: Partial<MetaIds>, images: nu
   return out
 }
 
+/** 광고가 보내는 주소에 꼬리표(UTM)를 붙인다 — 어느 광고에서 온 문의인지 알기 위해. 이미 붙어 있으면 그대로 */
+export function adLink(doc: Pick<CampaignDoc, 'landingUrl' | 'title'>): string {
+  const raw = doc.landingUrl.trim()
+  try {
+    const url = new URL(raw)
+    if (url.searchParams.has('utm_source')) return raw
+    const campaign = doc.title.trim().replace(/\[[^\]]*\]/g, ' ').replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-+|-+$/g, '').slice(0, 40).replace(/-+$/, '') || 'ad'
+    url.searchParams.set('utm_source', 'meta')
+    url.searchParams.set('utm_medium', 'paid_social')
+    url.searchParams.set('utm_campaign', campaign)
+    return url.toString()
+  } catch { return raw }
+}
+
 export function buildMetaSpec(doc: CampaignDoc, ids: MetaIds, now = new Date()): MetaSpec {
   const awareness = doc.goal === 'awareness'
   const name = `[인트라넷] ${doc.title}`.slice(0, 200)
@@ -86,7 +100,7 @@ export function buildMetaSpec(doc: CampaignDoc, ids: MetaIds, now = new Date()):
   if (doc.dailyBudget) { daily = Math.round(doc.dailyBudget); adset.daily_budget = String(daily) }
   else if (doc.totalBudget) adset.lifetime_budget = String(Math.round(doc.totalBudget))
 
-  const link = doc.landingUrl.trim()
+  const link = adLink(doc)
   const cta = { type: metaCta(doc.cta), value: { link } }
   const creative = (hashes: string[]) => {
     const identity: Record<string, string> = { page_id: ids.pageId }

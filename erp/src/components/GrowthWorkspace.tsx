@@ -13,6 +13,7 @@ import { InstagramPublish } from './InstagramPublish'
 import { TenderSearch } from './TenderSearch'
 import { DiscoveryIntake } from './DiscoveryIntake'
 import { CHANNELS, GROWTH_LABELS, GROWTH_STATUSES, koreaDateTimeInput, appendGrowthNote, changeChannel, patchGrowthDocument, withAllChannels, contactCandidates, newGrowth, safeWebUrl, validateGrowth, type GrowthDraft, type GrowthItem, type GrowthKind, type GrowthDocument, type ChannelDraft } from '../lib/growth'
+import { tagContentVersions } from '../lib/utmLinks'
 import { methodInputFromGrowth, recommendSalesMethod } from '../lib/salesMethods'
 import './GrowthWorkspace.css'
 
@@ -233,7 +234,7 @@ function GrowthEditor({kind,initial,seed,channel,onChannelChange,onClose,onSaved
   const channelPatch=(p:Partial<ChannelDraft>)=>doc({versions:x.versions?.map((a,i)=>i===channel?changeChannel(a,p):a)})
   const close=()=>{if(!lock.current&&!aiBusy&&(!dirty||window.confirm('저장하지 않은 변경이 있습니다. 닫을까요?')))onClose()}
   useDraftNavigation(dirty,working)
-  const save=async()=>{if(lock.current||aiBusy||linkNeedsRefresh)return;if(aiDirty&&!window.confirm('AI 요청문·결과를 편집 내용에 적용하지 않았습니다. 적용하지 않고 현재 문서만 저장할까요?'))return;const e=validateGrowth(draft);if(e){setError(e);return}lock.current=true;setBusy(true);setError('');try{const r=await api.saveGrowth(id.current,draft,initial?.revision??0);original.current=JSON.stringify(draft);onSaved(r)}catch(e){setError(friendlyError(e))}finally{lock.current=false;setBusy(false)}}
+  const save=async()=>{if(lock.current||aiBusy||linkNeedsRefresh)return;if(aiDirty&&!window.confirm('AI 요청문·결과를 편집 내용에 적용하지 않았습니다. 적용하지 않고 현재 문서만 저장할까요?'))return;const e=validateGrowth(draft);if(e){setError(e);return}lock.current=true;setBusy(true);setError('');try{const versions=draft.kind==='content'&&draft.document.versions?tagContentVersions(draft.title,draft.document.versions):draft.document.versions;const toSave=versions===draft.document.versions?draft:{...draft,document:{...draft.document,versions}};const r=await api.saveGrowth(id.current,toSave,initial?.revision??0);original.current=JSON.stringify(toSave);onSaved(r)}catch(e){setError(friendlyError(e))}finally{lock.current=false;setBusy(false)}}
   const refreshLinked = async () => {
     if (!initial || lock.current || aiBusy) return
     lock.current=true;setBusy(true);setError('')
