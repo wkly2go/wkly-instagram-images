@@ -681,3 +681,25 @@ td > .task-inline-sel, td .task-inline-sel:only-child { min-width: 76px; }
 .chat-rich .cr-item.num::before { content: attr(data-mark); width: auto; height: auto; background: none; top: 0; left: 0; color: var(--tx-key); font-weight: 700; }
 .bubble.mine .chat-rich .cr-item::before { background: currentColor; }
 .bubble.mine .chat-rich .cr-item.num::before { background: none; color: inherit; }
+
+/* 업체별 결제 표: 숫자 겹침 금지 · 가로 세로 선 (2026-11-27 대표 지시) */
+.vendor-scroll { overflow-x: auto; border: 1px solid #d9ddd6; border-radius: 8px; background: #fff; }
+.vendor-scroll .vendor-sum { width: 100%; border-collapse: collapse; }
+.vendor-scroll .vendor-sum th, .vendor-scroll .vendor-sum td { border: 1px solid #e3e6e0; }
+.vendor-scroll .vendor-sum thead th { border-bottom: 2px solid var(--blue); background: #f6f7f4; text-align: center; white-space: nowrap; }
+.vendor-scroll .vendor-sum tr > :first-child { border-left: 0; }
+.vendor-scroll .vendor-sum tr > :last-child { border-right: 0; }
+.vendor-scroll .vendor-sum td.num { overflow: hidden; vertical-align: top; padding: 8px 8px; }
+.vendor-scroll .vs-cell { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; width: 100%; min-width: 0; }
+.vendor-scroll .vs-amt { max-width: 100%; align-items: flex-end; }
+.vendor-scroll .vs-amt, .vendor-scroll .vs-amt em { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; text-align: right; }
+.vendor-scroll .vs-amt { display: flex; flex-direction: column; }
+.vendor-scroll .vs-empty { color: #c3c8c1; }
+.vendor-scroll .vendor-sum tr.vs-edit > td { white-space: normal; }
+.vendor-scroll td.vs-who { display: table-cell; vertical-align: top; }
+.vendor-scroll td.vs-who > span { display: flex; }
+.vendor-scroll td.vs-who > .t-cap { display: block; margin-top: 2px; }
+.vendor-scroll .vendor-sum td { vertical-align: top; }
+.vendor-scroll .vendor-sum td:first-child { text-align: center; }
+.vendor-scroll .vs-prog { display: block; width: 100%; margin: 4px 0 4px; }
+.vendor-scroll .vs-prog + .t-cap { display: block; white-space: nowrap; }

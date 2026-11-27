@@ -285,7 +285,7 @@ export function VendorSheet({ projectId, payments, all, lines, finance, onOpen }
           {manwon(cur.amount)}
           <em>
             {isDone(cur)
-              ? `완료 ${(cur.paid_date ?? '').slice(5).replace('-', '.')}`
+              ? (cur.paid_date ?? '').slice(5).replace('-', '.')
               : isToday(cur)
                 ? `오늘 ${v.dir === '수금' ? '입금' : '지급'}`
                 : isLate(cur)
@@ -293,7 +293,7 @@ export function VendorSheet({ projectId, payments, all, lines, finance, onOpen }
                   : cur.due_date
                     ? `${cur.due_date.slice(5).replace('-', '.')} 예정`
                     : '예정'}
-            {cur.tax_invoice === '발행' ? ' · 계' : ''}
+            {cur.tax_invoice === '발행' ? ' 계' : ''}
           </em>
         </span>
         <label className={`vs-pay${isDone(cur) ? ' on' : ''}`} onClick={e => e.stopPropagation()} title={isDone(cur) ? '완료 표시 지우기' : `${v.dir === '수금' ? '입금' : '지급'}했으면 체크 → 처리 완료`}>
@@ -319,14 +319,16 @@ export function VendorSheet({ projectId, payments, all, lines, finance, onOpen }
           <option key={c} value={c} />
         ))}
       </datalist>
-      <table className="vendor-sum">
+      {/* 숫자가 겹치지 않게 (대표 지시 2026-11-27 '숫자가 겹치는거 절대 금지 · 가로 세로 선') — 단계 칸은 120px 아래로 줄이지 않고, 넘치면 가로로 밀어 봄 */}
+      <div className="vendor-scroll">
+      <table className="vendor-sum" style={{ minWidth: 64 + 300 + 120 + 110 + stages.length * 120 + 28 }}>
         <colgroup>
-          <col style={{ width: 54 }} />
-          <col style={{ width: '27%' }} />
-          <col style={{ width: '11%' }} />
-          <col style={{ width: '9%' }} />
+          <col style={{ width: 64 }} />
+          <col style={{ width: 300 }} />
+          <col style={{ width: 120 }} />
+          <col style={{ width: 110 }} />
           {stages.map(s => (
-            <col key={s.key} />
+            <col key={s.key} style={{ width: 120 }} />
           ))}
           <col style={{ width: 28 }} />
         </colgroup>
@@ -562,6 +564,7 @@ export function VendorSheet({ projectId, payments, all, lines, finance, onOpen }
           })}
         </tfoot>
       </table>
+      </div>
       {adding ? (
         <div className="vf vf-new">
           <div className="vf-grid">
