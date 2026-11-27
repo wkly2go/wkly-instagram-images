@@ -713,3 +713,5 @@ td > .task-inline-sel, td .task-inline-sel:only-child { min-width: 76px; }
 .pay-grid tr > :last-child { border-right: 0; }
 .pay-grid td.num, .pay-grid th.num, .pay-grid td.mono, .pay-grid .mono { white-space: nowrap; }
 .pay-grid td { vertical-align: top; }
+.admin-keys th { width: 160px; text-align: left; color: var(--tx-sub); font-weight: 400; background: #f6f7f4; }
+.admin-keys td { white-space: normal; }

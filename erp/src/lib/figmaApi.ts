@@ -6,6 +6,7 @@ import { ApiError } from './api'
 import type { FigmaKind } from './figma'
 export { FIGMA_KIND_LABEL, figmaEmbedUrl, isWide, type FigmaKind } from './figma'
 
+export interface FigmaTokenInfo { token: boolean; set_at: string | null; expires_at: string | null; boards: number }
 export interface FigmaFrameImage { id: string; name: string; w: number; h: number; mime: string; data: string }
 export interface FigmaFrame { id: string; name: string; type: string; page: string; w: number; h: number }
 export interface ProjectFigma {
@@ -30,6 +31,8 @@ export interface FigmaExport { id: string; figma_id: string; project_id: string;
 
 export interface FigmaApi {
   figmaStatus(): Promise<{ token: boolean }>
+  /** 관리 화면: 열쇠 있음 · 넣은 날 · 만료일(90일) · 연결된 보드 수 */
+  figmaTokenInfo(): Promise<FigmaTokenInfo | null>
   setFigmaToken(value: string): Promise<void>
   listProjectFigma(projectId: string): Promise<{ files: ProjectFigma[]; exports: FigmaExport[] }>
   /** 모든 프로젝트에 연결한 피그마 (화이트보드 공통 불러오기 · 2026-11-27) */
@@ -58,6 +61,11 @@ export function createSupabaseFigmaApi(sb: SupabaseClient): FigmaApi {
   }
   return {
     async figmaStatus() { return await call<{ token: boolean }>('status') },
+    async figmaTokenInfo() {
+      const r = await sb.rpc('figma_token_info')
+      if (r.error) throw new ApiError(r.error.message)
+      return r.data as FigmaTokenInfo | null
+    },
     async setFigmaToken(value) {
       const r = await sb.rpc('figma_secret_set', { p_value: value })
       if (r.error) throw new ApiError(r.error.message)
@@ -108,6 +116,7 @@ export function createDemoFigmaApi(): FigmaApi {
   const none = async (): Promise<never> => { throw new ApiError('피그잼 연결은 운영 계정에서만 쓸 수 있습니다.') }
   return {
     async figmaStatus() { return { token: false } },
+    async figmaTokenInfo() { return null },
     setFigmaToken: none,
     async listProjectFigma() { return { files: [], exports: [] } },
     async listAllFigma() { return [] },
