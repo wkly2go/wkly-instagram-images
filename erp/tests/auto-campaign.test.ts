@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { approveForInstagram, blogWithShop, autoAdText, autoCampaign, autoCampaignPrompt, autoContentDraft, autoDates, parseAutoResult, type AutoInput } from '../src/lib/autoCampaign.ts'
+import { approveForInstagram, blogWithShop, autoAdText, autoCampaign, autoCampaignPrompt, autoContentDraft, autoDates, autoReelRequest, parseAutoResult, type AutoInput } from '../src/lib/autoCampaign.ts'
+import { videoInputProblem } from '../src/lib/videoEdits.ts'
 
 const input: AutoInput = { topic: '성수 팝업 공간 12월 대관 오픈', brand: 'wkly', link: '', startDate: '2026-11-21', endDate: '2026-11-27', facts: '12월 첫째 주부터 예약 가능' }
 const answer = 'here:\n```json\n' + JSON.stringify({
@@ -69,4 +70,20 @@ test('블로그 끝 크리에이터샵 줄: https 주소만 · 중복 없음', (
   assert.equal(blogWithShop('본문', 'javascript:alert(1)'), '본문')
   const once = blogWithShop('본문', 'https://a.b/c')
   assert.equal(blogWithShop(once, 'https://a.b/c'), once)
+})
+
+test('릴스 편집 요청: 캠페인 말을 지시로 · 요청 규칙 통과 · 폴더가 없으면 막힘', () => {
+  const r = parseAutoResult(answer)!
+  const req = autoReelRequest(r, { folder: '#WKLY_2026/촬영본/성수/원본', template: 'walkthrough', seconds: 30 })
+  assert.equal(req.title, '[릴스] 성수 12월 대관')
+  assert.equal(req.template, 'walkthrough')
+  assert.equal(req.target_seconds, 30)
+  assert.match(req.instructions, /연말 팝업, 장소부터 정하세요/)
+  assert.match(req.instructions, /장 1 · 장 2/)
+  assert.match(req.instructions, /날짜 · 가격 · 숫자는 자막에 옮기지 않습니다/)
+  assert.equal(videoInputProblem(req), null)
+  assert.equal(videoInputProblem(autoReelRequest(r, { folder: '', template: 'cuts', seconds: 20 })), '촬영 폴더를 골라 주세요.')
+  const long = autoReelRequest({ ...r, title: '가'.repeat(300), headline: '나'.repeat(3000) }, { folder: 'a', template: 'cuts', seconds: 20 })
+  assert.ok(long.title.length <= 120 && long.instructions.length <= 2000)
+  assert.equal(videoInputProblem(long), null)
 })
