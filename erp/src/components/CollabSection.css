@@ -101,3 +101,5 @@ html[data-theme="dark"] .cl-msg.guest { background: none; }
 .cl-board-pick { flex: 1 1 220px; min-width: 0; display: flex; align-items: center; gap: 8px; cursor: pointer; }
 .cl-board-pick b { font-weight: 700; color: var(--tx-title); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cl-board-mode { width: auto; flex: none; }
+.cl-board-new { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.cl-board-new .input { flex: 1 1 220px; min-width: 0; }

@@ -68,6 +68,7 @@ export function installCollabHarness() {
     inviteCollabGuest: async (_room: string, g: { name: string; org?: string }) => ({ guest: { ...guests[0], id: 'new', name: g.name, org: g.org ?? null, last_seen_at: null }, token: 'HarnessInviteToken_0123456789abcdefghijklmnopq' }),
     relinkCollabGuest: async () => 'HarnessInviteToken_0123456789abcdefghijklmnopq',
     listBoards: async () => boardRows.map(b => ({ id: b.id, project_id: 'x', title: b.title, version: b.version, created_by: ADMIN, updated_by: ADMIN, created_at: b.updated_at, updated_at: b.updated_at, count: (b.scene.elements as unknown[]).length })),
+    createBoard: async (_p: string, title: string) => { const b = { id: `bbbbbbbb-0000-4000-8000-00000000000${boardRows.length + 1}`, title, version: 1, updated_at: new Date().toISOString(), shared: false, can_edit: true, scene: { elements: [] as Record<string, unknown>[], files: {} } }; boardRows.push(b); return { id: b.id, project_id: 'x', title, version: 1, created_by: ADMIN, updated_by: ADMIN, created_at: b.updated_at, updated_at: b.updated_at } },
     listCollabBoards: async () => boardRows.filter(b => b.shared).map(b => ({ room_id: ROOM, board_id: b.id, can_edit: b.can_edit })),
     setCollabBoard: async (_room: string, id: string, share: boolean, canEdit = true) => {
       const b = boardRows.find(x => x.id === id)

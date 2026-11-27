@@ -266,6 +266,7 @@ function RoomPanel({ room, project, guests, events, onChange }: { room: CollabRo
 // 이 프로젝트의 화이트보드 가운데 이 방 외부인에게 보일 것을 고름. 고칠 수 있음 / 보기만. 공유를 끄면 외부인 화면에서 바로 사라짐.
 function StaffBoards({ room, project }: { room: CollabRoom; project: Project }) {
   const { api, toast } = useApp()
+  const { navigate } = useRouter()
   const [tick, setTick] = useState(0)
   const [busy, setBusy] = useState<string | null>(null)
   const data = useAsync(async () => {
@@ -285,13 +286,40 @@ function StaffBoards({ room, project }: { room: CollabRoom; project: Project }) 
     }
   }
   const { boards, shares } = data.data
+  // 새 보드를 이 자리에서 만들고 바로 이 방에 공유 (2026-11-27 대표 '캔버스 만들기가 없어')
+  const [title, setTitle] = useState('')
+  const [making, setMaking] = useState(false)
+  const create = async () => {
+    if (making) return
+    setMaking(true)
+    try {
+      const b = await api.createBoard(project.id, title.trim() || `${room.title} 보드`)
+      await api.setCollabBoard(room.id, b.id, true, true)
+      setTitle('')
+      setTick(t => t + 1)
+      toast('새 보드를 만들어 이 방에 공유했습니다. 열어서 그리면 외부인 화면에도 보입니다.')
+      navigate(`/board?id=${b.id}`)
+    } catch (e) {
+      toast(e instanceof Error ? e.message : '보드를 만들지 못했습니다.')
+    } finally {
+      setMaking(false)
+    }
+  }
   return (
     <div className="cl-boards">
       <p className="t-cap">이 방 외부인에게 보일 화이트보드를 고릅니다. 공유한 보드만 외부인 화면 ‘화이트보드’ 탭에 보이고, 고친 내용은 서로 자동으로 합쳐집니다.</p>
+      {!room.closed_at && (
+        <form className="cl-board-new" onSubmit={e => { e.preventDefault(); void create() }}>
+          <input className="input" value={title} maxLength={60} onChange={e => setTitle(e.target.value)} placeholder="새 보드 이름 (비우면 방 이름으로)" aria-label="새 보드 이름" />
+          <Button size="sm" type="submit" disabled={making}>
+            <Plus size={13} /> {making ? '만드는 중…' : '새 보드 만들어 공유'}
+          </Button>
+        </form>
+      )}
       {data.loading && !boards.length ? (
         <p className="t-cap">불러오는 중입니다.</p>
       ) : !boards.length ? (
-        <p className="t-cap">이 프로젝트에 화이트보드가 없습니다. 아래 ‘화이트보드’ 칸에서 보드를 먼저 만들어 주세요.</p>
+        <p className="t-cap">이 프로젝트에 화이트보드가 아직 없습니다. 위에서 새 보드를 만들면 바로 이 방에 공유됩니다.</p>
       ) : (
         <ul className="cl-board-list">
           {boards.map(b => {
@@ -303,6 +331,9 @@ function StaffBoards({ room, project }: { room: CollabRoom; project: Project }) 
                   <b>{b.title}</b>
                   <span className="t-cap">요소 {b.count ?? 0}개</span>
                 </label>
+                <button type="button" className="cl-mini" onClick={() => navigate(`/board?id=${b.id}`)} title="이 보드 열어서 그리기">
+                  <PenLine size={12} /> 열기
+                </button>
                 {sh && (
                   <select className="input cl-board-mode" value={sh.can_edit ? 'edit' : 'view'} disabled={busy === b.id} onChange={e => void set(b.id, true, e.target.value === 'edit')} aria-label={`${b.title} 외부인 권한`}>
                     <option value="edit">함께 고칠 수 있음</option>
