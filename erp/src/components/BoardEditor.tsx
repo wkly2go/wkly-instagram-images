@@ -10,18 +10,32 @@ import { convertToExcalidrawElements } from '@excalidraw/excalidraw'
 import { ArrowLeft, Copy, Download, FileDown, Figma, Maximize2, Minimize2, Upload, Users, X } from 'lucide-react'
 import { useApp } from '../lib/app'
 import { Link } from '../lib/router'
-import { boardFilePath, boardTitle, mergeElements, sceneForSave, sceneSignature, type BoardElement, type BoardFileRef, type BoardScene } from '../lib/board'
+import { boardFilePath, boardTitle, mergeElements, pool, saveDelay, sceneForSave, sceneSignature, type BoardElement, type BoardFileRef, type BoardScene } from '../lib/board'
 import type { BoardLive, BoardPeer, ProjectBoard } from '../lib/boardApi'
 import { imagesToPdf } from '../lib/imagePdf'
 import { BoardFigmaImport, type FigmaPicked } from './BoardFigmaImport'
 import { figmaToSkeleton, placeTexts, type FigmaContent } from '../lib/figmaToBoard'
+import { BOARD_FONT, installBoardFonts, svgFontsForFigma } from '../lib/boardFonts'
 import '../pages/Board.css'
 
 type ExApi = Parameters<NonNullable<React.ComponentProps<typeof Excalidraw>['excalidrawAPI']>>[0]
 type BinaryFile = { id: string; mimeType: string; dataURL: string; created: number }
 type SaveState = '불러오는 중' | '저장됨' | '고치는 중' | '저장 중' | '저장 실패' | '읽기 전용'
 
-const SAVE_DELAY = 2000
+/** 보드 사진은 경로가 곧 내용(바뀌지 않음) → 이 브라우저에 보관해 다시 열 때 서버에서 안 받음 (로그아웃하면 지움 · supabaseApi.signOut) */
+const FILE_CACHE = 'wkly-board-files'
+async function cachedBlob(path: string, fetchIt: () => Promise<Blob>): Promise<Blob> {
+  const key = `/__board-file/${path}`
+  try {
+    const c = await caches.open(FILE_CACHE)
+    const hit = await c.match(key)
+    if (hit) return await hit.blob()
+    const b = await fetchIt()
+    if (b.size) void c.put(key, new Response(b, { headers: { 'Content-Type': b.type || 'application/octet-stream' } })).catch(() => {})
+    return b
+  } catch { return fetchIt() }
+}
+
 const blobToDataURL = (b: Blob) => new Promise<string>((ok, no) => { const r = new FileReader(); r.onload = () => ok(String(r.result)); r.onerror = () => no(r.error); r.readAsDataURL(b) })
 
 export default function BoardEditor({ id, embedded = false, onClose }: { id: string; embedded?: boolean; onClose?: () => void }) {
@@ -59,11 +73,10 @@ export default function BoardEditor({ id, embedded = false, onClose }: { id: str
 
   /** 보관함 사진 → Excalidraw 파일 (이미 화면에 있는 것은 건너뜀) */
   const loadFiles = useCallback(async (refs: Record<string, BoardFileRef>, have: Set<string>) => {
-    const out: BinaryFile[] = []
-    for (const f of Object.values(refs)) {
-      if (have.has(f.id)) continue
-      try { out.push({ id: f.id, mimeType: f.mimeType, created: f.created, dataURL: await blobToDataURL(await api.downloadBoardFile(f.path)) }) } catch { /* 못 받은 사진은 빈 칸으로 */ }
-    }
+    const want = Object.values(refs).filter(f => !have.has(f.id))
+    // 6장씩 나란히 (예전엔 한 장씩 차례로 — 사진 60장 보드가 한참 걸림) · 못 받은 사진은 빈 칸으로
+    const got = await pool(want, 6, async f => ({ id: f.id, mimeType: f.mimeType, created: f.created, dataURL: await blobToDataURL(await cachedBlob(f.path, () => api.downloadBoardFile(f.path))) }))
+    const out = got.filter((f): f is BinaryFile => !!f)
     return out
   }, [api])
 
@@ -77,14 +90,18 @@ export default function BoardEditor({ id, embedded = false, onClose }: { id: str
         const got = await api.getBoard(id)
         if (!alive) return
         if (!got) { setError('보드를 찾을 수 없습니다. 지워졌거나 권한이 없습니다.'); return }
-        const files = await loadFiles(got.scene.files, new Set())
-        if (!alive) return
         version.current = got.board.version
         fileRefs.current = { ...got.scene.files }
         savedSig.current = sceneSignature(got.scene.elements)
         setBoard(got.board); setTitle(got.board.title)
-        setInitial({ elements: got.scene.elements, files })
+        // 그림(요소)을 먼저 띄우고 사진은 뒤에서 받아 채움 (사진을 다 받을 때까지 빈 화면이던 것 고침)
+        setInitial({ elements: got.scene.elements, files: [] })
         setState('저장됨')
+        void loadFiles(got.scene.files, new Set()).then(async files => {
+          if (!alive || !files.length) return
+          for (let i = 0; i < 100 && alive && !ex.current; i++) await new Promise(r => setTimeout(r, 50))
+          if (alive) ex.current?.addFiles(files as never)
+        })
       } catch (e) { if (alive) setError(e instanceof Error ? e.message : '보드를 불러오지 못했습니다.') }
     })()
     return () => { alive = false }
@@ -118,14 +135,16 @@ export default function BoardEditor({ id, embedded = false, onClose }: { id: str
         if (sig === savedSig.current) { setState('저장됨'); return }
         // 새로 붙인 사진 올리기
         const files = x.getFiles() as unknown as Record<string, BinaryFile>
-        for (const e of elements) {
-          const fid = e.fileId as string | undefined
-          if (!fid || e.isDeleted || fileRefs.current[fid] || !files[fid]) continue
+        const fresh = [...new Set(elements.filter(e => e.fileId && !e.isDeleted && !fileRefs.current[e.fileId as string] && files[e.fileId as string]).map(e => e.fileId as string))]
+        const up = await pool(fresh, 4, async fid => {
           const f = files[fid]
           const path = boardFilePath(board.id, fid, f.mimeType)
-          await api.uploadBoardFile(path, await (await fetch(f.dataURL)).blob())
+          const blob = await (await fetch(f.dataURL)).blob()
+          await api.uploadBoardFile(path, blob)
           fileRefs.current[fid] = { id: fid, mimeType: f.mimeType, path, created: f.created }
-        }
+          return true
+        })
+        if (up.some(v => !v)) throw new Error('사진 일부를 올리지 못했습니다. 잠시 뒤 다시 저장합니다.')
         const r = await api.saveBoard(board.id, sceneForSave(elements, fileRefs.current), version.current)
         if (r.ok) {
           version.current = r.version
@@ -149,7 +168,7 @@ export default function BoardEditor({ id, embedded = false, onClose }: { id: str
 
   const schedule = useCallback(() => {
     if (timer.current) window.clearTimeout(timer.current)
-    timer.current = window.setTimeout(() => { timer.current = null; void save() }, SAVE_DELAY)
+    timer.current = window.setTimeout(() => { timer.current = null; void save() }, saveDelay(ex.current?.getSceneElementsIncludingDeleted().length ?? 0))
   }, [save])
 
   // 같은 보드를 연 사람 · 다른 사람이 저장하면 합침
@@ -179,8 +198,17 @@ export default function BoardEditor({ id, embedded = false, onClose }: { id: str
     }
   }, [save])
 
+  const lastEls = useRef<readonly unknown[] | null>(null)
+  const lastSum = useRef(-1)
   const onChange = useCallback((elements: readonly unknown[]) => {
     if (state === '불러오는 중') return
+    // Excalidraw 는 마우스 이동 · 확대 · 고르기에도 부름 → 요소 배열이 그대로면 바로 지나가고, 버전 합이 같아도 지나감(요소 8천 개에서 글자 해시를 매번 돌리지 않게)
+    if (elements === lastEls.current) return
+    lastEls.current = elements
+    let sum = elements.length
+    for (const e of elements as BoardElement[]) sum += e.version
+    if (sum === lastSum.current) return
+    lastSum.current = sum
     if (sceneSignature(elements as BoardElement[]) === savedSig.current) return
     setState(s => (s === '저장 중' ? s : '고치는 중'))
     schedule()
@@ -217,7 +245,7 @@ export default function BoardEditor({ id, embedded = false, onClose }: { id: str
     const els = sel.length ? sel : all
     if (!els.length) { toast('보드가 비어 있습니다.'); return null }
     const svg = await exportToSvg({ elements: els, appState: { ...x.getAppState(), exportBackground: true, viewBackgroundColor: '#ffffff', exportEmbedScene: false }, files: x.getFiles(), exportPadding: 24, skipInliningFonts: true } as never)
-    return { text: new XMLSerializer().serializeToString(svg), count: els.length, part: sel.length > 0 }
+    return { text: svgFontsForFigma(new XMLSerializer().serializeToString(svg)), count: els.length, part: sel.length > 0 }
   }
   const copyForFigma = async () => {
     try {
@@ -290,9 +318,10 @@ export default function BoardEditor({ id, embedded = false, onClose }: { id: str
   }
 
   /** 피그마 프레임 안 요소를 수정 가능한 보드 요소로 붙임 (피그마 배치 그대로 · 보드 오른쪽 빈 곳) */
-  const addFigmaContent = (c: FigmaContent) => {
+  const addFigmaContent = async (c: FigmaContent) => {
     const x = ex.current
     if (!x) return
+    await installBoardFonts() // 글 폭을 우리 글꼴로 재도록
     const els = x.getSceneElements()
     const at = { x: els.length ? Math.max(...els.map(e => e.x + e.width)) + 120 : 0, y: els.length ? Math.min(...els.map(e => e.y)) : 0 }
     const out = figmaToSkeleton(c, at)
@@ -336,12 +365,12 @@ export default function BoardEditor({ id, embedded = false, onClose }: { id: str
         <button type="button" className="icon-btn board-full" onClick={() => void toggleFull()} title={full ? '전체 화면 끝 (Esc)' : '전체 화면'} aria-label={full ? '전체 화면 끝' : '전체 화면'}>{full ? <Minimize2 size={14} /> : <Maximize2 size={14} />}</button>
         {embedded && onClose && <button type="button" className="icon-btn" onClick={onClose} title="보드 닫기" aria-label="보드 닫기"><X size={14} /></button>}
       </div>
-      {figmaOpen && board && <BoardFigmaImport projectId={board.project_id} onClose={() => setFigmaOpen(false)} onPick={p => { setFigmaOpen(false); addFigma(p) }} onContent={c => { setFigmaOpen(false); addFigmaContent(c) }} />}
+      {figmaOpen && board && <BoardFigmaImport projectId={board.project_id} onClose={() => setFigmaOpen(false)} onPick={p => { setFigmaOpen(false); addFigma(p) }} onContent={c => { setFigmaOpen(false); void addFigmaContent(c) }} />}
       <div className="board-canvas">
         {initial ? (
           <Excalidraw
-            excalidrawAPI={a => { ex.current = a }}
-            initialData={{ elements: initial.elements as never, files: Object.fromEntries(initial.files.map(f => [f.id, f])) as never, appState: { viewBackgroundColor: '#ffffff' }, scrollToContent: true }}
+            excalidrawAPI={a => { ex.current = a; void installBoardFonts() }}
+            initialData={{ elements: initial.elements as never, files: Object.fromEntries(initial.files.map(f => [f.id, f])) as never, appState: { viewBackgroundColor: '#ffffff', currentItemFontFamily: BOARD_FONT.regular }, scrollToContent: true }}
             onChange={els => onChange(els)}
             langCode="ko-KR"
             theme="light"

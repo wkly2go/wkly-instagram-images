@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { boardFilePath, boardTitle, mergeElements, readScene, sceneForSave, sceneSignature, type BoardElement } from '../src/lib/board.ts'
+import { boardFilePath, boardTitle, mergeElements, pool, readScene, sceneForSave, sceneSignature, type BoardElement } from '../src/lib/board.ts'
 
 const el = (id: string, version: number, extra: Partial<BoardElement> = {}): BoardElement => ({ id, version, versionNonce: 10, ...extra })
 
@@ -44,4 +44,27 @@ test('보관함 경로 · 제목', () => {
   assert.equal(boardFilePath('b1', 'abc/../x', 'image/jpeg'), 'b1/abcx.jpg')
   assert.equal(boardTitle('  회의   보드 '), '회의 보드')
   assert.equal(boardTitle('   '), '새 보드')
+})
+
+test('나란히 처리: 순서 그대로 · 실패는 null · 한 번에 n개까지만', async () => {
+  let live = 0, peak = 0
+  const out = await pool([1, 2, 3, 4, 5, 6, 7], 3, async n => {
+    live++; peak = Math.max(peak, live)
+    await new Promise(r => setTimeout(r, 5))
+    live--
+    if (n === 4) throw new Error('x')
+    return n * 10
+  })
+  assert.deepEqual(out, [10, 20, 30, null, 50, 60, 70])
+  assert.equal(peak, 3)
+  assert.deepEqual(await pool([], 4, async () => 1), [])
+})
+
+test('합치기: 요소가 많아도 빠름 (8천 개 · 0.2초 안)', () => {
+  const a = Array.from({ length: 8000 }, (_, i) => el(`a${i}`, 1))
+  const b = Array.from({ length: 8000 }, (_, i) => el(i % 2 ? `a${i}` : `b${i}`, 2))
+  const t = Date.now()
+  const m = mergeElements(a, b)
+  assert.ok(Date.now() - t < 200)
+  assert.equal(m.length, 12000)
 })

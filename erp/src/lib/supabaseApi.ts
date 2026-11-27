@@ -267,6 +267,8 @@ export function createSupabaseApi(url: string, key: string): Api {
       } catch {
         /* 알림을 안 쓰는 브라우저 */
       }
+      // 이 브라우저에 보관한 화이트보드 사진도 지움 (다음 사람이 쓰는 PC 에 남지 않게)
+      try { await caches.delete('wkly-board-files') } catch { /* 보관함 없는 브라우저 */ }
       await sb.auth.signOut()
     },
     async changePassword(password) {
