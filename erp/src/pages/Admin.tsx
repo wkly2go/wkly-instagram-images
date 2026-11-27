@@ -71,6 +71,7 @@ export default function Admin() {
         <span className="t-cap">{lastBackup ? `마지막 백업 ${shortDate(lastBackup)}` : '백업 기록 없음'}</span>
       </div>
       {error && <div className="err">{error}</div>}
+      <AdminFigmaKey />
       <AdminReports />
       <CapabilityBoard />
       <SystemStatus overview={data.overview} />
@@ -79,7 +80,6 @@ export default function Admin() {
       <DesktopAttendance />
       <Routes routes={data.routes} />
       <AgentKeys tokens={data.tokens} />
-      <AdminFigmaKey />
       <Backup />
       <Activity approvals={data.approvals} research={data.research} />
     </Shell>

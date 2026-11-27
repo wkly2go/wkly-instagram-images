@@ -46,3 +46,21 @@ test('노드 id 정리 · 보기 주소', () => {
   assert.deepEqual(cleanNodeIds('1:2'), [])
   assert.match(figmaEmbedUrl('https://www.figma.com/board/Ab/x'), /^https:\/\/www\.figma\.com\/embed\?embed_host=wkly-erp&url=https%3A%2F%2Fwww\.figma\.com%2Fboard%2FAb%2Fx$/)
 })
+
+test('섹션 안 슬라이드를 섹션 뒤에 펼침', async () => {
+  const { expandSections } = await import('../supabase/functions/figma/parse.ts')
+  const top = [
+    { id: '1:1', name: 'cover', type: 'FRAME', page: 'P', w: 1920, h: 1080 },
+    { id: '2:1', name: '제안서', type: 'SECTION', page: 'P', w: 9000, h: 2000 },
+  ]
+  const kids = { '2:1': { children: [
+    { id: '2:2', name: '01', type: 'FRAME', absoluteBoundingBox: { width: 1920, height: 1080 } },
+    { id: '2:3', name: '메모', type: 'STICKY' },
+    { id: '1:1', name: 'dup', type: 'FRAME' },
+  ] } }
+  const out = expandSections(top, kids)
+  assert.deepEqual(out.map(f => f.id), ['1:1', '2:1', '2:2'])
+  assert.equal(out[2].page, 'P › 제안서')
+  assert.equal(out[2].w, 1920)
+  assert.equal(expandSections(top, kids, 2).length, 2)
+})

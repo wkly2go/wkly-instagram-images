@@ -33,6 +33,26 @@ export function framesOf(doc: Node | null | undefined): FigmaFrame[] {
   return out.slice(0, 500)
 }
 
+/** 섹션 안 바로 아래 프레임을 섹션 바로 뒤에 넣음 (제안서 슬라이드가 섹션 안에 줄지어 있는 경우 · 2026-11-27 포켓몬 보드)
+ *  kids: 섹션 id → 그 섹션 노드(depth=1 로 받은 것) */
+export function expandSections(frames: FigmaFrame[], kids: Record<string, Node | null | undefined>, max = 500): FigmaFrame[] {
+  const out: FigmaFrame[] = []
+  const seen = new Set<string>()
+  for (const f of frames) {
+    if (out.length >= max) break
+    if (!seen.has(f.id)) { out.push(f); seen.add(f.id) }
+    if (f.type !== 'SECTION') continue
+    for (const c of kids[f.id]?.children ?? []) {
+      if (out.length >= max) break
+      if (!c.id || !c.type || seen.has(c.id) || !['FRAME', 'COMPONENT', 'SLIDE'].includes(c.type)) continue
+      const b = c.absoluteBoundingBox ?? {}
+      out.push({ id: c.id, name: (c.name ?? '').slice(0, 120), type: c.type, page: `${f.page} › ${f.name}`.slice(0, 160), w: Math.round(b.width ?? 0), h: Math.round(b.height ?? 0) })
+      seen.add(c.id)
+    }
+  }
+  return out
+}
+
 /** 보드에 적힌 글 (포스트잇 · 글 상자 · 도형 안 글) — 인트라넷 찾기용 · 최대 50,000자 */
 export function textOf(doc: Node | null | undefined, max = 50000): string {
   const parts: string[] = []
