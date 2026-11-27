@@ -22,7 +22,12 @@ export interface AutoInput {
   shopUrl?: string
   /** 분석에서 고른 참고 자료 (형식 · 관점만 참고 · 사실로 쓰지 않음 · 선택) */
   reference?: string
+  /** 우리가 이미 쓴 글 (2026-11-27 '글 하나를 여러 채널로' · 이 글의 사실은 그대로 써도 됨 · 블로그는 이 글을 그대로 둠 · 선택) */
+  source?: SourceArticle
 }
+
+/** 이미 쓴 우리 글 한 편 (콘텐츠 id · 제목 · 본문) */
+export interface SourceArticle { id: string; title: string; body: string }
 
 /** 카드뉴스 한 장 (인스타그램 캐러셀) */
 export interface CardSlide { title: string; body: string }
@@ -49,22 +54,35 @@ export const AUTO_DEFAULT_LINK: Record<MarketingBrand, string> = { wkly: 'https:
 
 const clip = (s: unknown, n: number) => (typeof s === 'string' ? s.replace(/\r/g, '').trim().slice(0, n) : '')
 
-/** AI 요청문 — 한 번에 기획 · 광고 문구 · 채널 4개 글을 JSON 으로 (growth-ai 요청 6,000자 한도 안) */
+export const PROMPT_LIMIT = 5800
+const SOURCE_MAX = 3000
+
+/** AI 요청문 — 한 번에 기획 · 광고 문구 · 채널 4개 글을 JSON 으로 (growth-ai 요청 6,000자 한도 안).
+ *  우리 글(source)이 있으면 그 글을 바탕으로 다른 채널만 쓰게 하고, 글은 한도 안에 들어가는 만큼만 넣는다(답 형식 줄은 늘 끝까지 남김). */
 export function autoCampaignPrompt(input: AutoInput): string {
+  const src = input.source && clip(input.source.body, SOURCE_MAX).length >= 1 ? input.source : null
+  const build = (sourceBody: string) => promptLines(input, src ? { title: clip(src.title, 120), body: sourceBody } : null).join('\n')
+  if (!src) return build('').slice(0, PROMPT_LIMIT)
+  const room = PROMPT_LIMIT - build('').length
+  return build(clip(src.body, Math.max(0, Math.min(SOURCE_MAX, room)))).slice(0, PROMPT_LIMIT)
+}
+
+function promptLines(input: AutoInput, src: { title: string; body: string } | null): string[] {
   const facts = clip(input.facts, 1200)
   return [
     `회사: ${AUTO_BRAND_LABEL[input.brand]}`,
     `알릴 내용: ${clip(input.topic, 500)}`,
-    facts ? `확인된 사실(이것만 사실로 씀):\n${facts}` : '확인된 사실: 위 알릴 내용뿐 — 날짜 · 가격 · 실적 · 숫자를 지어내지 말고 필요하면 [확인 필요]로 적는다.',
+    facts ? `확인된 사실(이것만 사실로 씀):\n${facts}` : src ? '확인된 사실: 위 알릴 내용과 아래 원본 글뿐 — 그 밖의 날짜 · 가격 · 실적 · 숫자를 지어내지 말고 필요하면 [확인 필요]로 적는다.' : '확인된 사실: 위 알릴 내용뿐 — 날짜 · 가격 · 실적 · 숫자를 지어내지 말고 필요하면 [확인 필요]로 적는다.',
+    ...(src ? [`원본 글(우리 회사가 이미 쓴 글 · 제목: ${src.title} — 이 글의 내용은 사실로 써도 된다. 원본에 없는 사실은 더하지 않는다):\n${src.body}`] : []),
     ...(clip(input.reference, 700) ? [`참고한 분석 자료(요즘 반응이 좋은 주제 · 형식 · 관점만 참고한다. 여기 적힌 숫자 · 날짜 · 남의 브랜드 이야기를 우리 사실처럼 쓰지 않고, 문장을 베끼지 않는다):\n${clip(input.reference, 700)}`] : []),
     `연결 주소: ${clip(input.link, 300) || AUTO_DEFAULT_LINK[input.brand]}`,
     `기간: ${input.startDate || '미정'} ~ ${input.endDate || '미정'}`,
     '',
     WKLY_COPY_RULES,
     '',
-    '[할 일] 위 내용으로 인스타그램 · 페이스북 광고 1건과 채널별 글 4개를 한 번에 만든다.',
+    src ? '[할 일] 원본 글을 바탕으로 인스타그램 · 페이스북 광고 1건과 인스타 · 유튜브 · 홈페이지 글, 카드뉴스를 만든다. 블로그는 원본 글을 그대로 쓰므로 blog 의 title · body 는 빈 글("")로 둔다.' : '[할 일] 위 내용으로 인스타그램 · 페이스북 광고 1건과 채널별 글 4개를 한 번에 만든다.',
     '- 광고: 제목 40자 이내 · 본문 첫 줄 125자 안에 핵심 · 행동 유도 10자 이내 · 이미지 위 작은 글(kicker) 15자 이내',
-    '- 블로그(네이버 검색 · 홈피드 노출 기준): 사람들이 실제로 검색할 핵심 낱말 하나를 정해 제목 앞쪽에 넣고 본문에 자연스럽게 3~5번(억지 반복 금지) · 제목 30자 안팎 · 본문 1,500~2,500자 · 소제목 3~4개 · 직접 겪은 장면 · 현장 사진 자리를 [사진: 무엇] 으로 표시 · 다른 글 베끼기 · 낱말 나열 금지 · 마지막 줄에 연결 주소',
+    ...(src ? [] : ['- 블로그(네이버 검색 · 홈피드 노출 기준): 사람들이 실제로 검색할 핵심 낱말 하나를 정해 제목 앞쪽에 넣고 본문에 자연스럽게 3~5번(억지 반복 금지) · 제목 30자 안팎 · 본문 1,500~2,500자 · 소제목 3~4개 · 직접 겪은 장면 · 현장 사진 자리를 [사진: 무엇] 으로 표시 · 다른 글 베끼기 · 낱말 나열 금지 · 마지막 줄에 연결 주소']),
     '- 인스타그램: 캡션 600자 이내 · 첫 줄이 후킹 · 줄바꿈으로 읽기 쉽게 · 태그는 # 붙여 8~15개',
     '- 유튜브: 영상 제목 50자 이내 + 설명 400자 이내 (영상은 사람이 올림)',
     '- 홈페이지: 소식 글 제목 + 본문 400~800자 (차분한 공지 말투)',
@@ -73,7 +91,7 @@ export function autoCampaignPrompt(input: AutoInput): string {
     '[답 형식] 설명 없이 아래 JSON 하나만 출력한다. 값은 모두 한국어 문자열.',
     '{"title":"캠페인 이름(30자)","audience":"누구에게(60자)","insight":"그 사람이 지금 겪는 상황 한 줄","kicker":"","headline":"","primaryText":"","description":"보조 문구(30자)","cta":"",',
     '"blog":{"title":"","body":""},"instagram":{"caption":"","tags":""},"youtube":{"title":"","body":""},"homepage":{"title":"","body":""},"slides":[{"title":"","body":""}]}',
-  ].join('\n').slice(0, 5800)
+  ]
 }
 
 /** AI 답에서 JSON 을 꺼내 정리 (앞뒤 설명 · ```json 울타리가 있어도 됨). 필수 칸이 비면 null */
@@ -136,10 +154,11 @@ export function autoContentDraft(base: GrowthDraft, input: AutoInput, r: AutoRes
       ...base.document,
       division: input.brand === 'arterior' ? 'AR' : 'TW',
       source_url: link,
-      original: [clip(input.topic, 2000), clip(input.facts, 4000)].filter(Boolean).join('\n\n'),
-      note: `한 번에 만들기로 AI 가 만든 초안 · 대상: ${r.audience} · 상황: ${r.insight}`.slice(0, 2000),
+      original: [clip(input.topic, 2000), clip(input.facts, 4000), input.source ? `원본 글: ${clip(input.source.title, 200)} (/ads?tab=content&item=${input.source.id})` : ''].filter(Boolean).join('\n\n'),
+      note: `한 번에 만들기로 AI 가 만든 초안${input.source ? ` · 원본 글 '${clip(input.source.title, 80)}' 에서` : ''} · 대상: ${r.audience} · 상황: ${r.insight}`.slice(0, 2000),
       versions: [
-        v('네이버 블로그', r.blog.title, blogWithShop(r.blog.body, input.shopUrl)),
+        // 원본 글에서 만들면 블로그는 원본 콘텐츠에 그대로 있으므로 여기서는 비워 둔다(같은 글이 두 콘텐츠에 생기지 않게)
+        input.source ? v('네이버 블로그', '', '') : v('네이버 블로그', r.blog.title, blogWithShop(r.blog.body, input.shopUrl)),
         v('인스타그램', r.headline, r.instagram.caption, r.instagram.tags),
         v('유튜브', r.youtube.title, r.youtube.body),
         v('홈페이지', r.homepage.title, r.homepage.body),
@@ -161,6 +180,14 @@ export function autoReelRequest(r: AutoResult, opt: AutoReelOption): VideoEditIn
     '자막에는 화면에 보이는 사실만 씁니다. 위 문장의 날짜 · 가격 · 숫자는 자막에 옮기지 않습니다.',
   ].join('\n').slice(0, 2000)
   return { title: `[릴스] ${r.title}`.slice(0, 120), source_folder: opt.folder, template: opt.template, instructions, target_seconds: opt.seconds }
+}
+
+/** 콘텐츠 한 건에서 원본으로 쓸 글: 네이버 블로그 → 홈페이지 → 가장 긴 채널 순, 본문 300자 이상만 */
+export function sourceArticle(item: { id: string; title: string; document: { versions?: { channel: string; title: string; body: string }[] } }): SourceArticle | null {
+  const vs = (item.document.versions ?? []).filter(v => (v.body ?? '').replace(/\s+/g, '').length >= 300)
+  const pick = vs.find(v => v.channel === '네이버 블로그') ?? vs.find(v => v.channel === '홈페이지') ?? [...vs].sort((a, b) => b.body.length - a.body.length)[0]
+  if (!pick) return null
+  return { id: item.id, title: (pick.title || item.title).trim().slice(0, 200), body: pick.body.trim() }
 }
 
 /** 블로그 글 끝에 크리에이터샵 · 쇼핑커넥트 안내 한 줄 (주소가 있을 때만 · 이미 들어 있으면 그대로) */
