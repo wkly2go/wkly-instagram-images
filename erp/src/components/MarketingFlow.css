@@ -1,0 +1,27 @@
+/* 마케팅 자동화 흐름 — 넓은 화면은 여섯 칸 한 줄, 좁으면 두 칸 · 한 칸 */
+.mf { display: flex; flex-direction: column; gap: 14px; }
+.mf-card { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.mf-rule, .mf-empty { margin: 0; color: var(--tx-sub); }
+.mf-steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; }
+.mf-step { border: 1px solid var(--v8-line); border-radius: var(--v8-r-card); background: var(--v8-card); padding: 12px; display: flex; flex-direction: column; gap: 6px; min-width: 0; border-top: 3px solid #d9ddd9; }
+.mf-step.ok { border-top-color: var(--tx-key); }
+.mf-step.todo { border-top-color: #d8a200; }
+.mf-step-head { display: flex; align-items: center; gap: 8px; }
+.mf-step-head b { font-weight: 700; font-size: var(--fs-sub); white-space: nowrap; }
+.mf-no { flex: none; width: 22px; height: 22px; border-radius: 999px; background: #eceeed; color: var(--tx-sub); display: inline-flex; align-items: center; justify-content: center; font-variant-numeric: tabular-nums; }
+.mf-step.ok .mf-no { background: #e3f3ea; color: var(--tx-key); }
+.mf-step.todo .mf-no { background: #fff3d1; color: #6b5200; }
+.mf-step p { margin: 0; color: var(--tx-body); overflow-wrap: anywhere; }
+.mf-step .mf-todo { color: #6b5200; background: #fff8e6; border-radius: 6px; padding: 6px 8px; }
+.mf-go { margin-top: auto; padding-top: 4px; color: var(--tx-key); text-decoration: none; display: inline-flex; align-items: center; gap: 4px; min-height: 28px; }
+.mf-go:hover { text-decoration: underline; }
+.mf-sum { margin: 0; font-weight: 700; }
+.mf-sum small { font-weight: 400; color: var(--tx-sub); font-size: var(--fs-body); }
+.mf-table-wrap { overflow-x: auto; }
+.mf-table { width: 100%; border-collapse: collapse; }
+.mf-table th, .mf-table td { padding: 8px 10px; border-bottom: 1px solid var(--v8-line); text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.mf-table th { color: var(--tx-sub); font-weight: 700; }
+.mf-table th:first-child, .mf-table td:first-child, .mf-table th:nth-child(2), .mf-table td:nth-child(2) { text-align: left; white-space: normal; overflow-wrap: anywhere; }
+@media (max-width: 640px) { .mf-steps { grid-template-columns: 1fr; } .mf-card { padding: 12px; } .mf-go { min-height: 44px; } }
+html[data-theme="dark"] .mf-step { background: #15291c; border-color: var(--line); color: var(--ink); }
+html[data-theme="dark"] .mf-step .mf-todo { background: #2a2614; color: var(--ink); }
