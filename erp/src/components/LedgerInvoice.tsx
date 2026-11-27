@@ -10,6 +10,7 @@ import { downloadText, toCsv } from '../lib/csv'
 import type { LedgerEntry, TaxInvoice, TaxInvoiceSummary } from '../lib/types'
 import { day, matchInvoices, type InvoiceMatch } from '../lib/invoiceMatch'
 import { runSettlement } from '../lib/invoiceSettle'
+import { companyOfInvoice, inCompany, useCompany } from '../lib/company'
 
 export function InvoiceView({ year, onExpired }: { year: string; onExpired: () => void }) {
   const { api, toast } = useApp()
@@ -21,6 +22,8 @@ export function InvoiceView({ year, onExpired }: { year: string; onExpired: () =
   const [busy, setBusy] = useState(false)
   const [tick, setTick] = useState(0)
   const today = todayKey()
+  // 고른 회사의 계산서만 (2026-11-27 · 두 회사 장부를 섞지 않음)
+  const pick = useCompany()
   const resettle = async () => {
     setBusy(true)
     try {
@@ -37,14 +40,15 @@ export function InvoiceView({ year, onExpired }: { year: string; onExpired: () =
     setLoading(true)
     Promise.all([api.listTaxInvoices(), api.listLedger(`${Number(year) - 1}-11-01`, `${Number(year) + 1}-02-28`), api.listTaxInvoiceSummaries().catch(() => [] as TaxInvoiceSummary[])])
       .then(([inv, led, sm]) => {
-        setInvoices(inv.filter(i => i.total && i.write_date.startsWith(year)))
-        setAllInv(inv)
+        const mine = inv.filter(i => inCompany(pick, companyOfInvoice(i)))
+        setInvoices(mine.filter(i => i.total && i.write_date.startsWith(year)))
+        setAllInv(mine)
         setRows(led)
         setSums(sm.filter(x => x.period_from.startsWith(year) || x.period_to.startsWith(year)))
       })
       .catch(() => onExpired())
       .finally(() => setLoading(false))
-  }, [api, year, onExpired, tick])
+  }, [api, year, onExpired, tick, pick])
 
   // 저장된 대사 결과(0108 · settled)가 있으면 그것을, 없으면 화면에서 짝지음
   const matches = useMemo<InvoiceMatch[]>(() => {

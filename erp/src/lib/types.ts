@@ -730,6 +730,8 @@ export interface TaxInvoice {
 /** 홈택스 세금계산서 합계표 (0109 · 기간 · 거래처별) */
 export interface TaxInvoiceSummary {
   id: number
+  /** 회사 (2026-11-27 · 올릴 때 고른 회사) */
+  company?: 'AR' | 'TW'
   direction: '매출' | '매입'
   period_from: string
   period_to: string
