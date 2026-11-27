@@ -8,12 +8,13 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Excalidraw, exportToBlob, exportToSvg } from '@excalidraw/excalidraw'
 import '@excalidraw/excalidraw/index.css'
 import { convertToExcalidrawElements } from '@excalidraw/excalidraw'
-import { ArrowLeft, Copy, Download, FileDown, Figma, Maximize2, Minimize2, Upload, Users, X } from 'lucide-react'
+import { ArrowLeft, Copy, Download, FileDown, Figma, Map as MapIcon, Maximize2, Minimize2, Upload, Users, X } from 'lucide-react'
 import { Link } from '../lib/router'
 import { boardFilePath, boardTitle, mergeElements, pool, saveDelay, sceneForSave, sceneSignature, type BoardElement, type BoardFileRef, type BoardScene } from '../lib/board'
 import type { BoardApi, BoardLive, BoardPeer, ProjectBoard } from '../lib/boardApi'
 import { imagesToPdf } from '../lib/imagePdf'
 import { figmaToSkeleton, placeTexts, type FigmaContent } from '../lib/figmaToBoard'
+import { BoardMinimap, type MinimapSource } from './BoardMinimap'
 import { BOARD_FONT, installBoardFonts, svgFontsForFigma } from '../lib/boardFonts'
 import '../pages/Board.css'
 
@@ -60,6 +61,10 @@ export default function BoardEditorCore({ id, embedded = false, onClose, api, me
   const [full, setFull] = useState(false)
   const [figmaOpen, setFigmaOpen] = useState(false)
   const [toFigma, setToFigma] = useState(false)
+  // 전체 보기 지도 (켜고 끈 것은 이 브라우저에 기억 · 기본 켬)
+  const [mapOn, setMapOn] = useState(() => { try { return localStorage.getItem('wkly-board-map') !== '0' } catch { return true } })
+  const toggleMap = (on: boolean) => { setMapOn(on); try { localStorage.setItem('wkly-board-map', on ? '1' : '0') } catch { /* 저장 못 해도 그대로 */ } }
+  const mapSource = useCallback(() => ex.current as unknown as MinimapSource | null, [])
   const [board, setBoard] = useState<ProjectBoard | null>(null)
   const [initial, setInitial] = useState<{ elements: BoardElement[]; files: BinaryFile[] } | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -378,6 +383,7 @@ export default function BoardEditorCore({ id, embedded = false, onClose, api, me
         </span>}
         <button type="button" className="btn btn-outline btn-sm" onClick={() => void downloadPng()} disabled={!board}><Download size={13} /> PNG</button>
         <button type="button" className="btn btn-outline btn-sm" onClick={() => void downloadPdf()} disabled={!board} title="프레임마다 한 쪽 (프레임이 없으면 보드 전체 한 쪽)"><FileDown size={13} /> PDF</button>
+        <button type="button" className={`icon-btn board-mapbtn${mapOn ? ' on' : ''}`} onClick={() => toggleMap(!mapOn)} title={mapOn ? '전체 보기 지도 숨기기' : '전체 보기 지도 — 보드 전체에서 지금 위치를 보고 눌러서 이동'} aria-label="전체 보기 지도" aria-pressed={mapOn}><MapIcon size={14} /></button>
         <button type="button" className="icon-btn board-full" onClick={() => void toggleFull()} title={full ? '전체 화면 끝 (Esc)' : '전체 화면'} aria-label={full ? '전체 화면 끝' : '전체 화면'}>{full ? <Minimize2 size={14} /> : <Maximize2 size={14} />}</button>
         {embedded && onClose && <button type="button" className="icon-btn" onClick={onClose} title="보드 닫기" aria-label="보드 닫기"><X size={14} /></button>}
       </div>
@@ -395,6 +401,7 @@ export default function BoardEditorCore({ id, embedded = false, onClose, api, me
             UIOptions={{ canvasActions: { saveToActiveFile: false, toggleTheme: false } }}
           />
         ) : <p className="board-msg" role="status">보드를 불러오는 중입니다.</p>}
+        {initial && mapOn && <BoardMinimap source={mapSource} onHide={() => toggleMap(false)} />}
       </div>
     </div>
   )
