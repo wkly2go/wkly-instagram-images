@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { approveForInstagram, blogWithShop, autoAdText, autoCampaign, autoCampaignPrompt, autoContentDraft, autoDates, autoReelRequest, parseAutoResult, type AutoInput } from '../src/lib/autoCampaign.ts'
+import { approveForInstagram, blogWithShop, autoAdText, autoCampaign, autoCampaignPrompt, autoContentDraft, autoDates, autoReelRequest, parseAutoResult, PROMPT_LIMIT, sourceArticle, type AutoInput } from '../src/lib/autoCampaign.ts'
 import { videoInputProblem } from '../src/lib/videoEdits.ts'
 
 const input: AutoInput = { topic: '성수 팝업 공간 12월 대관 오픈', brand: 'wkly', link: '', startDate: '2026-11-21', endDate: '2026-11-27', facts: '12월 첫째 주부터 예약 가능' }
@@ -86,4 +86,37 @@ test('릴스 편집 요청: 캠페인 말을 지시로 · 요청 규칙 통과 �
   const long = autoReelRequest({ ...r, title: '가'.repeat(300), headline: '나'.repeat(3000) }, { folder: 'a', template: 'cuts', seconds: 20 })
   assert.ok(long.title.length <= 120 && long.instructions.length <= 2000)
   assert.equal(videoInputProblem(long), null)
+})
+
+test('원본 글에서 만들기: 글을 넣고 블로그는 비우게 · 한도 안 · 답 형식 줄은 늘 끝까지', () => {
+  const body = '성수 팝업 공간을 소개합니다. '.repeat(160) // 약 2,700자
+  const source = { id: 'g-1', title: '[시험] 성수 팝업 공간 소개', body }
+  const p = autoCampaignPrompt({ ...input, source })
+  assert.ok(p.length <= PROMPT_LIMIT)
+  assert.match(p, /원본 글\(우리 회사가 이미 쓴 글 · 제목: \[시험\] 성수 팝업 공간 소개/)
+  assert.match(p, /blog 의 title · body 는 빈 글/)
+  assert.doesNotMatch(p, /블로그\(네이버 검색 · 홈피드 노출 기준\)/)
+  assert.ok(p.trimEnd().endsWith('"slides":[{"title":"","body":""}]}'))
+  // 칸이 모두 가득 차도 답 형식은 잘리지 않고 원본 글이 줄어든다
+  const full = autoCampaignPrompt({ ...input, topic: '가'.repeat(500), facts: '나'.repeat(1200), reference: '다'.repeat(700), source: { ...source, body: '라'.repeat(5000) } })
+  assert.ok(full.length <= PROMPT_LIMIT)
+  assert.ok(full.trimEnd().endsWith('"slides":[{"title":"","body":""}]}'))
+  assert.ok(full.includes('라'.repeat(500)))
+  // 원본 글이 없으면 예전 그대로 (블로그 규칙 포함)
+  assert.match(autoCampaignPrompt(input), /블로그\(네이버 검색 · 홈피드 노출 기준\)/)
+})
+
+test('원본 글에서 만들기: 새 콘텐츠의 블로그는 비우고 원본을 적어 둠 · 원본 고르기 규칙', () => {
+  const r = parseAutoResult(answer)!
+  const source = { id: 'g-1', title: '원본 제목', body: '본문' }
+  const base = { kind: 'content', title: '', owner_id: 'u', status: '작성 중', document: { division: 'TW', source_url: '', note: '' }, campaign_id: null } as const
+  const d = autoContentDraft({ ...base, document: { ...base.document } }, { ...input, source }, r, 'camp-1')
+  const blog = d.document.versions!.find(v => v.channel === '네이버 블로그')!
+  assert.equal(blog.title, ''); assert.equal(blog.body, '')
+  assert.match(d.document.original!, /원본 글: 원본 제목 \(\/ads\?tab=content&item=g-1\)/)
+  assert.equal(d.document.versions!.find(v => v.channel === '인스타그램')!.body, '캡션')
+  const long = '가나다라마바사아자차'.repeat(40)
+  assert.deepEqual(sourceArticle({ id: 'x', title: '콘텐츠', document: { versions: [{ channel: '인스타그램', title: '', body: long + long }, { channel: '네이버 블로그', title: '블로그 제목', body: long }] } }), { id: 'x', title: '블로그 제목', body: long })
+  assert.equal(sourceArticle({ id: 'x', title: '콘텐츠', document: { versions: [{ channel: '네이버 블로그', title: 't', body: '짧은 글' }] } }), null)
+  assert.equal(sourceArticle({ id: 'x', title: '콘텐츠', document: { versions: [{ channel: '홈페이지', title: '', body: long }] } })!.title, '콘텐츠')
 })

@@ -12,9 +12,9 @@ import { Check, Clapperboard, Copy, ExternalLink, ImagePlus, Loader2, Send, Spar
 import { useApp } from '../lib/app'
 import { friendlyError } from '../lib/api'
 import { AD_SIZES, drawAdCreative } from '../lib/adCreative'
-import { approveForInstagram, AUTO_DEFAULT_LINK, autoAdText, autoCampaign, autoCampaignPrompt, autoContentDraft, autoDates, autoReelRequest, MANUAL_POST_URL, parseAutoResult, type AutoInput, type AutoResult } from '../lib/autoCampaign'
+import { approveForInstagram, AUTO_DEFAULT_LINK, autoAdText, autoCampaign, autoCampaignPrompt, autoContentDraft, autoDates, autoReelRequest, MANUAL_POST_URL, parseAutoResult, sourceArticle, type AutoInput, type AutoResult } from '../lib/autoCampaign'
 import { CARD_SIZE, drawCardEnd, drawCardSlide } from '../lib/cardNews'
-import { newGrowth, type GrowthItem } from '../lib/growth'
+import { newGrowth, type GrowthItem, type GrowthSummary } from '../lib/growth'
 import { defaultMarketingCampaign, marketingTodayKST, type MarketingBrand, type MarketingCampaign } from '../lib/marketing'
 import { Link } from '../lib/router'
 import { VIDEO_SECONDS, VIDEO_TEMPLATES, folderLabel, videoInputProblem, workerState, type VideoSourceFolder, type VideoTemplate } from '../lib/videoEdits'
@@ -75,12 +75,32 @@ export function AutoCampaignPanel({ onCampaign }: { onCampaign?: (id: string) =>
   const [picks, setPicks] = useState<{ open: boolean; loading: boolean; list: AnalysisPick[]; chosen: AnalysisPick | null }>({ open: false, loading: false, list: [], chosen: null })
   const openPicks = async () => {
     if (picks.open) { setPicks(p => ({ ...p, open: false })); return }
+    setMine(m => ({ ...m, open: false }))
     setPicks(p => ({ ...p, open: true, loading: !p.list.length }))
     if (picks.list.length) return
     const [research, comp] = await Promise.all([api.listResearch().catch(() => []), api.listCompetitors().catch(() => ({ competitors: [], posts: [] }))])
     const owner = new Map(comp.competitors.filter(c => !c.is_self).map(c => [c.id, c.name]))
     const posts = comp.posts.filter(p => owner.has(p.competitor_id)).map(p => ({ ...p, owner: owner.get(p.competitor_id) }))
     setPicks(p => ({ ...p, loading: false, list: analysisPicks(research, posts, Date.now()) }))
+  }
+  // 내 글에서 고르기 (2026-11-27 '글 하나를 여러 채널로'): 이미 쓴 콘텐츠 한 편을 원본으로 — 블로그는 그 글 그대로, 나머지 채널 · 카드뉴스를 만듦
+  const [mine, setMine] = useState<{ open: boolean; loading: boolean; list: GrowthSummary[]; busy: string }>({ open: false, loading: false, list: [], busy: '' })
+  const openMine = async () => {
+    if (mine.open) { setMine(m => ({ ...m, open: false })); return }
+    setPicks(p => ({ ...p, open: false }))
+    setMine(m => ({ ...m, open: true, loading: !m.list.length }))
+    if (mine.list.length) return
+    const r = await api.listGrowth({ kind: 'content', page: 0, search: '', status: '' }).catch(() => ({ items: [] as GrowthSummary[], hasMore: false }))
+    setMine(m => ({ ...m, loading: false, list: r.items }))
+  }
+  const chooseMine = async (g: GrowthSummary) => {
+    setMine(m => ({ ...m, busy: g.id }))
+    try {
+      const art = sourceArticle(await api.getGrowth(g.id))
+      if (!art) { toast('이 콘텐츠에는 300자 넘는 글이 없습니다. 블로그 · 홈페이지 글이 있는 콘텐츠를 골라 주세요.'); setMine(m => ({ ...m, busy: '' })); return }
+      setInput(v => ({ ...v, source: art, topic: v.topic.trim() ? v.topic : art.title.slice(0, 500) }))
+      setMine(m => ({ ...m, busy: '', open: false }))
+    } catch (e) { setMine(m => ({ ...m, busy: '' })); toast(friendlyError(e)) }
   }
   const choose = (p: AnalysisPick) => { setPicks(v => ({ ...v, chosen: p, open: false })); setInput(v => ({ ...v, topic: v.topic.trim() ? v.topic : p.title.slice(0, 500), reference: pickReference(p) })) }
   const unchoose = () => { setPicks(v => ({ ...v, chosen: null })); setInput(v => ({ ...v, reference: '' })) }
@@ -184,10 +204,16 @@ export function AutoCampaignPanel({ onCampaign }: { onCampaign?: (id: string) =>
       </header>
       <div className="auto-camp-picks">
         <button type="button" className="btn btn-outline btn-sm" aria-expanded={picks.open} onClick={() => void openPicks()}>분석에서 고르기</button>
-        {picks.chosen
-          ? <span className="auto-camp-picked"><b>{picks.chosen.group}</b> {picks.chosen.title} <button type="button" className="md-text-button" onClick={unchoose}>빼기</button></span>
-          : <small>최근 트렌드 · 팝업 정보 · 경쟁사 인기 글을 골라 주제와 참고 자료로 넘깁니다.</small>}
-        {picks.open && (picks.loading ? <p className="auto-camp-picks-empty">불러오는 중…</p> : picks.list.length === 0 ? <p className="auto-camp-picks-empty">최근 2주 분석 자료가 없습니다.</p> : (
+        <button type="button" className="btn btn-outline btn-sm" aria-expanded={mine.open} onClick={() => void openMine()}>내 글에서 고르기</button>
+        {picks.chosen && <span className="auto-camp-picked"><b>{picks.chosen.group}</b> {picks.chosen.title} <button type="button" className="md-text-button" onClick={unchoose}>빼기</button></span>}
+        {input.source && <span className="auto-camp-picked"><b>원본 글</b> {input.source.title} <button type="button" className="md-text-button" onClick={() => setInput(v => ({ ...v, source: undefined }))}>빼기</button></span>}
+        {!picks.chosen && !input.source && <small>분석 자료(트렌드 · 팝업 정보 · 경쟁사 인기 글)나 이미 쓴 우리 글을 골라 시작할 수 있습니다.</small>}
+        {mine.open && (mine.loading ? <p className="auto-camp-picks-empty">불러오는 중…</p> : mine.list.length === 0 ? <p className="auto-camp-picks-empty">아직 쓴 콘텐츠가 없습니다.</p> : (
+          <ul className="auto-camp-pick-list">{mine.list.map(g => (
+            <li key={g.id}><button type="button" disabled={!!mine.busy} onClick={() => void chooseMine(g)}><span className="auto-camp-pick-group">{g.status}</span><span className="auto-camp-pick-title">{g.title || '(제목 없음)'}</span><small>{mine.busy === g.id ? '글을 읽는 중…' : `고친 날 ${g.updated_at.slice(0, 10)}`}</small></button></li>
+          ))}</ul>
+        ))}
+        {picks.open && !mine.open && (picks.loading ? <p className="auto-camp-picks-empty">불러오는 중…</p> : picks.list.length === 0 ? <p className="auto-camp-picks-empty">최근 2주 분석 자료가 없습니다.</p> : (
           <ul className="auto-camp-pick-list">{picks.list.map(p => (
             <li key={p.key}><button type="button" onClick={() => choose(p)}><span className="auto-camp-pick-group">{p.group}</span><span className="auto-camp-pick-title">{p.title}</span>{p.source && <small>{p.source}</small>}</button></li>
           ))}</ul>
@@ -257,7 +283,7 @@ export function AutoCampaignPanel({ onCampaign }: { onCampaign?: (id: string) =>
           <div className="auto-camp-channels">
             {(['네이버 블로그', '유튜브', '홈페이지'] as const).map(name => {
               const v = channel(name)
-              if (!v) return null
+              if (!v || !v.body.trim()) return null
               return (
                 <article key={name}>
                   <header><b>{name}</b><span className="row"><button type="button" className="btn btn-outline btn-sm" onClick={() => void copy(`${v.title}\n\n${v.body}`)}><Copy size={12} /> 글 복사</button><a className="btn btn-outline btn-sm" href={MANUAL_POST_URL[name]} target="_blank" rel="noreferrer"><ExternalLink size={12} /> 글쓰기 열기</a></span></header>
@@ -267,6 +293,7 @@ export function AutoCampaignPanel({ onCampaign }: { onCampaign?: (id: string) =>
               )
             })}
           </div>
+          {input.source && <p className="auto-camp-note">블로그는 원본 글을 그대로 씁니다 — <Link to={`/ads?tab=content&item=${input.source.id}`}>{input.source.title}</Link></p>}
           <p className="auto-camp-note">블로그 · 유튜브 · 홈페이지는 자동 게시 연결이 없어 글을 붙여 넣은 뒤 ‘콘텐츠에서 다듬기’에 발행 주소를 적어 주세요. 유료 광고는 ‘캠페인 열기’에서 예산을 정하고 광고 관리자에 올립니다.</p>
         </div>
       )}
