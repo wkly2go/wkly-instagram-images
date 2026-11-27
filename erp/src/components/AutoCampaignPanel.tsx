@@ -13,7 +13,7 @@ import { useApp } from '../lib/app'
 import { friendlyError } from '../lib/api'
 import { AD_SIZES, drawAdCreative } from '../lib/adCreative'
 import { approveForInstagram, AUTO_DEFAULT_LINK, autoAdText, autoCampaign, autoCampaignPrompt, autoContentDraft, autoDates, autoReelRequest, MANUAL_POST_URL, parseAutoResult, sourceArticle, type AutoInput, type AutoResult } from '../lib/autoCampaign'
-import { CARD_SIZE, drawCardEnd, drawCardSlide } from '../lib/cardNews'
+import { CARD_SIZE, drawCardEnd, drawCardSlide, type CardLogo } from '../lib/cardNews'
 import { newGrowth, type GrowthItem, type GrowthSummary } from '../lib/growth'
 import { defaultMarketingCampaign, marketingTodayKST, type MarketingBrand, type MarketingCampaign } from '../lib/marketing'
 import { Link } from '../lib/router'
@@ -25,6 +25,17 @@ const SHOP_KEY = 'wkly-auto-creator-shop'
 const BRAND_NAME: Record<MarketingBrand, string> = { wkly: 'THE WKLY', arterior: 'ARTERIOR' }
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
 const readShop = () => { try { return localStorage.getItem(SHOP_KEY) ?? '' } catch { return '' } }
+
+/** 회사 로고 파일 (브랜드 세트 · 밝은 바탕용 / 브랜드 색 바탕용). 아트리어 로고 파일이 생기면 여기에 더할 것 */
+const LOGO_FILES: Partial<Record<MarketingBrand, { onLight: string; onBrand: string }>> = { wkly: { onLight: '/wkly-logo-green.svg', onBrand: '/wkly-logo-white.svg' } }
+async function loadLogo(src: string): Promise<CardLogo> {
+  try {
+    const img = new Image()
+    img.src = src
+    await img.decode()
+    return { img, w: img.naturalWidth || 320, h: img.naturalHeight || 101 }
+  } catch { return null } // 못 읽으면 예전처럼 글자로
+}
 
 async function loadImage(file: File): Promise<HTMLImageElement> {
   const img = new Image()
@@ -144,12 +155,14 @@ export function AutoCampaignPanel({ onCampaign }: { onCampaign?: (id: string) =>
       step('카드뉴스 이미지를 만드는 중…')
       const img = photo ? await loadImage(photo) : null
       const brandName = BRAND_NAME[input.brand], link = input.link.trim() || AUTO_DEFAULT_LINK[input.brand]
+      const logoFiles = LOGO_FILES[input.brand]
+      const [logoLight, logoBrand] = logoFiles ? await Promise.all([loadLogo(logoFiles.onLight), loadLogo(logoFiles.onBrand)]) : [null, null]
       const cover = AD_SIZES.find(s => s.key === 'pt') ?? { ...CARD_SIZE }
       const slides = r.slides.slice(0, 7)
       const total = slides.length + 2
       const files: File[] = [await canvasFile(c => drawAdCreative(c, cover, img ? 'overlay' : 'color', img, autoAdText(r), input.brand), '01_표지.jpg')]
-      for (const [i, s] of slides.entries()) files.push(await canvasFile(c => drawCardSlide(c, s, i + 2, total, input.brand, brandName), `${String(i + 2).padStart(2, '0')}_${s.title.slice(0, 20).replace(/[\\/:*?"<>|]/g, '_')}.jpg`))
-      files.push(await canvasFile(c => drawCardEnd(c, r.cta, link, input.brand, brandName), `${String(total).padStart(2, '0')}_마무리.jpg`))
+      for (const [i, s] of slides.entries()) files.push(await canvasFile(c => drawCardSlide(c, s, i + 2, total, input.brand, brandName, logoLight), `${String(i + 2).padStart(2, '0')}_${s.title.slice(0, 20).replace(/[\\/:*?"<>|]/g, '_')}.jpg`))
+      files.push(await canvasFile(c => drawCardEnd(c, r.cta, link, input.brand, brandName, logoBrand), `${String(total).padStart(2, '0')}_마무리.jpg`))
       const images: Made['images'] = []
       for (const f of files) {
         await api.uploadMarketingAsset(campaign.id, f)
