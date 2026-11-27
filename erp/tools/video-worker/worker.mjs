@@ -97,14 +97,21 @@ async function contactSheet(clip, index, tmp) {
   return { file, times }
 }
 
-function fallbackPlan(clips, target) {
-  const per = Math.max(1.5, Math.min(4, target / Math.max(clips.length, 1)))
-  const n = Math.max(1, Math.min(clips.length, Math.round(target / per)))
-  const pick = Array.from({ length: n }, (_, i) => Math.floor(i * clips.length / n))
+function fallbackPlan(clips, target, title) {
+  // 앞 3컷은 1.2초로 빠르게(첫 2초 안에 장면이 두 번 바뀜), 그 뒤는 2.2초 안팎
+  const durs = []
+  for (let t = 0; t < target - 0.6 && durs.length < 24;) { const d = durs.length < 3 ? 1.2 : durs.length % 2 ? 1.8 : 2.4; durs.push(d); t += d }
   return {
     by: 'rule',
-    title_caption: '',
-    segments: pick.map(i => ({ clip: i + 1, start: Math.max(0, clips[i].duration / 2 - per / 2), duration: Math.min(per, clips[i].duration), caption: '' })),
+    title_caption: title,
+    segments: durs.map((d, i) => {
+      const clip = clips[i % clips.length]
+      // 같은 클립을 다시 쓸 때는 다른 구간을 쓴다
+      const lap = Math.floor(i / clips.length)
+      const at = clip.duration * (lap % 2 ? 0.25 : 0.5) + lap * 0.4
+      const duration = Math.min(d, clip.duration)
+      return { clip: (i % clips.length) + 1, start: Math.max(0, Math.min(clip.duration - duration, at - duration / 2)), duration, caption: '' }
+    }),
   }
 }
 
@@ -145,6 +152,13 @@ ${job.parent ? `이전 편집 지시서(고쳐 달라는 요청임): ${JSON.stri
 
 ${list}
 
+구성 (시청 지속률이 높은 숏폼의 공통 구조):
+- 첫 장면(1.2초 안팎)은 가장 눈에 띄거나 '이게 뭐지?' 싶은 장면. 간판 · 입구 · 넓은 전경처럼 느린 시작은 쓰지 않는다.
+- 처음 3초 안에 장면이 두 번 이상 바뀐다(앞 3컷은 0.8~1.3초). 그 뒤는 1.5~2.5초로, 넓은 장면과 가까운 장면을 번갈아.
+- 가운데에 이 팝업에서만 볼 수 있는 장면(체험 · 굿즈 · 포토존)을 가장 길게 한 번.
+- 마지막 장면은 첫 장면과 이어져 다시 보게 되는 장면(같은 대상의 다른 각도)으로 끝낸다. 인사 · 로고 화면으로 끝내지 않는다.
+- title_caption 은 궁금하게 만드는 한 줄(예: '성수에 생긴 ○○'). 사실만.
+
 규칙:
 - 흔들리거나 어둡거나 바닥 · 손만 찍힌 장면은 쓰지 않는다. 비슷한 장면은 하나만.
 - 자막은 한국어 14자 이내, 화면에 보이는 사실만. 과장 · 이모지 · 느낌표 연속 금지. 자막이 필요 없으면 빈 글.
@@ -169,7 +183,10 @@ async function render(job, clips, plan, tmp) {
   for (const [i, s] of plan.segments.entries()) {
     const clip = clips[s.clip - 1]
     const out = path.join(tmp, `seg${String(i).padStart(2, '0')}.mp4`)
-    const filters = [`scale=${W}:${H}:force_original_aspect_ratio=increase`, `crop=${W}:${H}`, 'fps=30', 'format=yuv420p']
+    const frames = Math.max(1, Math.round(s.duration * 30))
+    // 짝수 컷은 살짝 다가가고 홀수 컷은 살짝 물러남(멈춘 화면처럼 보이지 않게) · 색은 조금만 또렷하게
+    const zoom = i % 2 === 0 ? `1+0.07*on/${frames}` : `1.07-0.07*on/${frames}`
+    const filters = [`scale=${W}:${H}:force_original_aspect_ratio=increase`, `crop=${W}:${H}`, 'fps=30', `zoompan=z='${zoom}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s=${W}x${H}:fps=30`, 'eq=contrast=1.06:saturation=1.14', 'unsharp=5:5:0.4', 'format=yuv420p']
     const caption = i === 0 && plan.title_caption ? plan.title_caption : s.caption
     if (caption && cfg.captions !== false) {
       const tf = path.join(tmp, `cap${i}.txt`)
@@ -222,7 +239,7 @@ async function processJob(job) {
 
     let plan = null
     try { plan = cleanPlan(await askClaude(job, clips, sheets, tmp), clips, job.target_seconds) } catch (e) { log('Claude 지시서 실패 → 규칙으로 대신:', String(e.message).slice(0, 160)) }
-    if (!plan) plan = fallbackPlan(clips, job.target_seconds)
+    if (!plan) plan = fallbackPlan(clips, job.target_seconds, job.title.replace(/^\[[^\]]*\]\s*/, '').slice(0, 16))
     plan.clips = clips.map(c => path.basename(c.file))
 
     const { final, preview } = await render(job, clips, plan, tmp)
