@@ -101,7 +101,7 @@ test('주간 달력: 예정일이 있으면 그날 칸 · 주 옮기기 · 지�
 })
 
 test('게시 예정일 표: 활성 팀원만 · 로그인 없는 사람에게 닫힘 · 달력 함수는 읽기만', () => {
-  const sql = readFileSync(new URL('../supabase/migrations/20261127200000_growth_schedule.sql', import.meta.url), 'utf8')
+  const sql = readFileSync(new URL('../supabase/migrations/20261127201500_growth_schedule.sql', import.meta.url), 'utf8')
   assert.match(sql, /enable row level security/)
   assert.equal((sql.match(/is_active_member\(\)/g) ?? []).length, 5)
   assert.match(sql, /revoke all on public\.growth_schedule from anon/)
