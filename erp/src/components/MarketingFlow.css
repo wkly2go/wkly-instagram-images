@@ -123,3 +123,28 @@ html[data-theme="dark"] .mf-todos a, html[data-theme="dark"] .mf-kpi.on, html[da
 @container (max-width: 620px) { .mf-plan li { grid-template-columns: minmax(0, 1fr) auto; } .mf-plan-title { grid-column: 1 / -1; white-space: normal; } .mf-plan input[type="date"] { min-height: 44px; } }
 .mf-plan li .mf-post-st { align-self: center; }
 .mf-plan li .btn { white-space: nowrap; }
+
+/* 소재별 성과 표 */
+.mf-cr { display: flex; flex-direction: column; }
+.mf-cr-row { display: grid; grid-template-columns: minmax(0, 2.4fr) minmax(0, 1.6fr) repeat(4, minmax(64px, 0.5fr)); gap: 10px; align-items: center; padding: 10px 8px; border-top: 1px solid var(--v8-line); font-variant-numeric: tabular-nums; }
+.mf-cr-row.head { border-top: 0; color: var(--tx-sub); padding-top: 0; padding-bottom: 6px; }
+.mf-cr-row > :nth-child(n+3) { text-align: right; }
+.mf-cr-row b { font-weight: 700; }
+.mf-cr-row small { color: var(--tx-sub); font-size: var(--fs-body); }
+.mf-cr-name { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; min-width: 0; }
+.mf-cr-name a, .mf-cr-name > span { min-width: 0; overflow-wrap: anywhere; color: var(--tx-body); text-decoration: none; }
+.mf-cr-name a { color: var(--tx-key); }
+.mf-cr-name a:hover { text-decoration: underline; }
+.mf-cr-kind { font-style: normal; flex: none; padding: 1px 8px; border-radius: 999px; white-space: nowrap; }
+.mf-cr-kind.k-c { background: #e3f3ea; color: #17603f; }
+.mf-cr-kind.k-a { background: #e6edfb; color: #1d4690; }
+.mf-cr-kind.k-t { background: #eceeed; color: var(--tx-sub); }
+.mf-cr-src { color: var(--tx-sub); overflow-wrap: anywhere; }
+@container (max-width: 760px) {
+  .mf-cr-row.head { display: none; }
+  .mf-cr-row { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px 10px; padding: 12px 4px; }
+  .mf-cr-row.head + .mf-cr-row { border-top: 0; }
+  .mf-cr-name, .mf-cr-src { grid-column: 1 / -1; }
+  .mf-cr-row > :nth-child(n+3) { text-align: left; display: block; }
+  .mf-cr-row > :nth-child(n+3)::before { content: attr(data-label); display: block; color: var(--tx-sub); font-weight: 400; }
+}

@@ -4,6 +4,7 @@
 import { useState } from 'react'
 import { ArrowDownRight, ArrowRight, ArrowUpRight, ChevronLeft, ChevronRight, Film, RefreshCw } from 'lucide-react'
 import { useApp, useAsync } from '../lib/app'
+import { convertRate, creativeReport, type CreativeSource } from '../lib/creativeReport'
 import { dateTimeLabel } from '../lib/date'
 import { calendarDays, flowKpis, flowSteps, shareWidths, shiftWeek, trendScale, weekLabel, type FlowTrend, type MarketingCalendar, type MarketingFlow as Flow } from '../lib/marketingFlow'
 import { Link } from '../lib/router'
@@ -79,6 +80,8 @@ export function MarketingFlow() {
         </section>
       </div>
 
+      <CreativeBoard />
+
       <WeekBoard />
 
       <section className="card mf-card">
@@ -147,6 +150,46 @@ function Donut({ parts }: { parts: { name: string; value: number }[] }) {
       </svg>
       <ul>{parts.map((p, i) => <li key={p.name}><i style={{ background: KIND_COLORS[i % KIND_COLORS.length] }} /><span>{p.name}</span><b>{p.value}</b><small>{Math.round((p.value / total) * 100)}%</small></li>)}</ul>
     </div>
+  )
+}
+
+function CreativeBoard() {
+  const { api, version } = useApp()
+  const src = useAsync<CreativeSource | null>(() => api.marketingCreatives().catch(() => null), [api, version], null)
+  if (!src.data) return src.loading ? null : <section className="card mf-card"><h4 className="mf-h4">소재별 성과</h4><p className="mf-empty">성과 자료를 불러오지 못했습니다.</p></section>
+  const r = creativeReport(src.data)
+  const lost = r.tagged - r.matched
+  return (
+    <section className="card mf-card">
+      <h4 className="mf-h4">소재별 성과 <small>최근 {r.days}일 · 어떤 콘텐츠 · 광고에서 온 문의가 프로젝트가 되었나</small></h4>
+      {r.rows.length === 0 ? <p className="mf-empty">아직 소재와 이어진 문의가 없습니다. 콘텐츠를 저장하면 우리 홈페이지 주소에 꼬리표가 자동으로 붙고, 그 주소로 들어온 문의부터 여기에 잡힙니다.</p> : (
+        <div className="mf-cr" role="table" aria-label="소재별 성과">
+          <div className="mf-cr-row head" role="row"><span role="columnheader">소재</span><span role="columnheader">들어온 곳</span><span role="columnheader">문의</span><span role="columnheader">직접 문의</span><span role="columnheader">프로젝트</span><span role="columnheader">진행 · 완료</span></div>
+          {r.rows.map(row => {
+            const rate = convertRate(row.inquiries, row.projects)
+            return (
+              <div key={row.key} className="mf-cr-row" role="row">
+                <span role="cell" className="mf-cr-name">
+                  <em className={`mf-cr-kind k-${row.kind === '콘텐츠' ? 'c' : row.kind === '광고' ? 'a' : 't'}`}>{row.kind}</em>
+                  {row.link ? <Link to={row.link}>{row.title}</Link> : <span>{row.title}</span>}
+                  {row.placed.length > 0 && <small>{row.placed.join(' · ')}</small>}
+                </span>
+                <span role="cell" className="mf-cr-src">{row.sources.length ? row.sources.map(s => `${s.source} ${s.inquiries}`).join(' · ') : '문의 없음'}</span>
+                <b role="cell" data-label="문의">{row.inquiries}</b>
+                <span role="cell" data-label="직접 문의">{row.direct}</span>
+                <span role="cell" data-label="프로젝트">{row.projects}{rate != null && row.projects > 0 && <small> ({rate}%)</small>}</span>
+                <span role="cell" data-label="진행 · 완료">{row.won}</span>
+              </div>
+            )
+          })}
+        </div>
+      )}
+      <p className="mf-foot">
+        꼬리표가 붙은 문의 {r.tagged}건 중 {r.matched}건이 콘텐츠 · 광고와 이어졌습니다.
+        {lost > 0 && ` 나머지 ${lost}건은 예전에 손으로 붙인 꼬리표라 이름 그대로 보여 줍니다.`}
+        {' '}꼬리표가 없는 문의는 {r.untagged.inquiries}건(프로젝트 {r.untagged.projects}건)입니다.
+      </p>
+    </section>
   )
 }
 
