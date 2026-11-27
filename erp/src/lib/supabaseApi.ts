@@ -4,6 +4,7 @@ import { createSupabaseSalesStrategyApi } from './salesStrategyApi'
 import { createSupabaseDesignApi } from './designApi'
 import { createSupabaseIlwiApi } from './ilwiApi'
 import { createSupabaseGovApi } from './govApi'
+import { createSupabaseAcctApi } from './acctApi'
 import { createSupabaseCollabApi } from './collabApi'
 import { createSupabaseBoardApi } from './boardApi'
 import { createSupabaseFigmaApi } from './figmaApi'
@@ -226,6 +227,7 @@ export function createSupabaseApi(url: string, key: string): Api {
     ...createSupabaseDesignApi(sb),
     ...createSupabaseIlwiApi(sb),
     ...createSupabaseGovApi(sb),
+    ...createSupabaseAcctApi(sb),
     ...createSupabaseCollabApi(sb),
     ...createSupabaseBoardApi(sb),
     ...createSupabaseFigmaApi(sb),
@@ -603,10 +605,13 @@ export function createSupabaseApi(url: string, key: string): Api {
     },
     async listLedger(from, to) {
       // 회사 구분 (2026-11-18): 고른 회사 장부만 · '전체 회사'면 둘 다
+      // 2026-11-27: 1년치처럼 1,000줄이 넘는 기간도 빠짐없이 (서버 한 번 응답 한도를 넘으면 나눠 받음)
       const c = getCompany()
-      let q = sb.from('cash_ledger').select('*').gte('entry_date', from).lte('entry_date', to)
-      if (c !== 'all') q = q.eq('company', c)
-      return must(await q.order('entry_date', { ascending: false }).order('id', { ascending: false })) as LedgerEntry[]
+      return pageAll<LedgerEntry>(() => {
+        let q = sb.from('cash_ledger').select('*').gte('entry_date', from).lte('entry_date', to)
+        if (c !== 'all') q = q.eq('company', c)
+        return q.order('entry_date', { ascending: false }).order('id', { ascending: false })
+      })
     },
     async saveLedger(e) {
       const body = strip(e, READONLY) as Record<string, unknown>
@@ -666,8 +671,11 @@ export function createSupabaseApi(url: string, key: string): Api {
       mustAffect(await sb.from('cash_recurring').delete().eq('id', id).select('id'))
     },
     async listTaxInvoices() {
-      const { data, error } = await sb.from('tax_invoices').select('*').order('write_date', { ascending: false }).order('approval_no', { ascending: false })
-      return error ? [] : (data as TaxInvoice[])
+      try {
+        return await pageAll<TaxInvoice>(() => sb.from('tax_invoices').select('*').order('write_date', { ascending: false }).order('approval_no', { ascending: false }).order('id'))
+      } catch {
+        return []
+      }
     },
     async importTaxInvoices(rows) {
       if (!rows.length) return { added: 0, skipped: 0 }
@@ -681,12 +689,17 @@ export function createSupabaseApi(url: string, key: string): Api {
       must(await sb.from('tax_invoices').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', id))
     },
     async listTaxInvoiceSummaries() {
-      const { data, error } = await sb.from('tax_invoice_summaries').select('*').order('period_from')
+      // 회사 구분 (2026-11-27): 고른 회사의 합계표만 · '전체 회사'면 둘 다
+      const c = getCompany()
+      let q = sb.from('tax_invoice_summaries').select('*')
+      if (c !== 'all') q = q.eq('company', c)
+      const { data, error } = await q.order('period_from')
       return error ? [] : (data as TaxInvoiceSummary[])
     },
     async importTaxInvoiceSummaries(rows) {
       if (!rows.length) return 0
-      must(await sb.from('tax_invoice_summaries').upsert(rows.map(r => ({ ...r, uploaded_at: new Date().toISOString() })), { onConflict: 'direction,period_from,period_to,partner_biz_no' }))
+      const company = getCompany() === 'TW' ? 'TW' : 'AR'
+      must(await sb.from('tax_invoice_summaries').upsert(rows.map(r => ({ ...r, company, uploaded_at: new Date().toISOString() })), { onConflict: 'company,direction,period_from,period_to,partner_biz_no' }))
       return rows.length
     },
     async saveTaxSettlement(rows) {

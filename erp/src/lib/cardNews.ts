@@ -10,8 +10,18 @@ const PAPER: Record<string, { bg: string; ink: string; sub: string; accent: stri
   arterior: { bg: '#f7f3ec', ink: '#2a2723', sub: '#5b544b', accent: '#8a5a3b' },
 }
 
-/** 본문 장: 쪽 번호 · 큰 제목 · 설명 · 아래 브랜드 줄 */
-export function drawCardSlide(canvas: HTMLCanvasElement, slide: { title: string; body: string }, page: number, total: number, brand: string, brandName: string) {
+/** 로고 그림 (2026-11-27 브랜드 세트 · 있으면 회사 이름 글자 대신 그림 · 지금은 더위클리 로고만 파일이 있음) */
+export type CardLogo = { img: CanvasImageSource; w: number; h: number } | null
+
+/** 로고를 높이에 맞춰 그림 (가로세로 비율 유지) · 그린 폭을 돌려줌 */
+export function drawLogo(ctx: CanvasRenderingContext2D, logo: NonNullable<CardLogo>, x: number, bottom: number, height: number, align: 'left' | 'center' = 'left'): number {
+  const width = (height * logo.w) / Math.max(1, logo.h)
+  ctx.drawImage(logo.img, align === 'center' ? x - width / 2 : x, bottom - height, width, height)
+  return width
+}
+
+/** 본문 장: 쪽 번호 · 큰 제목 · 설명 · 아래 브랜드 줄 (logo 가 있으면 회사 이름 대신 로고) */
+export function drawCardSlide(canvas: HTMLCanvasElement, slide: { title: string; body: string }, page: number, total: number, brand: string, brandName: string, logo: CardLogo = null) {
   const ctx = canvas.getContext('2d')
   if (!ctx) return
   const p = PAPER[brand] ?? PAPER.wkly
@@ -48,7 +58,8 @@ export function drawCardSlide(canvas: HTMLCanvasElement, slide: { title: string;
   ctx.fillRect(pad, h - pad - 4, w - pad * 2, 2)
   ctx.font = `700 32px ${FONT}`
   ctx.textBaseline = 'bottom'
-  ctx.fillText(brandName, pad, h - pad - 24)
+  if (logo) drawLogo(ctx, logo, pad, h - pad - 26, 34)
+  else ctx.fillText(brandName, pad, h - pad - 24)
   if (page < total) {
     ctx.textAlign = 'right'
     ctx.fillText('넘겨 보기 →', w - pad, h - pad - 24)
@@ -56,8 +67,8 @@ export function drawCardSlide(canvas: HTMLCanvasElement, slide: { title: string;
   }
 }
 
-/** 마지막 장: 브랜드 색 바탕 · 행동 유도 · 연결 주소 */
-export function drawCardEnd(canvas: HTMLCanvasElement, cta: string, link: string, brand: string, brandName: string) {
+/** 마지막 장: 브랜드 색 바탕 · 행동 유도 · 연결 주소 (logo 가 있으면 회사 이름 대신 로고 · 브랜드 색 위에 보이는 색으로 넘길 것) */
+export function drawCardEnd(canvas: HTMLCanvasElement, cta: string, link: string, brand: string, brandName: string, logo: CardLogo = null) {
   const ctx = canvas.getContext('2d')
   if (!ctx) return
   const pal = AD_PALETTE[brand] ?? AD_PALETTE.wkly
@@ -69,7 +80,8 @@ export function drawCardEnd(canvas: HTMLCanvasElement, cta: string, link: string
   ctx.textBaseline = 'middle'
   ctx.fillStyle = pal.ink
   ctx.font = `800 64px ${FONT}`
-  ctx.fillText(brandName, w / 2, h * 0.36)
+  if (logo) drawLogo(ctx, logo, w / 2, h * 0.36 + 48, 96, 'center')
+  else ctx.fillText(brandName, w / 2, h * 0.36)
   // 버튼
   ctx.font = `800 54px ${FONT}`
   const label = cta || '자세히 보기'
