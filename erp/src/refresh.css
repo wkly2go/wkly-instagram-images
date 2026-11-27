@@ -670,3 +670,14 @@ td > .task-inline-sel, td .task-inline-sel:only-child { min-width: 76px; }
 .notif-body .nb-meta { color: var(--tx-sub); border-top: 1px dashed var(--line); padding-top: 4px; margin-top: 4px; }
 .notif-body .nb-sep { color: var(--tx-sub); font-weight: 400; }
 @media (min-width: 641px) { .notif-panel { width: min(420px, calc(100vw - 24px)); max-height: 560px; } }
+
+/* 채팅 글 묶음 · 항목 (2026-11-27 대표 '읽기 쉽게 만들어서 보고해') */
+.chat-rich { display: flex; flex-direction: column; gap: 3px; white-space: normal; }
+.chat-rich .cr-gap { height: 6px; }
+.chat-rich .cr-head { font-weight: 700; color: var(--tx-title); margin-top: 2px; }
+.chat-rich .cr-item { position: relative; padding-left: 14px; }
+.chat-rich .cr-item::before { content: ''; position: absolute; left: 3px; top: 0.66em; width: 5px; height: 5px; border-radius: 3px; background: var(--tx-key); }
+.chat-rich .cr-item.num { padding-left: 20px; }
+.chat-rich .cr-item.num::before { content: attr(data-mark); width: auto; height: auto; background: none; top: 0; left: 0; color: var(--tx-key); font-weight: 700; }
+.bubble.mine .chat-rich .cr-item::before { background: currentColor; }
+.bubble.mine .chat-rich .cr-item.num::before { background: none; color: inherit; }
