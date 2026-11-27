@@ -89,7 +89,7 @@ export function cleanNodeIds(ids: unknown): string[] {
 type Paint = { type?: string; visible?: boolean; opacity?: number; color?: { r: number; g: number; b: number; a?: number } }
 export type FNode = Node & {
   visible?: boolean; opacity?: number; fills?: Paint[]; strokes?: Paint[]; strokeWeight?: number; cornerRadius?: number
-  style?: { fontSize?: number; textAlignHorizontal?: string; fontWeight?: number }
+  style?: { fontSize?: number; textAlignHorizontal?: string; fontWeight?: number; lineHeightPx?: number; fontFamily?: string }
   shapeType?: string; strokeCap?: string; absoluteBoundingBox?: { x?: number; y?: number; width?: number; height?: number } | null
   connectorStart?: { endpointNodeId?: string; position?: { x: number; y: number } }
   connectorEnd?: { endpointNodeId?: string; position?: { x: number; y: number } }
@@ -100,6 +100,10 @@ export interface FlatEl {
   x: number; y: number; w: number; h: number
   fill?: string | null; stroke?: string | null; strokeWidth?: number; radius?: number; opacity?: number
   text?: string; fontSize?: number; align?: 'left' | 'center' | 'right'; color?: string
+  /** 줄 간격 (글자 크기의 몇 배 · 피그마 lineHeightPx ÷ fontSize) */
+  lineHeight?: number
+  /** 피그마 글꼴 이름 · 굵기 (화이트보드 글꼴 고르기용) */
+  font?: string; weight?: number
   name?: string; frame?: string
   points?: [number, number][]
   /** 사진 칠 (그림은 JPG 로 받음) */
@@ -159,7 +163,9 @@ export function flattenFrame(root: FNode, max = 2500): { els: FlatEl[]; truncate
     const sw = stroke ? Math.max(1, Math.min(8, Math.round(n.strokeWeight ?? 1))) : undefined
     if (t === 'TEXT') {
       const txt = typeof n.characters === 'string' ? n.characters : ''
-      if (txt.trim()) push({ ...common, kind: 'text', text: txt.slice(0, 4000), fontSize: Math.max(6, Math.round(n.style?.fontSize ?? 14)), align: alignOf(n.style?.textAlignHorizontal), color: f?.color ?? '#151d18', opacity: Math.round(op * (f?.alpha ?? 1) * 100) })
+      const fs = Math.max(6, Math.round(n.style?.fontSize ?? 14))
+      const lh = n.style?.lineHeightPx && n.style.fontSize ? Math.round(Math.max(0.8, Math.min(3, n.style.lineHeightPx / n.style.fontSize)) * 100) / 100 : undefined
+      if (txt.trim()) push({ ...common, kind: 'text', text: txt.slice(0, 4000), fontSize: fs, ...(lh ? { lineHeight: lh } : {}), font: (n.style?.fontFamily ?? '').slice(0, 60), weight: n.style?.fontWeight ?? 400, align: alignOf(n.style?.textAlignHorizontal), color: f?.color ?? '#151d18', opacity: Math.round(op * (f?.alpha ?? 1) * 100) })
       return
     }
     if (t === 'CONNECTOR') { conns.push({ id: n.id, n, frame: fid }); return }

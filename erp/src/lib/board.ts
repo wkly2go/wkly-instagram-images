@@ -34,7 +34,8 @@ export function mergeElements(mine: readonly BoardElement[], theirs: readonly Bo
     if (!t || e.version > t.version || (e.version === t.version && e.versionNonce < t.versionNonce)) out.set(e.id, e)
   }
   // 순서: 상대 순서를 기본으로, 내 쪽에만 있는 것은 뒤에 (Excalidraw 가 index 칸으로 다시 정렬)
-  const order = [...theirs.map(e => e.id), ...mine.filter(e => !theirs.some(t => t.id === e.id)).map(e => e.id)]
+  const theirIds = new Set(theirs.map(e => e.id))
+  const order = [...theirs.map(e => e.id), ...mine.filter(e => !theirIds.has(e.id)).map(e => e.id)]
   return order.map(id => out.get(id)!).filter(Boolean)
 }
 
@@ -49,11 +50,21 @@ export function sceneSignature(elements: readonly Pick<BoardElement, 'id' | 'ver
 }
 
 /** 저장할 그림: 지운 요소는 30일 지난 것만 버리지 않고 그대로 두되(합치기에 필요), 쓰는 사진만 남김 */
-export function sceneForSave(elements: readonly BoardElement[], files: Record<string, BoardFileRef>, background?: string): BoardScene {
+export function sceneForSave(elements: readonly BoardElement[], files: Record<string, BoardFileRef>, background?: string, now = Date.now()): BoardScene {
   const used = new Set(elements.filter(e => !e.isDeleted && e.fileId).map(e => e.fileId as string))
   const keep: Record<string, BoardFileRef> = {}
   for (const id of used) if (files[id]) keep[id] = files[id]
-  return { elements: [...elements], files: keep, ...(background ? { background } : {}) }
+  // 지운 요소는 함께 보는 사람과 합칠 때 필요해 남기되, 하루 지난 것은 버림 (2026-11-27 · 피그마를 크게 불러왔다 지워도 저장 크기가 계속 커지지 않게)
+  const alive = elements.filter(e => !e.isDeleted || typeof e.updated !== 'number' || now - (e.updated as number) < TOMBSTONE_MS)
+  return { elements: alive, files: keep, ...(background ? { background } : {}) }
+}
+
+/** 지운 요소를 남겨 두는 시간 */
+export const TOMBSTONE_MS = 24 * 3600 * 1000
+
+/** 자동 저장 대기: 요소가 많을수록 덜 자주 (서버 쓰기 부하 · 2026-11-27 피그마 대량 불러오기 대비) */
+export function saveDelay(count: number): number {
+  return count < 800 ? 2000 : count < 2500 ? 5000 : 9000
 }
 
 /** 보관함 경로: <보드 id>/<파일 id>.<확장자> */
@@ -65,4 +76,18 @@ export function boardFilePath(boardId: string, fileId: string, mimeType: string)
 /** 보드 제목 정리 (1~60자) */
 export function boardTitle(t: string): string {
   return t.replace(/\s+/g, ' ').trim().slice(0, 60) || '새 보드'
+}
+
+/** 여러 개를 한 번에 n개씩 나란히 처리 (사진 받기 · 올리기 · 순서는 그대로 · 하나가 실패해도 나머지는 계속 → 실패는 null) */
+export async function pool<T, R>(items: readonly T[], n: number, fn: (item: T) => Promise<R>): Promise<(R | null)[]> {
+  const out: (R | null)[] = new Array(items.length).fill(null)
+  let next = 0
+  const run = async () => {
+    while (next < items.length) {
+      const i = next++
+      try { out[i] = await fn(items[i]) } catch { out[i] = null }
+    }
+  }
+  await Promise.all(Array.from({ length: Math.max(1, Math.min(n, items.length)) }, run))
+  return out
 }
