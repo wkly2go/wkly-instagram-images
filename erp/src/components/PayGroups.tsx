@@ -223,7 +223,7 @@ export function PayGroups({ rows, all, lines, finance, sel, setSel, onOpen, onNe
   const allIds = rows.map(p => p.id)
   return (
     <div className="table-wrap">
-      <table className="table pay-groups">
+      <table className="table pay-groups pay-grid">
         <thead>
           <tr>
             <th>

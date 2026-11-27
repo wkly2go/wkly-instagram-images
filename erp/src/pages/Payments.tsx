@@ -295,7 +295,7 @@ function Register({ data, projects, clients }: { data: PayData; projects: Projec
         />
       ) : (
         <div className="table-wrap">
-          <table className="table">
+          <table className="table pay-grid">
             <thead>
               <tr>
                 <th>
@@ -463,7 +463,7 @@ function Advances({ data, projects }: { data: PayData; projects: Project[] }) {
               </Button>
             </div>
             <div className="table-wrap">
-              <table className="table">
+              <table className="table pay-grid">
                 <thead>
                   <tr>
                     <th>결제일</th>
@@ -544,7 +544,7 @@ function Labor({ data, projects }: { data: PayData; projects: Project[] }) {
         <span className="t-cap">월을 누르면 아래에 사람별 합계와 명세가 나옵니다. 다시 누르면 한 해 전체.</span>
       </div>
       <div className="table-wrap">
-        <table className="table">
+        <table className="table pay-grid">
           <thead>
             <tr>
               <th>월</th>
@@ -605,7 +605,7 @@ function Labor({ data, projects }: { data: PayData; projects: Project[] }) {
             <Empty>이 기간 노무비가 없습니다.</Empty>
           ) : (
             <div className="table-wrap">
-              <table className="table">
+              <table className="table pay-grid">
                 <thead>
                   <tr>
                     <th>성명</th>
@@ -658,7 +658,7 @@ function Labor({ data, projects }: { data: PayData; projects: Project[] }) {
             <Empty>이 달 지급 완료된 노무비가 없습니다.</Empty>
           ) : (
             <div className="table-wrap">
-              <table className="table">
+              <table className="table pay-grid">
                 <thead>
                   <tr>
                     <th>지급일</th>
@@ -753,7 +753,7 @@ function Run({ data, projects }: { data: PayData; projects: Project[] }) {
         <Empty>이 날까지 지급할 결제가 없습니다.</Empty>
       ) : (
         <div className="table-wrap">
-          <table className="table">
+          <table className="table pay-grid">
             <thead>
               <tr>
                 <th />
@@ -848,7 +848,7 @@ function Checks({ data, projects }: { data: PayData; projects: Project[] }) {
           </button>
           {open === c.key && (
             <div className="table-wrap">
-              <table className="table">
+              <table className="table pay-grid">
                 <thead>
                   <tr>
                     <th>현장</th>

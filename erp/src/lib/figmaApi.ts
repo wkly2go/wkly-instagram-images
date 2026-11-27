@@ -6,6 +6,8 @@ import { ApiError } from './api'
 import type { FigmaKind } from './figma'
 export { FIGMA_KIND_LABEL, figmaEmbedUrl, isWide, type FigmaKind } from './figma'
 
+export interface FigmaTokenInfo { token: boolean; set_at: string | null; expires_at: string | null; boards: number }
+export interface FigmaFrameImage { id: string; name: string; w: number; h: number; mime: string; data: string }
 export interface FigmaFrame { id: string; name: string; type: string; page: string; w: number; h: number }
 export interface ProjectFigma {
   id: string
@@ -29,12 +31,18 @@ export interface FigmaExport { id: string; figma_id: string; project_id: string;
 
 export interface FigmaApi {
   figmaStatus(): Promise<{ token: boolean }>
+  /** 관리 화면: 열쇠 있음 · 넣은 날 · 만료일(90일) · 연결된 보드 수 */
+  figmaTokenInfo(): Promise<FigmaTokenInfo | null>
   setFigmaToken(value: string): Promise<void>
   listProjectFigma(projectId: string): Promise<{ files: ProjectFigma[]; exports: FigmaExport[] }>
+  /** 모든 프로젝트에 연결한 피그마 (화이트보드 공통 불러오기 · 2026-11-27) */
+  listAllFigma(): Promise<ProjectFigma[]>
   linkFigma(projectId: string, url: string): Promise<void>
   refreshFigma(id: string): Promise<void>
   unlinkFigma(id: string): Promise<void>
   exportFigmaPdf(id: string, nodeIds: string[], title: string): Promise<{ id: string; path: string; pages: number; url: string | null }>
+  /** 프레임을 PNG(base64)로 · 화이트보드에 불러오기 (한 번에 6개) */
+  figmaFrameImages(id: string, nodeIds: string[]): Promise<FigmaFrameImage[]>
   figmaExportBlob(path: string): Promise<Blob>
   markFigmaExportDrive(id: string, driveFileId: string, driveUrl: string): Promise<void>
 }
@@ -53,6 +61,11 @@ export function createSupabaseFigmaApi(sb: SupabaseClient): FigmaApi {
   }
   return {
     async figmaStatus() { return await call<{ token: boolean }>('status') },
+    async figmaTokenInfo() {
+      const r = await sb.rpc('figma_token_info')
+      if (r.error) throw new ApiError(r.error.message)
+      return r.data as FigmaTokenInfo | null
+    },
     async setFigmaToken(value) {
       const r = await sb.rpc('figma_secret_set', { p_value: value })
       if (r.error) throw new ApiError(r.error.message)
@@ -72,6 +85,11 @@ export function createSupabaseFigmaApi(sb: SupabaseClient): FigmaApi {
       }
       return { files, exports: (x.data ?? []) as FigmaExport[] }
     },
+    async listAllFigma() {
+      const f = await sb.from('project_figma').select('*').order('created_at', { ascending: false }).limit(200)
+      if (f.error) throw new ApiError(['42P01', 'PGRST205'].includes(f.error.code ?? '') ? '피그잼 연결을 준비 중입니다.' : f.error.message)
+      return (f.data ?? []) as ProjectFigma[]
+    },
     async linkFigma(projectId, url) { await call('link', { project_id: projectId, url }) },
     async refreshFigma(id) { await call('refresh', { id }) },
     async unlinkFigma(id) {
@@ -80,6 +98,7 @@ export function createSupabaseFigmaApi(sb: SupabaseClient): FigmaApi {
       if (!r.data?.length) throw new ApiError('연결한 사람이나 관리자만 뗄 수 있습니다.')
     },
     async exportFigmaPdf(id, nodeIds, title) { return await call('export', { id, node_ids: nodeIds, title }) },
+    async figmaFrameImages(id, nodeIds) { return (await call<{ images: FigmaFrameImage[] }>('images', { id, node_ids: nodeIds })).images },
     async figmaExportBlob(path) {
       const r = await sb.storage.from('figma-files').download(path)
       if (r.error || !r.data) throw new ApiError('PDF 를 받지 못했습니다.')
@@ -97,8 +116,10 @@ export function createDemoFigmaApi(): FigmaApi {
   const none = async (): Promise<never> => { throw new ApiError('피그잼 연결은 운영 계정에서만 쓸 수 있습니다.') }
   return {
     async figmaStatus() { return { token: false } },
+    async figmaTokenInfo() { return null },
     setFigmaToken: none,
     async listProjectFigma() { return { files: [], exports: [] } },
-    linkFigma: none, refreshFigma: none, unlinkFigma: none, exportFigmaPdf: none, figmaExportBlob: none, markFigmaExportDrive: none,
+    async listAllFigma() { return [] },
+    linkFigma: none, refreshFigma: none, unlinkFigma: none, exportFigmaPdf: none, figmaFrameImages: none, figmaExportBlob: none, markFigmaExportDrive: none,
   }
 }

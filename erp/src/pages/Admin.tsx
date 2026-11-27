@@ -1,4 +1,5 @@
 import { useDesktopOnly } from '../lib/attendance'
+import { AdminFigmaKey } from '../components/AdminFigmaKey'
 import { Fragment, useState } from 'react'
 import { Pencil } from 'lucide-react'
 import { useAction, useApp, useAsync } from '../lib/app'
@@ -78,6 +79,7 @@ export default function Admin() {
       <DesktopAttendance />
       <Routes routes={data.routes} />
       <AgentKeys tokens={data.tokens} />
+      <AdminFigmaKey />
       <Backup />
       <Activity approvals={data.approvals} research={data.research} />
     </Shell>
