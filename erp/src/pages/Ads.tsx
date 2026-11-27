@@ -1,6 +1,7 @@
 import { AdTeamPlan } from '../components/AdTeamPlan'
 import { AdAutopilot } from '../components/AdAutopilot'
 import { VideoEdits } from '../components/VideoEdits'
+import { MarketingFlow } from '../components/MarketingFlow'
 import { AdCompetitors } from '../components/AdCompetitors'
 import { GrowthWorkspace } from '../components/GrowthWorkspace'
 import { InterviewFeed } from '../components/InterviewFeed'
@@ -25,8 +26,9 @@ const num = (n: number) => Math.round(n).toLocaleString('ko-KR')
 const pct = (a: number, b: number) => (b ? `${((a / b) * 100).toFixed(2)}%` : '–')
 const shortNum = (n: number) => (n >= 10000 ? `${(n / 10000).toFixed(n >= 100000 ? 0 : 1)}만` : num(n))
 
-type Tab = 'content' | 'interview' | 'summary' | 'studio' | 'platform' | 'charts' | 'daily-table' | 'creatives' | 'competitors' | 'overseas' | 'daily' | 'seo' | 'team' | 'autopilot' | 'video'
+type Tab = 'content' | 'interview' | 'summary' | 'studio' | 'platform' | 'charts' | 'daily-table' | 'creatives' | 'competitors' | 'overseas' | 'daily' | 'seo' | 'team' | 'autopilot' | 'video' | 'flow'
 const TABS: [Tab, string][] = [
+  ['flow', '자동화 흐름'],
   ['content', '콘텐츠·배포'],
   ['interview', '인터뷰 피드'],
   ['video', '영상 편집'],
@@ -44,7 +46,7 @@ const TABS: [Tab, string][] = [
   ['team', '광고 운영팀'],
 ]
 const GROUPS = [
-  { label: '콘텐츠·배포', icon: Images, tabs: ['content', 'interview', 'video'] as Tab[], description: '네이버 블로그·인스타그램·유튜브·홈페이지 글을 작성하고, 검수·발행 기록과 연결 광고를 관리하세요.' },
+  { label: '콘텐츠·배포', icon: Images, tabs: ['content', 'interview', 'video', 'flow'] as Tab[], description: '네이버 블로그·인스타그램·유튜브·홈페이지 글을 작성하고, 검수·발행 기록과 연결 광고를 관리하세요.' },
   { label: '캠페인 준비', icon: Megaphone, tabs: ['studio'] as Tab[], description: '기획부터 소재 준비, 집행 전 확인까지 순서대로 진행하세요.' },
   { label: '소재 관리', icon: Images, tabs: ['creatives'] as Tab[], description: '등록된 광고 소재와 성과를 확인하세요. 새 문구와 이미지는 캠페인 준비에서 관리합니다.' },
   { label: '성과·보고서', icon: BarChart3, tabs: ['summary', 'platform', 'charts', 'daily-table', 'daily'] as Tab[], description: '대시보드에서 광고 현황을 확인하고, 매체별 성과·추이·일일 보고를 살펴보세요.' },
@@ -111,7 +113,7 @@ export default function Ads() {
         </nav>}
         <section className="ads-content" aria-label={TABS.find(([key]) => key === tab)![1]}>
           <p className="ads-help">{group.description}</p>
-          {tab === 'autopilot' ? <AdAutopilot /> : tab === 'video' ? <VideoEdits /> : tab === 'team' ? <AdTeamPlan /> : tab === 'interview' ? <InterviewFeed /> : tab === 'content' ? <GrowthWorkspace kind="content" /> : tab === 'studio' ? <MarketingDesk key={query.get('id')??'default'} initialCampaignId={query.get('id')??undefined} /> : NUMBER_TABS.includes(tab) ? <NumbersWorkspace tab={tab} range={range} platform={platform} period={period} setRange={setRange} setPlatform={setPlatform} goTab={setTab} />
+          {tab === 'autopilot' ? <AdAutopilot /> : tab === 'video' ? <VideoEdits /> : tab === 'flow' ? <MarketingFlow /> : tab === 'team' ? <AdTeamPlan /> : tab === 'interview' ? <InterviewFeed /> : tab === 'content' ? <GrowthWorkspace kind="content" /> : tab === 'studio' ? <MarketingDesk key={query.get('id')??'default'} initialCampaignId={query.get('id')??undefined} /> : NUMBER_TABS.includes(tab) ? <NumbersWorkspace tab={tab} range={range} platform={platform} period={period} setRange={setRange} setPlatform={setPlatform} goTab={setTab} />
             : tab === 'creatives' ? <CreativeWorkspace period={period} />
             : tab === 'seo' ? <SearchWorkspace />
             : <>{tab === 'competitors' && <AdCompetitors />}<ReportWorkspace key={tab} kind={tab === 'competitors' ? '경쟁사 분석' : tab === 'overseas' ? '해외 사례' : '일일 보고'} /></>}

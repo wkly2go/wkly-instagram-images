@@ -3,6 +3,7 @@
 //  - 원본 영상은 올리지 않는다 — 드라이브에 동기화된 촬영 폴더를 고름. 미리보기만 보관함 video-edits
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { ApiError } from './api'
+import type { MarketingFlow } from './marketingFlow'
 
 import type { VideoEditInput, VideoEditJob, VideoSourceFolder } from './videoEdits'
 export * from './videoEdits'
@@ -14,6 +15,8 @@ export interface VideoEditsApi {
   videoRequest(input: VideoEditInput): Promise<void>
   videoCancel(id: string): Promise<void>
   videoPreviewUrl(path: string): Promise<string>
+  /** 마케팅 자동화 한 화면 흐름 숫자 (DB 함수 marketing_flow) */
+  marketingFlow(): Promise<MarketingFlow | null>
 }
 
 export function createSupabaseVideoEditsApi(sb: SupabaseClient): VideoEditsApi {
@@ -33,6 +36,7 @@ export function createSupabaseVideoEditsApi(sb: SupabaseClient): VideoEditsApi {
       fail(r.error)
     },
     async videoCancel(id) { const r = await sb.rpc('video_edit_cancel', { p_id: id }); fail(r.error) },
+    async marketingFlow() { const r = await sb.rpc('marketing_flow'); fail(r.error); return (r.data as MarketingFlow | null) ?? null },
     async videoPreviewUrl(path) {
       const r = await sb.storage.from('video-edits').createSignedUrl(path, 3600)
       if (r.error || !r.data) throw new ApiError(r.error?.message ?? '미리보기를 열지 못했습니다.')
@@ -62,6 +66,17 @@ export function createDemoVideoEditsApi(): VideoEditsApi {
       jobs = [{ id: `v${jobs.length + 3}`, created_at: new Date().toISOString(), created_by: null, title: input.title.trim(), source_folder: input.source_folder, template: input.template, instructions: input.instructions.trim() || null, target_seconds: input.target_seconds, status: '대기', parent_id: input.parent_id ?? null, claimed_at: null, finished_at: null, plan: null, result_path: null, preview_path: null, duration_seconds: null, error: null }, ...jobs]
     },
     async videoCancel(id) { jobs = jobs.map(j => (j.id === id && j.status === '대기' ? { ...j, status: '취소' } : j)) },
+    async marketingFlow() {
+      if (!harness) return null
+      return { at: new Date(now).toISOString(),
+        analyze: { competitor_posts_7d: 2, competitors: 7, research_7d: { '트렌드·밈': 14, '팝업 정보': 13 }, latest_trend: null },
+        create: { campaigns_14d: 1, campaign_status: { draft: 2 }, ai_drafts: 0, video: { 완료: 2 } },
+        publish: { content_status: { '작성 중': 2 }, content_14d: 2 },
+        ads: { settings: { mode: 'suggest', monthly_cap: 0, daily_cap: 0, kill_switch: false }, proposals: 0, meta_drafts: {} },
+        inquiries: { total_30d: 79, new: 13, from_ads_30d: 18, tagged_30d: 30, direct_30d: 12 },
+        deals: { linked_90d: 1, by_status: { 문의: 1 } },
+        by_campaign: [{ campaign: '(꼬리표 없음)', source: '–', inquiries: 31, direct: 12, projects: 1, won: 0 }, { campaign: '[시험] report26h1', source: 'meta', inquiries: 18, direct: 0, projects: 0, won: 0 }] }
+    },
     async videoPreviewUrl() { throw new ApiError('체험 모드에는 미리보기가 없습니다.') },
   }
 }
