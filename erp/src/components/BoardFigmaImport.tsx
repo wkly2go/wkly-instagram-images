@@ -18,6 +18,8 @@ export interface FigmaPicked { fileId: string; name: string; w: number; h: numbe
 const MAX_IMAGE = 6
 const MAX_EDIT = 30
 const BATCH = 3
+/** 한 번에 붙이는 요소 합계 한도 (보드 저장 크기 · 서버 쓰기 부하) */
+const MAX_ELEMENTS = 8000
 
 type Source = { kind: 'linked'; file: ProjectFigma } | { kind: 'url'; url: string; title: string; frames: FigmaFrame[] }
 
@@ -64,13 +66,23 @@ export function BoardFigmaImport({ projectId, onClose, onPick, onContent }: { pr
     setBusy(true)
     try {
       if (mode === 'edit') {
+        // 3개씩 나눠 받고, 한 묶음이 실패해도 나머지는 계속 (요소 합계가 너무 많으면 거기서 멈춤 — 저장 부하)
         const parts: FigmaContent[] = []
+        let failed = 0, total = 0, lastErr = ''
         for (let i = 0; i < sel.length; i += BATCH) {
+          if (total >= MAX_ELEMENTS) break
           const part = sel.slice(i, i + BATCH)
           setProgress(`${Math.min(i + BATCH, sel.length)} / ${sel.length}`)
-          parts.push(source.kind === 'url' ? await api.figmaContentByUrl(source.url, part) : await api.figmaContent(source.file.id, part))
+          try {
+            const c = source.kind === 'url' ? await api.figmaContentByUrl(source.url, part) : await api.figmaContent(source.file.id, part)
+            parts.push(c)
+            total += c.frames.reduce((n, f) => n + f.els.length, 0)
+          } catch (e) { failed += part.length; lastErr = e instanceof Error ? e.message : '' }
         }
+        if (!parts.length) throw new Error(lastErr || '피그마를 불러오지 못했습니다.')
         onContent(mergeContents(parts))
+        const got = parts.reduce((n, p) => n + p.frames.length, 0)
+        if (failed || got < sel.length) toast(`프레임 ${sel.length}개 중 ${got}개를 붙였습니다.${failed ? ` ${failed}개는 받지 못했습니다(${lastErr || '피그마 응답 없음'}) — 다시 시도해 주세요.` : ' 요소가 많아 나머지는 멈췄습니다 — 남은 프레임을 다시 골라 붙여 주세요.'}`)
         return
       }
       if (source.kind !== 'linked') { toast('그림 한 장으로는 프로젝트에 연결한 파일만 됩니다. ‘수정 가능한 요소로’를 써 주세요.'); return }
