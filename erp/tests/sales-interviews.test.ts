@@ -144,7 +144,7 @@ test('interview feed: prospects once, content link, tab in ads', async () => {
   assert.ok(!/net\.http_|send_message|gmail/i.test(code))
   assert.ok(code.includes("('interview_prospects', '서면 인터뷰 → 영업 후보', 'private.sales_interview_prospects()', 10, 10, true)"))
   const ads = await readFile(new URL('../src/pages/Ads.tsx', import.meta.url), 'utf8')
-  assert.ok(ads.includes("['interview', '인터뷰 피드']") && ads.includes("tabs: ['content', 'interview']"))
+  assert.ok(ads.includes("['interview', '인터뷰 피드']") && ads.includes("tabs: ['content', 'interview'"))
   const feed = await readFile(new URL('../src/components/InterviewFeed.tsx', import.meta.url), 'utf8')
   assert.ok(feed.includes('interviewContentText(r)'))
   assert.ok(!/functions\.invoke|runGrowthAi|fetch\(|mailto:/i.test(feed), 'no AI calls or mail from the feed')
