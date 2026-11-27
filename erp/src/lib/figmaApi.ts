@@ -6,6 +6,7 @@ import { ApiError } from './api'
 import type { FigmaKind } from './figma'
 export { FIGMA_KIND_LABEL, figmaEmbedUrl, isWide, type FigmaKind } from './figma'
 
+export interface FigmaFrameImage { id: string; name: string; w: number; h: number; mime: string; data: string }
 export interface FigmaFrame { id: string; name: string; type: string; page: string; w: number; h: number }
 export interface ProjectFigma {
   id: string
@@ -35,6 +36,8 @@ export interface FigmaApi {
   refreshFigma(id: string): Promise<void>
   unlinkFigma(id: string): Promise<void>
   exportFigmaPdf(id: string, nodeIds: string[], title: string): Promise<{ id: string; path: string; pages: number; url: string | null }>
+  /** 프레임을 PNG(base64)로 · 화이트보드에 불러오기 (한 번에 6개) */
+  figmaFrameImages(id: string, nodeIds: string[]): Promise<FigmaFrameImage[]>
   figmaExportBlob(path: string): Promise<Blob>
   markFigmaExportDrive(id: string, driveFileId: string, driveUrl: string): Promise<void>
 }
@@ -80,6 +83,7 @@ export function createSupabaseFigmaApi(sb: SupabaseClient): FigmaApi {
       if (!r.data?.length) throw new ApiError('연결한 사람이나 관리자만 뗄 수 있습니다.')
     },
     async exportFigmaPdf(id, nodeIds, title) { return await call('export', { id, node_ids: nodeIds, title }) },
+    async figmaFrameImages(id, nodeIds) { return (await call<{ images: FigmaFrameImage[] }>('images', { id, node_ids: nodeIds })).images },
     async figmaExportBlob(path) {
       const r = await sb.storage.from('figma-files').download(path)
       if (r.error || !r.data) throw new ApiError('PDF 를 받지 못했습니다.')
@@ -99,6 +103,6 @@ export function createDemoFigmaApi(): FigmaApi {
     async figmaStatus() { return { token: false } },
     setFigmaToken: none,
     async listProjectFigma() { return { files: [], exports: [] } },
-    linkFigma: none, refreshFigma: none, unlinkFigma: none, exportFigmaPdf: none, figmaExportBlob: none, markFigmaExportDrive: none,
+    linkFigma: none, refreshFigma: none, unlinkFigma: none, exportFigmaPdf: none, figmaFrameImages: none, figmaExportBlob: none, markFigmaExportDrive: none,
   }
 }
