@@ -61,3 +61,67 @@ export function flowSteps(f: MarketingFlow): FlowStep[] {
 export function taggedRate(f: MarketingFlow): number | null {
   return f.inquiries.total_30d > 0 ? Math.round((f.inquiries.tagged_30d / f.inquiries.total_30d) * 100) : null
 }
+
+// ── 대시보드 (숫자 띠 · 추이 그래프 · 출처 표) — DB 함수 marketing_flow_trend() ──
+export interface FlowTrend {
+  daily: { d: string; total: number; direct: number; ads: number }[]
+  prev: { total: number; direct: number; ads: number; tagged: number }
+  by_source: { source: string; inquiries: number; projects: number }[]
+  by_kind: { kind: string; inquiries: number }[]
+  week_start: string
+  week: WeekItem[]
+}
+export interface WeekItem { id: string; type: 'content' | 'video'; title: string; status: string; at: string; channels: string[] }
+export interface Kpi { key: string; label: string; value: string; delta: number | null; note: string }
+
+/** 앞 30일과 견준 변화(%). 앞 기간이 0이면 견줄 수 없으므로 null */
+export function deltaPct(now: number, prev: number | undefined): number | null {
+  if (!prev || prev <= 0) return null
+  return Math.round(((now - prev) / prev) * 100)
+}
+
+/** 맨 위 숫자 띠 여섯 칸 */
+export function flowKpis(f: MarketingFlow, t: FlowTrend | null): Kpi[] {
+  const i = f.inquiries
+  const rate = taggedRate(f)
+  const prevRate = t && t.prev.total > 0 ? Math.round((t.prev.tagged / t.prev.total) * 100) : null
+  const won = n(f.deals.by_status, '진행') + n(f.deals.by_status, '완료')
+  return [
+    { key: 'total', label: '문의 (30일)', value: `${i.total_30d}`, delta: deltaPct(i.total_30d, t?.prev.total), note: '앞 30일 대비' },
+    { key: 'direct', label: '직접 문의', value: `${i.direct_30d}`, delta: deltaPct(i.direct_30d, t?.prev.direct), note: '앞 30일 대비' },
+    { key: 'ads', label: '광고 유입', value: `${i.from_ads_30d}`, delta: deltaPct(i.from_ads_30d, t?.prev.ads), note: '앞 30일 대비' },
+    { key: 'tagged', label: '출처를 아는 문의', value: rate == null ? '–' : `${rate}%`, delta: rate != null && prevRate != null ? rate - prevRate : null, note: '앞 30일 대비 (%p)' },
+    { key: 'new', label: '답 기다리는 문의', value: `${i.new}`, delta: null, note: i.new > 0 ? '문의함에서 응대' : '밀린 문의 없음' },
+    { key: 'deals', label: '프로젝트로 이어짐', value: `${f.deals.linked_90d}`, delta: null, note: `90일 · 진행 · 완료 ${won}건` },
+  ]
+}
+
+/** 추이 그래프 좌표 — 0~1 로 정규화한 점과 눈금 */
+export function trendScale(daily: FlowTrend['daily']): { max: number; ticks: number[] } {
+  const peak = Math.max(1, ...daily.map(x => x.total))
+  const step = peak <= 4 ? 1 : peak <= 10 ? 2 : peak <= 25 ? 5 : peak <= 50 ? 10 : Math.ceil(peak / 5 / 10) * 10
+  const max = Math.ceil(peak / step) * step
+  const ticks: number[] = []
+  for (let v = 0; v <= max; v += step) ticks.push(v)
+  return { max, ticks }
+}
+
+/** 막대 폭(%) — 가장 큰 값이 100 */
+export function shareWidths(values: number[]): number[] {
+  const top = Math.max(0, ...values)
+  return values.map(v => (top > 0 ? Math.max(2, Math.round((v / top) * 100)) : 0))
+}
+
+const DAY_NAMES = ['월', '화', '수', '목', '금', '토', '일']
+export interface WeekDay { date: string; name: string; day: number; today: boolean; items: WeekItem[] }
+
+/** 이번 주 월~일 일곱 칸. 항목은 한국 날짜 기준으로 그날 칸에 */
+export function weekDays(t: FlowTrend, nowMs: number): WeekDay[] {
+  const kst = (ms: number) => new Date(ms + 9 * 3600_000).toISOString().slice(0, 10)
+  const start = Date.parse(`${t.week_start}T00:00:00Z`)
+  const today = kst(nowMs)
+  return DAY_NAMES.map((name, i) => {
+    const date = new Date(start + i * 86_400_000).toISOString().slice(0, 10)
+    return { date, name, day: Number(date.slice(8)), today: date === today, items: t.week.filter(w => kst(Date.parse(w.at)) === date) }
+  })
+}
