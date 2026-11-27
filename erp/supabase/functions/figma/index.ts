@@ -1,11 +1,12 @@
 // 피그잼 · 피그마 연결 서버 함수 (2026-11-20 · DB 20261120180000_project_figma)
 //  - 팀원(로그인 · 활성)만: status · link(프로젝트에 보드 연결) · refresh(다시 읽기) · export(프레임을 골라 PDF 한 부)
 //    · images(프레임을 PNG 로 · 화이트보드에 불러오기 · 2026-11-27 대표 '화이트보드에 피그마 불러오기')
+//    · content(프레임 안 글 · 도형 · 선 · 사진을 수정 가능한 요소로 · 2026-11-27 대표 '모든 컨텐츠를 불러와서 수정할 수 있게')
 //  - 예약(x-sync-key = 금고 GDRIVE_SYNC_KEY): tick — 30분마다 바뀐 보드만 다시 읽음
 //  - 피그마는 읽기만 (금고 FIGMA_TOKEN · 개인 접근 토큰 · 읽기 권한). 보드 내용은 바꾸지 않음
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2.117.3'
 import { PDFDocument } from 'npm:pdf-lib@1.17.1'
-import { cleanNodeIds, expandSections, framesOf, parseFigmaUrl, textOf } from './parse.ts'
+import { cleanNodeIds, expandSections, flattenFrame, framesOf, parseFigmaUrl, textOf, type FlatEl, type FNode } from './parse.ts'
 
 const URL_ = Deno.env.get('SUPABASE_URL')!
 const ANON = Deno.env.get('SUPABASE_ANON_KEY')!
@@ -145,6 +146,56 @@ async function frameImages(tk: string, row: Row, ids: string[]) {
   return out
 }
 
+/** 프레임 안 모든 요소를 화이트보드용으로 (한 번에 3개 · 요소 2,500개 · 그림 60장 · 그림 합계 14MB) */
+async function frameContent(tk: string, row: Row, ids: string[]) {
+  if (!ids.length) throw new Fail('불러올 프레임을 골라 주세요.')
+  const pick = ids.slice(0, 3)
+  const frames: { id: string; els: FlatEl[]; truncated: boolean }[] = []
+  let budget = 2500
+  for (const id of pick) {
+    // 프레임 하나씩 받아 바로 평평하게 만들고 원본은 버림 (메모리)
+    const r = await fetch(`https://api.figma.com/v1/files/${row.file_key}/nodes?ids=${encodeURIComponent(id)}&geometry=omit`, { headers: { 'X-Figma-Token': tk } })
+    if (r.status === 403) throw new Fail('피그마가 거절했습니다. 열쇠가 만료됐거나 이 파일을 볼 권한이 없습니다.', 403)
+    if (r.status === 429) throw new Fail('피그마 요청이 많아 잠시 막혔습니다. 몇 분 뒤 다시 해 주세요.', 429)
+    if (!r.ok) throw new Fail(`피그마 응답 오류 (${r.status})`, 502)
+    const len = Number(r.headers.get('content-length') ?? 0)
+    if (len > 40 * 1024 * 1024) throw new Fail('이 프레임은 너무 커서 요소로 불러올 수 없습니다. ‘그림 한 장으로’를 써 주세요.', 413)
+    let doc: FNode | undefined
+    { const j = await r.json() as { nodes?: Record<string, { document?: FNode } | null> }; doc = j.nodes?.[id]?.document }
+    if (!doc) continue
+    const f = flattenFrame(doc, budget)
+    doc = undefined
+    budget -= f.els.length
+    frames.push({ id, ...f })
+    if (budget <= 0) break
+  }
+  // 그림으로 바꿀 것(아이콘 · 로고 · 사진 칠) — 피그마 images API 로 PNG
+  const rasters = frames.flatMap(f => f.els.filter(e => e.kind === 'raster'))
+  const images: Record<string, { mime: string; data: string }> = {}
+  let total = 0, skipped = 0
+  const want = rasters.slice(0, 60)
+  skipped += rasters.length - want.length
+  // 사진은 JPG(작게) · 아이콘 · 로고는 PNG(투명 배경)
+  const groups = [{ fmt: 'jpg', mime: 'image/jpeg', list: want.filter(e => e.photo) }, { fmt: 'png', mime: 'image/png', list: want.filter(e => !e.photo) }]
+  for (const g of groups) for (let i = 0; i < g.list.length; i += 20) {
+    const part = g.list.slice(i, i + 20)
+    const ok = await figma<{ err?: string | null; images?: Record<string, string | null> }>(tk, `images/${row.file_key}?ids=${encodeURIComponent(part.map(p => p.id).join(','))}&format=${g.fmt}&scale=1`).catch(() => null)
+    for (const p of part) {
+      const u = ok?.images?.[p.id]
+      if (!u || total > 14 * 1024 * 1024) { skipped++; continue }
+      const res = await fetch(u).catch(() => null)
+      if (!res?.ok) { skipped++; continue }
+      const bytes = new Uint8Array(await res.arrayBuffer())
+      if (bytes.length > 4 * 1024 * 1024) { skipped++; continue }
+      total += bytes.length
+      let bin = ''
+      for (let k = 0; k < bytes.length; k += 0x8000) bin += String.fromCharCode(...bytes.subarray(k, k + 0x8000))
+      images[p.id] = { mime: g.mime, data: btoa(bin) }
+    }
+  }
+  return { frames, images, skipped }
+}
+
 async function member(authorization: string | null): Promise<{ id: string; admin: boolean }> {
   if (!authorization) throw new Fail('로그인이 필요합니다.', 401)
   const c: SupabaseClient = createClient(URL_, ANON, { global: { headers: { Authorization: authorization } }, auth: { persistSession: false, autoRefreshToken: false } })
@@ -207,6 +258,7 @@ Deno.serve(async req => {
       return json({ ok: true, ...(await exportPdf(await token(), row as Row, cleanNodeIds(body.node_ids), title, me.id)) })
     }
     if (action === 'images') return json({ ok: true, images: await frameImages(await token(), row as Row, cleanNodeIds(body.node_ids)) })
+    if (action === 'content') return json({ ok: true, ...(await frameContent(await token(), row as Row, cleanNodeIds(body.node_ids))) })
     throw new Fail('알 수 없는 요청입니다.')
   } catch (e) {
     const status = e instanceof Fail ? e.status : 500
