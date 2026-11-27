@@ -14,6 +14,7 @@ import { boardFilePath, boardTitle, mergeElements, sceneForSave, sceneSignature,
 import type { BoardLive, BoardPeer, ProjectBoard } from '../lib/boardApi'
 import { imagesToPdf } from '../lib/imagePdf'
 import { BoardFigmaImport, type FigmaPicked } from './BoardFigmaImport'
+import { figmaToSkeleton, placeTexts, type FigmaContent } from '../lib/figmaToBoard'
 import '../pages/Board.css'
 
 type ExApi = Parameters<NonNullable<React.ComponentProps<typeof Excalidraw>['excalidrawAPI']>>[0]
@@ -252,6 +253,23 @@ export default function BoardEditor({ id, embedded = false, onClose }: { id: str
     toast(`피그마 프레임 ${picked.length}개를 붙였습니다.`)
   }
 
+  /** 피그마 프레임 안 요소를 수정 가능한 보드 요소로 붙임 (피그마 배치 그대로 · 보드 오른쪽 빈 곳) */
+  const addFigmaContent = (c: FigmaContent) => {
+    const x = ex.current
+    if (!x) return
+    const els = x.getSceneElements()
+    const at = { x: els.length ? Math.max(...els.map(e => e.x + e.width)) + 120 : 0, y: els.length ? Math.min(...els.map(e => e.y)) : 0 }
+    const out = figmaToSkeleton(c, at)
+    if (!out.count) { toast('불러올 요소가 없습니다.'); return }
+    if (out.files.length) x.addFiles(out.files as never)
+    const added = placeTexts(convertToExcalidrawElements(out.skeleton as never, { regenerateIds: false } as never) as never, out.textBoxes) as never as ReturnType<typeof convertToExcalidrawElements>
+    x.updateScene({ elements: [...x.getSceneElementsIncludingDeleted(), ...added] as never })
+    x.scrollToContent(added as never, { fitToContent: true })
+    const cut = c.frames.some(f => f.truncated)
+    const miss = out.rasterMissing
+    toast(`피그마 요소 ${out.count}개를 붙였습니다. 글 · 도형을 눌러 바로 고칠 수 있습니다.${cut ? ' (요소가 많아 일부만)' : ''}${miss ? ` 그림 ${miss}개는 자리만 표시했습니다.` : ''}`)
+  }
+
   if (error) return (
     <div className={`board-page board-msg${embedded ? ' embedded' : ''}`}>
       <p role="alert">{error}</p>
@@ -272,7 +290,7 @@ export default function BoardEditor({ id, embedded = false, onClose }: { id: str
         <button type="button" className="icon-btn board-full" onClick={() => void toggleFull()} title={full ? '전체 화면 끝 (Esc)' : '전체 화면'} aria-label={full ? '전체 화면 끝' : '전체 화면'}>{full ? <Minimize2 size={14} /> : <Maximize2 size={14} />}</button>
         {embedded && onClose && <button type="button" className="icon-btn" onClick={onClose} title="보드 닫기" aria-label="보드 닫기"><X size={14} /></button>}
       </div>
-      {figmaOpen && board && <BoardFigmaImport projectId={board.project_id} onClose={() => setFigmaOpen(false)} onPick={p => { setFigmaOpen(false); addFigma(p) }} />}
+      {figmaOpen && board && <BoardFigmaImport projectId={board.project_id} onClose={() => setFigmaOpen(false)} onPick={p => { setFigmaOpen(false); addFigma(p) }} onContent={c => { setFigmaOpen(false); addFigmaContent(c) }} />}
       <div className="board-canvas">
         {initial ? (
           <Excalidraw

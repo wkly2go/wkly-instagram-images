@@ -61,3 +61,6 @@ button.pboards-item { padding-right: 120px; }
 .pboards-compact { margin-top: 6px; }
 .boards-proj { margin: 10px 0 4px; }
 .boards-proj-name { display: inline-block; margin-bottom: 6px; font-weight: 700; color: var(--tx-key); text-decoration: none; }
+/* 피그마 불러오기 방식 (수정 가능한 요소 / 그림 한 장) */
+.board-figma-mode { display: grid; gap: 6px; padding: 8px 10px; border: 1px solid var(--v8-line, #e4e1d8); border-radius: 8px; }
+.board-figma-mode label { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; cursor: pointer; }
