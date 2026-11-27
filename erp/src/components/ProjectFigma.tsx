@@ -6,6 +6,7 @@ import { useMemo, useState } from 'react'
 import { ArrowDown, ArrowUp, Download, ExternalLink, Eye, FileText, KeyRound, Link2, RefreshCw, Trash2, X } from 'lucide-react'
 import { useApp, useAsync } from '../lib/app'
 import { relativeLabel } from '../lib/date'
+import { Link } from '../lib/router'
 import { driveIdOf, listChildren, newFolder, uploadToDrive, FOLDER_MIME, type GFile } from '../lib/gdrive'
 import { FIGMA_KIND_LABEL, figmaEmbedUrl, isWide, type FigmaExport, type ProjectFigma as Linked } from '../lib/figmaApi'
 import type { Project } from '../lib/types'
@@ -29,7 +30,6 @@ export function ProjectFigma({ project }: { project: Project }) {
   const [busy, setBusy] = useState<string | null>(null)
   const [viewing, setViewing] = useState<string | null>(null)
   const [pdfFor, setPdfFor] = useState<Linked | null>(null)
-  const [tokenOpen, setTokenOpen] = useState(false)
   const admin = me.role === 'admin'
   const files = list.data.files
 
@@ -42,9 +42,9 @@ export function ProjectFigma({ project }: { project: Project }) {
   return (
     <section className="section pfig" aria-label="피그잼 · 피그마">
       <SectionHead title="피그잼 · 피그마" count={files.length ? String(files.length) : undefined}
-        right={admin ? <button type="button" className="btn btn-outline btn-sm" onClick={() => setTokenOpen(true)}><KeyRound size={13} /> {status.data.token ? '피그마 열쇠 바꾸기' : '피그마 열쇠 넣기'}</button> : undefined} />
+        right={admin && !status.data.token ? <Link to="/admin#external-keys" className="btn btn-outline btn-sm"><KeyRound size={13} /> 관리에서 피그마 열쇠 넣기</Link> : undefined} />
       {!status.loading && !status.data.token ? (
-        <p className="pfig-note">{admin ? '먼저 오른쪽 위 ‘피그마 열쇠 넣기’로 피그마 읽기 열쇠를 넣어 주세요. 한 번만 넣으면 모든 팀원이 보드를 연결할 수 있습니다.' : '관리자가 피그마 열쇠를 넣으면 이 프로젝트에 피그잼 보드를 연결할 수 있습니다.'}</p>
+        <p className="pfig-note">{admin ? '피그마 열쇠는 관리 › 외부 연결에서 한 번만 넣으면 모든 프로젝트에서 씁니다. 오른쪽 위 단추로 가서 넣어 주세요.' : '관리자가 피그마 열쇠를 넣으면 이 프로젝트에 피그잼 보드를 연결할 수 있습니다.'}</p>
       ) : (
         <form className="pfig-link" onSubmit={e => { e.preventDefault(); if (url.trim()) void link() }}>
           <input value={url} onChange={e => setUrl(e.target.value)} placeholder="피그잼 · 피그마 주소 붙여 넣기 (보드 › 공유 › 링크 복사)" aria-label="피그잼 주소" />
@@ -96,7 +96,6 @@ export function ProjectFigma({ project }: { project: Project }) {
         </div>
       )}
       {pdfFor && <PdfMaker project={project} file={pdfFor} onClose={() => { setPdfFor(null); bump() }} />}
-      {tokenOpen && <TokenForm hasToken={status.data.token} onClose={() => { setTokenOpen(false); bump() }} />}
     </section>
   )
 }
@@ -195,8 +194,8 @@ async function proposalFolder(token: string, root: string): Promise<string> {
   return (await newFolder(token, '02.제안서', root)).id
 }
 
-/** 관리자: 피그마 읽기 열쇠 넣기 (값은 금고에만 · 다시 보여 주지 않음) */
-function TokenForm({ hasToken, onClose }: { hasToken: boolean; onClose: () => void }) {
+/** 관리자: 피그마 읽기 열쇠 넣기 (값은 금고에만 · 다시 보여 주지 않음) — 2026-11-27 관리 › 외부 연결로 옮김 */
+export function TokenForm({ hasToken, onClose }: { hasToken: boolean; onClose: () => void }) {
   const { api, toast } = useApp()
   const [v, setV] = useState('')
   const [busy, setBusy] = useState(false)
@@ -208,8 +207,8 @@ function TokenForm({ hasToken, onClose }: { hasToken: boolean; onClose: () => vo
     <Modal title="피그마 읽기 열쇠" onClose={onClose}
       actions={<>{hasToken && <Button kind="outline" onClick={() => void save('')} disabled={busy}>지우기</Button>}<Button onClick={() => void save(v.trim())} disabled={busy || !v.trim()}>저장</Button></>}>
       <ol className="pfig-steps">
-        <li>피그마(figma.com)에 회사 계정으로 로그인 → 왼쪽 위 계정 이름 › <b>Settings</b> › <b>Security</b> › <b>Personal access tokens</b> › <b>Generate new token</b></li>
-        <li>이름: ‘WKLY 인트라넷’ · 기간: 가장 길게 · 권한: <b>File content — Read only</b>(나머지는 고르지 않음)</li>
+        <li>피그마에 회사 계정으로 로그인 → 파일 안이면 메뉴 <b>도움말 및 계정 › 계정 설정</b>(홈 화면이면 왼쪽 위 계정 이름 › <b>설정</b>) › <b>보안</b> › <b>개인 액세스 토큰</b> › <b>새 토큰 생성</b></li>
+        <li>이름: ‘WKLY 인트라넷’ · 만료: <b>90일</b>(가장 김 · 무기한 없음) · 범위: <b>file_content:read</b> · <b>file_metadata:read</b> 두 칸만</li>
         <li>만들어진 값을 아래에 붙여 넣고 저장 — 값은 서버 금고에만 들어가고 다시 보이지 않습니다. 대화 · 메일로 보내지 마세요.</li>
       </ol>
       <Field label={hasToken ? '새 열쇠 (지금 열쇠를 바꿈)' : '열쇠'}><input type="password" autoComplete="off" value={v} onChange={e => setV(e.target.value)} placeholder="figd_…" /></Field>
