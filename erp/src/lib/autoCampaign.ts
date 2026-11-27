@@ -19,6 +19,8 @@ export interface AutoInput {
   facts: string
   /** 네이버 크리에이터샵 · 쇼핑커넥트 주소 (있으면 블로그 글 끝에 자동으로 붙임 · 선택) */
   shopUrl?: string
+  /** 분석에서 고른 참고 자료 (형식 · 관점만 참고 · 사실로 쓰지 않음 · 선택) */
+  reference?: string
 }
 
 /** 카드뉴스 한 장 (인스타그램 캐러셀) */
@@ -53,6 +55,7 @@ export function autoCampaignPrompt(input: AutoInput): string {
     `회사: ${AUTO_BRAND_LABEL[input.brand]}`,
     `알릴 내용: ${clip(input.topic, 500)}`,
     facts ? `확인된 사실(이것만 사실로 씀):\n${facts}` : '확인된 사실: 위 알릴 내용뿐 — 날짜 · 가격 · 실적 · 숫자를 지어내지 말고 필요하면 [확인 필요]로 적는다.',
+    ...(clip(input.reference, 700) ? [`참고한 분석 자료(요즘 반응이 좋은 주제 · 형식 · 관점만 참고한다. 여기 적힌 숫자 · 날짜 · 남의 브랜드 이야기를 우리 사실처럼 쓰지 않고, 문장을 베끼지 않는다):\n${clip(input.reference, 700)}`] : []),
     `연결 주소: ${clip(input.link, 300) || AUTO_DEFAULT_LINK[input.brand]}`,
     `기간: ${input.startDate || '미정'} ~ ${input.endDate || '미정'}`,
     '',

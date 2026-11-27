@@ -10,9 +10,11 @@ import { Button, Field, Modal } from './ui'
 import { AiAssist } from './GrowthAi'
 import { InstagramContacts } from './InstagramContacts'
 import { InstagramPublish } from './InstagramPublish'
+import { PublishKit } from './PublishKit'
 import { TenderSearch } from './TenderSearch'
 import { DiscoveryIntake } from './DiscoveryIntake'
 import { CHANNELS, GROWTH_LABELS, GROWTH_STATUSES, koreaDateTimeInput, appendGrowthNote, changeChannel, patchGrowthDocument, withAllChannels, contactCandidates, newGrowth, safeWebUrl, validateGrowth, type GrowthDraft, type GrowthItem, type GrowthKind, type GrowthDocument, type ChannelDraft } from '../lib/growth'
+import { tagContentVersions } from '../lib/utmLinks'
 import { methodInputFromGrowth, recommendSalesMethod } from '../lib/salesMethods'
 import './GrowthWorkspace.css'
 
@@ -233,7 +235,7 @@ function GrowthEditor({kind,initial,seed,channel,onChannelChange,onClose,onSaved
   const channelPatch=(p:Partial<ChannelDraft>)=>doc({versions:x.versions?.map((a,i)=>i===channel?changeChannel(a,p):a)})
   const close=()=>{if(!lock.current&&!aiBusy&&(!dirty||window.confirm('저장하지 않은 변경이 있습니다. 닫을까요?')))onClose()}
   useDraftNavigation(dirty,working)
-  const save=async()=>{if(lock.current||aiBusy||linkNeedsRefresh)return;if(aiDirty&&!window.confirm('AI 요청문·결과를 편집 내용에 적용하지 않았습니다. 적용하지 않고 현재 문서만 저장할까요?'))return;const e=validateGrowth(draft);if(e){setError(e);return}lock.current=true;setBusy(true);setError('');try{const r=await api.saveGrowth(id.current,draft,initial?.revision??0);original.current=JSON.stringify(draft);onSaved(r)}catch(e){setError(friendlyError(e))}finally{lock.current=false;setBusy(false)}}
+  const save=async()=>{if(lock.current||aiBusy||linkNeedsRefresh)return;if(aiDirty&&!window.confirm('AI 요청문·결과를 편집 내용에 적용하지 않았습니다. 적용하지 않고 현재 문서만 저장할까요?'))return;const e=validateGrowth(draft);if(e){setError(e);return}lock.current=true;setBusy(true);setError('');try{const versions=draft.kind==='content'&&draft.document.versions?tagContentVersions(draft.title,draft.document.versions):draft.document.versions;const toSave=versions===draft.document.versions?draft:{...draft,document:{...draft.document,versions}};const r=await api.saveGrowth(id.current,toSave,initial?.revision??0);original.current=JSON.stringify(toSave);onSaved(r)}catch(e){setError(friendlyError(e))}finally{lock.current=false;setBusy(false)}}
   const refreshLinked = async () => {
     if (!initial || lock.current || aiBusy) return
     lock.current=true;setBusy(true);setError('')
@@ -292,6 +294,7 @@ function GrowthEditor({kind,initial,seed,channel,onChannelChange,onClose,onSaved
       {v&&<><Field label="채널 제목" className="full"><input className="input" maxLength={300} value={v.title} onChange={e=>channelPatch({title:e.target.value})}/></Field><Field label="채널 본문" className="full"><textarea className="textarea" rows={7} maxLength={10000} value={v.body} onChange={e=>channelPatch({body:e.target.value})}/></Field><Field label="태그"><input className="input" maxLength={500} value={v.tags} onChange={e=>channelPatch({tags:e.target.value})}/></Field><Field label="채널 상태"><select className="select" value={v.status} onChange={e=>channelPatch({status:e.target.value as ChannelDraft['status']})}>{['초안','검수','승인','발행'].map(s=><option key={s} disabled={s==='승인'&&me.role!=='admin'}>{s}</option>)}</select></Field><label className="full row"><input type="checkbox" checked={v.rights} onChange={e=>channelPatch({rights:e.target.checked})}/>이미지·영상·문구 사용 권리 확인</label><Field label="실제 발행 주소"><input className="input" type="url" maxLength={2000} value={v.publication_url} onChange={e=>channelPatch({publication_url:e.target.value})}/></Field><Field label="외부 게시물 ID"><input className="input" maxLength={300} value={v.external_id} onChange={e=>channelPatch({external_id:e.target.value})}/></Field><p className="full t-cap">내용·수행 회사·출처 수정 시 승인이 해제됩니다. 초안 저장 → 관리자 승인 → 실제 게시 후 발행 주소를 기록해 주세요. 게시 승인과 광고비 승인은 별개입니다.</p></>}
       </fieldset>
       {initial&&me.role==='admin'&&v?.channel==='인스타그램'&&<InstagramPublish item={initial} dirty={dirty} onPublished={onSaved}/>}
+      {v&&(v.channel==='네이버 블로그'||v.channel==='홈페이지')&&<PublishKit channel={v.channel} title={v.title} body={v.body} tags={v.tags}/>}
     </>}
     <fieldset className="growth-fieldset form-grid" disabled={working||!editable||linkNeedsRefresh}>
       {input(kind==='contact'?'연락 맥락·확인할 사항':'메모·체크리스트','note',{area:true})}

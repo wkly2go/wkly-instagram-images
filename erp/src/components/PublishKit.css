@@ -1,0 +1,24 @@
+/* 게시 도구 — 콘텐츠 편집 창의 네이버 블로그 · 홈페이지 채널 아래 */
+.pk { display: grid; gap: 10px; padding: 14px 16px; border: 1px solid var(--v8-line, #e3e0d8); border-radius: var(--v8-r-card, 12px); background: #fbfaf6; margin: 4px 0 8px; }
+.pk-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; }
+.pk-head strong { color: var(--tx-title); font-weight: 700; font-size: var(--fs-sub); }
+.pk-sub, .pk-copied { color: var(--tx-sub); }
+.pk-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.pk-actions .btn { display: inline-flex; align-items: center; gap: 5px; text-decoration: none; white-space: nowrap; }
+.pk-copied { min-height: 1em; color: var(--tx-key); }
+.pk-checks { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 4px 14px; }
+.pk-checks li { display: flex; align-items: flex-start; gap: 6px; min-width: 0; }
+.pk-checks li svg { flex: none; margin-top: 3px; }
+.pk-checks li.ok { color: var(--tx-sub); }
+.pk-checks li.ok svg { color: var(--tx-key); }
+.pk-checks li.todo { color: #6b5200; }
+.pk-photos { margin: 0; color: var(--tx-body); overflow-wrap: anywhere; }
+.pk-photos b { font-weight: 700; margin-right: 6px; }
+.pk-preview { background: #fff; border: 1px solid var(--v8-line, #e3e0d8); border-radius: 10px; padding: 18px 20px; max-height: 520px; overflow: auto; display: grid; gap: 10px; }
+.pk-preview h4 { margin: 0 0 4px; font-size: var(--fs-title); font-weight: 800; }
+.pk-preview h5 { margin: 8px 0 0; font-size: var(--fs-sub); font-weight: 700; }
+.pk-preview p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.7; }
+.pk-preview ul, .pk-preview ol { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
+.pk-photo-slot { padding: 22px 12px; text-align: center; color: var(--tx-sub); background: #f3f4f1; border: 1px dashed #c9cec9; border-radius: 8px; }
+@media (max-width: 640px) { .pk { padding: 12px; } .pk-actions .btn { min-height: 44px; } }
+html[data-theme="dark"] .pk, html[data-theme="dark"] .pk-preview, html[data-theme="dark"] .pk-photo-slot { background: #15291c; border-color: var(--line); color: var(--ink); }

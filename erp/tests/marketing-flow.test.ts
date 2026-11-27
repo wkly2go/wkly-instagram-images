@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { deltaPct, flowKpis, flowSteps, shareWidths, taggedRate, trendScale, weekDays, type FlowTrend, type MarketingFlow } from '../src/lib/marketingFlow.ts'
+import { calendarDays, shiftWeek, weekLabel, deltaPct, flowKpis, flowSteps, shareWidths, taggedRate, trendScale, weekDays, type FlowTrend, type MarketingFlow } from '../src/lib/marketingFlow.ts'
 
 const base: MarketingFlow = {
   at: '2026-11-27T07:00:00Z',
@@ -83,4 +83,29 @@ test('추이 DB 함수도 읽기만 · 호출한 사람 권한 · 로그인 없�
   assert.match(sql, /revoke all on function public\.marketing_flow_trend\(\) from public, anon/)
   assert.doesNotMatch(sql, /\b(insert|update|delete|drop)\b/i)
   assert.match(sql, /not coalesce\(is_test, false\)/)
+})
+
+test('주간 달력: 예정일이 있으면 그날 칸 · 주 옮기기 · 지난 날 표시', () => {
+  const cal = { week_start: '2026-11-23', unplanned: [], items: [
+    { id: 'a', type: 'content' as const, title: '가', status: '작성 중', day: '2026-11-28', planned: true, channels: [] },
+    { id: 'b', type: 'video' as const, title: '나', status: '완료', day: '2026-11-25', planned: false, channels: ['영상'] },
+  ] }
+  const days = calendarDays(cal, Date.parse('2026-11-27T09:00:00Z'))
+  assert.equal(days[5].items[0].id, 'a')
+  assert.equal(days[2].items[0].id, 'b')
+  assert.equal(days[2].past, true)
+  assert.equal(days[4].today, true)
+  assert.equal(shiftWeek('2026-11-23', 1), '2026-11-30')
+  assert.equal(shiftWeek('2026-11-30', -1), '2026-11-23')
+  assert.equal(weekLabel('2026-11-30'), '11.30 ~ 12.6')
+})
+
+test('게시 예정일 표: 활성 팀원만 · 로그인 없는 사람에게 닫힘 · 달력 함수는 읽기만', () => {
+  const sql = readFileSync(new URL('../supabase/migrations/20261127201500_growth_schedule.sql', import.meta.url), 'utf8')
+  assert.match(sql, /enable row level security/)
+  assert.equal((sql.match(/is_active_member\(\)/g) ?? []).length, 5)
+  assert.match(sql, /revoke all on public\.growth_schedule from anon/)
+  assert.match(sql, /revoke all on function public\.marketing_calendar\(date\) from public, anon/)
+  assert.match(sql, /stable security invoker/)
+  assert.doesNotMatch(sql, /using \(true\)/)
 })
