@@ -1,6 +1,7 @@
 // API 에이전트를 Claude Console 에 등록 (2026-11-27 대표 지시 'ai들은 모두 인트라넷용으로 클로드 콘솔에 만들고 운영해')
 //  표 api_agents 에 console_agent_id 가 빈 에이전트마다 Console 에이전트를 하나 만들고 그 ID 를 적는다.
-//  실행 환경(console_env_id)은 이미 등록된 에이전트의 것을 같이 쓴다. 지침 · 도구 · 모델은 실행 때마다 표의 값으로 덮어쓰므로 여기서는 이름만 정한다.
+//  실행 환경(console_env_id)은 이미 등록된 에이전트의 것을 같이 쓴다 — 웹 검색을 쓰는 에이전트는 웹 검색 에이전트의 환경, 안 쓰는 에이전트는 안 쓰는 쪽 환경
+//  (11/27 SEO 가 웹이 막힌 환경을 받아 검색이 모두 url_not_allowed 로 실패했음). 지침 · 도구 · 모델은 실행 때마다 표의 값으로 덮어쓰므로 여기서는 이름만 정한다.
 //  예약 열쇠(x-sync-key = 금고 GDRIVE_SYNC_KEY)로만 부른다. 로그인 확인 끔(verify_jwt false).
 import Anthropic from 'npm:@anthropic-ai/sdk@0.134.0'
 import { createClient } from 'npm:@supabase/supabase-js@2.45.4'
@@ -16,13 +17,15 @@ Deno.serve(async req => {
   if (!apiKey) return json({ error: 'ANTHROPIC_API_KEY 가 서버 함수 비밀에 없습니다.' }, 500)
   const client = new Anthropic({ apiKey })
 
-  const { data: all, error } = await sb.from('api_agents').select('id,code,name,model,console_agent_id,console_env_id')
+  const { data: all, error } = await sb.from('api_agents').select('id,code,name,model,web_search,console_agent_id,console_env_id')
   if (error) return json({ error: error.message }, 500)
-  const envId = (all ?? []).find(a => a.console_env_id)?.console_env_id as string | undefined
-  if (!envId) return json({ error: '같이 쓸 실행 환경(console_env_id)이 등록된 에이전트가 없습니다.' }, 409)
+  const envFor = (web: boolean) => (all ?? []).find(a => a.console_env_id && !!a.web_search === web)?.console_env_id as string | undefined
+  if (!(all ?? []).some(a => a.console_env_id)) return json({ error: '같이 쓸 실행 환경(console_env_id)이 등록된 에이전트가 없습니다.' }, 409)
 
   const done: { code: string; ok: boolean; note: string }[] = []
   for (const a of (all ?? []).filter(x => !x.console_agent_id)) {
+    const envId = a.console_env_id ?? envFor(!!a.web_search)
+    if (!envId) { done.push({ code: a.code, ok: false, note: a.web_search ? '웹 검색이 되는 실행 환경을 가진 에이전트가 없습니다.' : '같이 쓸 실행 환경이 없습니다.' }); continue }
     try {
       // deno-lint-ignore no-explicit-any
       const created = await (client.beta as any).agents.create({
@@ -32,7 +35,7 @@ Deno.serve(async req => {
         metadata: { code: String(a.code), source: 'wkly-intranet' },
         betas: ['managed-agents-2026-04-01'],
       })
-      const upd = await sb.from('api_agents').update({ console_agent_id: created.id, console_env_id: a.console_env_id ?? envId }).eq('id', a.id)
+      const upd = await sb.from('api_agents').update({ console_agent_id: created.id, console_env_id: envId }).eq('id', a.id)
       done.push({ code: a.code, ok: !upd.error, note: upd.error?.message ?? 'Console 에 등록함' })
     } catch (e) {
       done.push({ code: a.code, ok: false, note: (e instanceof Error ? e.message : String(e)).slice(0, 300) })

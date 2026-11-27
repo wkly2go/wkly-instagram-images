@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { buildMetaSpec, launchProblem, metaCta, metaProblems, type CampaignDoc } from '../supabase/functions/ad-autopilot/metaCreate.ts'
+import { adLink, buildMetaSpec, launchProblem, metaCta, metaProblems, type CampaignDoc } from '../supabase/functions/ad-autopilot/metaCreate.ts'
 
 const now = new Date('2026-11-21T03:00:00Z')
 const doc = (p: Partial<CampaignDoc> = {}): CampaignDoc => ({
@@ -59,4 +59,14 @@ test('켜기 전 하루 한도', () => {
   assert.ok(launchProblem(50000, 40000, 20000, false))
   assert.equal(launchProblem(50000, 30000, 20000, false), null)
   assert.ok(launchProblem(0, 0, 20000, true))
+})
+
+test('광고 주소에 꼬리표가 붙는다 · 이미 있으면 그대로', () => {
+  const link = adLink({ landingUrl: 'https://thewklyn.com/report', title: '[인트라넷] 연말 팝업 리포트' })
+  assert.match(link, /^https:\/\/thewklyn\.com\/report\?utm_source=meta&utm_medium=paid_social&utm_campaign=/)
+  assert.equal(new URL(link).searchParams.get('utm_campaign'), '연말-팝업-리포트')
+  assert.equal(adLink({ landingUrl: 'https://thewklyn.com/?utm_source=x', title: 't' }), 'https://thewklyn.com/?utm_source=x')
+  const one = JSON.parse(buildMetaSpec(doc(), ids, now).creative(['h1']).object_story_spec)
+  assert.equal(new URL(one.link_data.link).searchParams.get('utm_source'), 'meta')
+  assert.equal(one.link_data.call_to_action.value.link, one.link_data.link)
 })
