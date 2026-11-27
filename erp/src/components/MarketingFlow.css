@@ -126,7 +126,7 @@ html[data-theme="dark"] .mf-todos a, html[data-theme="dark"] .mf-kpi.on, html[da
 
 /* 소재별 성과 표 */
 .mf-cr { display: flex; flex-direction: column; }
-.mf-cr-row { display: grid; grid-template-columns: minmax(0, 2.4fr) minmax(0, 1.6fr) repeat(4, minmax(64px, 0.5fr)); gap: 10px; align-items: center; padding: 10px 8px; border-top: 1px solid var(--v8-line); font-variant-numeric: tabular-nums; }
+.mf-cr-row { display: grid; grid-template-columns: minmax(0, 2.2fr) minmax(0, 1.4fr) repeat(4, minmax(52px, 0.45fr)) minmax(104px, 0.9fr); gap: 10px; align-items: center; padding: 10px 8px; border-top: 1px solid var(--v8-line); font-variant-numeric: tabular-nums; }
 .mf-cr-row.head { border-top: 0; color: var(--tx-sub); padding-top: 0; padding-bottom: 6px; }
 .mf-cr-row > :nth-child(n+3) { text-align: right; }
 .mf-cr-row b { font-weight: 700; }
@@ -140,11 +140,20 @@ html[data-theme="dark"] .mf-todos a, html[data-theme="dark"] .mf-kpi.on, html[da
 .mf-cr-kind.k-a { background: #e6edfb; color: #1d4690; }
 .mf-cr-kind.k-t { background: #eceeed; color: var(--tx-sub); }
 .mf-cr-src { color: var(--tx-sub); overflow-wrap: anywhere; }
+.mf-cr-won { display: flex; flex-direction: column; align-items: flex-end; min-width: 0; }
+.mf-cr-won b { white-space: nowrap; }
+.mf-cr-won-sub { display: block; }
+.mf-cr-won-sub:empty { display: none; }
 @container (max-width: 760px) {
   .mf-cr-row.head { display: none; }
-  .mf-cr-row { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px 10px; padding: 12px 4px; }
+  .mf-cr-row { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px 10px; padding: 12px 4px; align-items: start; }
+  .mf-cr-won { align-items: flex-start; }
   .mf-cr-row.head + .mf-cr-row { border-top: 0; }
   .mf-cr-name, .mf-cr-src { grid-column: 1 / -1; }
   .mf-cr-row > :nth-child(n+3) { text-align: left; display: block; }
   .mf-cr-row > :nth-child(n+3)::before { content: attr(data-label); display: block; color: var(--tx-sub); font-weight: 400; }
+}
+@container (max-width: 480px) {
+  .mf-cr-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .mf-cr-won { grid-column: 1 / -1; }
 }

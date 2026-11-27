@@ -4,8 +4,8 @@
 import { useState } from 'react'
 import { ArrowDownRight, ArrowRight, ArrowUpRight, ChevronLeft, ChevronRight, Film, RefreshCw } from 'lucide-react'
 import { useApp, useAsync } from '../lib/app'
-import { convertRate, creativeReport, type CreativeSource } from '../lib/creativeReport'
-import { dateTimeLabel } from '../lib/date'
+import { convertRate, creativeReport, type CreativeSource, type Money } from '../lib/creativeReport'
+import { dateTimeLabel, manwon } from '../lib/date'
 import { calendarDays, flowKpis, flowSteps, shareWidths, shiftWeek, trendScale, weekLabel, type FlowTrend, type MarketingCalendar, type MarketingFlow as Flow } from '../lib/marketingFlow'
 import { Link } from '../lib/router'
 import { Button } from './ui'
@@ -159,14 +159,17 @@ function CreativeBoard() {
   if (!src.data) return src.loading ? null : <section className="card mf-card"><h4 className="mf-h4">소재별 성과</h4><p className="mf-empty">성과 자료를 불러오지 못했습니다.</p></section>
   const r = creativeReport(src.data)
   const lost = r.tagged - r.matched
+  // 새 DB 함수(20261127230000)는 프로젝트 번호를 줌 → 같은 프로젝트는 한 번만 셈
+  const byProject = !!src.data.projects
   return (
     <section className="card mf-card">
-      <h4 className="mf-h4">소재별 성과 <small>최근 {r.days}일 · 어떤 콘텐츠 · 광고에서 온 문의가 프로젝트가 되었나</small></h4>
+      <h4 className="mf-h4">소재별 성과 <small>최근 {r.days}일 · 어떤 콘텐츠 · 광고에서 온 문의가 프로젝트 · 수주가 되었나</small></h4>
       {r.rows.length === 0 ? <p className="mf-empty">아직 소재와 이어진 문의가 없습니다. 콘텐츠를 저장하면 우리 홈페이지 주소에 꼬리표가 자동으로 붙고, 그 주소로 들어온 문의부터 여기에 잡힙니다.</p> : (
         <div className="mf-cr" role="table" aria-label="소재별 성과">
-          <div className="mf-cr-row head" role="row"><span role="columnheader">소재</span><span role="columnheader">들어온 곳</span><span role="columnheader">문의</span><span role="columnheader">직접 문의</span><span role="columnheader">프로젝트</span><span role="columnheader">진행 · 완료</span></div>
+          <div className="mf-cr-row head" role="row"><span role="columnheader">소재</span><span role="columnheader">들어온 곳</span><span role="columnheader">문의</span><span role="columnheader">직접 문의</span><span role="columnheader">프로젝트</span><span role="columnheader">견적</span><span role="columnheader">수주</span></div>
           {r.rows.map(row => {
-            const rate = convertRate(row.inquiries, row.projects)
+            const projects = byProject ? row.money.projects : row.projects
+            const rate = convertRate(row.inquiries, projects)
             return (
               <div key={row.key} className="mf-cr-row" role="row">
                 <span role="cell" className="mf-cr-name">
@@ -177,8 +180,9 @@ function CreativeBoard() {
                 <span role="cell" className="mf-cr-src">{row.sources.length ? row.sources.map(s => `${s.source} ${s.inquiries}`).join(' · ') : '문의 없음'}</span>
                 <b role="cell" data-label="문의">{row.inquiries}</b>
                 <span role="cell" data-label="직접 문의">{row.direct}</span>
-                <span role="cell" data-label="프로젝트">{row.projects}{rate != null && row.projects > 0 && <small> ({rate}%)</small>}</span>
-                <span role="cell" data-label="진행 · 완료">{row.won}</span>
+                <span role="cell" data-label="프로젝트">{projects}{rate != null && projects > 0 && <small> ({rate}%)</small>}</span>
+                <span role="cell" data-label="견적">{row.money.quoted}</span>
+                <span role="cell" data-label="수주" className="mf-cr-won"><WonCell m={row.money} /></span>
               </div>
             )
           })}
@@ -187,9 +191,22 @@ function CreativeBoard() {
       <p className="mf-foot">
         꼬리표가 붙은 문의 {r.tagged}건 중 {r.matched}건이 콘텐츠 · 광고와 이어졌습니다.
         {lost > 0 && ` 나머지 ${lost}건은 예전에 손으로 붙인 꼬리표라 이름 그대로 보여 줍니다.`}
-        {' '}꼬리표가 없는 문의는 {r.untagged.inquiries}건(프로젝트 {r.untagged.projects}건)입니다.
+        {' '}꼬리표가 없는 문의는 {r.untagged.inquiries}건(프로젝트 {byProject ? r.untaggedMoney.projects : r.untagged.projects}곳{r.untaggedMoney.wonProjects > 0 && ` · 수주 ${r.untaggedMoney.wonProjects}곳${r.untaggedMoney.wonAmount > 0 ? ` ${manwon(r.untaggedMoney.wonAmount)}` : ''}`})입니다.
+        {' '}수주 금액은 이어진 프로젝트의 매출 계약 금액을 같은 프로젝트는 한 번만 더한 값이고, 견적은 인트라넷 견적이 있는 프로젝트 수입니다.
       </p>
     </section>
+  )
+}
+
+/** 수주 칸: 수주한 곳 수 + 매출 계약 금액 합계 (금액을 안 적은 곳은 따로 알림) */
+function WonCell({ m }: { m: Money }) {
+  if (m.wonProjects === 0) return <>0</>
+  const missing = m.wonProjects - m.wonPriced
+  return (
+    <>
+      <b>{m.wonAmount > 0 ? manwon(m.wonAmount) : `${m.wonProjects}곳`}</b>
+      <small className="mf-cr-won-sub">{m.wonAmount > 0 ? `${m.wonProjects}곳` : ''}{missing > 0 ? `${m.wonAmount > 0 ? ' · ' : ''}금액 미입력 ${missing}곳` : ''}</small>
+    </>
   )
 }
 

@@ -63,3 +63,46 @@ test('DB 함수: 읽기만 · 호출한 사람 권한 · 시험 문의 제외 ·
   assert.doesNotMatch(sql, /\b(insert|update|delete|drop)\b/i)
   assert.doesNotMatch(sql, /\b(email|phone|brand|detail|memo)\b/i)
 })
+
+test('견적 · 수주 금액: 프로젝트 번호로 묶어 같은 프로젝트는 한 번 · 금액 없는 수주는 따로 셈', () => {
+  const slug = campaignSlug('[시험] 성수 팝업 상권 리포트')
+  const withMoney: CreativeSource = {
+    ...src,
+    tags: [
+      { ...src.tags[0], project_ids: ['p1', 'p2'] },
+      { campaign: slug, source: 'instagram', inquiries: 3, direct: 0, projects: 1, won: 1, last_at: '2026-11-26T00:00:00Z', project_ids: ['p1'] },
+      { ...src.tags[2], project_ids: ['p3'] },
+    ],
+    untagged: { ...src.untagged, project_ids: ['p4', 'p9'] },
+    projects: [
+      { id: 'p1', status: '진행', amount: 14_904_545, quoted: true },
+      { id: 'p2', status: '문의', amount: 30_000_000, quoted: true },
+      { id: 'p3', status: '완료', amount: null, quoted: false },
+      { id: 'p4', status: '완료', amount: 5_000_000, quoted: false },
+    ],
+  }
+  const r = creativeReport(withMoney)
+  const content = r.rows.find(x => x.key === 'c:c1')!
+  assert.deepEqual(content.money, { projects: 2, quoted: 2, wonProjects: 1, wonAmount: 14_904_545, wonPriced: 1 }) // p1 은 두 꼬리표에 걸려도 한 번
+  const ad = r.rows.find(x => x.key === 'm:aaaa-1111')!
+  assert.deepEqual(ad.money, { projects: 1, quoted: 0, wonProjects: 1, wonAmount: 0, wonPriced: 0 }) // 금액 미입력 수주
+  assert.deepEqual(r.untaggedMoney, { projects: 2, quoted: 0, wonProjects: 1, wonAmount: 5_000_000, wonPriced: 1 }) // 목록에 없는 p9 는 프로젝트 수에만
+  assert.equal(r.taggedMoney.wonAmount, 14_904_545)
+  assert.equal(r.taggedMoney.wonProjects, 2)
+})
+
+test('예전 DB 함수(프로젝트 목록 없음)여도 그대로 돈다', () => {
+  const r = creativeReport(src)
+  assert.ok(r.rows.every(x => x.money.wonAmount === 0 && x.money.quoted === 0))
+  assert.equal(r.untaggedMoney.projects, 0)
+})
+
+test('DB 함수(견적 · 수주 금액): 읽기만 · 호출한 사람 권한 · 문의한 사람 정보 없음', () => {
+  const sql = readFileSync(new URL('../supabase/migrations/20261127230000_marketing_creative_amounts.sql', import.meta.url), 'utf8')
+  assert.match(sql, /stable security invoker/)
+  assert.match(sql, /revoke all on function public\.marketing_creative_report\(\) from public, anon/)
+  assert.match(sql, /not coalesce\(i\.is_test, false\)/)
+  assert.match(sql, /jsonb_agg\(distinct project_id\)/)
+  assert.doesNotMatch(sql, /\b(insert|update|delete|drop)\b/i)
+  assert.doesNotMatch(sql, /\b(email|phone|brand|detail|memo)\b/i)
+})
