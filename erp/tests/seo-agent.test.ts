@@ -31,3 +31,10 @@ test('없어진 보고 체계를 가리키는 예전 지시는 넘기지 않고,
   assert.match(sql, /d\.created_at >= '2026-11-22'/)
   assert.match(sql, /array\['06:17'\]/)
 })
+
+test('Console 등록 함수: 예약 열쇠로만 · 빈 에이전트만 · 이름만 정한다', () => {
+  const fn = readFileSync(new URL('../supabase/functions/api-agents-provision/index.ts', import.meta.url), 'utf8')
+  assert.match(fn, /req\.headers\.get\('x-sync-key'\) !== want/)
+  assert.match(fn, /filter\(x => !x\.console_agent_id\)/)
+  assert.doesNotMatch(fn, /instructions|sessions\.create|\.delete\(/)
+})
