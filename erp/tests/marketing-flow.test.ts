@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { flowSteps, taggedRate, type MarketingFlow } from '../src/lib/marketingFlow.ts'
+import { deltaPct, flowKpis, flowSteps, shareWidths, taggedRate, trendScale, weekDays, type FlowTrend, type MarketingFlow } from '../src/lib/marketingFlow.ts'
 
 const base: MarketingFlow = {
   at: '2026-11-27T07:00:00Z',
@@ -41,4 +41,46 @@ test('DB 함수는 읽기만 · 호출한 사람 권한 · 로그인 없는 사�
   assert.match(sql, /revoke all on function public\.marketing_flow\(\) from public, anon/)
   assert.doesNotMatch(sql, /\b(insert|update|delete)\b/i)
   assert.match(sql, /not coalesce\(w?\.?is_test, false\)/)
+})
+
+const trend: FlowTrend = {
+  daily: [{ d: '2026-11-26', total: 3, direct: 1, ads: 1 }, { d: '2026-11-27', total: 9, direct: 2, ads: 4 }],
+  prev: { total: 61, direct: 9, ads: 0, tagged: 19 },
+  by_source: [], by_kind: [], week_start: '2026-11-23',
+  week: [{ id: 'a', type: 'content', title: '글', status: '작성 중', at: '2026-11-26T16:30:00Z', channels: ['블로그'] }],
+}
+
+test('숫자 띠: 앞 30일과 견준 변화 · 앞 기간이 0이면 견주지 않는다', () => {
+  const k = flowKpis(base, trend)
+  assert.deepEqual(k.map(x => x.key), ['total', 'direct', 'ads', 'tagged', 'new', 'deals'])
+  assert.equal(k[0].delta, 30)
+  assert.equal(k[2].delta, null)
+  assert.equal(k[3].value, '38%')
+  assert.equal(k[3].delta, 38 - 31)
+  assert.equal(deltaPct(5, undefined), null)
+  assert.equal(flowKpis(base, null)[0].delta, null)
+})
+
+test('그래프 눈금과 막대 폭', () => {
+  assert.deepEqual(trendScale(trend.daily), { max: 10, ticks: [0, 2, 4, 6, 8, 10] })
+  assert.equal(trendScale([]).max, 1)
+  assert.deepEqual(shareWidths([10, 5, 0]), [100, 50, 2])
+  assert.deepEqual(shareWidths([0, 0]), [0, 0])
+})
+
+test('이번 주 달력: 월~일 일곱 칸 · 한국 날짜로 그날 칸에 놓는다', () => {
+  const days = weekDays(trend, Date.parse('2026-11-27T09:00:00Z'))
+  assert.deepEqual(days.map(d => d.name), ['월', '화', '수', '목', '금', '토', '일'])
+  assert.equal(days[0].date, '2026-11-23')
+  assert.equal(days[4].today, true)
+  assert.equal(days[4].items.length, 1) // 11-26 16:30 UTC = 한국 11-27 01:30
+  assert.equal(days[3].items.length, 0)
+})
+
+test('추이 DB 함수도 읽기만 · 호출한 사람 권한 · 로그인 없는 사람에게 닫힘 · 시험 문의 제외', () => {
+  const sql = readFileSync(new URL('../supabase/migrations/20261127190000_marketing_flow_trend.sql', import.meta.url), 'utf8')
+  assert.match(sql, /stable security invoker/)
+  assert.match(sql, /revoke all on function public\.marketing_flow_trend\(\) from public, anon/)
+  assert.doesNotMatch(sql, /\b(insert|update|delete|drop)\b/i)
+  assert.match(sql, /not coalesce\(is_test, false\)/)
 })
