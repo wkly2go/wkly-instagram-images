@@ -2,7 +2,7 @@ import { createContext, lazy, Suspense, useCallback, useContext, useEffect, useI
 import { useMyAgents } from './AgentDesk'
 import { MobileAppBar, TopAppButton } from './InstallCard'
 import { useTheme } from '../lib/theme'
-import { PencilRuler, Truck, Inbox, Calculator, Sigma, Building2, Layers, GraduationCap, Ruler, BookOpen, Bookmark, Bot, ListTodo, Plus, Search, Briefcase, HardDrive, ChevronDown, ChevronLeft, ChevronRight, CircleHelp, PanelLeftClose, PanelLeftOpen, ClipboardCheck, FolderKanban, Home, Library, Megaphone, MessageCircle, MoreHorizontal, Settings, Users, Landmark, FileQuestion, HandCoins, type LucideIcon } from 'lucide-react'
+import { PencilRuler, Truck, Inbox, Calculator, Sigma, Building2, Layers, GraduationCap, Ruler, BookOpen, Bookmark, Bot, ListTodo, Plus, Search, Briefcase, HardDrive, ChevronDown, ChevronLeft, PenLine, ChevronRight, CircleHelp, PanelLeftClose, PanelLeftOpen, ClipboardCheck, FolderKanban, Home, Library, Megaphone, MessageCircle, MoreHorizontal, Settings, Users, Landmark, FileQuestion, HandCoins, type LucideIcon } from 'lucide-react'
 import { accessSource, isDesktopApp } from '../lib/desktop'
 import { useAttendance } from '../lib/attendance'
 import { AssignTaskModal } from './AssignTask'
@@ -38,7 +38,7 @@ import './ShellUsability.css'
 const QuickChat = lazy(() => import('../pages/Quick').then(m => ({ default: m.QuickChat })))
 const AssistantFloat = lazy(() => import('./AssistantFloat').then(m => ({ default: m.AssistantFloat })))
 
-export type TabKey = 'design' | 'designOrders' | 'designCards' | 'designPrices' | 'ilwi' | 'designVendors' | 'designMaterials' | 'designLearn' | 'tenders' | 'leads' | 'sales' | 'home' | 'reportTemplates' | 'approvals' | 'chat' | 'work' | 'projects' | 'clients' | 'library' | 'drive' | 'team' | 'site' | 'agents' | 'ads' | 'ledger' | 'interviewQuestions' | 'gov' | 'admin'
+export type TabKey = 'design' | 'designOrders' | 'designCards' | 'designPrices' | 'ilwi' | 'designVendors' | 'designMaterials' | 'designLearn' | 'tenders' | 'leads' | 'sales' | 'home' | 'reportTemplates' | 'approvals' | 'chat' | 'work' | 'projects' | 'clients' | 'library' | 'drive' | 'boards' | 'team' | 'site' | 'agents' | 'ads' | 'ledger' | 'interviewQuestions' | 'gov' | 'admin'
 
 export const TABS: { key: TabKey; label: string; path: string; admin?: boolean; keywords?: string[] }[] = [
   { key: 'home', label: '홈', path: '/' },
@@ -48,6 +48,8 @@ export const TABS: { key: TabKey; label: string; path: string; admin?: boolean; 
   { key: 'chat', label: '채팅', path: '/chat' },
   { key: 'projects', label: '프로젝트', path: '/projects' },
   { key: 'drive', label: '드라이브', path: '/drive' },
+  // 공통 화이트보드 (2026-11-27 대표 '모든 프로젝트에서 공통으로') — 공통 보드 · 템플릿 · 모든 프로젝트 보드
+  { key: 'boards', label: '화이트보드', path: '/boards', keywords: ['화이트보드', '보드', '템플릿', '피그마', '피그잼'] },
   { key: 'team', label: '업무·근태', path: '/team' },
   // 현장 실측: 사진 위 치수 · 도면 배치 · 체크리스트 (2026-11-04)
   { key: 'site', label: '현장 실측', path: '/site', keywords: ['현장', '실측', '치수', '체크리스트'] },
@@ -87,6 +89,7 @@ const ICONS: Record<TabKey, LucideIcon> = {
   clients: Briefcase,
   library: Library,
   drive: HardDrive,
+  boards: PenLine,
   team: Users,
   site: Ruler,
   design: PencilRuler,
@@ -111,7 +114,7 @@ const NAV_GROUPS: { label: string; tabs: TabKey[] }[] = [
   { label: '업무', tabs: ['home', 'reportTemplates', 'approvals', 'projects'] },
   // 설계·견적 (인테리어 디자인 자동화) — 별도 묶음으로 세분화 (대표 지시 2026-11-15)
   { label: '설계·견적', tabs: ['site', 'design', 'designOrders', 'designCards', 'designPrices', 'ilwi', 'designVendors', 'designMaterials', 'designLearn'] },
-  { label: '협업·자료', tabs: ['chat', 'drive', 'team'] },
+  { label: '협업·자료', tabs: ['chat', 'drive', 'boards', 'team'] },
   { label: '운영', tabs: ['sales', 'leads', 'ads'] },
   // AI 팀·비용은 관리 묶음으로 (대표 지시 2026-11-16) — 팀원에게는 이 묶음에 AI 팀·비용만 보이므로 이름을 '관리'로 보여 줌
   { label: '관리자 전용', tabs: ['agents', 'ledger', 'interviewQuestions', 'gov', 'admin'] },

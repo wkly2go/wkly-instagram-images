@@ -8,7 +8,10 @@ import { boardTitle, readScene, type BoardScene } from './board'
 
 export interface ProjectBoard {
   id: string
-  project_id: string
+  /** 없으면 공통 보드(프로젝트에 안 묶임 · 2026-11-27) */
+  project_id: string | null
+  /** 템플릿(새 보드를 시작하는 틀) */
+  is_template?: boolean
   title: string
   version: number
   created_by: string | null
@@ -23,9 +26,16 @@ export interface BoardPeer { id: string; name: string }
 export interface BoardLive { saved(version: number): void; close(): void }
 
 export interface BoardApi {
-  listBoards(projectId: string): Promise<ProjectBoard[]>
+  /** 프로젝트 보드 · projectId 가 null 이면 공통 보드 (템플릿 제외) */
+  listBoards(projectId: string | null): Promise<ProjectBoard[]>
+  /** 템플릿 목록 */
+  listBoardTemplates(): Promise<ProjectBoard[]>
+  /** 모든 보드 (공통 화이트보드 화면 · 프로젝트별로 묶어 보기) */
+  listAllBoards(): Promise<ProjectBoard[]>
   getBoard(id: string): Promise<{ board: ProjectBoard; scene: BoardScene } | null>
-  createBoard(projectId: string, title: string): Promise<ProjectBoard>
+  createBoard(projectId: string | null, title: string): Promise<ProjectBoard>
+  /** 보드 복사 → 새 보드 id (대상 프로젝트 없으면 공통 · template 이면 템플릿으로 저장) */
+  copyBoard(srcId: string, target: { projectId: string | null; title: string; template?: boolean }): Promise<string>
   renameBoard(id: string, title: string): Promise<void>
   deleteBoard(id: string): Promise<void>
   saveBoard(id: string, scene: BoardScene, version: number): Promise<BoardSaveResult>
@@ -42,16 +52,34 @@ const fail = (e: { message: string; code?: string } | null) => {
   if (e.code === '42501') throw new ApiError('이 보드를 고칠 권한이 없습니다.')
   throw new ApiError(e.message)
 }
-const COLS = 'id,project_id,title,version,created_by,updated_by,created_at,updated_at'
+const COLS = 'id,project_id,is_template,title,version,created_by,updated_by,created_at,updated_at'
+
+const withCount = (rows: unknown) => ((rows ?? []) as (ProjectBoard & { elements?: { isDeleted?: boolean }[] | null })[]).map(({ elements, ...b }) => ({
+  ...b, count: Array.isArray(elements) ? elements.filter(e => !e?.isDeleted).length : 0,
+}))
 
 export function createSupabaseBoardApi(sb: SupabaseClient): BoardApi {
   return {
     async listBoards(projectId) {
-      const r = await sb.from('project_boards').select(`${COLS},scene->elements`).eq('project_id', projectId).order('updated_at', { ascending: false })
+      const q = sb.from('project_boards').select(`${COLS},scene->elements`).eq('is_template', false)
+      const r = await (projectId ? q.eq('project_id', projectId) : q.is('project_id', null)).order('updated_at', { ascending: false })
       fail(r.error)
-      return ((r.data ?? []) as (ProjectBoard & { elements?: { isDeleted?: boolean }[] | null })[]).map(({ elements, ...b }) => ({
-        ...b, count: Array.isArray(elements) ? elements.filter(e => !e?.isDeleted).length : 0,
-      }))
+      return withCount(r.data)
+    },
+    async listBoardTemplates() {
+      const r = await sb.from('project_boards').select(`${COLS},scene->elements`).eq('is_template', true).order('title')
+      fail(r.error)
+      return withCount(r.data)
+    },
+    async listAllBoards() {
+      const r = await sb.from('project_boards').select(`${COLS},scene->elements`).order('updated_at', { ascending: false }).limit(300)
+      fail(r.error)
+      return withCount(r.data)
+    },
+    async copyBoard(srcId, target) {
+      const r = await sb.rpc('board_copy', { p_src: srcId, p_project: target.projectId, p_title: boardTitle(target.title), p_template: !!target.template })
+      fail(r.error)
+      return r.data as string
     },
     async getBoard(id) {
       const r = await sb.from('project_boards').select(`${COLS},scene`).eq('id', id).maybeSingle()
@@ -123,8 +151,10 @@ export function createDemoBoardApi(): BoardApi {
   const none = async (): Promise<never> => { throw new ApiError('화이트보드는 운영 계정에서만 쓸 수 있습니다.') }
   return {
     async listBoards() { return [] },
+    async listBoardTemplates() { return [] },
+    async listAllBoards() { return [] },
     async getBoard() { return null },
-    createBoard: none, renameBoard: none, deleteBoard: none, saveBoard: none, uploadBoardFile: none, downloadBoardFile: none,
+    createBoard: none, copyBoard: none, renameBoard: none, deleteBoard: none, saveBoard: none, uploadBoardFile: none, downloadBoardFile: none,
     watchBoard(_id, who, on) { queueMicrotask(() => on.peers([who])); return { saved() {}, close() {} } },
   }
 }
@@ -133,7 +163,15 @@ function memoryBoardApi(): BoardApi {
   const boards = new Map<string, { board: ProjectBoard; scene: BoardScene }>()
   const now = () => new Date().toISOString()
   return {
-    async listBoards(projectId) { return [...boards.values()].filter(b => b.board.project_id === projectId).map(b => ({ ...b.board, count: b.scene.elements.length })) },
+    async listBoards(projectId) { return [...boards.values()].filter(b => !b.board.is_template && b.board.project_id === projectId).map(b => ({ ...b.board, count: b.scene.elements.length })) },
+    async listBoardTemplates() { return [...boards.values()].filter(b => b.board.is_template).map(b => ({ ...b.board, count: b.scene.elements.length })) },
+    async listAllBoards() { return [...boards.values()].map(b => ({ ...b.board, count: b.scene.elements.length })) },
+    async copyBoard(srcId, target) {
+      const src = boards.get(srcId)
+      const board: ProjectBoard = { id: `harness-${boards.size + 1}`, project_id: target.template ? null : target.projectId, is_template: !!target.template, title: boardTitle(target.title), version: 1, created_by: null, updated_by: null, created_at: now(), updated_at: now() }
+      boards.set(board.id, { board, scene: src ? JSON.parse(JSON.stringify(src.scene)) : { elements: [], files: {} } })
+      return board.id
+    },
     async getBoard(id) { return boards.get(id) ?? null },
     async createBoard(projectId, title) {
       const board: ProjectBoard = { id: `harness-${boards.size + 1}`, project_id: projectId, title: boardTitle(title), version: 1, created_by: null, updated_by: null, created_at: now(), updated_at: now() }

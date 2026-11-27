@@ -47,6 +47,7 @@ const Ilwi = lazy(() => import('./pages/Ilwi'))
 const InterviewQuestions = lazy(() => import('./pages/InterviewQuestions'))
 const Gov = lazy(() => import('./pages/Gov'))
 const Board = lazy(() => import('./pages/Board'))
+const Boards = lazy(() => import('./pages/Boards'))
 
 const PAGES: Record<string, React.ComponentType> = {
   '/': Home,
@@ -66,6 +67,7 @@ const PAGES: Record<string, React.ComponentType> = {
   '/team': Team,
   '/site': Site,
   '/board': Board,
+  '/boards': Boards,
   '/design': Design,
   '/design-orders': Design,
   '/design-cards': Design,
