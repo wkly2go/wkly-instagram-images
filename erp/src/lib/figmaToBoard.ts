@@ -83,3 +83,13 @@ export function placeTexts<T extends { id: string; type: string; x: number; widt
     return { ...e, x: b.align === 'center' ? b.x + (b.w - e.width) / 2 : b.x + b.w - e.width }
   })
 }
+
+/** 여러 번 받은 요소를 하나로 (프레임 3개씩 나눠 받은 것) */
+export function mergeContents(parts: FigmaContent[]): FigmaContent {
+  return { frames: parts.flatMap(p => p.frames), images: Object.assign({}, ...parts.map(p => p.images)), skipped: parts.reduce((n, p) => n + p.skipped, 0) }
+}
+
+/** '모두 불러오기'에 넣을 프레임: 섹션 자체는 빼고(안의 슬라이드를 하나씩) · 200px 보다 작은 조각(버튼 · 아이콘)은 뺌 · 최대 max 개 */
+export function pickAllFrames<T extends { id: string; type: string; w: number; h: number }>(frames: T[], max = 30): T[] {
+  return frames.filter(f => f.type !== 'SECTION' && (f.w >= 200 || f.h >= 200)).slice(0, max)
+}

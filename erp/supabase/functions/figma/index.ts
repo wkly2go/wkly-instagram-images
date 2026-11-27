@@ -2,6 +2,7 @@
 //  - 팀원(로그인 · 활성)만: status · link(프로젝트에 보드 연결) · refresh(다시 읽기) · export(프레임을 골라 PDF 한 부)
 //    · images(프레임을 PNG 로 · 화이트보드에 불러오기 · 2026-11-27 대표 '화이트보드에 피그마 불러오기')
 //    · content(프레임 안 글 · 도형 · 선 · 사진을 수정 가능한 요소로 · 2026-11-27 대표 '모든 컨텐츠를 불러와서 수정할 수 있게')
+//    · outline(피그마 주소만으로 프레임 목록 · 2026-11-27 대표 '피그마 링크에 있는 자료를 모두 불러오고') — content 도 주소(url)로 받음 · 프로젝트 연결 없이
 //  - 예약(x-sync-key = 금고 GDRIVE_SYNC_KEY): tick — 30분마다 바뀐 보드만 다시 읽음
 //  - 피그마는 읽기만 (금고 FIGMA_TOKEN · 개인 접근 토큰 · 읽기 권한). 보드 내용은 바꾸지 않음
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2.117.3'
@@ -248,6 +249,17 @@ Deno.serve(async req => {
         throw e
       }
       return json({ ok: true, id: ins.data.id })
+    }
+    // 주소만으로 (프로젝트에 연결하지 않은 파일도) — 읽기만 · 저장하지 않음
+    if (typeof body.url === 'string' && (action === 'outline' || action === 'content')) {
+      const parsed = parseFigmaUrl(body.url)
+      if (!parsed) throw new Fail('피그마 · 피그잼 주소가 아닙니다. 파일에서 ‘링크 복사’한 주소를 넣어 주세요.')
+      const tk = await token()
+      if (action === 'content') return json({ ok: true, ...(await frameContent(tk, { file_key: parsed.key } as Row, cleanNodeIds(body.node_ids))) })
+      const file = await figma<{ name?: string; document?: unknown }>(tk, `files/${parsed.key}?geometry=omit&depth=${parsed.kind === 'slides' ? 4 : 2}`)
+      const top = framesOf(file.document as Parameters<typeof framesOf>[0])
+      const frames = expandSections(top, await sectionKids(tk, parsed.key, top.filter(f => f.type === 'SECTION').map(f => f.id)))
+      return json({ ok: true, key: parsed.key, kind: parsed.kind, title: (file.name ?? '').slice(0, 200), frames, node: parsed.nodeId })
     }
     const id = String(body.id ?? '')
     const { data: row } = await sb.from('project_figma').select('id,project_id,file_key,kind,last_modified,thumb_path').eq('id', id).maybeSingle()

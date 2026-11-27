@@ -9,6 +9,7 @@ export { FIGMA_KIND_LABEL, figmaEmbedUrl, isWide, type FigmaKind } from './figma
 
 export interface FigmaTokenInfo { token: boolean; set_at: string | null; expires_at: string | null; boards: number }
 export interface FigmaFrameImage { id: string; name: string; w: number; h: number; mime: string; data: string }
+export interface FigmaOutline { key: string; kind: FigmaKind; title: string; frames: FigmaFrame[]; node: string | null }
 export interface FigmaFrame { id: string; name: string; type: string; page: string; w: number; h: number }
 export interface ProjectFigma {
   id: string
@@ -46,6 +47,10 @@ export interface FigmaApi {
   figmaFrameImages(id: string, nodeIds: string[]): Promise<FigmaFrameImage[]>
   /** 프레임 안 글 · 도형 · 선 · 그림을 수정 가능한 요소로 (한 번에 3개) */
   figmaContent(id: string, nodeIds: string[]): Promise<FigmaContent>
+  /** 피그마 주소만으로 프레임 목록 (연결하지 않은 파일도 · 저장 안 함) */
+  figmaOutline(url: string): Promise<FigmaOutline>
+  /** 피그마 주소로 프레임 안 요소 (한 번에 3개) */
+  figmaContentByUrl(url: string, nodeIds: string[]): Promise<FigmaContent>
   figmaExportBlob(path: string): Promise<Blob>
   markFigmaExportDrive(id: string, driveFileId: string, driveUrl: string): Promise<void>
 }
@@ -101,6 +106,8 @@ export function createSupabaseFigmaApi(sb: SupabaseClient): FigmaApi {
       if (!r.data?.length) throw new ApiError('연결한 사람이나 관리자만 뗄 수 있습니다.')
     },
     async exportFigmaPdf(id, nodeIds, title) { return await call('export', { id, node_ids: nodeIds, title }) },
+    async figmaOutline(url) { const r = await call<FigmaOutline & { ok: boolean }>('outline', { url }); return { key: r.key, kind: r.kind, title: r.title, frames: r.frames ?? [], node: r.node ?? null } },
+    async figmaContentByUrl(url, nodeIds) { const r = await call<FigmaContent & { ok: boolean }>('content', { url, node_ids: nodeIds }); return { frames: r.frames ?? [], images: r.images ?? {}, skipped: r.skipped ?? 0 } },
     async figmaContent(id, nodeIds) { const r = await call<FigmaContent & { ok: boolean }>('content', { id, node_ids: nodeIds }); return { frames: r.frames ?? [], images: r.images ?? {}, skipped: r.skipped ?? 0 } },
     async figmaFrameImages(id, nodeIds) { return (await call<{ images: FigmaFrameImage[] }>('images', { id, node_ids: nodeIds })).images },
     async figmaExportBlob(path) {
@@ -126,7 +133,9 @@ export function createDemoFigmaApi(): FigmaApi {
       async figmaStatus() { return { token: true } }, async figmaTokenInfo() { return null }, setFigmaToken: none,
       async listProjectFigma() { return { files: fx.files, exports: [] } }, async listAllFigma() { return fx.files },
       linkFigma: none, refreshFigma: none, unlinkFigma: none, exportFigmaPdf: none, figmaFrameImages: none,
-      async figmaContent() { return fx.content }, figmaExportBlob: none, markFigmaExportDrive: none,
+      async figmaContent() { return fx.content },
+      async figmaOutline() { const f = fx.files[0]; return { key: f.file_key, kind: f.kind, title: f.title, frames: f.frames, node: null } },
+      async figmaContentByUrl() { return fx.content }, figmaExportBlob: none, markFigmaExportDrive: none,
     }
   }
   return {
@@ -135,6 +144,6 @@ export function createDemoFigmaApi(): FigmaApi {
     setFigmaToken: none,
     async listProjectFigma() { return { files: [], exports: [] } },
     async listAllFigma() { return [] },
-    linkFigma: none, refreshFigma: none, unlinkFigma: none, exportFigmaPdf: none, figmaFrameImages: none, figmaContent: none, figmaExportBlob: none, markFigmaExportDrive: none,
+    linkFigma: none, refreshFigma: none, unlinkFigma: none, exportFigmaPdf: none, figmaFrameImages: none, figmaContent: none, figmaOutline: none, figmaContentByUrl: none, figmaExportBlob: none, markFigmaExportDrive: none,
   }
 }
