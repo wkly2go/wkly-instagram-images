@@ -4,10 +4,10 @@
 //  - 저장이 어긋나면(다른 사람이 먼저 저장) 서버 그림과 합쳐 다시 저장 — 지워지는 것 없음
 //  - PNG 내려받기. 이 화면을 열면 채팅 칸 · 오른쪽 일정 칸을 숨겨 넓게 씀
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Excalidraw, exportToBlob } from '@excalidraw/excalidraw'
+import { Excalidraw, exportToBlob, exportToSvg } from '@excalidraw/excalidraw'
 import '@excalidraw/excalidraw/index.css'
 import { convertToExcalidrawElements } from '@excalidraw/excalidraw'
-import { ArrowLeft, Download, FileDown, Figma, Maximize2, Minimize2, Users, X } from 'lucide-react'
+import { ArrowLeft, Copy, Download, FileDown, Figma, Maximize2, Minimize2, Upload, Users, X } from 'lucide-react'
 import { useApp } from '../lib/app'
 import { Link } from '../lib/router'
 import { boardFilePath, boardTitle, mergeElements, sceneForSave, sceneSignature, type BoardElement, type BoardFileRef, type BoardScene } from '../lib/board'
@@ -29,6 +29,7 @@ export default function BoardEditor({ id, embedded = false, onClose }: { id: str
   const wrap = useRef<HTMLDivElement>(null)
   const [full, setFull] = useState(false)
   const [figmaOpen, setFigmaOpen] = useState(false)
+  const [toFigma, setToFigma] = useState(false)
   const [board, setBoard] = useState<ProjectBoard | null>(null)
   const [initial, setInitial] = useState<{ elements: BoardElement[]; files: BinaryFile[] } | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -204,6 +205,41 @@ export default function BoardEditor({ id, embedded = false, onClose }: { id: str
     setTimeout(() => URL.revokeObjectURL(a.href), 2000)
   }
 
+  /** 피그마로 내보내기 (2026-11-27 대표 '우리 화이트보드 컨텐츠를 피그마로 전부 내보내기'):
+   *  피그마 공개 API 는 파일에 쓰기를 열어 두지 않아, 보드를 SVG 로 만들어 줌 — 복사해 피그마에 붙여 넣으면 글 · 도형 · 선이 고칠 수 있는 층으로 들어감.
+   *  고른 요소가 있으면 그것만, 없으면 보드 전체 */
+  const boardSvg = async () => {
+    const x = ex.current
+    if (!x) return null
+    const all = x.getSceneElements()
+    const picked = x.getAppState().selectedElementIds ?? {}
+    const sel = all.filter(e => picked[e.id])
+    const els = sel.length ? sel : all
+    if (!els.length) { toast('보드가 비어 있습니다.'); return null }
+    const svg = await exportToSvg({ elements: els, appState: { ...x.getAppState(), exportBackground: true, viewBackgroundColor: '#ffffff', exportEmbedScene: false }, files: x.getFiles(), exportPadding: 24, skipInliningFonts: true } as never)
+    return { text: new XMLSerializer().serializeToString(svg), count: els.length, part: sel.length > 0 }
+  }
+  const copyForFigma = async () => {
+    try {
+      const r = await boardSvg()
+      if (!r) return
+      await navigator.clipboard.writeText(r.text)
+      toast(`${r.part ? '고른 ' : ''}요소 ${r.count}개를 복사했습니다. 피그마 파일을 열고 붙여 넣기(⌘V · Ctrl+V) 하면 고칠 수 있는 층으로 들어갑니다.`)
+      setToFigma(false)
+    } catch (e) { toast(e instanceof Error ? `복사하지 못했습니다: ${e.message}` : '복사하지 못했습니다. ‘SVG 파일로 받기’를 써 주세요.') }
+  }
+  const downloadSvg = async () => {
+    const r = await boardSvg()
+    if (!r) return
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(new Blob([r.text], { type: 'image/svg+xml' }))
+    a.download = `${boardTitle(title)}.svg`
+    a.click()
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000)
+    toast('SVG 파일을 받았습니다. 피그마 캔버스에 끌어다 놓으면 고칠 수 있는 층으로 들어갑니다.')
+    setToFigma(false)
+  }
+
   /** PDF: 프레임(Excalidraw 프레임 도구)이 있으면 프레임마다 한 쪽, 없으면 보드 전체 한 쪽 */
   const downloadPdf = async () => {
     const x = ex.current
@@ -284,7 +320,17 @@ export default function BoardEditor({ id, embedded = false, onClose }: { id: str
         <input className="board-title" value={title} maxLength={60} aria-label="보드 이름" onChange={e => setTitle(e.target.value)} onBlur={() => void rename()} onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }} disabled={!board} />
         <span className={`board-state s-${state.replace(/\s/g, '')}`} role="status">{state}</span>
         <span className="board-peers" title={peers.map(p => p.name).join(', ')}><Users size={13} /> {others.length ? `${others.map(p => p.name).join(' · ')} 함께 보는 중` : '혼자 보는 중'}</span>
-        <button type="button" className="btn btn-outline btn-sm" onClick={() => setFigmaOpen(true)} disabled={!board} title="이 프로젝트에 연결한 피그마 · 피그잼 프레임을 그림으로 붙이기"><Figma size={13} /> 피그마 불러오기</button>
+        <button type="button" className="btn btn-outline btn-sm" onClick={() => setFigmaOpen(true)} disabled={!board} title="피그마 주소나 연결한 파일의 프레임을 수정 가능한 요소로 불러오기"><Figma size={13} /> 피그마 불러오기</button>
+        <span className="board-tofigma">
+          <button type="button" className="btn btn-outline btn-sm" onClick={() => setToFigma(v => !v)} disabled={!board} aria-expanded={toFigma} title="보드(또는 고른 요소)를 피그마로"><Upload size={13} /> 피그마로 내보내기</button>
+          {toFigma && (
+            <span className="board-tofigma-menu" role="menu">
+              <button type="button" role="menuitem" onClick={() => void copyForFigma()}><Copy size={13} /> 복사 → 피그마에 붙여 넣기<small>글 · 도형 · 선이 고칠 수 있는 층으로</small></button>
+              <button type="button" role="menuitem" onClick={() => void downloadSvg()}><Download size={13} /> SVG 파일로 받기<small>피그마 캔버스에 끌어다 놓기</small></button>
+              <small className="board-tofigma-note">요소를 골라 두면 고른 것만, 아니면 보드 전체 · 피그마 원본 파일에 바로 쓰는 것은 피그마가 막아 둠</small>
+            </span>
+          )}
+        </span>
         <button type="button" className="btn btn-outline btn-sm" onClick={() => void downloadPng()} disabled={!board}><Download size={13} /> PNG</button>
         <button type="button" className="btn btn-outline btn-sm" onClick={() => void downloadPdf()} disabled={!board} title="프레임마다 한 쪽 (프레임이 없으면 보드 전체 한 쪽)"><FileDown size={13} /> PDF</button>
         <button type="button" className="icon-btn board-full" onClick={() => void toggleFull()} title={full ? '전체 화면 끝 (Esc)' : '전체 화면'} aria-label={full ? '전체 화면 끝' : '전체 화면'}>{full ? <Minimize2 size={14} /> : <Maximize2 size={14} />}</button>

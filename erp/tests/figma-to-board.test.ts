@@ -65,3 +65,18 @@ test('가운데 정렬 글은 잰 폭으로 피그마 상자 가운데에', asyn
     { a: { x: 100, w: 200, align: 'center' }, b: { x: 100, w: 200, align: 'right' } })
   assert.deepEqual(out.map(e => e.x), [180, 260, 5])
 })
+
+test('모두 고르기: 섹션 · 작은 조각은 빼고 최대 30개 · 여러 번 받은 것 합치기', async () => {
+  const { pickAllFrames, mergeContents } = await import('../src/lib/figmaToBoard.ts')
+  const frames = [
+    { id: 's', type: 'SECTION', w: 9000, h: 3000 }, { id: 'a', type: 'FRAME', w: 1920, h: 1080 },
+    { id: 'b', type: 'INSTANCE', w: 197, h: 71 }, { id: 'c', type: 'FRAME', w: 1191, h: 842 },
+  ]
+  assert.deepEqual(pickAllFrames(frames).map(f => f.id), ['a', 'c'])
+  assert.equal(pickAllFrames(Array.from({ length: 40 }, (_, i) => ({ id: String(i), type: 'FRAME', w: 500, h: 500 }))).length, 30)
+  const m = mergeContents([
+    { frames: [{ id: '1', els: [], truncated: false }], images: { x: { mime: 'image/png', data: 'A' } }, skipped: 1 },
+    { frames: [{ id: '2', els: [], truncated: true }], images: { y: { mime: 'image/png', data: 'B' } }, skipped: 2 },
+  ])
+  assert.deepEqual(m.frames.map(f => f.id), ['1', '2']); assert.deepEqual(Object.keys(m.images), ['x', 'y']); assert.equal(m.skipped, 3)
+})

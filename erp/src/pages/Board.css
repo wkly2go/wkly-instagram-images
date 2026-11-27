@@ -64,3 +64,13 @@ button.pboards-item { padding-right: 120px; }
 /* 피그마 불러오기 방식 (수정 가능한 요소 / 그림 한 장) */
 .board-figma-mode { display: grid; gap: 6px; padding: 8px 10px; border: 1px solid var(--v8-line, #e4e1d8); border-radius: 8px; }
 .board-figma-mode label { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; cursor: pointer; }
+/* 피그마로 내보내기 메뉴 (2026-11-27) */
+.board-tofigma { position: relative; display: inline-flex; }
+.board-tofigma-menu { position: absolute; top: calc(100% + 4px); left: 0; z-index: 25; width: 280px; display: grid; gap: 4px; padding: 8px; background: #fff; border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 10px 30px rgba(20, 30, 24, 0.16); }
+.board-tofigma-menu button { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 2px 8px; text-align: left; padding: 8px; border: 0; border-radius: 8px; background: transparent; font: inherit; color: var(--tx-title); cursor: pointer; }
+.board-tofigma-menu button:hover { background: #f2f8f4; }
+.board-tofigma-menu button small { grid-column: 2; color: var(--tx-sub); }
+.board-tofigma-note { color: var(--tx-sub); padding: 2px 8px 0; }
+.board-figma-link { display: flex; gap: 6px; }
+.board-figma-link .input { flex: 1; min-width: 0; }
+.board-figma-tools { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
