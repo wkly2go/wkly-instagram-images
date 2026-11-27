@@ -5,7 +5,7 @@
 //  - 피그마는 읽기만 (금고 FIGMA_TOKEN · 개인 접근 토큰 · 읽기 권한). 보드 내용은 바꾸지 않음
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2.117.3'
 import { PDFDocument } from 'npm:pdf-lib@1.17.1'
-import { cleanNodeIds, framesOf, parseFigmaUrl, textOf } from './parse.ts'
+import { cleanNodeIds, expandSections, framesOf, parseFigmaUrl, textOf } from './parse.ts'
 
 const URL_ = Deno.env.get('SUPABASE_URL')!
 const ANON = Deno.env.get('SUPABASE_ANON_KEY')!
@@ -17,7 +17,7 @@ class Fail extends Error { constructor(msg: string, public status = 400) { super
 
 async function token(): Promise<string> {
   const { data } = await sb.rpc('figma_secret_get')
-  if (typeof data !== 'string' || !data) throw new Fail('피그마 읽기 열쇠가 아직 없습니다. 관리자가 프로젝트 화면 › 피그잼 칸에서 넣어 주세요.', 409)
+  if (typeof data !== 'string' || !data) throw new Fail('피그마 읽기 열쇠가 아직 없습니다. 관리자가 관리 › 외부 연결 · 피그마 열쇠에서 넣어 주세요.', 409)
   return data
 }
 async function figma<T>(tk: string, path: string): Promise<T> {
@@ -39,7 +39,10 @@ async function readFile(tk: string, row: Row, force: boolean) {
     await sb.from('project_figma').update({ checked_at: new Date().toISOString(), sync_error: null }).eq('id', row.id)
     return { changed: false }
   }
-  const file = await figma<{ name?: string; lastModified?: string; thumbnailUrl?: string; document?: unknown }>(tk, `files/${row.file_key}?geometry=omit`)
+  // 큰 파일을 통째로 받으면 서버 메모리가 넘침(2026-11-27 포켓몬 보드 · Memory limit exceeded)
+  // → 구조는 얕게(depth) 받아 먼저 저장하고, 글은 프레임 몇 개씩 얕게 나눠 받는다
+  const depth = row.kind === 'slides' ? 4 : 2
+  const file = await figma<{ name?: string; lastModified?: string; thumbnailUrl?: string; document?: unknown }>(tk, `files/${row.file_key}?geometry=omit&depth=${depth}`)
   let thumb = row.thumb_path
   const tu = file.thumbnailUrl ?? meta?.file?.thumbnail_url
   if (tu) {
@@ -50,12 +53,43 @@ async function readFile(tk: string, row: Row, force: boolean) {
       if (!up.error) thumb = path
     }
   }
-  const doc = file.document as Parameters<typeof framesOf>[0]
+  const top = framesOf(file.document as Parameters<typeof framesOf>[0])
+  const frames = expandSections(top, await sectionKids(tk, row.file_key, top.filter(f => f.type === 'SECTION').map(f => f.id)))
+  const lastModified = file.lastModified ?? touched
   await sb.from('project_figma').update({
-    title: (file.name ?? '').slice(0, 200), frames: framesOf(doc), content: textOf(doc) || null, thumb_path: thumb,
-    last_modified: file.lastModified ?? touched, checked_at: new Date().toISOString(), sync_error: null,
+    title: (file.name ?? '').slice(0, 200), frames, thumb_path: thumb, checked_at: new Date().toISOString(), sync_error: null,
   }).eq('id', row.id)
+  const content = await textByFrames(tk, row.file_key, top.map(f => f.id))
+  // 글까지 다 읽은 뒤에 last_modified 를 적음 → 중간에 멈추면 다음 예약이 다시 읽음
+  await sb.from('project_figma').update({ content: content || null, last_modified: lastModified }).eq('id', row.id)
   return { changed: true }
+}
+
+/** 섹션 노드를 한 층만 받음 (섹션 안 슬라이드 · 프레임 목록용 · 10개씩) */
+async function sectionKids(tk: string, key: string, ids: string[]) {
+  const out: Record<string, Parameters<typeof expandSections>[1][string]> = {}
+  for (let i = 0; i < Math.min(ids.length, 60); i += 10) {
+    const part = ids.slice(i, i + 10)
+    const r = await figma<{ nodes?: Record<string, { document?: unknown } | null> }>(tk, `files/${key}/nodes?ids=${encodeURIComponent(part.join(','))}&geometry=omit&depth=1`).catch(() => null)
+    for (const id of part) out[id] = r?.nodes?.[id]?.document as Parameters<typeof expandSections>[1][string]
+  }
+  return out
+}
+
+/** 프레임 글을 몇 개씩 얕게 받아 모음 (최대 50,000자 · 25초 안) */
+async function textByFrames(tk: string, key: string, ids: string[]) {
+  const parts: string[] = []
+  let len = 0
+  const until = Date.now() + 25_000
+  for (let i = 0; i < ids.length && len < 50000 && Date.now() < until; i += 4) {
+    const part = ids.slice(i, i + 4)
+    const r = await figma<{ nodes?: Record<string, { document?: unknown } | null> }>(tk, `files/${key}/nodes?ids=${encodeURIComponent(part.join(','))}&geometry=omit&depth=4`).catch(() => null)
+    for (const id of part) {
+      const t = textOf(r?.nodes?.[id]?.document as Parameters<typeof textOf>[0], 50000 - len)
+      if (t) { parts.push(t); len += t.length + 1 }
+    }
+  }
+  return parts.join('\n').slice(0, 50000)
 }
 
 /** 프레임을 고른 순서대로 PDF 한 부 */
