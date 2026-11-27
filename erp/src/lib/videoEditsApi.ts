@@ -3,6 +3,7 @@
 //  - 원본 영상은 올리지 않는다 — 드라이브에 동기화된 촬영 폴더를 고름. 미리보기만 보관함 video-edits
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { ApiError } from './api'
+import type { CreativeSource } from './creativeReport'
 import type { FlowTrend, MarketingCalendar, MarketingFlow } from './marketingFlow'
 
 import type { VideoEditInput, VideoEditJob, VideoSourceFolder } from './videoEdits'
@@ -23,6 +24,8 @@ export interface VideoEditsApi {
   marketingCalendar(weekStart?: string): Promise<MarketingCalendar | null>
   /** 콘텐츠 게시 예정일 정하기 · 지우기 (표 growth_schedule) */
   setContentPlan(itemId: string, date: string | null): Promise<void>
+  /** 소재별 성과 자료 (DB 함수 marketing_creative_report · 건수만) */
+  marketingCreatives(): Promise<CreativeSource | null>
 }
 
 export function createSupabaseVideoEditsApi(sb: SupabaseClient): VideoEditsApi {
@@ -45,6 +48,7 @@ export function createSupabaseVideoEditsApi(sb: SupabaseClient): VideoEditsApi {
     async marketingFlow() { const r = await sb.rpc('marketing_flow'); fail(r.error); return (r.data as MarketingFlow | null) ?? null },
     async marketingTrend() { const r = await sb.rpc('marketing_flow_trend'); fail(r.error); return (r.data as FlowTrend | null) ?? null },
     async marketingCalendar(weekStart) { const r = await sb.rpc('marketing_calendar', { p_start: weekStart ?? null }); fail(r.error); return (r.data as MarketingCalendar | null) ?? null },
+    async marketingCreatives() { const r = await sb.rpc('marketing_creative_report'); fail(r.error); return (r.data as CreativeSource | null) ?? null },
     async setContentPlan(itemId, date) {
       const r = date ? await sb.from('growth_schedule').upsert({ item_id: itemId, planned_on: date, set_at: new Date().toISOString() }) : await sb.from('growth_schedule').delete().eq('item_id', itemId)
       fail(r.error)
@@ -106,6 +110,23 @@ export function createDemoVideoEditsApi(): VideoEditsApi {
       return { week_start: start, items, unplanned: all.filter(x => x.type === 'content' && x.status !== '발행 기록' && !plans.has(x.id)).map(({ id, title, status }) => ({ id, title, status })) }
     },
     async setContentPlan(itemId, date) { if (date) plans.set(itemId, date); else plans.delete(itemId) },
+    async marketingCreatives() {
+      if (!harness) return null
+      return {
+        days: 180, untagged: { inquiries: 49, direct: 12, projects: 1, won: 0 },
+        contents: [
+          { id: 'w2', title: '[시험] 성수 팝업 상권 리포트', status: '발행 기록', updated_at: new Date(now - 2 * 86_400_000).toISOString(), channels: [{ channel: '네이버 블로그', status: '발행', url: 'https://example.com/1' }, { channel: '홈페이지', status: '발행', url: 'https://example.com/2' }] },
+          { id: 'w5', title: '[시험] 팝업 철거 체크리스트', status: '발행 기록', updated_at: new Date(now - 9 * 86_400_000).toISOString(), channels: [{ channel: '네이버 블로그', status: '발행', url: 'https://example.com/3' }] },
+        ],
+        campaigns: [{ id: 'harness-campaign-1', title: '[시험] 팝업 대행 문의 2주', platform: 'meta', status: 'ready' }],
+        tags: [
+          { campaign: '성수-팝업-상권-리포트', source: 'naver_blog', inquiries: 9, direct: 3, projects: 2, won: 1, last_at: new Date(now - 86_400_000).toISOString() },
+          { campaign: '성수-팝업-상권-리포트', source: 'instagram', inquiries: 4, direct: 0, projects: 0, won: 0, last_at: new Date(now - 86_400_000).toISOString() },
+          { campaign: 'harness-campaign-1', source: 'meta', inquiries: 7, direct: 2, projects: 1, won: 0, last_at: new Date(now - 86_400_000).toISOString() },
+          { campaign: '[시험] report26h1', source: 'website', inquiries: 12, direct: 0, projects: 0, won: 0, last_at: new Date(now - 86_400_000).toISOString() },
+        ],
+      }
+    },
     async marketingTrend() {
       if (!harness) return null
       const shape = [2, 3, 1, 4, 2, 0, 1, 3, 5, 4, 2, 1, 0, 2, 3, 6, 9, 5, 3, 2, 1, 2, 4, 3, 2, 1, 3, 4, 2, 3]

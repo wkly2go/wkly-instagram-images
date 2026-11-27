@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { blocksToHtml, blocksToPlain, hashTags, parseBlocks, publishChecks } from '../src/lib/publishKit.ts'
+import { blocksToHtml, blocksToPlain, boldParts, hashTags, parseBlocks, publishChecks } from '../src/lib/publishKit.ts'
 
 const body = `성수 팝업 대관, 12월 예약을 받습니다.
 연말 팝업을 준비하는 담당자라면 일정부터 확인하세요.
@@ -52,6 +52,9 @@ test('서식 없는 글 · 태그', () => {
   const plain = blocksToPlain(parseBlocks(body))
   assert.match(plain, /^성수 팝업 대관/)
   assert.match(plain, /\n\n이용 방법\n\n- 홈페이지에서 날짜 확인\n- 상담 신청\n\n1\. 문의\n2\. 답사/)
+  assert.match(plain, /전면 유리 로 안이/)
+  assert.doesNotMatch(plain, /\*\*/)
+  assert.deepEqual(boldParts('가 **나** 다'), [{ text: '가 ', bold: false }, { text: '나', bold: true }, { text: ' 다', bold: false }])
   assert.equal(hashTags('성수팝업, #대관  성수팝업,연말'), '#성수팝업 #대관 #연말')
   assert.equal(hashTags('  '), '')
 })

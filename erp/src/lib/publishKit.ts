@@ -78,13 +78,19 @@ export function blocksToHtml(blocks: Block[]): string {
 
 /** 서식을 못 받는 곳에 붙일 글 */
 export function blocksToPlain(blocks: Block[]): string {
+  const bare = (t: string) => t.replace(/\*\*(.+?)\*\*/g, '$1')
   return blocks.map(b => {
-    if (b.type === 'h') return b.text
+    if (b.type === 'h') return bare(b.text)
     if (b.type === 'photo') return `〔사진 자리: ${b.text}〕`
-    if (b.type === 'ul') return b.items.map(i => `- ${i}`).join('\n')
-    if (b.type === 'ol') return b.items.map((i, n) => `${n + 1}. ${i}`).join('\n')
-    return b.text
+    if (b.type === 'ul') return b.items.map(i => `- ${bare(i)}`).join('\n')
+    if (b.type === 'ol') return b.items.map((i, n) => `${n + 1}. ${bare(i)}`).join('\n')
+    return bare(b.text)
   }).join('\n\n')
+}
+
+/** 미리보기용: '**굵게**' 를 나눠 [글, 굵게?] 조각으로 */
+export function boldParts(text: string): { text: string; bold: boolean }[] {
+  return text.split(/\*\*(.+?)\*\*/g).map((t, i) => ({ text: t, bold: i % 2 === 1 })).filter(p => p.text)
 }
 
 /** 태그 칸(쉼표 · 공백 · # 섞임) → '#태그 #태그' (30개까지 · 겹치는 것 뺌) */

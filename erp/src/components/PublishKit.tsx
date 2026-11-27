@@ -3,7 +3,7 @@
 // 여기서는 아무것도 게시하지 않는다. 게시한 뒤 '실제 발행 주소'를 적고 채널 상태를 '발행'으로 바꾸는 것은 지금처럼 사람이 한다.
 import { useMemo, useState } from 'react'
 import { Check, ClipboardCopy, ExternalLink, TriangleAlert } from 'lucide-react'
-import { blocksToHtml, blocksToPlain, hashTags, parseBlocks, publishChecks, type Block } from '../lib/publishKit'
+import { blocksToHtml, blocksToPlain, boldParts, hashTags, parseBlocks, publishChecks, type Block } from '../lib/publishKit'
 import './PublishKit.css'
 
 async function copyRich(html: string, plain: string): Promise<void> {
@@ -23,7 +23,8 @@ export function PublishKit({ channel, title, body, tags }: { channel: string; ti
   const checks = useMemo(() => publishChecks(channel, title, body, tags), [channel, title, body, tags])
   if (!body.trim()) return null
   const done = (what: string) => { setCopied(what); window.setTimeout(() => setCopied(c => (c === what ? '' : c)), 2500) }
-  const run = (what: string, job: () => Promise<void>) => void job().then(() => done(what)).catch(() => done('복사하지 못했습니다'))
+  const run = (what: string, job: () => Promise<void>) => void job().then(() => done(what)).catch(() => done('복사하지 못했습니다.'))
+  const rich = (t: string) => boldParts(t).map((x, n) => (x.bold ? <b key={n}>{x.text}</b> : x.text))
   const naver = channel === '네이버 블로그'
   const photos = blocks.filter((b): b is Extract<Block, { type: 'photo' }> => b.type === 'photo')
   const todo = checks.filter(c => !c.ok).length
@@ -35,12 +36,12 @@ export function PublishKit({ channel, title, body, tags }: { channel: string; ti
         <span className="pk-sub">붙여 넣기만 하면 되게 서식을 살려 복사합니다. 게시는 사람이 합니다.</span>
       </header>
       <div className="pk-actions">
-        <button type="button" className="btn btn-outline btn-sm" onClick={() => run('제목', () => navigator.clipboard.writeText(title.trim()))}><ClipboardCopy size={13} /> 제목 복사</button>
-        <button type="button" className="btn btn-blue btn-sm" onClick={() => run('본문', () => copyRich(blocksToHtml(blocks), blocksToPlain(blocks)))}><ClipboardCopy size={13} /> 본문 서식 복사</button>
-        {naver && tagText && <button type="button" className="btn btn-outline btn-sm" onClick={() => run('태그', () => navigator.clipboard.writeText(tagText))}><ClipboardCopy size={13} /> 태그 복사</button>}
+        <button type="button" className="btn btn-outline btn-sm" onClick={() => run('제목을 복사했습니다.', () => navigator.clipboard.writeText(title.trim()))}><ClipboardCopy size={13} /> 제목 복사</button>
+        <button type="button" className="btn btn-blue btn-sm" onClick={() => run('본문을 서식과 함께 복사했습니다.', () => copyRich(blocksToHtml(blocks), blocksToPlain(blocks)))}><ClipboardCopy size={13} /> 본문 서식 복사</button>
+        {naver && tagText && <button type="button" className="btn btn-outline btn-sm" onClick={() => run('태그를 복사했습니다.', () => navigator.clipboard.writeText(tagText))}><ClipboardCopy size={13} /> 태그 복사</button>}
         {naver && <a className="btn btn-outline btn-sm" href="https://section.blog.naver.com/" target="_blank" rel="noreferrer"><ExternalLink size={13} /> 네이버 블로그 열기</a>}
         <button type="button" className="btn btn-ghost btn-sm" aria-expanded={preview} onClick={() => setPreview(p => !p)}>{preview ? '미리보기 닫기' : '게시 모양 미리보기'}</button>
-        <span className="pk-copied" role="status">{copied && (copied.includes('못') ? copied : `${copied}을(를) 복사했습니다`)}</span>
+        <span className="pk-copied" role="status">{copied}</span>
       </div>
       <ul className="pk-checks" aria-label={`게시 전 점검 · 고칠 것 ${todo}개`}>
         {checks.map(c => <li key={c.label} className={c.ok ? 'ok' : 'todo'}>{c.ok ? <Check size={13} /> : <TriangleAlert size={13} />}<span>{c.label}</span></li>)}
@@ -50,11 +51,11 @@ export function PublishKit({ channel, title, body, tags }: { channel: string; ti
         <div className="pk-preview">
           <h4>{title.trim() || '(제목 없음)'}</h4>
           {blocks.map((b, i) => {
-            if (b.type === 'h') return <h5 key={i}>{b.text}</h5>
+            if (b.type === 'h') return <h5 key={i}>{rich(b.text)}</h5>
             if (b.type === 'photo') return <p key={i} className="pk-photo-slot">사진 자리: {b.text}</p>
-            if (b.type === 'ul') return <ul key={i}>{b.items.map((t, n) => <li key={n}>{t}</li>)}</ul>
-            if (b.type === 'ol') return <ol key={i}>{b.items.map((t, n) => <li key={n}>{t}</li>)}</ol>
-            return <p key={i}>{b.text}</p>
+            if (b.type === 'ul') return <ul key={i}>{b.items.map((t, n) => <li key={n}>{rich(t)}</li>)}</ul>
+            if (b.type === 'ol') return <ol key={i}>{b.items.map((t, n) => <li key={n}>{rich(t)}</li>)}</ol>
+            return <p key={i}>{rich(b.text)}</p>
           })}
         </div>
       )}
