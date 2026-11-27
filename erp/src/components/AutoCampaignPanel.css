@@ -34,6 +34,7 @@
 .auto-camp-pick-list button { all: unset; box-sizing: border-box; width: 100%; height: 100%; display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; border: 1px solid var(--v8-line); border-radius: 10px; background: #fff; cursor: pointer; min-height: 44px; }
 .auto-camp-pick-list button:hover { border-color: var(--tx-key); background: #f6faf7; }
 .auto-camp-pick-list button:focus-visible { outline: 2px solid var(--tx-key); outline-offset: 1px; }
+.auto-camp-pick-list button:disabled { opacity: .6; cursor: wait; }
 .auto-camp-pick-group { color: var(--tx-key); font-weight: 700; }
 .auto-camp-pick-title { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
 .auto-camp-pick-list small { color: var(--tx-sub); font-size: var(--fs-body); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

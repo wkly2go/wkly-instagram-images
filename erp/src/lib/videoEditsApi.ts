@@ -113,16 +113,22 @@ export function createDemoVideoEditsApi(): VideoEditsApi {
     async marketingCreatives() {
       if (!harness) return null
       return {
-        days: 180, untagged: { inquiries: 49, direct: 12, projects: 1, won: 0 },
+        days: 180, untagged: { inquiries: 49, direct: 12, projects: 1, won: 0, project_ids: ['hp4'] },
+        projects: [
+          { id: 'hp1', status: '진행', amount: 14_904_545, quoted: true },
+          { id: 'hp2', status: '문의', amount: null, quoted: true },
+          { id: 'hp3', status: '완료', amount: null, quoted: false },
+          { id: 'hp4', status: '문의', amount: null, quoted: false },
+        ],
         contents: [
           { id: 'w2', title: '[시험] 성수 팝업 상권 리포트', status: '발행 기록', updated_at: new Date(now - 2 * 86_400_000).toISOString(), channels: [{ channel: '네이버 블로그', status: '발행', url: 'https://example.com/1' }, { channel: '홈페이지', status: '발행', url: 'https://example.com/2' }] },
           { id: 'w5', title: '[시험] 팝업 철거 체크리스트', status: '발행 기록', updated_at: new Date(now - 9 * 86_400_000).toISOString(), channels: [{ channel: '네이버 블로그', status: '발행', url: 'https://example.com/3' }] },
         ],
         campaigns: [{ id: 'harness-campaign-1', title: '[시험] 팝업 대행 문의 2주', platform: 'meta', status: 'ready' }],
         tags: [
-          { campaign: '성수-팝업-상권-리포트', source: 'naver_blog', inquiries: 9, direct: 3, projects: 2, won: 1, last_at: new Date(now - 86_400_000).toISOString() },
+          { campaign: '성수-팝업-상권-리포트', source: 'naver_blog', inquiries: 9, direct: 3, projects: 2, won: 1, last_at: new Date(now - 86_400_000).toISOString(), project_ids: ['hp1', 'hp2'] },
           { campaign: '성수-팝업-상권-리포트', source: 'instagram', inquiries: 4, direct: 0, projects: 0, won: 0, last_at: new Date(now - 86_400_000).toISOString() },
-          { campaign: 'harness-campaign-1', source: 'meta', inquiries: 7, direct: 2, projects: 1, won: 0, last_at: new Date(now - 86_400_000).toISOString() },
+          { campaign: 'harness-campaign-1', source: 'meta', inquiries: 7, direct: 2, projects: 1, won: 1, last_at: new Date(now - 86_400_000).toISOString(), project_ids: ['hp3'] },
           { campaign: '[시험] report26h1', source: 'website', inquiries: 12, direct: 0, projects: 0, won: 0, last_at: new Date(now - 86_400_000).toISOString() },
         ],
       }
