@@ -655,3 +655,18 @@ td > .task-inline-sel, td .task-inline-sel:only-child { min-width: 76px; }
 .home-team-chips .chip.active .home-team-late { color: #ffd9d4; }
 .task-ordered { display: flex; flex-direction: column; gap: 4px; }
 .task-ordered > span:first-child { font-weight: 700; color: var(--tx-sub); }
+
+/* 알림 본문 나눠 보기 (2026-11-27 대표 '보고를 읽기 좋게') */
+.notif-body { display: flex; flex-direction: column; gap: 3px; white-space: normal; color: var(--tx-body); font-size: var(--fs-body); line-height: 1.5; }
+.notif-body .nb-head { font-weight: 700; color: var(--tx-title); margin-top: 4px; }
+.notif-body .nb-head:first-child { margin-top: 0; }
+.notif-body .nb-line { color: var(--tx-body); }
+.notif-body .nb-item { position: relative; padding-left: 12px; display: flex; flex-direction: column; }
+.notif-body .nb-item::before { content: ''; position: absolute; left: 2px; top: 0.62em; width: 4px; height: 4px; border-radius: 2px; background: var(--tx-sub); }
+.notif-body .nb-item.late::before { background: #c8372d; }
+.notif-body .nb-detail { color: var(--tx-sub); }
+.notif-body .nb-late { color: #b3352b; font-weight: 700; }
+.notif-body .nb-more { align-self: flex-start; color: var(--tx-key); font-weight: 700; cursor: pointer; padding: 2px 0; }
+.notif-body .nb-meta { color: var(--tx-sub); border-top: 1px dashed var(--line); padding-top: 4px; margin-top: 4px; }
+.notif-body .nb-sep { color: var(--tx-sub); font-weight: 400; }
+@media (min-width: 641px) { .notif-panel { width: min(420px, calc(100vw - 24px)); max-height: 560px; } }
