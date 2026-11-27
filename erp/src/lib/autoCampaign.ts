@@ -5,6 +5,7 @@
 import { WKLY_COPY_RULES } from './adCopy.ts'
 import type { ChannelDraft, GrowthDraft } from './growth'
 import type { MarketingBrand, MarketingCampaign } from './marketing'
+import type { VideoEditInput, VideoTemplate } from './videoEdits'
 
 export interface AutoInput {
   /** 무엇을 알릴지 (한두 줄) */
@@ -145,6 +146,21 @@ export function autoContentDraft(base: GrowthDraft, input: AutoInput, r: AutoRes
       ],
     },
   }
+}
+
+/** 릴스 편집도 함께 요청 (2026-11-27 · 사람이 촬영 폴더를 골랐을 때만) — 캠페인과 같은 말로 자막이 나가도록 지시를 만든다.
+ *  자막은 14자 안팎이라 문장을 그대로 넣지 않고 '무엇을 말하는 영상인지'만 넘긴다. 게시는 사람이 한다. */
+export interface AutoReelOption { folder: string; template: VideoTemplate; seconds: number }
+export function autoReelRequest(r: AutoResult, opt: AutoReelOption): VideoEditInput {
+  const points = r.slides.map(s => s.title).filter(Boolean).slice(0, 5)
+  const instructions = [
+    `이 영상은 캠페인 '${r.title}' 와 함께 나갑니다.`,
+    `보는 사람: ${r.audience || '팝업 · 공간을 찾는 브랜드 담당자'}`,
+    `첫 자막(궁금하게 · 14자 안팎으로 줄여서): ${r.headline}`,
+    ...(points.length ? [`가운데 장면에서 보여 줄 것: ${points.join(' · ')}`] : []),
+    '자막에는 화면에 보이는 사실만 씁니다. 위 문장의 날짜 · 가격 · 숫자는 자막에 옮기지 않습니다.',
+  ].join('\n').slice(0, 2000)
+  return { title: `[릴스] ${r.title}`.slice(0, 120), source_folder: opt.folder, template: opt.template, instructions, target_seconds: opt.seconds }
 }
 
 /** 블로그 글 끝에 크리에이터샵 · 쇼핑커넥트 안내 한 줄 (주소가 있을 때만 · 이미 들어 있으면 그대로) */
