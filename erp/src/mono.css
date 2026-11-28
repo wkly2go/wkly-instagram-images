@@ -624,3 +624,7 @@ html:not([data-theme="dark"]) .app-page :is(.btn-sm, .quick-btn) { padding-top: 
   html:not([data-theme="dark"]) .app-page :is(.btn, .btn-blue, .btn-ghost, .btn-primary, .today-ok) { padding-top: 8px; padding-bottom: 8px; }
 }
 html:not([data-theme="dark"]) .app-page :is(.ads-segment, .seg, .right-tabs, .ads-nav, .ads-subnav) button:is(.active, .on), html:not([data-theme="dark"]) .app-page :is(.ads-segment, .seg, .right-tabs, .ads-nav, .ads-subnav) button:is(.active, .on) * { color: var(--tx-title) !important; }
+/* 남은 알약 모양 정리(채팅 칸 보기 고르기 · 입력 칸) */
+html:not([data-theme="dark"]) .app-page .dock-mode { border-radius: 8px !important; }
+html:not([data-theme="dark"]) .app-page .dock-mode button { border-radius: 5px !important; }
+html:not([data-theme="dark"]) .app-page .chat-dock textarea, html:not([data-theme="dark"]) .app-page textarea.textarea { border-radius: 6px !important; }
