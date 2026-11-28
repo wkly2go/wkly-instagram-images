@@ -12,8 +12,8 @@
 .sales-desk-exchange{border-bottom:0;padding:10px 0}
 .sales-desk-mine{margin-left:auto;max-width:min(78%,720px);background:#efefef;border:1px solid #d5d5d5;padding:12px 16px}
 .sales-desk-mine header,.sales-desk-answer>header{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:baseline}
-.sales-desk-answer{max-width:min(92%,980px);border:1px solid #e0e0e0;border-left:3px solid #bfbfbf;background:#fbfbfb}
-.sales-desk-plan .sales-desk-answer{border-left-color:#e2578a;background:#fff}
+.sales-desk-answer{max-width:min(92%,980px);border:1px solid #e0e0e0;border-left:3px solid #bfbfbf;background:var(--nm-face, #fbfbfb)}
+.sales-desk-plan .sales-desk-answer{border-left-color:#e2578a;background:var(--nm-face, #fff)}
 .sales-desk-plan h3{font-size:var(--fs-title);margin:8px 0}
 .sales-desk-plan dl{display:grid;gap:6px;margin:0}.sales-desk-plan dl>div{display:grid;grid-template-columns:96px 1fr;gap:10px}
 .sales-desk-plan dt{color:#6c6c6c;font-size:var(--fs-body)}.sales-desk-plan dd{margin:0;overflow-wrap:anywhere}
@@ -27,12 +27,12 @@
 .sales-desk-chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}.sales-desk-chips .btn,.sales-desk-chips button{white-space:normal;text-align:left}
 .sales-desk-more{margin:8px 0 0}.sales-desk-more>summary{cursor:pointer;color:#545454;font-size:var(--fs-body)}.sales-desk-more .sales-desk-options{margin-top:10px}
 
-.sales-desk-send-summary{margin:12px 0 0;padding:12px 14px;background:#f8f8f8;border:1px solid #d8d8d8}
+.sales-desk-send-summary{margin:12px 0 0;padding:12px 14px;background:var(--nm-face, #f8f8f8);border:1px solid #d8d8d8}
 .sales-desk-send-summary dl{display:grid;gap:6px;margin:8px 0 0}.sales-desk-send-summary dl div{display:grid;grid-template-columns:76px 1fr;gap:8px}
 .sales-desk-send-summary dt{color:#545454;font-size:var(--fs-body)}.sales-desk-send-summary dd{margin:0;overflow-wrap:anywhere}
 .sales-desk-send-summary details{margin:8px 0 0}.sales-desk-send-summary summary{cursor:pointer;color:#343434}
 .sales-desk-stages{margin:8px 0}.sales-desk-stages summary{cursor:pointer;font-weight: 600}.sales-desk-stages ol{margin:6px 0 0;padding-left:20px;display:grid;gap:6px}.sales-desk-stages li span{color:#545454}.sales-desk-stages li small{color:#7a847d}
-.sales-desk-ask{margin:12px 0;padding:14px 16px;background:#f5f5f5;border:1px solid #dedede;display:grid;gap:10px}.sales-desk-q p{margin:0 0 6px}.sales-desk-q .input{margin-top:6px;width:100%}
+.sales-desk-ask{margin:12px 0;padding:14px 16px;background:var(--nm-face, #f5f5f5);border:1px solid #dedede;display:grid;gap:10px}.sales-desk-q p{margin:0 0 6px}.sales-desk-q .input{margin-top:6px;width:100%}
 
 /* 접힌 대화 · 기획 한 줄 + 보관함 (2026-11-16) */
 .sales-desk-compact { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--white); }
@@ -55,7 +55,7 @@
 .sales-desk-plan:not(.sales-desk-compact) { margin-top: 18px; }
 .sales-desk-plan .sales-desk-answer { border: 1px solid #dcdcdc; border-left: 4px solid #e2578a; border-radius: 12px !important; padding: 0 18px 14px; box-shadow: 0 1px 3px rgba(60, 20, 40, .06); }
 .sales-desk-plan.plan-ok .sales-desk-answer { border-color: #d9d9d9; border-left-color: var(--v8-green); }
-.sales-desk-plan.plan-off .sales-desk-answer { border-color: #e0e0e0; border-left-color: #b2b2b2; background: #f9f9f9; }
+.sales-desk-plan.plan-off .sales-desk-answer { border-color: #e0e0e0; border-left-color: #b2b2b2; background: var(--nm-face, #f9f9f9); }
 .sales-desk-plan.plan-prep .sales-desk-answer { border-left-color: #c9a227; }
 .sales-desk-answer > header.sales-plan-head { margin: 0 -18px; padding: 10px 18px; background: #fdf3f7; border-bottom: 1px solid #f1dde5; border-radius: 8px 11px 0 0 !important; align-items: center; justify-content: flex-start; }
 .sales-desk-plan.plan-ok header.sales-plan-head { background: #f2f2f2; border-bottom-color: #e0e0e0; }
@@ -70,7 +70,7 @@
 .sales-plan-tag { display: inline-flex; align-items: center; padding: 1px 8px; border-radius: 999px !important; font-size: var(--fs-body); font-weight: 600; line-height: 1.6; border: 1px solid transparent; white-space: nowrap; }
 .sales-plan-tag.sector-private { background: var(--v9-accent-tint); color: var(--v9-accent); border-color: var(--v9-accent-tint); }
 .sales-plan-tag.sector-public { background: #f2f2f2; color: #141414; border-color: #e0e0e0; }
-.sales-plan-tag.cat { background: #fff; color: #414141; border-color: #d6d6d6; }
+.sales-plan-tag.cat { background: var(--nm-face, #fff); color: #414141; border-color: #d6d6d6; }
 .sales-plan-tag.pri-high { background: #fde8e6; color: #a8322a; }
 .sales-plan-tag.pri-mid { background: #fdf3dc; color: #8a6510; }
 .sales-plan-tag.pri-low { background: #ededed; color: #656565; }
@@ -96,7 +96,7 @@
 .sales-plan-board>header h3 span{color:var(--tx-key,var(--v8-green))}
 .sales-plan-board>header small{color:var(--tx-sub,#585858)}
 .sales-plan-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
-.sales-plan-card{display:flex;flex-direction:column;gap:8px;text-align:left;padding:14px 16px;border:1px solid var(--v8-line,#e5e5e5);border-left:4px solid var(--v8-line-2,#dedede);border-radius:12px;background:#fff;cursor:pointer;font:inherit;color:inherit;min-height:180px}
+.sales-plan-card{display:flex;flex-direction:column;gap:8px;text-align:left;padding:14px 16px;border:1px solid var(--v8-line,#e5e5e5);border-left:4px solid var(--v8-line-2,#dedede);border-radius:12px;background:var(--nm-face, #fff);cursor:pointer;font:inherit;color:inherit;min-height:180px}
 .sales-plan-card:hover{box-shadow:0 4px 14px rgba(21,29,24,.08);border-color:var(--v8-line-2,#dedede)}
 .sales-plan-card.plan-wait{border-left-color:#d6457a}
 .sales-plan-card.plan-ok{border-left-color:var(--v8-green)}

@@ -96,7 +96,7 @@
 .sales-inq-note { margin: 8px 0; color: var(--gray); line-height: 1.6; }
 .sales-inq-list { list-style: none; margin: 8px 0 0; padding: 0; }
 .sales-inq-list > li { border-top: 1px solid var(--line); }
-.sales-inq-list > li.open { background: #f8f8f8; }
+.sales-inq-list > li.open { background: var(--nm-face, #f8f8f8); }
 .sales-inq-row { display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 4px; border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
 .sales-inq-row .when { flex: none; width: 44px; color: var(--gray); font-variant-numeric: tabular-nums; }
 .sales-inq-row .tag { flex: none; padding: 1px 8px; border-radius: 999px; background: #eeeeee; color: #585858; white-space: nowrap; }

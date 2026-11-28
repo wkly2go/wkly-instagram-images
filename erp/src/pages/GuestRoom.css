@@ -4,7 +4,7 @@
 .gr-app { display: flex; flex-direction: column; height: 100dvh; max-width: 760px; margin: 0 auto; }
 @media (min-width: 800px) { .gr-app { border-left: 1px solid var(--v8-line); border-right: 1px solid var(--v8-line); } }
 
-.gr-head { background: #fff; border-bottom: 1px solid var(--v8-line); padding: 14px 16px 0; flex: none; }
+.gr-head { background: var(--nm-face, #fff); border-bottom: 1px solid var(--v8-line); padding: 14px 16px 0; flex: none; }
 .gr-head-top { display: flex; align-items: center; gap: 10px; font-size: var(--fs-body); min-width: 0; }
 .gr-brand { font-weight: 600; letter-spacing: .02em; color: var(--tx-key); white-space: nowrap; }
 .gr-private { color: var(--tx-sub); display: inline-flex; gap: 4px; align-items: center; white-space: nowrap; }
@@ -26,8 +26,8 @@
 .gr-muted { color: var(--tx-sub); font-size: var(--fs-body); }
 .gr-err { color: #b42318; font-size: var(--fs-body); margin: 0 0 6px; }
 .gr-ell { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; }
-.gr-card { background: #fff; border: 1px solid var(--v8-line); border-radius: 12px !important; box-shadow: var(--v8-shadow); }
-.gr-btn { display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--v8-line-2); background: #fff; color: var(--tx-body); border-radius: 8px !important; padding: 7px 11px; font: inherit; font-size: var(--fs-body); cursor: pointer; white-space: nowrap; }
+.gr-card { background: var(--nm-face, #fff); border: 1px solid var(--v8-line); border-radius: 12px !important; box-shadow: var(--v8-shadow); }
+.gr-btn { display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--v8-line-2); background: var(--nm-face, #fff); color: var(--tx-body); border-radius: 8px !important; padding: 7px 11px; font: inherit; font-size: var(--fs-body); cursor: pointer; white-space: nowrap; }
 .gr-btn:hover:not(:disabled) { background: var(--v8-hover); }
 .gr-btn:disabled { opacity: .5; cursor: default; }
 .gr-btn.gr-primary { background: var(--v8-green); border-color: var(--v8-green); color: #fff; }
@@ -37,7 +37,7 @@
 
 /* 대화 */
 .gr-chat { padding: 10px 12px 10px; }
-.gr-intro { background: #fff; border: 1px solid var(--v8-line); border-left: 3px solid var(--v8-green); border-radius: 8px !important; padding: 10px 12px; font-size: var(--fs-body); line-height: 1.55; white-space: pre-wrap; margin: 4px 0 6px; }
+.gr-intro { background: var(--nm-face, #fff); border: 1px solid var(--v8-line); border-left: 3px solid var(--v8-green); border-radius: 8px !important; padding: 10px 12px; font-size: var(--fs-body); line-height: 1.55; white-space: pre-wrap; margin: 4px 0 6px; }
 .gr-day { text-align: center; font-size: var(--fs-body); color: var(--tx-sub); margin: 16px 0 6px; }
 .gr-msg { display: flex; flex-direction: column; align-items: flex-start; margin-top: 10px; }
 .gr-msg.same { margin-top: 3px; }
@@ -47,7 +47,7 @@
 .gr-who span { color: var(--tx-sub); font-size: var(--fs-body); }
 .gr-bubble-row { display: flex; align-items: flex-end; gap: 6px; max-width: 88%; min-width: 0; }
 .gr-msg.mine .gr-bubble-row { flex-direction: row-reverse; }
-.gr-bubble { background: #fff; border: 1px solid var(--v8-line); border-radius: 14px 14px 14px 4px !important; padding: 9px 12px; font-size: var(--fs-body); line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--tx-body); min-width: 0; }
+.gr-bubble { background: var(--nm-face, #fff); border: 1px solid var(--v8-line); border-radius: 14px 14px 14px 4px !important; padding: 9px 12px; font-size: var(--fs-body); line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--tx-body); min-width: 0; }
 .gr-msg.same:not(.mine) .gr-bubble { border-top-left-radius: 6px !important; }
 .gr-msg.mine .gr-bubble { background: var(--v8-tint); border-color: #dadada; border-radius: 14px 14px 4px 14px !important; }
 .gr-msg.mine.same .gr-bubble { border-top-right-radius: 6px !important; }
@@ -55,14 +55,14 @@
 .gr-bubble a { color: var(--tx-key); text-decoration: underline; text-underline-offset: 2px; }
 .gr-bubble-row time { font-size: var(--fs-body); color: var(--tx-sub); flex: none; padding-bottom: 2px; font-variant-numeric: tabular-nums; }
 .gr-files { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; white-space: normal; }
-.gr-chip { display: flex; align-items: center; gap: 8px; background: #fff; border: 1px solid var(--v8-line-2); border-radius: 8px !important; padding: 5px 5px 5px 10px; font-size: var(--fs-body); min-width: 0; max-width: 320px; color: var(--tx-body); }
+.gr-chip { display: flex; align-items: center; gap: 8px; background: var(--nm-face, #fff); border: 1px solid var(--v8-line-2); border-radius: 8px !important; padding: 5px 5px 5px 10px; font-size: var(--fs-body); min-width: 0; max-width: 320px; color: var(--tx-body); }
 .gr-chip > svg { color: var(--tx-key); flex: none; }
 .gr-chip button { flex: none; border: 0; background: var(--v8-hover); width: 32px; height: 32px; border-radius: 6px !important; display: grid; place-items: center; cursor: pointer; color: var(--tx-body); }
 .gr-chip-size { color: var(--tx-sub); font-size: var(--fs-body); flex: none; }
 
-.gr-compose { background: #fff; border-top: 1px solid var(--v8-line); padding: 8px 10px calc(8px + env(safe-area-inset-bottom)); flex: none; }
+.gr-compose { background: var(--nm-face, #fff); border-top: 1px solid var(--v8-line); padding: 8px 10px calc(8px + env(safe-area-inset-bottom)); flex: none; }
 .gr-compose-row { display: flex; align-items: flex-end; gap: 6px; }
-.gr-compose textarea { flex: 1; min-width: 0; resize: none; border: 1px solid var(--v8-line-2); border-radius: 20px !important; padding: 9px 14px; font: inherit; font-size: var(--fs-sub); font-weight: 400; line-height: 1.4; max-height: 132px; background: #fff; color: var(--tx-body); outline: none; }
+.gr-compose textarea { flex: 1; min-width: 0; resize: none; border: 1px solid var(--v8-line-2); border-radius: 20px !important; padding: 9px 14px; font: inherit; font-size: var(--fs-sub); font-weight: 400; line-height: 1.4; max-height: 132px; background: var(--nm-face, #fff); color: var(--tx-body); outline: none; }
 .gr-compose textarea:focus { border-color: var(--v8-green); }
 .gr-icon { flex: none; width: 40px; height: 40px; border: 0; background: none; color: var(--tx-sub); display: grid; place-items: center; cursor: pointer; border-radius: 50% !important; }
 .gr-icon:hover { background: var(--v8-hover); }
@@ -110,7 +110,7 @@
 .gr-gate-icon { width: 44px; height: 44px; border-radius: 50% !important; background: var(--v8-tint); color: var(--tx-key); display: grid; place-items: center; margin: 0 auto; }
 .gr-row { display: flex; gap: 8px; justify-content: center; margin-top: 14px; }
 .gr-pick { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; text-align: left; }
-.gr-pick-row { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border: 1px solid var(--v8-line-2); border-radius: 10px !important; background: #fff; font: inherit; font-size: var(--fs-body); cursor: pointer; color: var(--tx-body); }
+.gr-pick-row { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border: 1px solid var(--v8-line-2); border-radius: 10px !important; background: var(--nm-face, #fff); font: inherit; font-size: var(--fs-body); cursor: pointer; color: var(--tx-body); }
 .gr-pick-row:hover { background: var(--v8-hover); }
 
 /* 화이트보드 (2026-11-27 · 담당자가 방에 공유한 보드 · 열면 화면 가득) */
@@ -118,7 +118,7 @@
 .gr-boards-hint { margin: 0 0 10px; color: var(--tx-sub); font-size: var(--fs-body); line-height: 1.6; }
 .gr-boards-hint .gr-link { margin-left: 4px; display: inline-flex; align-items: center; gap: 3px; }
 .gr-board-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-.gr-board { width: 100%; display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--v8-line-2); border-radius: 10px !important; background: #fff; font: inherit; font-size: var(--fs-body); color: var(--tx-body); text-align: left; cursor: pointer; }
+.gr-board { width: 100%; display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--v8-line-2); border-radius: 10px !important; background: var(--nm-face, #fff); font: inherit; font-size: var(--fs-body); color: var(--tx-body); text-align: left; cursor: pointer; }
 .gr-board:hover { background: var(--v8-hover); border-color: var(--tx-key); }
 .gr-board-icon { width: 34px; height: 34px; border-radius: 8px !important; background: var(--v8-tint); color: var(--tx-key); display: grid; place-items: center; flex: none; }
 .gr-board-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }

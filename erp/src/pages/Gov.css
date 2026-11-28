@@ -9,7 +9,7 @@
 .gov-bar .btn svg, .gov-box .btn svg { vertical-align: -2px; }
 
 .gov-table tbody tr:not(.gov-detail) { cursor: pointer; }
-.gov-table tr.gov-open > td { background: #f5f5f5; }
+.gov-table tr.gov-open > td { background: var(--nm-face, #f5f5f5); }
 .gov-table .gov-detail > td { padding: 0; background: #fbfaf6; }
 .gov-table td .cell-sub { display: block; color: var(--tx-sub, #585858); }
 .gov-title { all: unset; cursor: pointer; font-weight: 600; color: var(--tx-title, #191919); overflow-wrap: anywhere; }
@@ -57,9 +57,9 @@
 .gov-ov-agent { margin: 0; }
 .gov-ask { gap: 8px; }
 .gov-chip-n { display: inline-block; min-width: 18px; margin-left: 6px; padding: 0 5px; border-radius: 9px; background: #c0392b; color: #fff; font-size: 12px; line-height: 18px; text-align: center; }
-.gov-sugs { display: grid; gap: 10px; padding: 12px 14px; background: #f5f5f5; border-left: 3px solid var(--tx-key, var(--v8-green)); border-radius: 10px; }
+.gov-sugs { display: grid; gap: 10px; padding: 12px 14px; background: var(--nm-face, #f5f5f5); border-left: 3px solid var(--tx-key, var(--v8-green)); border-radius: 10px; }
 .gov-sugs h3 { margin: 0; font-size: var(--fs-sub); }
-.gov-sug { display: grid; gap: 8px; padding: 12px; background: #fff; border: 1px solid var(--v8-line-2, #dcdcdc); border-radius: 10px; }
+.gov-sug { display: grid; gap: 8px; padding: 12px; background: var(--nm-face, #fff); border: 1px solid var(--v8-line-2, #dcdcdc); border-radius: 10px; }
 .gov-sug p { margin: 0; }
 .gov-sug-diff { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .gov-sug-diff pre { margin: 4px 0 0; padding: 8px 10px; white-space: pre-wrap; word-break: break-word; font: inherit; font-size: var(--fs-body); border-radius: 8px; max-height: 280px; overflow: auto; }
@@ -67,7 +67,7 @@
 .gov-sug-after { background: #f0f0f0; }
 .gov-sug-src a { margin-left: 4px; }
 .gov-sug-done ul { margin: 6px 0 0; padding-left: 18px; }
-.gov-history { list-style: none; margin: 0; padding: 10px 12px; display: grid; gap: 6px; background: #fff; border: 1px solid var(--v8-line-2, #dcdcdc); border-radius: 10px; }
+.gov-history { list-style: none; margin: 0; padding: 10px 12px; display: grid; gap: 6px; background: var(--nm-face, #fff); border: 1px solid var(--v8-line-2, #dcdcdc); border-radius: 10px; }
 @media (max-width: 720px) {
   .gov-ov-nums { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .gov-sug-diff { grid-template-columns: 1fr; }

@@ -14,7 +14,7 @@
 .pk-checks li.todo { color: #6b5200; }
 .pk-photos { margin: 0; color: var(--tx-body); overflow-wrap: anywhere; }
 .pk-photos b { font-weight: 600; margin-right: 6px; }
-.pk-preview { background: #fff; border: 1px solid var(--v8-line, #dedede); border-radius: 10px; padding: 18px 20px; max-height: 520px; overflow: auto; display: grid; gap: 10px; }
+.pk-preview { background: var(--nm-face, #fff); border: 1px solid var(--v8-line, #dedede); border-radius: 10px; padding: 18px 20px; max-height: 520px; overflow: auto; display: grid; gap: 10px; }
 .pk-preview h4 { margin: 0 0 4px; font-size: var(--fs-title); font-weight: 700; }
 .pk-preview h5 { margin: 8px 0 0; font-size: var(--fs-sub); font-weight: 600; }
 .pk-preview p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.7; }

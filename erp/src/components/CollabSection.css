@@ -96,7 +96,7 @@ html[data-theme="dark"] .cl-msg.guest { background: none; }
 .cl-boards { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 10px; }
 .cl-boards > .t-cap { margin: 0; line-height: 1.6; }
 .cl-board-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.cl-board-list li { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 10px; border: 1px solid var(--v8-line-2); border-radius: 10px; background: #fff; }
+.cl-board-list li { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 10px; border: 1px solid var(--v8-line-2); border-radius: 10px; background: var(--nm-face, #fff); }
 .cl-board-list li.on { border-color: var(--tx-key); background: var(--v8-tint); }
 .cl-board-pick { flex: 1 1 220px; min-width: 0; display: flex; align-items: center; gap: 8px; cursor: pointer; }
 .cl-board-pick b { font-weight: 600; color: var(--tx-title); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

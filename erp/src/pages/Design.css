@@ -276,6 +276,6 @@ body:has(.modal-col) .design-step-nav { padding-right: 0; padding-left: 96px; }
 .design-refpick li + li { border-top: 1px solid var(--line); }
 .design-refpick li.t-cap { padding: 6px 10px; }
 .design-refpick li button { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; width: 100%; padding: 7px 10px; border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
-.design-refpick li button:hover, .design-refpick li button:focus-visible { background: #f5f5f5; }
+.design-refpick li button:hover, .design-refpick li button:focus-visible { background: var(--nm-face, #f5f5f5); }
 .design-refpick li button b { flex: none; min-width: 92px; color: var(--tx-key, var(--v8-green)); }
 .design-refpick li button .num { margin-left: auto; font-weight: 600; white-space: nowrap; }

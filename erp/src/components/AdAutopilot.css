@@ -44,7 +44,7 @@
 .ap-f { display: flex; flex-direction: column; gap: 4px; }
 .ap-f > span { font-weight: 600; }
 .ap-f small { color: var(--tx-sub); font-size: var(--fs-body); }
-.ap-f input, .ap-token input { width: 100%; min-height: 36px; padding: 6px 10px; border: 1px solid var(--v8-line); border-radius: var(--v8-r-ctl); background: #fff; font: inherit; color: var(--v8-ink); }
+.ap-f input, .ap-token input { width: 100%; min-height: 36px; padding: 6px 10px; border: 1px solid var(--v8-line); border-radius: var(--v8-r-ctl); background: var(--nm-face, #fff); font: inherit; color: var(--v8-ink); }
 .ap-token { display: flex; gap: 8px; }
 .ap-token input { flex: 1; min-width: 0; }
 .ap-table-wrap { overflow-x: auto; }
