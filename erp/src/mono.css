@@ -553,3 +553,6 @@ html:not([data-theme="dark"]) .app-page .body > .chat-dock:not(.closed) { animat
 html:not([data-theme="dark"]) :is(.btn-primary, .new-btn, .today-ok, .btn.primary):not(:disabled), html:not([data-theme="dark"]) .app-page .profile :is(.new-btn, .btn-primary) { box-shadow: var(--nm-neon-sm) !important; }
 html:not([data-theme="dark"]) :is(.btn-primary, .new-btn, .today-ok, .btn.primary):not(:disabled):hover { box-shadow: var(--nm-neon-sm) !important; }
 @media (max-width: 760px) { html:not([data-theme="dark"]) .m-nav { box-shadow: none !important; border-top: 1px solid var(--v8-line) !important; } html:not([data-theme="dark"]) .m-more { box-shadow: none; border-top: 1px solid var(--v8-line-2); } }
+
+/* 로고는 얇은 선으로 (2026-11-28 대표 '로고 선 얇게 만들어' · public/wkly-logo-line.svg) — 색 필터 없이 그대로 */
+html:not([data-theme="dark"]) .top-logo .logo-ink { filter: none !important; opacity: 1; }
