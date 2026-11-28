@@ -9,7 +9,7 @@
 .board-state.s-저장중, .board-state.s-고치는중 { color: var(--tx-key); }
 .board-peers { display: inline-flex; align-items: center; gap: 4px; color: var(--tx-sub); white-space: nowrap; max-width: 320px; overflow: hidden; text-overflow: ellipsis; }
 .board-canvas { flex: 1; min-height: 0; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: #fff; position: relative; }
-.board-canvas .excalidraw { --color-primary: #454545; --color-primary-darker: #343434; --color-primary-darkest: #262626; --color-primary-light: #eaeaea; }
+.board-canvas .excalidraw { --color-primary: #141414; --color-primary-darker: #0a0a0a; --color-primary-darkest: #000; --color-primary-light: #eaeaea; --color-primary-light-darker: #dcdcda; --color-brand-hover: #2b2b2b; --color-brand-active: #000; --color-selection: var(--v9-accent); --color-surface-primary-container: #eaeaea; --color-on-primary-container: #141414; --focus-highlight-color: var(--v9-accent-tint); --link-color: var(--v9-accent); }
 .board-msg { padding: 24px; color: var(--tx-sub); }
 .board-page.board-msg { display: block; height: auto; }
 /* 넓게 보기: 보드를 연 동안 채팅 칸 · 오른쪽 일정 칸 숨김 (휴대폰은 원래 한 칸) */

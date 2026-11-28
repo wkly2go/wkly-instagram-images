@@ -139,6 +139,6 @@ export function DocContent({ url, zoom = 1, className = 'doc-full-frame' }: { ur
 
 /** 구글 문서 HTML: 링크는 새 창으로 · 읽기 편한 바탕 (스크립트는 격리 틀이 막음) */
 export function docHtml(raw: string): string {
-  const base = '<base target="_blank"><style>body{margin:0 auto;padding:16px 20px;max-width:860px;background:#fff;color:#222a25;font-family:Pretendard,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;line-height:1.6}img{max-width:100%;height:auto}table{border-collapse:collapse;max-width:100%}</style>'
+  const base = '<base target="_blank"><style>body{margin:0 auto;padding:16px 20px;max-width:860px;background:#fff;color:#1f1f1f;font-family:Pretendard,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;line-height:1.6}img{max-width:100%;height:auto}table{border-collapse:collapse;max-width:100%}</style>'
   return /<head[^>]*>/i.test(raw) ? raw.replace(/<head[^>]*>/i, m => m + base) : base + raw
 }

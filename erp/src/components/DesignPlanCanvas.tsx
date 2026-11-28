@@ -102,7 +102,7 @@ const World = memo(function World({ plan, sel, look, outline }: { plan: PlanGeom
   return (
     <>
       {outline && <g className="dpc-floor">
-        <polygon points={pointsOf(outline)} fill={floorMat?.trim() ? mix(floor.color, '#ffffff', 0.38) : '#fbfaf6'} />
+        <polygon points={pointsOf(outline)} fill={floorMat?.trim() ? mix(floor.color, '#ffffff', 0.38) : '#fafafa'} />
         {floorMat?.trim() && FLOOR_PATTERN[floor.kind] && <polygon className="pat" points={pointsOf(outline)} fill={`url(#${FLOOR_PATTERN[floor.kind]})`} />}
       </g>}
       {items.map(i => <ItemSymbol key={i.id} item={i} color={i.finish?.trim() ? look(i.finish, 'plain').color : null} selected={sel.includes(i.id)} />)}

@@ -10,8 +10,8 @@ export type CompanyKey = 'AR' | 'TW'
 export type CompanyPick = CompanyKey | 'all'
 export const COMPANY_KEYS: CompanyKey[] = ['AR', 'TW']
 export const COMPANIES: Record<CompanyKey, { label: string; full: string; biz: string | null; color: string }> = {
-  AR: { label: '아트리어', full: '아트리어디자인스튜디오', biz: '302-88-02334', color: '#8a6d3b' },
-  TW: { label: '더위클리', full: '더위클리컴퍼니', biz: '218-87-03900', color: '#1f6b4a' },
+  AR: { label: '아트리어', full: '아트리어디자인스튜디오', biz: '302-88-02334', color: '#141414' },
+  TW: { label: '더위클리', full: '더위클리컴퍼니', biz: '218-87-03900', color: '#767676' },
 }
 
 const KEY = 'wkly-company'

@@ -52,7 +52,7 @@ export default function DesignPlan3D({ plan, selected, look = finishLook, name }
     if (!el) return
     let e: PlanEngine
     try {
-      e = new PlanEngine(el, { pink: css(el, '--pink', '#fd37be'), ground: css(el, '--dp3-ground', '#efece5'), onEmpty: setEmpty, onLost: setLost })
+      e = new PlanEngine(el, { pink: css(el, '--pink', '#fd37be'), ground: css(el, '--dp3-ground', '#ececea'), onEmpty: setEmpty, onLost: setLost })
     } catch {
       // 그래픽 가속이 꺼져 있거나 기기가 받쳐 주지 않을 때: 평면은 그대로 쓸 수 있게 안내만 한다
       setFailed(true)
