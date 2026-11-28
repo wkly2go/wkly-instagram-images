@@ -307,3 +307,11 @@ html:not([data-theme="dark"]) :is(.btn, .icon-btn, .quick-btn, .new-btn, .input,
 html:not([data-theme="dark"]) :is(.box, .stat, .kpi, .card, .home-kpi, .today-card, .checkin-card, .brief, .rd-box, .pc-card, .proj-card, .pboards-item, .week-day, .div-card, .ad-pcard, .mini-cal, .home-hero) { border-radius: var(--v8-r-card) !important; }
 html:not([data-theme="dark"]) .app-page :is(.main, .web-panel, .chat-dock, .profile) { border-radius: 12px !important; }
 html:not([data-theme="dark"]) .week-item { border-radius: 6px; }
+
+/* 왼쪽 메뉴는 모노톤 (2026-11-28 대표 '이거는 모노톤으로 수정해'): 아이콘 · 고른 줄 · 숫자 칸 모두 먹색 · 회색 — 메뉴 색은 그 화면 안(주 버튼 · 고른 것)에서만 */
+html:not([data-theme="dark"]) .app-page .profile .side-item > svg { background: var(--nm-face); color: var(--v9-ink); box-shadow: var(--nm-up-sm); }
+html:not([data-theme="dark"]) .app-page .profile .side-item.on { border-color: rgba(255, 255, 255, .8); box-shadow: var(--nm-up-sm); }
+html:not([data-theme="dark"]) .app-page .profile .side-item.on > svg { background: var(--v9-ink); color: #fff; box-shadow: 3px 4px 8px -3px rgba(43, 45, 51, .55); }
+html:not([data-theme="dark"]) .app-page .profile :is(.side-n, .side-item .count) { background: #e1e4ea !important; color: var(--v9-ink) !important; box-shadow: var(--nm-in-sm); }
+html:not([data-theme="dark"]) .app-page .profile :is(.new-btn, .btn-primary) { background: var(--v9-ink) !important; box-shadow: var(--nm-up-sm) !important; }
+html:not([data-theme="dark"]) .app-page .profile button.day.today { background: var(--v9-ink) !important; box-shadow: none; }
