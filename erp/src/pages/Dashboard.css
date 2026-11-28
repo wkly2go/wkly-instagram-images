@@ -115,3 +115,17 @@ html[data-theme=dark] :is(.dash-body, .dash-kpi-l, .dash-kpi b, .dash-spark, .da
 /* 모서리 좀 더 각지게 (2026-11-28 대표 지시) */
 .dash-kpi { border-radius: 12px; } .dash-card { border-radius: 12px; } .dash-body { border-radius: 8px; } .dash-day { border-radius: 8px; }
 .dash-kpi-ic { border-radius: 10px; } .dash-pill, .dash-d { border-radius: 6px; } .dash-vbar-track, .dash-vbar-track i { border-radius: 4px; } .dash-flow-col i { border-radius: 3px; }
+
+/* 업무 흐름 색 (2026-11-28 대표 '이거 색 이쁘게 바꿔'): 끝낸 일 = 메뉴 색 · 마감 예정 = 같은 색의 연한 톤 · 지연 = 부드러운 산호색 · 빈 칸 = 눌린 홈 */
+.dash-flow { gap: 4px; } .dash-flow-col { gap: 4px; }
+.dash-flow-col i { border-radius: 4px; background: #e3e6ec; box-shadow: inset 1px 1px 2px rgba(158, 166, 184, .45), inset -1px -1px 2px rgba(255, 255, 255, .9); }
+.dash-flow-col i.f-done, .dash-legend i.f-done { background: linear-gradient(160deg, color-mix(in srgb, var(--v9-accent) 72%, #fff), var(--v9-accent)); box-shadow: 1px 2px 4px color-mix(in srgb, var(--v9-accent) 40%, transparent); }
+.dash-flow-col i.f-due, .dash-legend i.f-due { background: color-mix(in srgb, var(--v9-accent) 30%, #fff); box-shadow: 1px 2px 4px color-mix(in srgb, var(--v9-accent) 18%, transparent); }
+.dash-flow-col i.f-late, .dash-legend i.f-late { background: linear-gradient(160deg, #ffb09c, #ff8a73); box-shadow: 1px 2px 4px rgba(255, 138, 115, .4); }
+.dash-flow-col.is-today { filter: none; }
+.dash-flow-col.is-today i:not([class]), .dash-flow-col.is-today i[class=''] { background: color-mix(in srgb, var(--v9-accent) 9%, #eef0f4); }
+.dash-flow-col.is-today i.f-due { background: linear-gradient(160deg, color-mix(in srgb, var(--v9-accent) 72%, #fff), var(--v9-accent)); box-shadow: 0 0 0 2px color-mix(in srgb, var(--v9-accent) 25%, transparent), 2px 4px 10px color-mix(in srgb, var(--v9-accent) 55%, transparent); }
+.dash-legend i { width: 10px; height: 10px; border-radius: 3px; }
+.dash-vbar-track i.late, .dash-pill.bad::before { background: #ff8a73; }
+.dash-vbar-track i.s-late { background: linear-gradient(180deg, #ffb09c, #ff8a73); }
+.dash-vbar-track i.s-active { background: linear-gradient(180deg, color-mix(in srgb, var(--v9-accent) 72%, #fff), var(--v9-accent)); }

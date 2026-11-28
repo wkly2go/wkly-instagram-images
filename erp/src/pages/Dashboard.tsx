@@ -87,7 +87,7 @@ export default function Dashboard() {
               <div className="dash-flow-top">
                 <span className="lbl">지난 2주 끝낸 일</span><b>{flow.filter(d => d.date <= today).reduce((n, d) => n + d.done, 0)}</b>
                 <span className="grow" />
-                <span className="dash-legend"><i className="s-active" />끝낸 일 <i className="s-inq" />마감 예정 <i className="s-late" />지연</span>
+                <span className="dash-legend"><i className="f-done" />끝낸 일 <i className="f-due" />마감 예정 <i className="f-late" />지연</span>
               </div>
               <div className="dash-flow" role="img" aria-label="지난 2주 끝낸 일과 앞으로 2주 마감 예정">
                 {flow.map(d => {
