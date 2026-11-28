@@ -280,3 +280,10 @@ input[type="checkbox"].nm-switch:checked::after { transform: translateX(20px); }
 input[type="checkbox"].nm-switch:focus-visible { outline: 2px solid var(--v9-accent); outline-offset: 2px; }
 /* 둥근 단추(아이콘) = 손잡이처럼 */
 html:not([data-theme="dark"]) .icon-btn { border-radius: 50%; }
+
+/* 왼쪽 메뉴 패널: 떠 있는 판 · 고른 줄은 떠 있는 알약(참고 그림) */
+html:not([data-theme="dark"]) .app-page .profile { background: var(--nm-face); border: 1px solid rgba(255, 255, 255, .7); border-radius: 22px; box-shadow: var(--nm-up); margin: 10px 0 10px 10px; }
+html:not([data-theme="dark"]) .app-page .profile .side-item { border-radius: 999px; }
+html:not([data-theme="dark"]) .app-page .profile .side-item.on { box-shadow: var(--nm-up-sm); border: 1px solid rgba(255, 255, 255, .8); }
+html:not([data-theme="dark"]) .app-page .profile .side-item > svg { border-radius: 50%; }
+html:not([data-theme="dark"]) .app-page .profile .mini-cal { box-shadow: var(--nm-in-sm); border-color: transparent !important; }
