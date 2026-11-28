@@ -68,7 +68,3 @@ export function nearDeadlines(tasks: readonly DashTask[], projects: readonly Das
     return { id: p.id, name: p.name, code: p.code ?? '', div: divOf(p), daysLeft: day(p.end_date!, today), progress: mine.length ? Math.round(((mine.length - open.length) / mine.length) * 100) : 0, openTasks: open.length, lateTasks: open.filter(t => !!t.due_date && t.due_date < today).length }
   })
 }
-
-export const DASH_LAYOUTS = ['요약', '일정', '프로젝트'] as const
-export type DashLayout = (typeof DASH_LAYOUTS)[number]
-export const readLayout = (v: string | null | undefined): DashLayout => ((DASH_LAYOUTS as readonly string[]).includes(v ?? '') ? (v as DashLayout) : '요약')

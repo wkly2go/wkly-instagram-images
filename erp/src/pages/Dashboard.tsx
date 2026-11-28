@@ -1,18 +1,16 @@
 // 홈 = 회사 대시보드 (2026-11-28 대표 지시 '홈은 대시보드로 만들어 · 대시보드 디자인 사례 만들어')
 //  - 개인 일(내 할 일 · 내가 지시한 업무 · 출근)은 '개인 업무'(/my)로 옮김. 여기는 회사 전체를 읽기만 하는 화면
-//  - 디자인 사례 세 가지를 오른쪽 위에서 바꿔 봄: 요약(숫자 · 그래프) / 일정(주간 · 달력) / 프로젝트(카드) — 고른 것은 이 브라우저에 기억
+//  - 디자인 사례 세 가지(요약 · 일정 · 프로젝트) 중 대표가 '요약'으로 고정(2026-11-28 '요약 보기를 기본으로 고정해') — 숫자 띠 · 그래프 · 7일 · 마감 · 진행 프로젝트 카드
 //  - 계산은 lib/dashboard.ts (AI 없음 · 이미 받던 할 일 · 프로젝트 · 결재 자료만)
-import { useState } from 'react'
 import { AlarmClock, CalendarClock, CheckCheck, FileCheck2, FolderKanban, Inbox, UserRound } from 'lucide-react'
 import { useApp, useAsync } from '../lib/app'
 import { dateLabel, todayKey } from '../lib/date'
-import { byDivision, dashKpis, DASH_LAYOUTS, nearDeadlines, readLayout, teamLoad, weekAhead, type DashLayout } from '../lib/dashboard'
+import { byDivision, dashKpis, nearDeadlines, teamLoad, weekAhead } from '../lib/dashboard'
 import { Link } from '../lib/router'
 import { DIVISIONS, type ApprovalSummary, type Project, type Task } from '../lib/types'
 import { Shell } from '../components/Shell'
 import { ProjectCards } from '../components/ProjectCards'
 import { SectionHead } from '../components/ui'
-import { MonthCalendar } from './Schedule'
 import './Dashboard.css'
 
 const WEEKDAY = ['일', '월', '화', '수', '목', '금', '토']
@@ -21,8 +19,6 @@ const dow = (key: string) => new Date(`${key}T00:00:00`).getDay()
 export default function Dashboard() {
   const { api, me, version, profiles } = useApp()
   const today = todayKey()
-  const [layout, setLayoutState] = useState<DashLayout>(() => { try { return readLayout(localStorage.getItem('wkly-dash-layout')) } catch { return '요약' } })
-  const setLayout = (v: DashLayout) => { setLayoutState(v); try { localStorage.setItem('wkly-dash-layout', v) } catch { /* 그대로 */ } }
   const { data, loading } = useAsync(
     async () => {
       const [approvals, tasks, projects] = await Promise.all([api.listApprovals(), api.listTasks(), api.listProjects()])
@@ -126,16 +122,9 @@ export default function Dashboard() {
   const cardsBlock = active.length > 0 && (
     <section className="section" aria-label="진행 프로젝트">
       <SectionHead title="진행 프로젝트" count={active.length} right={<Link to="/projects?view=list">전체 보기 ›</Link>} />
-      <ProjectCards projects={active} tasks={data.tasks} scroll={layout !== '프로젝트'} limit={12} />
+      <ProjectCards projects={active} tasks={data.tasks} scroll limit={12} />
     </section>
   )
-  const calendar = (
-    <section className="section" aria-label="월별 일정표">
-      <SectionHead title="월별 일정표" right={<Link to="/projects?view=calendar">크게 보기 ›</Link>} />
-      <MonthCalendar projects={data.projects} tasks={data.tasks} />
-    </section>
-  )
-
   return (
     <Shell active="home">
       <div className="dash">
@@ -145,27 +134,12 @@ export default function Dashboard() {
             <span className="dash-sub">{dateLabel(today)} · 앞으로 7일 마감 {k.week}건{k.late ? ` · 지연 ${k.late}건` : ''}</span>
           </div>
           <span className="grow" />
-          <div className="dash-switch" role="tablist" aria-label="대시보드 보기">
-            {DASH_LAYOUTS.map(l => <button key={l} type="button" role="tab" aria-selected={layout === l} className={layout === l ? 'on' : ''} onClick={() => setLayout(l)}>{l}</button>)}
-          </div>
           <Link to="/my" className="btn btn-outline btn-sm">개인 업무 ›</Link>
         </header>
         {kpis}
-        {layout === '요약' && <>
-          <div className="dash-grid">{divisionCard}{loadCard}</div>
-          <div className="dash-grid wide-left">{weekCard}{nearCard}</div>
-          {cardsBlock}
-        </>}
-        {layout === '일정' && <>
-          {weekCard}
-          {calendar}
-          <div className="dash-grid">{nearCard}{loadCard}</div>
-        </>}
-        {layout === '프로젝트' && <>
-          {cardsBlock}
-          <div className="dash-grid">{nearCard}{divisionCard}</div>
-          <div className="dash-grid wide-left">{weekCard}{loadCard}</div>
-        </>}
+        <div className="dash-grid">{divisionCard}{loadCard}</div>
+        <div className="dash-grid wide-left">{weekCard}{nearCard}</div>
+        {cardsBlock}
       </div>
     </Shell>
   )
