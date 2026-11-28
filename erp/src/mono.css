@@ -446,3 +446,26 @@ html:not([data-theme="dark"]) button.item:is(.active, .on) { box-shadow: none; b
 [data-card-fold="1"] > :not(:first-child), [data-card-hidden="1"] { display: none !important; }
 [data-fold-head="1"] { margin-bottom: 0 !important; border-bottom-color: transparent !important; }
 @media print { [data-card-fold="1"] > :not(:first-child), [data-card-hidden="1"] { display: revert !important; } }
+
+/* 제목 줄 없는 묶음 접기(숫자 카드 줄 · 오른쪽 일정 칸): 이름 띠를 눌러 접고 폄 */
+[data-fold-group]::before { content: '▾  ' attr(data-fold-label); display: block; grid-column: 1 / -1; flex: 0 0 100%; width: 100%; padding: 6px 4px; color: var(--tx-sub, #6b6d72); font-size: var(--fs-body); font-weight: 600; cursor: pointer; user-select: none; }
+[data-fold-group="1"]::before { content: '▸  ' attr(data-fold-label); }
+[data-fold-group]:hover::before { color: var(--v9-ink, #2b2d33); }
+[data-fold-group="1"] > * { display: none !important; }
+[data-fold-group="1"] { min-height: 0 !important; height: auto !important; }
+
+/* 모서리 최소화 (2026-11-28 대표 '모서리 라운드 최소화'): 어디나 3px — 동그라미여야 하는 것(스위치 · 숫자 동그라미 · 점)만 예외 */
+:root { --v8-r-card: 3px; --v8-r-ctl: 3px; --r-book: 3px; --r-inner: 3px; --r-panel: 3px; --r-bubble: 3px; }
+html:not([data-theme="dark"]) .app-page :is(div, section, article, aside, nav, header, footer, form, details, summary, button, a, input:not(.nm-switch):not([type="radio"]), select, textarea, table, ul, li, label, img, span, i, b, em):not(.excalidraw *):not([class*="dot"]):not(.count):not(.q2-badge):not(.m-dot):not(.side-n):not(.view-tab-n) { border-radius: 3px !important; }
+html:not([data-theme="dark"]) .app-page :is(.count, .q2-badge, .m-dot, .side-n, .view-tab-n) { border-radius: 999px !important; }
+html:not([data-theme="dark"]) :is(.dialog, .modal, .top-menu-pop, .ast-fab, .ast-panel, .m-more) { border-radius: 3px !important; }
+
+/* 아이콘은 평평하게 (2026-11-28 대표 '아이콘들 양각 효과 없애 전체 공통이야'): 아이콘 · 아이콘 칸에는 그림자 · 볼록 · 오목을 주지 않는다 */
+html:not([data-theme="dark"]) .app-page .profile .side-item > svg,
+html:not([data-theme="dark"]) .app-page .profile .side-item.on > svg { background: transparent; box-shadow: none; padding: 2px; color: var(--v9-ink); }
+html:not([data-theme="dark"]) :is(.icon-btn, .quick-btn, .dock-fold, .ins-icon, .home-kpi-tile, .dash-kpi-ic, .ai-ava, .avatar),
+html:not([data-theme="dark"]) .dash-kpi.is-key .dash-kpi-ic { box-shadow: none !important; }
+html:not([data-theme="dark"]) :is(.ins-icon, .home-kpi-tile, .dash-kpi-ic) { background: var(--nm-flat) !important; }
+html:not([data-theme="dark"]) .dash-kpi.is-key .dash-kpi-ic { background: var(--v9-ink) !important; }
+html:not([data-theme="dark"]) svg.lucide { filter: none; }
+html:not([data-theme="dark"]) .app-page :is(main, .main, .web-panel, .chat-dock, .profile, .topbar) { border-radius: 3px !important; }

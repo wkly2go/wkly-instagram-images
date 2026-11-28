@@ -5,8 +5,10 @@
  *  - 알림 · 링크로 특정 항목을 열 때(주소에 id 등)는 그 화면에서 접지 않음 — 찾는 것이 가려지지 않게
  *  - React 가 그린 요소에는 data-* 표시만 붙임(요소를 넣거나 빼지 않음) · 모양은 mono.css [data-fold-head]
  */
-const HEAD = '.section-h, .section-head, .sec-head, .dash-card > :first-child, .div-card > :first-child, .board-head, .home-tasks-h, .guide-card-h, .myproj-h, .log-div-head, .weekly-div-head, .mf-h, .auto-camp-head, .md-head, .md-library-head, section.sales-pipe > h2:first-child, .card > h3:first-child, .box > h3:first-child, .box > h2:first-child'
-const SKIP = '.modal, .dialog, .modal-col, .scrim, .board-page, .ast-panel, .chat-dock, .web-panel, .profile, .weekly-print, [data-no-fold]'
+const HEAD = '.section-h, .section-head, .sec-head, .week-day-h, .dash-card > :first-child, .div-card > :first-child, .board-head, .home-tasks-h, .guide-card-h, .myproj-h, .log-div-head, .weekly-div-head, .mf-h, .auto-camp-head, .md-head, .md-library-head, section.sales-pipe > h2:first-child, .card > h3:first-child, .box > h3:first-child, .box > h2:first-child'
+const SKIP = '.modal, .dialog, .modal-col, .scrim, .board-page, .ast-panel, .chat-dock, .profile, .weekly-print, [data-no-fold]'
+/** 제목 줄이 없는 묶음(숫자 카드 줄 · 오른쪽 일정 칸): 묶음 위에 이름 띠를 CSS 로 그려 그것을 눌러 접고 폄 */
+const GROUPS: [string, string][] = [['.dash-kpis, .kpis, .home-kpis, .ledger-kpis, .weekly-kpis', '숫자 요약'], ['.right-sched', '일정']]
 const KEY = 'wkly-card-open'
 /** 주소에 이런 값이 있으면 특정 항목을 여는 길 → 접지 않음 */
 const DIRECT = /[?&](id|inquiry|interview|item|task|project|open|room|thread|week|user)=/
@@ -57,12 +59,19 @@ function apply(head: HTMLElement, folded: boolean) {
 }
 
 function scan() {
-  const main = document.querySelector<HTMLElement>('.app-page .main')
-  if (!main) return
+  const roots = [...document.querySelectorAll<HTMLElement>('.app-page .main, .app-page .web-panel')]
+  if (!roots.length) return
   const direct = DIRECT.test(location.search)
   const open = load()
   const path = location.pathname + (new URLSearchParams(location.search).get('tab') ? `?tab=${new URLSearchParams(location.search).get('tab')}` : '')
-  main.querySelectorAll<HTMLElement>(HEAD).forEach(head => {
+  for (const [sel, label] of GROUPS) roots.forEach(root => root.querySelectorAll<HTMLElement>(sel).forEach((g, i) => {
+    if (g.closest(SKIP) || g.parentElement?.closest('[data-fold-group]')) return
+    const key = cardKey(path, `${label} ${i + 1}`)
+    g.dataset.foldKey = key
+    g.dataset.foldLabel = label
+    if (g.dataset.foldGroup === undefined) g.dataset.foldGroup = direct || open[key] ? '0' : '1'
+  }))
+  roots.forEach(main => main.querySelectorAll<HTMLElement>(HEAD).forEach(head => {
     if (head.closest(SKIP)) return
     const title = titleOf(head)
     if (!title) return
@@ -71,7 +80,7 @@ function scan() {
     const want = direct ? false : !open[key]
     // 이미 같은 상태면 형제 표시만 다시 맞춤 (새로 그려진 줄이 있을 수 있음)
     apply(head, head.dataset.foldHead === undefined ? want : head.dataset.foldHead === '1')
-  })
+  }))
 }
 
 export function startFoldCards() {
@@ -91,6 +100,13 @@ export function startFoldCards() {
   }
   document.addEventListener('click', e => {
     const t = e.target as HTMLElement | null
+    // 이름 띠(묶음의 ::before)를 누른 것 = 묶음 자신이 눌린 것
+    if (t?.dataset.foldGroup !== undefined && e.target === t) {
+      const folded = t.dataset.foldGroup !== '1'
+      t.dataset.foldGroup = folded ? '1' : '0'
+      if (t.dataset.foldKey) save(setOpen(load(), t.dataset.foldKey, !folded))
+      return
+    }
     const head = t?.closest<HTMLElement>('[data-fold-head]')
     if (!head || t?.closest('a, button, input, select, textarea, label, [role="button"]')) return
     toggle(head)
