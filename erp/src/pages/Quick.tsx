@@ -41,14 +41,96 @@ function roomGroups(rooms: ChatRoomSummary[], projects: Project[], meId: string,
   const live = proj.filter(r => !ended.includes(r))
   // 대화창 네 칸 (2026-11-19 대표 지시 '개선해' · 기획 '메신저 협업 단순화'): 내 비서 · AI → 사람 → 프로젝트 → 공지, 끝난 프로젝트는 맨 아래
   // 2026-11-19 대표 지시 '아트리어와 더위클리 진행중인 목록이 상단에 · 완료와 nic는 하단에': 진행 중 프로젝트(구분별)를 맨 위로, 끝난 것(완료 · NIC · 보류)은 맨 아래
+  // 2026-11-28 대표 지시 '프로젝트 목록을 접어놓고 문의와 진행을 구분해줘': each division splits into 진행 and 문의
   const out: [string, ChatRoomSummary[]][] = [
-    ...(Object.keys(DIVISIONS) as Division[]).map(d => [`프로젝트 · ${DIVISIONS[d].label}`, live.filter(r => div(r) === d)] as [string, ChatRoomSummary[]]),
+    ...(Object.keys(DIVISIONS) as Division[]).flatMap(d => {
+      const mine = live.filter(r => div(r) === d)
+      const asked = mine.filter(r => status(r) === '문의')
+      return [
+        [`${DIVISIONS[d].label} · 진행`, mine.filter(r => !asked.includes(r))],
+        [`${DIVISIONS[d].label} · 문의`, asked],
+      ] as [string, ChatRoomSummary[]][]
+    }),
     ['내 비서 · AI 팀원', rooms.filter(r => r.members && isAi(r))],
     ['사람 (1:1 · 그룹)', rooms.filter(r => r.members && !isAi(r))],
     ['공지 · 전체방', rooms.filter(r => !r.members && !r.project_id)],
     [ENDED_ROOMS_LABEL, ended],
   ]
   return out.filter(([, l]) => l.length)
+}
+const OPEN_KEY = 'wkly-quick-room-open'
+/** Groups shown open by default: people, assistants and notices. Project groups start folded. */
+const DEFAULT_OPEN = ['내 비서 · AI 팀원', '사람 (1:1 · 그룹)', '공지 · 전체방']
+
+/**
+ * Room picker that replaces the native select (2026-11-28 대표 지시 '프로젝트 목록을 접어놓고 문의와 진행을 구분해줘'):
+ * each group is a foldable header with its room count and unread count; open groups are remembered in this browser.
+ */
+function RoomPicker({ groups, current, title, onPick }: {
+  groups: [string, ChatRoomSummary[]][]
+  current: string | null
+  title: (r: ChatRoomSummary) => string
+  onPick: (id: string) => void
+}) {
+  const [show, setShow] = useState(false)
+  const [open, setOpen] = useState<string[]>(() => {
+    try {
+      const v = JSON.parse(load(OPEN_KEY) ?? 'null')
+      return Array.isArray(v) ? v : DEFAULT_OPEN
+    } catch {
+      return DEFAULT_OPEN
+    }
+  })
+  const box = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!show) return
+    const out = (e: MouseEvent) => { if (!box.current?.contains(e.target as Node)) setShow(false) }
+    const esc = (e: globalThis.KeyboardEvent) => { if (e.key === 'Escape') setShow(false) }
+    document.addEventListener('mousedown', out)
+    document.addEventListener('keydown', esc)
+    return () => { document.removeEventListener('mousedown', out); document.removeEventListener('keydown', esc) }
+  }, [show])
+  const toggle = (label: string) => setOpen(prev => {
+    const next = prev.includes(label) ? prev.filter(x => x !== label) : [...prev, label]
+    save(OPEN_KEY, JSON.stringify(next))
+    return next
+  })
+  return (
+    <div ref={box} className="q2-pick-wrap">
+      <button type="button" className="q2-pick-hit" aria-label="채팅방 고르기" aria-expanded={show} onClick={() => setShow(v => !v)} />
+      {show && (
+        <div className="q2-pick" role="listbox" aria-label="채팅방">
+          {groups.map(([label, list]) => {
+            const isOpen = open.includes(label)
+            const unread = list.reduce((n, r) => n + (r.id !== current ? r.unread : 0), 0)
+            return (
+              <div key={label} className="q2-pick-group">
+                <button type="button" className="q2-pick-head" aria-expanded={isOpen} onClick={() => toggle(label)}>
+                  <ChevronDown size={12} className={isOpen ? '' : 'shut'} />
+                  <span className="q2-pick-label">{label}</span>
+                  <span className="q2-pick-count">{list.length}</span>
+                  {unread > 0 && <span className="q2-badge">{unread}</span>}
+                </button>
+                {isOpen && list.map(r => (
+                  <button
+                    key={r.id}
+                    type="button"
+                    role="option"
+                    aria-selected={r.id === current}
+                    className={`q2-pick-item${r.id === current ? ' on' : ''}`}
+                    onClick={() => { onPick(r.id); setShow(false) }}
+                  >
+                    <span className="q2-pick-name">{title(r)}</span>
+                    {r.unread > 0 && r.id !== current && <span className="q2-badge">{r.unread}</span>}
+                  </button>
+                ))}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
 }
 const MODE_KEY = 'wkly-quick-mode'
 const FS_KEY = 'wkly-quick-fs'
@@ -280,32 +362,22 @@ export function QuickChat({ rooms }: { rooms: ChatRoomSummary[] }) {
         const m = t.match(/^([A-Z]{2}\d{4}-\d{2})\s+(.*)$/)
         const others = rooms.reduce((n, r) => n + (r.id !== roomId ? r.unread : 0), 0)
         return (
-          <label className="q2-room" title={t}>
+          <div className="q2-room" title={t}>
             {m ? <span className="q2-room-code">{m[1]}</span> : <span className="q2-room-hash">#</span>}
             <span className="q2-room-name">{m ? m[2] : t}</span>
             {others > 0 && <span className="q2-badge">{others}</span>}
             <ChevronDown size={14} className="q2-room-chev" />
-            <select
-              aria-label="채팅방"
-              value={roomId ?? ''}
-              onChange={e => {
-                setChosen(e.target.value)
-                save(ROOM_KEY, e.target.value)
+            <RoomPicker
+              groups={roomGroups(rooms, projects, me.id, profiles, profileName)}
+              current={roomId}
+              title={r => roomTitle(r, me.id, profileName).replace(/^#\s*/, '')}
+              onPick={id => {
+                setChosen(id)
+                save(ROOM_KEY, id)
                 stick.current = true
               }}
-            >
-              {roomGroups(rooms, projects, me.id, profiles, profileName).map(([label, list]) => (
-                <optgroup key={label} label={label}>
-                  {list.map(r => (
-                    <option key={r.id} value={r.id}>
-                      {roomTitle(r, me.id, profileName).replace(/^#\s*/, '')}
-                      {r.unread > 0 && r.id !== roomId ? ` (${r.unread})` : ''}
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
-          </label>
+            />
+          </div>
         )
       })()}
       <div
