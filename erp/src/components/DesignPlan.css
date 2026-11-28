@@ -106,7 +106,7 @@
 .dpw.full-css { position: fixed; inset: 0; z-index: 800; }
 
 /* ── 평면 그리기 판 ── */
-.dpc { position: absolute; inset: 0; overflow: hidden; background: #ffffff; outline: none; touch-action: none; user-select: none; -webkit-user-select: none; }
+.dpc { position: absolute; inset: 0; overflow: hidden; background: var(--nm-face, #ffffff); outline: none; touch-action: none; user-select: none; -webkit-user-select: none; }
 .dpc-svg { position: absolute; inset: 0; display: block; touch-action: none; cursor: default; }
 .dpc.tool-wall .dpc-svg, .dpc.tool-newwall .dpc-svg, .dpc.tool-door .dpc-svg, .dpc.tool-window .dpc-svg, .dpc.tool-item .dpc-svg, .dpc.tool-note .dpc-svg { cursor: crosshair; }
 .dpc.pan .dpc-svg, .dpc.pan .dpc-svg * { cursor: grab; }

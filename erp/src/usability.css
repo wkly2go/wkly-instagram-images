@@ -183,7 +183,7 @@
 .weekly-print { display: none; }
 @media print {
   @page { size: A4; margin: 14mm 13mm; }
-  html:has(> body.weekly-printing), body.weekly-printing { height: auto; overflow: visible; background: #fff; }
+  html:has(> body.weekly-printing), body.weekly-printing { height: auto; overflow: visible; background: var(--nm-face, #fff); }
   body.weekly-printing > :not(.weekly-print) { display: none !important; }
   body.weekly-printing > .weekly-print { display: block; color: #000; font-size: 10pt; line-height: 1.5; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
   .weekly-print, .weekly-print * { visibility: visible !important; }

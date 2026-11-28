@@ -6,7 +6,7 @@
 .ptalk-days > li > h4 { position: sticky; top: 0; margin: 0; padding: 4px 0; background: var(--v8-bg, var(--v8-bg)); color: var(--tx-sub); font-size: var(--fs-body); font-weight: 600; z-index: 1; }
 .ptalk-days ul { list-style: none; margin: 0; padding: 0; }
 .ptalk-row { display: grid; grid-template-columns: auto auto auto 1fr; align-items: baseline; gap: 4px 8px; padding: 6px 4px; border-top: 1px solid var(--line); color: inherit; text-decoration: none; }
-a.ptalk-row:hover { background: #f8f8f8; }
+a.ptalk-row:hover { background: var(--nm-face, #f8f8f8); }
 .ptalk-src { padding: 0 8px; border-radius: 999px !important; background: #eeeeee; color: #585858; white-space: nowrap; }
 .ptalk-src.s-인트라넷 { background: var(--v8-tint); color: var(--v8-green); }
 .ptalk-src.s-슬랙 { background: #eeeeee; color: #141414; }
@@ -19,15 +19,15 @@ a.ptalk-row:hover { background: #f8f8f8; }
 @media (max-width: 640px) { .ptalk-row { grid-template-columns: auto auto 1fr; } .ptalk-body { grid-column: 1 / -1; } }
 
 /* 2026-11-20 슬랙 · 카톡 · 메일 칸을 출처 칩 아래로 합침 */
-.ptalk-tool { margin: 0 0 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: #f9f9f9; }
+.ptalk-tool { margin: 0 0 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--nm-face, #f9f9f9); }
 .ptalk-tool > section { margin: 0; padding: 0; border: 0; box-shadow: none; background: none; }
 .ptalk-tool .mail-files { margin-top: 8px; }
 button.ptalk-row { width: 100%; background: none; border: 0; border-top: 1px solid var(--line); font: inherit; text-align: left; cursor: pointer; }
-button.ptalk-row:hover { background: #f8f8f8; }
+button.ptalk-row:hover { background: var(--nm-face, #f8f8f8); }
 
 /* 메일 연결 고치기 (2026-11-21) */
 .mail-fix-open { align-self: flex-start; margin: 6px 0; }
-.mail-fix { display: flex; flex-direction: column; gap: 8px; margin: 8px 0; padding: 10px 12px; border: 1px solid var(--line, #dedede); border-radius: 10px; background: #fff; }
+.mail-fix { display: flex; flex-direction: column; gap: 8px; margin: 8px 0; padding: 10px 12px; border: 1px solid var(--line, #dedede); border-radius: 10px; background: var(--nm-face, #fff); }
 .mail-fix-search { gap: 6px; }
 .mail-fix-search .input { flex: 1; min-width: 0; }
 .mail-fix-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; max-height: 260px; overflow: auto; }

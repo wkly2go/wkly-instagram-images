@@ -14,7 +14,7 @@
 
 .sales-iv-list { list-style: none; margin: 8px 0 0; padding: 0; }
 .sales-iv-list > li { border-top: 1px solid var(--line); }
-.sales-iv-list > li.open { background: #f8f8f8; }
+.sales-iv-list > li.open { background: var(--nm-face, #f8f8f8); }
 .sales-iv-row { display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 4px; border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
 .sales-iv-row b { flex: 0 1 200px; min-width: 70px; }
 .sales-iv-row .what { flex: 1 1 0; min-width: 0; color: var(--gray); }
@@ -60,7 +60,7 @@
 .sales-iv-sales .hint { color: #7a5b00; }
 
 .sales-iv-edit { padding: 8px 4px 14px 82px; }
-.sales-iv-edit.new { margin: 10px 0; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; background: #f8f8f8; }
+.sales-iv-edit.new { margin: 10px 0; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--nm-face, #f8f8f8); }
 .sales-iv-edit h3 { margin: 0 0 8px; font-size: var(--fs-sub); }
 .sales-iv-edit .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; }
 .sales-iv-edit .grid2 .full { grid-column: 1 / -1; }
@@ -107,7 +107,7 @@
 .sales-iv-feedpage h3 small { color: var(--gray); font-weight: 400; }
 .sales-iv-feedlist { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
 .sales-iv-feed { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: var(--white); }
-.sales-iv-feed.open { background: #f8f8f8; }
+.sales-iv-feed.open { background: var(--nm-face, #f8f8f8); }
 .sales-iv-feed .head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .sales-iv-feed .head .what { flex: 1 1 200px; min-width: 0; color: var(--gray); }
 .sales-iv-feed .facts { display: grid; gap: 2px; margin: 8px 0 0; }
@@ -148,7 +148,7 @@ a.sales-iv-row { text-decoration: none; }
 .sales-iv-bank .row b { margin-right: 4px; }
 .sales-iv-bank .row .btn { margin-left: auto; }
 .sales-iv-bank li > p { margin: 4px 0 0; line-height: 1.65; color: var(--tx-body); }
-.sales-iv-bank .edit { margin-top: 8px; padding: 10px; border-radius: 10px; background: #f8f8f8; }
+.sales-iv-bank .edit { margin-top: 8px; padding: 10px; border-radius: 10px; background: var(--nm-face, #f8f8f8); }
 .sales-iv-bank .checks { display: flex; flex-wrap: wrap; gap: 6px 16px; }
 .sales-iv-bank .checks label { display: inline-flex; align-items: center; gap: 4px; }
 

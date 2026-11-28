@@ -202,7 +202,7 @@ details[open] > summary > .ads-details-chevron { transform: rotate(180deg); }
 .adteam-decide { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
 .adteam-decide .input { flex: 1 1 240px; min-width: 0; }
 .adteam-note.warn { color: #a5281b; }
-.adteam-upload { display: grid; gap: 6px; border: 1px dashed #c1c1c1; background: #f8f8f8; border-radius: 12px; padding: 12px 14px; line-height: 1.6; }
+.adteam-upload { display: grid; gap: 6px; border: 1px dashed #c1c1c1; background: var(--nm-face, #f8f8f8); border-radius: 12px; padding: 12px 14px; line-height: 1.6; }
 .adteam-upload-row, .adteam-parsed { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .adteam-upload-row .input { width: auto; }
 .adteam-parsed { padding-top: 8px; border-top: 1px solid var(--line); }

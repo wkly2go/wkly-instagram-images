@@ -52,7 +52,7 @@
   html:has(> body.sales-plan-printing), body.sales-plan-printing {
     height: auto;
     overflow: visible;
-    background: #fff;
+    background: var(--nm-face, #fff);
   }
   body.sales-plan-printing > :not(.sales-plan-print) { display: none !important; }
   body.sales-plan-printing > .sales-plan-print {
