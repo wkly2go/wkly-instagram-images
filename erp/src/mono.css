@@ -651,3 +651,13 @@ html:not([data-theme="dark"]) .app-page :is(input:not([type="checkbox"]):not([ty
 }
 /* 로고는 원본 그대로 (같은 날 대표 '로고는 원본을 사용해') */
 html:not([data-theme="dark"]) .top-logo .logo-ink, html:not([data-theme="dark"]) .profile-logo img { filter: none !important; opacity: 1 !important; }
+
+/* 2026-11-28 대표 '라운드 없애고 채팅은 왼쪽에서 나오는 방식인데 펼쳐지면 하나로 보이게': 큰 판은 모서리 0 · 카드는 6px · 펼친 채팅 칸은 왼쪽 메뉴 판과 붙어 한 판으로 */
+html:not([data-theme="dark"]) { --r-panel: 0px; --v8-r-card: 6px; --r-book: 6px; --r-inner: 6px; --r-bubble: 6px; --v8-r-ctl: 6px; }
+html:not([data-theme="dark"]) .app-page :is(.main, .web-panel, .chat-dock, .profile), html:not([data-theme="dark"]) .app-page .body > :is(.web-slot, .detail-slot) > * { border-radius: 0 !important; }
+html:not([data-theme="dark"]) .app-page .profile :is(.icon-btn, button) { border-radius: 6px !important; }
+@media (min-width: 1025px) {
+  html:not([data-theme="dark"]) .app-page .body:has(> .chat-dock:not(.closed)) > .profile { border-right-color: transparent !important; box-shadow: none !important; clip-path: none; }
+  html:not([data-theme="dark"]) .app-page .body > .chat-dock:not(.closed) { margin-left: -1px !important; border-left: 0 !important; background: var(--nm-face) !important; box-shadow: none !important; }
+  html:not([data-theme="dark"]) .app-page .body:has(> .chat-dock:not(.closed)) > .profile, html:not([data-theme="dark"]) .app-page .body > .chat-dock:not(.closed) { filter: none; }
+}
