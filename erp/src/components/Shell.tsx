@@ -2,7 +2,7 @@ import { createContext, lazy, Suspense, useCallback, useContext, useEffect, useI
 import { useMyAgents } from './AgentDesk'
 import { MobileAppBar, TopAppButton } from './InstallCard'
 import { useTheme } from '../lib/theme'
-import { PencilRuler, Truck, Inbox, Calculator, Sigma, Building2, Layers, GraduationCap, Ruler, BookOpen, Bookmark, Bot, ListTodo, Plus, Search, Briefcase, HardDrive, ChevronDown, ChevronLeft, PenLine, ChevronRight, CircleHelp, PanelLeftClose, PanelLeftOpen, ClipboardCheck, FolderKanban, Home, Library, Megaphone, MessageCircle, MoreHorizontal, Settings, Users, Landmark, FileQuestion, HandCoins, type LucideIcon } from 'lucide-react'
+import { PencilRuler, Truck, Inbox, Calculator, Sigma, Building2, Layers, GraduationCap, Ruler, BookOpen, Bookmark, Bot, ListTodo, Plus, Search, Briefcase, HardDrive, ChevronDown, ChevronLeft, PenLine, ChevronRight, CircleHelp, PanelLeftClose, PanelLeftOpen, ClipboardCheck, FolderKanban, Home, Library, Megaphone, MessageCircle, MoreHorizontal, Settings, Users, UserRound, Landmark, FileQuestion, HandCoins, type LucideIcon } from 'lucide-react'
 import { accessSource, isDesktopApp } from '../lib/desktop'
 import { useAttendance } from '../lib/attendance'
 import { AssignTaskModal } from './AssignTask'
@@ -38,10 +38,12 @@ import './ShellUsability.css'
 const QuickChat = lazy(() => import('../pages/Quick').then(m => ({ default: m.QuickChat })))
 const AssistantFloat = lazy(() => import('./AssistantFloat').then(m => ({ default: m.AssistantFloat })))
 
-export type TabKey = 'design' | 'designOrders' | 'designCards' | 'designPrices' | 'ilwi' | 'designVendors' | 'designMaterials' | 'designLearn' | 'tenders' | 'leads' | 'sales' | 'home' | 'reportTemplates' | 'approvals' | 'chat' | 'work' | 'projects' | 'clients' | 'library' | 'drive' | 'boards' | 'team' | 'site' | 'agents' | 'ads' | 'ledger' | 'interviewQuestions' | 'gov' | 'admin'
+export type TabKey = 'design' | 'designOrders' | 'designCards' | 'designPrices' | 'ilwi' | 'designVendors' | 'designMaterials' | 'designLearn' | 'tenders' | 'leads' | 'sales' | 'home' | 'my' | 'reportTemplates' | 'approvals' | 'chat' | 'work' | 'projects' | 'clients' | 'library' | 'drive' | 'boards' | 'team' | 'site' | 'agents' | 'ads' | 'ledger' | 'interviewQuestions' | 'gov' | 'admin'
 
 export const TABS: { key: TabKey; label: string; path: string; admin?: boolean; keywords?: string[] }[] = [
-  { key: 'home', label: '홈', path: '/' },
+  // 홈 = 회사 대시보드 · 개인 일은 '개인 업무' (대표 지시 2026-11-28 '홈 화면은 개인만 사용하는 공간으로 · 개인 업무로 이름 변경 · 홈은 대시보드로')
+  { key: 'home', label: '홈', path: '/', keywords: ['대시보드', '회사 현황'] },
+  { key: 'my', label: '개인 업무', path: '/my', keywords: ['내 할 일', '내 업무', '출근', '개인'] },
   // 리서치와 보고서는 따로 (대표 지시 2026-11-12)
   { key: 'reportTemplates', label: '리서치', path: '/research' },
   { key: 'approvals', label: '보고서', path: '/approvals' },
@@ -81,6 +83,7 @@ const ICONS: Record<TabKey, LucideIcon> = {
   tenders: Briefcase,
   leads: Briefcase,
   home: Home,
+  my: UserRound,
   approvals: ClipboardCheck,
   reportTemplates: BookOpen,
   chat: MessageCircle,
@@ -107,11 +110,11 @@ const ICONS: Record<TabKey, LucideIcon> = {
   gov: HandCoins,
   admin: Settings,
 }
-const MAIN_TABS: TabKey[] = ['home', 'approvals', 'chat', 'projects', 'site']
-const SHORT: Partial<Record<TabKey, string>> = { approvals: '보고서', site: '현장' }
+const MAIN_TABS: TabKey[] = ['home', 'my', 'approvals', 'chat', 'projects', 'site']
+const SHORT: Partial<Record<TabKey, string>> = { my: '내 업무', approvals: '보고서', site: '현장' }
 const NAV_SHUT_KEY = 'wkly-side-groups-shut'
 const NAV_GROUPS: { label: string; tabs: TabKey[] }[] = [
-  { label: '업무', tabs: ['home', 'reportTemplates', 'approvals', 'projects'] },
+  { label: '업무', tabs: ['home', 'my', 'reportTemplates', 'approvals', 'projects'] },
   // 설계·견적 (인테리어 디자인 자동화) — 별도 묶음으로 세분화 (대표 지시 2026-11-15)
   { label: '설계·견적', tabs: ['site', 'design', 'designOrders', 'designCards', 'designPrices', 'ilwi', 'designVendors', 'designMaterials', 'designLearn'] },
   { label: '협업·자료', tabs: ['chat', 'drive', 'boards', 'team'] },
@@ -868,7 +871,7 @@ export function ShellFrame({ children, initial }: { children: ReactNode; initial
               <TopMenu showDownload={!isDesktopApp()} />
             </header>
             {/* 휴대폰 홈 맨 위: 앱 다운로드 한 줄 (PC 는 홈 본문 맨 위 QR 칸) */}
-            {active === 'home' && <MobileAppBar />}
+            {(active === 'home' || active === 'my') && <MobileAppBar />}
             <div className="body" ref={mountWebSlot}>
               <ProfilePanel summary={summary} active={active} />
               {active !== 'chat' && <ChatDock />}

@@ -9,11 +9,8 @@ import { Shell } from '../components/Shell'
 import { PushSetupCard } from '../components/PushSetup'
 import { KindTag, Empty, SectionHead, StatusBadge } from '../components/ui'
 import { DecideButtons } from '../components/ApprovalParts'
-import { MonthCalendar } from './Schedule'
-import { ProjectCards } from '../components/ProjectCards'
 import { HomeMyTasks } from '../components/HomeMyTasks'
 import { HomeSentTasks } from '../components/HomeSentTasks'
-import { HomeTeamTasks } from '../components/HomeTeamTasks'
 
 interface HomeData {
   approvals: ApprovalSummary[]
@@ -23,6 +20,7 @@ interface HomeData {
   rooms: ChatRoomSummary[]
 }
 
+// '개인 업무'(/my): 나만 쓰는 공간 — 내 할 일 · 내가 지시한 업무 · 출근 · 내 결재 (2026-11-28 대표 지시 · 회사 전체는 홈 대시보드 pages/Dashboard.tsx)
 export default function Home() {
   const { api, me, version, profileName } = useApp()
   const today = todayKey()
@@ -38,9 +36,7 @@ export default function Home() {
   const toDecide = data.approvals.filter(a => a.status === '대기' && a.can_decide && (a.requested_by !== me.id || me.role === 'admin'))
   const mine = data.approvals.filter(a => a.requested_by === me.id).slice(0, 4)
   const open = data.tasks.filter(t => t.status !== '완료')
-  const dueToday = open.filter(t => t.due_date === today)
-  const overdue = open.filter(t => t.due_date && t.due_date < today)
-  const count = (s: Project['status']) => data.projects.filter(p => p.status === s).length
+  const myProjects = data.projects.filter(p => p.owner_id === me.id && (p.status === '진행' || p.status === '문의')).length
   const unreadRooms = data.rooms.filter(r => countedUnread(r) > 0)
 
   const myOpen = open.filter(t => t.assignee_id === me.id)
@@ -50,11 +46,10 @@ export default function Home() {
   const myToday = myOpen.filter(t => t.due_date === today).length
   const hour = Number(new Intl.DateTimeFormat('en-US', { hour: 'numeric', hour12: false, timeZone: 'Asia/Seoul' }).format(new Date()))
   const hello = hour < 5 ? '늦은 시간까지 수고 많으세요' : hour < 11 ? '좋은 아침이에요' : hour < 17 ? '오후도 힘내세요' : '오늘 하루 수고 많으셨어요'
-  const active = data.projects.filter(p => p.status === '진행').sort((a, b) => (a.end_date ?? '9').localeCompare(b.end_date ?? '9'))
   const unread = data.rooms.reduce((s, r) => s + countedUnread(r), 0)
 
   return (
-    <Shell active="home">
+    <Shell active="my">
       {/* 홈 맨 위: 인사 · 오늘 할 일 3개 · 숫자 카드 (디자인 개편 2단계 · 2026-11-16) */}
       <div className="home-hero-wrap">
       <section className="home-hero" aria-label="오늘 한눈에">
@@ -95,19 +90,17 @@ export default function Home() {
             <b>{toDecide.length}</b>
             <span className="t-cap">{toDecide.length ? '내가 처리할 결재' : '처리할 결재 없음'}</span>
           </Link>
-          <Link to="/projects?view=tasks" className={`home-kpi${overdue.length ? ' bad' : ''}`}>
+          <Link to="/projects?view=mine" className={`home-kpi${myLate ? ' bad' : ''}`}>
             <span className="home-kpi-tile k-due" aria-hidden="true"><CalendarClock size={16} /></span>
-            <span className="t-cap">오늘 마감</span>
-            <b>{dueToday.length}</b>
-            <span className={`t-cap ${overdue.length ? 't-red' : ''}`}>{overdue.length ? `팀 지연 ${overdue.length}건` : '지연 없음'}</span>
+            <span className="t-cap">내 오늘 마감</span>
+            <b>{myToday}</b>
+            <span className={`t-cap ${myLate ? 't-red' : ''}`}>{myLate ? `내 지연 ${myLate}건` : '지연 없음'}</span>
           </Link>
           <Link to="/projects?view=list" className="home-kpi">
             <span className="home-kpi-tile k-proj" aria-hidden="true"><FolderKanban size={16} /></span>
-            <span className="t-cap">진행 프로젝트</span>
-            <b>{count('진행')}</b>
-            <span className="t-cap">
-              문의 {count('문의')} · NIC {count('NIC')} · 보류 {count('보류')}
-            </span>
+            <span className="t-cap">내 담당 프로젝트</span>
+            <b>{myProjects}</b>
+            <span className="t-cap">진행 · 문의 중</span>
           </Link>
           <Link to="/chat" className="home-kpi">
             <span className="home-kpi-tile k-chat" aria-hidden="true"><MessageCircle size={16} /></span>
@@ -122,21 +115,7 @@ export default function Home() {
       {/* 내 할 일 표: 지연 · 오늘 · 이번 주를 홈에서 바로 처리 (대표 지시 2026-11-17 '홈에 내할일 넣어줘') */}
       <HomeMyTasks tasks={data.tasks} projects={data.projects} loading={loading} />
       <HomeSentTasks tasks={data.tasks} projects={data.projects} />
-      <HomeTeamTasks tasks={data.tasks} projects={data.projects} />
 
-      {/* 진행 프로젝트 카드 줄 (구분 색 · 남은 기간 · 진행 막대 · 남은 할 일) */}
-      {active.length > 0 && (
-        <section className="section" aria-label="진행 프로젝트">
-          <SectionHead title="진행 프로젝트" count={active.length} right={<Link to="/projects?view=list">전체 보기 ›</Link>} />
-          <ProjectCards projects={active} tasks={data.tasks} scroll limit={12} />
-        </section>
-      )}
-
-      {/* 월별 일정표 (대표 지시 2026-10-23) */}
-      <section className="section" aria-label="월별 일정표">
-        <SectionHead title="월별 일정표" right={<Link to="/projects?view=calendar">크게 보기 ›</Link>} />
-        <MonthCalendar projects={data.projects} tasks={data.tasks} />
-      </section>
       <CheckInCard />
       <PushSetupCard />
       <SectionHead title="승인 대기" count={toDecide.length} right={<Link to="/approvals">전체 보기 ›</Link>} />
