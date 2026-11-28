@@ -773,3 +773,25 @@ html:not([data-theme="dark"]) .profile .new-btn:is(#_, .new-btn) svg { border-ra
 @media (max-width: 1024px) {
   html:not([data-theme="dark"]) .ast-fab:is(#_, .ast-fab) { border-radius: 4px !important; background: #fff !important; }
 }
+
+/* 2026-11-28 대표 '사각 아이콘으로 변경하고 우리 네온은 핑크야': the company neon is one fixed pink, whatever the menu colour.
+   Every glow token points to it; icons are white squares (4px corner). */
+html:not([data-theme="dark"]) {
+  --neon-pink: #ff3d9a;
+  --neon-line: color-mix(in srgb, var(--neon-pink) 88%, #fff);
+  --neon-leak: 0 0 0 1px color-mix(in srgb, var(--neon-pink) 70%, transparent), 0 0 6px 0 color-mix(in srgb, var(--neon-pink) 75%, transparent), 0 0 16px 2px color-mix(in srgb, var(--neon-pink) 40%, transparent);
+  --neon-leak-strong: 0 0 0 1px var(--neon-pink), 0 0 9px 1px color-mix(in srgb, var(--neon-pink) 85%, transparent), 0 0 22px 4px color-mix(in srgb, var(--neon-pink) 45%, transparent);
+  --ast-neon: 0 8px 20px -6px color-mix(in srgb, var(--neon-pink) 70%, transparent);
+  --fx-key: 0 8px 22px -12px color-mix(in srgb, var(--neon-pink) 60%, transparent);
+  --nm-neon-sm: 0 5px 14px -6px color-mix(in srgb, var(--neon-pink) 55%, transparent);
+  --nm-neon: 0 8px 22px -10px color-mix(in srgb, var(--neon-pink) 65%, transparent);
+}
+html:not([data-theme="dark"]) .ast-icon:is(#_, .ast-icon) { border-radius: 4px !important; background: #fff !important; border: 1px solid var(--neon-line) !important; box-shadow: var(--neo-raise-sm), var(--neon-leak) !important; }
+html:not([data-theme="dark"]) .ast-icon:is(#_, .ast-icon):hover { box-shadow: var(--neo-raise-sm), var(--neon-leak-strong) !important; }
+html:not([data-theme="dark"]) .ast-icon:is(#_, .ast-icon):is(:active, .on) { box-shadow: var(--neo-press), var(--neon-leak) !important; }
+html:not([data-theme="dark"]) .profile .new-btn:is(#_, .new-btn) { border-color: var(--neon-line) !important; box-shadow: var(--neo-raise), var(--neon-leak) !important; }
+html:not([data-theme="dark"]) .profile .new-btn:is(#_, .new-btn):hover { box-shadow: var(--neo-raise), var(--neon-leak-strong) !important; }
+@media (max-width: 1024px) {
+  html:not([data-theme="dark"]) .ast-fab:is(#_, .ast-fab) { border-radius: 4px !important; background: #fff !important; border: 1px solid var(--neon-line) !important; box-shadow: var(--neo-raise), var(--neon-leak) !important; }
+}
+.md-cap { box-shadow: -3px -3px 6px #fff, 3px 3px 7px rgba(0, 0, 0, .14), 0 6px 14px -8px color-mix(in srgb, #ff3d9a 55%, transparent); }
