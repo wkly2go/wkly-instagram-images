@@ -469,3 +469,25 @@ html:not([data-theme="dark"]) :is(.ins-icon, .home-kpi-tile, .dash-kpi-ic) { bac
 html:not([data-theme="dark"]) .dash-kpi.is-key .dash-kpi-ic { background: var(--v9-ink) !important; }
 html:not([data-theme="dark"]) svg.lucide { filter: none; }
 html:not([data-theme="dark"]) .app-page :is(main, .main, .web-panel, .chat-dock, .profile, .topbar) { border-radius: 3px !important; }
+
+/* 휴대폰 맞춤 (2026-11-28 대표 '휴대폰 화면도 확인해서 맞춰') */
+html:not([data-theme="dark"]) .rd-month .bar-pair i.in { background: var(--v9-ink); }
+@media (max-width: 760px) {
+  /* 아래 메뉴: 글자가 잘리지 않게 작게 · 간격 줄임 */
+  html:not([data-theme="dark"]) .m-nav { gap: 0; padding-left: 2px; padding-right: 2px; }
+  html:not([data-theme="dark"]) .m-nav > a, html:not([data-theme="dark"]) .m-nav > button { font-size: 11px !important; letter-spacing: -0.04em; font-weight: 600; padding: 0 1px; overflow: visible; text-overflow: clip; }
+  html:not([data-theme="dark"]) .m-nav > a svg, html:not([data-theme="dark"]) .m-nav > button svg { width: 19px; height: 19px; }
+  html:not([data-theme="dark"]) .m-dot { background: var(--v9-ink) !important; left: calc(50% + 4px); }
+  /* 비서 단추: 본문을 덜 가리게 아이콘만 */
+  html:not([data-theme="dark"]) .ast-fab { width: 44px; padding: 0 !important; justify-content: center; font-size: 0; gap: 0; }
+  html:not([data-theme="dark"]) .ast-fab svg { width: 20px; height: 20px; }
+  /* 접기 띠 · 제목 줄: 누르기 쉽게 */
+  [data-fold-group]::before { padding: 11px 6px; }
+  [data-fold-head] { min-height: 44px; display: flex; align-items: center; }
+  /* 탭 줄은 한 줄로 밀어 보기 */
+  html:not([data-theme="dark"]) .ads-nav { grid-template-columns: repeat(6, max-content) !important; overflow-x: auto; }
+  html:not([data-theme="dark"]) .ads-subnav { display: flex !important; flex-wrap: nowrap; overflow-x: auto; }
+  html:not([data-theme="dark"]) .ads-subnav button { flex: none; }
+  /* 카드 그림자 줄이기: 좁은 화면에서는 옅게 */
+  html:not([data-theme="dark"]) :is(.box, .stat, .kpi, .card, .home-kpi, .today-card, .checkin-card, .brief, .rd-box, .pc-card, .proj-card, .dash-kpi, .dash-card, .section, .sales-pipe) { box-shadow: 2px 3px 8px var(--nm-lo), -2px -2px 6px var(--nm-hi); }
+}
