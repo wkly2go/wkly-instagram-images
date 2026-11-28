@@ -8,7 +8,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Excalidraw, exportToBlob, exportToSvg } from '@excalidraw/excalidraw'
 import '@excalidraw/excalidraw/index.css'
 import { convertToExcalidrawElements } from '@excalidraw/excalidraw'
-import { ArrowLeft, Copy, Download, FileDown, FileUp, Figma, Map as MapIcon, Maximize2, Minimize2, Plus, Presentation, Upload, Users, X } from 'lucide-react'
+import { ArrowLeft, ChevronDown, ChevronUp, Copy, Download, FileDown, FileUp, Figma, Map as MapIcon, Maximize2, Minimize2, Plus, Presentation, Upload, Users, X } from 'lucide-react'
 import { Link } from '../lib/router'
 import { boardFilePath, boardTitle, mergeElements, pool, saveDelay, sceneForSave, sceneSignature, type BoardElement, type BoardFileRef, type BoardScene } from '../lib/board'
 import type { BoardApi, BoardLive, BoardPeer, ProjectBoard } from '../lib/boardApi'
@@ -64,6 +64,9 @@ export default function BoardEditorCore({ id, embedded = false, onClose, api, me
   const [figmaOpen, setFigmaOpen] = useState(false)
   const [toFigma, setToFigma] = useState(false)
   // 전체 보기 지도 (켜고 끈 것은 이 브라우저에 기억 · 기본 켬)
+  // 도구 줄(페이지 · 내보내기 · 피그마 · 전체 보기 지도)은 접어 둘 수 있음 — 기본은 접힘 (2026-11-28 대표 지시)
+  const [toolsOn, setToolsOn] = useState(() => { try { return localStorage.getItem('wkly-board-tools') === '1' } catch { return false } })
+  const toggleTools = (on: boolean) => { setToolsOn(on); try { localStorage.setItem('wkly-board-tools', on ? '1' : '0') } catch { /* 저장 못 해도 동작 */ } }
   const [mapOn, setMapOn] = useState(() => { try { return localStorage.getItem('wkly-board-map') !== '0' } catch { return true } })
   const toggleMap = (on: boolean) => { setMapOn(on); try { localStorage.setItem('wkly-board-map', on ? '1' : '0') } catch { /* 저장 못 해도 그대로 */ } }
   const [mapSize, setMapSize] = useState<MinimapSize>(() => { try { return localStorage.getItem('wkly-board-map-size') === 'large' ? 'large' : 'small' } catch { return 'small' } })
@@ -488,6 +491,22 @@ export default function BoardEditorCore({ id, embedded = false, onClose, api, me
         <input className="board-title" value={title} maxLength={60} aria-label="보드 이름" onChange={e => setTitle(e.target.value)} onBlur={() => void rename()} onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }} disabled={!board || guest} />
         <span className={`board-state s-${state.replace(/\s/g, '')}`} role="status">{state}</span>
         {(!guest || others.length > 0) && <span className="board-peers" title={others.map(p => p.name).join(', ')}><Users size={13} /> {others.length ? `${others.map(p => p.name).join(' · ')} 함께 보는 중` : '혼자 보는 중'}</span>}
+        <button type="button" className={`btn btn-outline btn-sm board-toolsbtn${toolsOn ? ' on' : ''}`} onClick={() => toggleTools(!toolsOn)} aria-expanded={toolsOn} title={toolsOn ? '도구 줄 · 전체 보기 지도 접기' : '페이지 · 내보내기 · 피그마 · 전체 보기 지도 펼치기'}>{toolsOn ? <ChevronUp size={13} /> : <ChevronDown size={13} />} 도구</button>
+        <button type="button" className="icon-btn board-full" onClick={() => void toggleFull()} title={full ? '전체 화면 끝 (Esc)' : '전체 화면'} aria-label={full ? '전체 화면 끝' : '전체 화면'}>{full ? <Minimize2 size={14} /> : <Maximize2 size={14} />}</button>
+        {embedded && onClose && <button type="button" className="icon-btn" onClick={onClose} title="보드 닫기" aria-label="보드 닫기"><X size={14} /></button>}
+      </div>
+      {toolsOn && <div className="board-pages" role="group" aria-label="페이지 · 도구">
+        <span className="board-pages-label">페이지</span>
+        {pages.map((p, i) => <button key={p.id} type="button" className="board-page-chip" onClick={() => goPage(p.id)} title={`${pageLabel(p, i)} 로 이동`}><i>{i + 1}</i>{pageLabel(p, i)}</button>)}
+        {!pages.length && <span className="board-pages-empty">아직 없음 — 페이지를 만들면 PDF · PPT 가 페이지마다 한 장으로 나옵니다</span>}
+        {!readOnly && <>
+          <button type="button" className="btn btn-primary btn-sm" onClick={() => addPage(pageKind)} disabled={!board}><Plus size={13} /> {PAGE_SIZES[pageKind].name === 'A4' ? '페이지 추가' : '슬라이드 추가'}</button>
+          <select value={pageKind} onChange={e => setPageKind(e.target.value as PageKind)} aria-label="페이지 크기">
+            {(Object.keys(PAGE_SIZES) as PageKind[]).map(k => <option key={k} value={k}>{PAGE_SIZES[k].label}</option>)}
+          </select>
+          <button type="button" className="btn btn-outline btn-sm" onClick={() => pptIn.current?.click()} disabled={!board || !!busy} title="파워포인트(.pptx) 슬라이드를 페이지로 — 글 · 도형 · 사진을 고칠 수 있는 요소로"><FileUp size={13} /> {busy === 'PPT 읽는 중' ? busy : 'PPT 불러오기'}</button>
+        </>}
+        <span className="board-pages-gap" />
         {figma && !readOnly && <button type="button" className="btn btn-outline btn-sm" onClick={() => setFigmaOpen(true)} disabled={!board} title="피그마 주소나 연결한 파일의 프레임을 수정 가능한 요소로 불러오기"><Figma size={13} /> 피그마 불러오기</button>}
         {!guest && <span className="board-tofigma">
           <button type="button" className="btn btn-outline btn-sm" onClick={() => setToFigma(v => !v)} disabled={!board} aria-expanded={toFigma} title="보드(또는 고른 요소)를 피그마로"><Upload size={13} /> 피그마로 내보내기</button>
@@ -503,22 +522,8 @@ export default function BoardEditorCore({ id, embedded = false, onClose, api, me
         <button type="button" className="btn btn-outline btn-sm" onClick={() => void downloadPdf()} disabled={!board} title="프레임마다 한 쪽 (프레임이 없으면 보드 전체 한 쪽)"><FileDown size={13} /> PDF</button>
         <button type="button" className="btn btn-outline btn-sm" onClick={() => void downloadPptx()} disabled={!board || !!busy} title="페이지마다 슬라이드 한 장 · 글은 파워포인트에서 고칠 수 있음"><Presentation size={13} /> {busy === 'PPT 만드는 중' ? busy : 'PPT'}</button>
         <button type="button" className={`icon-btn board-mapbtn${mapOn ? ' on' : ''}`} onClick={() => toggleMap(!mapOn)} title={mapOn ? '전체 보기 지도 숨기기' : '전체 보기 지도 — 보드 전체에서 지금 위치를 보고 눌러서 이동'} aria-label="전체 보기 지도" aria-pressed={mapOn}><MapIcon size={14} /></button>
-        <button type="button" className="icon-btn board-full" onClick={() => void toggleFull()} title={full ? '전체 화면 끝 (Esc)' : '전체 화면'} aria-label={full ? '전체 화면 끝' : '전체 화면'}>{full ? <Minimize2 size={14} /> : <Maximize2 size={14} />}</button>
-        {embedded && onClose && <button type="button" className="icon-btn" onClick={onClose} title="보드 닫기" aria-label="보드 닫기"><X size={14} /></button>}
-      </div>
-      <div className="board-pages" role="group" aria-label="페이지">
-        <span className="board-pages-label">페이지</span>
-        {pages.map((p, i) => <button key={p.id} type="button" className="board-page-chip" onClick={() => goPage(p.id)} title={`${pageLabel(p, i)} 로 이동`}><i>{i + 1}</i>{pageLabel(p, i)}</button>)}
-        {!pages.length && <span className="board-pages-empty">아직 없음 — 페이지를 만들면 PDF · PPT 가 페이지마다 한 장으로 나옵니다</span>}
-        {!readOnly && <>
-          <button type="button" className="btn btn-primary btn-sm" onClick={() => addPage(pageKind)} disabled={!board}><Plus size={13} /> {PAGE_SIZES[pageKind].name === 'A4' ? '페이지 추가' : '슬라이드 추가'}</button>
-          <select value={pageKind} onChange={e => setPageKind(e.target.value as PageKind)} aria-label="페이지 크기">
-            {(Object.keys(PAGE_SIZES) as PageKind[]).map(k => <option key={k} value={k}>{PAGE_SIZES[k].label}</option>)}
-          </select>
-          <button type="button" className="btn btn-outline btn-sm" onClick={() => pptIn.current?.click()} disabled={!board || !!busy} title="파워포인트(.pptx) 슬라이드를 페이지로 — 글 · 도형 · 사진을 고칠 수 있는 요소로"><FileUp size={13} /> {busy === 'PPT 읽는 중' ? busy : 'PPT 불러오기'}</button>
-          <input ref={pptIn} type="file" accept=".pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation" hidden onChange={e => void importPptx(e.target.files?.[0])} />
-        </>}
-      </div>
+      </div>}
+      <input ref={pptIn} type="file" accept=".pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation" hidden onChange={e => void importPptx(e.target.files?.[0])} />
       {figmaOpen && board && figma?.({ projectId: board.project_id, onClose: () => setFigmaOpen(false), onPick: p => { setFigmaOpen(false); addFigma(p) }, onContent: c => { setFigmaOpen(false); void addFigmaContent(c) } })}
       <div className="board-canvas">
         {initial ? (
@@ -534,7 +539,7 @@ export default function BoardEditorCore({ id, embedded = false, onClose, api, me
             UIOptions={{ canvasActions: { saveToActiveFile: false, toggleTheme: false } }}
           />
         ) : <p className="board-msg" role="status">보드를 불러오는 중입니다.</p>}
-        {initial && mapOn && <BoardMinimap source={mapSource} onHide={() => toggleMap(false)} size={mapSize} onSize={sizeMap} />}
+        {initial && mapOn && toolsOn && <BoardMinimap source={mapSource} onHide={() => toggleMap(false)} size={mapSize} onSize={sizeMap} />}
       </div>
     </div>
   )

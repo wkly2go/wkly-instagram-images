@@ -12,6 +12,7 @@ import './type.css'
 import './mono.css'
 import { startStackTables } from './lib/stackTables'
 import { startFoldLong } from './lib/foldLong'
+import { startFoldCards } from './lib/foldCards'
 
 const start = () =>
   createRoot(document.getElementById('root')!).render(
@@ -54,4 +55,5 @@ for (const ev of ['dragover', 'drop'] as const)
 if (!guest) {
   startStackTables()
   startFoldLong()
+  startFoldCards()
 }

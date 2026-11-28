@@ -276,7 +276,7 @@ html:not([data-theme="dark"]) .dash-day { background: var(--nm-face); border-col
 /* 스위치: <input type="checkbox" class="nm-switch"> — 켜면 먹색 홈 + 흰 손잡이 */
 input[type="checkbox"].nm-switch { appearance: none; -webkit-appearance: none; position: relative; width: 44px; height: 24px; margin: 0; border: 0; border-radius: 999px; background: #dfe2e8; box-shadow: var(--nm-in-sm, inset 0 1px 3px rgba(0, 0, 0, .2)); cursor: pointer; vertical-align: middle; transition: background-color .2s ease; flex: none; }
 input[type="checkbox"].nm-switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 1px 2px 5px rgba(120, 128, 148, .55); transition: transform .2s ease; }
-input[type="checkbox"].nm-switch:checked { background: var(--v9-ink, #2b2d33); }
+input[type="checkbox"].nm-switch:checked { background: var(--v9-ink, #5a5f69); }
 input[type="checkbox"].nm-switch:checked::after { transform: translateX(20px); }
 input[type="checkbox"].nm-switch:focus-visible { outline: 2px solid var(--v9-accent); outline-offset: 2px; }
 /* 둥근 단추(아이콘) = 손잡이처럼 */
@@ -328,7 +328,7 @@ html:not([data-theme="dark"]) {
 }
 /* 주 버튼 = 먹색 + 메뉴 색 네온 그림자 */
 html:not([data-theme="dark"]) :is(.btn-primary, .new-btn, .today-ok, .btn.primary):not(:disabled) { background: var(--v9-ink) !important; color: #fff !important; box-shadow: var(--nm-up-sm), var(--nm-neon-sm) !important; }
-html:not([data-theme="dark"]) :is(.btn-primary, .new-btn, .today-ok, .btn.primary):not(:disabled):hover { background: #3a3d45 !important; box-shadow: var(--nm-up-sm), var(--nm-neon) !important; }
+html:not([data-theme="dark"]) :is(.btn-primary, .new-btn, .today-ok, .btn.primary):not(:disabled):hover { background: #6b707a !important; box-shadow: var(--nm-up-sm), var(--nm-neon) !important; }
 html:not([data-theme="dark"]) .app-page .profile :is(.new-btn, .btn-primary) { box-shadow: var(--nm-up-sm), var(--nm-neon-sm) !important; }
 /* 자주 누르는 버튼 · 고른 것 = 먹색 글자, 빛만 메뉴 색 */
 html:not([data-theme="dark"]) :is(.btn-blue, .btn-yellow, .send-btn):not(:disabled) { color: var(--v9-ink); }
@@ -358,9 +358,9 @@ html:not([data-theme="dark"]) .ast-fab { box-shadow: var(--nm-up-sm), var(--nm-n
 html:not([data-theme="dark"]) :is(.badge, .tag, .pill):not(.red):not(.late):not(.bad) { background: #e1e4ea; color: var(--v9-ink); border-color: transparent; }
 html:not([data-theme="dark"]) :is(.badge.red, .badge.late, .tag.red) { background: var(--nm-face); color: #c8442f; box-shadow: var(--nm-in-sm); border-color: transparent; }
 /* 홈 그래프: 끝낸 일 = 먹색, 마감 예정 = 회색, 지연 = 산호색 하나 — 빛만 메뉴 색 */
-html:not([data-theme="dark"]) :is(.dash-flow-col i.f-done, .dash-legend i.f-done, .dash-vbar-track i.s-active) { background: linear-gradient(160deg, #4a4d57, var(--v9-ink)); box-shadow: 1px 2px 5px -1px color-mix(in srgb, var(--v9-accent) 75%, transparent); }
+html:not([data-theme="dark"]) :is(.dash-flow-col i.f-done, .dash-legend i.f-done, .dash-vbar-track i.s-active) { background: linear-gradient(160deg, #737882, var(--v9-ink)); box-shadow: 1px 2px 5px -1px color-mix(in srgb, var(--v9-accent) 75%, transparent); }
 html:not([data-theme="dark"]) :is(.dash-flow-col i.f-due, .dash-legend i.f-due) { background: #b9bec9; box-shadow: none; }
-html:not([data-theme="dark"]) .dash-flow-col.is-today i.f-due { background: linear-gradient(160deg, #4a4d57, var(--v9-ink)); box-shadow: 0 0 0 2px color-mix(in srgb, var(--v9-accent) 30%, transparent), 2px 4px 12px color-mix(in srgb, var(--v9-accent) 80%, transparent); }
+html:not([data-theme="dark"]) .dash-flow-col.is-today i.f-due { background: linear-gradient(160deg, #737882, var(--v9-ink)); box-shadow: 0 0 0 2px color-mix(in srgb, var(--v9-accent) 30%, transparent), 2px 4px 12px color-mix(in srgb, var(--v9-accent) 80%, transparent); }
 html:not([data-theme="dark"]) .dash-flow-col.is-today span { color: var(--v9-ink); }
 
 /* 휴대폰 (2026-11-28 대표 '휴대폰 화면도 볼록 오목 디자인으로'): 아래 메뉴 = 떠 있는 판, 고른 칸 = 눌린 홈 + 메뉴 색 빛 */
@@ -377,3 +377,232 @@ html:not([data-theme="dark"]) .dash-flow-col.is-today span { color: var(--v9-ink
   html:not([data-theme="dark"]) .app-page .topbar { background: var(--nm-face); box-shadow: 0 6px 14px -8px var(--nm-lo); }
   html:not([data-theme="dark"]) :is(.box, .stat, .kpi, .card, .home-kpi, .today-card, .checkin-card, .brief, .rd-box, .pc-card, .proj-card, .dash-kpi, .dash-card) { box-shadow: 4px 4px 10px var(--nm-lo), -4px -4px 10px var(--nm-hi); }
 }
+
+/* 2026-11-28 대표 '아이콘 오목으로 · 채팅 접힌 칸은 높이를 내려 왼쪽에서 돌출 · 비서는 양각 유리' */
+/* 왼쪽 메뉴 아이콘 = 오목(눌린 홈) */
+html:not([data-theme="dark"]) .app-page .profile .side-item > svg { background: var(--nm-face); box-shadow: var(--nm-in-sm); }
+html:not([data-theme="dark"]) .app-page .profile .side-item.on > svg { background: var(--nm-face); color: var(--v9-ink); box-shadow: var(--nm-in-sm), 0 0 0 1.5px color-mix(in srgb, var(--mc, var(--v9-accent)) 45%, transparent); }
+/* 접힌 채팅 칸 = 왼쪽 판에서 튀어나온 짧은 손잡이 */
+html:not([data-theme="dark"]) .app-page .body > .chat-dock.closed { align-self: flex-start; width: 46px; margin: 64px 0 0 -4px; padding: 0; background: transparent; border: 0 !important; box-shadow: none; border-radius: 0 !important; overflow: visible; }
+html:not([data-theme="dark"]) .chat-dock.closed .chat-dock-open { flex: none; width: 100%; gap: 6px; padding: 12px 0 14px; background: var(--nm-face); color: var(--v9-ink); border: 1px solid rgba(255, 255, 255, .8); border-left: 0; border-radius: 0 12px 12px 0; box-shadow: 5px 5px 12px var(--nm-lo), 2px -4px 10px var(--nm-hi); }
+html:not([data-theme="dark"]) .chat-dock.closed .chat-dock-open:hover { background: var(--nm-face); box-shadow: 5px 5px 12px var(--nm-lo), 2px -4px 10px var(--nm-hi), var(--nm-neon-sm); }
+html:not([data-theme="dark"]) .chat-dock.closed .chat-dock-open svg { width: 18px; height: 18px; color: var(--v9-ink); }
+/* 비서 단추 = 양각 유리 */
+html:not([data-theme="dark"]) .ast-fab, html:not([data-theme="dark"]) .ast-fab:hover, html:not([data-theme="dark"]) .ast-fab.on { background: linear-gradient(145deg, rgba(255, 255, 255, .72), rgba(255, 255, 255, .28)) !important; color: var(--v9-ink) !important; border: 1px solid rgba(255, 255, 255, .9) !important; border-radius: 14px !important; -webkit-backdrop-filter: blur(14px) saturate(170%); backdrop-filter: blur(14px) saturate(170%); box-shadow: 6px 8px 18px rgba(120, 128, 148, .45), -4px -4px 12px rgba(255, 255, 255, .9), inset 1px 1px 0 rgba(255, 255, 255, .9), inset -1px -1px 0 rgba(160, 168, 186, .25), var(--nm-neon-sm) !important; font-weight: 600; }
+html:not([data-theme="dark"]) .ast-fab svg { color: var(--v9-ink); }
+html:not([data-theme="dark"]) .ast-panel { background: linear-gradient(145deg, rgba(255, 255, 255, .82), rgba(243, 244, 247, .7)); -webkit-backdrop-filter: blur(18px) saturate(170%); backdrop-filter: blur(18px) saturate(170%); border: 1px solid rgba(255, 255, 255, .9); box-shadow: 14px 16px 36px var(--nm-lo), -8px -8px 22px var(--nm-hi); border-radius: 14px; }
+/* 채팅: 방 목록은 눌린 홈, 고른 방은 떠 있는 줄, 입력 칸은 눌린 홈, 말풍선은 떠 있음 */
+html:not([data-theme="dark"]) .pane-list.chat-list { background: var(--nm-face); box-shadow: inset -3px 0 6px -3px var(--nm-lo); border-right: 0; }
+html:not([data-theme="dark"]) :is(.pane-list.chat-list, .chat-dock-in) :is(a.item, button.item, .q2-room) { background: transparent; border-color: transparent; border-radius: 9px; }
+html:not([data-theme="dark"]) :is(.pane-list.chat-list, .chat-dock-in) :is(a.item, button.item, .q2-room):is(.active, .on) { background: var(--nm-face); box-shadow: var(--nm-up-sm), var(--nm-neon-sm); border-left-color: transparent; }
+html:not([data-theme="dark"]) :is(.quick-composer, .chat-composer, .composer) { background: var(--nm-face); border: 0; border-radius: 12px; box-shadow: var(--nm-in-sm); }
+html:not([data-theme="dark"]) :is(.quick-composer, .chat-composer, .composer) :is(textarea, input[type="text"]) { background: transparent; box-shadow: none !important; }
+html:not([data-theme="dark"]) .chat-day { background: var(--nm-face); box-shadow: var(--nm-in-sm); border-radius: 7px; }
+
+/* ================================================================================
+   절제 (2026-11-28 대표 '양각과 음각을 너무 많이 사용하지마 사용성 떨어져') — 이 절이 위의 볼록 · 오목 규칙보다 우선
+   - 깊이는 한 단계만: 떠 있는 것 = 큰 카드 · 본문 판 · 주 버튼 · 비서 단추 · 접힌 채팅 손잡이. 눌린 것 = 왼쪽 메뉴 아이콘 칸뿐
+   - 카드 안의 것(표 · 줄 · 칩 · 작은 버튼 · 입력 칸 · 고르기 칸 · 막대)은 평평하게: 옅은 선 한 줄이나 연한 바탕으로만 구분
+   ================================================================================ */
+html:not([data-theme="dark"]) { --nm-flat: #e6e9ee; --nm-field: #f8f9fb; }
+/* 입력 · 고르기 칸: 평평한 밝은 칸 + 선 */
+html:not([data-theme="dark"]) :is(.input, .select, .textarea, input[type="text"], input[type="search"], input[type="date"], input[type="number"], input[type="password"], input[type="email"], select, textarea) { background: var(--nm-field); border: 1px solid var(--v8-line-2) !important; box-shadow: none; }
+html:not([data-theme="dark"]) :is(.input, .select, .textarea, input, select, textarea):focus { border-color: var(--v9-ink) !important; box-shadow: 0 0 0 3px color-mix(in srgb, var(--v9-accent) 22%, transparent) !important; }
+/* 작은 버튼 · 칩: 평평 */
+html:not([data-theme="dark"]) :is(.btn-outline, .btn-ghost, .icon-btn, .quick-btn, .chip, .dock-fold, .btn-blue, .btn-yellow, .send-btn):not(.btn-primary):not(.new-btn) { background: var(--nm-field); border: 1px solid var(--v8-line-2) !important; box-shadow: none !important; }
+html:not([data-theme="dark"]) :is(.btn-outline, .btn-ghost, .icon-btn, .quick-btn, .chip, .btn-blue, .btn-yellow, .send-btn):not(.btn-primary):not(.new-btn):hover:not(:disabled) { background: #fff; border-color: var(--v9-ink) !important; box-shadow: none !important; }
+html:not([data-theme="dark"]) :is(.btn, .icon-btn, .quick-btn, .chip):active { box-shadow: none; }
+html:not([data-theme="dark"]) :is(.chip.active, .chip.on, .ads-subnav button.active) { background: var(--v9-ink) !important; color: #fff !important; border-color: var(--v9-ink) !important; box-shadow: none !important; }
+/* 구간 고르기: 평평한 회색 홈 + 흰 칸 */
+html:not([data-theme="dark"]) :is(.ads-segment, .seg, .right-tabs, .ads-nav) { background: var(--nm-flat); box-shadow: none; }
+html:not([data-theme="dark"]) :is(.ads-segment, .seg, .right-tabs) button:is(.active, .on), html:not([data-theme="dark"]) .ads-nav button.active { box-shadow: 0 1px 2px rgba(120, 128, 148, .35) !important; }
+/* 카드 안의 카드 · 표 묶음 · 줄: 평평 */
+html:not([data-theme="dark"]) :is(.box, .stat, .kpi, .card, .dash-card, .section, .panel, .week-day, .sales-pipe, .weekly-box, details.box, .main) :is(.box, .stat, .kpi, .card, .board-wrap, .guide-card, .form-grid, .note, .section, .panel, .tile, .list-card, .sales-pipe-step, .ledger-kpi, .rd-kpi, .myproj-card, .ai-card, .gov-tile, .dash-day, .week-day) { box-shadow: none; border: 1px solid var(--v8-line) !important; }
+html:not([data-theme="dark"]) .board-wrap { box-shadow: none; border: 1px solid var(--v8-line); background: var(--nm-field); }
+html:not([data-theme="dark"]) .dash-body { box-shadow: none; background: transparent; }
+html:not([data-theme="dark"]) :is(.week-item, .dash-ev, .dash-d, .chat-day) { background: var(--nm-flat); box-shadow: none; }
+html:not([data-theme="dark"]) :is(.meter, .pc-bar, .dash-prog, .dash-vbar-track) { background: var(--nm-flat); box-shadow: none; }
+html:not([data-theme="dark"]) .dash-flow-col i:not([class]), html:not([data-theme="dark"]) .dash-flow-col i[class=''] { background: var(--nm-flat); box-shadow: none; }
+html:not([data-theme="dark"]) :is(.badge.red, .badge.late, .tag.red) { box-shadow: none; }
+html:not([data-theme="dark"]) .app-page .profile :is(.side-n, .side-item .count), html:not([data-theme="dark"]) .section-head .count, html:not([data-theme="dark"]) .side-n { box-shadow: none !important; }
+html:not([data-theme="dark"]) .app-page .profile .mini-cal { box-shadow: none; border: 0 !important; background: transparent !important; }
+html:not([data-theme="dark"]) .dash-kpi-ic { box-shadow: none; background: var(--nm-flat); }
+html:not([data-theme="dark"]) .dash-kpi.is-key .dash-kpi-ic { background: var(--v9-ink); box-shadow: var(--nm-neon-sm); }
+/* 채팅: 목록 · 입력 칸 평평 */
+html:not([data-theme="dark"]) .pane-list.chat-list { box-shadow: none; border-right: 1px solid var(--v8-line); }
+html:not([data-theme="dark"]) :is(.pane-list.chat-list, .chat-dock-in) :is(a.item, button.item, .q2-room):is(.active, .on) { background: var(--nm-flat); box-shadow: none; }
+html:not([data-theme="dark"]) :is(.quick-composer, .chat-composer, .composer) { background: var(--nm-field); border: 1px solid var(--v8-line-2); box-shadow: none; }
+html:not([data-theme="dark"]) .bubble { box-shadow: none; border: 1px solid var(--v8-line); background: var(--nm-field); }
+html:not([data-theme="dark"]) :is(.bubble.mine, .msg.mine .bubble) { box-shadow: none; border-color: transparent; }
+html:not([data-theme="dark"]) button.item:is(.active, .on) { box-shadow: none; background: var(--nm-flat); }
+@media (max-width: 760px) { html:not([data-theme="dark"]) .m-nav > .on { box-shadow: none; background: var(--nm-flat) !important; } html:not([data-theme="dark"]) .m-more-grid > a { box-shadow: none; border: 1px solid var(--v8-line); } }
+
+/* 모든 카드 접기 (2026-11-28 · lib/foldCards.ts): 제목 줄을 누르면 펼치고 접음 · 기본 접힘 */
+[data-fold-head] { cursor: pointer; user-select: none; position: relative; padding-left: 22px !important; }
+[data-fold-head]::after { content: ''; position: absolute; left: 4px; top: 50%; width: 7px; height: 7px; margin-top: -5px; border-right: 2px solid var(--tx-sub, #6b6d72); border-bottom: 2px solid var(--tx-sub, #6b6d72); transform: rotate(45deg); transition: transform .2s ease; }
+[data-fold-head="1"]::after { transform: rotate(-45deg); margin-top: -4px; }
+[data-fold-head]::before { display: none !important; }
+[data-fold-head]:hover::after { border-color: var(--v9-ink, #5a5f69); }
+[data-card-fold="1"] > :not(:first-child), [data-card-hidden="1"] { display: none !important; }
+[data-fold-head="1"] { margin-bottom: 0 !important; border-bottom-color: transparent !important; }
+@media print { [data-card-fold="1"] > :not(:first-child), [data-card-hidden="1"] { display: revert !important; } }
+
+/* 제목 줄 없는 묶음 접기(숫자 카드 줄 · 오른쪽 일정 칸): 이름 띠를 눌러 접고 폄 */
+[data-fold-group]::before { content: '▾  ' attr(data-fold-label); display: block; grid-column: 1 / -1; flex: 0 0 100%; width: 100%; padding: 6px 4px; color: var(--tx-sub, #6b6d72); font-size: var(--fs-body); font-weight: 600; cursor: pointer; user-select: none; }
+[data-fold-group="1"]::before { content: '▸  ' attr(data-fold-label); }
+[data-fold-group]:hover::before { color: var(--v9-ink, #5a5f69); }
+[data-fold-group="1"] > * { display: none !important; }
+[data-fold-group="1"] { min-height: 0 !important; height: auto !important; }
+
+/* 모서리: 참고 디자인(둥근 카드 · 알약 버튼)에 맞춤 — 아래 '부드러운 볼록 · 오목' 묶음에서 정함 */
+
+/* 아이콘은 평평하게 (2026-11-28 대표 '아이콘들 양각 효과 없애 전체 공통이야'): 아이콘 · 아이콘 칸에는 그림자 · 볼록 · 오목을 주지 않는다 */
+html:not([data-theme="dark"]) .app-page .profile .side-item > svg,
+html:not([data-theme="dark"]) .app-page .profile .side-item.on > svg { background: transparent; box-shadow: none; padding: 2px; color: var(--v9-ink); }
+html:not([data-theme="dark"]) :is(.icon-btn, .quick-btn, .dock-fold, .ins-icon, .home-kpi-tile, .dash-kpi-ic, .ai-ava, .avatar),
+html:not([data-theme="dark"]) .dash-kpi.is-key .dash-kpi-ic { box-shadow: var(--nm-icon) !important; }
+html:not([data-theme="dark"]) :is(.ins-icon, .home-kpi-tile, .dash-kpi-ic) { background: var(--nm-flat) !important; }
+html:not([data-theme="dark"]) .dash-kpi.is-key .dash-kpi-ic { background: var(--v9-ink) !important; }
+html:not([data-theme="dark"]) svg.lucide { filter: none; }
+
+/* 휴대폰 맞춤 (2026-11-28 대표 '휴대폰 화면도 확인해서 맞춰') */
+html:not([data-theme="dark"]) .rd-month .bar-pair i.in { background: var(--v9-ink); }
+@media (max-width: 760px) {
+  /* 아래 메뉴: 글자가 잘리지 않게 작게 · 간격 줄임 */
+  html:not([data-theme="dark"]) .m-nav { gap: 0; padding-left: 2px; padding-right: 2px; }
+  html:not([data-theme="dark"]) .m-nav > a, html:not([data-theme="dark"]) .m-nav > button { font-size: 11px !important; letter-spacing: -0.04em; font-weight: 600; padding: 0 1px; overflow: visible; text-overflow: clip; }
+  html:not([data-theme="dark"]) .m-nav > a svg, html:not([data-theme="dark"]) .m-nav > button svg { width: 19px; height: 19px; }
+  html:not([data-theme="dark"]) .m-dot { background: var(--v9-ink) !important; left: calc(50% + 4px); }
+  /* 비서 단추: 본문을 덜 가리게 아이콘만 */
+  html:not([data-theme="dark"]) .ast-fab { width: 44px; padding: 0 !important; justify-content: center; font-size: 0; gap: 0; }
+  html:not([data-theme="dark"]) .ast-fab svg { width: 20px; height: 20px; }
+  /* 접기 띠 · 제목 줄: 누르기 쉽게 */
+  [data-fold-group]::before { padding: 11px 6px; }
+  [data-fold-head] { min-height: 44px; display: flex; align-items: center; }
+  /* 탭 줄은 한 줄로 밀어 보기 */
+  html:not([data-theme="dark"]) .ads-nav { grid-template-columns: repeat(6, max-content) !important; overflow-x: auto; }
+  html:not([data-theme="dark"]) .ads-subnav { display: flex !important; flex-wrap: nowrap; overflow-x: auto; }
+  html:not([data-theme="dark"]) .ads-subnav button { flex: none; }
+  /* 카드 그림자 줄이기: 좁은 화면에서는 옅게 */
+  html:not([data-theme="dark"]) :is(.box, .stat, .kpi, .card, .home-kpi, .today-card, .checkin-card, .brief, .rd-box, .pc-card, .proj-card, .dash-kpi, .dash-card, .section, .sales-pipe) { box-shadow: 2px 3px 8px var(--nm-lo), -2px -2px 6px var(--nm-hi); }
+}
+
+/* 2026-11-28 대표 '분명히 구분되게 만들고 왼쪽에서 늘어나게 · 선이 너무 굵어 얇게' */
+/* 아이콘 선은 얇게 (전체 공통) */
+html:not([data-theme="dark"]) svg.lucide, html:not([data-theme="dark"]) .app-page .profile .side-item > svg, html:not([data-theme="dark"]) .m-nav svg { stroke-width: 1.5 !important; }
+/* 접힌 채팅 손잡이: 먹색으로 또렷하게 · 왼쪽 판에 붙어 있음 */
+html:not([data-theme="dark"]) .app-page .body > .chat-dock.closed { width: 44px; margin-left: -2px; }
+html:not([data-theme="dark"]) .chat-dock.closed .chat-dock-open { background: var(--v9-ink) !important; color: #fff !important; border: 0; box-shadow: 4px 5px 12px var(--nm-lo), var(--nm-neon-sm); transition: width .2s ease, padding .2s ease, box-shadow .2s ease; }
+html:not([data-theme="dark"]) .chat-dock.closed .chat-dock-open :is(svg, span, .chat-dock-vert) { color: #fff !important; }
+html:not([data-theme="dark"]) .chat-dock.closed .chat-dock-open:hover { background: #6b707a !important; width: calc(100% + 8px); box-shadow: 4px 5px 12px var(--nm-lo), var(--nm-neon); }
+/* 펼칠 때: 왼쪽에서 늘어남 */
+@keyframes dock-grow { from { clip-path: inset(0 100% 0 0); opacity: .4; } to { clip-path: inset(0 0 0 0); opacity: 1; } }
+html:not([data-theme="dark"]) .app-page .body > .chat-dock:not(.closed) { animation: dock-grow .28s ease-out both; transform-origin: left center; border-left: 3px solid var(--v9-ink) !important; }
+@media (prefers-reduced-motion: reduce) { .app-page .body > .chat-dock:not(.closed) { animation: none !important; } }
+
+/* 검정은 더 연한 오프 블랙으로 (2026-11-28 대표 '검정색은 좀더 오프색으로 변경해') */
+html:not([data-theme="dark"]) {
+  --v9-ink: #5a5f69; --v8-green: #5a5f69; --v8-green-hover: #6b707a; --v8-ink: #3f434a; --v8-text: #4a4e56;
+  --tx-title: #3f434a; --tx-body: #4a4e56; --tx-key: #5a5f69; --green: #5a5f69; --blue: #5a5f69; --pink: #5a5f69; --div-ar: #5a5f69;
+}
+html:not([data-theme="dark"]) .top-logo .logo-ink, html:not([data-theme="dark"]) .profile-logo img { opacity: .62; }
+
+/* ================================================================================
+   효과 최소화 (2026-11-28 대표 '너무 많은 효과를 제외해줘 전체 공통이야') — 앞의 볼록 · 오목 · 네온 규칙보다 우선
+   - 그림자 · 볼록 · 오목 · 번지는 빛 · 떠오름을 없앤다. 카드와 판은 평평한 면 + 옅은 선 한 줄
+   - 남기는 효과는 둘뿐: 주 버튼('새로 만들기' 등) 아래 옅은 메뉴 색 빛, 초점(키보드 · 입력 중) 테
+   ================================================================================ */
+html:not([data-theme="dark"]) {
+  --nm-lo: rgba(163, 168, 178, .55); --nm-hi: rgba(255, 255, 255, .95);
+  --nm-up: 7px 7px 16px var(--nm-lo), -6px -6px 14px var(--nm-hi); --nm-up-sm: 4px 4px 9px var(--nm-lo), -3px -3px 8px var(--nm-hi);
+  --nm-in: inset 3px 3px 7px var(--nm-lo), inset -3px -3px 7px var(--nm-hi); --nm-in-sm: inset 2px 2px 5px var(--nm-lo), inset -2px -2px 5px var(--nm-hi);
+  --nm-icon: 2px 2px 4px var(--nm-lo), -2px -2px 4px var(--nm-hi); --nm-neon: none;
+  --nm-neon-sm: 0 3px 10px -4px color-mix(in srgb, var(--v9-accent) 45%, transparent);
+  --glow-1: none; --glow-2: none; --glow-3: none; --neon-glow: none; --neon-soft: none;
+  --v8-shadow: none; --v8-shadow-pop: 0 8px 24px -12px rgba(60, 66, 80, .28);
+  --nm-face: #ececee; --nm-bg: #ececee; --nm-flat: #e4e5e8; --nm-field: #ececee;
+  --v8-r-card: 16px; --v8-r-ctl: 12px; --r-book: 16px; --r-inner: 12px; --r-panel: 18px; --r-bubble: 14px;
+  /* 2026-11-28 대표 '효과 조금만 걷어내': 다 없애지 않고 두 가지만 옅게 — 카드 · 판 아래 옅은 그림자, 중요한 것(오늘 · 핵심 숫자 · 올린 카드 · 주 버튼) 아래 메뉴 색 빛 */
+  --fx-card: 0 6px 16px -12px rgba(60, 66, 80, .34);
+  --fx-key: 0 8px 22px -12px color-mix(in srgb, var(--v9-accent) 60%, transparent);
+  --nm-neon-sm: 0 5px 14px -6px color-mix(in srgb, var(--v9-accent) 55%, transparent);
+}
+html:not([data-theme="dark"]) .app-page *, html:not([data-theme="dark"]) .app-page *::before, html:not([data-theme="dark"]) .app-page *::after { text-shadow: none; }
+html:not([data-theme="dark"]) .app-page :is(.main, .web-panel, .chat-dock, .profile) { box-shadow: var(--nm-up) !important; border: 1px solid transparent !important; }
+html:not([data-theme="dark"]) .app-page .topbar { box-shadow: none !important; border-bottom: 1px solid var(--v8-line) !important; }
+html:not([data-theme="dark"]) :is(.box, .stat, .kpi, .card, .home-kpi, .today-card, .checkin-card, .brief, .rd-box, .pc-card, .proj-card, .pboards-item, .week-day, .div-card, .ad-pcard, .dash-kpi, .dash-card, .dash-day, .mini-cal, .home-hero, .board-wrap, .guide-card, .sales-pipe-step, .gov-tile, .ledger-kpi, .weekly-box, .form-grid, .bigcal, .explorer, .web-setting, .myproj-card, .weekly-kpis, .office-net, .site-tabs, .survey-empty, .sales-development, .sales-iv, .sales-strategy-desk, .sales-settings, .sales-bid-qualifications, .growth-empty, .growth-ai, .auto-camp, .md-library, .ai-ins, .design-add, .design-block, .sales-pipe, .section, .panel, .tile, .list-card, .rd-kpi, .ai-card, .note, details.box, .bubble) { box-shadow: var(--nm-up-sm) !important; border: 1px solid transparent !important; transform: none !important; }
+html:not([data-theme="dark"]) :is(a.home-kpi, a.dash-kpi, .pc-card, .pboards-item, .proj-card, .sales-pipe-step, .gov-tile, .ai-card):hover { box-shadow: var(--nm-up), var(--fx-key) !important; border-color: transparent !important; transform: none !important; }
+html:not([data-theme="dark"]) :is(.dash-kpi.is-key, .week-day.today, .dash-day.is-today) { box-shadow: var(--nm-up-sm), var(--fx-key) !important; border-color: transparent !important; }
+html:not([data-theme="dark"]) :is(.chip.active, .chip.on, .ads-subnav button.active, .ads-nav button.active, .tab.on, .tab.active, .view-tab.on, .count, .q2-badge, .m-dot, .view-tab-n, .bell .count, button.day.today, .week-day-h .dd, .side-item.on) { box-shadow: var(--nm-in-sm) !important; }
+html:not([data-theme="dark"]) :is(.ads-segment, .seg, .right-tabs) button:is(.active, .on) { box-shadow: var(--nm-up-sm) !important; border: 1px solid transparent !important; }
+html:not([data-theme="dark"]) .app-page .profile .side-item.on { background: var(--nm-flat); border-color: transparent; }
+html:not([data-theme="dark"]) :is(.section-head, .sec-head)::before { box-shadow: none; }
+html:not([data-theme="dark"]) .dash-flow-col i, html:not([data-theme="dark"]) .dash-legend i, html:not([data-theme="dark"]) .dash-vbar-track i { box-shadow: none !important; background-image: none !important; }
+html:not([data-theme="dark"]) :is(.dash-flow-col i.f-done, .dash-legend i.f-done, .dash-vbar-track i.s-active, .dash-flow-col.is-today i.f-due) { background: var(--v9-ink) !important; }
+html:not([data-theme="dark"]) :is(.dash-flow-col i.f-late, .dash-legend i.f-late, .dash-vbar-track i.s-late) { background: #f09a86 !important; }
+html:not([data-theme="dark"]) .dash-flow-col.is-today span { font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+/* 채팅 손잡이 · 비서 단추: 그림자 없이 선으로 */
+html:not([data-theme="dark"]) .chat-dock.closed .chat-dock-open, html:not([data-theme="dark"]) .chat-dock.closed .chat-dock-open:hover { box-shadow: var(--nm-up-sm) !important; }
+html:not([data-theme="dark"]) .ast-fab, html:not([data-theme="dark"]) .ast-fab:hover, html:not([data-theme="dark"]) .ast-fab.on { background: var(--nm-face) !important; -webkit-backdrop-filter: none; backdrop-filter: none; border: 1px solid transparent !important; box-shadow: var(--nm-up) !important; border-radius: 999px !important; }
+html:not([data-theme="dark"]) .ast-panel { background: var(--nm-face); -webkit-backdrop-filter: none; backdrop-filter: none; border: 1px solid var(--v8-line-2); box-shadow: var(--v8-shadow-pop) !important; }
+html:not([data-theme="dark"]) :is(.dialog, .modal, .top-menu-pop) { box-shadow: var(--v8-shadow-pop) !important; border: 1px solid var(--v8-line-2); }
+html:not([data-theme="dark"]) .scrim { -webkit-backdrop-filter: none; backdrop-filter: none; background: rgba(60, 66, 80, .28); }
+html:not([data-theme="dark"]) .app-page .body > .chat-dock:not(.closed) { animation-duration: .18s; }
+/* 주 버튼만 옅은 빛 */
+html:not([data-theme="dark"]) :is(.btn-primary, .new-btn, .today-ok, .btn.primary):not(:disabled), html:not([data-theme="dark"]) .app-page .profile :is(.new-btn, .btn-primary) { box-shadow: var(--nm-neon-sm) !important; }
+html:not([data-theme="dark"]) :is(.btn-primary, .new-btn, .today-ok, .btn.primary):not(:disabled):hover { box-shadow: var(--nm-neon-sm) !important; }
+@media (max-width: 760px) { html:not([data-theme="dark"]) .m-nav { box-shadow: var(--nm-up) !important; border-top: 0 !important; } html:not([data-theme="dark"]) .m-more { box-shadow: none; border-top: 1px solid var(--v8-line-2); } }
+
+/* 로고는 얇은 선으로 (2026-11-28 대표 '로고 선 얇게 만들어' · public/wkly-logo-line.svg) — 색 필터 없이 그대로 */
+html:not([data-theme="dark"]) .top-logo .logo-ink { filter: none !important; opacity: 1; }
+
+/* ================================================================================
+   부드러운 볼록 · 오목 (2026-11-28 대표가 참고 그림을 보내 '이 디자인 확정해서 넣어 · 동일한 디자인으로 만들어' ·
+   '아이콘에만 효과 조금만 넣고 나머지에는 효과 적용해') — 위 '효과 최소화'보다 우선
+   - 면과 바탕은 같은 밝은 회색 · 카드 · 판 · 버튼은 떠 있음(--nm-up) · 입력 칸 · 고른 것 · 누른 것은 눌림(--nm-in)
+   - 주 버튼은 중간 회색 알약 · 못 누르는 것은 그림자 없음 · 초점 테는 늘 보임(메뉴 색)
+   - 아이콘 칸은 아주 옅게만(--nm-icon)
+   ================================================================================ */
+html:not([data-theme="dark"]) body, html:not([data-theme="dark"]) .app-page, html:not([data-theme="dark"]) .app-page .body { background: var(--nm-bg) !important; }
+html:not([data-theme="dark"]) .app-page :is(.main, .web-panel, .chat-dock, .profile) { border-radius: var(--r-panel) !important; background: var(--nm-face) !important; }
+html:not([data-theme="dark"]) :is(.box, .stat, .kpi, .card, .home-kpi, .today-card, .checkin-card, .brief, .rd-box, .pc-card, .proj-card, .pboards-item, .week-day, .div-card, .ad-pcard, .dash-kpi, .dash-card, .dash-day, .mini-cal, .home-hero, .guide-card, .sales-pipe-step, .gov-tile, .ledger-kpi, .weekly-box, .myproj-card, .sales-pipe, .section, .panel, .tile, .list-card, .rd-kpi, .ai-card, .note, .bubble, .dialog, .modal, .ast-panel, .top-menu-pop) { border-radius: var(--v8-r-card) !important; background-color: var(--nm-face); }
+/* 버튼: 떠 있는 알약 · 누르면 눌림 · 못 누르면 평평 */
+html:not([data-theme="dark"]) .app-page :is(.btn, .btn-sm, .btn-blue, .btn-ghost, .quick-btn, .icon-btn, .chip, .new-btn, .btn-primary, .today-ok, .dock-fold) { border-radius: 999px !important; border-color: transparent !important; box-shadow: var(--nm-up-sm) !important; background-color: var(--nm-face); transition: box-shadow .15s ease; }
+html:not([data-theme="dark"]) .app-page :is(.btn, .btn-sm, .btn-blue, .btn-ghost, .quick-btn, .icon-btn, .chip, .new-btn, .btn-primary, .today-ok):active,
+html:not([data-theme="dark"]) .app-page :is(.chip.active, .chip.on, .tab.on, .tab.active, .view-tab.on) { box-shadow: var(--nm-in-sm) !important; }
+html:not([data-theme="dark"]) .app-page :is(.btn, .btn-sm, .btn-blue, .btn-ghost, .quick-btn, .icon-btn, .chip, .new-btn, .btn-primary):disabled { box-shadow: none !important; opacity: .55; }
+html:not([data-theme="dark"]) .app-page :is(.btn-primary, .new-btn, .today-ok, .btn.primary):not(:disabled) { background: linear-gradient(180deg, #a9abb1, #8f9198) !important; color: #2c2e33 !important; box-shadow: var(--nm-up-sm), var(--nm-neon-sm) !important; }
+html:not([data-theme="dark"]) .app-page :is(.btn-primary, .new-btn, .today-ok, .btn.primary):not(:disabled) svg { color: #2c2e33 !important; }
+html:not([data-theme="dark"]) .app-page :is(.chip.active, .chip.on) { background: var(--nm-flat) !important; color: var(--tx-title) !important; }
+/* 입력 칸: 눌린 홈 */
+html:not([data-theme="dark"]) .app-page :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]), select, textarea, .search, .q2-input):not(.excalidraw *) { background: var(--nm-bg) !important; border: 1px solid transparent !important; box-shadow: var(--nm-in-sm) !important; border-radius: 999px !important; }
+html:not([data-theme="dark"]) .app-page textarea:not(.excalidraw *) { border-radius: var(--v8-r-ctl) !important; }
+html:not([data-theme="dark"]) .app-page :is(input, select, textarea, button, a, [tabindex]):focus-visible { outline: 2px solid var(--v9-accent) !important; outline-offset: 2px; }
+/* 구간 고르기 · 탭 줄: 눌린 홈 안에 떠 있는 알약 */
+html:not([data-theme="dark"]) .app-page :is(.ads-segment, .seg, .right-tabs, .ads-nav, .ads-subnav) { box-shadow: var(--nm-in-sm) !important; border-radius: 999px !important; border-color: transparent !important; background: var(--nm-bg) !important; padding: 4px; }
+html:not([data-theme="dark"]) .app-page :is(.ads-segment, .seg, .right-tabs, .ads-nav, .ads-subnav) button { border-radius: 999px !important; box-shadow: none !important; background: transparent !important; }
+html:not([data-theme="dark"]) .app-page :is(.ads-segment, .seg, .right-tabs, .ads-nav, .ads-subnav) button:is(.active, .on) { box-shadow: var(--nm-up-sm) !important; background: var(--nm-face) !important; }
+/* 아이콘 칸: 아주 옅게만 */
+html:not([data-theme="dark"]) :is(.ins-icon, .home-kpi-tile, .dash-kpi-ic, .ai-ava, .avatar) { box-shadow: var(--nm-icon) !important; background: var(--nm-face) !important; border-radius: 12px !important; }
+html:not([data-theme="dark"]) .app-page .profile .side-item { border-radius: 12px !important; }
+html:not([data-theme="dark"]) .app-page .profile .side-item.on { background: var(--nm-bg) !important; }
+html:not([data-theme="dark"]) .dash-kpi.is-key .dash-kpi-ic { background: linear-gradient(180deg, #a9abb1, #8f9198) !important; }
+html:not([data-theme="dark"]) .dash-kpi.is-key .dash-kpi-ic svg { color: #2c2e33 !important; }
+/* 표 줄: 선만 */
+html:not([data-theme="dark"]) .app-page :is(table, .table-wrap) { border-radius: var(--v8-r-ctl) !important; }
+
+/* 두 번째 참고 그림 (같은 날 대표 '이 디자인도 넣어'): 판은 바탕보다 조금 더 흰 면 · 그림자는 더 옅게 · 스위치는 둥근 네모(켜면 먹색 홈 + 흰 손잡이) · 구간 고르기는 회색 홈 + 흰 알약 */
+html:not([data-theme="dark"]) {
+  --nm-bg: #eff0f2; --nm-face: #f6f6f7; --nm-field: #eff0f2; --nm-flat: #e3e4e7;
+  --nm-lo: rgba(170, 175, 185, .42); --nm-hi: rgba(255, 255, 255, 1);
+}
+html:not([data-theme="dark"]) input[type="checkbox"].nm-switch { width: 46px; height: 24px; border-radius: 8px !important; background: #d9dadd; box-shadow: var(--nm-in-sm); }
+html:not([data-theme="dark"]) input[type="checkbox"].nm-switch::after { width: 22px; height: 20px; border-radius: 6px; background: #fff; box-shadow: 1px 2px 4px rgba(90, 95, 105, .45); }
+html:not([data-theme="dark"]) input[type="checkbox"].nm-switch:checked { background: #44474d; }
+html:not([data-theme="dark"]) .app-page :is(.ads-segment, .seg, .right-tabs, .ads-nav, .ads-subnav) { background: #dcdde0 !important; box-shadow: none !important; }
+html:not([data-theme="dark"]) .app-page :is(.ads-segment, .seg, .right-tabs, .ads-nav, .ads-subnav) button:is(.active, .on) { background: #fff !important; box-shadow: 0 1px 3px rgba(90, 95, 105, .35) !important; }
+html:not([data-theme="dark"]) .app-page :is(.dash-flow, .dash-flow-grid, .rd-month, .chart-box) { background: var(--nm-flat); border-radius: var(--v8-r-ctl) !important; }
+/* 채팅 입력처럼 여러 줄이 되는 칸은 알약 대신 둥근 네모 */
+html:not([data-theme="dark"]) .app-page :is(.chat-input, .q2-input, .composer) :is(input, textarea), html:not([data-theme="dark"]) .app-page textarea { border-radius: var(--v8-r-ctl) !important; }
+html:not([data-theme="dark"]) .app-page :is(.ads-segment, .seg, .right-tabs, .ads-nav, .ads-subnav) { border-radius: 14px !important; }
+html:not([data-theme="dark"]) .app-page :is(.ads-segment, .seg, .right-tabs, .ads-nav, .ads-subnav) button { border-radius: 10px !important; }
