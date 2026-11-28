@@ -1,0 +1,36 @@
+// 메뉴마다 다른 색 (2026-11-28 대표 지시 '색은 각 메뉴마다 다른 색을 사용해')
+// - 왼쪽 메뉴 아이콘 칸의 색이자, 그 메뉴 화면의 강조색(--v9-accent: 주 버튼 · 고른 것 · 빛)
+// - 흰 글자가 읽히는 중간 밝기 색만. 빨강 계열은 지연 · 경고와 헷갈려 쓰지 않음
+export const MENU_COLORS: Record<string, string> = {
+  home: '#1f4dff',
+  my: '#0e8f6e',
+  reportTemplates: '#7a4ce0',
+  approvals: '#c2710c',
+  chat: '#0a84c6',
+  projects: '#2f6fed',
+  drive: '#1a9a4b',
+  boards: '#c2409b',
+  team: '#0c8a94',
+  site: '#a8730a',
+  design: '#5a55e6',
+  designOrders: '#b3561f',
+  designCards: '#2a8f8f',
+  designPrices: '#6b8e12',
+  ilwi: '#8a5cc7',
+  designVendors: '#1976b8',
+  designMaterials: '#9a6a2f',
+  designLearn: '#3d8f5f',
+  agents: '#6a45e8',
+  ads: '#d1457a',
+  ledger: '#12805c',
+  interviewQuestions: '#a04fc0',
+  gov: '#2c62b8',
+  admin: '#5b6472',
+  leads: '#1d8fb0',
+  sales: '#c9601a',
+  tenders: '#4c6fbf',
+  clients: '#3b8a7a',
+  library: '#8a7a1f',
+  work: '#0e8f6e',
+}
+export const menuColor = (key: string) => MENU_COLORS[key] ?? '#1f4dff'

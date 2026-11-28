@@ -16,7 +16,7 @@
 .dash-spark i.top { background: var(--v9-ink, #2b2d33); }
 .dash-kpi-foot { grid-area: foot; font-size: var(--fs-body); color: var(--tx-sub); padding: 6px 12px 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .dash-kpi.is-key { box-shadow: var(--glow-2, none); border-color: transparent; }
-.dash-kpi.is-key .dash-spark i.top { background: var(--v9-accent, #1f4dff); box-shadow: 2px 2px 8px rgba(31, 77, 255, .7); }
+.dash-kpi.is-key .dash-spark i.top { background: var(--v9-accent, #1f4dff); box-shadow: 2px 2px 8px color-mix(in srgb, var(--v9-accent) 70%, transparent); }
 .dash-kpi:hover { box-shadow: var(--glow-2, none); }
 
 /* 카드: 회색 머리 + 흰 본문 */
@@ -39,7 +39,7 @@
 .dash-flow-col i.f-done { background: var(--v9-ink, #2b2d33); } .dash-flow-col i.f-due { background: #a9a9a5; } .dash-flow-col i.f-late { background: #d2564a; }
 .dash-flow-col span { font-family: var(--mono); font-size: var(--fs-body); color: var(--tx-sub); white-space: nowrap; height: 1.4em; margin-top: 4px; overflow: visible; }
 .dash-flow-col.is-today i:not([class]), .dash-flow-col.is-today i[class=''] { background: var(--v9-accent-tint, #e9eeff); }
-.dash-flow-col.is-today { filter: drop-shadow(3px 4px 6px rgba(31, 77, 255, .55)); }
+.dash-flow-col.is-today { filter: drop-shadow(3px 4px 6px color-mix(in srgb, var(--v9-accent) 55%, transparent)); }
 .dash-flow-col.is-today i.f-due { background: var(--v9-accent, #1f4dff); }
 .dash-flow-col.is-today span { color: var(--v9-accent, #1f4dff); font-weight: 600; }
 
@@ -91,3 +91,8 @@ html[data-theme=dark] :is(.dash-body, .dash-kpi-l, .dash-kpi b, .dash-spark, .da
 .dash-kpi-l { border-radius: 14px 14px 0 0; } .dash-kpi b { border-radius: 0 0 0 14px; } .dash-spark { border-radius: 0 0 14px 0; }
 .dash-body { border-color: transparent; border-radius: 14px; }
 .dash-day { border-radius: 12px; }
+
+/* 선명하게 (2026-11-28): 카드 테를 또렷하게 */
+.dash-kpi, .dash-card { border: 1px solid var(--v8-line, #dbdbd7); box-shadow: 0 1px 2px rgba(20, 22, 30, .05); }
+.dash-body { border: 1px solid var(--v8-line, #dbdbd7); }
+.dash-kpi.is-key { border-color: var(--v9-accent); box-shadow: var(--glow-2, none); }

@@ -1,7 +1,8 @@
-import { createContext, lazy, Suspense, useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
+import { createContext, lazy, Suspense, useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { useMyAgents } from './AgentDesk'
 import { MobileAppBar, TopAppButton } from './InstallCard'
 import { useTheme } from '../lib/theme'
+import { menuColor } from '../lib/menuColors'
 import { PencilRuler, Truck, Inbox, Calculator, Sigma, Building2, Layers, GraduationCap, Ruler, BookOpen, Bookmark, Bot, ListTodo, Plus, Search, Briefcase, HardDrive, ChevronDown, ChevronLeft, PenLine, ChevronRight, CircleHelp, PanelLeftClose, PanelLeftOpen, ClipboardCheck, FolderKanban, Home, Library, Megaphone, MessageCircle, MoreHorizontal, Settings, Users, UserRound, Landmark, FileQuestion, HandCoins, type LucideIcon } from 'lucide-react'
 import { accessSource, isDesktopApp } from '../lib/desktop'
 import { useAttendance } from '../lib/attendance'
@@ -396,7 +397,7 @@ function SideNav({ active, summary, onExpand }: { active: TabKey; summary: Summa
             const Icon = ICONS[t.key]
             const n = count(t.key)
             const index = tabs.indexOf(t)
-            return <a key={t.key} href={t.path} className={`side-item ${t.key === active ? 'on' : ''} ${n && t.key !== 'projects' ? 'has-n' : ''}${t.key === 'chat' ? ' side-chat' : ''}`} aria-current={t.key === active ? 'page' : undefined} title={`${t.label}${index < 9 ? ` (Alt+${index + 1})` : ''}`} onClick={event => {
+            return <a key={t.key} href={t.path} className={`side-item ${t.key === active ? 'on' : ''} ${n && t.key !== 'projects' ? 'has-n' : ''}${t.key === 'chat' ? ' side-chat' : ''}`} aria-current={t.key === active ? 'page' : undefined} style={{ '--mc': menuColor(t.key) } as CSSProperties} title={`${t.label}${index < 9 ? ` (Alt+${index + 1})` : ''}`} onClick={event => {
               if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return
               event.preventDefault()
               navigate(t.path)
@@ -829,6 +830,10 @@ export function ShellFrame({ children, initial }: { children: ReactNode; initial
   const summary = useSummary()
   const [{ active, flush }, setState] = useState<ShellState>(initial ?? { active: 'home', flush: false })
   const set = useCallback((s: ShellState) => setState(o => (o.active === s.active && o.flush === s.flush ? o : s)), [])
+  // 메뉴마다 다른 강조색: 지금 화면의 색을 --v9-accent 로 (mono.css 의 빛 · 연한 바탕이 이 값에서 계산됨)
+  useEffect(() => {
+    document.documentElement.style.setProperty('--v9-accent', menuColor(active))
+  }, [active])
   const mainRef = useRef<HTMLElement>(null)
   // 화면을 옮기면 가운데 창은 맨 위부터
   useLayoutEffect(() => {
