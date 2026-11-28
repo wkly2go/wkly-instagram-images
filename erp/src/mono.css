@@ -398,3 +398,41 @@ html:not([data-theme="dark"]) :is(.pane-list.chat-list, .chat-dock-in) :is(a.ite
 html:not([data-theme="dark"]) :is(.quick-composer, .chat-composer, .composer) { background: var(--nm-face); border: 0; border-radius: 12px; box-shadow: var(--nm-in-sm); }
 html:not([data-theme="dark"]) :is(.quick-composer, .chat-composer, .composer) :is(textarea, input[type="text"]) { background: transparent; box-shadow: none !important; }
 html:not([data-theme="dark"]) .chat-day { background: var(--nm-face); box-shadow: var(--nm-in-sm); border-radius: 7px; }
+
+/* ================================================================================
+   절제 (2026-11-28 대표 '양각과 음각을 너무 많이 사용하지마 사용성 떨어져') — 이 절이 위의 볼록 · 오목 규칙보다 우선
+   - 깊이는 한 단계만: 떠 있는 것 = 큰 카드 · 본문 판 · 주 버튼 · 비서 단추 · 접힌 채팅 손잡이. 눌린 것 = 왼쪽 메뉴 아이콘 칸뿐
+   - 카드 안의 것(표 · 줄 · 칩 · 작은 버튼 · 입력 칸 · 고르기 칸 · 막대)은 평평하게: 옅은 선 한 줄이나 연한 바탕으로만 구분
+   ================================================================================ */
+html:not([data-theme="dark"]) { --nm-flat: #e6e9ee; --nm-field: #f8f9fb; }
+/* 입력 · 고르기 칸: 평평한 밝은 칸 + 선 */
+html:not([data-theme="dark"]) :is(.input, .select, .textarea, input[type="text"], input[type="search"], input[type="date"], input[type="number"], input[type="password"], input[type="email"], select, textarea) { background: var(--nm-field); border: 1px solid var(--v8-line-2) !important; box-shadow: none; }
+html:not([data-theme="dark"]) :is(.input, .select, .textarea, input, select, textarea):focus { border-color: var(--v9-ink) !important; box-shadow: 0 0 0 3px color-mix(in srgb, var(--v9-accent) 22%, transparent) !important; }
+/* 작은 버튼 · 칩: 평평 */
+html:not([data-theme="dark"]) :is(.btn-outline, .btn-ghost, .icon-btn, .quick-btn, .chip, .dock-fold, .btn-blue, .btn-yellow, .send-btn):not(.btn-primary):not(.new-btn) { background: var(--nm-field); border: 1px solid var(--v8-line-2) !important; box-shadow: none !important; }
+html:not([data-theme="dark"]) :is(.btn-outline, .btn-ghost, .icon-btn, .quick-btn, .chip, .btn-blue, .btn-yellow, .send-btn):not(.btn-primary):not(.new-btn):hover:not(:disabled) { background: #fff; border-color: var(--v9-ink) !important; box-shadow: none !important; }
+html:not([data-theme="dark"]) :is(.btn, .icon-btn, .quick-btn, .chip):active { box-shadow: none; }
+html:not([data-theme="dark"]) :is(.chip.active, .chip.on, .ads-subnav button.active) { background: var(--v9-ink) !important; color: #fff !important; border-color: var(--v9-ink) !important; box-shadow: none !important; }
+/* 구간 고르기: 평평한 회색 홈 + 흰 칸 */
+html:not([data-theme="dark"]) :is(.ads-segment, .seg, .right-tabs, .ads-nav) { background: var(--nm-flat); box-shadow: none; }
+html:not([data-theme="dark"]) :is(.ads-segment, .seg, .right-tabs) button:is(.active, .on), html:not([data-theme="dark"]) .ads-nav button.active { box-shadow: 0 1px 2px rgba(120, 128, 148, .35) !important; }
+/* 카드 안의 카드 · 표 묶음 · 줄: 평평 */
+html:not([data-theme="dark"]) :is(.box, .stat, .kpi, .card, .dash-card, .section, .panel, .week-day, .sales-pipe, .weekly-box, details.box, .main) :is(.box, .stat, .kpi, .card, .board-wrap, .guide-card, .form-grid, .note, .section, .panel, .tile, .list-card, .sales-pipe-step, .ledger-kpi, .rd-kpi, .myproj-card, .ai-card, .gov-tile, .dash-day, .week-day) { box-shadow: none; border: 1px solid var(--v8-line) !important; }
+html:not([data-theme="dark"]) .board-wrap { box-shadow: none; border: 1px solid var(--v8-line); background: var(--nm-field); }
+html:not([data-theme="dark"]) .dash-body { box-shadow: none; background: transparent; }
+html:not([data-theme="dark"]) :is(.week-item, .dash-ev, .dash-d, .chat-day) { background: var(--nm-flat); box-shadow: none; }
+html:not([data-theme="dark"]) :is(.meter, .pc-bar, .dash-prog, .dash-vbar-track) { background: var(--nm-flat); box-shadow: none; }
+html:not([data-theme="dark"]) .dash-flow-col i:not([class]), html:not([data-theme="dark"]) .dash-flow-col i[class=''] { background: var(--nm-flat); box-shadow: none; }
+html:not([data-theme="dark"]) :is(.badge.red, .badge.late, .tag.red) { box-shadow: none; }
+html:not([data-theme="dark"]) .app-page .profile :is(.side-n, .side-item .count), html:not([data-theme="dark"]) .section-head .count, html:not([data-theme="dark"]) .side-n { box-shadow: none !important; }
+html:not([data-theme="dark"]) .app-page .profile .mini-cal { box-shadow: none; border: 0 !important; background: transparent !important; }
+html:not([data-theme="dark"]) .dash-kpi-ic { box-shadow: none; background: var(--nm-flat); }
+html:not([data-theme="dark"]) .dash-kpi.is-key .dash-kpi-ic { background: var(--v9-ink); box-shadow: var(--nm-neon-sm); }
+/* 채팅: 목록 · 입력 칸 평평 */
+html:not([data-theme="dark"]) .pane-list.chat-list { box-shadow: none; border-right: 1px solid var(--v8-line); }
+html:not([data-theme="dark"]) :is(.pane-list.chat-list, .chat-dock-in) :is(a.item, button.item, .q2-room):is(.active, .on) { background: var(--nm-flat); box-shadow: none; }
+html:not([data-theme="dark"]) :is(.quick-composer, .chat-composer, .composer) { background: var(--nm-field); border: 1px solid var(--v8-line-2); box-shadow: none; }
+html:not([data-theme="dark"]) .bubble { box-shadow: none; border: 1px solid var(--v8-line); background: var(--nm-field); }
+html:not([data-theme="dark"]) :is(.bubble.mine, .msg.mine .bubble) { box-shadow: none; border-color: transparent; }
+html:not([data-theme="dark"]) button.item:is(.active, .on) { box-shadow: none; background: var(--nm-flat); }
+@media (max-width: 760px) { html:not([data-theme="dark"]) .m-nav > .on { box-shadow: none; background: var(--nm-flat) !important; } html:not([data-theme="dark"]) .m-more-grid > a { box-shadow: none; border: 1px solid var(--v8-line); } }
