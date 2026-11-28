@@ -1,0 +1,118 @@
+/* ================================================================================
+   WKLY 디자인 v9 — 모노톤 + 네온 (대표 지시 2026-11-28 '이것들을 조합해서 디자인잡아 · 인트라넷 디자인 전체를 변경해 · 모노톤과 네온 효과를 잘 사용해봐')
+   - 대표가 고른 참고 화면 넷: 회색 바탕 위 흰 카드 · 먹색 주 버튼 · 얇은 선 · 작은 대문자식 이름표 · 먹색 막대 그래프 · 네온 초록 한 점 · 빛나는 테두리
+   - 바탕은 계속 밝게(어두운 화면 아님). 색은 회색 계열 하나 + 네온 초록(--neon) 하나. 빨강은 지연 · 경고에만
+   - v8(refresh.css)의 토큰(--v8-*)을 다시 정해 전체에 퍼지게 함. main.tsx 에서 이 import 한 줄을 빼면 v8 로 돌아감
+   - '화면 어둡게'(data-theme=dark)는 건드리지 않음
+   - 네온은 글자 색으로 쓰지 않음(흰 바탕에서 안 읽힘) — 빛(그림자) · 작은 점 · 먹색 바탕 위 글자에만
+   ================================================================================ */
+html:not([data-theme="dark"]) {
+  --v8-bg: #f1f1ef;
+  --v8-card: #ffffff;
+  --v8-line: #e6e6e3;
+  --v8-line-2: #d8d8d4;
+  --v8-ink: #0f0f0f;
+  --v8-text: #1b1b1b;
+  --v8-sub: #5e5e5b;
+  --v8-green: #141414;        /* 주 버튼 · 고른 것 = 먹색 */
+  --v8-green-hover: #2c2c2c;
+  --v8-tint: #ebebe8;
+  --v8-hover: #e8e8e5;
+  --v8-shadow: 0 1px 2px rgba(15, 15, 15, .04), 0 4px 14px rgba(15, 15, 15, .04);
+  --v8-shadow-pop: 0 10px 30px rgba(15, 15, 15, .16);
+  --tx-title: #0f0f0f;
+  --tx-body: #1b1b1b;
+  --tx-sub: #5e5e5b;
+  --tx-key: #141414;
+  --paper: #f7f7f5;
+  --green: #141414;
+  --yellow: #ebebe8;
+  --acid: #e3e3df;
+  --neon: #5dff7b;
+  --neon-ink: #0b3d18;        /* 네온 바탕 위 글자 */
+  --neon-glow: 0 0 0 1px rgba(93, 255, 123, .9), 0 0 14px rgba(93, 255, 123, .55);
+  --neon-soft: 0 0 0 3px rgba(93, 255, 123, .28);
+}
+
+/* 로고도 먹색 */
+html:not([data-theme="dark"]) .top-logo .logo-ink, html:not([data-theme="dark"]) .profile-logo img { filter: brightness(0) !important; }
+
+/* ---------- 카드: 얇은 선 · 그림자 거의 없이 ---------- */
+html:not([data-theme="dark"]) :is(.box, .stat, .kpi, .card, .home-kpi, .dash-card, .dash-kpi, .today-card, .checkin-card, .brief, .rd-box) { border-color: var(--v8-line); box-shadow: none; }
+
+/* ---------- 버튼 ---------- */
+html:not([data-theme="dark"]) :is(.btn-primary, .new-btn, .today-ok) { background: #141414 !important; border-color: #141414 !important; color: #fff !important; box-shadow: none; transition: box-shadow .15s, transform .05s; }
+html:not([data-theme="dark"]) :is(.btn-primary, .new-btn, .today-ok):hover:not(:disabled) { background: #000 !important; box-shadow: var(--neon-glow); }
+html:not([data-theme="dark"]) :is(.btn-primary, .new-btn, .today-ok):active:not(:disabled) { transform: translateY(1px); }
+html:not([data-theme="dark"]) :is(.btn-primary, .new-btn) svg { color: var(--neon); }
+html:not([data-theme="dark"]) :is(.btn-outline, .btn-ghost):hover:not(:disabled) { border-color: #141414; color: #141414; background: #fff; }
+
+/* 초점: 네온 테 */
+html:not([data-theme="dark"]) :is(.btn, .chip, .tab, .icon-btn, .side-item, a, button, summary):focus-visible { outline: 2px solid var(--neon) !important; outline-offset: 2px; }
+html:not([data-theme="dark"]) :is(.input, .select, .textarea, input[type="text"], input[type="search"], input[type="date"], input[type="number"], input[type="password"], input[type="email"], select, textarea):focus { border-color: #141414 !important; box-shadow: var(--neon-soft) !important; outline: 0; }
+
+/* ---------- 왼쪽 메뉴: 고른 줄 = 흰 칸 + 네온 점 ---------- */
+html:not([data-theme="dark"]) .app-page .profile .side-item.on { background: #fff; color: #0f0f0f; box-shadow: 0 0 0 1px var(--v8-line); position: relative; }
+html:not([data-theme="dark"]) .app-page .profile .side-item.on > svg { color: #0f0f0f; }
+html:not([data-theme="dark"]) .app-page .profile .side-item.on::after { content: ''; position: absolute; right: 9px; top: 50%; width: 6px; height: 6px; margin-top: -3px; border-radius: 50%; background: var(--neon); box-shadow: 0 0 8px var(--neon); }
+html:not([data-theme="dark"]) .app-page .profile .side-item.on.has-n::after { display: none; }
+html:not([data-theme="dark"]) .side-group-label { color: var(--v8-sub) !important; letter-spacing: .02em; }
+
+/* ---------- 칩 · 탭: 고른 것 = 먹색 알약 ---------- */
+html:not([data-theme="dark"]) :is(.chip.active, .chip.on, .seg button.on, .right-tabs button.on) { background: #141414 !important; border-color: #141414 !important; color: #fff !important; box-shadow: none !important; }
+html:not([data-theme="dark"]) .tab.active, html:not([data-theme="dark"]) .tab.on { color: #0f0f0f; border-bottom-color: #0f0f0f; box-shadow: 0 2px 0 -1px var(--neon); }
+
+/* ---------- 배지 · 숫자 동그라미 ---------- */
+html:not([data-theme="dark"]) .side-n, html:not([data-theme="dark"]) .board-count, html:not([data-theme="dark"]) .section-head .count { background: #141414; color: var(--neon); }
+html:not([data-theme="dark"]) .topbar .mode-badge { background: #141414; color: var(--neon); }
+
+/* ---------- 표: 머리 줄은 작은 이름표처럼 ---------- */
+html:not([data-theme="dark"]) :is(.table, .board, .pay-grid) thead th { background: #f7f7f5; color: var(--v8-sub); font-weight: 400; letter-spacing: .02em; border-bottom: 1px solid var(--v8-line); }
+html:not([data-theme="dark"]) :is(.table, .board) tbody tr:hover { background: #f7f7f5; }
+
+/* ---------- 진행 막대 · 미터 ---------- */
+html:not([data-theme="dark"]) :is(.meter > *, .pc-bar > i, .dash-prog i, .g-bar) { background-color: #141414; }
+
+/* ---------- 섹션 제목 앞 막대: 네온 ---------- */
+html:not([data-theme="dark"]) .section-head::before, html:not([data-theme="dark"]) .sec-head::before { background: #141414; box-shadow: 2px 0 0 var(--neon); }
+
+/* ---------- 위쪽 바 ---------- */
+html:not([data-theme="dark"]) .app-page .topbar { border-bottom-color: var(--v8-line); }
+html:not([data-theme="dark"]) .topbar :is(.top-ai, .one-box) svg { color: #141414; }
+
+/* ---------- 채팅: 내 말풍선 먹색 ---------- */
+html:not([data-theme="dark"]) .bubble.mine, html:not([data-theme="dark"]) .msg.mine .bubble { background: #141414; color: #fff; }
+
+/* ---------- 달력 오늘 · 고른 날 ---------- */
+html:not([data-theme="dark"]) :is(.mini-cal .today, .mini-cal-day.today, .cal-today) { box-shadow: var(--neon-glow); }
+
+/* ================= 홈 대시보드 (참고 화면 구성) ================= */
+html:not([data-theme="dark"]) .dash-kpi { grid-template-areas: 'label label' 'num ico' 'foot foot'; grid-template-columns: 1fr auto; padding: 0; overflow: hidden; background: #f7f7f5; gap: 0; }
+html:not([data-theme="dark"]) .dash-kpi > * { background: #fff; }
+html:not([data-theme="dark"]) .dash-kpi-l { padding: 12px 14px 2px; letter-spacing: .04em; }
+html:not([data-theme="dark"]) .dash-kpi b { padding: 0 14px 12px; font-family: var(--mono), var(--font); letter-spacing: -0.5px; border-radius: 0 0 0 11px; }
+html:not([data-theme="dark"]) .dash-ico { width: auto; height: 100%; padding: 0 14px 12px; border-radius: 0 0 11px 0; background: #fff !important; color: #141414 !important; align-items: end; }
+html:not([data-theme="dark"]) .dash-kpi .dash-kpi-foot { grid-area: foot; background: transparent; color: var(--v8-sub); font-size: var(--fs-body); padding: 6px 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html:not([data-theme="dark"]) .dash-kpi.is-key { box-shadow: var(--neon-glow); border-color: transparent; }
+html:not([data-theme="dark"]) .dash-kpi.is-key .dash-ico { color: #141414 !important; }
+html:not([data-theme="dark"]) .dash-kpi.bad b { color: var(--red, #c0392b); }
+html:not([data-theme="dark"]) .dash-card { padding: 0; background: #f7f7f5; overflow: hidden; }
+html:not([data-theme="dark"]) .dash-card > .section-head, html:not([data-theme="dark"]) .dash-card > :first-child { margin: 0; padding: 10px 14px; }
+html:not([data-theme="dark"]) .dash-card > .dash-body { background: #fff; border: 1px solid var(--v8-line); border-radius: 10px; margin: 0 6px 6px; padding: 12px 14px; }
+html:not([data-theme="dark"]) .s-active { background: #141414; }
+html:not([data-theme="dark"]) .s-inq { background: #8d8d89; }
+html:not([data-theme="dark"]) .s-done { background: #c9c9c5; }
+html:not([data-theme="dark"]) .s-other { background: #e6e6e3; }
+html:not([data-theme="dark"]) .dash-day.is-today { border-color: #141414; box-shadow: var(--neon-glow); }
+html:not([data-theme="dark"]) .dash-ev { background: #f1f1ef; }
+html:not([data-theme="dark"]) .dash-ev.e-start { background: #141414; color: #fff; }
+html:not([data-theme="dark"]) .dash-ev.e-end { background: #fff; color: #141414; box-shadow: inset 0 0 0 1px #141414; }
+html:not([data-theme="dark"]) .dash-d.soon { background: #141414; color: var(--neon); }
+html:not([data-theme="dark"]) .dash-dot { background: #141414 !important; }
+html:not([data-theme="dark"]) .dash-head h1 { letter-spacing: -0.02em; }
+
+/* 비서 단추 · 채팅 칸 구분선도 모노톤 */
+html:not([data-theme="dark"]) .ast-fab { background: #141414 !important; color: #fff !important; box-shadow: var(--neon-glow) !important; }
+html:not([data-theme="dark"]) .ast-fab svg { color: var(--neon); }
+html:not([data-theme="dark"]) { --pink: #141414; }
+html:not([data-theme="dark"]) :is(.bell .count, .m-dot, .q2-badge) { background: #141414 !important; color: var(--neon) !important; }

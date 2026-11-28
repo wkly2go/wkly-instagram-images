@@ -32,7 +32,7 @@
 .ap-status.s-실패 { color: #b42318; font-weight: 700; }
 .ap-reason { margin: 0; color: var(--v8-text); }
 .ap-metrics { display: flex; flex-wrap: wrap; gap: 4px 12px; }
-.ap-result { margin: 0; padding: 6px 10px; border-radius: var(--v8-r-ctl); background: #f6f4ef; }
+.ap-result { margin: 0; padding: 6px 10px; border-radius: var(--v8-r-ctl); background: var(--v8-bg); }
 .ap-card-act { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .ap-modes { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; }
 .ap-mode { display: flex; flex-direction: column; gap: 4px; text-align: left; padding: 10px 12px; border-radius: var(--v8-r-ctl); border: 1px solid var(--v8-line); background: var(--v8-card); color: var(--v8-text); cursor: pointer; font: inherit; }

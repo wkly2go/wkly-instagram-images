@@ -41,17 +41,18 @@ export default function Dashboard() {
 
   const kpis = (
     <div className="dash-kpis" role="group" aria-label="오늘 숫자">
-      <Link to="/projects?view=list" className="dash-kpi"><span className="dash-ico k-proj"><FolderKanban size={15} /></span><span className="dash-kpi-l">진행 중</span><b>{k.active}</b></Link>
-      <Link to="/projects?view=list" className="dash-kpi"><span className="dash-ico k-inq"><Inbox size={15} /></span><span className="dash-kpi-l">문의 · 상담</span><b>{k.inquiry}</b></Link>
-      <Link to="/projects?view=tasks" className="dash-kpi"><span className="dash-ico k-today"><CalendarClock size={15} /></span><span className="dash-kpi-l">오늘 마감</span><b>{k.dueToday}</b></Link>
-      <Link to="/projects?view=tasks" className={`dash-kpi${k.late ? ' bad' : ''}`}><span className="dash-ico k-late"><AlarmClock size={15} /></span><span className="dash-kpi-l">지연</span><b>{k.late}</b></Link>
-      <Link to="/approvals" className="dash-kpi"><span className="dash-ico k-appr"><FileCheck2 size={15} /></span><span className="dash-kpi-l">결재 대기</span><b>{waiting}</b></Link>
-      <Link to="/team" className="dash-kpi"><span className="dash-ico k-done"><CheckCheck size={15} /></span><span className="dash-kpi-l">7일간 끝낸 일</span><b>{k.doneWeek}</b></Link>
+      <Link to="/projects?view=list" className="dash-kpi is-key"><span className="dash-ico k-proj"><FolderKanban size={15} /></span><span className="dash-kpi-l">진행 중</span><b>{k.active}</b><span className="dash-kpi-foot">{`전체 ${data.projects.length}개 중`}</span></Link>
+      <Link to="/projects?view=list" className="dash-kpi"><span className="dash-ico k-inq"><Inbox size={15} /></span><span className="dash-kpi-l">문의 · 상담</span><b>{k.inquiry}</b><span className="dash-kpi-foot">상담 · 견적 단계</span></Link>
+      <Link to="/projects?view=tasks" className="dash-kpi"><span className="dash-ico k-today"><CalendarClock size={15} /></span><span className="dash-kpi-l">오늘 마감</span><b>{k.dueToday}</b><span className="dash-kpi-foot">{`앞으로 7일 ${k.week}건`}</span></Link>
+      <Link to="/projects?view=tasks" className={`dash-kpi${k.late ? ' bad' : ''}`}><span className="dash-ico k-late"><AlarmClock size={15} /></span><span className="dash-kpi-l">지연</span><b>{k.late}</b><span className="dash-kpi-foot">{k.late ? '마감이 지난 할 일' : '지연 없음'}</span></Link>
+      <Link to="/approvals" className="dash-kpi"><span className="dash-ico k-appr"><FileCheck2 size={15} /></span><span className="dash-kpi-l">결재 대기</span><b>{waiting}</b><span className="dash-kpi-foot">승인을 기다리는 결재</span></Link>
+      <Link to="/team" className="dash-kpi"><span className="dash-ico k-done"><CheckCheck size={15} /></span><span className="dash-kpi-l">7일간 끝낸 일</span><b>{k.doneWeek}</b><span className="dash-kpi-foot">지난 7일 완료</span></Link>
     </div>
   )
   const divisionCard = (
     <section className="dash-card" aria-label="구분별 프로젝트">
       <SectionHead title="구분별 프로젝트" right={<Link to="/projects?view=list">전체 보기 ›</Link>} />
+      <div className="dash-body">
       <div className="dash-legend"><i className="s-active" />진행 <i className="s-inq" />문의 <i className="s-done" />완료 <i className="s-other" />그 밖</div>
       {divs.map(d => (
         <div key={d.div} className="dash-bar-row">
@@ -65,11 +66,13 @@ export default function Dashboard() {
           <span className="dash-bar-n"><b>{d.active}</b> / {d.total}</span>
         </div>
       ))}
+      </div>
     </section>
   )
   const loadCard = (
     <section className="dash-card" aria-label="팀원별 업무량">
       <SectionHead title="팀원별 업무량" right={<Link to="/projects?view=tasks">할 일 보기 ›</Link>} />
+      <div className="dash-body">
       {load.length === 0 && <p className="dash-empty">{loading ? '불러오는 중…' : '팀원이 없습니다.'}</p>}
       {load.map(r => (
         <div key={r.id} className="dash-bar-row">
@@ -81,11 +84,13 @@ export default function Dashboard() {
           <span className="dash-bar-n"><b>{r.open}</b>{r.late ? <em> · 지연 {r.late}</em> : ''}</span>
         </div>
       ))}
+      </div>
     </section>
   )
   const weekCard = (
     <section className="dash-card dash-week-card" aria-label="앞으로 7일">
       <SectionHead title="앞으로 7일" right={<Link to="/projects?view=calendar">달력으로 ›</Link>} />
+      <div className="dash-body">
       <div className="dash-week">
         {week.map(d => (
           <div key={d.date} className={`dash-day${d.date === today ? ' is-today' : ''}${[0, 6].includes(dow(d.date)) ? ' is-rest' : ''}`}>
@@ -100,11 +105,13 @@ export default function Dashboard() {
           </div>
         ))}
       </div>
+      </div>
     </section>
   )
   const nearCard = (
     <section className="dash-card" aria-label="마감이 가까운 프로젝트">
       <SectionHead title="마감이 가까운 프로젝트" right={<Link to="/projects?view=list">전체 보기 ›</Link>} />
+      <div className="dash-body">
       {near.length === 0 && <p className="dash-empty">{loading ? '불러오는 중…' : '끝나는 날이 정해진 진행 프로젝트가 없습니다.'}</p>}
       {near.map(p => (
         <Link key={p.id} to={`/projects?id=${p.id}`} className="dash-near">
@@ -117,6 +124,7 @@ export default function Dashboard() {
           <span className="dash-near-meta">{p.code} · 진행 {p.progress}% · 남은 일 {p.openTasks}건{p.lateTasks ? <em> · 지연 {p.lateTasks}</em> : null}</span>
         </Link>
       ))}
+      </div>
     </section>
   )
   const cardsBlock = active.length > 0 && (

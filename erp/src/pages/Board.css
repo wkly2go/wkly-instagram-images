@@ -32,7 +32,7 @@
 
 /* 프로젝트 화면 안에서 바로 열기 · 전체 화면 · 피그마 불러오기 (2026-11-27) */
 .board-page.embedded { height: min(76vh, 820px); min-height: 460px; margin-top: 10px; position: relative; }
-.board-page.is-full { height: 100vh; min-height: 0; padding: 10px 12px; background: var(--v8-bg, #f6f4ef); margin: 0; }
+.board-page.is-full { height: 100vh; min-height: 0; padding: 10px 12px; background: var(--v8-bg, var(--v8-bg)); margin: 0; }
 .board-page .board-full { margin-left: 2px; }
 .pboards-row.open .pboards-item { border-color: var(--tx-key); box-shadow: inset 0 0 0 1px var(--tx-key); background: #f2f8f4; }
 .pboards-full { position: absolute; top: 6px; right: 34px; }
@@ -82,7 +82,7 @@ button.pboards-item { padding-right: 120px; }
 .board-map-head b { font-weight: 700; color: var(--tx-title); }
 .board-map-head button { border: 0; background: none; font: inherit; color: var(--tx-key); cursor: pointer; padding: 0 4px; }
 .board-map canvas { display: block; border-radius: 6px; cursor: pointer; touch-action: none; }
-.board-mapbtn.on { color: var(--tx-key); background: var(--v8-tint, #e7f2ec); }
+.board-mapbtn.on { color: var(--tx-key); background: var(--v8-tint, var(--v8-tint)); }
 @media (max-width: 760px) { .board-map { top: 112px; right: 8px; } }
 
 /* 페이지 줄 (2026-11-28) — 슬라이드 · A4 페이지 목록과 추가 */

@@ -3,12 +3,12 @@
 .ptalk-fold { background: none; border: 0; color: var(--tx-key); font: inherit; cursor: pointer; padding: 2px 4px; }
 .ptalk .chips { margin: 4px 0 8px; }
 .ptalk-days { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; max-height: 560px; overflow-y: auto; }
-.ptalk-days > li > h4 { position: sticky; top: 0; margin: 0; padding: 4px 0; background: var(--v8-bg, #f6f4ef); color: var(--tx-sub); font-size: var(--fs-body); font-weight: 700; z-index: 1; }
+.ptalk-days > li > h4 { position: sticky; top: 0; margin: 0; padding: 4px 0; background: var(--v8-bg, var(--v8-bg)); color: var(--tx-sub); font-size: var(--fs-body); font-weight: 700; z-index: 1; }
 .ptalk-days ul { list-style: none; margin: 0; padding: 0; }
 .ptalk-row { display: grid; grid-template-columns: auto auto auto 1fr; align-items: baseline; gap: 4px 8px; padding: 6px 4px; border-top: 1px solid var(--line); color: inherit; text-decoration: none; }
 a.ptalk-row:hover { background: #f7faf7; }
 .ptalk-src { padding: 0 8px; border-radius: 999px !important; background: #eef0ec; color: #535c56; white-space: nowrap; }
-.ptalk-src.s-인트라넷 { background: #e3f1e8; color: #1f6b4a; }
+.ptalk-src.s-인트라넷 { background: var(--v8-tint); color: var(--v8-green); }
 .ptalk-src.s-슬랙 { background: #efe6f7; color: #5b2f86; }
 .ptalk-src.s-카톡 { background: #fbf0c9; color: #6b5200; }
 .ptalk-src.s-메일 { background: #e6eefb; color: #1f4f8f; }

@@ -8,4 +8,4 @@
 .sales-strategy-howto li{border:1px solid #dce3dc;background:#f6f8f3;padding:12px 14px;display:grid;gap:4px}
 .sales-strategy-howto span{color:#4d5a50;font-size:var(--fs-body)}
 @media(max-width:800px){.sales-strategy-howto{grid-template-columns:1fr}}
-.sales-email-preview iframe{display:block;width:100%;max-width:680px;height:720px;border:1px solid #dce3dc;background:#f6f4ef}
+.sales-email-preview iframe{display:block;width:100%;max-width:680px;height:720px;border:1px solid #dce3dc;background:var(--v8-bg)}

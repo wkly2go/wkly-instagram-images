@@ -99,8 +99,8 @@ html:not([data-theme="dark"]) .app-page .profile .side-item.on { background: #ff
 html:not([data-theme="dark"]) .app-page .profile .side-item.on > svg { color: var(--v8-green); }
 .app-page .profile .side-item.on::before, .side-item.on::before { display: none; }
 /* 주 메뉴 묶음 이름 (2026-11-17 대표 지시 '주 메뉴가 더 볼드하게 다른 색으로'): 짙은 초록 · 가장 굵게 · 한 단계 크게 → 아래 메뉴 줄(먹색 보통 굵기)과 구분 */
-html:not([data-theme="dark"]) .app-page .profile .side-group-label { color: #155338; font-weight: 800; font-size: var(--fs-sm); letter-spacing: -0.01em; padding-top: 6px; }
-html:not([data-theme="dark"]) .app-page .profile button.side-group-label > svg { color: #155338; stroke-width: 2.6; }
+html:not([data-theme="dark"]) .app-page .profile .side-group-label { color: var(--v8-green-hover); font-weight: 800; font-size: var(--fs-sm); letter-spacing: -0.01em; padding-top: 6px; }
+html:not([data-theme="dark"]) .app-page .profile button.side-group-label > svg { color: var(--v8-green-hover); stroke-width: 2.6; }
 html:not([data-theme="dark"]) .app-page .profile button.side-group-label:hover { color: var(--v8-green); }
 html:not([data-theme="dark"]) .app-page .profile .new-btn { background: var(--v8-green); border-color: var(--v8-green); color: #fff; font-weight: 700; }
 html:not([data-theme="dark"]) .app-page .profile .new-btn:hover { background: var(--v8-green-hover); }
@@ -263,7 +263,7 @@ html[data-topbar-event="birthday"] .tb-deco::after { background: linear-gradient
 
 /* 크리스마스(11/25~12/25): 눈 + 지팡이 사탕 띠 */
 .tb-christmas { background: #fdecef; color: #a3162f; }
-.tb-christmas svg { color: #1f6b4a; }
+.tb-christmas svg { color: var(--v8-green); }
 html[data-topbar-event="christmas"] .tb-deco { background: linear-gradient(90deg, transparent 45%, rgba(196, 30, 58, .05)); }
 html[data-topbar-event="christmas"] .tb-deco::before {
   background-image: radial-gradient(circle, #c5d4e3 0 2px, transparent 2.5px), radial-gradient(circle, #d7e2ee 0 1.5px, transparent 2px), radial-gradient(circle, #b8c9db 0 1px, transparent 1.5px);
@@ -271,7 +271,7 @@ html[data-topbar-event="christmas"] .tb-deco::before {
   background-position: 0 0, 15px 10px, 8px 4px;
   animation: tb-snow 12s linear infinite;
 }
-html[data-topbar-event="christmas"] .tb-deco::after { background: repeating-linear-gradient(135deg, #c41e3a 0 8px, #fff 8px 14px, #1f6b4a 14px 22px, #fff 22px 28px); }
+html[data-topbar-event="christmas"] .tb-deco::after { background: repeating-linear-gradient(135deg, #c41e3a 0 8px, #fff 8px 14px, var(--v8-green) 14px 22px, #fff 22px 28px); }
 @keyframes tb-snow { to { background-position: 10px 46px, 5px 70px, 12px 48px; } }
 
 /* 새해 · 연말: 금빛 반짝임 */
@@ -555,7 +555,7 @@ html[data-theme="dark"] .home-kpi-tile { background: rgba(255, 255, 255, .08) !i
 .task-inline-sel, .task-inline-date { border: 1px solid transparent; background: transparent; font: inherit; color: inherit; padding: 2px 4px; border-radius: 6px; max-width: 100%; cursor: pointer; }
 .task-inline-sel { appearance: none; -webkit-appearance: none; text-overflow: ellipsis; }
 .task-inline-sel:hover, .task-inline-date:hover, .task-inline-sel:focus, .task-inline-date:focus { border-color: var(--v8-line-2, #d9dde3); background: #fff; outline: none; }
-.task-inline-go { color: var(--tx-key, #1f6b4a); padding: 0 4px; }
+.task-inline-go { color: var(--tx-key, var(--v8-green)); padding: 0 4px; }
 .task-inline-title { border: 0; background: none; padding: 0; font: inherit; color: inherit; text-align: left; cursor: text; }
 .task-inline-title:hover { text-decoration: underline dotted; text-underline-offset: 3px; }
 .task-inline-input { width: 100%; padding: 4px 6px; }
@@ -584,13 +584,13 @@ td > .task-inline-sel, td .task-inline-sel:only-child { min-width: 76px; }
 /* 문서 읽기 (2026-11-18 '가독성을 고려해서 문서를 만들어') — 보고서 · 결재 문서 공통 */
 .report { line-height: 1.75; color: var(--tx-body, #222a25); }
 .report .report-title { margin: 0 0 2px; font-size: var(--fs-sub); font-weight: 800; color: var(--tx-title, #151d18); }
-.report .report-h { margin: 14px 0 2px; padding-left: 10px; border-left: 3px solid var(--tx-key, #1f6b4a); font-size: var(--fs-sub); font-weight: 700; color: var(--tx-title, #151d18); }
+.report .report-h { margin: 14px 0 2px; padding-left: 10px; border-left: 3px solid var(--tx-key, var(--v8-green)); font-size: var(--fs-sub); font-weight: 700; color: var(--tx-title, #151d18); }
 .report .report-p { margin: 0; font-size: var(--fs-body); white-space: pre-wrap; }
 .report .report-list { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; font-size: var(--fs-body); }
-.report .report-list li::marker { color: var(--tx-key, #1f6b4a); }
+.report .report-list li::marker { color: var(--tx-key, var(--v8-green)); }
 .report .report-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; font-size: var(--fs-body); }
 .report .report-steps li { display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 8px; align-items: start; }
-.report .report-step-n { width: 22px; height: 22px; border-radius: 50% !important; background: var(--v8-tint, #e8f2ec); color: var(--tx-key, #1f6b4a); font-weight: 700; display: inline-flex; align-items: center; justify-content: center; margin-top: 2px; }
+.report .report-step-n { width: 22px; height: 22px; border-radius: 50% !important; background: var(--v8-tint, #e8f2ec); color: var(--tx-key, var(--v8-green)); font-weight: 700; display: inline-flex; align-items: center; justify-content: center; margin-top: 2px; }
 .report .report-kv { font-size: var(--fs-body); }
 .report b { font-weight: 700; color: var(--tx-title, #151d18); }
 .report-table-wrap { overflow-x: auto; }
@@ -603,7 +603,7 @@ td > .task-inline-sel, td .task-inline-sel:only-child { min-width: 76px; }
 .dock-todo-h { cursor: default; }
 .dock-mode { display: inline-flex; gap: 2px; background: rgba(255,255,255,.6); border-radius: 999px; padding: 2px; }
 .dock-mode > button { display: inline-flex; align-items: center; gap: 5px; border: 0; background: transparent; padding: 4px 10px; border-radius: 999px !important; font: inherit; font-size: var(--fs-body); color: var(--tx-sub, #535c56); cursor: pointer; white-space: nowrap; }
-.dock-mode > button.on { background: #fff; color: var(--v8-green, #1f6b4a); font-weight: 700; box-shadow: 0 1px 2px rgba(21,29,24,.08); }
+.dock-mode > button.on { background: #fff; color: var(--v8-green, var(--v8-green)); font-weight: 700; box-shadow: 0 1px 2px rgba(21,29,24,.08); }
 .dock-cal { padding: 6px 8px 10px; }
 .dock-cal .mini-cal { margin: 0; }
 
@@ -616,9 +616,9 @@ td > .task-inline-sel, td .task-inline-sel:only-child { min-width: 76px; }
 .admin-report-list > li.open .doc-panel { margin: 0 8px 10px; }
 
 /* 사용 안내 카드 (2026-11-19 · 비서 안내 · 사용법 화면) */
-.guide-card { display: grid; gap: 8px; margin-top: 8px; padding: 12px 14px; background: #f3f8f4; border: 1px solid var(--v8-line-2, #e2ded5); border-left: 3px solid var(--tx-key, #1f6b4a); border-radius: 10px; white-space: normal; text-align: left; }
+.guide-card { display: grid; gap: 8px; margin-top: 8px; padding: 12px 14px; background: #f3f8f4; border: 1px solid var(--v8-line-2, #e2ded5); border-left: 3px solid var(--tx-key, var(--v8-green)); border-radius: 10px; white-space: normal; text-align: left; }
 .guide-card-h { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: baseline; justify-content: space-between; }
-.guide-go { color: var(--tx-key, #1f6b4a); font-weight: 700; }
+.guide-go { color: var(--tx-key, var(--v8-green)); font-weight: 700; }
 .guide-steps { margin: 0; padding-left: 20px; display: grid; gap: 4px; font-size: var(--fs-body); line-height: 1.55; }
 .guide-media { display: grid; gap: 6px; }
 .guide-media img, .guide-media video { display: block; width: 100%; max-width: 720px; border-radius: 8px; border: 1px solid var(--v8-line-2, #e2ded5); background: #fff; }

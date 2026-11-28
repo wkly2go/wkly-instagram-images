@@ -8,7 +8,7 @@
 .cap-row:hover { background: var(--v8-hover, #f1efe9); }
 .cap-row b { font-weight: 700; }
 .cap-bar { position: relative; height: 10px; border-radius: 999px; background: var(--v8-line, #ece9e2); overflow: visible; }
-.cap-bar > i { display: block; height: 100%; border-radius: 999px; background: var(--v8-green, #1f6b4a); }
+.cap-bar > i { display: block; height: 100%; border-radius: 999px; background: var(--v8-green, var(--v8-green)); }
 .cap-bar.low > i { background: #c9862b; }
 .cap-bar::after { content: ''; position: absolute; left: 80%; top: -3px; bottom: -3px; width: 2px; background: var(--tx-sub); opacity: .55; }
 .cap-score { font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; }
@@ -20,7 +20,7 @@
 .cap-metric { display: grid; grid-template-columns: minmax(150px, 1.2fr) 110px 52px minmax(160px, 2fr); gap: 10px; align-items: baseline; }
 .cap-metric .rule { color: var(--tx-sub); }
 .cap-items { display: flex; flex-wrap: wrap; gap: 5px; grid-column: 1 / -1; }
-.cap-chip { padding: 2px 9px; border-radius: 999px; background: var(--v8-tint, #e8f3ec); color: var(--tx-key); }
+.cap-chip { padding: 2px 9px; border-radius: 999px; background: var(--v8-tint, var(--v8-tint)); color: var(--tx-key); }
 .cap-chip.off { background: #f6e9e7; color: var(--red); }
 .cap-chip.half { background: #f7f0dd; color: #7a5a12; }
 .cap-list { border: 1px solid var(--v8-line, #ece9e2); border-radius: var(--v8-r-card, 12px); background: #fff; overflow: hidden; }

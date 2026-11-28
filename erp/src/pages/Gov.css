@@ -13,7 +13,7 @@
 .gov-table .gov-detail > td { padding: 0; background: #fbfaf6; }
 .gov-table td .cell-sub { display: block; color: var(--tx-sub, #535c56); }
 .gov-title { all: unset; cursor: pointer; font-weight: 700; color: var(--tx-title, #151d18); overflow-wrap: anywhere; }
-.gov-title:focus-visible { outline: 2px solid var(--v8-green, #1f6b4a); outline-offset: 2px; border-radius: 4px; }
+.gov-title:focus-visible { outline: 2px solid var(--v8-green, var(--v8-green)); outline-offset: 2px; border-radius: 4px; }
 .gov-fits { display: inline-flex; flex-wrap: wrap; gap: 4px; }
 .gov-status { min-width: 92px; }
 
@@ -40,7 +40,7 @@
 .gov-status, .gov-owner { width: auto; height: 30px; padding-top: 0; padding-bottom: 0; }
 .gov-views { margin-bottom: -2px; }
 .gov-plan { border: 1px solid var(--v8-line-2, #e2ded5); border-radius: var(--v8-r-card, 12px); background: var(--v8-card, #fff); padding: 10px 12px; }
-.gov-plan > summary { cursor: pointer; font-weight: 700; color: var(--tx-key, #1f6b4a); display: flex; align-items: center; gap: 6px; }
+.gov-plan > summary { cursor: pointer; font-weight: 700; color: var(--tx-key, var(--v8-green)); display: flex; align-items: center; gap: 6px; }
 .gov-plan[open] { display: grid; gap: 10px; }
 .gov-plan-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 8px 12px; }
 .gov-plan-form textarea, .gov-plan-sec textarea { width: 100%; resize: vertical; }
@@ -57,7 +57,7 @@
 .gov-ov-agent { margin: 0; }
 .gov-ask { gap: 8px; }
 .gov-chip-n { display: inline-block; min-width: 18px; margin-left: 6px; padding: 0 5px; border-radius: 9px; background: #c0392b; color: #fff; font-size: 12px; line-height: 18px; text-align: center; }
-.gov-sugs { display: grid; gap: 10px; padding: 12px 14px; background: #f3f8f4; border-left: 3px solid var(--tx-key, #1f6b4a); border-radius: 10px; }
+.gov-sugs { display: grid; gap: 10px; padding: 12px 14px; background: #f3f8f4; border-left: 3px solid var(--tx-key, var(--v8-green)); border-radius: 10px; }
 .gov-sugs h3 { margin: 0; font-size: var(--fs-sub); }
 .gov-sug { display: grid; gap: 8px; padding: 12px; background: #fff; border: 1px solid var(--v8-line-2, #e2ded5); border-radius: 10px; }
 .gov-sug p { margin: 0; }

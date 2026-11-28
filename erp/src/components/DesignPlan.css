@@ -115,13 +115,13 @@
 .dpc-grid { fill: none; stroke: #e6e2d9; stroke-width: 1; }
 .dpc-grid.a { opacity: 0.4; }
 .dpc-grid.b { opacity: 0.95; }
-.dpc-hatch { stroke: var(--dpw-green, #1f6b4a); stroke-width: 1; opacity: 0.42; }
+.dpc-hatch { stroke: var(--dpw-green, var(--v8-green)); stroke-width: 1; opacity: 0.42; }
 .dpc-fl { fill: none; stroke: rgba(59, 65, 60, 0.2); stroke-width: 7; }
 .dpc-fl.dot { stroke-width: 16; stroke-linecap: round; }
 .dpc-world :is(path, line, rect, circle, ellipse, polygon, polyline) { vector-effect: non-scaling-stroke; }
 .dpc-world.far .dpc-floor .pat { display: none; }
 .dpc-wall-old polygon { fill: #8d8980; stroke: #8d8980; stroke-width: 0.6px; stroke-linejoin: round; }
-.dpc-wall-new-edge polygon { fill: none; stroke: var(--dpw-green, #1f6b4a); stroke-width: 2.6px; stroke-linejoin: miter; }
+.dpc-wall-new-edge polygon { fill: none; stroke: var(--dpw-green, var(--v8-green)); stroke-width: 2.6px; stroke-linejoin: miter; }
 .dpc-wall-new polygon { fill: #f2f7f2; }
 .dpc-wall-new-hatch polygon { pointer-events: none; }
 .dpc-wall-sel polygon { fill: var(--pink); fill-opacity: 0.55; stroke: var(--pink); stroke-width: 1.6px; pointer-events: none; }
@@ -168,13 +168,13 @@
 .dpc-dim .tick { stroke: #4d534e; stroke-width: 1.6; }
 .dpc-dim text { fill: #3f4540; font-variant-numeric: tabular-nums; paint-order: stroke; stroke: #ffffff; stroke-width: 4px; stroke-linejoin: round; }
 .dpc-dim.in line { stroke: #a9b3aa; }
-.dpc-dim.in text { fill: var(--dpw-green, #1f6b4a); }
+.dpc-dim.in text { fill: var(--dpw-green, var(--v8-green)); }
 .dpc-dim.on line { stroke: var(--pink); }
 .dpc-dim.on text { fill: var(--pink); font-weight: 700; }
 .dpc-over .dpc-name { fill: #2c322d; paint-order: stroke; stroke: rgba(255, 255, 255, 0.82); stroke-width: 3px; stroke-linejoin: round; }
 .dpc-over .dpc-name.on { font-weight: 700; }
 .dpc-over .dpc-room { fill: #2c322d; font-size: var(--fs-sub); font-weight: 700; paint-order: stroke; stroke: rgba(255, 255, 255, 0.9); stroke-width: 4px; stroke-linejoin: round; }
-.dpc-over .dpc-area { fill: var(--dpw-green, #1f6b4a); font-size: var(--fs-sub); font-weight: 700; paint-order: stroke; stroke: rgba(255, 255, 255, 0.9); stroke-width: 4px; stroke-linejoin: round; }
+.dpc-over .dpc-area { fill: var(--dpw-green, var(--v8-green)); font-size: var(--fs-sub); font-weight: 700; paint-order: stroke; stroke: rgba(255, 255, 255, 0.9); stroke-width: 4px; stroke-linejoin: round; }
 .dpc-handle { fill: #ffffff; stroke: var(--pink); stroke-width: 2.5; cursor: grab; }
 .dpc-ghost rect { fill: var(--pink); fill-opacity: 0.12; stroke: var(--pink); stroke-width: 1.5; stroke-dasharray: 5 4; pointer-events: none; }
 .dpc-over .dpc-ghost text { fill: var(--pink); font-weight: 700; }
@@ -198,7 +198,7 @@
 .dpc-over .dpc-scale text { fill: #3f4540; }
 .dpc-coord { position: absolute; right: 8px; bottom: 6px; padding: 1px 8px; border-radius: 8px !important; background: rgba(255, 255, 255, 0.86); color: #535c56; font-size: var(--fs-body); font-variant-numeric: tabular-nums; pointer-events: none; }
 .dpc-empty { position: absolute; left: 50%; top: 50%; width: min(440px, calc(100% - 32px)); margin: 0; padding: 14px 18px; transform: translate(-50%, -50%); border: 1px dashed var(--v8-line-2, var(--line)); border-radius: 12px !important; background: rgba(255, 255, 255, 0.92); color: #535c56; font-size: var(--fs-body); line-height: 1.6; text-align: center; pointer-events: none; }
-.dpc-empty b { color: var(--dpw-green, #1f6b4a); font-weight: 700; }
+.dpc-empty b { color: var(--dpw-green, var(--v8-green)); font-weight: 700; }
 
 /* ── 댓글 ── */
 .dpn { display: flex; flex-direction: column; gap: 8px; }

@@ -78,7 +78,7 @@
 .design-steps-more i { position: absolute; top: 0; bottom: 0; width: 34px; display: flex; align-items: center; color: var(--blue); font-style: normal; }
 .design-steps-more.l i { left: 0; justify-content: flex-start; padding-left: 4px; background: linear-gradient(to right, var(--white) 45%, rgba(255, 255, 255, 0)); }
 .design-steps-more.r i { right: 0; justify-content: flex-end; padding-right: 4px; background: linear-gradient(to left, var(--white) 45%, rgba(255, 255, 255, 0)); }
-.design-steps-more:hover i { color: var(--tx-key, #1f6b4a); }
+.design-steps-more:hover i { color: var(--tx-key, var(--v8-green)); }
 .design-step:hover { background: var(--paper); }
 .design-step:focus-visible { outline: 2px solid var(--blue); outline-offset: -2px; }
 .design-step.on { border-bottom-color: var(--blue); background: var(--v8-accent-soft, var(--paper)); }
@@ -265,7 +265,7 @@ body:has(.modal-col) .design-step-nav { padding-right: 0; padding-left: 96px; }
 @media (min-width: 761px) { .design-steps { margin-top: 2px; box-shadow: 0 -14px 0 0 var(--white), 0 2px 8px rgba(21, 29, 24, 0.07); } }
 /* 1400px 이하: 프로젝트 한 줄이 두 줄로 넘어가지 않게 덜 중요한 글은 감춤 (프로젝트 고르기 칸에 이름이 있음) */
 @media (max-width: 1400px) and (min-width: 761px) { html[data-design-wide] .design-top-count, html[data-design-wide] .design-facts-who { display: none; } html[data-design-wide] .design-top .design-pick-select { flex-basis: 300px; } }
-.design-ref-find { border: 0; background: none; padding: 0; color: var(--tx-key, #1f6b4a); font: inherit; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.design-ref-find { border: 0; background: none; padding: 0; color: var(--tx-key, var(--v8-green)); font: inherit; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
 .design-suggest-row > td { background: #fbfaf6; }
 .design-suggest ul { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 6px; }
 .design-suggest li { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; align-items: baseline; }
@@ -277,5 +277,5 @@ body:has(.modal-col) .design-step-nav { padding-right: 0; padding-left: 96px; }
 .design-refpick li.t-cap { padding: 6px 10px; }
 .design-refpick li button { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; width: 100%; padding: 7px 10px; border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
 .design-refpick li button:hover, .design-refpick li button:focus-visible { background: #f3f8f4; }
-.design-refpick li button b { flex: none; min-width: 92px; color: var(--tx-key, #1f6b4a); }
+.design-refpick li button b { flex: none; min-width: 92px; color: var(--tx-key, var(--v8-green)); }
 .design-refpick li button .num { margin-left: auto; font-weight: 700; white-space: nowrap; }

@@ -122,8 +122,8 @@
 /* 웹 문의함: 수신 동의 / 미동의 두 묶음 (2026-11-17 대표 지시) */
 .sales-inq-part + .sales-inq-part { margin-top: 16px; }
 .sales-inq-part > h3 { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin: 10px 0 0; padding: 6px 10px; border-radius: 8px; font-size: var(--fs-sub); }
-.sales-inq-part > h3.yes { background: #e3f1e8; color: #1f6b4a; }
+.sales-inq-part > h3.yes { background: var(--v8-tint); color: var(--v8-green); }
 .sales-inq-part > h3.no { background: #eef0ec; color: #535c56; }
 .sales-inq-part > h3 small { font-size: var(--fs-body); font-weight: 400; color: var(--gray); }
-.sales-inq-row .tag.yes { background: #e3f1e8; color: #1f6b4a; font-weight: 700; }
+.sales-inq-row .tag.yes { background: var(--v8-tint); color: var(--v8-green); font-weight: 700; }
 .sales-inq-row .tag.no { background: #eef0ec; color: #535c56; }

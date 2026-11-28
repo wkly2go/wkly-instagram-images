@@ -28,11 +28,11 @@ button.mf-kpi:focus-visible { outline: 2px solid var(--tx-key); outline-offset: 
 .mf-chart { width: 100%; height: auto; display: block; }
 .mf-grid { stroke: #e9ece8; stroke-width: 1; }
 .mf-axis { fill: var(--tx-sub); font-size: 11px; font-variant-numeric: tabular-nums; }
-.mf-area { fill: #1f6b4a; opacity: 0.1; }
-.mf-line { fill: none; stroke: #1f6b4a; stroke-width: 2.2; stroke-linejoin: round; stroke-linecap: round; }
+.mf-area { fill: var(--v8-green); opacity: 0.1; }
+.mf-line { fill: none; stroke: var(--v8-green); stroke-width: 2.2; stroke-linejoin: round; stroke-linecap: round; }
 .mf-line-ghost { fill: none; stroke: #c3cbc5; stroke-width: 1.4; stroke-dasharray: 4 4; }
 .mf-dot { fill: transparent; }
-.mf-dot:hover { fill: #1f6b4a; opacity: 0.25; }
+.mf-dot:hover { fill: var(--v8-green); opacity: 0.25; }
 
 .mf-todos { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .mf-todos a { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; background: #fff8e6; color: var(--tx-body); text-decoration: none; }
@@ -42,7 +42,7 @@ button.mf-kpi:focus-visible { outline: 2px solid var(--tx-key); outline-offset: 
 .mf-bars { display: flex; flex-direction: column; gap: 4px; }
 .mf-bars-head { display: flex; justify-content: space-between; color: var(--tx-sub); padding: 0 8px 4px; }
 .mf-bar-row { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px; min-height: 36px; border-radius: 6px; overflow: hidden; }
-.mf-bar { position: absolute; inset: 0 auto 0 0; background: #e8f3ec; border-radius: 6px; }
+.mf-bar { position: absolute; inset: 0 auto 0 0; background: var(--v8-tint); border-radius: 6px; }
 .mf-bar-name, .mf-bar-row b { position: relative; }
 .mf-bar-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mf-bar-name small { margin-left: 8px; color: var(--tx-sub); font-size: var(--fs-body); }

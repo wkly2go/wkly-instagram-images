@@ -27,7 +27,7 @@
 /* 분석에서 고르기 (2026-11-27) */
 .auto-camp-picks { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin-bottom: 10px; }
 .auto-camp-picks > small { color: var(--tx-sub); font-size: var(--fs-body); }
-.auto-camp-picked { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; background: #e8f3ec; min-width: 0; }
+.auto-camp-picked { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; background: var(--v8-tint); min-width: 0; }
 .auto-camp-picked b { font-weight: 700; color: var(--tx-key); white-space: nowrap; }
 .auto-camp-picks-empty { flex-basis: 100%; margin: 0; color: var(--tx-sub); }
 .auto-camp-pick-list { flex-basis: 100%; list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 6px; }
@@ -48,7 +48,7 @@ html[data-theme="dark"] .auto-camp-pick-list button, html[data-theme="dark"] .au
 .auto-camp-reel-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(120px, 1fr) minmax(88px, 0.7fr); gap: 10px 12px; min-width: 0; }
 .auto-camp-reel-help { grid-column: 1 / -1; color: var(--tx-sub); font-size: var(--fs-body); }
 .auto-camp-reel-empty { margin: 0; color: var(--tx-sub); }
-.auto-camp-reel-done { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; padding: 8px 12px; border-radius: 10px; background: #e8f3ec; color: var(--tx-title); }
+.auto-camp-reel-done { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; padding: 8px 12px; border-radius: 10px; background: var(--v8-tint); color: var(--tx-title); }
 .auto-camp-reel-done.fail { background: #fdecea; color: #b42318; }
 @container (max-width: 640px) { .auto-camp-reel-grid { grid-template-columns: 1fr 1fr; } .auto-camp-reel-grid .grow { grid-column: 1 / -1; } }
 html[data-theme="dark"] .auto-camp-reel-done { background: #15291c; color: var(--ink); }

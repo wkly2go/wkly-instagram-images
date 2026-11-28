@@ -22,6 +22,6 @@
 .pfig-order li { display: grid; grid-template-columns: 1fr auto auto auto; align-items: center; gap: 4px; padding: 4px 6px; border: 1px solid var(--line); border-radius: 8px; }
 .pfig-page { display: grid; gap: 2px; margin-top: 6px; max-height: 360px; overflow-y: auto; }
 .pfig-frame { display: grid; grid-template-columns: auto 1fr auto; gap: 6px; align-items: center; padding: 3px 4px; cursor: pointer; }
-.pfig-done { padding: 8px 10px; border-radius: 8px; background: #e3f1e8; color: #1f6b4a; }
+.pfig-done { padding: 8px 10px; border-radius: 8px; background: var(--v8-tint); color: var(--v8-green); }
 .pfig-steps { margin: 0 0 10px; padding-left: 18px; line-height: 1.7; }
 @media (max-width: 640px) { .pfig-card { grid-template-columns: 1fr; } .pfig-thumb { width: 100%; height: 160px; } .pfig-pdf { grid-template-columns: 1fr; } }

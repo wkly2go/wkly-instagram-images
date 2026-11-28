@@ -13,7 +13,7 @@
    - --tx-title #151d18 제목 · 강조 글
    - --tx-body  #222a25 본문
    - --tx-sub   #535c56 보조(날짜 · 담당 · 건수 · 설명) — 크기로 줄이지 않고 색으로만 낮춤
-   - --tx-key   #1f6b4a 누를 수 있는 글 · 지금 고른 것 / --red 지연 · 경고만 */
+   - --tx-key   var(--v8-green) 누를 수 있는 글 · 지금 고른 것 / --red 지연 · 경고만 */
 :root {
   --t-title: calc(18px * var(--fs-k) * var(--fs-m, 1));
   --t-em: calc(15.5px * var(--fs-k) * var(--fs-m, 1));
@@ -29,7 +29,7 @@
   --tx-title: #151d18;
   --tx-body: #222a25;
   --tx-sub: #535c56;
-  --tx-key: #1f6b4a;
+  --tx-key: var(--v8-green);
 }
 @media (pointer: coarse) {
   :root {

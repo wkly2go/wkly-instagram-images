@@ -1,5 +1,5 @@
 /* 외부 협업방 — 외부인 화면 (2026-11-17) · 디자인 v8 색 · 밝은 화면만 · 휴대폰 우선 */
-.gr { min-height: 100%; background: var(--v8-bg, #f6f4ef); color: var(--v8-text, #222a25); font-family: var(--font); -webkit-text-size-adjust: 100%; }
+.gr { min-height: 100%; background: var(--v8-bg, var(--v8-bg)); color: var(--v8-text, #222a25); font-family: var(--font); -webkit-text-size-adjust: 100%; }
 .gr-center { display: flex; align-items: center; justify-content: center; padding: 24px 16px; min-height: 100dvh; }
 .gr-app { display: flex; flex-direction: column; height: 100dvh; max-width: 760px; margin: 0 auto; }
 @media (min-width: 800px) { .gr-app { border-left: 1px solid var(--v8-line); border-right: 1px solid var(--v8-line); } }
@@ -125,6 +125,6 @@
 .gr-board-main b { font-size: var(--fs-sub); font-weight: 700; color: var(--tx-title); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .gr-board-main span { color: var(--tx-sub); }
 .gr-board-go { color: var(--tx-key); font-weight: 700; flex: none; }
-.gr-board-full { position: fixed; inset: 0; z-index: 60; background: var(--v8-bg, #f6f4ef); padding: 10px 12px; display: flex; flex-direction: column; }
+.gr-board-full { position: fixed; inset: 0; z-index: 60; background: var(--v8-bg, var(--v8-bg)); padding: 10px 12px; display: flex; flex-direction: column; }
 .gr-board-full .board-page.embedded { flex: 1; height: auto; min-height: 0; margin-top: 0; }
-.gr-board-toast { position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); max-width: min(520px, calc(100% - 32px)); background: #1f6b4a; color: #fff; padding: 10px 16px; border-radius: 10px !important; font-size: var(--fs-body); box-shadow: 0 8px 24px rgba(20, 30, 24, 0.22); z-index: 70; }
+.gr-board-toast { position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); max-width: min(520px, calc(100% - 32px)); background: var(--v8-green); color: #fff; padding: 10px 16px; border-radius: 10px !important; font-size: var(--fs-body); box-shadow: 0 8px 24px rgba(20, 30, 24, 0.22); z-index: 70; }

@@ -28,7 +28,7 @@
   --green: #2bac76;
   /* 차트 두 번째 계열 · 미터 트랙 (같은 파랑 계열 연한 톤) */
   --pink: #fd37be;
-  --blue-tint: #e3f1e7;
+  --blue-tint: var(--v8-tint);
   --yellow-tint: #fffbea;
   --scrim: rgba(98, 98, 92, 0.38);
   --page-bg: var(--side-dark);
@@ -3353,7 +3353,7 @@ html, body, .body { background: var(--bg-bw); }
 /* ---------------------------------------------------------------- 밝은 사이드바 (대표 지시 2026-11-04 "배경이 그린이라서 너무 가독성 떨어져")
    - 사이드바 · 휴대폰 홈 위 칸 · 바깥 테두리: 짙은 초록 → 흰 바탕 + 진회색 글자, 초록은 선택 표시 · 숫자 · 버튼에만
    - 위쪽 바(로고)와 휴대폰 아래 메뉴는 브랜드 초록 그대로 */
-:root { --page-bg: var(--bg-bw, #e6e6e6); --side-text: #3a3a36; --side-muted: #62625c; --side-hover: #eef5f0; --side-on: #e3f1e7; }
+:root { --page-bg: var(--bg-bw, #e6e6e6); --side-text: #3a3a36; --side-muted: #62625c; --side-hover: #eef5f0; --side-on: var(--v8-tint); }
 body, .book, .inner { background: var(--page-bg); }
 .body { background: var(--page-bg); }
 .profile, .body > .profile { background: var(--white); color: var(--side-text); --gray: #62625c; --line: #e2e2dd; border-right: 1px solid #e2e2dd; }
@@ -4630,9 +4630,9 @@ tr.lg-review td:first-child { box-shadow: inset 3px 0 0 #e0a800; }
 .project-pick-list { display: flex; flex-direction: column; gap: 2px; max-height: 240px; overflow-y: auto; }
 .project-pick-list button { text-align: left; font-size: var(--fs-body); padding: 4px 8px; border: 0; border-radius: 6px; background: transparent; color: var(--tx-body, #222a25); cursor: pointer; display: flex; align-items: center; gap: 4px; }
 .project-pick-list button:hover { background: var(--v8-hover, #f1efe9); }
-.project-pick-list button.on { color: var(--tx-key, #1f6b4a); font-weight: 700; }
+.project-pick-list button.on { color: var(--tx-key, var(--v8-green)); font-weight: 700; }
 .msg-projects { display: flex; flex-wrap: wrap; gap: 4px; margin: 2px 0 4px 44px; }
-.msg-project-tag { display: inline-flex; align-items: center; gap: 3px; font-size: var(--fs-body); color: var(--tx-key, #1f6b4a); background: #eef5f0; border-radius: 999px; padding: 1px 9px; text-decoration: none; }
+.msg-project-tag { display: inline-flex; align-items: center; gap: 3px; font-size: var(--fs-body); color: var(--tx-key, var(--v8-green)); background: #eef5f0; border-radius: 999px; padding: 1px 9px; text-decoration: none; }
 .msg-project-tag:hover { text-decoration: underline; }
 
 /* 영업 파이프라인 한 화면 (2026-11-20) */
@@ -4645,12 +4645,12 @@ tr.lg-review td:first-child { box-shadow: inset 3px 0 0 #e0a800; }
 .sales-pipe-step .n { font-size: var(--fs-title); font-weight: 800; color: var(--tx-title, #151d18); }
 .sales-pipe-step .l { font-size: var(--fs-body); text-align: center; }
 .sales-pipe-step.zero .n { color: var(--tx-sub, #535c56); font-weight: 400; }
-.sales-pipe-step.on { border-color: var(--tx-key, #1f6b4a); background: #eef5f0; }
-.sales-pipe-step.on .l { color: var(--tx-key, #1f6b4a); font-weight: 700; }
+.sales-pipe-step.on { border-color: var(--tx-key, var(--v8-green)); background: #eef5f0; }
+.sales-pipe-step.on .l { color: var(--tx-key, var(--v8-green)); font-weight: 700; }
 .sales-pipe-list { margin-top: 10px; }
 .sales-pipe-list ul { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .sales-pipe-list li { display: flex; justify-content: space-between; gap: 10px; font-size: var(--fs-body); }
-.sales-pipe-list a { color: var(--tx-key, #1f6b4a); min-width: 0; }
+.sales-pipe-list a { color: var(--tx-key, var(--v8-green)); min-width: 0; }
 @media (max-width: 760px) { .sales-pipe-row { grid-template-columns: repeat(4, minmax(0, 1fr)); } .sales-pipe-row li::before { display: none; } }
 /* 문서를 못 받았을 때 (2026-11-21 · 구글로 보내지 않고 인트라넷 안에서 다시 시도 · 내려받기) */
 .doc-full-fail { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 24px; text-align: center; }
