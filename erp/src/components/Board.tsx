@@ -18,6 +18,8 @@ export interface BoardCol<T> {
   kind?: 'num' | 'center' | 'title'
   /** 좁은 화면(800px 미만)에서 숨김 */
   hideNarrow?: boolean
+  /** 아주 좁은 칸(440px 아래 · 채팅 칸과 옆 창이 함께 열렸을 때)에서 숨김 */
+  hideTight?: boolean
 }
 
 export function Board<T>({ rows, cols, rowKey, onRow, selectedId, numbered = true, empty, className = '', rowClass, compact, expand }: {
@@ -40,16 +42,16 @@ export function Board<T>({ rows, cols, rowKey, onRow, selectedId, numbered = tru
     <div className={`board-wrap ${className}`}>
       <table className={`board${compact ? ' compact' : ''}${onRow ? ' clickable' : ''}`}>
         <colgroup>
-          {numbered && <col style={{ width: 44 }} />}
+          {numbered && <col className="hide-tight" style={{ width: 44 }} />}
           {cols.map(c => (
-            <col key={c.key} className={c.hideNarrow ? 'hide-narrow' : undefined} style={c.width ? { width: c.width } : undefined} />
+            <col key={c.key} className={[c.hideNarrow && 'hide-narrow', c.hideTight && 'hide-tight'].filter(Boolean).join(' ') || undefined} style={c.width ? { width: c.width } : undefined} />
           ))}
         </colgroup>
         <thead>
           <tr>
-            {numbered && <th className="center">번호</th>}
+            {numbered && <th className="center hide-tight">번호</th>}
             {cols.map(c => (
-              <th key={c.key} className={`${c.kind ?? ''}${c.hideNarrow ? ' hide-narrow' : ''}`}>
+              <th key={c.key} className={`${c.kind ?? ''}${c.hideNarrow ? ' hide-narrow' : ''}${c.hideTight ? ' hide-tight' : ''}`}>
                 {c.label}
               </th>
             ))}
@@ -68,9 +70,9 @@ export function Board<T>({ rows, cols, rowKey, onRow, selectedId, numbered = tru
                 tabIndex={onRow ? 0 : undefined}
                 onKeyDown={onRow ? e => (e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget && (e.preventDefault(), onRow(r)) : undefined}
               >
-                {numbered && <td className="center num-col">{total - i}</td>}
+                {numbered && <td className="center num-col hide-tight">{total - i}</td>}
                 {cols.map(c => (
-                  <td key={c.key} className={`${c.kind ?? ''}${c.hideNarrow ? ' hide-narrow' : ''}`} data-label={typeof c.label === 'string' ? c.label : undefined}>
+                  <td key={c.key} className={`${c.kind ?? ''}${c.hideNarrow ? ' hide-narrow' : ''}${c.hideTight ? ' hide-tight' : ''}`} data-label={typeof c.label === 'string' ? c.label : undefined}>
                     {c.cell(r, i)}
                   </td>
                 ))}
