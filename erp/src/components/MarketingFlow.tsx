@@ -13,7 +13,7 @@ import './MarketingFlow.css'
 
 type Series = 'total' | 'direct' | 'ads'
 const SERIES: Record<string, Series> = { total: 'total', direct: 'direct', ads: 'ads' }
-const KIND_COLORS = ['#1f6b4a', '#2457b3', '#d8a200', '#8a6fc9', '#c2553f', '#5d8f9a', '#9aa39d', '#b9c2bc']
+const KIND_COLORS = ['#1f4dff', '#141414', '#4a4a4a', '#767676', '#9c9c9c', '#bdbdbd', '#d6d6d4', '#e4e4e2']
 
 export function MarketingFlow() {
   const { api, version, bump } = useApp()

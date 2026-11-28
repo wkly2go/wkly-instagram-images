@@ -75,7 +75,7 @@ function PlanSheet({ g, mode, scale }: { g: PlanGeometry; mode: 'plan' | 'ceilin
     {mode !== 'ceiling' && g.items.map((i, n) => {
       const w = (i.rot === 90 ? i.d : i.w) / scale, d = (i.rot === 90 ? i.w : i.d) / scale
       return <g key={i.id}>
-        <rect x={px(i.x)} y={py(i.y)} width={w} height={d} fill={mode === 'furniture' ? '#e8efe8' : 'none'} stroke="#111" strokeWidth={0.25} />
+        <rect x={px(i.x)} y={py(i.y)} width={w} height={d} fill={mode === 'furniture' ? '#ececea' : 'none'} stroke="#111" strokeWidth={0.25} />
         {mode === 'furniture' ? <><circle cx={px(i.x) + w / 2} cy={py(i.y) + d / 2} r={2.6} fill="#fff" stroke="#111" strokeWidth={0.25} /><text x={px(i.x) + w / 2} y={py(i.y) + d / 2 + 1} fontSize={2.6} textAnchor="middle" fontWeight={800}>{n + 1}</text></>
           : <text x={px(i.x) + w / 2} y={py(i.y) + d / 2 + 1} fontSize={2.2} textAnchor="middle">{i.name.slice(0, 10)}</text>}
       </g>
@@ -112,7 +112,7 @@ function Elevation({ g, wallId, scale, finishes }: { g: PlanGeometry; wallId: st
     <rect x={x0} y={y0} width={len / scale} height={g.height / scale} fill="none" stroke="#111" strokeWidth={0.5} />
     <line x1={x0 - 8} y1={base} x2={x0 + len / scale + 8} y2={base} stroke="#111" strokeWidth={0.7} />
     {items.map(i => <g key={i.id}>
-      <rect x={x0 + i.a / scale} y={base - i.h / scale} width={(i.b - i.a) / scale} height={i.h / scale} fill="#f7f7f4" stroke="#111" strokeWidth={0.25} strokeDasharray="1.2 0.8" />
+      <rect x={x0 + i.a / scale} y={base - i.h / scale} width={(i.b - i.a) / scale} height={i.h / scale} fill="#f7f7f7" stroke="#111" strokeWidth={0.25} strokeDasharray="1.2 0.8" />
       <text x={x0 + (i.a + i.b) / 2 / scale} y={base - i.h / scale - 1.2} fontSize={2.2} textAnchor="middle">{i.name.slice(0, 12)} H{f(i.h)}</text>
     </g>)}
     {ops.map(o => {
@@ -146,7 +146,7 @@ function WallDetail({ t, height, scale }: { t: number; height: number; scale: nu
   return <g>
     <rect x={x - 50} y={top - 9} width={tw + 100} height={9} fill="#ddd" stroke="#111" strokeWidth={0.3} /><text x={x - 48} y={top - 3} fontSize={2.4}>천장 슬래브 / 천장틀</text>
     <rect x={x - 50} y={bot} width={tw + 100} height={9} fill="#ddd" stroke="#111" strokeWidth={0.3} /><text x={x - 48} y={bot + 6} fontSize={2.4}>바닥 슬래브</text>
-    {[x, x + tw - board].map(bx => <rect key={bx} x={bx} y={top} width={board} height={bot - top} fill="#f1efe8" stroke="#111" strokeWidth={0.3} />)}
+    {[x, x + tw - board].map(bx => <rect key={bx} x={bx} y={top} width={board} height={bot - top} fill="#f0f0ee" stroke="#111" strokeWidth={0.3} />)}
     <rect x={x + board} y={top} width={tw - board * 2} height={5} fill="none" stroke="#111" strokeWidth={0.3} /><rect x={x + board} y={bot - 5} width={tw - board * 2} height={5} fill="none" stroke="#111" strokeWidth={0.3} />
     <line x1={x + board} y1={top + 5} x2={x + tw - board} y2={bot - 5} stroke="#999" strokeWidth={0.15} /><line x1={x + tw - board} y1={top + 5} x2={x + board} y2={bot - 5} stroke="#999" strokeWidth={0.15} />
     <path d={`M${x - 8} ${mid - 2} l${tw / 2 + 6} 0 l2 -3 l4 6 l2 -3 l${tw / 2 + 6} 0 M${x - 8} ${mid + 2} l${tw / 2 + 6} 0 l2 -3 l4 6 l2 -3 l${tw / 2 + 6} 0`} fill="none" stroke="#111" strokeWidth={0.2} />
@@ -166,7 +166,7 @@ function WallTypeDetail({ t }: { t: WallType }) {
     <text x={left ? x - 6 : x + tw + 6} y={cy + i * 6 + 1} fontSize={2.6} textAnchor={left ? 'end' : 'start'}>{r.slice(0, 52)}</text>
   </g>)
   return <g>
-    <rect x={x} y={top} width={face} height={bot - top} fill="#f1efe8" stroke="#111" strokeWidth={0.3} /><rect x={x + tw - face} y={top} width={face} height={bot - top} fill="#f1efe8" stroke="#111" strokeWidth={0.3} />
+    <rect x={x} y={top} width={face} height={bot - top} fill="#f0f0ee" stroke="#111" strokeWidth={0.3} /><rect x={x + tw - face} y={top} width={face} height={bot - top} fill="#f0f0ee" stroke="#111" strokeWidth={0.3} />
     {tw - face * 2 > 3 && Array.from({ length: Math.floor((bot - top) / 9) }, (_, i) => <path key={i} d={`M${x + face + 0.6} ${top + 2 + i * 9} q${(tw - face * 2 - 1.2) / 2} 4.5 0 9`} fill="none" stroke="#bbb" strokeWidth={0.15} />)}
     <Dim x1={x} y1={top - 6} x2={x + tw} y2={top - 6} label={t.thk && t.thk !== 'VAR' ? t.thk : 'VAR.'} />
     {side(t.left, true)}{side(t.right, false)}
@@ -200,7 +200,7 @@ function FloorDetail({ t }: { t: FloorType }) {
   </g>
   return <g>
     <rect x={x0} y={y + 8} width={x1 - x0} height={26} fill="#bbb" /><rect x={x0} y={y} width={x1 - x0} height={8} fill="#e4e4e4" stroke="#999" strokeWidth={0.15} />
-    <rect x={x0} y={y - 2.4} width={mx - x0 - 2} height={2.4} fill="#f1efe8" stroke="#111" strokeWidth={0.25} /><rect x={mx + 2} y={y - 2.4} width={x1 - mx - 2} height={2.4} fill="#fff" stroke="#111" strokeWidth={0.25} />
+    <rect x={x0} y={y - 2.4} width={mx - x0 - 2} height={2.4} fill="#f0f0ee" stroke="#111" strokeWidth={0.25} /><rect x={mx + 2} y={y - 2.4} width={x1 - mx - 2} height={2.4} fill="#fff" stroke="#111" strokeWidth={0.25} />
     <rect x={mx - 2} y={y - 3} width={4} height={8} fill="#fff" stroke="#111" strokeWidth={0.35} /><line x1={mx - 2} y1={y - 3} x2={mx + 2} y2={y + 5} stroke="#111" strokeWidth={0.15} /><line x1={mx + 2} y1={y - 3} x2={mx - 2} y2={y + 5} stroke="#111" strokeWidth={0.15} />
     <text x={x0} y={y - 5} fontSize={2.6}>▼ FL</text><text x={x0 + 3} y={y + 5.5} fontSize={2.4} fill="#444">고름몰탈</text>
     {side(t.left, true)}{side(t.right, false)}
@@ -214,7 +214,7 @@ function BaseDetail({ t }: { t: BaseType }) {
   const h = (Number(t.thk) || 50) / 6 * 2, x = AREA.x + AREA.w / 2 - 20, fl = AREA.y + 150
   return <g>
     <rect x={x - 70} y={fl} width={190} height={22} fill="#ccc" /><line x1={x - 70} y1={fl} x2={x + 120} y2={fl} stroke="#111" strokeWidth={0.5} />
-    <rect x={x - 6} y={AREA.y + 40} width={6} height={fl - AREA.y - 40} fill="#f1efe8" stroke="#111" strokeWidth={0.3} />
+    <rect x={x - 6} y={AREA.y + 40} width={6} height={fl - AREA.y - 40} fill="#f0f0ee" stroke="#111" strokeWidth={0.3} />
     <rect x={x} y={fl - h} width={2.4} height={h} fill="#111" />
     <rect x={x + 2.4} y={fl - 2} width={117} height={2} fill="#fff" stroke="#111" strokeWidth={0.2} />
     <Dim x1={x + 14} y1={fl - h} x2={x + 14} y2={fl} label={t.thk || '?'} />
@@ -230,8 +230,8 @@ function CeilDetail({ t, rooms }: { t: CeilingType; rooms: PlanRoom[] }) {
   return <g>
     <rect x={x0} y={slab - 10} width={x1 - x0} height={10} fill="#ccc" stroke="#111" strokeWidth={0.3} /><text x={x0 + 2} y={slab - 3.5} fontSize={2.4}>슬래브</text>
     {Array.from({ length: 7 }, (_, i) => x0 + 14 + i * ((x1 - x0 - 28) / 6)).map(hx => <g key={hx}><line x1={hx} y1={slab} x2={hx} y2={(hx > sx ? cl - step : cl) - 3} stroke="#111" strokeWidth={0.2} /><rect x={hx - 1.2} y={(hx > sx ? cl - step : cl) - 3} width={2.4} height={2.4} fill="#fff" stroke="#111" strokeWidth={0.25} /></g>)}
-    <rect x={x0} y={cl - 0.6} width={(t.cove ? sx : x1) - x0} height={1.6} fill="#f1efe8" stroke="#111" strokeWidth={0.3} />
-    {t.cove && <><rect x={sx + 8} y={cl - step - 0.6} width={x1 - sx - 8} height={1.6} fill="#f1efe8" stroke="#111" strokeWidth={0.3} /><rect x={sx} y={cl - step - 0.6} width={1.6} height={step + 1.6} fill="#f1efe8" stroke="#111" strokeWidth={0.3} />
+    <rect x={x0} y={cl - 0.6} width={(t.cove ? sx : x1) - x0} height={1.6} fill="#f0f0ee" stroke="#111" strokeWidth={0.3} />
+    {t.cove && <><rect x={sx + 8} y={cl - step - 0.6} width={x1 - sx - 8} height={1.6} fill="#f0f0ee" stroke="#111" strokeWidth={0.3} /><rect x={sx} y={cl - step - 0.6} width={1.6} height={step + 1.6} fill="#f0f0ee" stroke="#111" strokeWidth={0.3} />
       <rect x={sx + 2.4} y={cl - 3} width={4} height={1.6} fill="#ffd54a" stroke="#111" strokeWidth={0.2} /><text x={sx + 10} y={cl + 6} fontSize={2.4}>간접 조명 (단차 {f(step * 25)})</text></>}
     <line x1={x0 - 14} y1={cl + 60} x2={x1 + 14} y2={cl + 60} stroke="#111" strokeWidth={0.6} /><text x={x0 - 14} y={cl + 65} fontSize={2.4}>FL ±0 (높이 생략)</text>
     <Dim x1={x0 - 8} y1={cl + 1} x2={x0 - 8} y2={cl + 60} label={rooms.length ? `C.H ${[...new Set(rooms.map(r => r.ch).filter(Boolean))].map(v => f(v!)).join(' / ') || '확인 필요'}` : 'C.H'} />
@@ -290,7 +290,7 @@ function DoorList({ doors, scale }: { doors: DoorGroup[]; scale: number }) {
 /** Three views (front · side · plan) of one furniture type with overall sizes. */
 function FurnDetail({ item, count, scale }: { item: PlanItem; count: number; scale: number }) {
   const w = item.w / scale, d = item.d / scale, h = item.h / scale, gap = 26, x = AREA.x + (AREA.w - (w + gap + d)) / 2, y = AREA.y + 30 + (AREA.h - 60 - (h + gap + d)) / 2
-  const box = (bx: number, by: number, bw: number, bh: number, label: string) => <g><rect x={bx} y={by} width={bw} height={bh} fill="#fafaf7" stroke="#111" strokeWidth={0.4} /><text x={bx} y={by - 9} fontSize={2.8} fontWeight={800}>{label}</text></g>
+  const box = (bx: number, by: number, bw: number, bh: number, label: string) => <g><rect x={bx} y={by} width={bw} height={bh} fill="#fafafa" stroke="#111" strokeWidth={0.4} /><text x={bx} y={by - 9} fontSize={2.8} fontWeight={800}>{label}</text></g>
   return <g>
     {box(x, y, w, h, '정면도')}{box(x + w + gap, y, d, h, '측면도')}{box(x, y + h + gap, w, d, '평면도')}
     <line x1={x - 6} y1={y + h} x2={x + w + gap + d + 6} y2={y + h} stroke="#111" strokeWidth={0.6} />

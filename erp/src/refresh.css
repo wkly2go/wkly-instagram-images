@@ -247,60 +247,61 @@ a.tb-event-main:hover .tb-event-long { text-decoration: underline; text-underlin
 @media (max-width: 640px) { .tb-event { height: 28px; padding-left: 9px; flex: none; max-width: none; } .tb-event-x { display: none; } .tb-event { padding-right: 9px; } }
 @keyframes tb-pop { from { opacity: 0; transform: translateY(-4px) scale(.96); } to { opacity: 1; transform: none; } }
 
-/* 생일: 색종이 + 무지개 띠 */
+/* 디자인 v9 (2026-11-28): 기념일 장식도 먹색 · 회색 · 네온 파랑만 */
+/* 생일: 색종이 + 띠 */
 .tb-birthday { background: #f3f3f3; color: #141414; }
 html[data-topbar-event="birthday"] .tb-deco::before {
   background-image:
-    radial-gradient(circle, #9a9a9a 0 2.5px, transparent 3px), radial-gradient(circle, #ffc928 0 2px, transparent 2.5px),
+    radial-gradient(circle, #9a9a9a 0 2.5px, transparent 3px), radial-gradient(circle, var(--v9-accent) 0 2px, transparent 2.5px),
     radial-gradient(circle, #757575 0 2px, transparent 2.5px), radial-gradient(circle, var(--v9-accent-tint) 0 2.5px, transparent 3px),
     radial-gradient(circle, var(--v9-accent-tint) 0 1.5px, transparent 2px);
   background-size: 64px 52px, 48px 44px, 72px 60px, 56px 48px, 40px 36px;
   background-position: 0 0, 22px 14px, 40px 28px, 12px 34px, 30px 6px;
   animation: tb-confetti 9s linear infinite;
 }
-html[data-topbar-event="birthday"] .tb-deco::after { background: linear-gradient(90deg, #9a9a9a, #ffc928, #757575, var(--v9-accent-tint), var(--v9-accent-tint), #9a9a9a); }
+html[data-topbar-event="birthday"] .tb-deco::after { background: linear-gradient(90deg, #c9d4ff, var(--v9-accent), #9a9a9a, var(--v9-accent-tint), #c9d4ff); }
 @keyframes tb-confetti { to { background-position: 0 52px, 22px 58px, 40px 88px, 12px 82px, 30px 42px; } }
 
 /* 크리스마스(11/25~12/25): 눈 + 지팡이 사탕 띠 */
-.tb-christmas { background: #fdecef; color: #a3162f; }
-.tb-christmas svg { color: var(--v8-green); }
-html[data-topbar-event="christmas"] .tb-deco { background: linear-gradient(90deg, transparent 45%, rgba(196, 30, 58, .05)); }
+.tb-christmas { background: #f3f3f3; color: #141414; }
+.tb-christmas svg { color: var(--v9-accent); }
+html[data-topbar-event="christmas"] .tb-deco { background: linear-gradient(90deg, transparent 45%, rgba(31, 77, 255, .05)); }
 html[data-topbar-event="christmas"] .tb-deco::before {
   background-image: radial-gradient(circle, var(--v9-accent-tint) 0 2px, transparent 2.5px), radial-gradient(circle, var(--v9-accent-tint) 0 1.5px, transparent 2px), radial-gradient(circle, var(--v9-accent-tint) 0 1px, transparent 1.5px);
   background-size: 46px 46px, 30px 30px, 22px 22px;
   background-position: 0 0, 15px 10px, 8px 4px;
   animation: tb-snow 12s linear infinite;
 }
-html[data-topbar-event="christmas"] .tb-deco::after { background: repeating-linear-gradient(135deg, #c41e3a 0 8px, #fff 8px 14px, var(--v8-green) 14px 22px, #fff 22px 28px); }
+html[data-topbar-event="christmas"] .tb-deco::after { background: repeating-linear-gradient(135deg, #c9d4ff 0 8px, #fff 8px 14px, var(--v9-accent) 14px 22px, #fff 22px 28px); }
 @keyframes tb-snow { to { background-position: 10px 46px, 5px 70px, 12px 48px; } }
 
 /* 새해 · 연말: 금빛 반짝임 */
-:is(.tb-newyear, .tb-yearend) { background: #fbf3da; color: #81590b; }
+:is(.tb-newyear, .tb-yearend) { background: #f3f3f3; color: #141414; }
 html[data-topbar-event="newyear"] .tb-deco::before, html[data-topbar-event="yearend"] .tb-deco::before, html[data-topbar-event="anniversary"] .tb-deco::before {
-  background-image: radial-gradient(circle, #e2b844 0 1.5px, transparent 2px), radial-gradient(circle, #f1d27c 0 1px, transparent 1.5px);
+  background-image: radial-gradient(circle, var(--v9-accent) 0 1.5px, transparent 2px), radial-gradient(circle, #9a9a9a 0 1px, transparent 1.5px);
   background-size: 38px 30px, 26px 22px; background-position: 0 0, 13px 9px;
   animation: tb-twinkle 2.8s ease-in-out infinite alternate;
 }
-html[data-topbar-event="newyear"] .tb-deco::after, html[data-topbar-event="yearend"] .tb-deco::after { background: linear-gradient(90deg, #f5d77a, #c99a2e, #f5d77a, #c99a2e); }
+html[data-topbar-event="newyear"] .tb-deco::after, html[data-topbar-event="yearend"] .tb-deco::after { background: linear-gradient(90deg, #c9d4ff, var(--v9-accent), #c9d4ff, var(--v9-accent)); }
 @keyframes tb-twinkle { from { opacity: .45; } to { opacity: 1; } }
 
 /* 설: 색동 띠 */
-.tb-seollal { background: #fff0e8; color: #a83a1c; }
-html[data-topbar-event="seollal"] .tb-deco::after { height: 4px; background: repeating-linear-gradient(90deg, #e2483d 0 26px, #f6c443 26px 52px, var(--v9-accent) 52px 78px, #7e7e7e 78px 104px, #acacac 104px 130px, #fff 130px 136px); }
-html[data-topbar-event="seollal"] .tb-deco { background: linear-gradient(90deg, transparent 50%, rgba(226, 72, 61, .05)); }
+.tb-seollal { background: #f3f3f3; color: #141414; }
+html[data-topbar-event="seollal"] .tb-deco::after { height: 4px; background: repeating-linear-gradient(90deg, #c9d4ff 0 26px, #7e7e7e 26px 52px, var(--v9-accent) 52px 78px, #acacac 78px 104px, #d6d6d4 104px 130px, #fff 130px 136px); }
+html[data-topbar-event="seollal"] .tb-deco { background: linear-gradient(90deg, transparent 50%, rgba(31, 77, 255, .05)); }
 
 /* 추석: 보름달 */
-.tb-chuseok { background: #fff3d9; color: #87520c; }
-html[data-topbar-event="chuseok"] .tb-deco { background: radial-gradient(circle at 47% 50%, #fff2bf 0 15px, rgba(255, 228, 150, .45) 16px 26px, transparent 27px), linear-gradient(90deg, transparent 50%, rgba(240, 181, 74, .07)); }
-html[data-topbar-event="chuseok"] .tb-deco::after { background: linear-gradient(90deg, #f0b54a, #d9822b, #f0b54a); }
+.tb-chuseok { background: #f3f3f3; color: #141414; }
+html[data-topbar-event="chuseok"] .tb-deco { background: radial-gradient(circle at 47% 50%, #fff 0 15px, rgba(31, 77, 255, .16) 16px 26px, transparent 27px), linear-gradient(90deg, transparent 50%, rgba(31, 77, 255, .05)); }
+html[data-topbar-event="chuseok"] .tb-deco::after { background: linear-gradient(90deg, #c9d4ff, var(--v9-accent), #c9d4ff); }
 
 /* 입사 · 회사 기념일 */
 .tb-anniversary { background: var(--v8-tint); color: var(--v8-green); }
-html[data-topbar-event="anniversary"] .tb-deco::after { background: linear-gradient(90deg, var(--v8-green), #d4a63a, var(--v8-green)); }
+html[data-topbar-event="anniversary"] .tb-deco::after { background: linear-gradient(90deg, var(--v8-green), var(--v9-accent), var(--v8-green)); }
 
 /* 국경일 */
 .tb-holiday { background: var(--v9-accent-tint); color: var(--v9-accent); }
-html[data-topbar-event="holiday"] .tb-deco::after { background: linear-gradient(90deg, #c8102e 0 50%, var(--v9-accent) 50% 100%); }
+html[data-topbar-event="holiday"] .tb-deco::after { background: linear-gradient(90deg, #c9d4ff 0 50%, var(--v9-accent) 50% 100%); }
 
 @media (prefers-reduced-motion: reduce) { .tb-deco::before, .tb-event { animation: none !important; } }
 @media (max-width: 640px) { .tb-deco::before { -webkit-mask-image: none; mask-image: none; opacity: .6; } }

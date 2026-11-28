@@ -15,46 +15,48 @@
   --display: 'Geist', 'Pretendard Variable', Pretendard, system-ui, sans-serif;
   --mono: 'Geist Mono', 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, 'Pretendard Variable', monospace;
   --t-num: calc(24px * var(--fs-k) * var(--fs-m, 1));
-  --v8-r-card: 14px;
-  --v8-r-ctl: 10px;
+  --v8-r-card: 18px;
+  --r-book: 18px; --r-inner: 12px; --r-panel: 14px; --r-bubble: 16px;
+  --v8-r-ctl: 12px;
 }
 html:not([data-theme="dark"]) {
-  --v8-bg: #f0f0ee;
+  --v8-bg: #f3f3f1;
   --v8-card: #ffffff;
-  --v8-line: #e4e4e1;
-  --v8-line-2: #d6d6d2;
-  --v8-ink: #0f0f0f;
-  --v8-text: #1b1b1b;
-  --v8-sub: #5e5e5b;
-  --v8-green: #141414;        /* 고른 것 · 막대 = 먹색 */
-  --v8-green-hover: #2c2c2c;
+  --v8-line: #ebebe8;
+  --v8-line-2: #dededb;
+  --v9-ink: #2b2d33;        /* 부드러운 먹색 (새까만 색을 쓰지 않음) */
+  --v8-ink: #1f2126;
+  --v8-text: #2e3036;
+  --v8-sub: #6b6d72;
+  --v8-green: #2b2d33;        /* 고른 것 · 막대 = 먹색 */
+  --v8-green-hover: #3d4047;
   --v8-tint: #eaeae7;
   --v8-hover: #e7e7e4;
-  --v8-shadow: 0 1px 2px rgba(15, 15, 15, .04), 0 4px 14px rgba(15, 15, 15, .04);
-  --v8-shadow-pop: 0 10px 30px rgba(15, 15, 15, .16);
-  --tx-title: #0f0f0f;
-  --tx-body: #1b1b1b;
-  --tx-sub: #5e5e5b;
-  --tx-key: #141414;
+  --v8-shadow: 0 1px 2px rgba(20, 22, 30, .03), 0 10px 28px -12px rgba(20, 22, 30, .10);
+  --v8-shadow-pop: 0 24px 60px -20px rgba(20, 22, 30, .22);
+  --tx-title: #1f2126;
+  --tx-body: #2e3036;
+  --tx-sub: #6b6d72;
+  --tx-key: #2b2d33;
   --paper: #f7f7f5;
-  --green: #141414;
+  --green: #2b2d33;
   --yellow: #eaeae7;
   --acid: #e3e3df;
-  --blue: #141414;
+  --blue: #2b2d33;
   --blue-tint: #eaeae7;
-  --pink: #141414;
+  --pink: #2b2d33;
   --v9-accent: #1f4dff;       /* 네온 파랑 */
   --v9-accent-2: #5b7dff;
   --v9-accent-tint: #e9eeff;
   --v9-live: #33d17a;         /* 정상 · 살아 있음 점 */
   --neon: var(--v9-accent);
   /* 빛이 새어 나가는 효과: 밝은 테 한 줄 + 오른쪽 아래로 번지는 빛 두 겹 */
-  --glow-1: 0 0 0 1px rgba(31, 77, 255, .28), 3px 4px 12px -3px rgba(31, 77, 255, .35);
-  --glow-2: 0 0 0 1px rgba(31, 77, 255, .55), 5px 6px 16px -4px rgba(31, 77, 255, .55), 12px 14px 34px -12px rgba(31, 77, 255, .45);
-  --glow-3: 0 0 0 1.5px #1f4dff, 6px 8px 20px -4px rgba(31, 77, 255, .7), 16px 20px 46px -12px rgba(31, 77, 255, .6), 0 0 60px -20px rgba(91, 125, 255, .9);
+  --glow-1: 0 2px 6px -2px rgba(31, 77, 255, .16), 6px 10px 24px -10px rgba(31, 77, 255, .30);
+  --glow-2: 0 0 0 1px rgba(31, 77, 255, .10), 8px 12px 28px -10px rgba(31, 77, 255, .36), 18px 24px 56px -20px rgba(91, 125, 255, .40);
+  --glow-3: 0 0 0 1px rgba(31, 77, 255, .22), 8px 12px 30px -8px rgba(31, 77, 255, .48), 20px 28px 64px -18px rgba(91, 125, 255, .55);
   --neon-glow: var(--glow-2);
-  --neon-soft: 0 0 0 3px rgba(31, 77, 255, .22), 4px 5px 14px -4px rgba(31, 77, 255, .4);
-  --div-ar: #141414; --div-tw: #8a8a86; --div-rs: #c4c4c0;
+  --neon-soft: 0 0 0 4px rgba(31, 77, 255, .12), 4px 8px 20px -8px rgba(31, 77, 255, .28);
+  --div-ar: #2b2d33; --div-tw: #8a8a86; --div-rs: #c4c4c0;
   --cal-mine: #1f4dff; --cal-mine-tint: #e9eeff;
 }
 
@@ -64,59 +66,59 @@ html:not([data-theme="dark"]) {
 }
 
 /* 로고도 먹색 */
-html:not([data-theme="dark"]) .top-logo .logo-ink, html:not([data-theme="dark"]) .profile-logo img { filter: brightness(0) !important; }
+html:not([data-theme="dark"]) .top-logo .logo-ink, html:not([data-theme="dark"]) .profile-logo img { filter: brightness(0) !important; opacity: .86; }
 
 /* ---------- 카드: 얇은 선 · 그림자 거의 없이 ---------- */
-html:not([data-theme="dark"]) :is(.box, .stat, .kpi, .card, .home-kpi, .today-card, .checkin-card, .brief, .rd-box) { border-color: var(--v8-line); box-shadow: none; }
+html:not([data-theme="dark"]) :is(.box, .stat, .kpi, .card, .home-kpi, .today-card, .checkin-card, .brief, .rd-box) { border-color: var(--v8-line); box-shadow: var(--v8-shadow); }
 
 /* ---------- 버튼 ---------- */
-html:not([data-theme="dark"]) :is(.btn-primary, .new-btn, .today-ok) { background: var(--v9-accent) !important; border-color: var(--v9-accent) !important; color: #fff !important; box-shadow: var(--glow-1); transition: box-shadow .18s, transform .05s; }
-html:not([data-theme="dark"]) :is(.btn-primary, .new-btn, .today-ok):hover:not(:disabled) { background: #1a43e6 !important; box-shadow: var(--glow-3); }
+html:not([data-theme="dark"]) :is(.btn-primary, .new-btn, .today-ok) { background: linear-gradient(180deg, #4d70ff, var(--v9-accent)) !important; border-color: transparent !important; color: #fff !important; box-shadow: var(--glow-1); transition: box-shadow .18s, transform .05s; }
+html:not([data-theme="dark"]) :is(.btn-primary, .new-btn, .today-ok):hover:not(:disabled) { background: linear-gradient(180deg, #4468ff, #1a43e6) !important; box-shadow: var(--glow-2); }
 html:not([data-theme="dark"]) :is(.btn-primary, .new-btn, .today-ok):active:not(:disabled) { transform: translateY(1px); }
 html:not([data-theme="dark"]) :is(.btn-primary, .new-btn) svg { color: #fff; }
-html:not([data-theme="dark"]) :is(.btn-outline, .btn-ghost):hover:not(:disabled) { border-color: #141414; color: #141414; background: #fff; }
+html:not([data-theme="dark"]) :is(.btn-outline, .btn-ghost):hover:not(:disabled) { border-color: var(--v9-ink); color: var(--v9-ink); background: #fff; }
 
 /* 초점: 네온 테 */
 html:not([data-theme="dark"]) :is(.btn, .chip, .tab, .icon-btn, .side-item, a, button, summary):focus-visible { outline: 2px solid var(--neon) !important; outline-offset: 2px; }
 html:not([data-theme="dark"]) :is(.input, .select, .textarea, input[type="text"], input[type="search"], input[type="date"], input[type="number"], input[type="password"], input[type="email"], select, textarea):focus { border-color: var(--v9-accent) !important; box-shadow: var(--neon-soft) !important; outline: 0; }
 
 /* ---------- 왼쪽 메뉴: 고른 줄 = 흰 칸 + 네온 점 ---------- */
-html:not([data-theme="dark"]) .app-page .profile .side-item.on { background: #fff; color: #0f0f0f; box-shadow: var(--glow-1); position: relative; }
-html:not([data-theme="dark"]) .app-page .profile .side-item.on > svg { color: #0f0f0f; }
+html:not([data-theme="dark"]) .app-page .profile .side-item.on { background: #fff; color: var(--v9-ink); box-shadow: var(--glow-1); position: relative; }
+html:not([data-theme="dark"]) .app-page .profile .side-item.on > svg { color: var(--v9-ink); }
 html:not([data-theme="dark"]) .app-page .profile .side-item.on::after { content: ''; position: absolute; right: 9px; top: 50%; width: 6px; height: 6px; margin-top: -3px; border-radius: 50%; background: var(--v9-accent); box-shadow: 0 0 0 2px rgba(31,77,255,.18), 3px 3px 10px rgba(31,77,255,.8); }
 html:not([data-theme="dark"]) .app-page .profile .side-item.on.has-n::after { display: none; }
 html:not([data-theme="dark"]) .side-group-label { color: var(--v8-sub) !important; letter-spacing: .02em; }
 
 /* ---------- 칩 · 탭: 고른 것 = 먹색 알약 ---------- */
-html:not([data-theme="dark"]) :is(.chip.active, .chip.on, .seg button.on, .right-tabs button.on) { background: #141414 !important; border-color: #141414 !important; color: #fff !important; box-shadow: none !important; }
-html:not([data-theme="dark"]) .tab.active, html:not([data-theme="dark"]) .tab.on { color: #0f0f0f; border-bottom-color: #0f0f0f; box-shadow: 0 3px 8px -4px var(--v9-accent); border-bottom-color: var(--v9-accent); }
+html:not([data-theme="dark"]) :is(.chip.active, .chip.on, .seg button.on, .right-tabs button.on) { background: var(--v9-accent-tint) !important; border-color: transparent !important; color: var(--v9-ink) !important; font-weight: 600; box-shadow: none !important; }
+html:not([data-theme="dark"]) .tab.active, html:not([data-theme="dark"]) .tab.on { color: var(--v9-ink); border-bottom-color: var(--v9-ink); box-shadow: 0 3px 8px -4px var(--v9-accent); border-bottom-color: var(--v9-accent); }
 
 /* ---------- 배지 · 숫자 동그라미 ---------- */
-html:not([data-theme="dark"]) .side-n, html:not([data-theme="dark"]) .board-count, html:not([data-theme="dark"]) .section-head .count { background: #141414; color: #fff; }
-html:not([data-theme="dark"]) .topbar .mode-badge { background: #141414; color: #fff; }
+html:not([data-theme="dark"]) .side-n, html:not([data-theme="dark"]) .board-count, html:not([data-theme="dark"]) .section-head .count { background: #e6e6e3; color: var(--v9-ink); }
+html:not([data-theme="dark"]) .topbar .mode-badge { background: var(--v9-ink); color: #fff; }
 
 /* ---------- 표: 머리 줄은 작은 이름표처럼 ---------- */
 html:not([data-theme="dark"]) :is(.table, .board, .pay-grid) thead th { background: #f7f7f5; color: var(--v8-sub); font-weight: 400; letter-spacing: .02em; border-bottom: 1px solid var(--v8-line); }
 html:not([data-theme="dark"]) :is(.table, .board) tbody tr:hover { background: #f7f7f5; }
 
 /* ---------- 진행 막대 · 미터 ---------- */
-html:not([data-theme="dark"]) :is(.meter > *, .pc-bar > i, .dash-prog i, .g-bar) { background-color: #141414; }
+html:not([data-theme="dark"]) :is(.meter > *, .pc-bar > i, .dash-prog i, .g-bar) { background-color: var(--v9-ink); }
 
 /* ---------- 섹션 제목 앞 막대: 네온 ---------- */
 html:not([data-theme="dark"]) .section-head::before, html:not([data-theme="dark"]) .sec-head::before { background: var(--v9-accent); box-shadow: 3px 0 10px rgba(31,77,255,.7); }
 
 /* ---------- 위쪽 바 ---------- */
 html:not([data-theme="dark"]) .app-page .topbar { border-bottom-color: var(--v8-line); }
-html:not([data-theme="dark"]) .topbar :is(.top-ai, .one-box) svg { color: #141414; }
+html:not([data-theme="dark"]) .topbar :is(.top-ai, .one-box) svg { color: var(--v9-ink); }
 
 /* ---------- 채팅: 내 말풍선 먹색 ---------- */
-html:not([data-theme="dark"]) .bubble.mine, html:not([data-theme="dark"]) .msg.mine .bubble { background: #141414; color: #fff; }
+html:not([data-theme="dark"]) .bubble.mine, html:not([data-theme="dark"]) .msg.mine .bubble { background: var(--v9-ink); color: #fff; }
 
 /* ---------- 달력 오늘 · 고른 날 ---------- */
 html:not([data-theme="dark"]) :is(.mini-cal .today, .mini-cal-day.today, .cal-today) { box-shadow: var(--neon-glow); }
 
 /* 비서 단추 · 채팅 칸 구분선도 모노톤 */
-html:not([data-theme="dark"]) .ast-fab { background: #141414 !important; color: #fff !important; box-shadow: var(--neon-glow) !important; }
+html:not([data-theme="dark"]) .ast-fab { background: var(--v9-ink) !important; color: #fff !important; box-shadow: var(--neon-glow) !important; }
 html:not([data-theme="dark"]) .ast-fab svg { color: #fff; }
 html:not([data-theme="dark"]) :is(.bell .count, .m-dot, .q2-badge) { background: var(--v9-accent) !important; color: #fff !important; box-shadow: var(--glow-1) !important; }
 
@@ -125,3 +127,59 @@ html:not([data-theme="dark"]) :is(a.home-kpi, a.dash-kpi, .pc-card, a.dash-near,
 html:not([data-theme="dark"]) :is(.chip.active, .chip.on) { box-shadow: var(--glow-1) !important; }
 html:not([data-theme="dark"]) .cal-item.c-mine, html:not([data-theme="dark"]) .mini-cal .today { box-shadow: var(--glow-1); }
 html:not([data-theme="dark"]) .dialog, html:not([data-theme="dark"]) .modal { box-shadow: var(--v8-shadow-pop), var(--glow-1); }
+
+/* ================================================================================
+   부드럽게 (대표 지시 2026-11-28 '디자인 ui,ux도 바꿔 · 색상의 사용도 수정하고 · 부드러운 느낌이잖아')
+   - 새까만 색 대신 부드러운 먹색(--v9-ink) · 굵은 테 대신 옅게 번지는 그림자 · 더 둥근 모서리 · 고른 것은 검은 알약 대신 연한 파랑 바탕
+   - 누르고 올릴 때 천천히 바뀜(0.2초) · 창 뒤는 뿌옇게
+   ================================================================================ */
+html:not([data-theme="dark"]) :is(.btn, .chip, .tab, .icon-btn, .quick-btn, .side-item, .input, .select, .textarea, input, select, textarea) { transition: background-color .2s ease, border-color .2s ease, box-shadow .25s ease, color .2s ease; }
+html:not([data-theme="dark"]) :is(a.home-kpi, a.dash-kpi, .pc-card, a.dash-near, .pboards-item, .proj-card, .dash-card) { transition: box-shadow .3s ease, transform .3s ease, border-color .3s ease; }
+html:not([data-theme="dark"]) :is(a.home-kpi, a.dash-kpi, .pc-card, .pboards-item, .proj-card):hover { transform: translateY(-2px); }
+html:not([data-theme="dark"]) :is(.btn, .chip):active { transform: scale(.98); }
+html:not([data-theme="dark"]) :is(.btn-outline, .btn-ghost, .chip):not(.active):not(.on) { border-color: var(--v8-line-2); }
+html:not([data-theme="dark"]) :is(.input, .select, .textarea, input[type="text"], input[type="search"], input[type="date"], input[type="number"], select, textarea) { border-color: var(--v8-line-2); }
+html:not([data-theme="dark"]) .scrim { background: rgba(243, 243, 241, .62); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+html:not([data-theme="dark"]) :is(.dialog, .modal) { border-radius: 20px !important; border-color: transparent; }
+html:not([data-theme="dark"]) .app-page .topbar { border-bottom-color: transparent; box-shadow: 0 1px 0 var(--v8-line), 0 8px 24px -18px rgba(20, 22, 30, .18); }
+html:not([data-theme="dark"]) .app-page .profile .side-item.on { box-shadow: var(--v8-shadow); }
+html:not([data-theme="dark"]) :is(.chip.active, .chip.on) { box-shadow: none !important; }
+html:not([data-theme="dark"]) .side-n { background: var(--v9-accent-tint); color: var(--v9-ink); }
+
+/* 짙은 버튼 · 동그라미 대신 연한 바탕 — 눌러야 할 것은 연한 파랑, 올리면 네온 */
+html:not([data-theme="dark"]) :is(.btn-blue, .btn-yellow, .send-btn):not(:disabled) { background: var(--v9-accent-tint); border-color: transparent; color: #1d3fd0; font-weight: 600; }
+html:not([data-theme="dark"]) :is(.btn-blue, .btn-yellow, .send-btn):not(:disabled) svg { color: currentColor; }
+html:not([data-theme="dark"]) :is(.btn-blue, .btn-yellow, .send-btn):not(:disabled):hover { background: linear-gradient(180deg, #4d70ff, var(--v9-accent)); border-color: transparent; color: #fff; box-shadow: var(--glow-1); }
+html:not([data-theme="dark"]) .avatar:is(.c1, .c2, .c3, .c4, .c5, .c6) { background: #e6e6e3; border-color: transparent; color: var(--v9-ink); }
+html:not([data-theme="dark"]) .avatar:is(.c2, .c5) { background: var(--v9-accent-tint); }
+html:not([data-theme="dark"]) .topbar .mode-badge { background: #e6e6e3; color: var(--v9-ink); }
+html:not([data-theme="dark"]) :is(.mini-cal .day.today, .week-day.today .week-day-h .dd) { background: linear-gradient(180deg, #4d70ff, var(--v9-accent)); color: #fff; border-color: transparent; box-shadow: var(--glow-1); }
+html:not([data-theme="dark"]) .week-day { border-radius: 14px; border-color: var(--v8-line); }
+html:not([data-theme="dark"]) .week-day.today { border: 1px solid transparent; background: #fff; box-shadow: var(--glow-2); }
+html:not([data-theme="dark"]) .week-item { border-left-width: 0; border-radius: 8px; padding: 4px 9px; background: #f3f3f1; }
+html:not([data-theme="dark"]) .week-item.proj { background: var(--v9-accent-tint); }
+html:not([data-theme="dark"]) .kpi, html:not([data-theme="dark"]) .div-card, html:not([data-theme="dark"]) .ad-pcard { border-color: var(--v8-line); }
+html:not([data-theme="dark"]) :is(.seg button, .right-tabs button, .tag, .badge, .chip) { border-radius: 999px; }
+html:not([data-theme="dark"]) :is(.btn, .icon-btn, .quick-btn, .input, .select, .textarea, select, textarea, input[type="text"], input[type="search"], input[type="date"], input[type="number"]) { border-radius: var(--v8-r-ctl); }
+html:not([data-theme="dark"]) button.day.today { background: linear-gradient(180deg, #4d70ff, var(--v9-accent)); color: #fff; border-color: transparent; border-radius: 50%; box-shadow: var(--glow-1); }
+html:not([data-theme="dark"]) :is(button[class*="mf-"].on, button[class*="sg-"].on, .myproj-st, .myproj-n, .team-person.active) { background: var(--v9-accent-tint); border-color: transparent; color: var(--v9-ink); }
+html:not([data-theme="dark"]) :is(.myproj-div, .myproj-own, .myproj-done, .assign-chip, .rd-ai, button[class*="mf-"], button[class*="sg-"]) { border-color: var(--v8-line-2); border-radius: 999px; }
+html:not([data-theme="dark"]) .dash-ev.e-start { background: var(--v9-accent-tint); color: var(--v9-ink); }
+html:not([data-theme="dark"]) .dash-ev.e-end { box-shadow: inset 0 0 0 1px var(--v8-line-2); }
+/* 굵고 짙은 테 → 옅은 선 · 연한 파랑 */
+html:not([data-theme="dark"]) button.day.today { background: linear-gradient(180deg, #4d70ff, var(--v9-accent)) !important; color: #fff !important; }
+html:not([data-theme="dark"]) :is(.btn-blue, .btn-yellow, .send-btn, .btn.primary):disabled { background: #ececea; border-color: transparent; color: #a3a5a9; }
+html:not([data-theme="dark"]) .btn.primary:not(:disabled) { background: linear-gradient(180deg, #4d70ff, var(--v9-accent)); border-color: transparent; color: #fff; box-shadow: var(--glow-1); }
+html:not([data-theme="dark"]) :is(.kpi, .div-card, .ad-pcard, .stat) { border-top: 1px solid var(--v8-line); border-left-width: 1px; border-left-color: var(--v8-line); }
+html:not([data-theme="dark"]) :is(.ins-card, .ledger-kpi, .ad-report-card, .note, .office-warn, .ai-resp, a.item.active) { border-left-color: #c9d4ff; }
+html:not([data-theme="dark"]) :is(select.div-select, .avatar, .ai-card.on, details.web-setting) { border-color: var(--v8-line-2); }
+html:not([data-theme="dark"]) .ai-card.on { box-shadow: var(--glow-1); border-color: transparent; }
+html:not([data-theme="dark"]) :is(.view-tab.on, .tab.on, .tab.active) { border-bottom-color: var(--v9-accent); }
+html:not([data-theme="dark"]) .ai-ava { background: var(--v9-accent-tint); color: var(--v9-ink); }
+html:not([data-theme="dark"]) .pane-list.chat-list { border-right-color: var(--v8-line); }
+html:not([data-theme="dark"]) .app-page .body > .chat-dock { border-right-color: var(--v8-line); }
+html:not([data-theme="dark"]) :is(.kpi, .stat, .div-card, .ad-pcard, .org-dept, .right-kpi, .rd-kpi, .board, .board-wrap) { border-top-color: var(--v8-line) !important; }
+html:not([data-theme="dark"]) .chat-dock-resize::before { background: var(--v8-line-2); }
+html:not([data-theme="dark"]) .chat-dock-resize:hover::before { background: var(--v9-accent); box-shadow: 2px 0 10px rgba(31, 77, 255, .5); }
+html:not([data-theme="dark"]) select { border-color: var(--v8-line-2) !important; }
+html:not([data-theme="dark"]) :is(.ads-period, .seg, .period, [role="tablist"]) > button:is(.on, .active, [aria-selected="true"], [aria-pressed="true"]):not(.tab):not(.view-tab) { background: var(--v9-accent-tint); border-color: transparent; color: var(--v9-ink); }

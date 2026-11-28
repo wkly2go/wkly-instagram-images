@@ -54,10 +54,10 @@ export function figmaToSkeleton(c: FigmaContent, at: { x: number; y: number }, s
         roundness: e.kind === 'rect' && (e.radius ?? 0) > 0 ? { type: 3 } : null,
       }
     } else if (e.kind === 'text') {
-      el = { ...base, type: 'text', text: e.text ?? '', fontSize: e.fontSize ?? 16, fontFamily: figmaFontId(e.font, e.weight), textAlign: e.align ?? 'left', strokeColor: e.color ?? '#151d18', ...(e.lineHeight ? { lineHeight: e.lineHeight } : {}) }
+      el = { ...base, type: 'text', text: e.text ?? '', fontSize: e.fontSize ?? 16, fontFamily: figmaFontId(e.font, e.weight), textAlign: e.align ?? 'left', strokeColor: e.color ?? '#141414', ...(e.lineHeight ? { lineHeight: e.lineHeight } : {}) }
       textBoxes[base.id] = { x: e.x + dx, w: e.w, align: e.align ?? 'left' }
     } else if (e.kind === 'line' || e.kind === 'arrow') {
-      el = { ...base, type: e.kind, points: e.points ?? [[0, 0], [e.w, e.h]], strokeColor: e.stroke ?? '#151d18', strokeWidth: e.strokeWidth ?? 1, roughness: 0, ...(e.kind === 'arrow' ? { endArrowhead: 'arrow' } : {}) }
+      el = { ...base, type: e.kind, points: e.points ?? [[0, 0], [e.w, e.h]], strokeColor: e.stroke ?? '#141414', strokeWidth: e.strokeWidth ?? 1, roughness: 0, ...(e.kind === 'arrow' ? { endArrowhead: 'arrow' } : {}) }
     } else if (e.kind === 'raster') {
       const img = c.images[e.id]
       if (img) {
@@ -67,7 +67,7 @@ export function figmaToSkeleton(c: FigmaContent, at: { x: number; y: number }, s
       } else {
         // 그림을 못 받은 것은 자리만 (점선 상자 + 이름)
         rasterMissing++
-        el = { ...base, type: 'rectangle', width: e.w, height: e.h, backgroundColor: 'transparent', strokeColor: '#9aa39d', strokeStyle: 'dashed', strokeWidth: 1, roughness: 0 }
+        el = { ...base, type: 'rectangle', width: e.w, height: e.h, backgroundColor: 'transparent', strokeColor: '#9c9c9c', strokeStyle: 'dashed', strokeWidth: 1, roughness: 0 }
       }
     }
     if (!el) continue

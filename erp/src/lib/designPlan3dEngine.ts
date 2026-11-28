@@ -35,7 +35,7 @@ export class PlanEngine {
   private bank: TextureBank
   private plan3: PlanScene
   private env: THREE.WebGLRenderTarget
-  private hemi = new THREE.HemisphereLight('#ffffff', '#d6d0c4', 1.0)
+  private hemi = new THREE.HemisphereLight('#ffffff', '#d2d2d0', 1.0)
   private sun = new THREE.DirectionalLight('#fff1dc', 1.9)
   /** 바닥에서 되비치는 빛 흉내: 눈높이에서 천장 · 가구 밑면을 밝힌다 (그림자 없음) */
   private bounce = new THREE.DirectionalLight('#fff6ea', 0)
@@ -112,7 +112,7 @@ export class PlanEngine {
     if (fx) { const g = fx.createRadialGradient(64, 64, 0, 64, 64, 64); g.addColorStop(0, '#fff'); g.addColorStop(0.5, '#fff'); g.addColorStop(1, '#000'); fx.fillStyle = g; fx.fillRect(0, 0, 128, 128) }
     this.fade = new THREE.CanvasTexture(fc)
     const disc = new THREE.CircleGeometry(1, 64)
-    this.ground = new THREE.Mesh(disc, new THREE.MeshBasicMaterial({ color: o.ground || '#efece5', alphaMap: this.fade, transparent: true, depthWrite: false, toneMapped: false, polygonOffset: true, polygonOffsetFactor: 2, polygonOffsetUnits: 8 }))
+    this.ground = new THREE.Mesh(disc, new THREE.MeshBasicMaterial({ color: o.ground || '#ececea', alphaMap: this.fade, transparent: true, depthWrite: false, toneMapped: false, polygonOffset: true, polygonOffsetFactor: 2, polygonOffsetUnits: 8 }))
     this.catcher = new THREE.Mesh(disc, new THREE.ShadowMaterial({ opacity: 0.15, depthWrite: false, polygonOffset: true, polygonOffsetFactor: 2, polygonOffsetUnits: 8 }))
     for (const [m, y, order] of [[this.ground, -0.008, -2], [this.catcher, -0.004, -1]] as const) { m.rotation.x = -Math.PI / 2; m.position.y = y; m.renderOrder = order; this.scene.add(m) }
     this.catcher.receiveShadow = true

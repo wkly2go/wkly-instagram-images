@@ -39,7 +39,7 @@ export const pruneCursors = (list: readonly CursorPeer[], now: number) => {
 }
 
 // 밝은 화면에서 잘 보이는 색 (검정 없음) · 같은 사람은 늘 같은 색
-const COLORS = ['#1f6b4a', '#2457b3', '#b3472d', '#7a3fb0', '#0f7d8c', '#a8610a', '#b02e6b', '#4a6b1f']
+const COLORS = ['#1f4dff', '#141414', '#5b7cff', '#555555', '#0b2fb8', '#858585', '#3a3a3a', '#7f9bff']
 export function cursorColor(id: string) {
   let h = 0
   for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0

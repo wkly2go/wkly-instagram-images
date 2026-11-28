@@ -38,7 +38,7 @@ function InlineEdit({ el, onDone }: { el: BoardEl; onDone(text: string): void })
   const [t, setT] = useState(el.text ?? '')
   const ref = useRef<HTMLTextAreaElement>(null)
   useEffect(() => { const a = ref.current; if (a) { a.focus(); a.select() } }, [])
-  return <textarea ref={ref} className={`dbd-inline dbd-inline-${el.type}`} style={{ ...textStyle(el), background: el.type === 'note' ? el.style?.fill ?? '#fff3bf' : el.type === 'rect' ? el.style?.fill ?? '#eef3ee' : el.style?.fill }} value={t} aria-label="글 고치기"
+  return <textarea ref={ref} className={`dbd-inline dbd-inline-${el.type}`} style={{ ...textStyle(el), background: el.type === 'note' ? el.style?.fill ?? '#fff3bf' : el.type === 'rect' ? el.style?.fill ?? '#f0f0ee' : el.style?.fill }} value={t} aria-label="글 고치기"
     onChange={e => setT(e.target.value)} onBlur={() => onDone(t)} onPointerDown={e => e.stopPropagation()} onDoubleClick={e => e.stopPropagation()}
     onKeyDown={e => { if (e.nativeEvent.isComposing || e.keyCode === 229) return; if (e.key === 'Escape' || (e.key === 'Enter' && (e.ctrlKey || e.metaKey))) { e.preventDefault(); e.currentTarget.blur() } }} />
 }

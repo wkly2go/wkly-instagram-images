@@ -2965,7 +2965,7 @@ html.detail-full .detail-col.full .col-resize { display: none; }
   --r-bubble: 0px;
 }
 /* 모든 모서리 사각 (원형 라디오 단추만 예외) */
-*, *::before, *::after { border-radius: 0 !important; }
+/* (2026-11-28 디자인 v9 '부드럽게') 예전 '모두 사각' 고정을 없앰 — 모서리는 각 규칙 · mono.css 가 정함 */
 input[type='radio'] { border-radius: 50% !important; }
 /* 그림자 대신 선: 디자인시스템은 효과 스타일 없음 */
 .proj-detail > .section, .proj-detail > .col, .proj-detail > .proj-top3 > *, .proj-detail > .proj-side-row > *,

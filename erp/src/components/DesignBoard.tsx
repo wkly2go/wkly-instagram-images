@@ -20,8 +20,8 @@ import './DesignBoard.css'
 type Peer = { id: string; name: string }
 type Watch = (key: string, who: Peer, on: { peers(list: Peer[]): void; saved(by: Peer & { at: number }): void }) => { saved(): void; close(): void }
 type Tab = 'props' | 'spec' | 'notes'
-const FILLS = ['#ffffff', '#f6f4ef', '#eef3ee', '#e8f3ec', '#e8eef8', '#fff3bf', '#fde8ec', '#efe6d2', '#d9d9d9']
-const INKS = ['#151d18', '#535c56', '#1f6b4a', '#2456ab', '#c0392b', '#94704c', '#ffffff']
+const FILLS = ['#ffffff', '#f6f6f4', '#f0f0ee', '#e4e4e2', '#e9eeff', '#fff3bf', '#fde8ec', '#d9d9d9', '#141414']
+const INKS = ['#141414', '#5a5a5a', '#8c8c8c', '#1f4dff', '#c0392b', '#bdbdbd', '#ffffff']
 const SIZE: Record<BoardElType, [number, number]> = { text: [560, 80], rect: [360, 240], note: [280, 220], spec: [330, 400], swatch: [240, 290], table: [1100, 420], image: [640, 360] }
 const TOOLS: { key: BoardTool; label: string; hint: string; icon: ReactNode }[] = [
   { key: 'select', label: '선택', hint: 'V', icon: <MousePointer2 size={14} /> }, { key: 'text', label: '글', hint: 'T', icon: <Type size={14} /> },
@@ -433,15 +433,15 @@ export default function DesignBoard({ project }: { project: DesignProject }) {
         const p = newPage(t.title)
         let z = 0
         const el = (type: BoardElType, x: number, y: number, w: number, h: number, more: Partial<BoardEl>): BoardEl => ({ id: uid(), type, x, y, w, h, z: z++, ...more })
-        p.els.push(el('text', 80, 64, 1000, 40, { text: `${String(i + 1).padStart(2, '0')} · ${project.name}`, style: { size: 'body', color: '#1f6b4a', bold: true } }))
+        p.els.push(el('text', 80, 64, 1000, 40, { text: `${String(i + 1).padStart(2, '0')} · ${project.name}`, style: { size: 'body', color: '#141414', bold: true } }))
         p.els.push(el('text', 80, 116, 1440, 84, { text: t.title, style: { size: 'title', bold: true } }))
-        p.els.push(el('rect', 80, 214, 96, 6, { style: { fill: '#1f6b4a' } }))
-        p.els.push(el('text', 80, 252, figs.length ? 800 : 1440, 560, { text: body || '구성안 (글)에 이 항목의 내용을 적은 뒤 다시 만들면 여기에 들어옵니다.', style: { size: 'body', color: body ? '#151d18' : '#535c56' } }))
+        p.els.push(el('rect', 80, 214, 96, 6, { style: { fill: '#141414' } }))
+        p.els.push(el('text', 80, 252, figs.length ? 800 : 1440, 560, { text: body || '구성안 (글)에 이 항목의 내용을 적은 뒤 다시 만들면 여기에 들어옵니다.', style: { size: 'body', color: body ? '#141414' : '#5a5a5a' } }))
         figs.forEach((f, n) => {
           const x = 940 + (n % 2) * 300, y = 252 + Math.floor(n / 2) * 190
-          p.els.push(el('rect', x, y, 280, 170, { style: { fill: '#eef3ee' } }))
-          p.els.push(el('text', x + 20, y + 18, 240, 56, { text: `${f.value}${f.unit ?? ''}`, style: { size: 'sub', bold: true, color: '#1f6b4a' } }))
-          p.els.push(el('text', x + 20, y + 84, 240, 76, { text: [f.label, f.source ? `출처: ${f.source}` : '출처 없음 — 확인 필요'].filter(Boolean).join('\n'), style: { size: 'body', color: f.source ? '#535c56' : '#c0392b' } }))
+          p.els.push(el('rect', x, y, 280, 170, { style: { fill: '#f0f0ee' } }))
+          p.els.push(el('text', x + 20, y + 18, 240, 56, { text: `${f.value}${f.unit ?? ''}`, style: { size: 'sub', bold: true, color: '#141414' } }))
+          p.els.push(el('text', x + 20, y + 84, 240, 76, { text: [f.label, f.source ? `출처: ${f.source}` : '출처 없음 — 확인 필요'].filter(Boolean).join('\n'), style: { size: 'body', color: f.source ? '#5a5a5a' : '#c0392b' } }))
         })
         return p
       })
@@ -456,7 +456,7 @@ export default function DesignBoard({ project }: { project: DesignProject }) {
       chunk(rows, 8).forEach((part, n, all) => {
         const p = newPage(`${bookName(b)} 스펙${all.length > 1 ? ` ${n + 1}` : ''}`)
         p.els.push({ id: uid(), type: 'text', x: 80, y: 64, w: 1100, h: 84, z: 0, text: bookName(b), style: { size: 'title', bold: true } })
-        p.els.push({ id: uid(), type: 'text', x: 80, y: 150, w: 1100, h: 40, z: 1, text: `${project.name} · 선정 · 확정 ${rows.length}개`, style: { size: 'body', color: '#535c56' } })
+        p.els.push({ id: uid(), type: 'text', x: 80, y: 150, w: 1100, h: 40, z: 1, text: `${project.name} · 선정 · 확정 ${rows.length}개`, style: { size: 'body', color: '#5a5a5a' } })
         cardGrid(part.length, { x: 80, y: 214, w: 1440, h: 626 }).forEach((box, k) => p.els.push({ id: uid(), type: 'spec', ...box, z: k + 2, spec_id: part[k].id }))
         made.push(p)
       })
@@ -657,8 +657,8 @@ export default function DesignBoard({ project }: { project: DesignProject }) {
           <button type="button" className={`dbd-ib${st.bold ? ' on' : ''}`} aria-pressed={!!st.bold} title="굵게" aria-label="굵게" onClick={() => patchStyle({ bold: !st.bold })}><Bold size={13} /></button>
         </div></div>
         <div className="dbd-field"><span className="dbd-label">정렬</span><div className="dbd-seg icons">{([['left', '왼쪽', <AlignLeft size={13} key="l" />], ['center', '가운데', <AlignCenter size={13} key="c" />], ['right', '오른쪽', <AlignRight size={13} key="r" />]] as const).map(([k, l, ic]) => <button type="button" key={k} className={(st.align ?? (one.type === 'rect' ? 'center' : 'left')) === k ? 'on' : ''} title={`${l} 정렬`} aria-label={`${l} 정렬`} onClick={() => patchStyle({ align: k })}>{ic}</button>)}</div></div>
-        <Swatches label="글자색" colors={INKS} value={st.color ?? '#151d18'} onPick={c => patchStyle({ color: c })} />
-        <Swatches label="바탕색" colors={FILLS} value={st.fill ?? (one.type === 'note' ? '#fff3bf' : one.type === 'rect' ? '#eef3ee' : undefined)} onPick={c => patchStyle({ fill: c })} none={one.type === 'text' ? '바탕 없음' : undefined} />
+        <Swatches label="글자색" colors={INKS} value={st.color ?? '#141414'} onPick={c => patchStyle({ color: c })} />
+        <Swatches label="바탕색" colors={FILLS} value={st.fill ?? (one.type === 'note' ? '#fff3bf' : one.type === 'rect' ? '#f0f0ee' : undefined)} onPick={c => patchStyle({ fill: c })} none={one.type === 'text' ? '바탕 없음' : undefined} />
         {one.type === 'rect' && <Swatches label="테두리" colors={INKS.slice(0, 6)} value={st.stroke} onPick={c => patchStyle({ stroke: c })} none="테두리 없음" />}
       </>}
       {one && <div className="dbd-field"><span className="dbd-label">자리 · 크기</span><div className="dbd-nums">

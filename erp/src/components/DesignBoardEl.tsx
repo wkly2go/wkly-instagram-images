@@ -11,7 +11,7 @@ export interface BoardData { specs: SpecItem[]; images: Record<string, string>; 
 export const BoardDataContext = createContext<BoardData>({ specs: [], images: {}, renders: [] })
 
 export const TEXT_PX = { title: 64, sub: 36, body: 24 } as const
-export const INK = '#151d18'
+export const INK = '#141414'
 export const KIND_LABEL: Record<FinishKind, string> = {
   paint: '도장', wallpaper: '벽지', wood: '목재', tile: '타일', stone: '석재', metal: '금속', glass: '유리', fabric: '패브릭', carpet: '카펫', vinyl: '시트 · 필름', concrete: '콘크리트', plain: '',
 }
@@ -135,7 +135,7 @@ export function BoardElView({ el }: { el: BoardEl }) {
   switch (el.type) {
     case 'text': return <div className="dbd-text" style={{ ...textStyle(el), background: s.fill }}>{el.text || <i className="dbd-ph">두 번 눌러 글을 적으세요</i>}</div>
     case 'note': return <div className="dbd-note" style={{ ...textStyle(el), background: s.fill ?? '#fff3bf' }}>{el.text || <i className="dbd-ph">메모</i>}</div>
-    case 'rect': return <div className="dbd-rect" style={{ ...textStyle(el), background: s.fill ?? '#eef3ee', boxShadow: s.stroke ? `inset 0 0 0 2px ${s.stroke}` : undefined }}>{el.text ? <span>{el.text}</span> : null}</div>
+    case 'rect': return <div className="dbd-rect" style={{ ...textStyle(el), background: s.fill ?? '#f0f0ee', boxShadow: s.stroke ? `inset 0 0 0 2px ${s.stroke}` : undefined }}>{el.text ? <span>{el.text}</span> : null}</div>
     case 'spec': return <SpecCard el={el} />
     case 'swatch': return <Swatch el={el} />
     case 'table': return <SpecTable el={el} />

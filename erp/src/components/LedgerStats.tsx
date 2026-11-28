@@ -13,8 +13,8 @@ import { monthEnd } from './LedgerViews'
 import { Empty } from './ui'
 
 // 범주 색: 검증된 8색 순서 (파랑 · 주황 · 청록 · 노랑 · 자홍 · 초록 · 보라) + 기타 회색
-const SLOTS = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#6250d6']
-const OTHER = '#a8a6a0'
+const SLOTS = ['#1f4dff', '#141414', '#4a4a4a', '#767676', '#9c9c9c', '#bdbdbd', '#d6d6d4']
+const OTHER = '#e4e4e2'
 const OPEN_KEY = 'wkly-ledger-opening'
 
 // 회계장부는 연도별: 기간은 고른 해 안에서만 (2026-11-06)
@@ -481,7 +481,7 @@ function LineCompare({ months, cur, prev }: { months: string[]; cur: number[]; p
         </span>
         {prev && (
           <span>
-            <i className="ln" style={{ background: '#9cc3a6' }} />
+            <i className="ln" style={{ background: '#b5b5b5' }} />
             전년 같은 달
           </span>
         )}
@@ -512,7 +512,7 @@ function LineCompare({ months, cur, prev }: { months: string[]; cur: number[]; p
         ))}
         {lo < 0 && <line x1={left} x2={width - 10} y1={y(0)} y2={y(0)} stroke="var(--gray)" strokeWidth={1} />}
         <line x1={left} x2={width - 10} y1={y(avg)} y2={y(avg)} stroke="var(--red)" strokeWidth={1} strokeDasharray="5 4" opacity={0.7} />
-        {prev && <path d={path(prev)} fill="none" stroke="#9cc3a6" strokeWidth={2} />}
+        {prev && <path d={path(prev)} fill="none" stroke="#b5b5b5" strokeWidth={2} />}
         <path d={path(cur)} fill="none" stroke="var(--blue)" strokeWidth={2} />
         {cur.map((v, i) => (
           <circle key={i} cx={x(i)} cy={y(v)} r={hover === i ? 5 : 3.5} fill={v < 0 ? 'var(--red)' : 'var(--blue)'} stroke="var(--white)" strokeWidth={2} />

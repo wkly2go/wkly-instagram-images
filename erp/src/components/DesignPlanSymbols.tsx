@@ -5,7 +5,7 @@ import type { PlanItem, PlanOpening, PlanWall } from '../lib/designPlan'
 import { along, arcPath, doorSymbol, wallFrame, type Pt } from '../lib/designPlanDraw'
 import { itemShape, mix, SHAPE_COLOR, type ItemShape } from '../lib/designPlanLook'
 
-const INK = '#3b413c'
+const INK = '#3a3a3a'
 const poly = (a: Pt[]) => a.map(p => `${p.x},${p.y}`).join(' ')
 // 칸 수에 한도를 둔다: 치수가 아무리 커도(붙여 넣은 글 등) 기호 하나가 수십 개 넘는 선을 그리지 않게
 const range = (n: number) => Array.from({ length: Number.isFinite(n) ? Math.max(0, Math.min(48, Math.floor(n))) : 0 }, (_, i) => i)

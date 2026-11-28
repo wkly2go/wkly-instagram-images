@@ -43,22 +43,22 @@ export function BoardMinimap({ source, onHide, size, onSize }: { source: () => M
       if (!g) return
       g.setTransform(dpr, 0, 0, dpr, 0, 0)
       g.clearRect(0, 0, W, H)
-      g.fillStyle = '#fbfaf7'
+      g.fillStyle = '#fafafa'
       g.fillRect(0, 0, W, H)
       for (let i = 0; i < els.length; i++) {
         const e = els[i], b = boxes[i]
         const rx = b.x * f.scale + f.ox, ry = b.y * f.scale + f.oy, rw = Math.max(1, b.w * f.scale), rh = Math.max(1, b.h * f.scale)
-        if (e.type === 'frame' || e.type === 'magicframe') { g.strokeStyle = '#8a958e'; g.lineWidth = 1; g.strokeRect(rx + 0.5, ry + 0.5, rw, rh); continue }
-        if (e.type === 'text') { g.fillStyle = '#55605a'; g.fillRect(rx, ry + rh / 2 - 0.5, rw, Math.max(1, Math.min(2, rh / 2))); continue }
-        if (e.type === 'line' || e.type === 'arrow' || e.type === 'freedraw') { g.fillStyle = e.strokeColor && e.strokeColor !== 'transparent' ? e.strokeColor : '#55605a'; g.globalAlpha = 0.6; g.fillRect(rx, ry, rw, rh > 2 ? rh : 1); g.globalAlpha = 1; continue }
-        g.fillStyle = e.type === 'image' ? '#c3cbc6' : e.backgroundColor && e.backgroundColor !== 'transparent' ? e.backgroundColor : '#e3e8e4'
+        if (e.type === 'frame' || e.type === 'magicframe') { g.strokeStyle = '#8c8c8c'; g.lineWidth = 1; g.strokeRect(rx + 0.5, ry + 0.5, rw, rh); continue }
+        if (e.type === 'text') { g.fillStyle = '#5a5a5a'; g.fillRect(rx, ry + rh / 2 - 0.5, rw, Math.max(1, Math.min(2, rh / 2))); continue }
+        if (e.type === 'line' || e.type === 'arrow' || e.type === 'freedraw') { g.fillStyle = e.strokeColor && e.strokeColor !== 'transparent' ? e.strokeColor : '#5a5a5a'; g.globalAlpha = 0.6; g.fillRect(rx, ry, rw, rh > 2 ? rh : 1); g.globalAlpha = 1; continue }
+        g.fillStyle = e.type === 'image' ? '#c6c6c6' : e.backgroundColor && e.backgroundColor !== 'transparent' ? e.backgroundColor : '#e4e4e4'
         g.fillRect(rx, ry, rw, rh)
       }
       // 지금 보는 화면
       const vx = v.x * f.scale + f.ox, vy = v.y * f.scale + f.oy, vw = v.w * f.scale, vh = v.h * f.scale
       g.fillStyle = 'rgba(31, 107, 74, 0.10)'
       g.fillRect(vx, vy, vw, vh)
-      g.strokeStyle = '#1f6b4a'
+      g.strokeStyle = '#1f4dff'
       g.lineWidth = 1.5
       g.strokeRect(vx, vy, vw, vh)
     }
