@@ -54,7 +54,7 @@ test('서버 함수: 열쇠 확인 뒤에만 AI · 사용량 기록 · 한도 �
   assert.match(fn, /rpc\('ai_month_state'\)/)
   assert.match(fn, /creditOpen\(/)
   assert.match(fn, /DAILY_PLAN_LIMIT/)
-  assert.equal(PLAN_MODEL, 'claude-sonnet-5-5')
+  assert.equal(PLAN_MODEL, 'claude-opus-5-5')
   const worker = readFileSync(new URL('../tools/video-worker/worker.mjs', import.meta.url), 'utf8')
   assert.doesNotMatch(worker, /--allowedTools|cfg\.claude|askClaude/)
   assert.match(worker, /action: 'plan'/)
