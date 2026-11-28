@@ -8,14 +8,15 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Excalidraw, exportToBlob, exportToSvg } from '@excalidraw/excalidraw'
 import '@excalidraw/excalidraw/index.css'
 import { convertToExcalidrawElements } from '@excalidraw/excalidraw'
-import { ArrowLeft, Copy, Download, FileDown, Figma, Map as MapIcon, Maximize2, Minimize2, Upload, Users, X } from 'lucide-react'
+import { ArrowLeft, Copy, Download, FileDown, FileUp, Figma, Map as MapIcon, Maximize2, Minimize2, Plus, Presentation, Upload, Users, X } from 'lucide-react'
 import { Link } from '../lib/router'
 import { boardFilePath, boardTitle, mergeElements, pool, saveDelay, sceneForSave, sceneSignature, type BoardElement, type BoardFileRef, type BoardScene } from '../lib/board'
 import type { BoardApi, BoardLive, BoardPeer, ProjectBoard } from '../lib/boardApi'
 import { collaboratorsOf, type CursorPeer, type CursorRoom } from '../lib/boardCursors'
 import { imagesToPdf } from '../lib/imagePdf'
 import { figmaToSkeleton, placeTexts, type FigmaContent } from '../lib/figmaToBoard'
-import { BoardMinimap, type MinimapSource } from './BoardMinimap'
+import { BoardMinimap, type MinimapSize, type MinimapSource } from './BoardMinimap'
+import { nextPagePlace, pageLabel, pageList, PAGE_SIZES, type PageBox, type PageKind } from '../lib/boardPages'
 import { BOARD_FONT, installBoardFonts, svgFontsForFigma } from '../lib/boardFonts'
 import '../pages/Board.css'
 
@@ -65,6 +66,13 @@ export default function BoardEditorCore({ id, embedded = false, onClose, api, me
   // 전체 보기 지도 (켜고 끈 것은 이 브라우저에 기억 · 기본 켬)
   const [mapOn, setMapOn] = useState(() => { try { return localStorage.getItem('wkly-board-map') !== '0' } catch { return true } })
   const toggleMap = (on: boolean) => { setMapOn(on); try { localStorage.setItem('wkly-board-map', on ? '1' : '0') } catch { /* 저장 못 해도 그대로 */ } }
+  const [mapSize, setMapSize] = useState<MinimapSize>(() => { try { return localStorage.getItem('wkly-board-map-size') === 'large' ? 'large' : 'small' } catch { return 'small' } })
+  const sizeMap = (v: MinimapSize) => { setMapSize(v); try { localStorage.setItem('wkly-board-map-size', v) } catch { /* 그대로 */ } }
+  // 페이지 줄: 프레임 목록 (0.6초마다 바뀐 때만)
+  const [pages, setPages] = useState<PageBox[]>([])
+  const [pageKind, setPageKind] = useState<PageKind>('slide')
+  const pptIn = useRef<HTMLInputElement>(null)
+  const [busy, setBusy] = useState('')
   const mapSource = useCallback(() => ex.current as unknown as MinimapSource | null, [])
   const [board, setBoard] = useState<ProjectBoard | null>(null)
   const [initial, setInitial] = useState<{ elements: BoardElement[]; files: BinaryFile[] } | null>(null)
@@ -119,7 +127,12 @@ export default function BoardEditorCore({ id, embedded = false, onClose, api, me
         savedSig.current = sceneSignature(got.scene.elements)
         setBoard(got.board); setTitle(got.board.title)
         // 그림(요소)을 먼저 띄우고 사진은 뒤에서 받아 채움 (사진을 다 받을 때까지 빈 화면이던 것 고침)
-        setInitial({ elements: got.scene.elements, files: [] })
+        // 빈 보드에는 인쇄 · 발표용 첫 페이지(16:9)를 기본으로 놓음 (2026-11-28 · 저장은 무언가 그린 뒤 함께)
+        const first = !readOnly && !got.scene.elements.some(e => !e.isDeleted)
+          ? convertToExcalidrawElements([{ type: 'frame', ...nextPagePlace([], 'slide'), children: [] }] as never) as never as BoardElement[]
+          : []
+        if (first.length) savedSig.current = sceneSignature([...got.scene.elements, ...first])
+        setInitial({ elements: [...got.scene.elements, ...first], files: [] })
         setState(readOnly ? '읽기 전용' : '저장됨')
         void loadFiles(got.scene.files, new Set()).then(async files => {
           if (!alive || !files.length) return
@@ -344,6 +357,78 @@ export default function BoardEditorCore({ id, embedded = false, onClose, api, me
     } catch (e) { toast(e instanceof Error ? e.message : 'PDF 를 만들지 못했습니다.') }
   }
 
+  useEffect(() => {
+    if (!initial) return
+    let sig = ''
+    const tick = () => {
+      const x = ex.current
+      if (!x || document.visibilityState !== 'visible') return
+      const list = pageList(x.getSceneElements() as never as PageBox[])
+      const next = list.map(p => `${p.id}:${p.name ?? ''}:${Math.round(p.x)}:${Math.round(p.y)}`).join('|')
+      if (next !== sig) { sig = next; setPages(list) }
+    }
+    tick()
+    const t = window.setInterval(tick, 600)
+    return () => window.clearInterval(t)
+  }, [initial])
+
+  /** 페이지(슬라이드 · A4) 한 장 추가 → 그 페이지로 이동 */
+  const addPage = (kind: PageKind) => {
+    const x = ex.current
+    if (!x || readOnly) return
+    const added = convertToExcalidrawElements([{ type: 'frame', ...nextPagePlace(x.getSceneElements() as never as PageBox[], kind), children: [] }] as never)
+    x.updateScene({ elements: [...x.getSceneElementsIncludingDeleted(), ...added] as never })
+    x.scrollToContent(added as never, { fitToContent: true, animate: true })
+  }
+  const goPage = (id: string) => {
+    const x = ex.current
+    const el = x?.getSceneElements().find(e => e.id === id)
+    if (x && el) x.scrollToContent(el as never, { fitToContent: true, animate: true })
+  }
+
+  /** PPT 내보내기: 페이지마다 슬라이드 한 장 — 글은 고칠 수 있는 글 상자, 나머지는 그림 */
+  const downloadPptx = async () => {
+    const x = ex.current
+    if (!x || busy) return
+    const els = x.getSceneElements()
+    const frames = pageList(els as never as PageBox[])
+    if (!frames.length) { toast('페이지가 없습니다. 위 ‘슬라이드 추가’로 페이지를 만든 뒤 내보내 주세요.'); return }
+    setBusy('PPT 만드는 중')
+    try {
+      const { buildPptx } = await import('../lib/pptxExport')
+      const slides = []
+      for (const f of frames) {
+        const full = els.find(e => e.id === f.id)!
+        const texts = els.filter(e => e.type === 'text' && (e as { frameId?: string | null }).frameId === f.id)
+        const skip = new Set(texts.map(t => t.id))
+        const blob = await exportToBlob({ elements: els.filter(e => !skip.has(e.id)), appState: { ...x.getAppState(), exportBackground: true, viewBackgroundColor: '#ffffff', exportScale: f.width > 1400 ? 1 : 2 }, files: x.getFiles(), mimeType: 'image/jpeg', quality: 0.92, exportPadding: 0, exportingFrame: full } as never)
+        slides.push({ image: await blobToDataURL(blob), frame: f, texts: texts as never })
+      }
+      const out = await buildPptx(slides, boardTitle(title))
+      const a = document.createElement('a')
+      a.href = URL.createObjectURL(out)
+      a.download = `${boardTitle(title)}.pptx`
+      a.click()
+      setTimeout(() => URL.revokeObjectURL(a.href), 2000)
+      toast(`페이지 ${frames.length}장을 PPT 로 내려받았습니다. 글은 파워포인트에서 바로 고칠 수 있습니다.`)
+    } catch (e) { toast(e instanceof Error ? e.message : 'PPT 를 만들지 못했습니다.') } finally { setBusy('') }
+  }
+
+  /** PPT 불러오기: 슬라이드마다 페이지 하나 · 글 · 도형 · 사진을 고칠 수 있는 요소로 (이 브라우저 안에서 읽음) */
+  const importPptx = async (file: File | undefined) => {
+    if (!file || busy) return
+    setBusy('PPT 읽는 중')
+    try {
+      const { readPptxFile } = await import('../lib/pptxImport')
+      const c = await readPptxFile(file)
+      // 페이지 이름은 지금 있는 페이지 뒤 번호로 이어 붙임
+      const base = pageList((ex.current?.getSceneElements() ?? []) as never as PageBox[]).length
+      let n = 0
+      for (const f of c.frames) for (const e of f.els) if (e.kind === 'frame') e.name = `슬라이드 ${base + ++n}`
+      await addFigmaContent(c, `PPT 슬라이드 ${c.slides}장을 페이지로 불러왔습니다.${c.skipped ? ` 표 · 차트 등 ${c.skipped}개는 옮기지 못했습니다.` : ''}${c.missingImages ? ` 그림 ${c.missingImages}개는 자리만 표시했습니다.` : ''}`)
+    } catch (e) { toast(e instanceof Error ? e.message : 'PPT 를 읽지 못했습니다.') } finally { setBusy(''); if (pptIn.current) pptIn.current.value = '' }
+  }
+
   /** 피그마 프레임 그림을 보드 오른쪽 빈 곳에 나란히 붙임 */
   const addFigma = (picked: FigmaPicked[]) => {
     const x = ex.current
@@ -367,12 +452,15 @@ export default function BoardEditorCore({ id, embedded = false, onClose, api, me
   }
 
   /** 피그마 프레임 안 요소를 수정 가능한 보드 요소로 붙임 (피그마 배치 그대로 · 보드 오른쪽 빈 곳) */
-  const addFigmaContent = async (c: FigmaContent) => {
+  const addFigmaContent = async (c: FigmaContent, done?: string) => {
     const x = ex.current
     if (!x) return
     await installBoardFonts() // 글 폭을 우리 글꼴로 재도록
     const els = x.getSceneElements()
-    const at = { x: els.length ? Math.max(...els.map(e => e.x + e.width)) + 120 : 0, y: els.length ? Math.min(...els.map(e => e.y)) : 0 }
+    // PPT 는 아래 빈 줄에(페이지 줄이 이어지게) · 피그마는 오른쪽 빈 곳에
+    const at = done
+      ? { x: els.length ? Math.min(...els.map(e => e.x)) : 0, y: els.length ? Math.max(...els.map(e => e.y + e.height)) + 120 : 0 }
+      : { x: els.length ? Math.max(...els.map(e => e.x + e.width)) + 120 : 0, y: els.length ? Math.min(...els.map(e => e.y)) : 0 }
     const out = figmaToSkeleton(c, at)
     if (!out.count) { toast('불러올 요소가 없습니다.'); return }
     if (out.files.length) x.addFiles(out.files as never)
@@ -381,6 +469,7 @@ export default function BoardEditorCore({ id, embedded = false, onClose, api, me
     x.scrollToContent(added as never, { fitToContent: true })
     const cut = c.frames.some(f => f.truncated)
     const miss = out.rasterMissing
+    if (done) { toast(done); return }
     toast(`피그마 요소 ${out.count}개를 붙였습니다. 글 · 도형을 눌러 바로 고칠 수 있습니다.${cut ? ' (요소가 많아 일부만)' : ''}${miss ? ` 그림 ${miss}개는 자리만 표시했습니다.` : ''}`)
   }
 
@@ -412,9 +501,23 @@ export default function BoardEditorCore({ id, embedded = false, onClose, api, me
         </span>}
         <button type="button" className="btn btn-outline btn-sm" onClick={() => void downloadPng()} disabled={!board}><Download size={13} /> PNG</button>
         <button type="button" className="btn btn-outline btn-sm" onClick={() => void downloadPdf()} disabled={!board} title="프레임마다 한 쪽 (프레임이 없으면 보드 전체 한 쪽)"><FileDown size={13} /> PDF</button>
+        <button type="button" className="btn btn-outline btn-sm" onClick={() => void downloadPptx()} disabled={!board || !!busy} title="페이지마다 슬라이드 한 장 · 글은 파워포인트에서 고칠 수 있음"><Presentation size={13} /> {busy === 'PPT 만드는 중' ? busy : 'PPT'}</button>
         <button type="button" className={`icon-btn board-mapbtn${mapOn ? ' on' : ''}`} onClick={() => toggleMap(!mapOn)} title={mapOn ? '전체 보기 지도 숨기기' : '전체 보기 지도 — 보드 전체에서 지금 위치를 보고 눌러서 이동'} aria-label="전체 보기 지도" aria-pressed={mapOn}><MapIcon size={14} /></button>
         <button type="button" className="icon-btn board-full" onClick={() => void toggleFull()} title={full ? '전체 화면 끝 (Esc)' : '전체 화면'} aria-label={full ? '전체 화면 끝' : '전체 화면'}>{full ? <Minimize2 size={14} /> : <Maximize2 size={14} />}</button>
         {embedded && onClose && <button type="button" className="icon-btn" onClick={onClose} title="보드 닫기" aria-label="보드 닫기"><X size={14} /></button>}
+      </div>
+      <div className="board-pages" role="group" aria-label="페이지">
+        <span className="board-pages-label">페이지</span>
+        {pages.map((p, i) => <button key={p.id} type="button" className="board-page-chip" onClick={() => goPage(p.id)} title={`${pageLabel(p, i)} 로 이동`}><i>{i + 1}</i>{pageLabel(p, i)}</button>)}
+        {!pages.length && <span className="board-pages-empty">아직 없음 — 페이지를 만들면 PDF · PPT 가 페이지마다 한 장으로 나옵니다</span>}
+        {!readOnly && <>
+          <button type="button" className="btn btn-primary btn-sm" onClick={() => addPage(pageKind)} disabled={!board}><Plus size={13} /> {PAGE_SIZES[pageKind].name === 'A4' ? '페이지 추가' : '슬라이드 추가'}</button>
+          <select value={pageKind} onChange={e => setPageKind(e.target.value as PageKind)} aria-label="페이지 크기">
+            {(Object.keys(PAGE_SIZES) as PageKind[]).map(k => <option key={k} value={k}>{PAGE_SIZES[k].label}</option>)}
+          </select>
+          <button type="button" className="btn btn-outline btn-sm" onClick={() => pptIn.current?.click()} disabled={!board || !!busy} title="파워포인트(.pptx) 슬라이드를 페이지로 — 글 · 도형 · 사진을 고칠 수 있는 요소로"><FileUp size={13} /> {busy === 'PPT 읽는 중' ? busy : 'PPT 불러오기'}</button>
+          <input ref={pptIn} type="file" accept=".pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation" hidden onChange={e => void importPptx(e.target.files?.[0])} />
+        </>}
       </div>
       {figmaOpen && board && figma?.({ projectId: board.project_id, onClose: () => setFigmaOpen(false), onPick: p => { setFigmaOpen(false); addFigma(p) }, onContent: c => { setFigmaOpen(false); void addFigmaContent(c) } })}
       <div className="board-canvas">
@@ -431,7 +534,7 @@ export default function BoardEditorCore({ id, embedded = false, onClose, api, me
             UIOptions={{ canvasActions: { saveToActiveFile: false, toggleTheme: false } }}
           />
         ) : <p className="board-msg" role="status">보드를 불러오는 중입니다.</p>}
-        {initial && mapOn && <BoardMinimap source={mapSource} onHide={() => toggleMap(false)} />}
+        {initial && mapOn && <BoardMinimap source={mapSource} onHide={() => toggleMap(false)} size={mapSize} onSize={sizeMap} />}
       </div>
     </div>
   )
