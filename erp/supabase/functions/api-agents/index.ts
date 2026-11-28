@@ -13,7 +13,7 @@
 //    paid_allowed 가 false 이고 모든 크레딧의 만료일이 지났으면 실행하지 않음 · 'credit balance' 오류는 실패가 아니라 '한도 초과'로 기록하고 알림은 하루 한 번
 import Anthropic from 'npm:@anthropic-ai/sdk@0.134.0'
 import { createClient } from 'npm:@supabase/supabase-js@2.45.4'
-import { dueSlots, priceUsd, type Usage } from './rules.ts'
+import { dueSlots, priceUsd, skillRefs, type Usage } from './rules.ts'
 
 const sb = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } })
 const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-sync-key' }
@@ -23,7 +23,7 @@ const RUN_MS = 330_000
 const SESSION_CAP_USD = 2 // 세션 1개가 쓸 수 있는 최대 금액 (공개 단가 기준)
 const RUNTIME_USD_PER_HOUR = 0.08 // 세션이 돌아간 시간 요금
 
-interface Agent { id: string; code: string; name: string; model: string; effort: string; instructions: string; rpcs: string[]; web_search: boolean; web_max: number; times: string[]; weekdays: number[] | null; enabled: boolean; console_agent_id: string | null; console_env_id: string | null }
+interface Agent { id: string; code: string; name: string; model: string; effort: string; instructions: string; rpcs: string[]; web_search: boolean; web_max: number; times: string[]; weekdays: number[] | null; enabled: boolean; console_agent_id: string | null; console_env_id: string | null; skills?: string[] | null }
 interface Outcome { toolCalls: number; result: string; sessionId: string | null; runtimeUsd: number }
 
 const BASE_RULES = `You are an unattended scheduled agent of 더위클리 · 아트리어's intranet (WKLY ERP), running on the Claude API.
@@ -135,12 +135,19 @@ async function runSession(client: Anthropic, agent: Agent, consoleAgentId: strin
   const left = b ? Number(b.cap_usd) - Number(b.month_usd) : SESSION_CAP_USD
   const capCents = Math.max(5, Math.round(Math.min(SESSION_CAP_USD, left) * 100))
   const tools: Anthropic.Beta.Sessions.BetaManagedAgentsAgentWithOverridesParams['tools'] & unknown[] = []
-  // 웹 검색만 켬 (파일 · 명령 실행 도구는 모두 끔). 검색은 읽기 전용이라 묻지 않고 실행
-  if (agent.web_search && agent.web_max > 0) tools.push({ type: 'agent_toolset_20260401', default_config: { enabled: false, permission_policy: { type: 'auto' } }, configs: [{ name: 'web_search', enabled: true, permission_policy: { type: 'always_allow' }, user_location: { type: 'approximate', country: 'KR', timezone: 'Asia/Seoul' } }] })
+  // 붙일 스킬(2026-11-28 대표 '에이전트에게 필요한 스킬을 찾아서 모두 설치해'): 표 api_agents.skills 의 이름 → Console 에 올려 둔 스킬 번호(api_agent_skills)
+  const names = (agent.skills ?? []).filter(Boolean)
+  const skillRows = names.length ? ((await sb.from('api_agent_skills').select('name,console_skill_id').in('name', names)).data ?? []) as { name: string; console_skill_id: string | null }[] : []
+  const skills = skillRefs(names, skillRows)
+  // 웹 검색과, 스킬이 있을 때 스킬 글을 읽는 read 만 켬 (쓰기 · 명령 실행 도구는 모두 끔). 둘 다 읽기 전용이라 묻지 않고 실행
+  const configs: Record<string, unknown>[] = []
+  if (agent.web_search && agent.web_max > 0) configs.push({ name: 'web_search', enabled: true, permission_policy: { type: 'always_allow' }, user_location: { type: 'approximate', country: 'KR', timezone: 'Asia/Seoul' } })
+  if (skills.length) configs.push({ name: 'read', enabled: true, permission_policy: { type: 'always_allow' } })
+  if (configs.length) tools.push({ type: 'agent_toolset_20260401', default_config: { enabled: false, permission_policy: { type: 'auto' } }, configs } as never)
   if (agent.rpcs.length) tools.push({ type: 'custom', name: 'intranet', description: INTRANET_TOOL_DESCRIPTION, input_schema: intranetSchema(agent.rpcs) })
   const system = agent.web_search && agent.web_max > 0 ? `${systemText(agent)}\n\nUse at most ${agent.web_max} web searches in this run.` : systemText(agent)
   const session = await client.beta.sessions.create({
-    agent: { type: 'agent_with_overrides', id: consoleAgentId, model: { id: agent.model, effort: agent.effort as 'low' | 'medium' | 'high' }, system, tools },
+    agent: { type: 'agent_with_overrides', id: consoleAgentId, model: { id: agent.model, effort: agent.effort as 'low' | 'medium' | 'high' }, system, tools, ...(skills.length ? { skills } : {}) },
     environment_id: consoleEnvId,
     title: `${agent.code} · ${slot === 'manual' ? `${kickoff().slice(9, 25)} 수동` : slot}`,
     budget: { type: 'limit', max_list_cost: { amount: String(capCents), currency: 'USD' } },

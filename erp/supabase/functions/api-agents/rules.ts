@@ -32,3 +32,17 @@ export function dueSlots(times: string[], weekdays: number[] | null, now: Date, 
   }
   return out
 }
+
+/** 에이전트에 적힌 스킬 이름 → 세션에 붙일 스킬 목록. Console 에 아직 안 올라간 이름(번호 없음)은 건너뛰고, 같은 이름은 한 번만 */
+export function skillRefs(names: string[], rows: { name: string; console_skill_id: string | null }[]): { type: 'custom'; skill_id: string; version: 'latest' }[] {
+  const byName = new Map(rows.filter(r => r.console_skill_id).map(r => [r.name, String(r.console_skill_id)]))
+  const seen = new Set<string>()
+  const out: { type: 'custom'; skill_id: string; version: 'latest' }[] = []
+  for (const n of names) {
+    const id = byName.get(n)
+    if (!id || seen.has(id)) continue
+    seen.add(id)
+    out.push({ type: 'custom', skill_id: id, version: 'latest' })
+  }
+  return out
+}

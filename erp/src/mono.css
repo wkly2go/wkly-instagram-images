@@ -528,9 +528,9 @@ html:not([data-theme="dark"]) {
   --nm-neon-sm: 0 5px 14px -6px color-mix(in srgb, var(--v9-accent) 55%, transparent);
 }
 html:not([data-theme="dark"]) .app-page *, html:not([data-theme="dark"]) .app-page *::before, html:not([data-theme="dark"]) .app-page *::after { text-shadow: none; }
-html:not([data-theme="dark"]) .app-page :is(.main, .web-panel, .chat-dock, .profile) { box-shadow: var(--nm-up) !important; border: 1px solid transparent !important; }
+html:not([data-theme="dark"]) .app-page :is(.main, .web-panel, .chat-dock, .profile) { box-shadow: var(--nm-up) !important; border: 1px solid var(--fx-stroke) !important; }
 html:not([data-theme="dark"]) .app-page .topbar { box-shadow: none !important; border-bottom: 1px solid var(--v8-line) !important; }
-html:not([data-theme="dark"]) :is(.box, .stat, .kpi, .card, .home-kpi, .today-card, .checkin-card, .brief, .rd-box, .pc-card, .proj-card, .pboards-item, .week-day, .div-card, .ad-pcard, .dash-kpi, .dash-card, .dash-day, .mini-cal, .home-hero, .board-wrap, .guide-card, .sales-pipe-step, .gov-tile, .ledger-kpi, .weekly-box, .form-grid, .bigcal, .explorer, .web-setting, .myproj-card, .weekly-kpis, .office-net, .site-tabs, .survey-empty, .sales-development, .sales-iv, .sales-strategy-desk, .sales-settings, .sales-bid-qualifications, .growth-empty, .growth-ai, .auto-camp, .md-library, .ai-ins, .design-add, .design-block, .sales-pipe, .section, .panel, .tile, .list-card, .rd-kpi, .ai-card, .note, details.box, .bubble) { box-shadow: var(--nm-up-sm) !important; border: 1px solid transparent !important; transform: none !important; }
+html:not([data-theme="dark"]) :is(.box, .stat, .kpi, .card, .home-kpi, .today-card, .checkin-card, .brief, .rd-box, .pc-card, .proj-card, .pboards-item, .week-day, .div-card, .ad-pcard, .dash-kpi, .dash-card, .dash-day, .mini-cal, .home-hero, .board-wrap, .guide-card, .sales-pipe-step, .gov-tile, .ledger-kpi, .weekly-box, .form-grid, .bigcal, .explorer, .web-setting, .myproj-card, .weekly-kpis, .office-net, .site-tabs, .survey-empty, .sales-development, .sales-iv, .sales-strategy-desk, .sales-settings, .sales-bid-qualifications, .growth-empty, .growth-ai, .auto-camp, .md-library, .ai-ins, .design-add, .design-block, .sales-pipe, .section, .panel, .tile, .list-card, .rd-kpi, .ai-card, .note, details.box, .bubble) { box-shadow: var(--nm-up-sm) !important; border: 1px solid var(--fx-stroke) !important; transform: none !important; }
 html:not([data-theme="dark"]) :is(a.home-kpi, a.dash-kpi, .pc-card, .pboards-item, .proj-card, .sales-pipe-step, .gov-tile, .ai-card):hover { box-shadow: var(--nm-up), var(--fx-key) !important; border-color: transparent !important; transform: none !important; }
 html:not([data-theme="dark"]) :is(.dash-kpi.is-key, .week-day.today, .dash-day.is-today) { box-shadow: var(--nm-up-sm), var(--fx-key) !important; border-color: transparent !important; }
 html:not([data-theme="dark"]) :is(.chip.active, .chip.on, .ads-subnav button.active, .ads-nav button.active, .tab.on, .tab.active, .view-tab.on, .count, .q2-badge, .m-dot, .view-tab-n, .bell .count, button.day.today, .week-day-h .dd, .side-item.on) { box-shadow: var(--nm-in-sm) !important; }
@@ -553,7 +553,6 @@ html:not([data-theme="dark"]) :is(.btn-primary, .new-btn, .today-ok, .btn.primar
 html:not([data-theme="dark"]) :is(.btn-primary, .new-btn, .today-ok, .btn.primary):not(:disabled):hover { box-shadow: var(--nm-neon-sm) !important; }
 @media (max-width: 760px) { html:not([data-theme="dark"]) .m-nav { box-shadow: var(--nm-up) !important; border-top: 0 !important; } html:not([data-theme="dark"]) .m-more { box-shadow: none; border-top: 1px solid var(--v8-line-2); } }
 
-/* 로고는 얇은 선으로 (2026-11-28 대표 '로고 선 얇게 만들어' · public/wkly-logo-line.svg) — 색 필터 없이 그대로 */
 html:not([data-theme="dark"]) .top-logo .logo-ink { filter: none !important; opacity: 1; }
 
 /* ================================================================================
@@ -606,3 +605,59 @@ html:not([data-theme="dark"]) .app-page :is(.dash-flow, .dash-flow-grid, .rd-mon
 html:not([data-theme="dark"]) .app-page :is(.chat-input, .q2-input, .composer) :is(input, textarea), html:not([data-theme="dark"]) .app-page textarea { border-radius: var(--v8-r-ctl) !important; }
 html:not([data-theme="dark"]) .app-page :is(.ads-segment, .seg, .right-tabs, .ads-nav, .ads-subnav) { border-radius: 14px !important; }
 html:not([data-theme="dark"]) .app-page :is(.ads-segment, .seg, .right-tabs, .ads-nav, .ads-subnav) button { border-radius: 10px !important; }
+
+/* 2026-11-28 대표 '아이콘 라운드 최소화하고 상하 사이즈도 줄여' (결제 화면 칩 줄): 칩 · 버튼 · 입력 칸은 알약 대신 작은 모서리(6px) · 높이를 낮춤 */
+html:not([data-theme="dark"]) .app-page :is(.btn, .btn-sm, .btn-blue, .btn-ghost, .quick-btn, .icon-btn, .chip, .new-btn, .btn-primary, .today-ok, .dock-fold, .tab, .view-tab) { border-radius: 6px !important; }
+html:not([data-theme="dark"]) .app-page :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]), select, .search, .q2-input):not(.excalidraw *) { border-radius: 6px !important; }
+html:not([data-theme="dark"]) .app-page textarea:not(.excalidraw *), html:not([data-theme="dark"]) .app-page :is(.chat-input, .q2-input, .composer) :is(input, textarea) { border-radius: 6px !important; }
+html:not([data-theme="dark"]) .app-page :is(.ads-segment, .seg, .right-tabs, .ads-nav, .ads-subnav) { border-radius: 8px !important; padding: 3px; }
+html:not([data-theme="dark"]) .app-page :is(.ads-segment, .seg, .right-tabs, .ads-nav, .ads-subnav) button { border-radius: 5px !important; }
+html:not([data-theme="dark"]) :is(.ins-icon, .home-kpi-tile, .dash-kpi-ic, .ai-ava, .avatar) { border-radius: 6px !important; }
+html:not([data-theme="dark"]) .app-page .profile .side-item { border-radius: 6px !important; }
+html:not([data-theme="dark"]) .ast-fab { border-radius: 8px !important; }
+html:not([data-theme="dark"]) .app-page .chip { min-height: 0 !important; height: auto; padding-top: 4px !important; padding-bottom: 4px !important; line-height: 1.35; }
+html:not([data-theme="dark"]) .app-page :is(.btn, .btn-blue, .btn-ghost, .btn-primary, .today-ok) { min-height: 0; padding-top: 5px; padding-bottom: 5px; line-height: 1.35; }
+html:not([data-theme="dark"]) .app-page :is(.btn-sm, .quick-btn) { padding-top: 3px; padding-bottom: 3px; }
+@media (max-width: 760px), (pointer: coarse) {
+  html:not([data-theme="dark"]) .app-page .chip { padding-top: 7px !important; padding-bottom: 7px !important; }
+  html:not([data-theme="dark"]) .app-page :is(.btn, .btn-blue, .btn-ghost, .btn-primary, .today-ok) { padding-top: 8px; padding-bottom: 8px; }
+}
+html:not([data-theme="dark"]) .app-page :is(.ads-segment, .seg, .right-tabs, .ads-nav, .ads-subnav) button:is(.active, .on), html:not([data-theme="dark"]) .app-page :is(.ads-segment, .seg, .right-tabs, .ads-nav, .ads-subnav) button:is(.active, .on) * { color: var(--tx-title) !important; }
+/* 남은 알약 모양 정리(채팅 칸 보기 고르기 · 입력 칸) */
+html:not([data-theme="dark"]) .app-page .dock-mode { border-radius: 8px !important; }
+html:not([data-theme="dark"]) .app-page .dock-mode button { border-radius: 5px !important; }
+html:not([data-theme="dark"]) .app-page .chat-dock textarea, html:not([data-theme="dark"]) .app-page textarea.textarea { border-radius: 6px !important; }
+
+/* 선(스트로크) 넣기 (2026-11-28 대표 '스트로크를 넣어'): 판 · 카드 · 버튼 · 칩 · 입력 칸 · 구간 고르기에 옅은 선 한 줄 — 그림자와 함께 씀 */
+html:not([data-theme="dark"]) { --fx-stroke: #cfd2d8; --fx-stroke-strong: #b4b8c0; }
+html:not([data-theme="dark"]) .app-page :is(.btn, .btn-sm, .btn-blue, .btn-ghost, .quick-btn, .icon-btn, .chip, .dock-fold, .tab, .view-tab) { border: 1px solid var(--fx-stroke) !important; }
+html:not([data-theme="dark"]) .app-page :is(.btn-primary, .new-btn, .today-ok, .btn.primary):not(:disabled) { border: 1px solid var(--fx-stroke-strong) !important; }
+html:not([data-theme="dark"]) .app-page :is(.chip.active, .chip.on, .tab.on, .tab.active, .view-tab.on) { border-color: var(--fx-stroke-strong) !important; }
+html:not([data-theme="dark"]) .app-page :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]), select, textarea, .search, .q2-input):not(.excalidraw *) { border: 1px solid var(--fx-stroke) !important; }
+html:not([data-theme="dark"]) .app-page :is(.ads-segment, .seg, .right-tabs, .ads-nav, .ads-subnav, .dock-mode) { border: 1px solid var(--fx-stroke) !important; }
+html:not([data-theme="dark"]) .app-page :is(.ads-segment, .seg, .right-tabs, .ads-nav, .ads-subnav) button:is(.active, .on) { border: 1px solid var(--fx-stroke) !important; }
+html:not([data-theme="dark"]) :is(.ins-icon, .home-kpi-tile, .dash-kpi-ic, .ai-ava, .avatar) { border: 1px solid var(--fx-stroke); }
+html:not([data-theme="dark"]) :is(a.home-kpi, a.dash-kpi, .pc-card, .pboards-item, .proj-card, .sales-pipe-step, .gov-tile, .ai-card):hover, html:not([data-theme="dark"]) :is(.dash-kpi.is-key, .week-day.today, .dash-day.is-today) { border-color: var(--fx-stroke-strong) !important; }
+html:not([data-theme="dark"]) .app-page .profile .side-item.on { border: 1px solid var(--fx-stroke) !important; }
+html:not([data-theme="dark"]) :is(.ast-fab, .ast-fab:hover, .ast-fab.on) { border: 1px solid var(--fx-stroke) !important; }
+html:not([data-theme="dark"]) .app-page :is(table, .table-wrap) { border: 1px solid var(--fx-stroke); }
+html:not([data-theme="dark"]) .app-page :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]), select, textarea, .search, .q2-input):not(.excalidraw *) { border-radius: 6px !important; }
+
+/* 큰 판 맞춤 (2026-11-28 대표 '전체 큰 박스들에 스트로크 넣고 사이즈 여백을 맞춰'): 왼쪽 메뉴 · 채팅 · 본문 · 옆 창 · 오른쪽 칸은 위아래 10px · 사이 10px · 같은 모서리 · 같은 선 */
+@media (min-width: 1025px) {
+  html:not([data-theme="dark"]) .app-page .body { padding-right: 10px; box-sizing: border-box; }
+  html:not([data-theme="dark"]) .app-page .body > :is(.profile, .main), html:not([data-theme="dark"]) .app-page .body > .chat-dock:not(.closed) { margin: 10px 0 10px 10px !important; height: calc(100% - 20px) !important; max-height: calc(100% - 20px); align-self: flex-start; box-sizing: border-box !important; border: 1px solid var(--fx-stroke-strong) !important; border-radius: var(--r-panel) !important; box-shadow: var(--nm-up-sm) !important; }
+  html:not([data-theme="dark"]) .app-page .body > :is(.web-slot, .detail-slot) > * { margin: 10px 0 10px 10px !important; height: calc(100% - 20px) !important; box-sizing: border-box !important; border: 1px solid var(--fx-stroke-strong) !important; border-radius: var(--r-panel) !important; box-shadow: var(--nm-up-sm) !important; overflow: hidden; }
+}
+/* 로고는 원본 그대로 (같은 날 대표 '로고는 원본을 사용해') */
+html:not([data-theme="dark"]) .top-logo .logo-ink, html:not([data-theme="dark"]) .profile-logo img { filter: none !important; opacity: 1 !important; }
+
+/* 2026-11-28 대표 '라운드 없애고 채팅은 왼쪽에서 나오는 방식인데 펼쳐지면 하나로 보이게': 큰 판은 모서리 0 · 카드는 6px · 펼친 채팅 칸은 왼쪽 메뉴 판과 붙어 한 판으로 */
+html:not([data-theme="dark"]) { --r-panel: 0px; --v8-r-card: 6px; --r-book: 6px; --r-inner: 6px; --r-bubble: 6px; --v8-r-ctl: 6px; }
+html:not([data-theme="dark"]) .app-page :is(.main, .web-panel, .chat-dock, .profile), html:not([data-theme="dark"]) .app-page .body > :is(.web-slot, .detail-slot) > * { border-radius: 0 !important; }
+html:not([data-theme="dark"]) .app-page .profile :is(.icon-btn, button) { border-radius: 6px !important; }
+@media (min-width: 1025px) {
+  html:not([data-theme="dark"]) .app-page .body:has(> .chat-dock:not(.closed)) > .profile { border-right-color: transparent !important; box-shadow: none !important; clip-path: none; }
+  html:not([data-theme="dark"]) .app-page .body > .chat-dock:not(.closed) { margin-left: -1px !important; border-left: 0 !important; background: var(--nm-face) !important; box-shadow: none !important; }
+  html:not([data-theme="dark"]) .app-page .body:has(> .chat-dock:not(.closed)) > .profile, html:not([data-theme="dark"]) .app-page .body > .chat-dock:not(.closed) { filter: none; }
+}
