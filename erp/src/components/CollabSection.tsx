@@ -327,7 +327,7 @@ function StaffBoards({ room, project }: { room: CollabRoom; project: Project }) 
             return (
               <li key={b.id} className={sh ? 'on' : ''}>
                 <label className="cl-board-pick">
-                  <input type="checkbox" checked={!!sh} disabled={busy === b.id || !!room.closed_at} onChange={e => void set(b.id, e.target.checked, sh?.can_edit ?? true)} />
+                  <input type="checkbox" className="nm-switch" checked={!!sh} disabled={busy === b.id || !!room.closed_at} onChange={e => void set(b.id, e.target.checked, sh?.can_edit ?? true)} />
                   <b>{b.title}</b>
                   <span className="t-cap">요소 {b.count ?? 0}개</span>
                 </label>
@@ -813,7 +813,7 @@ function InviteModal({ room, onClose, onDone }: { room: CollabRoom; onClose: () 
         ))}
       </div>
       <label className="row gap-6 cl-pick">
-        <input type="checkbox" checked={v.can_upload} onChange={e => setV({ ...v, can_upload: e.target.checked })} />
+        <input type="checkbox" className="nm-switch" checked={v.can_upload} onChange={e => setV({ ...v, can_upload: e.target.checked })} />
         <span className="t-small">파일 올리기 허용 (드라이브 방 폴더로 들어감)</span>
       </label>
       <p className="t-cap cl-note">링크는 다음 화면에서 한 번만 보입니다. 14일 안에 처음 연 기기 한 대에서만 열리니, 팀원이 직접 눌러 확인하지 마세요.</p>
@@ -915,7 +915,7 @@ function GuestModal({ guest, onClose, onDone }: { guest: CollabGuest; onClose: (
           <input className="input" type="date" value={v.expires} onChange={e => setV({ ...v, expires: e.target.value })} />
         </Field>
         <label className="row gap-6 cl-pick">
-          <input type="checkbox" checked={v.can_upload} onChange={e => setV({ ...v, can_upload: e.target.checked })} />
+          <input type="checkbox" className="nm-switch" checked={v.can_upload} onChange={e => setV({ ...v, can_upload: e.target.checked })} />
           <span className="t-small">파일 올리기 허용</span>
         </label>
       </div>

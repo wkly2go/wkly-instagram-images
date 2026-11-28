@@ -10,7 +10,7 @@
    - 바탕은 계속 밝게(어두운 화면 아님) · '화면 어둡게'(data-theme=dark)는 건드리지 않음 · main.tsx 에서 이 import 를 빼면 색 토큰만 v8 로 돌아감
    ================================================================================ */
 :root {
-  --v9-accent: #1f4dff; --v9-accent-tint: #e9eeff;
+  --v9-accent: #1f4dff; --v9-accent-tint: color-mix(in srgb, var(--v9-accent) 10%, #fff);
   --font: 'Geist', 'Pretendard Variable', Pretendard, system-ui, -apple-system, 'Apple SD Gothic Neo', sans-serif;
   --display: 'Geist', 'Pretendard Variable', Pretendard, system-ui, sans-serif;
   --mono: 'Geist Mono', 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, 'Pretendard Variable', monospace;
@@ -20,10 +20,10 @@
   --v8-r-ctl: 12px;
 }
 html:not([data-theme="dark"]) {
-  --v8-bg: #f3f3f1;
+  --v8-bg: #eeeeeb;
   --v8-card: #ffffff;
-  --v8-line: #ebebe8;
-  --v8-line-2: #dededb;
+  --v8-line: #dbdbd7;
+  --v8-line-2: #c8c8c3;
   --v9-ink: #2b2d33;        /* 부드러운 먹색 (새까만 색을 쓰지 않음) */
   --v8-ink: #1f2126;
   --v8-text: #2e3036;
@@ -46,16 +46,16 @@ html:not([data-theme="dark"]) {
   --blue-tint: #eaeae7;
   --pink: #2b2d33;
   --v9-accent: #1f4dff;       /* 네온 파랑 */
-  --v9-accent-2: #5b7dff;
-  --v9-accent-tint: #e9eeff;
+  --v9-accent-2: color-mix(in srgb, var(--v9-accent) 75%, #fff);
+  --v9-accent-tint: color-mix(in srgb, var(--v9-accent) 10%, #fff);
   --v9-live: #33d17a;         /* 정상 · 살아 있음 점 */
   --neon: var(--v9-accent);
   /* 빛이 새어 나가는 효과: 밝은 테 한 줄 + 오른쪽 아래로 번지는 빛 두 겹 */
-  --glow-1: 0 2px 6px -2px rgba(31, 77, 255, .16), 6px 10px 24px -10px rgba(31, 77, 255, .30);
-  --glow-2: 0 0 0 1px rgba(31, 77, 255, .10), 8px 12px 28px -10px rgba(31, 77, 255, .36), 18px 24px 56px -20px rgba(91, 125, 255, .40);
-  --glow-3: 0 0 0 1px rgba(31, 77, 255, .22), 8px 12px 30px -8px rgba(31, 77, 255, .48), 20px 28px 64px -18px rgba(91, 125, 255, .55);
+  --glow-1: 0 2px 6px -2px color-mix(in srgb, var(--v9-accent) 16%, transparent), 6px 10px 24px -10px color-mix(in srgb, var(--v9-accent) 30%, transparent);
+  --glow-2: 0 0 0 1px color-mix(in srgb, var(--v9-accent) 10%, transparent), 8px 12px 28px -10px color-mix(in srgb, var(--v9-accent) 36%, transparent), 18px 24px 56px -20px color-mix(in srgb, var(--v9-accent) 28%, transparent);
+  --glow-3: 0 0 0 1px color-mix(in srgb, var(--v9-accent) 22%, transparent), 8px 12px 30px -8px color-mix(in srgb, var(--v9-accent) 48%, transparent), 20px 28px 64px -18px color-mix(in srgb, var(--v9-accent) 38%, transparent);
   --neon-glow: var(--glow-2);
-  --neon-soft: 0 0 0 4px rgba(31, 77, 255, .12), 4px 8px 20px -8px rgba(31, 77, 255, .28);
+  --neon-soft: 0 0 0 4px color-mix(in srgb, var(--v9-accent) 12%, transparent), 4px 8px 20px -8px color-mix(in srgb, var(--v9-accent) 28%, transparent);
   --div-ar: #2b2d33; --div-tw: #8a8a86; --div-rs: #c4c4c0;
   --cal-mine: #1f4dff; --cal-mine-tint: #e9eeff;
 }
@@ -72,8 +72,8 @@ html:not([data-theme="dark"]) .top-logo .logo-ink, html:not([data-theme="dark"])
 html:not([data-theme="dark"]) :is(.box, .stat, .kpi, .card, .home-kpi, .today-card, .checkin-card, .brief, .rd-box) { border-color: var(--v8-line); box-shadow: var(--v8-shadow); }
 
 /* ---------- 버튼 ---------- */
-html:not([data-theme="dark"]) :is(.btn-primary, .new-btn, .today-ok) { background: linear-gradient(180deg, #4d70ff, var(--v9-accent)) !important; border-color: transparent !important; color: #fff !important; box-shadow: var(--glow-1); transition: box-shadow .18s, transform .05s; }
-html:not([data-theme="dark"]) :is(.btn-primary, .new-btn, .today-ok):hover:not(:disabled) { background: linear-gradient(180deg, #4468ff, #1a43e6) !important; box-shadow: var(--glow-2); }
+html:not([data-theme="dark"]) :is(.btn-primary, .new-btn, .today-ok) { background: linear-gradient(180deg, color-mix(in srgb, var(--v9-accent) 80%, #fff), var(--v9-accent)) !important; border-color: transparent !important; color: #fff !important; box-shadow: var(--glow-1); transition: box-shadow .18s, transform .05s; }
+html:not([data-theme="dark"]) :is(.btn-primary, .new-btn, .today-ok):hover:not(:disabled) { background: linear-gradient(180deg, color-mix(in srgb, var(--v9-accent) 80%, #fff), color-mix(in srgb, var(--v9-accent) 86%, #000)) !important; box-shadow: var(--glow-2); }
 html:not([data-theme="dark"]) :is(.btn-primary, .new-btn, .today-ok):active:not(:disabled) { transform: translateY(1px); }
 html:not([data-theme="dark"]) :is(.btn-primary, .new-btn) svg { color: #fff; }
 html:not([data-theme="dark"]) :is(.btn-outline, .btn-ghost):hover:not(:disabled) { border-color: var(--v9-ink); color: var(--v9-ink); background: #fff; }
@@ -85,7 +85,7 @@ html:not([data-theme="dark"]) :is(.input, .select, .textarea, input[type="text"]
 /* ---------- 왼쪽 메뉴: 고른 줄 = 흰 칸 + 네온 점 ---------- */
 html:not([data-theme="dark"]) .app-page .profile .side-item.on { background: #fff; color: var(--v9-ink); box-shadow: var(--glow-1); position: relative; }
 html:not([data-theme="dark"]) .app-page .profile .side-item.on > svg { color: var(--v9-ink); }
-html:not([data-theme="dark"]) .app-page .profile .side-item.on::after { content: ''; position: absolute; right: 9px; top: 50%; width: 6px; height: 6px; margin-top: -3px; border-radius: 50%; background: var(--v9-accent); box-shadow: 0 0 0 2px rgba(31,77,255,.18), 3px 3px 10px rgba(31,77,255,.8); }
+html:not([data-theme="dark"]) .app-page .profile .side-item.on::after { content: ''; position: absolute; right: 9px; top: 50%; width: 6px; height: 6px; margin-top: -3px; border-radius: 50%; background: var(--v9-accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--v9-accent) 18%, transparent), 3px 3px 10px color-mix(in srgb, var(--v9-accent) 80%, transparent); }
 html:not([data-theme="dark"]) .app-page .profile .side-item.on.has-n::after { display: none; }
 html:not([data-theme="dark"]) .side-group-label { color: var(--v8-sub) !important; letter-spacing: .02em; }
 
@@ -105,7 +105,7 @@ html:not([data-theme="dark"]) :is(.table, .board) tbody tr:hover { background: #
 html:not([data-theme="dark"]) :is(.meter > *, .pc-bar > i, .dash-prog i, .g-bar) { background-color: var(--v9-ink); }
 
 /* ---------- 섹션 제목 앞 막대: 네온 ---------- */
-html:not([data-theme="dark"]) .section-head::before, html:not([data-theme="dark"]) .sec-head::before { background: var(--v9-accent); box-shadow: 3px 0 10px rgba(31,77,255,.7); }
+html:not([data-theme="dark"]) .section-head::before, html:not([data-theme="dark"]) .sec-head::before { background: var(--v9-accent); box-shadow: 3px 0 10px color-mix(in srgb, var(--v9-accent) 70%, transparent); }
 
 /* ---------- 위쪽 바 ---------- */
 html:not([data-theme="dark"]) .app-page .topbar { border-bottom-color: var(--v8-line); }
@@ -147,13 +147,13 @@ html:not([data-theme="dark"]) :is(.chip.active, .chip.on) { box-shadow: none !im
 html:not([data-theme="dark"]) .side-n { background: var(--v9-accent-tint); color: var(--v9-ink); }
 
 /* 짙은 버튼 · 동그라미 대신 연한 바탕 — 눌러야 할 것은 연한 파랑, 올리면 네온 */
-html:not([data-theme="dark"]) :is(.btn-blue, .btn-yellow, .send-btn):not(:disabled) { background: var(--v9-accent-tint); border-color: transparent; color: #1d3fd0; font-weight: 600; }
+html:not([data-theme="dark"]) :is(.btn-blue, .btn-yellow, .send-btn):not(:disabled) { background: var(--v9-accent-tint); border-color: transparent; color: color-mix(in srgb, var(--v9-accent) 86%, #000); font-weight: 600; }
 html:not([data-theme="dark"]) :is(.btn-blue, .btn-yellow, .send-btn):not(:disabled) svg { color: currentColor; }
-html:not([data-theme="dark"]) :is(.btn-blue, .btn-yellow, .send-btn):not(:disabled):hover { background: linear-gradient(180deg, #4d70ff, var(--v9-accent)); border-color: transparent; color: #fff; box-shadow: var(--glow-1); }
+html:not([data-theme="dark"]) :is(.btn-blue, .btn-yellow, .send-btn):not(:disabled):hover { background: linear-gradient(180deg, color-mix(in srgb, var(--v9-accent) 80%, #fff), var(--v9-accent)); border-color: transparent; color: #fff; box-shadow: var(--glow-1); }
 html:not([data-theme="dark"]) .avatar:is(.c1, .c2, .c3, .c4, .c5, .c6) { background: #e6e6e3; border-color: transparent; color: var(--v9-ink); }
 html:not([data-theme="dark"]) .avatar:is(.c2, .c5) { background: var(--v9-accent-tint); }
 html:not([data-theme="dark"]) .topbar .mode-badge { background: #e6e6e3; color: var(--v9-ink); }
-html:not([data-theme="dark"]) :is(.mini-cal .day.today, .week-day.today .week-day-h .dd) { background: linear-gradient(180deg, #4d70ff, var(--v9-accent)); color: #fff; border-color: transparent; box-shadow: var(--glow-1); }
+html:not([data-theme="dark"]) :is(.mini-cal .day.today, .week-day.today .week-day-h .dd) { background: linear-gradient(180deg, color-mix(in srgb, var(--v9-accent) 80%, #fff), var(--v9-accent)); color: #fff; border-color: transparent; box-shadow: var(--glow-1); }
 html:not([data-theme="dark"]) .week-day { border-radius: 14px; border-color: var(--v8-line); }
 html:not([data-theme="dark"]) .week-day.today { border: 1px solid transparent; background: #fff; box-shadow: var(--glow-2); }
 html:not([data-theme="dark"]) .week-item { border-left-width: 0; border-radius: 8px; padding: 4px 9px; background: #f3f3f1; }
@@ -161,17 +161,17 @@ html:not([data-theme="dark"]) .week-item.proj { background: var(--v9-accent-tint
 html:not([data-theme="dark"]) .kpi, html:not([data-theme="dark"]) .div-card, html:not([data-theme="dark"]) .ad-pcard { border-color: var(--v8-line); }
 html:not([data-theme="dark"]) :is(.seg button, .right-tabs button, .tag, .badge, .chip) { border-radius: 999px; }
 html:not([data-theme="dark"]) :is(.btn, .icon-btn, .quick-btn, .input, .select, .textarea, select, textarea, input[type="text"], input[type="search"], input[type="date"], input[type="number"]) { border-radius: var(--v8-r-ctl); }
-html:not([data-theme="dark"]) button.day.today { background: linear-gradient(180deg, #4d70ff, var(--v9-accent)); color: #fff; border-color: transparent; border-radius: 50%; box-shadow: var(--glow-1); }
+html:not([data-theme="dark"]) button.day.today { background: linear-gradient(180deg, color-mix(in srgb, var(--v9-accent) 80%, #fff), var(--v9-accent)); color: #fff; border-color: transparent; border-radius: 50%; box-shadow: var(--glow-1); }
 html:not([data-theme="dark"]) :is(button[class*="mf-"].on, button[class*="sg-"].on, .myproj-st, .myproj-n, .team-person.active) { background: var(--v9-accent-tint); border-color: transparent; color: var(--v9-ink); }
 html:not([data-theme="dark"]) :is(.myproj-div, .myproj-own, .myproj-done, .assign-chip, .rd-ai, button[class*="mf-"], button[class*="sg-"]) { border-color: var(--v8-line-2); border-radius: 999px; }
 html:not([data-theme="dark"]) .dash-ev.e-start { background: var(--v9-accent-tint); color: var(--v9-ink); }
 html:not([data-theme="dark"]) .dash-ev.e-end { box-shadow: inset 0 0 0 1px var(--v8-line-2); }
 /* 굵고 짙은 테 → 옅은 선 · 연한 파랑 */
-html:not([data-theme="dark"]) button.day.today { background: linear-gradient(180deg, #4d70ff, var(--v9-accent)) !important; color: #fff !important; }
+html:not([data-theme="dark"]) button.day.today { background: linear-gradient(180deg, color-mix(in srgb, var(--v9-accent) 80%, #fff), var(--v9-accent)) !important; color: #fff !important; }
 html:not([data-theme="dark"]) :is(.btn-blue, .btn-yellow, .send-btn, .btn.primary):disabled { background: #ececea; border-color: transparent; color: #a3a5a9; }
-html:not([data-theme="dark"]) .btn.primary:not(:disabled) { background: linear-gradient(180deg, #4d70ff, var(--v9-accent)); border-color: transparent; color: #fff; box-shadow: var(--glow-1); }
+html:not([data-theme="dark"]) .btn.primary:not(:disabled) { background: linear-gradient(180deg, color-mix(in srgb, var(--v9-accent) 80%, #fff), var(--v9-accent)); border-color: transparent; color: #fff; box-shadow: var(--glow-1); }
 html:not([data-theme="dark"]) :is(.kpi, .div-card, .ad-pcard, .stat) { border-top: 1px solid var(--v8-line); border-left-width: 1px; border-left-color: var(--v8-line); }
-html:not([data-theme="dark"]) :is(.ins-card, .ledger-kpi, .ad-report-card, .note, .office-warn, .ai-resp, a.item.active) { border-left-color: #c9d4ff; }
+html:not([data-theme="dark"]) :is(.ins-card, .ledger-kpi, .ad-report-card, .note, .office-warn, .ai-resp, a.item.active) { border-left-color: color-mix(in srgb, var(--v9-accent) 26%, #fff); }
 html:not([data-theme="dark"]) :is(select.div-select, .avatar, .ai-card.on, details.web-setting) { border-color: var(--v8-line-2); }
 html:not([data-theme="dark"]) .ai-card.on { box-shadow: var(--glow-1); border-color: transparent; }
 html:not([data-theme="dark"]) :is(.view-tab.on, .tab.on, .tab.active) { border-bottom-color: var(--v9-accent); }
@@ -180,6 +180,110 @@ html:not([data-theme="dark"]) .pane-list.chat-list { border-right-color: var(--v
 html:not([data-theme="dark"]) .app-page .body > .chat-dock { border-right-color: var(--v8-line); }
 html:not([data-theme="dark"]) :is(.kpi, .stat, .div-card, .ad-pcard, .org-dept, .right-kpi, .rd-kpi, .board, .board-wrap) { border-top-color: var(--v8-line) !important; }
 html:not([data-theme="dark"]) .chat-dock-resize::before { background: var(--v8-line-2); }
-html:not([data-theme="dark"]) .chat-dock-resize:hover::before { background: var(--v9-accent); box-shadow: 2px 0 10px rgba(31, 77, 255, .5); }
+html:not([data-theme="dark"]) .chat-dock-resize:hover::before { background: var(--v9-accent); box-shadow: 2px 0 10px color-mix(in srgb, var(--v9-accent) 50%, transparent); }
 html:not([data-theme="dark"]) select { border-color: var(--v8-line-2) !important; }
 html:not([data-theme="dark"]) :is(.ads-period, .seg, .period, [role="tablist"]) > button:is(.on, .active, [aria-selected="true"], [aria-pressed="true"]):not(.tab):not(.view-tab) { background: var(--v9-accent-tint); border-color: transparent; color: var(--v9-ink); }
+
+/* ================================================================================
+   선명하게 · 메뉴마다 다른 색 (대표 지시 2026-11-28 '아이콘과 배경들 각각의 카드들의 선구분을 선명하게 · 색은 각 메뉴마다 다른 색' · 참고: Product UI Styleguide)
+   - 강조색 --v9-accent 는 지금 메뉴의 색(lib/menuColors.ts · Shell 이 넣음). 빛 · 연한 바탕 · 버튼은 모두 이 값에서 계산
+   - 바탕은 한 단계 짙게, 카드는 흰 바탕 + 또렷한 1px 선 + 옅은 그림자 → 카드끼리 경계가 분명
+   - 왼쪽 메뉴 아이콘은 메뉴 색의 작은 칸 안에
+   ================================================================================ */
+html:not([data-theme="dark"]) :is(.box, .stat, .kpi, .card, .home-kpi, .today-card, .checkin-card, .brief, .rd-box, .pc-card, .proj-card, .pboards-item, .week-day, .div-card, .ad-pcard) { background: #fff; border: 1px solid var(--v8-line) !important; box-shadow: 0 1px 2px rgba(20, 22, 30, .05); }
+html:not([data-theme="dark"]) .week-day.today { border-color: var(--v9-accent) !important; }
+html:not([data-theme="dark"]) :is(.table, .board, .pay-grid) :is(th, td) { border-bottom-color: var(--v8-line); }
+html:not([data-theme="dark"]) .app-page :is(.main, .web-panel, .chat-dock) { border: 1px solid var(--v8-line); }
+html:not([data-theme="dark"]) .app-page .topbar { box-shadow: 0 1px 0 var(--v8-line-2); background: #fff; }
+/* 왼쪽 메뉴: 아이콘 칸 = 메뉴 색 */
+html:not([data-theme="dark"]) .app-page .profile .side-item > svg { box-sizing: content-box; padding: 4px; border-radius: 7px; background: color-mix(in srgb, var(--mc, var(--v9-accent)) 13%, #fff); color: var(--mc, var(--v9-accent)); stroke-width: 2.2; }
+html:not([data-theme="dark"]) .app-page .profile .side-item.on { background: #fff; border: 1px solid color-mix(in srgb, var(--mc) 35%, #fff); box-shadow: 0 1px 2px rgba(20, 22, 30, .06), 4px 6px 16px -8px color-mix(in srgb, var(--mc) 55%, transparent); font-weight: 600; }
+html:not([data-theme="dark"]) .app-page .profile .side-item.on > svg { background: var(--mc); color: #fff; }
+html:not([data-theme="dark"]) .app-page .profile .side-item.on::after { display: none; }
+/* 아이콘 선명하게 */
+html:not([data-theme="dark"]) :is(.btn, .icon-btn, .quick-btn, .tab, .chip, .section-head, .sec-head) svg.lucide { stroke-width: 2.1; }
+html:not([data-theme="dark"]) .icon-btn { border: 1px solid var(--v8-line); background: #fff; color: var(--v9-ink); }
+html:not([data-theme="dark"]) .icon-btn:hover { border-color: var(--v9-accent); color: var(--v9-accent); }
+/* 광고 화면: 묶음 탭 · 아래 탭 · 기간 고르기 */
+html:not([data-theme="dark"]) .ads-nav { gap: 4px; padding: 4px; border: 1px solid var(--v8-line); border-radius: 14px; background: var(--v8-bg); }
+html:not([data-theme="dark"]) .ads-nav button { border: 1px solid transparent; border-radius: 10px; min-height: 42px; background: transparent; color: var(--tx-sub); }
+html:not([data-theme="dark"]) .ads-nav button:hover { background: #fff; color: var(--v9-ink); }
+html:not([data-theme="dark"]) .ads-nav button.active { background: #fff; border-color: var(--v8-line-2); color: var(--v9-ink); font-weight: 600; box-shadow: 0 1px 2px rgba(20, 22, 30, .06), var(--glow-1); }
+html:not([data-theme="dark"]) .ads-nav button.active svg { color: var(--v9-accent); }
+html:not([data-theme="dark"]) .ads-subnav button { border-radius: 999px; border: 1px solid transparent; }
+html:not([data-theme="dark"]) .ads-subnav button.active { background: var(--v9-accent-tint); border-color: color-mix(in srgb, var(--v9-accent) 30%, #fff); color: var(--v9-ink); }
+html:not([data-theme="dark"]) .ads-segment { gap: 2px; padding: 3px; border: 1px solid var(--v8-line-2); border-radius: 12px; background: var(--v8-bg); }
+html:not([data-theme="dark"]) .ads-segment button { border: 0 !important; border-radius: 9px; background: transparent; color: var(--tx-sub); min-height: 30px; }
+html:not([data-theme="dark"]) .ads-segment button:is(.active, .on, [aria-pressed="true"], [aria-selected="true"]) { background: var(--v9-accent) !important; color: #fff !important; box-shadow: var(--glow-1); }
+
+/* ================================================================================
+   볼록 · 오목 (뉴모피즘 · 대표가 2026-11-28 참고 그림으로 고름: 같은 회색 면 위에 밝은 빛(왼쪽 위) + 그림자(오른쪽 아래)로 떠 있거나 눌린 모양)
+   - 떠 있는 것(--nm-up): 카드 · 버튼 · 고른 탭.  눌린 것(--nm-in): 입력 칸 · 구간 고르기 홈 · 고른 칩 · 누르는 순간
+   - 면 색은 바탕과 거의 같게(--nm-face), 구분은 선 대신 빛과 그림자. 색은 메뉴 색(--v9-accent)을 작은 곳에만
+   ================================================================================ */
+html:not([data-theme="dark"]) {
+  --nm-bg: #eceef2; --nm-face: #f3f4f7; --nm-hi: rgba(255, 255, 255, .95); --nm-lo: rgba(158, 166, 184, .5);
+  --nm-up: 6px 6px 14px var(--nm-lo), -6px -6px 14px var(--nm-hi);
+  --nm-up-sm: 3px 3px 7px var(--nm-lo), -3px -3px 7px var(--nm-hi);
+  --nm-in: inset 3px 3px 6px var(--nm-lo), inset -3px -3px 6px var(--nm-hi);
+  --nm-in-sm: inset 2px 2px 4px var(--nm-lo), inset -2px -2px 4px var(--nm-hi);
+  --v8-bg: var(--nm-bg); --paper: #e4e6eb; --v8-line: #d5d8df; --v8-line-2: #c3c7d0; --v8-tint: #e1e4ea; --v8-hover: #e1e4ea;
+  --v8-shadow: var(--nm-up-sm); --yellow: #e1e4ea; --blue-tint: #e1e4ea;
+}
+html:not([data-theme="dark"]) body, html:not([data-theme="dark"]) .app-page { background: var(--nm-bg); }
+html:not([data-theme="dark"]) .app-page .topbar { background: var(--nm-bg); box-shadow: 0 6px 14px -8px var(--nm-lo); }
+html:not([data-theme="dark"]) .app-page :is(.main, .web-panel, .chat-dock) { background: var(--nm-face); border: 1px solid rgba(255, 255, 255, .7); box-shadow: var(--nm-up); }
+html:not([data-theme="dark"]) :is(.chat-dock-h, .right-sched, .right-tabs) { background: transparent; }
+/* 떠 있는 카드 */
+html:not([data-theme="dark"]) :is(.box, .stat, .kpi, .card, .home-kpi, .today-card, .checkin-card, .brief, .rd-box, .pc-card, .proj-card, .pboards-item, .week-day, .div-card, .ad-pcard, .dash-kpi, .dash-card, .mini-cal, .home-hero) { background: var(--nm-face) !important; border: 1px solid rgba(255, 255, 255, .7) !important; box-shadow: var(--nm-up-sm); }
+html:not([data-theme="dark"]) :is(.dash-kpi-l, .dash-kpi b, .dash-spark) { background: transparent; }
+html:not([data-theme="dark"]) .dash-body { background: var(--nm-face); border: 0; box-shadow: var(--nm-in-sm); }
+html:not([data-theme="dark"]) :is(a.home-kpi, a.dash-kpi, .pc-card, .pboards-item, .proj-card):hover { box-shadow: var(--nm-up); border-color: rgba(255, 255, 255, .7) !important; }
+html:not([data-theme="dark"]) :is(.dash-kpi.is-key, .week-day.today) { border-color: rgba(255, 255, 255, .7) !important; box-shadow: var(--nm-up-sm), 8px 10px 26px -10px color-mix(in srgb, var(--v9-accent) 55%, transparent); }
+/* 버튼: 떠 있다가 누르면 들어감 */
+html:not([data-theme="dark"]) :is(.btn, .icon-btn, .quick-btn, .chip, .ads-nav button.active, .dock-fold) { box-shadow: var(--nm-up-sm); border-color: rgba(255, 255, 255, .7) !important; }
+html:not([data-theme="dark"]) :is(.btn-outline, .btn-ghost, .icon-btn, .quick-btn, .chip):not(.active):not(.on) { background: var(--nm-face); color: var(--v9-ink); }
+html:not([data-theme="dark"]) :is(.btn, .icon-btn, .quick-btn, .chip):active { box-shadow: var(--nm-in-sm); transform: none; }
+html:not([data-theme="dark"]) :is(.btn-outline, .btn-ghost):hover:not(:disabled) { background: var(--nm-face); color: var(--v9-accent); }
+html:not([data-theme="dark"]) :is(.btn-primary, .new-btn, .today-ok, .btn.primary):not(:disabled) { box-shadow: var(--nm-up-sm), 4px 6px 16px -6px color-mix(in srgb, var(--v9-accent) 60%, transparent); }
+html:not([data-theme="dark"]) :is(.btn-blue, .btn-yellow, .send-btn):not(:disabled) { background: var(--nm-face); color: var(--v9-accent); }
+html:not([data-theme="dark"]) :is(.btn-blue, .btn-yellow, .send-btn):not(:disabled):hover { box-shadow: var(--nm-up-sm), 4px 6px 16px -6px color-mix(in srgb, var(--v9-accent) 60%, transparent); }
+/* 고른 것 · 입력 = 눌린 모양 */
+html:not([data-theme="dark"]) :is(.chip.active, .chip.on, .seg button.on, .right-tabs button.on, .ads-subnav button.active) { background: var(--nm-face) !important; box-shadow: var(--nm-in-sm) !important; color: var(--v9-accent) !important; border-color: transparent !important; }
+html:not([data-theme="dark"]) :is(.input, .select, .textarea, input[type="text"], input[type="search"], input[type="date"], input[type="number"], input[type="password"], input[type="email"], select, textarea) { background: var(--nm-face); border-color: transparent !important; box-shadow: var(--nm-in-sm); }
+html:not([data-theme="dark"]) :is(.ads-nav, .ads-segment) { background: var(--nm-face); border-color: transparent; box-shadow: var(--nm-in-sm); }
+html:not([data-theme="dark"]) .ads-nav button.active { background: var(--nm-face); }
+html:not([data-theme="dark"]) .ads-segment button:is(.active, .on) { box-shadow: var(--nm-up-sm), 3px 4px 10px -4px color-mix(in srgb, var(--v9-accent) 60%, transparent); }
+/* 왼쪽 메뉴 */
+html:not([data-theme="dark"]) .app-page .profile .side-item > svg { background: var(--nm-face); box-shadow: var(--nm-up-sm); }
+html:not([data-theme="dark"]) .app-page .profile .side-item.on { background: var(--nm-face); border-color: transparent; box-shadow: var(--nm-in-sm); }
+html:not([data-theme="dark"]) .app-page .profile .side-item.on > svg { background: var(--mc); box-shadow: 3px 4px 10px -3px color-mix(in srgb, var(--mc) 60%, transparent); }
+/* 표 · 줄 · 막대 */
+html:not([data-theme="dark"]) :is(.table, .board, .pay-grid) thead th { background: transparent; }
+html:not([data-theme="dark"]) :is(.table, .board) tbody tr:hover { background: #e4e7ed; }
+html:not([data-theme="dark"]) :is(.week-item, .dash-ev, .dash-d) { background: var(--nm-face); box-shadow: var(--nm-in-sm); }
+html:not([data-theme="dark"]) :is(.meter, .pc-bar, .dash-prog) { background: var(--nm-face); box-shadow: var(--nm-in-sm); }
+html:not([data-theme="dark"]) :is(.dialog, .modal, .top-menu-pop) { background: var(--nm-face); border: 1px solid rgba(255, 255, 255, .7); box-shadow: 14px 14px 34px var(--nm-lo), -10px -10px 28px var(--nm-hi); }
+html:not([data-theme="dark"]) .scrim { background: rgba(232, 234, 239, .6); }
+
+/* 흰 패널 참고 그림(2026-11-28 '이것도 넣어'): 구간 고르기 = 회색 홈 + 흰 알약 · 스위치 · 둥근 손잡이 */
+html:not([data-theme="dark"]) :is(.ads-segment, .seg, .right-tabs) { display: inline-flex; gap: 2px; padding: 3px; border: 0; border-radius: 999px; background: #dfe2e8; box-shadow: var(--nm-in-sm); }
+html:not([data-theme="dark"]) .right-tabs { display: flex; }
+html:not([data-theme="dark"]) :is(.ads-segment, .seg, .right-tabs) button { border: 0 !important; border-radius: 999px; background: transparent !important; color: var(--tx-sub) !important; box-shadow: none !important; }
+html:not([data-theme="dark"]) :is(.ads-segment, .seg, .right-tabs) button:is(.active, .on) { background: #fff !important; color: var(--v9-ink) !important; font-weight: 600; box-shadow: 1px 2px 5px rgba(120, 128, 148, .45) !important; }
+html:not([data-theme="dark"]) .dash-day { background: var(--nm-face); border-color: rgba(255, 255, 255, .7); box-shadow: var(--nm-up-sm); }
+/* 스위치: <input type="checkbox" class="nm-switch"> — 켜면 먹색 홈 + 흰 손잡이 */
+input[type="checkbox"].nm-switch { appearance: none; -webkit-appearance: none; position: relative; width: 44px; height: 24px; margin: 0; border: 0; border-radius: 999px; background: #dfe2e8; box-shadow: var(--nm-in-sm, inset 0 1px 3px rgba(0, 0, 0, .2)); cursor: pointer; vertical-align: middle; transition: background-color .2s ease; flex: none; }
+input[type="checkbox"].nm-switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 1px 2px 5px rgba(120, 128, 148, .55); transition: transform .2s ease; }
+input[type="checkbox"].nm-switch:checked { background: var(--v9-ink, #2b2d33); }
+input[type="checkbox"].nm-switch:checked::after { transform: translateX(20px); }
+input[type="checkbox"].nm-switch:focus-visible { outline: 2px solid var(--v9-accent); outline-offset: 2px; }
+/* 둥근 단추(아이콘) = 손잡이처럼 */
+html:not([data-theme="dark"]) .icon-btn { border-radius: 50%; }
+
+/* 왼쪽 메뉴 패널: 떠 있는 판 · 고른 줄은 떠 있는 알약(참고 그림) */
+html:not([data-theme="dark"]) .app-page .profile { background: var(--nm-face); border: 1px solid rgba(255, 255, 255, .7); border-radius: 22px; box-shadow: var(--nm-up); margin: 10px 0 10px 10px; }
+html:not([data-theme="dark"]) .app-page .profile .side-item { border-radius: 999px; }
+html:not([data-theme="dark"]) .app-page .profile .side-item.on { box-shadow: var(--nm-up-sm); border: 1px solid rgba(255, 255, 255, .8); }
+html:not([data-theme="dark"]) .app-page .profile .side-item > svg { border-radius: 50%; }
+html:not([data-theme="dark"]) .app-page .profile .mini-cal { box-shadow: var(--nm-in-sm); border-color: transparent !important; }

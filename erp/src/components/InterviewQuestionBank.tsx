@@ -85,7 +85,7 @@ export function InterviewQuestionBank() {
         <div className="checks full">
           <label><input type="checkbox" checked={d.required} onChange={e => set({ required: e.target.checked })} /> 필수 문항</label>
           <label><input type="checkbox" checked={d.is_default} onChange={e => set({ is_default: e.target.checked })} /> 이 자리의 기본 문안</label>
-          <label><input type="checkbox" checked={d.active} onChange={e => set({ active: e.target.checked })} /> 사용</label>
+          <label><input type="checkbox" className="nm-switch" checked={d.active} onChange={e => set({ active: e.target.checked })} /> 사용</label>
         </div>
         <div className="sales-iv-actions full">
           <Button size="sm" disabled={busy} onClick={() => void save()}>저장</Button>

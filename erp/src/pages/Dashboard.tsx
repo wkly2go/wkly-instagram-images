@@ -4,7 +4,7 @@
 import { AlarmClock, ArrowUpRight, CalendarClock, FileCheck2, FolderKanban } from 'lucide-react'
 import { useApp, useAsync } from '../lib/app'
 import { dateLabel, todayKey } from '../lib/date'
-import { byDivision, dashKpis, dayFlow, nearDeadlines, sparkOf, teamLoad, weekAhead } from '../lib/dashboard'
+import { byDivision, dashKpis, dayFlow, nearDeadlines, teamLoad, weekAhead } from '../lib/dashboard'
 import { Link } from '../lib/router'
 import { DIVISIONS, type ApprovalSummary, type Project, type Task } from '../lib/types'
 import { Shell } from '../components/Shell'
@@ -15,10 +15,6 @@ import './Dashboard.css'
 const WEEKDAY = ['일', '월', '화', '수', '목', '금', '토']
 const dow = (key: string) => new Date(`${key}T00:00:00`).getDay()
 const ROWS = 8
-
-function Spark({ values }: { values: number[] }) {
-  return <span className="dash-spark" aria-hidden="true">{sparkOf(values).map((v, i) => <i key={i} style={{ height: `${Math.max(10, v * 100)}%` }} className={v >= 1 && values.some(x => x > 0) ? 'top' : ''} />)}</span>
-}
 
 export default function Dashboard() {
   const { api, me, version, profiles } = useApp()
@@ -45,8 +41,6 @@ export default function Dashboard() {
   const cell = (n: number) => Math.round((n / flowMax) * ROWS)
   const active = data.projects.filter(p => p.status === '진행').sort((a, b) => (a.end_date ?? '9').localeCompare(b.end_date ?? '9'))
   const projName = (id?: string | null) => { const p = data.projects.find(x => x.id === id); return p ? p.code ?? p.name : '' }
-  const ahead7 = flow.filter(d => d.date >= today).slice(0, 7)
-  const back7 = flow.filter(d => d.date <= today).slice(-7)
   const hour = Number(new Intl.DateTimeFormat('en-US', { hour: 'numeric', hour12: false, timeZone: 'Asia/Seoul' }).format(new Date()))
   const hello = hour < 11 ? '좋은 아침입니다' : hour < 17 ? '좋은 오후입니다' : '오늘도 수고 많으셨습니다'
 
@@ -65,23 +59,23 @@ export default function Dashboard() {
 
         <div className="dash-kpis" role="group" aria-label="오늘 숫자">
           <Link to="/projects?view=list" className="dash-kpi is-key">
-            <span className="dash-kpi-l"><FolderKanban size={13} /> 진행 프로젝트</span>
-            <b>{k.active}</b><Spark values={divs.map(d => d.active)} />
+            <span className="dash-kpi-l">진행 프로젝트</span>
+            <b>{k.active}</b><span className="dash-kpi-ic" aria-hidden="true"><FolderKanban size={18} /></span>
             <span className="dash-kpi-foot">문의 {k.inquiry} · 전체 {data.projects.length}</span>
           </Link>
           <Link to="/projects?view=tasks" className="dash-kpi">
-            <span className="dash-kpi-l"><CalendarClock size={13} /> 오늘 마감</span>
-            <b>{k.dueToday}</b><Spark values={ahead7.map(d => d.due)} />
+            <span className="dash-kpi-l">오늘 마감</span>
+            <b>{k.dueToday}</b><span className="dash-kpi-ic" aria-hidden="true"><CalendarClock size={18} /></span>
             <span className="dash-kpi-foot">앞으로 7일 {k.week}건</span>
           </Link>
           <Link to="/projects?view=tasks" className={`dash-kpi${k.late ? ' bad' : ''}`}>
-            <span className="dash-kpi-l"><AlarmClock size={13} /> 지연</span>
-            <b>{k.late}</b><Spark values={back7.map(d => d.late)} />
+            <span className="dash-kpi-l">지연</span>
+            <b>{k.late}</b><span className="dash-kpi-ic" aria-hidden="true"><AlarmClock size={18} /></span>
             <span className="dash-kpi-foot">{k.late ? '마감이 지난 할 일' : '지연 없음'}</span>
           </Link>
           <Link to="/approvals" className="dash-kpi">
-            <span className="dash-kpi-l"><FileCheck2 size={13} /> 결재 대기</span>
-            <b>{waitingList.length}</b><Spark values={back7.map(d => d.done)} />
+            <span className="dash-kpi-l">결재 대기</span>
+            <b>{waitingList.length}</b><span className="dash-kpi-ic" aria-hidden="true"><FileCheck2 size={18} /></span>
             <span className="dash-kpi-foot">7일간 끝낸 일 {k.doneWeek}건</span>
           </Link>
         </div>
