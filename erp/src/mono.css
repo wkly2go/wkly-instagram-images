@@ -553,7 +553,6 @@ html:not([data-theme="dark"]) :is(.btn-primary, .new-btn, .today-ok, .btn.primar
 html:not([data-theme="dark"]) :is(.btn-primary, .new-btn, .today-ok, .btn.primary):not(:disabled):hover { box-shadow: var(--nm-neon-sm) !important; }
 @media (max-width: 760px) { html:not([data-theme="dark"]) .m-nav { box-shadow: var(--nm-up) !important; border-top: 0 !important; } html:not([data-theme="dark"]) .m-more { box-shadow: none; border-top: 1px solid var(--v8-line-2); } }
 
-/* 로고는 얇은 선으로 (2026-11-28 대표 '로고 선 얇게 만들어' · public/wkly-logo-line.svg) — 색 필터 없이 그대로 */
 html:not([data-theme="dark"]) .top-logo .logo-ink { filter: none !important; opacity: 1; }
 
 /* ================================================================================
@@ -643,3 +642,12 @@ html:not([data-theme="dark"]) .app-page .profile .side-item.on { border: 1px sol
 html:not([data-theme="dark"]) :is(.ast-fab, .ast-fab:hover, .ast-fab.on) { border: 1px solid var(--fx-stroke) !important; }
 html:not([data-theme="dark"]) .app-page :is(table, .table-wrap) { border: 1px solid var(--fx-stroke); }
 html:not([data-theme="dark"]) .app-page :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]), select, textarea, .search, .q2-input):not(.excalidraw *) { border-radius: 6px !important; }
+
+/* 큰 판 맞춤 (2026-11-28 대표 '전체 큰 박스들에 스트로크 넣고 사이즈 여백을 맞춰'): 왼쪽 메뉴 · 채팅 · 본문 · 옆 창 · 오른쪽 칸은 위아래 10px · 사이 10px · 같은 모서리 · 같은 선 */
+@media (min-width: 1025px) {
+  html:not([data-theme="dark"]) .app-page .body { padding-right: 10px; box-sizing: border-box; }
+  html:not([data-theme="dark"]) .app-page .body > :is(.profile, .main), html:not([data-theme="dark"]) .app-page .body > .chat-dock:not(.closed) { margin: 10px 0 10px 10px !important; height: calc(100% - 20px) !important; max-height: calc(100% - 20px); align-self: flex-start; box-sizing: border-box !important; border: 1px solid var(--fx-stroke-strong) !important; border-radius: var(--r-panel) !important; box-shadow: var(--nm-up-sm) !important; }
+  html:not([data-theme="dark"]) .app-page .body > :is(.web-slot, .detail-slot) > * { margin: 10px 0 10px 10px !important; height: calc(100% - 20px) !important; box-sizing: border-box !important; border: 1px solid var(--fx-stroke-strong) !important; border-radius: var(--r-panel) !important; box-shadow: var(--nm-up-sm) !important; overflow: hidden; }
+}
+/* 로고는 원본 그대로 (같은 날 대표 '로고는 원본을 사용해') */
+html:not([data-theme="dark"]) .top-logo .logo-ink, html:not([data-theme="dark"]) .profile-logo img { filter: none !important; opacity: 1 !important; }
