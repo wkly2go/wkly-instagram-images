@@ -94,3 +94,9 @@ button.pboards-item { padding-right: 120px; }
 .board-pages .btn { flex: none; }
 .board-pages select { flex: none; border: 1px solid var(--line); border-radius: 8px; background: var(--nm-face, #fff); font: inherit; font-size: var(--fs-body); padding: 3px 6px; color: var(--tx-body); }
 .board-pages-empty { color: var(--tx-sub); font-size: var(--fs-body); flex: none; }
+/* 도구 줄 한 줄로 (2026-11-28): 페이지 · 내보내기 · 피그마 · 지도 단추를 한 줄에, '도구' 단추로 접고 폄(기본 접힘) */
+.board-pages { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; }
+.board-pages > * { flex: none; }
+.board-pages-gap { flex: 1 1 12px !important; min-width: 12px; }
+.board-toolsbtn.on { background: var(--v9-ink, #2b2d33) !important; color: #fff !important; border-color: var(--v9-ink, #2b2d33) !important; }
+.board-bar { flex-wrap: nowrap; } .board-bar .board-title { flex: 1 1 160px; }
