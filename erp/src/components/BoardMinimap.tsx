@@ -1,5 +1,6 @@
 // 화이트보드 전체 보기 지도 (2026-11-27 대표 '페이지 전체가 보이는 네비게이션이 있으면 좋겠어')
-// 보드 오른쪽 아래 작은 지도: 모든 요소(프레임은 테두리 · 사진은 회색 · 글은 가는 줄)와 지금 보는 화면(초록 네모).
+// 2026-11-28 대표 '작게 만들 수 있게 하고 상부 네비게이션 위치로': 위쪽 도구 줄 바로 아래 오른쪽 · 작게(기본)/크게 전환
+// 작은 지도: 모든 요소(프레임은 테두리 · 사진은 회색 · 글은 가는 줄)와 지금 보는 화면(초록 네모).
 // 누르거나 끌면 그 자리로 이동 · '전체' 는 보드 전체가 한 화면에 들어오게. 0.25초마다 다시 그림(요소가 많아도 네모만 그려 가벼움).
 import { useEffect, useRef } from 'react'
 import { minimapFit, minimapScroll, type Box } from '../lib/board'
@@ -11,9 +12,11 @@ export interface MinimapSource {
   updateScene(s: { appState: { scrollX: number; scrollY: number } }): void
   scrollToContent(target?: unknown, opts?: { fitToContent?: boolean; animate?: boolean }): void
 }
-const W = 208, H = 136
+const SIZES = { small: { W: 132, H: 84 }, large: { W: 232, H: 148 } } as const
+export type MinimapSize = keyof typeof SIZES
 
-export function BoardMinimap({ source, onHide }: { source: () => MinimapSource | null; onHide: () => void }) {
+export function BoardMinimap({ source, onHide, size, onSize }: { source: () => MinimapSource | null; onHide: () => void; size: MinimapSize; onSize: (s: MinimapSize) => void }) {
+  const { W, H } = SIZES[size]
   const cv = useRef<HTMLCanvasElement>(null)
   const fit = useRef<{ scale: number; ox: number; oy: number } | null>(null)
   const view = useRef<Box>({ x: 0, y: 0, w: 1, h: 1 })
@@ -32,8 +35,8 @@ export function BoardMinimap({ source, onHide }: { source: () => MinimapSource |
       const boxes = els.map(e => ({ x: Math.min(e.x, e.x + e.width), y: Math.min(e.y, e.y + e.height), w: Math.abs(e.width), h: Math.abs(e.height) }))
       const f = minimapFit(boxes, v, W, H)
       fit.current = f
-      if (!moving && c.dataset.drawn) return
-      c.dataset.drawn = '1'
+      if (!moving && c.dataset.drawn === size) return
+      c.dataset.drawn = size
       const dpr = Math.min(2, window.devicePixelRatio || 1)
       if (c.width !== W * dpr) { c.width = W * dpr; c.height = H * dpr }
       const g = c.getContext('2d')
@@ -62,7 +65,7 @@ export function BoardMinimap({ source, onHide }: { source: () => MinimapSource |
     draw()
     const t = window.setInterval(draw, 250)
     return () => window.clearInterval(t)
-  }, [source])
+  }, [source, size, W, H])
 
   const go = (e: { clientX: number; clientY: number }) => {
     const x = source(), c = cv.current, f = fit.current
@@ -71,11 +74,12 @@ export function BoardMinimap({ source, onHide }: { source: () => MinimapSource |
     x.updateScene({ appState: minimapScroll(((e.clientX - r.left) / r.width) * W, ((e.clientY - r.top) / r.height) * H, f, view.current) })
   }
   return (
-    <div className="board-map" role="group" aria-label="보드 전체 보기 지도">
+    <div className={`board-map is-${size}`} role="group" aria-label="보드 전체 보기 지도">
       <div className="board-map-head">
-        <b>전체 보기</b>
+        <b>{size === 'small' ? '지도' : '전체 보기'}</b>
         <span className="grow" />
-        <button type="button" onClick={() => source()?.scrollToContent(undefined, { fitToContent: true, animate: true })} title="보드 전체가 한 화면에 들어오게">전체 맞춤</button>
+        <button type="button" onClick={() => source()?.scrollToContent(undefined, { fitToContent: true, animate: true })} title="보드 전체가 한 화면에 들어오게">{size === 'small' ? '맞춤' : '전체 맞춤'}</button>
+        <button type="button" onClick={() => onSize(size === 'small' ? 'large' : 'small')} aria-label={size === 'small' ? '지도 크게' : '지도 작게'} title={size === 'small' ? '지도 크게' : '지도 작게'}>{size === 'small' ? '＋' : '－'}</button>
         <button type="button" onClick={onHide} aria-label="지도 숨기기" title="지도 숨기기">×</button>
       </div>
       <canvas

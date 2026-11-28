@@ -3,11 +3,20 @@
 //  - 읽기: board_get (그림 + 사진 받을 서명 주소 15분) · 저장: board_save (버전이 맞을 때만 · 어긋나면 서버 그림을 받아 편집기가 합침)
 //  - 사진 올리기: board_upload 가 준 주소로 이 브라우저가 바로 · 실시간 방송은 못 받으므로 버전을 6초마다 물어봄(화면이 보일 때만)
 import { readScene } from './board.ts'
+import { NO_CURSOR_ROOM, openCursorRoom, type CursorRoom } from './boardCursors.ts'
 import type { BoardApi } from './boardApi'
 import { GuestError, guestApi } from './collabGuest'
 
-export type GuestBoardSource = Pick<BoardApi, 'getBoard' | 'saveBoard' | 'uploadBoardFile' | 'downloadBoardFile' | 'watchBoard' | 'renameBoard'>
+export type GuestBoardSource = Pick<BoardApi, 'getBoard' | 'saveBoard' | 'uploadBoardFile' | 'downloadBoardFile' | 'watchBoard' | 'watchCursors' | 'renameBoard'>
 const POLL = 6_000
+const BASE = import.meta.env?.VITE_SUPABASE_URL as string | undefined
+const ANON = import.meta.env?.VITE_SUPABASE_ANON_KEY as string | undefined
+
+// 외부인용 방송 연결: 로그인 없음 · 세션을 저장하지 않음 · 커서 방송에만 씀(표 · 보관함은 권한이 없어 못 읽음)
+let liveClient: Promise<import('@supabase/supabase-js').SupabaseClient | null> | null = null
+const guestLiveClient = () => (liveClient ??= !BASE || !ANON ? Promise.resolve(null) : import('@supabase/supabase-js')
+  .then(m => m.createClient(BASE, ANON, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false, storageKey: 'wkly-guest-live' } }))
+  .catch(() => null))
 
 export function guestBoardSource(key: string, onLost?: (e: GuestError) => void): GuestBoardSource {
   let urls: Record<string, string> = {}
@@ -30,7 +39,7 @@ export function guestBoardSource(key: string, onLost?: (e: GuestError) => void):
       urls = got.urls ?? {}
       boardId = id
       const b = got.board
-      return { board: { id: b.id, project_id: null, title: b.title, version: b.version, created_by: null, updated_by: null, created_at: b.updated_at, updated_at: b.updated_at }, scene: readScene(got.scene) }
+      return { board: { id: b.id, project_id: null, title: b.title, version: b.version, created_by: null, updated_by: null, created_at: b.updated_at, updated_at: b.updated_at, live_key: got.live_key }, scene: readScene(got.scene) }
     },
     async saveBoard(id, scene, version) {
       const r = await guard(() => guestApi.boardSave(key, id, scene, version))
@@ -65,6 +74,21 @@ export function guestBoardSource(key: string, onLost?: (e: GuestError) => void):
       }
       const t = window.setInterval(() => void tick(), POLL)
       return { saved: v => { last = v }, close: () => window.clearInterval(t) }
+    },
+    watchCursors(liveKey, who, on) {
+      // 연결을 만드는 동안 온 움직임은 마지막 것만 기억했다가 보냄
+      let room: CursorRoom | null = null, closed = false
+      let pending: { x: number; y: number } | null = null
+      void guestLiveClient().then(sb => {
+        if (closed) return
+        room = sb ? openCursorRoom(sb, liveKey, who, on) : NO_CURSOR_ROOM
+        if (pending) room.move(pending.x, pending.y)
+      })
+      return {
+        move(x, y) { if (room) room.move(x, y); else pending = { x, y } },
+        saved(v) { room?.saved(v) },
+        close() { closed = true; room?.close() },
+      }
     },
     async renameBoard() { throw new Error('이름은 담당자만 바꿀 수 있습니다.') },
   }

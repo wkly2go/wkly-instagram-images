@@ -5,6 +5,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { ApiError } from './api'
 import { boardTitle, readScene, type BoardScene } from './board'
+import { openCursorRoom, type CursorRoom, type CursorRoomOn } from './boardCursors'
 
 export interface ProjectBoard {
   id: string
@@ -18,6 +19,8 @@ export interface ProjectBoard {
   updated_by: string | null
   created_at: string
   updated_at: string
+  /** 실시간 커서 방송 주제 열쇠 (보드를 열 때만 받음 · 2026-11-28) */
+  live_key?: string
   /** 요소 수 (목록에서만 · 지운 것 제외) */
   count?: number
 }
@@ -44,6 +47,8 @@ export interface BoardApi {
   /** 사진 받기 (서명 주소 → blob) */
   downloadBoardFile(path: string): Promise<Blob>
   watchBoard(id: string, who: BoardPeer, on: { peers(list: BoardPeer[]): void; saved(p: { id: string; name: string; version: number }): void }): BoardLive
+  /** 실시간 커서 방 (팀원 · 외부인이 같은 주제 · 없으면 커서 없이) */
+  watchCursors?(liveKey: string, who: BoardPeer, on: CursorRoomOn): CursorRoom
 }
 
 const fail = (e: { message: string; code?: string } | null) => {
@@ -82,7 +87,7 @@ export function createSupabaseBoardApi(sb: SupabaseClient): BoardApi {
       return r.data as string
     },
     async getBoard(id) {
-      const r = await sb.from('project_boards').select(`${COLS},scene`).eq('id', id).maybeSingle()
+      const r = await sb.from('project_boards').select(`${COLS},live_key,scene`).eq('id', id).maybeSingle()
       fail(r.error)
       if (!r.data) return null
       const { scene, ...board } = r.data as ProjectBoard & { scene: unknown }
@@ -117,6 +122,7 @@ export function createSupabaseBoardApi(sb: SupabaseClient): BoardApi {
       if (r.error || !r.data) throw new ApiError('사진을 받지 못했습니다.')
       return r.data
     },
+    watchCursors: (liveKey, who, on) => openCursorRoom(sb, liveKey, who, on),
     watchBoard(id, who, on) {
       // 비공개 방송 · 접속 표시: 팀원만 (realtime.messages 정책 board_live_*). 실패하면 조용히 '혼자 보기'로.
       try {
@@ -172,7 +178,14 @@ function memoryBoardApi(): BoardApi {
       boards.set(board.id, { board, scene: src ? JSON.parse(JSON.stringify(src.scene)) : { elements: [], files: {} } })
       return board.id
     },
-    async getBoard(id) { return boards.get(id) ?? null },
+    async getBoard(id) { const b = boards.get(id); return b ? { board: { ...b.board, live_key: 'f'.repeat(64) }, scene: b.scene } : null },
+    // 화면 확인용: 지어낸 [시험] 상대 커서 두 개가 천천히 움직임
+    watchCursors(_k, _who, on) {
+      let n = 0
+      const tick = () => { n++; on.cursors([{ id: 'guest:t1', name: '[시험] 김담당 (거래처)', x: 260 + 40 * Math.sin(n / 3), y: 180 + 30 * Math.cos(n / 3), at: Date.now() }, { id: 'u:t2', name: '[시험] 이팀원', x: 520, y: 320 + 20 * Math.sin(n / 2), at: Date.now() }]) }
+      const t = window.setInterval(tick, 400)
+      return { move() {}, saved() {}, close() { window.clearInterval(t) } }
+    },
     async createBoard(projectId, title) {
       const board: ProjectBoard = { id: `harness-${boards.size + 1}`, project_id: projectId, title: boardTitle(title), version: 1, created_by: null, updated_by: null, created_at: now(), updated_at: now() }
       boards.set(board.id, { board, scene: { elements: [], files: {} } })
