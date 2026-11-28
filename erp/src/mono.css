@@ -687,3 +687,18 @@ html:not([data-theme="dark"]) .app-page :is(.ins-card, .ins-cash, .today-is, .si
    .quick.q2 .bubble set border:0 !important, so this rule needs higher specificity. Card bubbles stay frameless. */
 html:not([data-theme="dark"]) .bubble.bubble.bubble:not(.has-card) { border: 1px solid var(--fx-stroke) !important; }
 html:not([data-theme="dark"]) :is(.bubble.bubble.bubble.mine, .msg.mine .bubble.bubble.bubble):not(.has-card) { border-color: var(--v9-ink) !important; }
+
+/* 2026-11-28 대표 지시 '프로젝트 목록을 접어놓고 문의와 진행을 구분해줘': chat dock room picker with foldable groups */
+.q2-pick-wrap { position: absolute; inset: 0; }
+.q2-pick-hit { position: absolute; inset: 0; width: 100%; height: 100%; background: none; border: 0; cursor: pointer; }
+.q2-pick { position: absolute; top: calc(100% + 4px); left: -1px; right: -1px; z-index: 40; max-height: min(70vh, 560px); overflow: auto; padding: 4px; background: var(--nm-face, #fff); border: 1px solid var(--fx-stroke); border-radius: 6px; box-shadow: 0 8px 24px rgba(20, 22, 28, .12); }
+.q2-pick-group + .q2-pick-group { border-top: 1px solid var(--v8-line, #e4e4e4); }
+.q2-pick-head { display: flex; align-items: center; gap: 6px; width: 100%; padding: 7px 6px; background: none; border: 0; cursor: pointer; color: var(--tx-sub); font-size: var(--fs-body); font-weight: 600; text-align: left; }
+.q2-pick-head svg { flex: none; transition: transform .15s; }
+.q2-pick-head svg.shut { transform: rotate(-90deg); }
+.q2-pick-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.q2-pick-count { flex: none; color: var(--tx-sub); font-weight: 400; }
+.q2-pick-item { display: flex; align-items: center; gap: 6px; width: 100%; padding: 6px 8px 6px 24px; background: none; border: 0; border-radius: 4px; cursor: pointer; color: var(--tx-body); font-size: var(--fs-body); text-align: left; }
+.q2-pick-item:hover { background: var(--nm-flat, #f1f1ef); }
+.q2-pick-item.on { background: var(--nm-flat, #f1f1ef); font-weight: 600; }
+.q2-pick-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
