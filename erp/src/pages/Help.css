@@ -1,10 +1,10 @@
 /* 사용법 › 메뉴별 사용법 (2026-11-19) */
-.manual-item { border: 1px solid var(--v8-line, #ece9e2); border-radius: var(--v8-r-ctl, 8px); background: #fff; }
+.manual-item { border: 1px solid var(--v8-line, #e7e7e7); border-radius: var(--v8-r-ctl, 8px); background: #fff; }
 .manual-item > summary { display: flex; gap: 10px; align-items: baseline; padding: 8px 12px; cursor: pointer; list-style: none; }
 .manual-item > summary::-webkit-details-marker { display: none; }
-.manual-item > summary b { flex: none; min-width: 96px; color: var(--tx-key); font-weight: 700; }
+.manual-item > summary b { flex: none; min-width: 96px; color: var(--tx-key); font-weight: 600; }
 .manual-item > summary span { color: var(--tx-sub); }
-.manual-item[open] > summary { border-bottom: 1px solid var(--v8-line, #ece9e2); }
+.manual-item[open] > summary { border-bottom: 1px solid var(--v8-line, #e7e7e7); }
 .manual-body { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px 20px; padding: 10px 12px 12px; }
 .manual-body ul { margin: 4px 0 0; padding-left: 18px; }
 .manual-body li { margin: 2px 0; }

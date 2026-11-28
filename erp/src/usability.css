@@ -29,11 +29,11 @@
 }
 .section-h > .more { display: inline-flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
 :where(.main, .dialog, .detail-body) :is(.t-small, .t-meta, .note) { line-height: 1.6; }
-:where(.main, .dialog, .detail-body) .t-meta { font-weight: 700; }
+:where(.main, .dialog, .detail-body) .t-meta { font-weight: 600; }
 :where(.main, .dialog, .detail-body) .empty { opacity: 1; line-height: 1.65; }
 
 /* 공통 컨트롤만 보강한다. 날짜 선택기·작업표의 전용 크기는 우선 유지한다. */
-:where(.main, .dialog, .detail-body) .btn { font-weight: 700; }
+:where(.main, .dialog, .detail-body) .btn { font-weight: 600; }
 @media (pointer: fine) {
   :where(.main, .dialog, .detail-body) .btn { min-height: 34px; padding: 6px 12px; }
   :where(.main, .dialog, .detail-body) .btn-sm { min-height: 28px; padding: 3px 9px; }
@@ -42,7 +42,7 @@
 :where(.main, .dialog, .detail-body) .textarea::placeholder { color: var(--gray); opacity: 1; }
 :where(.main, .dialog, .detail-body) .textarea { line-height: 1.6; }
 :where(.main, .dialog, .detail-body) .label { gap: 6px; }
-:where(.main, .dialog, .detail-body) .label > span { color: var(--ink); font-weight: 700; }
+:where(.main, .dialog, .detail-body) .label > span { color: var(--ink); font-weight: 600; }
 :where(.main, .dialog, .detail-body) .filters { gap: 8px; }
 :where(.main, .dialog, .detail-body) .filter-group { gap: 8px; }
 
@@ -155,9 +155,9 @@
 .weekly-head { align-items: center; }
 .weekly-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); }
 .weekly-kpis span { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; background: var(--white); font-size: var(--fs-cap); color: var(--gray); }
-.weekly-kpis b { font-size: var(--fs-num); color: var(--ink); font-weight: 700; }
+.weekly-kpis b { font-size: var(--fs-num); color: var(--ink); font-weight: 600; }
 .weekly-kpis .warn b { color: var(--alert); }
-.weekly-kpis .ok b { color: var(--green, #0b5a24); }
+.weekly-kpis .ok b { color: var(--green, #333333); }
 .weekly-box { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--line); background: var(--white); }
 .weekly-gap { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 6px 0; border-bottom: 1px dashed var(--line); min-width: 0; }
 .weekly-gap .badge { flex-shrink: 0; }
@@ -175,7 +175,7 @@
 .weekly-logs li:last-child { border-bottom: 0; }
 .weekly-day { flex: 0 0 84px; font-size: var(--fs-cap); color: var(--gray); text-align: left; white-space: nowrap; }
 .weekly-text { flex: 1; min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: var(--fs-body); }
-.weekly-fixed { font-size: var(--fs-cap); color: var(--pink); font-weight: 700; white-space: nowrap; }
+.weekly-fixed { font-size: var(--fs-cap); color: var(--pink); font-weight: 600; white-space: nowrap; }
 .weekly-read { white-space: pre-wrap; overflow-wrap: anywhere; padding: 6px 0; }
 @media (max-width: 640px) { .weekly-logs li { flex-wrap: wrap; } .weekly-day { flex-basis: 100%; } .weekly-proj, .log-proj { padding-left: 4px; } }
 
@@ -187,7 +187,7 @@
   body.weekly-printing > :not(.weekly-print) { display: none !important; }
   body.weekly-printing > .weekly-print { display: block; color: #000; font-size: 10pt; line-height: 1.5; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
   .weekly-print, .weekly-print * { visibility: visible !important; }
-  .weekly-print h1 { font-size: 18pt; margin: 0 0 2mm; font-weight: 700; }
+  .weekly-print h1 { font-size: 18pt; margin: 0 0 2mm; font-weight: 600; }
   .weekly-print h2 { font-size: 11.5pt; margin: 6mm 0 2mm; padding-bottom: 1mm; border-bottom: 1.5pt solid #000; break-after: avoid; }
   .weekly-print h3 { font-size: 10.5pt; margin: 3mm 0 1.5mm; break-after: avoid; }
   .weekly-print h3 span { font-weight: 400; color: #555; font-size: 9pt; }
@@ -195,7 +195,7 @@
   .wp-top { display: flex; justify-content: space-between; align-items: flex-end; gap: 8mm; margin-bottom: 4mm; }
   .weekly-print table { width: 100%; border-collapse: collapse; table-layout: fixed; }
   .weekly-print th, .weekly-print td { border: 0.5pt solid #555; padding: 1.5mm 2mm; text-align: left; vertical-align: top; overflow-wrap: anywhere; }
-  .weekly-print th { background: #eef3ee; font-weight: 700; }
+  .weekly-print th { background: #f0f0f0; font-weight: 600; }
   .weekly-print .wp-sign { width: 44mm; }
   .wp-sign th, .wp-sign td { text-align: center; }
   .wp-sign td { height: 14mm; vertical-align: middle; }
@@ -213,7 +213,7 @@
 .alarm-input > .alarm-preset { flex: 0 1 150px; min-width: 110px; }
 
 /* 채팅 칸 '내 비서' 버튼 (2026-11-16) */
-.chat-dock-sec { display: inline-flex; align-items: center; gap: 3px; border: 0; background: none; cursor: pointer; font-family: inherit; font-weight: 700; }
+.chat-dock-sec { display: inline-flex; align-items: center; gap: 3px; border: 0; background: none; cursor: pointer; font-family: inherit; font-weight: 600; }
 .chat-dock-h .icon-btn.sm { color: rgba(255,255,255,.85); }
 .chat-dock-h .icon-btn.sm:hover { color: #fff; background: rgba(255,255,255,.12); }
 
@@ -222,7 +222,7 @@
 .asst-set-note { margin: 0; color: var(--ink-3, #667); font-size: var(--fs-sm); }
 .asst-set-text { width: 100%; min-height: 180px; resize: vertical; line-height: 1.55; }
 .asst-set-ex { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: var(--fs-cap); color: var(--ink-3, #667); }
-.asst-set-ex button { border: 1px solid var(--line, #d9dde3); background: none; padding: 3px 8px; font: inherit; cursor: pointer; color: inherit; }
+.asst-set-ex button { border: 1px solid var(--line, #dedede); background: none; padding: 3px 8px; font: inherit; cursor: pointer; color: inherit; }
 .asst-set-ex button:hover:not(:disabled) { border-color: currentColor; }
 .asst-set-err { margin: 0; color: var(--red, #c62828); font-size: var(--fs-sm); }
 
@@ -249,7 +249,7 @@ svg.lucide { stroke-width: 2; shape-rendering: geometricPrecision; }
 
 /* 채팅: 고른 부분(하이라이트)에 댓글 · 질문 */
 .quote-pick { position: fixed; z-index: 400; transform: translateX(-50%); display: inline-flex; border: 1px solid var(--blue); background: var(--white); box-shadow: 0 2px 8px rgba(0,0,0,.14); white-space: nowrap; }
-.quote-pick > button { display: inline-flex; align-items: center; gap: 4px; height: 28px; padding: 0 10px; border: 0; background: none; color: var(--blue); font-size: var(--fs-cap); font-family: inherit; font-weight: 700; cursor: pointer; }
+.quote-pick > button { display: inline-flex; align-items: center; gap: 4px; height: 28px; padding: 0 10px; border: 0; background: none; color: var(--blue); font-size: var(--fs-cap); font-family: inherit; font-weight: 600; cursor: pointer; }
 .quote-pick > button + button { border-left: 1px solid var(--line); }
 .quote-pick > button:hover { background: var(--blue-tint); }
 .bubble { user-select: text; -webkit-user-select: text; }
@@ -261,14 +261,14 @@ svg.lucide { stroke-width: 2; shape-rendering: geometricPrecision; }
 /* 월별 일정표 크게 · 내 업무는 다른 색 (대표 지시 2026-11-16)
    - 칸을 키우고 글자를 본문 크기로, 한 칸에 5건까지
    - 내 업무 = 파랑(--cal-mine): 초록 계열(팀 업무 · 프로젝트)과 한눈에 구분 */
-:root { --cal-mine: #2457b3; --cal-mine-tint: #e6eefb; }
+:root { --cal-mine: var(--v9-accent); --cal-mine-tint: var(--v9-accent-tint); }
 .cal-item.c-mine { background: var(--cal-mine); color: #fff; }
 .mini-cal-grid .day i.mine, .m-dots i.c-mine { background: var(--cal-mine); }
 .week-task.mine, .wk-task.mine { border-left-color: var(--cal-mine); }
 .wk-span.mine { border-left-color: var(--cal-mine); background: var(--cal-mine-tint); }
 @media (min-width: 641px) {
   .bigcal .day { min-height: 0; padding: 6px 5px 5px; gap: 3px; }
-  .bigcal .n { font-size: var(--fs-body); font-weight: 700; }
+  .bigcal .n { font-size: var(--fs-body); font-weight: 600; }
   .bigcal .dow { font-size: var(--fs-sm); padding: 6px 0; }
   .bigcal .cal-item { font-size: var(--fs-sm); line-height: 1.45; padding: 2px 6px; }
   .bigcal .day .more { font-size: var(--fs-cap); padding: 0 6px; line-height: 1.3; }
@@ -282,6 +282,6 @@ svg.lucide { stroke-width: 2; shape-rendering: geometricPrecision; }
 
 /* 홈 '내 할 일' 표 (대표 지시 2026-11-17 '홈에 내할일 넣어줘') — 묶음 제목(지연 · 오늘 · 이번 주)은 작게, 표는 프로젝트 › 내 할 일과 같은 모양 */
 .home-tasks .home-tasks-h { display: flex; align-items: center; gap: 6px; padding: 2px 2px 0; }
-.home-tasks .home-tasks-h .t-bodyb { font-size: var(--fs-body); font-weight: 700; }
+.home-tasks .home-tasks-h .t-bodyb { font-size: var(--fs-body); font-weight: 600; }
 .home-tasks .section-h .more { display: inline-flex; align-items: center; gap: 10px; }
 .home-tasks .home-tasks-more { align-self: flex-start; }

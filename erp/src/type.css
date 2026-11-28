@@ -10,9 +10,9 @@
    굵기 3단계: 800 타이틀 · 700 강조(이름 · 숫자 · 상태 · 눌러야 할 것) · 400 본문. 500 · 600 · 650 · 750 은 쓰지 않음.
 
    색 4가지 (밝은 화면 · 검정 쓰지 않음)
-   - --tx-title #151d18 제목 · 강조 글
-   - --tx-body  #222a25 본문
-   - --tx-sub   #535c56 보조(날짜 · 담당 · 건수 · 설명) — 크기로 줄이지 않고 색으로만 낮춤
+   - --tx-title #191919 제목 · 강조 글
+   - --tx-body  #262626 본문
+   - --tx-sub   #585858 보조(날짜 · 담당 · 건수 · 설명) — 크기로 줄이지 않고 색으로만 낮춤
    - --tx-key   var(--v8-green) 누를 수 있는 글 · 지금 고른 것 / --red 지연 · 경고만 */
 :root {
   --t-title: calc(18px * var(--fs-k) * var(--fs-m, 1));
@@ -26,9 +26,9 @@
   --fs-title: var(--t-title);
   --fs-num: var(--t-title);
   --fs-hero: var(--t-title);
-  --tx-title: #151d18;
-  --tx-body: #222a25;
-  --tx-sub: #535c56;
+  --tx-title: #191919;
+  --tx-body: #262626;
+  --tx-sub: #585858;
   --tx-key: var(--v8-green);
 }
 @media (pointer: coarse) {
@@ -44,20 +44,20 @@ html:not([data-theme="dark"]) {
 }
 
 /* 기본 요소 — 제목은 타이틀 · 소제목은 강조, 작게(small)는 본문 크기 + 보조 색 */
-.app-page h1, .app-page h2 { font-size: var(--t-title); font-weight: 800; line-height: 1.35; letter-spacing: -0.01em; }
-.app-page h3, .app-page h4, .app-page h5 { font-size: var(--t-em); font-weight: 700; line-height: 1.4; }
+.app-page h1, .app-page h2 { font-size: var(--t-title); font-weight: 700; line-height: 1.35; letter-spacing: -0.01em; }
+.app-page h3, .app-page h4, .app-page h5 { font-size: var(--t-em); font-weight: 600; line-height: 1.4; }
 .app-page small { font-size: var(--t-body); }
-.app-page th { font-weight: 700; }
+.app-page th { font-weight: 600; }
 html:not([data-theme="dark"]) .app-page :is(h1, h2, h3, h4) { color: var(--tx-title); }
 html:not([data-theme="dark"]) .app-page :is(.t-cap, .t-meta, .t-small) { color: var(--tx-sub); }
-.app-page :is(b, strong) { font-weight: 700; }
+.app-page :is(b, strong) { font-weight: 600; }
 
 /* 새 화면에서 쓸 이름 (크기 · 굵기 · 색을 한 번에) */
-.tx-title { font-size: var(--t-title); font-weight: 800; color: var(--tx-title); }
-.tx-em { font-size: var(--t-em); font-weight: 700; color: var(--tx-title); }
+.tx-title { font-size: var(--t-title); font-weight: 700; color: var(--tx-title); }
+.tx-em { font-size: var(--t-em); font-weight: 600; color: var(--tx-title); }
 .tx-body { font-size: var(--t-body); font-weight: 400; color: var(--tx-body); }
 .tx-sub { font-size: var(--t-body); font-weight: 400; color: var(--tx-sub); }
-.tx-key { font-weight: 700; color: var(--tx-key); }
+.tx-key { font-weight: 600; color: var(--tx-key); }
 
 /* 숫자만 담는 작은 동그라미(알림 수 · 메뉴 숫자)는 글이 아니라 표시라서 예외 — 원 크기에 맞춤 */
 .app-page :is(.side-n, .q2-badge, .bell .count) { font-size: 12px; }

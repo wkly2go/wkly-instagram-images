@@ -68,3 +68,21 @@ export function nearDeadlines(tasks: readonly DashTask[], projects: readonly Das
     return { id: p.id, name: p.name, code: p.code ?? '', div: divOf(p), daysLeft: day(p.end_date!, today), progress: mine.length ? Math.round(((mine.length - open.length) / mine.length) * 100) : 0, openTasks: open.length, lateTasks: open.filter(t => !!t.due_date && t.due_date < today).length }
   })
 }
+
+export interface FlowDay { date: string; done: number; due: number; late: number }
+/** 업무 흐름: 지난 back 일 ~ 앞으로 ahead 일. done = 그날 끝낸 일 · due = 그날 마감인 안 끝난 일(지난 날이면 late 로) */
+export function dayFlow(tasks: readonly (DashTask & { completed_at?: string | null })[], today: string, back = 13, ahead = 14): FlowDay[] {
+  const out: FlowDay[] = []
+  for (let i = -back; i <= ahead; i++) {
+    const date = addDays(today, i)
+    let done = 0, due = 0, late = 0
+    for (const t of tasks) {
+      if (t.status === '완료') { if (t.completed_at && t.completed_at.slice(0, 10) === date) done++ }
+      else if (t.due_date === date) { if (date < today) late++; else due++ }
+    }
+    out.push({ date, done, due, late })
+  }
+  return out
+}
+/** 작은 막대용: 값들을 0~1 로 (모두 0 이면 0) */
+export const sparkOf = (values: readonly number[]) => { const m = Math.max(0, ...values); return values.map(v => (m ? v / m : 0)) }

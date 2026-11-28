@@ -4,10 +4,10 @@
 .pfig-link input { flex: 1; min-width: 0; }
 .pfig-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
 .pfig-card { display: grid; grid-template-columns: 168px 1fr; gap: 12px; padding: 10px; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
-.pfig-thumb { width: 168px; height: 105px; object-fit: cover; border-radius: 8px; background: #f3f1ec; }
+.pfig-thumb { width: 168px; height: 105px; object-fit: cover; border-radius: 8px; background: #f0f0f0; }
 .pfig-thumb-empty { display: grid; place-items: center; color: var(--tx-sub); }
 .pfig-body { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-.pfig-title { font-weight: 700; color: var(--tx-title); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pfig-title { font-weight: 600; color: var(--tx-title); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pfig-meta { color: var(--tx-sub); }
 .pfig-err { color: #b42318; }
 .pfig-actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: auto; }

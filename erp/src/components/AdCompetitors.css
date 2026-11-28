@@ -1,11 +1,11 @@
 /* 경쟁사 추적 (2026-11-20) — 밝은 화면 · v8 토큰 · 글자 크기는 3단계 변수만 */
 .cmp { display: flex; flex-direction: column; gap: 10px; margin-bottom: 24px; }
 .cmp-note { margin: 0; color: var(--tx-sub); }
-.cmp-cadence { margin: 0; padding: 8px 12px; border-radius: var(--v8-r-ctl); background: var(--v8-tint); color: var(--v8-green); font-weight: 700; }
+.cmp-cadence { margin: 0; padding: 8px 12px; border-radius: var(--v8-r-ctl); background: var(--v8-tint); color: var(--v8-green); font-weight: 600; }
 .cmp-form { padding: 12px 14px; border-radius: var(--v8-r-card); background: var(--v8-card); border: 1px solid var(--v8-line); display: flex; flex-direction: column; gap: 10px; }
 .cmp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px 12px; }
 .cmp-grid label { display: flex; flex-direction: column; gap: 4px; }
-.cmp-grid label > span { font-weight: 700; }
+.cmp-grid label > span { font-weight: 600; }
 .cmp-grid .wide { grid-column: 1 / -1; }
 .cmp-grid :is(input, select) { min-height: 34px; padding: 5px 9px; border: 1px solid var(--v8-line); border-radius: var(--v8-r-ctl); background: #fff; font: inherit; color: var(--v8-ink); }
 .cmp-form-act { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
@@ -13,21 +13,21 @@
 .cmp-table-wrap { overflow-x: auto; }
 .cmp-table { width: 100%; border-collapse: collapse; }
 .cmp-table th, .cmp-table td { padding: 8px 10px; border-bottom: 1px solid var(--v8-line); text-align: left; vertical-align: top; }
-.cmp-table th { white-space: nowrap; color: var(--tx-sub); font-weight: 700; }
+.cmp-table th { white-space: nowrap; color: var(--tx-sub); font-weight: 600; }
 .cmp-table td.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.cmp-table tr.self td { background: #f3f8f4; }
-.cmp-self { margin-left: 6px; padding: 0 7px; border-radius: 999px; background: var(--v8-green); color: #fff; font-weight: 700; }
+.cmp-table tr.self td { background: #f5f5f5; }
+.cmp-self { margin-left: 6px; padding: 0 7px; border-radius: 999px; background: var(--v8-green); color: #fff; font-weight: 600; }
 .cmp-err { color: #b42318; }
 .cmp-links { white-space: nowrap; }
 .cmp-links a { display: inline-flex; align-items: center; gap: 3px; margin-right: 8px; color: var(--tx-key); }
 .cmp-act { white-space: nowrap; }
 .cmp-ideas, .cmp-posts { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .cmp-ideas li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; align-items: center; padding: 10px 12px; border-radius: var(--v8-r-card); background: var(--v8-card); border: 1px solid var(--v8-line); }
-.cmp-ideas li b { font-size: var(--fs-sub); font-weight: 700; color: var(--v8-ink); }
+.cmp-ideas li b { font-size: var(--fs-sub); font-weight: 600; color: var(--v8-ink); }
 .cmp-ideas .cmp-ex { grid-column: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cmp-ideas .btn { grid-column: 2; grid-row: 1 / span 2; }
 .cmp-posts li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
-.cmp-src { padding: 0 7px; border-radius: 999px; background: #f1efe9; }
+.cmp-src { padding: 0 7px; border-radius: 999px; background: #ededed; }
 @media (max-width: 640px) { .cmp-ideas li { grid-template-columns: 1fr; } .cmp-ideas .btn { grid-column: 1; grid-row: auto; justify-self: start; } }
 html[data-theme="dark"] :is(.cmp-form, .cmp-ideas li) { background: #15291c; border-color: var(--line); color: var(--ink); }
 html[data-theme="dark"] .cmp-table tr.self td { background: rgba(255, 255, 255, .05); }

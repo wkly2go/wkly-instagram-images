@@ -1,6 +1,6 @@
 /* 한 번에 만들기 (2026-11-20) — 밝은 화면 · 글자 3단계 */
 .auto-camp { border: 1px solid var(--line); border-left: 4px solid var(--tx-key); border-radius: 12px; background: #fff; padding: 16px 18px; margin: 0 0 16px; display: grid; gap: 12px; }
-.auto-camp-head h3 { display: flex; align-items: center; gap: 6px; margin: 0; font-size: var(--fs-sub); font-weight: 700; color: var(--tx-title); }
+.auto-camp-head h3 { display: flex; align-items: center; gap: 6px; margin: 0; font-size: var(--fs-sub); font-weight: 600; color: var(--tx-title); }
 .auto-camp-head p { margin: 4px 0 0; color: var(--tx-sub); }
 .auto-camp-form { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px 12px; }
 .auto-camp-form label { display: grid; gap: 4px; min-width: 0; }
@@ -17,7 +17,7 @@
 .auto-camp-cards { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
 .auto-camp-cards img { width: 168px; aspect-ratio: 4 / 5; object-fit: cover; border-radius: 8px; border: 1px solid var(--line); flex: none; }
 .auto-camp-publish { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-.auto-camp-done { display: flex; align-items: center; gap: 6px; margin: 0; color: var(--tx-key); font-weight: 700; }
+.auto-camp-done { display: flex; align-items: center; gap: 6px; margin: 0; color: var(--tx-key); font-weight: 600; }
 .auto-camp-channels { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 .auto-camp-channels article { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; display: grid; gap: 4px; align-content: start; min-width: 0; }
 .auto-camp-channels header { display: flex; justify-content: space-between; align-items: center; gap: 6px; flex-wrap: wrap; }
@@ -28,21 +28,21 @@
 .auto-camp-picks { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin-bottom: 10px; }
 .auto-camp-picks > small { color: var(--tx-sub); font-size: var(--fs-body); }
 .auto-camp-picked { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; background: var(--v8-tint); min-width: 0; }
-.auto-camp-picked b { font-weight: 700; color: var(--tx-key); white-space: nowrap; }
+.auto-camp-picked b { font-weight: 600; color: var(--tx-key); white-space: nowrap; }
 .auto-camp-picks-empty { flex-basis: 100%; margin: 0; color: var(--tx-sub); }
 .auto-camp-pick-list { flex-basis: 100%; list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 6px; }
 .auto-camp-pick-list button { all: unset; box-sizing: border-box; width: 100%; height: 100%; display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; border: 1px solid var(--v8-line); border-radius: 10px; background: #fff; cursor: pointer; min-height: 44px; }
-.auto-camp-pick-list button:hover { border-color: var(--tx-key); background: #f6faf7; }
+.auto-camp-pick-list button:hover { border-color: var(--tx-key); background: #f8f8f8; }
 .auto-camp-pick-list button:focus-visible { outline: 2px solid var(--tx-key); outline-offset: 1px; }
 .auto-camp-pick-list button:disabled { opacity: .6; cursor: wait; }
-.auto-camp-pick-group { color: var(--tx-key); font-weight: 700; }
+.auto-camp-pick-group { color: var(--tx-key); font-weight: 600; }
 .auto-camp-pick-title { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
 .auto-camp-pick-list small { color: var(--tx-sub); font-size: var(--fs-body); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 html[data-theme="dark"] .auto-camp-pick-list button, html[data-theme="dark"] .auto-camp-picked { background: #15291c; border-color: var(--line); color: var(--ink); }
 
 /* 릴스 편집도 함께 요청 (2026-11-27) */
 .auto-camp-reel { display: grid; gap: 8px; padding-top: 10px; border-top: 1px solid var(--v8-line); min-width: 0; container-type: inline-size; }
-.auto-camp-form .auto-camp-reel > label.row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-weight: 700; color: var(--tx-title); cursor: pointer; }
+.auto-camp-form .auto-camp-reel > label.row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-weight: 600; color: var(--tx-title); cursor: pointer; }
 .auto-camp-form .auto-camp-reel > label.row input { width: auto; flex: none; }
 .auto-camp-reel > label.row small { font-weight: 400; color: var(--tx-sub); font-size: var(--fs-body); }
 .auto-camp-reel-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(120px, 1fr) minmax(88px, 0.7fr); gap: 10px 12px; min-width: 0; }
@@ -59,11 +59,11 @@ html[data-theme="dark"] .auto-camp-reel-done { background: #15291c; color: var(-
 .auto-camp-cover-empty { flex-basis: 100%; margin: 0; color: var(--tx-sub); }
 .auto-camp-cover-list { flex-basis: 100%; list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
 .auto-camp-cover-list button { all: unset; box-sizing: border-box; width: 100%; height: 100%; display: flex; flex-direction: column; gap: 4px; padding: 6px; border: 1px solid var(--v8-line); border-radius: 10px; background: #fff; cursor: pointer; }
-.auto-camp-cover-list button:hover:not(:disabled) { border-color: var(--tx-key); background: #f6faf7; }
+.auto-camp-cover-list button:hover:not(:disabled) { border-color: var(--tx-key); background: #f8f8f8; }
 .auto-camp-cover-list button:focus-visible { outline: 2px solid var(--tx-key); outline-offset: 1px; }
 .auto-camp-cover-list button:disabled { opacity: .6; cursor: wait; }
-.auto-camp-cover-list img { width: 100%; aspect-ratio: 4 / 5; object-fit: cover; border-radius: 6px; background: #f1f1ee; }
+.auto-camp-cover-list img { width: 100%; aspect-ratio: 4 / 5; object-fit: cover; border-radius: 6px; background: #f0f0f0; }
 .auto-camp-cover-name { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; color: var(--tx-title); }
-.auto-camp-cover-name b { color: var(--tx-key); font-weight: 700; }
+.auto-camp-cover-name b { color: var(--tx-key); font-weight: 600; }
 .auto-camp-cover-list small { color: var(--tx-sub); font-size: var(--fs-body); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 html[data-theme="dark"] .auto-camp-cover-list button { background: #15291c; border-color: var(--line); color: var(--ink); }
