@@ -454,21 +454,16 @@ html:not([data-theme="dark"]) button.item:is(.active, .on) { box-shadow: none; b
 [data-fold-group="1"] > * { display: none !important; }
 [data-fold-group="1"] { min-height: 0 !important; height: auto !important; }
 
-/* 모서리 최소화 (2026-11-28 대표 '모서리 라운드 최소화'): 어디나 3px — 동그라미여야 하는 것(스위치 · 숫자 동그라미 · 점)만 예외 */
-:root { --v8-r-card: 3px; --v8-r-ctl: 3px; --r-book: 3px; --r-inner: 3px; --r-panel: 3px; --r-bubble: 3px; }
-html:not([data-theme="dark"]) .app-page :is(div, section, article, aside, nav, header, footer, form, details, summary, button, a, input:not(.nm-switch):not([type="radio"]), select, textarea, table, ul, li, label, img, span, i, b, em):not(.excalidraw *):not([class*="dot"]):not(.count):not(.q2-badge):not(.m-dot):not(.side-n):not(.view-tab-n) { border-radius: 3px !important; }
-html:not([data-theme="dark"]) .app-page :is(.count, .q2-badge, .m-dot, .side-n, .view-tab-n) { border-radius: 999px !important; }
-html:not([data-theme="dark"]) :is(.dialog, .modal, .top-menu-pop, .ast-fab, .ast-panel, .m-more) { border-radius: 3px !important; }
+/* 모서리: 참고 디자인(둥근 카드 · 알약 버튼)에 맞춤 — 아래 '부드러운 볼록 · 오목' 묶음에서 정함 */
 
 /* 아이콘은 평평하게 (2026-11-28 대표 '아이콘들 양각 효과 없애 전체 공통이야'): 아이콘 · 아이콘 칸에는 그림자 · 볼록 · 오목을 주지 않는다 */
 html:not([data-theme="dark"]) .app-page .profile .side-item > svg,
 html:not([data-theme="dark"]) .app-page .profile .side-item.on > svg { background: transparent; box-shadow: none; padding: 2px; color: var(--v9-ink); }
 html:not([data-theme="dark"]) :is(.icon-btn, .quick-btn, .dock-fold, .ins-icon, .home-kpi-tile, .dash-kpi-ic, .ai-ava, .avatar),
-html:not([data-theme="dark"]) .dash-kpi.is-key .dash-kpi-ic { box-shadow: none !important; }
+html:not([data-theme="dark"]) .dash-kpi.is-key .dash-kpi-ic { box-shadow: var(--nm-icon) !important; }
 html:not([data-theme="dark"]) :is(.ins-icon, .home-kpi-tile, .dash-kpi-ic) { background: var(--nm-flat) !important; }
 html:not([data-theme="dark"]) .dash-kpi.is-key .dash-kpi-ic { background: var(--v9-ink) !important; }
 html:not([data-theme="dark"]) svg.lucide { filter: none; }
-html:not([data-theme="dark"]) .app-page :is(main, .main, .web-panel, .chat-dock, .profile, .topbar) { border-radius: 3px !important; }
 
 /* 휴대폰 맞춤 (2026-11-28 대표 '휴대폰 화면도 확인해서 맞춰') */
 html:not([data-theme="dark"]) .rd-month .bar-pair i.in { background: var(--v9-ink); }
@@ -518,24 +513,28 @@ html:not([data-theme="dark"]) .top-logo .logo-ink, html:not([data-theme="dark"])
    - 남기는 효과는 둘뿐: 주 버튼('새로 만들기' 등) 아래 옅은 메뉴 색 빛, 초점(키보드 · 입력 중) 테
    ================================================================================ */
 html:not([data-theme="dark"]) {
-  --nm-up: none; --nm-up-sm: none; --nm-in: none; --nm-in-sm: none; --nm-neon: none;
+  --nm-lo: rgba(163, 168, 178, .55); --nm-hi: rgba(255, 255, 255, .95);
+  --nm-up: 7px 7px 16px var(--nm-lo), -6px -6px 14px var(--nm-hi); --nm-up-sm: 4px 4px 9px var(--nm-lo), -3px -3px 8px var(--nm-hi);
+  --nm-in: inset 3px 3px 7px var(--nm-lo), inset -3px -3px 7px var(--nm-hi); --nm-in-sm: inset 2px 2px 5px var(--nm-lo), inset -2px -2px 5px var(--nm-hi);
+  --nm-icon: 2px 2px 4px var(--nm-lo), -2px -2px 4px var(--nm-hi); --nm-neon: none;
   --nm-neon-sm: 0 3px 10px -4px color-mix(in srgb, var(--v9-accent) 45%, transparent);
   --glow-1: none; --glow-2: none; --glow-3: none; --neon-glow: none; --neon-soft: none;
   --v8-shadow: none; --v8-shadow-pop: 0 8px 24px -12px rgba(60, 66, 80, .28);
-  --nm-face: #f6f7f9; --nm-bg: #eceef2;
+  --nm-face: #ececee; --nm-bg: #ececee; --nm-flat: #e4e5e8; --nm-field: #ececee;
+  --v8-r-card: 16px; --v8-r-ctl: 12px; --r-book: 16px; --r-inner: 12px; --r-panel: 18px; --r-bubble: 14px;
   /* 2026-11-28 대표 '효과 조금만 걷어내': 다 없애지 않고 두 가지만 옅게 — 카드 · 판 아래 옅은 그림자, 중요한 것(오늘 · 핵심 숫자 · 올린 카드 · 주 버튼) 아래 메뉴 색 빛 */
   --fx-card: 0 6px 16px -12px rgba(60, 66, 80, .34);
   --fx-key: 0 8px 22px -12px color-mix(in srgb, var(--v9-accent) 60%, transparent);
   --nm-neon-sm: 0 5px 14px -6px color-mix(in srgb, var(--v9-accent) 55%, transparent);
 }
 html:not([data-theme="dark"]) .app-page *, html:not([data-theme="dark"]) .app-page *::before, html:not([data-theme="dark"]) .app-page *::after { text-shadow: none; }
-html:not([data-theme="dark"]) .app-page :is(.main, .web-panel, .chat-dock, .profile) { box-shadow: var(--fx-card) !important; border: 1px solid var(--v8-line) !important; }
+html:not([data-theme="dark"]) .app-page :is(.main, .web-panel, .chat-dock, .profile) { box-shadow: var(--nm-up) !important; border: 1px solid transparent !important; }
 html:not([data-theme="dark"]) .app-page .topbar { box-shadow: none !important; border-bottom: 1px solid var(--v8-line) !important; }
-html:not([data-theme="dark"]) :is(.box, .stat, .kpi, .card, .home-kpi, .today-card, .checkin-card, .brief, .rd-box, .pc-card, .proj-card, .pboards-item, .week-day, .div-card, .ad-pcard, .dash-kpi, .dash-card, .dash-day, .mini-cal, .home-hero, .board-wrap, .guide-card, .sales-pipe-step, .gov-tile, .ledger-kpi, .weekly-box, .form-grid, .bigcal, .explorer, .web-setting, .myproj-card, .weekly-kpis, .office-net, .site-tabs, .survey-empty, .sales-development, .sales-iv, .sales-strategy-desk, .sales-settings, .sales-bid-qualifications, .growth-empty, .growth-ai, .auto-camp, .md-library, .ai-ins, .design-add, .design-block, .sales-pipe, .section, .panel, .tile, .list-card, .rd-kpi, .ai-card, .note, details.box, .bubble) { box-shadow: var(--fx-card) !important; border: 1px solid var(--v8-line) !important; transform: none !important; }
-html:not([data-theme="dark"]) :is(a.home-kpi, a.dash-kpi, .pc-card, .pboards-item, .proj-card, .sales-pipe-step, .gov-tile, .ai-card):hover { box-shadow: var(--fx-key) !important; border-color: var(--v9-ink) !important; transform: none !important; }
-html:not([data-theme="dark"]) :is(.dash-kpi.is-key, .week-day.today, .dash-day.is-today) { box-shadow: var(--fx-key) !important; border-color: var(--v9-ink) !important; }
-html:not([data-theme="dark"]) :is(.chip.active, .chip.on, .ads-subnav button.active, .ads-nav button.active, .tab.on, .tab.active, .view-tab.on, .count, .q2-badge, .m-dot, .view-tab-n, .bell .count, button.day.today, .week-day-h .dd, .dash-kpi-ic, .side-item.on, .ast-panel) { box-shadow: none !important; }
-html:not([data-theme="dark"]) :is(.ads-segment, .seg, .right-tabs) button:is(.active, .on) { box-shadow: none !important; border: 1px solid var(--v8-line-2) !important; }
+html:not([data-theme="dark"]) :is(.box, .stat, .kpi, .card, .home-kpi, .today-card, .checkin-card, .brief, .rd-box, .pc-card, .proj-card, .pboards-item, .week-day, .div-card, .ad-pcard, .dash-kpi, .dash-card, .dash-day, .mini-cal, .home-hero, .board-wrap, .guide-card, .sales-pipe-step, .gov-tile, .ledger-kpi, .weekly-box, .form-grid, .bigcal, .explorer, .web-setting, .myproj-card, .weekly-kpis, .office-net, .site-tabs, .survey-empty, .sales-development, .sales-iv, .sales-strategy-desk, .sales-settings, .sales-bid-qualifications, .growth-empty, .growth-ai, .auto-camp, .md-library, .ai-ins, .design-add, .design-block, .sales-pipe, .section, .panel, .tile, .list-card, .rd-kpi, .ai-card, .note, details.box, .bubble) { box-shadow: var(--nm-up-sm) !important; border: 1px solid transparent !important; transform: none !important; }
+html:not([data-theme="dark"]) :is(a.home-kpi, a.dash-kpi, .pc-card, .pboards-item, .proj-card, .sales-pipe-step, .gov-tile, .ai-card):hover { box-shadow: var(--nm-up), var(--fx-key) !important; border-color: transparent !important; transform: none !important; }
+html:not([data-theme="dark"]) :is(.dash-kpi.is-key, .week-day.today, .dash-day.is-today) { box-shadow: var(--nm-up-sm), var(--fx-key) !important; border-color: transparent !important; }
+html:not([data-theme="dark"]) :is(.chip.active, .chip.on, .ads-subnav button.active, .ads-nav button.active, .tab.on, .tab.active, .view-tab.on, .count, .q2-badge, .m-dot, .view-tab-n, .bell .count, button.day.today, .week-day-h .dd, .side-item.on) { box-shadow: var(--nm-in-sm) !important; }
+html:not([data-theme="dark"]) :is(.ads-segment, .seg, .right-tabs) button:is(.active, .on) { box-shadow: var(--nm-up-sm) !important; border: 1px solid transparent !important; }
 html:not([data-theme="dark"]) .app-page .profile .side-item.on { background: var(--nm-flat); border-color: transparent; }
 html:not([data-theme="dark"]) :is(.section-head, .sec-head)::before { box-shadow: none; }
 html:not([data-theme="dark"]) .dash-flow-col i, html:not([data-theme="dark"]) .dash-legend i, html:not([data-theme="dark"]) .dash-vbar-track i { box-shadow: none !important; background-image: none !important; }
@@ -543,8 +542,8 @@ html:not([data-theme="dark"]) :is(.dash-flow-col i.f-done, .dash-legend i.f-done
 html:not([data-theme="dark"]) :is(.dash-flow-col i.f-late, .dash-legend i.f-late, .dash-vbar-track i.s-late) { background: #f09a86 !important; }
 html:not([data-theme="dark"]) .dash-flow-col.is-today span { font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
 /* 채팅 손잡이 · 비서 단추: 그림자 없이 선으로 */
-html:not([data-theme="dark"]) .chat-dock.closed .chat-dock-open, html:not([data-theme="dark"]) .chat-dock.closed .chat-dock-open:hover { box-shadow: none !important; }
-html:not([data-theme="dark"]) .ast-fab, html:not([data-theme="dark"]) .ast-fab:hover, html:not([data-theme="dark"]) .ast-fab.on { background: var(--nm-face) !important; -webkit-backdrop-filter: none; backdrop-filter: none; border: 1px solid var(--v8-line-2) !important; box-shadow: 0 2px 8px -4px rgba(60, 66, 80, .35) !important; }
+html:not([data-theme="dark"]) .chat-dock.closed .chat-dock-open, html:not([data-theme="dark"]) .chat-dock.closed .chat-dock-open:hover { box-shadow: var(--nm-up-sm) !important; }
+html:not([data-theme="dark"]) .ast-fab, html:not([data-theme="dark"]) .ast-fab:hover, html:not([data-theme="dark"]) .ast-fab.on { background: var(--nm-face) !important; -webkit-backdrop-filter: none; backdrop-filter: none; border: 1px solid transparent !important; box-shadow: var(--nm-up) !important; border-radius: 999px !important; }
 html:not([data-theme="dark"]) .ast-panel { background: var(--nm-face); -webkit-backdrop-filter: none; backdrop-filter: none; border: 1px solid var(--v8-line-2); box-shadow: var(--v8-shadow-pop) !important; }
 html:not([data-theme="dark"]) :is(.dialog, .modal, .top-menu-pop) { box-shadow: var(--v8-shadow-pop) !important; border: 1px solid var(--v8-line-2); }
 html:not([data-theme="dark"]) .scrim { -webkit-backdrop-filter: none; backdrop-filter: none; background: rgba(60, 66, 80, .28); }
@@ -552,7 +551,58 @@ html:not([data-theme="dark"]) .app-page .body > .chat-dock:not(.closed) { animat
 /* 주 버튼만 옅은 빛 */
 html:not([data-theme="dark"]) :is(.btn-primary, .new-btn, .today-ok, .btn.primary):not(:disabled), html:not([data-theme="dark"]) .app-page .profile :is(.new-btn, .btn-primary) { box-shadow: var(--nm-neon-sm) !important; }
 html:not([data-theme="dark"]) :is(.btn-primary, .new-btn, .today-ok, .btn.primary):not(:disabled):hover { box-shadow: var(--nm-neon-sm) !important; }
-@media (max-width: 760px) { html:not([data-theme="dark"]) .m-nav { box-shadow: none !important; border-top: 1px solid var(--v8-line) !important; } html:not([data-theme="dark"]) .m-more { box-shadow: none; border-top: 1px solid var(--v8-line-2); } }
+@media (max-width: 760px) { html:not([data-theme="dark"]) .m-nav { box-shadow: var(--nm-up) !important; border-top: 0 !important; } html:not([data-theme="dark"]) .m-more { box-shadow: none; border-top: 1px solid var(--v8-line-2); } }
 
 /* 로고는 얇은 선으로 (2026-11-28 대표 '로고 선 얇게 만들어' · public/wkly-logo-line.svg) — 색 필터 없이 그대로 */
 html:not([data-theme="dark"]) .top-logo .logo-ink { filter: none !important; opacity: 1; }
+
+/* ================================================================================
+   부드러운 볼록 · 오목 (2026-11-28 대표가 참고 그림을 보내 '이 디자인 확정해서 넣어 · 동일한 디자인으로 만들어' ·
+   '아이콘에만 효과 조금만 넣고 나머지에는 효과 적용해') — 위 '효과 최소화'보다 우선
+   - 면과 바탕은 같은 밝은 회색 · 카드 · 판 · 버튼은 떠 있음(--nm-up) · 입력 칸 · 고른 것 · 누른 것은 눌림(--nm-in)
+   - 주 버튼은 중간 회색 알약 · 못 누르는 것은 그림자 없음 · 초점 테는 늘 보임(메뉴 색)
+   - 아이콘 칸은 아주 옅게만(--nm-icon)
+   ================================================================================ */
+html:not([data-theme="dark"]) body, html:not([data-theme="dark"]) .app-page, html:not([data-theme="dark"]) .app-page .body { background: var(--nm-bg) !important; }
+html:not([data-theme="dark"]) .app-page :is(.main, .web-panel, .chat-dock, .profile) { border-radius: var(--r-panel) !important; background: var(--nm-face) !important; }
+html:not([data-theme="dark"]) :is(.box, .stat, .kpi, .card, .home-kpi, .today-card, .checkin-card, .brief, .rd-box, .pc-card, .proj-card, .pboards-item, .week-day, .div-card, .ad-pcard, .dash-kpi, .dash-card, .dash-day, .mini-cal, .home-hero, .guide-card, .sales-pipe-step, .gov-tile, .ledger-kpi, .weekly-box, .myproj-card, .sales-pipe, .section, .panel, .tile, .list-card, .rd-kpi, .ai-card, .note, .bubble, .dialog, .modal, .ast-panel, .top-menu-pop) { border-radius: var(--v8-r-card) !important; background-color: var(--nm-face); }
+/* 버튼: 떠 있는 알약 · 누르면 눌림 · 못 누르면 평평 */
+html:not([data-theme="dark"]) .app-page :is(.btn, .btn-sm, .btn-blue, .btn-ghost, .quick-btn, .icon-btn, .chip, .new-btn, .btn-primary, .today-ok, .dock-fold) { border-radius: 999px !important; border-color: transparent !important; box-shadow: var(--nm-up-sm) !important; background-color: var(--nm-face); transition: box-shadow .15s ease; }
+html:not([data-theme="dark"]) .app-page :is(.btn, .btn-sm, .btn-blue, .btn-ghost, .quick-btn, .icon-btn, .chip, .new-btn, .btn-primary, .today-ok):active,
+html:not([data-theme="dark"]) .app-page :is(.chip.active, .chip.on, .tab.on, .tab.active, .view-tab.on) { box-shadow: var(--nm-in-sm) !important; }
+html:not([data-theme="dark"]) .app-page :is(.btn, .btn-sm, .btn-blue, .btn-ghost, .quick-btn, .icon-btn, .chip, .new-btn, .btn-primary):disabled { box-shadow: none !important; opacity: .55; }
+html:not([data-theme="dark"]) .app-page :is(.btn-primary, .new-btn, .today-ok, .btn.primary):not(:disabled) { background: linear-gradient(180deg, #a9abb1, #8f9198) !important; color: #2c2e33 !important; box-shadow: var(--nm-up-sm), var(--nm-neon-sm) !important; }
+html:not([data-theme="dark"]) .app-page :is(.btn-primary, .new-btn, .today-ok, .btn.primary):not(:disabled) svg { color: #2c2e33 !important; }
+html:not([data-theme="dark"]) .app-page :is(.chip.active, .chip.on) { background: var(--nm-flat) !important; color: var(--tx-title) !important; }
+/* 입력 칸: 눌린 홈 */
+html:not([data-theme="dark"]) .app-page :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]), select, textarea, .search, .q2-input):not(.excalidraw *) { background: var(--nm-bg) !important; border: 1px solid transparent !important; box-shadow: var(--nm-in-sm) !important; border-radius: 999px !important; }
+html:not([data-theme="dark"]) .app-page textarea:not(.excalidraw *) { border-radius: var(--v8-r-ctl) !important; }
+html:not([data-theme="dark"]) .app-page :is(input, select, textarea, button, a, [tabindex]):focus-visible { outline: 2px solid var(--v9-accent) !important; outline-offset: 2px; }
+/* 구간 고르기 · 탭 줄: 눌린 홈 안에 떠 있는 알약 */
+html:not([data-theme="dark"]) .app-page :is(.ads-segment, .seg, .right-tabs, .ads-nav, .ads-subnav) { box-shadow: var(--nm-in-sm) !important; border-radius: 999px !important; border-color: transparent !important; background: var(--nm-bg) !important; padding: 4px; }
+html:not([data-theme="dark"]) .app-page :is(.ads-segment, .seg, .right-tabs, .ads-nav, .ads-subnav) button { border-radius: 999px !important; box-shadow: none !important; background: transparent !important; }
+html:not([data-theme="dark"]) .app-page :is(.ads-segment, .seg, .right-tabs, .ads-nav, .ads-subnav) button:is(.active, .on) { box-shadow: var(--nm-up-sm) !important; background: var(--nm-face) !important; }
+/* 아이콘 칸: 아주 옅게만 */
+html:not([data-theme="dark"]) :is(.ins-icon, .home-kpi-tile, .dash-kpi-ic, .ai-ava, .avatar) { box-shadow: var(--nm-icon) !important; background: var(--nm-face) !important; border-radius: 12px !important; }
+html:not([data-theme="dark"]) .app-page .profile .side-item { border-radius: 12px !important; }
+html:not([data-theme="dark"]) .app-page .profile .side-item.on { background: var(--nm-bg) !important; }
+html:not([data-theme="dark"]) .dash-kpi.is-key .dash-kpi-ic { background: linear-gradient(180deg, #a9abb1, #8f9198) !important; }
+html:not([data-theme="dark"]) .dash-kpi.is-key .dash-kpi-ic svg { color: #2c2e33 !important; }
+/* 표 줄: 선만 */
+html:not([data-theme="dark"]) .app-page :is(table, .table-wrap) { border-radius: var(--v8-r-ctl) !important; }
+
+/* 두 번째 참고 그림 (같은 날 대표 '이 디자인도 넣어'): 판은 바탕보다 조금 더 흰 면 · 그림자는 더 옅게 · 스위치는 둥근 네모(켜면 먹색 홈 + 흰 손잡이) · 구간 고르기는 회색 홈 + 흰 알약 */
+html:not([data-theme="dark"]) {
+  --nm-bg: #eff0f2; --nm-face: #f6f6f7; --nm-field: #eff0f2; --nm-flat: #e3e4e7;
+  --nm-lo: rgba(170, 175, 185, .42); --nm-hi: rgba(255, 255, 255, 1);
+}
+html:not([data-theme="dark"]) input[type="checkbox"].nm-switch { width: 46px; height: 24px; border-radius: 8px !important; background: #d9dadd; box-shadow: var(--nm-in-sm); }
+html:not([data-theme="dark"]) input[type="checkbox"].nm-switch::after { width: 22px; height: 20px; border-radius: 6px; background: #fff; box-shadow: 1px 2px 4px rgba(90, 95, 105, .45); }
+html:not([data-theme="dark"]) input[type="checkbox"].nm-switch:checked { background: #44474d; }
+html:not([data-theme="dark"]) .app-page :is(.ads-segment, .seg, .right-tabs, .ads-nav, .ads-subnav) { background: #dcdde0 !important; box-shadow: none !important; }
+html:not([data-theme="dark"]) .app-page :is(.ads-segment, .seg, .right-tabs, .ads-nav, .ads-subnav) button:is(.active, .on) { background: #fff !important; box-shadow: 0 1px 3px rgba(90, 95, 105, .35) !important; }
+html:not([data-theme="dark"]) .app-page :is(.dash-flow, .dash-flow-grid, .rd-month, .chart-box) { background: var(--nm-flat); border-radius: var(--v8-r-ctl) !important; }
+/* 채팅 입력처럼 여러 줄이 되는 칸은 알약 대신 둥근 네모 */
+html:not([data-theme="dark"]) .app-page :is(.chat-input, .q2-input, .composer) :is(input, textarea), html:not([data-theme="dark"]) .app-page textarea { border-radius: var(--v8-r-ctl) !important; }
+html:not([data-theme="dark"]) .app-page :is(.ads-segment, .seg, .right-tabs, .ads-nav, .ads-subnav) { border-radius: 14px !important; }
+html:not([data-theme="dark"]) .app-page :is(.ads-segment, .seg, .right-tabs, .ads-nav, .ads-subnav) button { border-radius: 10px !important; }
