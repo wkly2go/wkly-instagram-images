@@ -661,3 +661,16 @@ html:not([data-theme="dark"]) .app-page .profile :is(.icon-btn, button) { border
   html:not([data-theme="dark"]) .app-page .body > .chat-dock:not(.closed) { margin-left: -1px !important; border-left: 0 !important; background: var(--nm-face) !important; box-shadow: none !important; }
   html:not([data-theme="dark"]) .app-page .body:has(> .chat-dock:not(.closed)) > .profile, html:not([data-theme="dark"]) .app-page .body > .chat-dock:not(.closed) { filter: none; }
 }
+
+/* 2026-11-28 대표 '왼쪽 하단도 올려서 여백 만들고 라운드 조금만 줘': 왼쪽 메뉴 판이 아래 끝까지 닿던 것(min-height 100%)을 고쳐 아래 10px 여백 · 큰 판 모서리는 조금만(6px) */
+html:not([data-theme="dark"]) { --r-panel: 6px; }
+html:not([data-theme="dark"]) .app-page :is(.main, .web-panel, .chat-dock, .profile), html:not([data-theme="dark"]) .app-page .body > :is(.web-slot, .detail-slot) > * { border-radius: 6px !important; }
+@media (min-width: 1025px) {
+  html:not([data-theme="dark"]) .app-page .body > .profile { min-height: 0 !important; height: calc(100% - 20px) !important; }
+  html:not([data-theme="dark"]) .app-page .body:has(> .chat-dock:not(.closed)) > .profile { border-top-right-radius: 0 !important; border-bottom-right-radius: 0 !important; }
+  html:not([data-theme="dark"]) .app-page .body > .chat-dock:not(.closed) { border-top-left-radius: 0 !important; border-bottom-left-radius: 0 !important; }
+}
+/* 채팅 칸 오른쪽 끝 선이 두 줄로 보이던 것(대표 '왜 두줄이야?'): 판 테두리와 폭 조절 손잡이 선이 겹침 → 손잡이 선은 올리거나 끌 때만 보임 */
+html:not([data-theme="dark"]) .chat-dock-resize::before { background: transparent !important; box-shadow: none !important; }
+html:not([data-theme="dark"]) .chat-dock-resize:hover::before, html:not([data-theme="dark"]) .chat-dock-resize:focus-visible::before, html:not([data-theme="dark"]) body.dock-resizing .chat-dock-resize::before { background: var(--v9-ink) !important; }
+html:not([data-theme="dark"]) .app-page .body > .chat-dock:not(.closed) { padding-right: 0 !important; }
