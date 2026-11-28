@@ -702,3 +702,37 @@ html:not([data-theme="dark"]) :is(.bubble.bubble.bubble.mine, .msg.mine .bubble.
 .q2-pick-item:hover { background: var(--nm-flat, #f1f1ef); }
 .q2-pick-item.on { background: var(--nm-flat, #f1f1ef); font-weight: 600; }
 .q2-pick-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* 2026-11-28 대표 지시 '아래에 있는 내 비서는 없애고 상부에 있는 거 아이콘으로 · 그림자 네온으로 빛나게 · 반응형':
+   the assistant is one glowing icon at the top of the chat dock. The floating bottom button is gone wherever the dock shows
+   (wide screens); on narrow screens and phones, where the dock is hidden, the same icon floats in its place. */
+.ast-icon { display: inline-grid; place-items: center; width: 30px; height: 30px; padding: 0; flex: none; border-radius: 8px; border: 1px solid var(--fx-stroke-strong, #8f95a1); background: var(--nm-face, #fff); color: var(--v9-ink); cursor: pointer;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--v9-accent) 25%, transparent), 0 4px 14px -2px color-mix(in srgb, var(--v9-accent) 65%, transparent), 0 0 22px -4px color-mix(in srgb, var(--v9-accent) 70%, transparent);
+  animation: ast-glow 3.2s ease-in-out infinite; transition: transform .15s; }
+.ast-icon:hover { transform: translateY(-1px); box-shadow: 0 0 0 1px color-mix(in srgb, var(--v9-accent) 45%, transparent), 0 6px 20px -2px color-mix(in srgb, var(--v9-accent) 80%, transparent), 0 0 30px -2px color-mix(in srgb, var(--v9-accent) 85%, transparent); }
+.ast-icon:focus-visible { outline: 2px solid var(--v9-accent); outline-offset: 2px; }
+.ast-icon svg { color: var(--v9-ink); }
+@keyframes ast-glow { 50% { box-shadow: 0 0 0 1px color-mix(in srgb, var(--v9-accent) 35%, transparent), 0 5px 18px -2px color-mix(in srgb, var(--v9-accent) 80%, transparent), 0 0 30px -2px color-mix(in srgb, var(--v9-accent) 80%, transparent); } }
+@media (prefers-reduced-motion: reduce) { .ast-icon { animation: none; } }
+.chat-dock.closed .chat-dock-ast { margin: 10px auto 0; }
+/* the floating bottom button: gone where the chat dock exists (≥1025px), a round glowing icon below that */
+@media (min-width: 1025px) { .ast-fab { display: none !important; } }
+@media (max-width: 1024px) {
+  html:not([data-theme="dark"]) .ast-fab, html:not([data-theme="dark"]) .ast-fab:hover, html:not([data-theme="dark"]) .ast-fab.on { width: 46px; height: 46px; padding: 0 !important; justify-content: center; font-size: 0; gap: 0; border-radius: 12px !important; background: var(--nm-face) !important; border: 1px solid var(--fx-stroke-strong) !important;
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--v9-accent) 25%, transparent), 0 6px 18px -2px color-mix(in srgb, var(--v9-accent) 70%, transparent), 0 0 28px -4px color-mix(in srgb, var(--v9-accent) 75%, transparent) !important; animation: ast-glow 3.2s ease-in-out infinite; }
+  html:not([data-theme="dark"]) .ast-fab span { display: none; }
+  html:not([data-theme="dark"]) .ast-fab svg { width: 20px; height: 20px; color: var(--v9-ink); }
+}
+/* same day, 대표 '아이콘 디자인에 사용해' (neumorphism reference): soft raised tile — light top-left, soft shadow bottom-right —
+   with the menu colour glowing underneath; pressed (inset) while clicked. Used by the assistant icon everywhere. */
+:root { --ast-raise: -4px -4px 9px rgba(255, 255, 255, .95), 5px 5px 12px rgba(150, 160, 178, .55); --ast-press: inset 3px 3px 6px rgba(150, 160, 178, .55), inset -3px -3px 6px rgba(255, 255, 255, .95); --ast-neon: 0 8px 20px -6px color-mix(in srgb, var(--v9-accent) 70%, transparent); }
+@keyframes ast-glow2 { 50% { box-shadow: var(--ast-raise), 0 10px 26px -4px color-mix(in srgb, var(--v9-accent) 85%, transparent); } }
+html:not([data-theme="dark"]) .ast-icon { width: 32px; height: 32px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, .7); background: linear-gradient(145deg, #f7f8fa, #e6e8ec); box-shadow: var(--ast-raise), var(--ast-neon); animation: ast-glow2 3.2s ease-in-out infinite; }
+html:not([data-theme="dark"]) .ast-icon:hover { transform: none; box-shadow: var(--ast-raise), 0 10px 26px -4px color-mix(in srgb, var(--v9-accent) 90%, transparent); }
+html:not([data-theme="dark"]) .ast-icon:active { box-shadow: var(--ast-press); animation: none; }
+html:not([data-theme="dark"]) .ast-icon svg { color: #5d6573; stroke-width: 1.6; }
+@media (max-width: 1024px) {
+  html:not([data-theme="dark"]) .ast-fab, html:not([data-theme="dark"]) .ast-fab:hover, html:not([data-theme="dark"]) .ast-fab.on { border-radius: 14px !important; border: 1px solid rgba(255, 255, 255, .7) !important; background: linear-gradient(145deg, #f7f8fa, #e6e8ec) !important; box-shadow: var(--ast-raise), var(--ast-neon) !important; animation: ast-glow2 3.2s ease-in-out infinite; }
+  html:not([data-theme="dark"]) .ast-fab:active, html:not([data-theme="dark"]) .ast-fab.on { box-shadow: var(--ast-press) !important; animation: none; }
+  html:not([data-theme="dark"]) .ast-fab svg { color: #5d6573; stroke-width: 1.6; }
+}

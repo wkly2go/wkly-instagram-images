@@ -303,6 +303,9 @@ function ChatDock() {
           {unread > 0 && <span className="side-n">{unread > 99 ? '99+' : unread}</span>}
           <span className="chat-dock-vert">채팅</span>
         </button>
+        <button type="button" className="ast-icon chat-dock-ast" onClick={() => { toggle(); void openAssistant() }} aria-label="내 비서" title="내 비서 열기">
+          <Bot size={16} aria-hidden="true" />
+        </button>
       </aside>
     )
   return (
@@ -312,8 +315,9 @@ function ChatDock() {
         <b>채팅</b>
         {unread > 0 && <span className="side-n">{unread > 99 ? '99+' : unread}</span>}
         <span className="grow" />
-        <button type="button" className="chat-dock-full chat-dock-sec" onClick={openAssistant} title="나만 보는 개인 AI 비서 · 할 일 · 일정 · 업무 일지 · 주간 보고 초안">
-          <Bot size={13} aria-hidden="true" /> 내 비서
+        {/* 2026-11-28 대표 지시 '아래 내 비서는 없애고 상부에 있는 거 아이콘으로 · 그림자 네온으로 빛나게 · 반응형' */}
+        <button type="button" className="ast-icon" onClick={openAssistant} aria-label="내 비서" title="내 비서 — 나만 보는 개인 AI 비서 · 할 일 · 일정 · 업무 일지 · 주간 보고 초안">
+          <Bot size={16} aria-hidden="true" />
         </button>
         <AssistantSettingsButton />
         <Link to="/chat" className="chat-dock-full" title="방 만들기 · 나중에 보기 · 스레드는 전체 화면에서">
