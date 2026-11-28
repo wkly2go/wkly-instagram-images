@@ -736,3 +736,34 @@ html:not([data-theme="dark"]) .ast-icon svg { color: #5d6573; stroke-width: 1.6;
   html:not([data-theme="dark"]) .ast-fab:active, html:not([data-theme="dark"]) .ast-fab.on { box-shadow: var(--ast-press) !important; animation: none; }
   html:not([data-theme="dark"]) .ast-fab svg { color: #5d6573; stroke-width: 1.6; }
 }
+
+/* 2026-11-28 대표 '첨부한 오른쪽 아이콘들처럼 만들어' (neumorphism reference · round raised icons) +
+   '네온은 선명하게 스트로크에서 빛이 새어 나오는 형태로': soft raised light face, the icon sits in its own raised circle,
+   and the neon is a crisp menu-colour stroke whose light bleeds outward. */
+:root {
+  --neo-face: linear-gradient(145deg, #f8f9fb, #e5e8ed);
+  --neo-raise: -5px -5px 11px rgba(255, 255, 255, .95), 6px 6px 14px rgba(146, 156, 175, .5);
+  --neo-raise-sm: -3px -3px 6px rgba(255, 255, 255, .95), 3px 3px 7px rgba(146, 156, 175, .5);
+  --neo-press: inset 3px 3px 7px rgba(146, 156, 175, .5), inset -3px -3px 7px rgba(255, 255, 255, .95);
+  --neon-line: color-mix(in srgb, var(--v9-accent) 85%, #fff);
+  --neon-leak: 0 0 0 1px color-mix(in srgb, var(--v9-accent) 70%, transparent), 0 0 6px 0 color-mix(in srgb, var(--v9-accent) 75%, transparent), 0 0 16px 2px color-mix(in srgb, var(--v9-accent) 40%, transparent);
+}
+html:not([data-theme="dark"]) .profile .new-btn:is(#_, .new-btn),
+html:not([data-theme="dark"]) .profile .new-btn:is(#_, .new-btn):hover {
+  background: var(--neo-face) !important; color: #3d4450 !important; font-weight: 600; letter-spacing: -.01em;
+  border: 1px solid var(--neon-line) !important; border-radius: 14px !important;
+  box-shadow: var(--neo-raise), var(--neon-leak) !important; transition: box-shadow .2s, transform .15s;
+}
+html:not([data-theme="dark"]) .profile .new-btn:is(#_, .new-btn):hover { transform: translateY(-1px); box-shadow: var(--neo-raise), 0 0 0 1px var(--v9-accent), 0 0 9px 1px color-mix(in srgb, var(--v9-accent) 85%, transparent), 0 0 22px 4px color-mix(in srgb, var(--v9-accent) 45%, transparent) !important; }
+html:not([data-theme="dark"]) .profile .new-btn:is(#_, .new-btn):active { transform: none; box-shadow: var(--neo-press), var(--neon-leak) !important; }
+html:not([data-theme="dark"]) .profile .new-btn:is(#_, .new-btn) svg {
+  width: 26px; height: 26px; padding: 5px; box-sizing: border-box; border-radius: 50%; color: #5d6573; stroke-width: 1.8;
+  background: var(--neo-face); box-shadow: var(--neo-raise-sm);
+}
+/* the same crisp leaking stroke on the round assistant / media icons */
+html:not([data-theme="dark"]) .ast-icon { border-radius: 50% !important; border: 1px solid var(--neon-line) !important; background: var(--neo-face) !important; box-shadow: var(--neo-raise-sm), var(--neon-leak) !important; animation: none; }
+html:not([data-theme="dark"]) .ast-icon:hover { box-shadow: var(--neo-raise-sm), 0 0 0 1px var(--v9-accent), 0 0 9px 1px color-mix(in srgb, var(--v9-accent) 85%, transparent), 0 0 20px 3px color-mix(in srgb, var(--v9-accent) 45%, transparent) !important; }
+html:not([data-theme="dark"]) .ast-icon:active, html:not([data-theme="dark"]) .ast-icon.on { box-shadow: var(--neo-press), var(--neon-leak) !important; }
+@media (max-width: 1024px) {
+  html:not([data-theme="dark"]) .ast-fab, html:not([data-theme="dark"]) .ast-fab:hover { border-radius: 50% !important; border: 1px solid var(--neon-line) !important; background: var(--neo-face) !important; box-shadow: var(--neo-raise), var(--neon-leak) !important; animation: none; }
+}
