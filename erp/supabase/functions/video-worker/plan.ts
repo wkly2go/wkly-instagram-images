@@ -2,7 +2,7 @@
 //  - 예전에는 맥의 Claude Code(대표 개인 계정 로그인)가 장면을 골랐다 → 이제 맥은 장면 사진만 보내고 서버 함수가 Console 열쇠로 묻는다
 //  - 여기는 네트워크 없는 함수만 (시험 tests/video-plan.test.ts)
 
-export const PLAN_MODEL = 'claude-sonnet-5-5'
+export const PLAN_MODEL = 'claude-opus-5-5'
 export const MAX_CLIPS = 16
 /** 장면 사진 한 장(base64 글자 수) 한도 — 약 520KB */
 export const MAX_IMAGE_CHARS = 700_000
