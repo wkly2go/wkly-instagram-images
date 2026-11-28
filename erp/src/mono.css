@@ -606,3 +606,21 @@ html:not([data-theme="dark"]) .app-page :is(.dash-flow, .dash-flow-grid, .rd-mon
 html:not([data-theme="dark"]) .app-page :is(.chat-input, .q2-input, .composer) :is(input, textarea), html:not([data-theme="dark"]) .app-page textarea { border-radius: var(--v8-r-ctl) !important; }
 html:not([data-theme="dark"]) .app-page :is(.ads-segment, .seg, .right-tabs, .ads-nav, .ads-subnav) { border-radius: 14px !important; }
 html:not([data-theme="dark"]) .app-page :is(.ads-segment, .seg, .right-tabs, .ads-nav, .ads-subnav) button { border-radius: 10px !important; }
+
+/* 2026-11-28 대표 '아이콘 라운드 최소화하고 상하 사이즈도 줄여' (결제 화면 칩 줄): 칩 · 버튼 · 입력 칸은 알약 대신 작은 모서리(6px) · 높이를 낮춤 */
+html:not([data-theme="dark"]) .app-page :is(.btn, .btn-sm, .btn-blue, .btn-ghost, .quick-btn, .icon-btn, .chip, .new-btn, .btn-primary, .today-ok, .dock-fold, .tab, .view-tab) { border-radius: 6px !important; }
+html:not([data-theme="dark"]) .app-page :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]), select, .search, .q2-input):not(.excalidraw *) { border-radius: 6px !important; }
+html:not([data-theme="dark"]) .app-page textarea:not(.excalidraw *), html:not([data-theme="dark"]) .app-page :is(.chat-input, .q2-input, .composer) :is(input, textarea) { border-radius: 6px !important; }
+html:not([data-theme="dark"]) .app-page :is(.ads-segment, .seg, .right-tabs, .ads-nav, .ads-subnav) { border-radius: 8px !important; padding: 3px; }
+html:not([data-theme="dark"]) .app-page :is(.ads-segment, .seg, .right-tabs, .ads-nav, .ads-subnav) button { border-radius: 5px !important; }
+html:not([data-theme="dark"]) :is(.ins-icon, .home-kpi-tile, .dash-kpi-ic, .ai-ava, .avatar) { border-radius: 6px !important; }
+html:not([data-theme="dark"]) .app-page .profile .side-item { border-radius: 6px !important; }
+html:not([data-theme="dark"]) .ast-fab { border-radius: 8px !important; }
+html:not([data-theme="dark"]) .app-page .chip { min-height: 0 !important; height: auto; padding-top: 4px !important; padding-bottom: 4px !important; line-height: 1.35; }
+html:not([data-theme="dark"]) .app-page :is(.btn, .btn-blue, .btn-ghost, .btn-primary, .today-ok) { min-height: 0; padding-top: 5px; padding-bottom: 5px; line-height: 1.35; }
+html:not([data-theme="dark"]) .app-page :is(.btn-sm, .quick-btn) { padding-top: 3px; padding-bottom: 3px; }
+@media (max-width: 760px), (pointer: coarse) {
+  html:not([data-theme="dark"]) .app-page .chip { padding-top: 7px !important; padding-bottom: 7px !important; }
+  html:not([data-theme="dark"]) .app-page :is(.btn, .btn-blue, .btn-ghost, .btn-primary, .today-ok) { padding-top: 8px; padding-bottom: 8px; }
+}
+html:not([data-theme="dark"]) .app-page :is(.ads-segment, .seg, .right-tabs, .ads-nav, .ads-subnav) button:is(.active, .on), html:not([data-theme="dark"]) .app-page :is(.ads-segment, .seg, .right-tabs, .ads-nav, .ads-subnav) button:is(.active, .on) * { color: var(--tx-title) !important; }
