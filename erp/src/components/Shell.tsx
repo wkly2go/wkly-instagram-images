@@ -3,7 +3,7 @@ import { useMyAgents } from './AgentDesk'
 import { MobileAppBar, TopAppButton } from './InstallCard'
 import { useTheme } from '../lib/theme'
 import { menuColor } from '../lib/menuColors'
-import { PencilRuler, Truck, Inbox, Calculator, Sigma, Building2, Layers, GraduationCap, Ruler, BookOpen, Bookmark, Bot, ListTodo, Plus, Search, Briefcase, HardDrive, ChevronDown, ChevronLeft, PenLine, ChevronRight, CircleHelp, PanelLeftClose, PanelLeftOpen, ClipboardCheck, FolderKanban, Home, Library, Megaphone, MessageCircle, MoreHorizontal, Settings, Users, UserRound, Landmark, FileQuestion, HandCoins, type LucideIcon } from 'lucide-react'
+import { PencilRuler, Truck, Inbox, Calculator, Sigma, Building2, Layers, GraduationCap, Ruler, BookOpen, Bookmark, Bot, MonitorPlay, ListTodo, Plus, Search, Briefcase, HardDrive, ChevronDown, ChevronLeft, PenLine, ChevronRight, CircleHelp, PanelLeftClose, PanelLeftOpen, ClipboardCheck, FolderKanban, Home, Library, Megaphone, MessageCircle, MoreHorizontal, Settings, Users, UserRound, Landmark, FileQuestion, HandCoins, type LucideIcon } from 'lucide-react'
 import { accessSource, isDesktopApp } from '../lib/desktop'
 import { useAttendance } from '../lib/attendance'
 import { AssignTaskModal } from './AssignTask'
@@ -37,6 +37,7 @@ import './ShellUsability.css'
 
 // 왼쪽 채팅 칸 안의 대화 부품 · 비서 창은 본 화면이 뜬 뒤 따로 불러온다 (첫 화면 묶음을 가볍게 · 2026-11-19 성능)
 const QuickChat = lazy(() => import('../pages/Quick').then(m => ({ default: m.QuickChat })))
+const MediaDeck = lazy(() => import('./MediaDeck'))
 const AssistantFloat = lazy(() => import('./AssistantFloat').then(m => ({ default: m.AssistantFloat })))
 
 export type TabKey = 'design' | 'designOrders' | 'designCards' | 'designPrices' | 'ilwi' | 'designVendors' | 'designMaterials' | 'designLearn' | 'tenders' | 'leads' | 'sales' | 'home' | 'my' | 'reportTemplates' | 'approvals' | 'chat' | 'work' | 'projects' | 'clients' | 'library' | 'drive' | 'boards' | 'team' | 'site' | 'agents' | 'ads' | 'ledger' | 'interviewQuestions' | 'gov' | 'admin'
@@ -226,6 +227,22 @@ function ChatDock() {
   const chatTick = useChatTick()
   const { data: rooms } = useAsync(() => api.listRooms(), [version, chatTick], [] as ChatRoomSummary[])
   const unread = rooms.reduce((s, r) => s + countedUnread(r), 0)
+  // 2026-11-28 대표 지시 '채팅방 자리에 유튜브 · 인스타그램 · 틱톡을 볼 수 있는 화면': the dock body shows chat or the media deck
+  const [media, setMedia] = useState(() => {
+    try {
+      return localStorage.getItem('wkly-dock-media') === '1'
+    } catch {
+      return false
+    }
+  })
+  const flipMedia = () => setMedia(m => {
+    try {
+      localStorage.setItem('wkly-dock-media', m ? '0' : '1')
+    } catch {
+      /* 저장 못 해도 화면은 그대로 */
+    }
+    return !m
+  })
   const [open, setOpen] = useState(() => {
     try {
       return localStorage.getItem(DOCK_KEY) !== 'closed'
@@ -319,6 +336,9 @@ function ChatDock() {
         <button type="button" className="ast-icon" onClick={openAssistant} aria-label="내 비서" title="내 비서 — 나만 보는 개인 AI 비서 · 할 일 · 일정 · 업무 일지 · 주간 보고 초안">
           <Bot size={16} aria-hidden="true" />
         </button>
+        <button type="button" className={`ast-icon md-toggle${media ? ' on' : ''}`} onClick={flipMedia} aria-pressed={media} aria-label={media ? '채팅으로 돌아가기' : '영상 보기'} title={media ? '채팅으로 돌아가기' : '영상 보기 — 유튜브 · 인스타그램 · 틱톡'}>
+          {media ? <MessageCircle size={16} aria-hidden="true" /> : <MonitorPlay size={16} aria-hidden="true" />}
+        </button>
         <AssistantSettingsButton />
         <Link to="/chat" className="chat-dock-full" title="방 만들기 · 나중에 보기 · 스레드는 전체 화면에서">
           전체 화면
@@ -327,14 +347,24 @@ function ChatDock() {
           <ChevronLeft size={15} />
         </button>
       </div>
-      <DockTodo calendar={<MiniCalendar />} />
-      <div className="quick q2 chat-dock-in">
-        <ErrorBoundary area="채팅">
-          <Suspense fallback={<span className="t-cap" style={{ padding: 12 }}>대화 불러오는 중…</span>}>
-            <QuickChat rooms={rooms} />
-          </Suspense>
-        </ErrorBoundary>
-      </div>
+      {!media && <DockTodo calendar={<MiniCalendar />} />}
+      {media ? (
+        <div className="chat-dock-in md-host">
+          <ErrorBoundary area="영상 보기">
+            <Suspense fallback={<span className="t-cap" style={{ padding: 12 }}>화면 불러오는 중…</span>}>
+              <MediaDeck />
+            </Suspense>
+          </ErrorBoundary>
+        </div>
+      ) : (
+        <div className="quick q2 chat-dock-in">
+          <ErrorBoundary area="채팅">
+            <Suspense fallback={<span className="t-cap" style={{ padding: 12 }}>대화 불러오는 중…</span>}>
+              <QuickChat rooms={rooms} />
+            </Suspense>
+          </ErrorBoundary>
+        </div>
+      )}
       <div
         className="chat-dock-resize"
         role="separator"
