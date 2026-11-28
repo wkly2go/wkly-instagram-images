@@ -2,7 +2,7 @@
    칸의 크기 · 자리는 바깥(평면 화면)이 정하고, 여기서는 그 안쪽만 꾸민다. 화면은 늘 밝게.
    모서리는 styles.css 의 '모두 사각' 규칙(!important)을 넘어야 해서 여기서도 !important 로 둥글린다. */
 .design-plan-3d.dp3 {
-  --dp3-ground: #efece5;
+  --dp3-ground: #eaeaea;
   --dp3-glass: color-mix(in srgb, var(--white) 90%, transparent);
   position: relative; display: block; overflow: hidden; outline: none;
   container-type: size;
@@ -23,7 +23,7 @@ html[data-theme="dark"] .design-plan-3d.dp3 { --dp3-ground: #2a4433; }
 .dp3-chip svg { flex: none; }
 .dp3-chip:hover { background: var(--blue-tint); color: var(--blue); }
 .dp3-chip:focus-visible { outline: 2px solid var(--blue); outline-offset: 1px; }
-.dp3-chip[aria-pressed="true"] { background: var(--blue); color: #fff; font-weight: 700; }
+.dp3-chip[aria-pressed="true"] { background: var(--blue); color: #fff; font-weight: 600; }
 html[data-theme="dark"] .dp3-chip[aria-pressed="true"] { color: #13261a; }
 .dp3-tools .dp3-chip { padding: 0 7px; }
 .dp3-tools .dp3-chip[aria-pressed="true"], html[data-theme="dark"] .dp3-tools .dp3-chip[aria-pressed="true"] { background: var(--blue-tint); color: var(--blue); }

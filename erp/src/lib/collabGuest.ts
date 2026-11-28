@@ -33,6 +33,8 @@ export interface GuestRoomInfo {
   project: { name: string; start_date: string | null; end_date: string | null }
   files: boolean
 }
+/** 방에 공유된 화이트보드 한 장 */
+export interface GuestBoard { id: string; title: string; version: number; updated_at: string; can_edit: boolean }
 export interface GuestPeople {
   u: Record<string, { name: string; title: string | null; org: string }>
   g: Record<string, { name: string; org: string | null; role: string }>
@@ -100,11 +102,11 @@ async function inviteTag(invite: string): Promise<string> {
 }
 export const INVITE_RE = /^[A-Za-z0-9_-]{43}$/
 
-async function call<T>(action: string, body: Record<string, unknown>, key?: string): Promise<T> {
+async function call<T>(action: string, body: Record<string, unknown>, key?: string, fn = 'collab'): Promise<T> {
   if (!BASE) throw new GuestError('이 주소에서는 협업방을 열 수 없습니다.', 'config', 0)
   let r: Response
   try {
-    r = await fetch(`${BASE}/functions/v1/collab`, {
+    r = await fetch(`${BASE}/functions/v1/${fn}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(ANON ? { apikey: ANON } : {}), ...(key ? { 'x-collab-key': key } : {}) },
       body: JSON.stringify({ action, ...body, origin: window.location.origin }),
@@ -144,6 +146,12 @@ export const guestApi = {
     const id = await putResumable(url, file, onProgress)
     return (await call<{ file: CollabFileRef }>('uploaded', { file_id: id }, key)).file
   },
+  boards: async (key: string) => (await call<{ boards: GuestBoard[] }>('boards', {}, key, 'collab-board')).boards,
+  boardGet: (key: string, boardId: string) => call<{ board: GuestBoard; scene: unknown; urls: Record<string, string>; live_key?: string }>('board_get', { board_id: boardId }, key, 'collab-board'),
+  boardVersion: async (key: string, boardId: string) => (await call<{ version: number }>('board_ver', { board_id: boardId }, key, 'collab-board')).version,
+  boardSave: (key: string, boardId: string, scene: unknown, version: number) => call<{ ok: boolean; version: number; scene?: unknown; updated_by_name?: string }>('board_save', { board_id: boardId, scene, version }, key, 'collab-board'),
+  /** 사진 올릴 주소 (이미 있으면 exists) */
+  boardUpload: (key: string, boardId: string, path: string, mime: string) => call<{ url?: string; exists?: boolean }>('board_upload', { board_id: boardId, path, mime }, key, 'collab-board'),
   ticket: async (key: string, fileId: string, inline = false) => (await call<{ url: string }>('ticket', { file_id: fileId, inline }, key)).url,
 }
 

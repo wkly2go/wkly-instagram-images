@@ -1,17 +1,17 @@
 /* 광고 자동 운영 (2026-11-20) — 밝은 화면 · v8 토큰 · 글자 크기는 3단계 변수만 */
 .ap { display: flex; flex-direction: column; gap: 16px; }
 .ap-note { margin: 0; color: var(--tx-sub); font-size: var(--fs-body); }
-.ap-band { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 16px; border-radius: var(--v8-r-card); background: var(--v8-tint); border: 1px solid #cfe6d8; }
+.ap-band { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 16px; border-radius: var(--v8-r-card); background: var(--v8-tint); border: 1px solid #dbdbdb; }
 .ap-band.killed { background: #fdecec; border-color: #f3c4c0; }
 .ap-band-main { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; color: var(--v8-green); }
 .ap-band.killed .ap-band-main { color: #b42318; }
-.ap-band-main b { font-size: var(--fs-sub); font-weight: 700; }
+.ap-band-main b { font-size: var(--fs-sub); font-weight: 600; }
 .ap-band-act { display: flex; gap: 8px; flex-wrap: wrap; }
 .ap-kill { color: #b42318 !important; border-color: #f3c4c0 !important; }
 .ap-cap { padding: 12px 16px; border-radius: var(--v8-r-card); background: var(--v8-card); border: 1px solid var(--v8-line); display: flex; flex-direction: column; gap: 8px; }
 .ap-cap-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; }
-.ap-cap-row b { font-size: var(--fs-title); font-weight: 800; color: var(--v8-ink); font-variant-numeric: tabular-nums; }
-.ap-cap-bar { height: 8px; border-radius: 999px; background: #eeebe4; overflow: hidden; }
+.ap-cap-row b { font-size: var(--fs-title); font-weight: 700; color: var(--v8-ink); font-variant-numeric: tabular-nums; }
+.ap-cap-bar { height: 8px; border-radius: 999px; background: #e9e9e9; overflow: hidden; }
 .ap-cap-bar i { display: block; height: 100%; background: var(--v8-green); border-radius: 999px; }
 .ap-cap-bar i.hot { background: #b42318; }
 .ap-sec { display: flex; flex-direction: column; gap: 10px; }
@@ -21,28 +21,28 @@
 .ap-card.k-scale_down { border-left-color: #9a5b00; }
 .ap-card.k-scale_up { border-left-color: var(--v8-green); }
 .ap-card-top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.ap-kind { padding: 1px 8px; border-radius: 999px; font-weight: 700; background: #f1efe9; color: var(--v8-text); }
+.ap-kind { padding: 1px 8px; border-radius: 999px; font-weight: 600; background: #ededed; color: var(--v8-text); }
 .ap-card.k-pause .ap-kind { background: #fdecec; color: #b42318; }
 .ap-card.k-scale_down .ap-kind { background: #fdf3df; color: #9a5b00; }
 .ap-card.k-scale_up .ap-kind { background: var(--v8-tint); color: var(--v8-green); }
-.ap-camp { font-size: var(--fs-sub); font-weight: 700; color: var(--v8-ink); min-width: 0; overflow-wrap: anywhere; }
-.ap-budget { font-variant-numeric: tabular-nums; font-weight: 700; }
+.ap-camp { font-size: var(--fs-sub); font-weight: 600; color: var(--v8-ink); min-width: 0; overflow-wrap: anywhere; }
+.ap-budget { font-variant-numeric: tabular-nums; font-weight: 600; }
 .ap-status { margin-left: auto; color: var(--tx-sub); }
-.ap-status.s-실행 { color: var(--v8-green); font-weight: 700; }
-.ap-status.s-실패 { color: #b42318; font-weight: 700; }
+.ap-status.s-실행 { color: var(--v8-green); font-weight: 600; }
+.ap-status.s-실패 { color: #b42318; font-weight: 600; }
 .ap-reason { margin: 0; color: var(--v8-text); }
 .ap-metrics { display: flex; flex-wrap: wrap; gap: 4px 12px; }
-.ap-result { margin: 0; padding: 6px 10px; border-radius: var(--v8-r-ctl); background: #f6f4ef; }
+.ap-result { margin: 0; padding: 6px 10px; border-radius: var(--v8-r-ctl); background: var(--v8-bg); }
 .ap-card-act { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .ap-modes { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; }
 .ap-mode { display: flex; flex-direction: column; gap: 4px; text-align: left; padding: 10px 12px; border-radius: var(--v8-r-ctl); border: 1px solid var(--v8-line); background: var(--v8-card); color: var(--v8-text); cursor: pointer; font: inherit; }
-.ap-mode b { font-size: var(--fs-sub); font-weight: 700; color: var(--v8-ink); }
+.ap-mode b { font-size: var(--fs-sub); font-weight: 600; color: var(--v8-ink); }
 .ap-mode span { color: var(--tx-sub); }
 .ap-mode.on { border-color: var(--v8-green); background: var(--v8-tint); box-shadow: inset 0 0 0 1px var(--v8-green); }
 .ap-mode.on b { color: var(--v8-green); }
 .ap-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px 14px; }
 .ap-f { display: flex; flex-direction: column; gap: 4px; }
-.ap-f > span { font-weight: 700; }
+.ap-f > span { font-weight: 600; }
 .ap-f small { color: var(--tx-sub); font-size: var(--fs-body); }
 .ap-f input, .ap-token input { width: 100%; min-height: 36px; padding: 6px 10px; border: 1px solid var(--v8-line); border-radius: var(--v8-r-ctl); background: #fff; font: inherit; color: var(--v8-ink); }
 .ap-token { display: flex; gap: 8px; }
@@ -54,30 +54,30 @@
 html[data-theme="dark"] :is(.ap-card, .ap-cap, .ap-mode, .ap-f input, .ap-token input) { background: #15291c; color: var(--ink); border-color: var(--line); }
 /* 2단계: 소재 · 효과 · 규칙 성적표 */
 .ap-ad { font-weight: 400; color: var(--tx-sub); }
-.ap-effect { margin: 0; padding: 6px 10px; border-radius: var(--v8-r-ctl); background: #f1efe9; }
+.ap-effect { margin: 0; padding: 6px 10px; border-radius: var(--v8-r-ctl); background: #ededed; }
 .ap-effect.e-좋아짐 { background: var(--v8-tint); color: var(--v8-green); }
 .ap-effect.e-나빠짐 { background: #fdecec; color: #b42318; }
-.ap-effect b { font-weight: 700; margin-right: 4px; }
+.ap-effect b { font-weight: 600; margin-right: 4px; }
 .ap-score { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; }
 .ap-score-card { padding: 12px 14px; border-radius: var(--v8-r-card); background: var(--v8-card); border: 1px solid var(--v8-line); display: flex; flex-direction: column; gap: 6px; }
 .ap-score-top { display: flex; justify-content: space-between; gap: 6px; flex-wrap: wrap; }
-.ap-score-top b { font-weight: 700; color: var(--v8-ink); }
-.ap-score-rate { font-size: var(--fs-title); font-weight: 800; color: var(--v8-ink); font-variant-numeric: tabular-nums; }
+.ap-score-top b { font-weight: 600; color: var(--v8-ink); }
+.ap-score-rate { font-size: var(--fs-title); font-weight: 700; color: var(--v8-ink); font-variant-numeric: tabular-nums; }
 .ap-score-rate .tx-sub { font-size: var(--fs-body); font-weight: 400; }
-.ap-score-bar { display: flex; gap: 2px; height: 8px; border-radius: 999px; overflow: hidden; background: #eeebe4; }
+.ap-score-bar { display: flex; gap: 2px; height: 8px; border-radius: 999px; overflow: hidden; background: #e9e9e9; }
 .ap-score-bar i { display: block; min-width: 0; }
 .ap-score-bar .g { background: var(--v8-green); }
-.ap-score-bar .s { background: #c9c4b8; }
+.ap-score-bar .s { background: #c0c0c0; }
 .ap-score-bar .b { background: #b42318; }
 .ap-score-advice { margin: 0; padding: 6px 8px; border-radius: var(--v8-r-ctl); background: #fdf3df; color: #7a4a00; }
 html[data-theme="dark"] .ap-score-card { background: #15291c; border-color: var(--line); color: var(--ink); }
-.ap-plat { padding: 1px 8px; border-radius: 999px; background: #e7f6ec; color: #03a94d; font-weight: 700; }
+.ap-plat { padding: 1px 8px; border-radius: 999px; background: #eeeeee; color: #565656; font-weight: 600; }
 .ap-token input + input { margin-left: 0; }
 /* 광고 자동화 AI 일지 (2026-11-23) */
 .ap-logs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .ap-log { border: 1px solid var(--v8-line); border-radius: var(--v8-r-card); background: var(--v8-card); }
 .ap-log-head { display: flex; align-items: baseline; gap: 10px; width: 100%; padding: 10px 14px; border: 0; background: none; text-align: left; cursor: pointer; color: var(--v8-ink); font: inherit; }
-.ap-log-head b { font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.ap-log-head b { font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .ap-log-sum { color: var(--tx-sub); min-width: 0; white-space: pre-line; }
 .ap-log.on .ap-log-head { border-bottom: 1px solid var(--v8-line); }
 .ap-log-body { padding: 12px 14px; }

@@ -15,6 +15,7 @@ import { openPipWindow, openQuickPopup, supportsPip } from './lib/pip'
 import { normalizePath, useRouter } from './lib/router'
 import type { Profile } from './lib/types'
 import Home from './pages/Home'
+import Dashboard from './pages/Dashboard'
 import Login from './pages/Login'
 import { playAlert } from './lib/sound'
 import { pokeChat, wantsAlert } from './lib/chat'
@@ -50,7 +51,8 @@ const Board = lazy(() => import('./pages/Board'))
 const Boards = lazy(() => import('./pages/Boards'))
 
 const PAGES: Record<string, React.ComponentType> = {
-  '/': Home,
+  '/': Dashboard,
+  '/my': Home,
   '/approvals': Approvals,
   '/chat': Chat,
   '/work': Team,

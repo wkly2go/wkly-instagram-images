@@ -105,9 +105,9 @@ export function DockTodo({ calendar }: { calendar?: ReactNode }) {
             )
           })}
           {mine.length > 8 && (
-            <Link to="/" className="today-row dock-todo-link">
+            <Link to="/my" className="today-row dock-todo-link">
               <span className="today-title">외 {mine.length - 8}건</span>
-              <span className="t-cap nowrap">홈에서 보기 ›</span>
+              <span className="t-cap nowrap">개인 업무에서 보기 ›</span>
             </Link>
           )}
         </div>

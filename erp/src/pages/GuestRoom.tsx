@@ -1,13 +1,16 @@
 // 외부 협업방 — 외부인 화면 /c/<초대 링크> (로드맵 2단계 · 2026-11-17 · docs/EXTERNAL_COLLAB.md)
 //  - 로그인 없음 · 인트라넷 메뉴 · 다른 화면 없음 · 휴대폰 우선 · 밝은 화면
 //  - [대화 | 자료 | 일정] · 새 글은 화면을 보고 있는 동안 8초마다 확인 (화면을 내리면 멈춤)
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { ArrowUp, CalendarDays, Download, Eye, File as FileIcon, FileImage, FileSpreadsheet, FileText, Folder, Lock, MessageSquare, Paperclip, RefreshCw, X } from 'lucide-react'
+import { ArrowUp, CalendarDays, PenLine, Download, Eye, File as FileIcon, FileImage, FileSpreadsheet, FileText, Folder, Lock, MessageSquare, Paperclip, RefreshCw, X } from 'lucide-react'
 import { forgetKey, GuestError, guestApi, INVITE_RE, inviteKnown, keysPersist, loadKeys, openInvite, rememberTitle, staffSignedIn, type GuestFile, type GuestKey, type GuestMe, type GuestPeople, type GuestRoomInfo } from '../lib/collabGuest'
 import type { CollabEvent, CollabFileRef, CollabMessage } from '../lib/types'
 import { ErrorBoundary } from '../components/ErrorBoundary'
 import './GuestRoom.css'
+
+// 화이트보드(편집기 포함)는 그 탭을 열 때만 불러옴
+const GuestBoards = lazy(() => import('../components/GuestBoards'))
 
 const POLL = 8_000
 const FULL_EVERY = 60_000
@@ -183,7 +186,7 @@ function GuestApp({ invite, badLink, roomParam }: { invite: string | null; badLi
 }
 
 // ── 방 ────────────────────────────────────────────────────────────────────
-type Tab = 'chat' | 'files' | 'events'
+type Tab = 'chat' | 'files' | 'events' | 'boards'
 interface State {
   me: GuestMe
   room: GuestRoomInfo
@@ -195,6 +198,15 @@ interface State {
 function Room({ k, others, onLost, onSwitch }: { k: GuestKey; others: boolean; onLost: (e: GuestError) => void; onSwitch: () => void }) {
   const [s, setS] = useState<State | null>(null)
   const [tab, setTab] = useState<Tab>('chat')
+  // 이 방에 공유된 화이트보드 수 (있을 때만 탭을 보임 · 들어올 때와 2분마다 화면이 보이면 다시 확인)
+  const [boardCount, setBoardCount] = useState(0)
+  useEffect(() => {
+    let alive = true
+    const check = () => { if (document.visibilityState === 'visible') guestApi.boards(k.key).then(b => alive && setBoardCount(b.length)).catch(() => undefined) }
+    check()
+    const t = window.setInterval(check, 120_000)
+    return () => { alive = false; window.clearInterval(t) }
+  }, [k.key])
   const [offline, setOffline] = useState(false)
   const last = useRef(0)
   const lastFull = useRef(0)
@@ -306,6 +318,7 @@ function Room({ k, others, onLost, onSwitch }: { k: GuestKey; others: boolean; o
           <TabBtn on={tab === 'chat'} onClick={() => setTab('chat')} icon={<MessageSquare size={13} />} label="대화" badge={tab !== 'chat' && unread ? unread : 0} />
           <TabBtn on={tab === 'files'} onClick={() => setTab('files')} icon={<Folder size={13} />} label="자료" />
           <TabBtn on={tab === 'events'} onClick={() => setTab('events')} icon={<CalendarDays size={13} />} label="일정" count={upcoming} />
+          {boardCount > 0 && <TabBtn on={tab === 'boards'} onClick={() => setTab('boards')} icon={<PenLine size={13} />} label="화이트보드" count={boardCount} />}
         </nav>
       </header>
       {offline && <div className="gr-banner">연결이 끊겼습니다 · 다시 연결하는 중…</div>}
@@ -313,6 +326,11 @@ function Room({ k, others, onLost, onSwitch }: { k: GuestKey; others: boolean; o
       {tab === 'chat' && <Chat k={k} s={s} onSent={addMine} />}
       {tab === 'files' && <Files k={k} s={s} onPosted={addMine} />}
       {tab === 'events' && <Events events={s.events} />}
+      {tab === 'boards' && (
+        <Suspense fallback={<p className="gr-empty">불러오는 중입니다.</p>}>
+          <GuestBoards k={k} me={s.me} onLost={onLost} />
+        </Suspense>
+      )}
     </div>
   )
 }
