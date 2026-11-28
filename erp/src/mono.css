@@ -523,13 +523,17 @@ html:not([data-theme="dark"]) {
   --glow-1: none; --glow-2: none; --glow-3: none; --neon-glow: none; --neon-soft: none;
   --v8-shadow: none; --v8-shadow-pop: 0 8px 24px -12px rgba(60, 66, 80, .28);
   --nm-face: #f6f7f9; --nm-bg: #eceef2;
+  /* 2026-11-28 대표 '효과 조금만 걷어내': 다 없애지 않고 두 가지만 옅게 — 카드 · 판 아래 옅은 그림자, 중요한 것(오늘 · 핵심 숫자 · 올린 카드 · 주 버튼) 아래 메뉴 색 빛 */
+  --fx-card: 0 6px 16px -12px rgba(60, 66, 80, .34);
+  --fx-key: 0 8px 22px -12px color-mix(in srgb, var(--v9-accent) 60%, transparent);
+  --nm-neon-sm: 0 5px 14px -6px color-mix(in srgb, var(--v9-accent) 55%, transparent);
 }
 html:not([data-theme="dark"]) .app-page *, html:not([data-theme="dark"]) .app-page *::before, html:not([data-theme="dark"]) .app-page *::after { text-shadow: none; }
-html:not([data-theme="dark"]) .app-page :is(.main, .web-panel, .chat-dock, .profile) { box-shadow: none !important; border: 1px solid var(--v8-line) !important; }
+html:not([data-theme="dark"]) .app-page :is(.main, .web-panel, .chat-dock, .profile) { box-shadow: var(--fx-card) !important; border: 1px solid var(--v8-line) !important; }
 html:not([data-theme="dark"]) .app-page .topbar { box-shadow: none !important; border-bottom: 1px solid var(--v8-line) !important; }
-html:not([data-theme="dark"]) :is(.box, .stat, .kpi, .card, .home-kpi, .today-card, .checkin-card, .brief, .rd-box, .pc-card, .proj-card, .pboards-item, .week-day, .div-card, .ad-pcard, .dash-kpi, .dash-card, .dash-day, .mini-cal, .home-hero, .board-wrap, .guide-card, .sales-pipe-step, .gov-tile, .ledger-kpi, .weekly-box, .form-grid, .bigcal, .explorer, .web-setting, .myproj-card, .weekly-kpis, .office-net, .site-tabs, .survey-empty, .sales-development, .sales-iv, .sales-strategy-desk, .sales-settings, .sales-bid-qualifications, .growth-empty, .growth-ai, .auto-camp, .md-library, .ai-ins, .design-add, .design-block, .sales-pipe, .section, .panel, .tile, .list-card, .rd-kpi, .ai-card, .note, details.box, .bubble) { box-shadow: none !important; border: 1px solid var(--v8-line) !important; transform: none !important; }
-html:not([data-theme="dark"]) :is(a.home-kpi, a.dash-kpi, .pc-card, .pboards-item, .proj-card, .sales-pipe-step, .gov-tile, .ai-card):hover { box-shadow: none !important; border-color: var(--v9-ink) !important; transform: none !important; }
-html:not([data-theme="dark"]) :is(.dash-kpi.is-key, .week-day.today, .dash-day.is-today) { box-shadow: none !important; border-color: var(--v9-ink) !important; }
+html:not([data-theme="dark"]) :is(.box, .stat, .kpi, .card, .home-kpi, .today-card, .checkin-card, .brief, .rd-box, .pc-card, .proj-card, .pboards-item, .week-day, .div-card, .ad-pcard, .dash-kpi, .dash-card, .dash-day, .mini-cal, .home-hero, .board-wrap, .guide-card, .sales-pipe-step, .gov-tile, .ledger-kpi, .weekly-box, .form-grid, .bigcal, .explorer, .web-setting, .myproj-card, .weekly-kpis, .office-net, .site-tabs, .survey-empty, .sales-development, .sales-iv, .sales-strategy-desk, .sales-settings, .sales-bid-qualifications, .growth-empty, .growth-ai, .auto-camp, .md-library, .ai-ins, .design-add, .design-block, .sales-pipe, .section, .panel, .tile, .list-card, .rd-kpi, .ai-card, .note, details.box, .bubble) { box-shadow: var(--fx-card) !important; border: 1px solid var(--v8-line) !important; transform: none !important; }
+html:not([data-theme="dark"]) :is(a.home-kpi, a.dash-kpi, .pc-card, .pboards-item, .proj-card, .sales-pipe-step, .gov-tile, .ai-card):hover { box-shadow: var(--fx-key) !important; border-color: var(--v9-ink) !important; transform: none !important; }
+html:not([data-theme="dark"]) :is(.dash-kpi.is-key, .week-day.today, .dash-day.is-today) { box-shadow: var(--fx-key) !important; border-color: var(--v9-ink) !important; }
 html:not([data-theme="dark"]) :is(.chip.active, .chip.on, .ads-subnav button.active, .ads-nav button.active, .tab.on, .tab.active, .view-tab.on, .count, .q2-badge, .m-dot, .view-tab-n, .bell .count, button.day.today, .week-day-h .dd, .dash-kpi-ic, .side-item.on, .ast-panel) { box-shadow: none !important; }
 html:not([data-theme="dark"]) :is(.ads-segment, .seg, .right-tabs) button:is(.active, .on) { box-shadow: none !important; border: 1px solid var(--v8-line-2) !important; }
 html:not([data-theme="dark"]) .app-page .profile .side-item.on { background: var(--nm-flat); border-color: transparent; }
