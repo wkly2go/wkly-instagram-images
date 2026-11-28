@@ -2,12 +2,12 @@
 .ve { display: flex; flex-direction: column; gap: 14px; max-width: 760px; }
 .ve-card { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
 .ve-worker { margin: 0; padding: 9px 12px; border-radius: 8px; font-size: var(--fs-body); border: 1px solid var(--v8-line); }
-.ve-worker.on { background: #eef7f1; border-color: #cfe6d8; color: var(--tx-key); }
+.ve-worker.on { background: #f2f2f2; border-color: #dbdbdb; color: var(--tx-key); }
 .ve-worker.off, .ve-worker.never { background: #fff8e6; border-color: #f0dfae; color: #6b5200; }
 .ve-note { margin: 0; color: var(--tx-sub); }
 .ve-link { border: 0; background: none; padding: 0; color: var(--tx-key); text-decoration: underline; cursor: pointer; font: inherit; }
 .ve-field { display: flex; flex-direction: column; gap: 6px; }
-.ve-field > span { font-weight: 700; font-size: var(--fs-body); }
+.ve-field > span { font-weight: 600; font-size: var(--fs-body); }
 .ve-field input, .ve-field textarea { width: 100%; }
 .ve-help { color: var(--tx-sub); font-size: var(--fs-body); }
 .ve-empty { margin: 0; color: var(--tx-sub); }
@@ -15,30 +15,30 @@
 .ve-folders { list-style: none; margin: 0; padding: 0; max-height: 280px; overflow: auto; border: 1px solid var(--v8-line); border-radius: 8px; }
 .ve-folders li + li { border-top: 1px solid var(--v8-line); }
 .ve-folders button { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; width: 100%; padding: 10px 12px; border: 0; background: none; text-align: left; cursor: pointer; font: inherit; color: var(--tx-body); min-height: 44px; }
-.ve-folders button:hover, .ve-folders button:focus-visible { background: #f3f6f4; }
-.ve-folders b { font-weight: 700; min-width: 0; overflow-wrap: anywhere; }
+.ve-folders button:hover, .ve-folders button:focus-visible { background: #f4f4f4; }
+.ve-folders b { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
 .ve-folders small { grid-column: 1; color: var(--tx-sub); overflow-wrap: anywhere; }
 .ve-folders em { grid-column: 2; grid-row: 1 / span 2; align-self: center; font-style: normal; color: var(--tx-sub); white-space: nowrap; }
 .ve-folders .ve-empty { padding: 12px; }
-.ve-picked { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border: 1px solid #cfe6d8; background: #eef7f1; border-radius: 8px; }
-.ve-picked b { display: block; font-weight: 700; overflow-wrap: anywhere; }
+.ve-picked { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border: 1px solid #dbdbdb; background: #f2f2f2; border-radius: 8px; }
+.ve-picked b { display: block; font-weight: 600; overflow-wrap: anywhere; }
 .ve-picked small { color: var(--tx-sub); overflow-wrap: anywhere; }
 .ve-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .ve-jobs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .ve-job { border: 1px solid var(--v8-line); border-radius: var(--v8-r-card); background: var(--v8-card); }
 .ve-job-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; width: 100%; padding: 11px 14px; border: 0; background: none; text-align: left; cursor: pointer; font: inherit; color: var(--tx-body); min-height: 44px; }
-.ve-job-head b { font-weight: 700; overflow-wrap: anywhere; }
+.ve-job-head b { font-weight: 600; overflow-wrap: anywhere; }
 .ve-job-head small { color: var(--tx-sub); margin-left: auto; }
-.ve-status { padding: 2px 9px; border-radius: 999px; background: #eceeed; color: var(--tx-sub); white-space: nowrap; }
-.ve-job.s-완료 .ve-status { background: #e3f3ea; color: var(--tx-key); }
-.ve-job.s-편집중 .ve-status { background: #e6effb; color: #2457b3; }
+.ve-status { padding: 2px 9px; border-radius: 999px; background: #ededed; color: var(--tx-sub); white-space: nowrap; }
+.ve-job.s-완료 .ve-status { background: #ebebeb; color: var(--tx-key); }
+.ve-job.s-편집중 .ve-status { background: var(--v9-accent-tint); color: var(--v9-accent); }
 .ve-job.s-대기 .ve-status { background: #fff3d1; color: #6b5200; }
 .ve-job.s-실패 .ve-status { background: #fde8e6; color: #a3261b; }
 .ve-job.on .ve-job-head { border-bottom: 1px solid var(--v8-line); }
 .ve-job-body { padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
 .ve-meta { margin: 0; color: var(--tx-sub); overflow-wrap: anywhere; }
 .ve-error { margin: 0; color: #a3261b; }
-.ve-video { width: min(100%, 300px); aspect-ratio: 9 / 16; background: #f1f1ee; border-radius: 10px; }
+.ve-video { width: min(100%, 300px); aspect-ratio: 9 / 16; background: #f0f0f0; border-radius: 10px; }
 @media (max-width: 640px) {
   .ve-card { padding: 12px; }
   .ve-job-head small { margin-left: 0; flex-basis: 100%; }

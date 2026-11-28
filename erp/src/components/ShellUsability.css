@@ -1,10 +1,10 @@
 /* 공통 탐색: 기존 작업 칸과 권한은 유지하며 메뉴의 읽기와 키보드 이동을 정리한다. */
-.app-page .shell-skip-link { position: fixed; top: 6px; left: 12px; z-index: 10000; transform: translateY(-150%); padding: 10px 16px; border: 2px solid var(--blue); background: var(--white); color: var(--blue); font-weight: 700; }
+.app-page .shell-skip-link { position: fixed; top: 6px; left: 12px; z-index: 10000; transform: translateY(-150%); padding: 10px 16px; border: 2px solid var(--blue); background: var(--white); color: var(--blue); font-weight: 600; }
 .app-page .shell-skip-link:focus { transform: translateY(0); }
 .app-page .main:focus-visible { outline: 2px solid var(--blue); outline-offset: -2px; }
 .app-page .profile .side-nav { display: flex; flex-direction: column; align-items: stretch; gap: 8px; padding: 6px 0 10px; }
 .app-page .side-nav-group { display: flex; flex-direction: column; min-width: 0; gap: 2px; }
-.app-page .side-group-label { display: block; padding: 3px 8px 2px; color: var(--gray); font-size: var(--fs-cap); line-height: 1.4; font-weight: 700; }
+.app-page .side-group-label { display: block; padding: 3px 8px 2px; color: var(--gray); font-size: var(--fs-cap); line-height: 1.4; font-weight: 600; }
 .app-page .profile .side-item { min-height: 34px; gap: 8px; padding: 7px 8px; border-radius: 0; font-size: var(--fs-sm); line-height: 1.4; font-weight: 400; }
 .app-page .profile .side-item > svg { flex: none; width: 17px; height: 17px; }
 .app-page .profile .side-item.on { background: var(--blue-tint); color: var(--blue); font-weight: 400; }
@@ -38,7 +38,7 @@
 .app-page .profile .side-tools { margin-top: 4px; gap: 6px; }
 .app-page .profile .side-tools .quick-btn { height: auto; min-height: 30px; padding: 5px 7px; }
 .app-page .profile details.side-brief { display: block; padding-top: 10px; }
-.app-page .profile .side-brief > summary { display: flex; align-items: center; justify-content: space-between; gap: 6px; min-height: 30px; margin: 0; padding: 3px 2px 7px; list-style: none; cursor: pointer; font-size: var(--fs-sm); font-weight: 700; }
+.app-page .profile .side-brief > summary { display: flex; align-items: center; justify-content: space-between; gap: 6px; min-height: 30px; margin: 0; padding: 3px 2px 7px; list-style: none; cursor: pointer; font-size: var(--fs-sm); font-weight: 600; }
 .app-page .profile .side-brief > summary::-webkit-details-marker { display: none; }
 .app-page .profile .side-brief > summary svg { transition: transform .15s; }
 .app-page .profile .side-brief:not([open]) > summary svg { transform: rotate(-90deg); }
@@ -47,7 +47,7 @@
 .app-page .profile .side-brief .sb-next b { white-space: normal; overflow-wrap: anywhere; line-height: 1.6; }
 .app-page .topbar .one-box { min-height: 36px; height: 36px; padding: 0 10px; border-radius: 0; cursor: pointer; text-align: left; font: inherit; gap: 8px; }
 .app-page .topbar .one-box > svg { flex-shrink: 0; }
-.app-page .topbar .one-box-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-sm); font-weight: 700; }
+.app-page .topbar .one-box-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-sm); font-weight: 600; }
 .app-page .topbar .one-box-hint { flex: none; font-size: var(--fs-cap); opacity: .8; }
 .app-page .topbar .one-box kbd { flex: none; color: inherit; border-color: currentColor; border-radius: 0; opacity: .85; font: 400 var(--fs-cap)/1.5 var(--mono); padding: 1px 5px; }
 .app-page .topbar .one-box:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; background: var(--white); color: var(--blue); }

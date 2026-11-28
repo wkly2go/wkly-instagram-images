@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { byDivision, dashKpis, nearDeadlines, teamLoad, weekAhead } from '../src/lib/dashboard.ts'
+import { byDivision, dashKpis, dayFlow, nearDeadlines, sparkOf, teamLoad, weekAhead } from '../src/lib/dashboard.ts'
 
 const T = '2026-11-28'
 const tasks = [
@@ -41,4 +41,15 @@ test('앞으로 7일 · 끝난 프로젝트는 빼고', () => {
 test('마감이 가까운 프로젝트 · 진행률', () => {
   const n = nearDeadlines(tasks, projects, T)
   assert.deepEqual(n.map(p => [p.id, p.daysLeft, p.progress, p.openTasks, p.lateTasks]), [['p4', -8, 0, 0, 0], ['p1', 3, 25, 3, 1]])
+})
+
+test('업무 흐름 · 작은 막대', () => {
+  const f = dayFlow(tasks, T, 13, 14)
+  assert.equal(f.length, 28)
+  const at = (d: string) => f.find(x => x.date === d)!
+  assert.deepEqual(at('2026-11-26'), { date: '2026-11-26', done: 1, due: 0, late: 0 })
+  assert.deepEqual(at('2026-11-20'), { date: '2026-11-20', done: 0, due: 0, late: 1 })
+  assert.deepEqual(at(T), { date: T, done: 0, due: 1, late: 0 })
+  assert.deepEqual(sparkOf([0, 2, 4]), [0, 0.5, 1])
+  assert.deepEqual(sparkOf([0, 0]), [0, 0])
 })

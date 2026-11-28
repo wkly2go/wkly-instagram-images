@@ -1,9 +1,9 @@
 /* 일위대가 (일반 인테리어 견적 화면과 따로) */
-.ilwi-table tr.ilwi-open > td { background: #f3f8f4; }
+.ilwi-table tr.ilwi-open > td { background: #f5f5f5; }
 .ilwi-table .ilwi-detail > td { padding: 0; background: #fbfaf6; }
 .ilwi-box { padding: 10px 12px 14px; display: grid; gap: 10px; }
 .ilwi-lines { background: var(--white); }
-.ilwi-lines .ilwi-sum > td { border-top: 2px solid var(--line); background: #f7f7f3; }
+.ilwi-lines .ilwi-sum > td { border-top: 2px solid var(--line); background: #f5f5f5; }
 .ilwi-add { display: grid; gap: 8px; padding: 10px 12px; border: 1px dashed var(--line); border-radius: 8px; background: var(--white); }
 .ilwi-add-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .ilwi-add-row > b { flex: none; min-width: 36px; }

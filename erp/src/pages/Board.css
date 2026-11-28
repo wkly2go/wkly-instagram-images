@@ -2,14 +2,14 @@
 .board-page { display: flex; flex-direction: column; height: calc(100dvh - 96px); min-height: 480px; gap: 8px; }
 .board-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
 .board-back { display: inline-flex; align-items: center; gap: 4px; color: var(--tx-key); text-decoration: none; white-space: nowrap; }
-.board-title { flex: 1 1 220px; min-width: 0; max-width: 420px; font-size: var(--fs-sub); font-weight: 700; border: 1px solid transparent; border-radius: 8px; padding: 4px 8px; background: transparent; color: var(--tx-title); }
+.board-title { flex: 1 1 220px; min-width: 0; max-width: 420px; font-size: var(--fs-sub); font-weight: 600; border: 1px solid transparent; border-radius: 8px; padding: 4px 8px; background: transparent; color: var(--tx-title); }
 .board-title:hover, .board-title:focus { border-color: var(--line); background: #fff; outline: none; }
 .board-state { color: var(--tx-sub); white-space: nowrap; }
-.board-state.s-저장실패 { color: #b42318; font-weight: 700; }
+.board-state.s-저장실패 { color: #b42318; font-weight: 600; }
 .board-state.s-저장중, .board-state.s-고치는중 { color: var(--tx-key); }
 .board-peers { display: inline-flex; align-items: center; gap: 4px; color: var(--tx-sub); white-space: nowrap; max-width: 320px; overflow: hidden; text-overflow: ellipsis; }
 .board-canvas { flex: 1; min-height: 0; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: #fff; position: relative; }
-.board-canvas .excalidraw { --color-primary: #1f6b4a; --color-primary-darker: #155338; --color-primary-darkest: #0f3d29; --color-primary-light: #e3f1e8; }
+.board-canvas .excalidraw { --color-primary: #454545; --color-primary-darker: #343434; --color-primary-darkest: #262626; --color-primary-light: #eaeaea; }
 .board-msg { padding: 24px; color: var(--tx-sub); }
 .board-page.board-msg { display: block; height: auto; }
 /* 넓게 보기: 보드를 연 동안 채팅 칸 · 오른쪽 일정 칸 숨김 (휴대폰은 원래 한 칸) */
@@ -23,8 +23,8 @@
 /* 프로젝트 화면 '화이트보드' 칸 */
 .pboards-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
 .pboards-item { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: #fff; color: inherit; text-decoration: none; }
-.pboards-item:hover { border-color: var(--tx-key); background: #f7faf7; }
-.pboards-item b { font-weight: 700; color: var(--tx-title); }
+.pboards-item:hover { border-color: var(--tx-key); background: #f8f8f8; }
+.pboards-item b { font-weight: 600; color: var(--tx-title); }
 .pboards-meta { color: var(--tx-sub); }
 .pboards-row { position: relative; }
 .pboards-del { position: absolute; top: 6px; right: 6px; }
@@ -32,9 +32,9 @@
 
 /* 프로젝트 화면 안에서 바로 열기 · 전체 화면 · 피그마 불러오기 (2026-11-27) */
 .board-page.embedded { height: min(76vh, 820px); min-height: 460px; margin-top: 10px; position: relative; }
-.board-page.is-full { height: 100vh; min-height: 0; padding: 10px 12px; background: var(--v8-bg, #f6f4ef); margin: 0; }
+.board-page.is-full { height: 100vh; min-height: 0; padding: 10px 12px; background: var(--v8-bg, var(--v8-bg)); margin: 0; }
 .board-page .board-full { margin-left: 2px; }
-.pboards-row.open .pboards-item { border-color: var(--tx-key); box-shadow: inset 0 0 0 1px var(--tx-key); background: #f2f8f4; }
+.pboards-row.open .pboards-item { border-color: var(--tx-key); box-shadow: inset 0 0 0 1px var(--tx-key); background: #f5f5f5; }
 .pboards-full { position: absolute; top: 6px; right: 34px; }
 .board-figma { position: absolute; right: 12px; top: 48px; z-index: 20; width: min(440px, calc(100% - 24px)); max-height: calc(100% - 64px); display: flex; flex-direction: column; gap: 8px; padding: 12px; background: #fff; border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 10px 30px rgba(20, 30, 24, 0.16); }
 .board-figma-head { display: flex; align-items: center; gap: 8px; }
@@ -43,7 +43,7 @@
 .board-figma-list li + li { border-top: 1px solid var(--line); }
 .board-figma-list label { display: grid; grid-template-columns: auto 1fr; gap: 0 8px; padding: 8px 10px; cursor: pointer; align-items: center; }
 .board-figma-list label input { grid-row: span 2; }
-.board-figma-name { font-weight: 700; color: var(--tx-title); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.board-figma-name { font-weight: 600; color: var(--tx-title); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .board-figma-meta { color: var(--tx-sub); }
 .board-figma-foot { display: flex; align-items: center; gap: 6px; }
 button.pboards-item { width: 100%; text-align: left; font: inherit; cursor: pointer; padding-right: 64px; }
@@ -54,21 +54,21 @@ button.pboards-item { padding-right: 120px; }
 .pboards-new { position: relative; }
 .pboards-pick { position: absolute; right: 0; top: calc(100% + 4px); z-index: 30; min-width: 240px; max-height: 320px; overflow: auto; display: flex; flex-direction: column; padding: 6px; background: #fff; border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 10px 24px rgba(20, 30, 24, 0.14); }
 .pboards-pick > button { display: flex; align-items: center; gap: 6px; text-align: left; padding: 8px 10px; border: 0; background: none; border-radius: 8px; cursor: pointer; font: inherit; color: var(--tx-body); }
-.pboards-pick > button:hover { background: #f2f8f4; }
+.pboards-pick > button:hover { background: #f5f5f5; }
 .pboards-pick > .pboards-meta { padding: 6px 10px; }
 .pboards-common { margin: 4px 0 0; }
-.pboards-common > .link-btn { color: var(--tx-key); font-weight: 700; background: none; border: 0; padding: 4px 0; cursor: pointer; }
+.pboards-common > .link-btn { color: var(--tx-key); font-weight: 600; background: none; border: 0; padding: 4px 0; cursor: pointer; }
 .pboards-compact { margin-top: 6px; }
 .boards-proj { margin: 10px 0 4px; }
-.boards-proj-name { display: inline-block; margin-bottom: 6px; font-weight: 700; color: var(--tx-key); text-decoration: none; }
+.boards-proj-name { display: inline-block; margin-bottom: 6px; font-weight: 600; color: var(--tx-key); text-decoration: none; }
 /* 피그마 불러오기 방식 (수정 가능한 요소 / 그림 한 장) */
-.board-figma-mode { display: grid; gap: 6px; padding: 8px 10px; border: 1px solid var(--v8-line, #e4e1d8); border-radius: 8px; }
+.board-figma-mode { display: grid; gap: 6px; padding: 8px 10px; border: 1px solid var(--v8-line, #dedede); border-radius: 8px; }
 .board-figma-mode label { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; cursor: pointer; }
 /* 피그마로 내보내기 메뉴 (2026-11-27) */
 .board-tofigma { position: relative; display: inline-flex; }
 .board-tofigma-menu { position: absolute; top: calc(100% + 4px); left: 0; z-index: 25; width: 280px; display: grid; gap: 4px; padding: 8px; background: #fff; border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 10px 30px rgba(20, 30, 24, 0.16); }
 .board-tofigma-menu button { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 2px 8px; text-align: left; padding: 8px; border: 0; border-radius: 8px; background: transparent; font: inherit; color: var(--tx-title); cursor: pointer; }
-.board-tofigma-menu button:hover { background: #f2f8f4; }
+.board-tofigma-menu button:hover { background: #f5f5f5; }
 .board-tofigma-menu button small { grid-column: 2; color: var(--tx-sub); }
 .board-tofigma-note { color: var(--tx-sub); padding: 2px 8px 0; }
 .board-figma-link { display: flex; gap: 6px; }
@@ -79,10 +79,10 @@ button.pboards-item { padding-right: 120px; }
 .board-map { position: absolute; right: 16px; top: 64px; z-index: 5; background: #fff; border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 2px 8px rgba(20, 30, 24, 0.12); padding: 5px; display: flex; flex-direction: column; gap: 3px; user-select: none; }
 .board-map.is-small .board-map-head { gap: 2px; }
 .board-map-head { display: flex; align-items: center; gap: 6px; font-size: var(--fs-body); color: var(--tx-sub); }
-.board-map-head b { font-weight: 700; color: var(--tx-title); }
+.board-map-head b { font-weight: 600; color: var(--tx-title); }
 .board-map-head button { border: 0; background: none; font: inherit; color: var(--tx-key); cursor: pointer; padding: 0 4px; }
 .board-map canvas { display: block; border-radius: 6px; cursor: pointer; touch-action: none; }
-.board-mapbtn.on { color: var(--tx-key); background: var(--v8-tint, #e7f2ec); }
+.board-mapbtn.on { color: var(--tx-key); background: var(--v8-tint, var(--v8-tint)); }
 @media (max-width: 760px) { .board-map { top: 112px; right: 8px; } }
 
 /* 페이지 줄 (2026-11-28) — 슬라이드 · A4 페이지 목록과 추가 */

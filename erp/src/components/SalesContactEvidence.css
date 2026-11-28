@@ -1,6 +1,6 @@
-.sales-contact-evidence{margin:18px 0;border-block:1px solid #cfdbd1;padding:12px 0;overflow-wrap:anywhere}
+.sales-contact-evidence{margin:18px 0;border-block:1px solid #d5d5d5;padding:12px 0;overflow-wrap:anywhere}
 .sales-contact-evidence>ol{padding-left:24px;margin:12px 0}
-.sales-contact-evidence>ol>li{padding:12px 0;border-bottom:1px solid #dce4dd}
+.sales-contact-evidence>ol>li{padding:12px 0;border-bottom:1px solid #e0e0e0}
 .sales-contact-evidence h5{font-size:var(--fs-sub);margin:0 0 8px}.sales-contact-evidence p{margin:6px 0 10px}
-.sales-contact-evidence summary{cursor:pointer;font-weight:700;padding:8px 0}.sales-contact-evidence details ul{padding-left:20px}.sales-contact-evidence details li{padding:8px 0}
-.sales-contact-evidence small{color:#596b60}
+.sales-contact-evidence summary{cursor:pointer;font-weight: 600;padding:8px 0}.sales-contact-evidence details ul{padding-left:20px}.sales-contact-evidence details li{padding:8px 0}
+.sales-contact-evidence small{color:#626262}
