@@ -276,7 +276,7 @@ html:not([data-theme="dark"]) .dash-day { background: var(--nm-face); border-col
 /* 스위치: <input type="checkbox" class="nm-switch"> — 켜면 먹색 홈 + 흰 손잡이 */
 input[type="checkbox"].nm-switch { appearance: none; -webkit-appearance: none; position: relative; width: 44px; height: 24px; margin: 0; border: 0; border-radius: 999px; background: #dfe2e8; box-shadow: var(--nm-in-sm, inset 0 1px 3px rgba(0, 0, 0, .2)); cursor: pointer; vertical-align: middle; transition: background-color .2s ease; flex: none; }
 input[type="checkbox"].nm-switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 1px 2px 5px rgba(120, 128, 148, .55); transition: transform .2s ease; }
-input[type="checkbox"].nm-switch:checked { background: var(--v9-ink, #43474f); }
+input[type="checkbox"].nm-switch:checked { background: var(--v9-ink, #5a5f69); }
 input[type="checkbox"].nm-switch:checked::after { transform: translateX(20px); }
 input[type="checkbox"].nm-switch:focus-visible { outline: 2px solid var(--v9-accent); outline-offset: 2px; }
 /* 둥근 단추(아이콘) = 손잡이처럼 */
@@ -328,7 +328,7 @@ html:not([data-theme="dark"]) {
 }
 /* 주 버튼 = 먹색 + 메뉴 색 네온 그림자 */
 html:not([data-theme="dark"]) :is(.btn-primary, .new-btn, .today-ok, .btn.primary):not(:disabled) { background: var(--v9-ink) !important; color: #fff !important; box-shadow: var(--nm-up-sm), var(--nm-neon-sm) !important; }
-html:not([data-theme="dark"]) :is(.btn-primary, .new-btn, .today-ok, .btn.primary):not(:disabled):hover { background: #565a64 !important; box-shadow: var(--nm-up-sm), var(--nm-neon) !important; }
+html:not([data-theme="dark"]) :is(.btn-primary, .new-btn, .today-ok, .btn.primary):not(:disabled):hover { background: #6b707a !important; box-shadow: var(--nm-up-sm), var(--nm-neon) !important; }
 html:not([data-theme="dark"]) .app-page .profile :is(.new-btn, .btn-primary) { box-shadow: var(--nm-up-sm), var(--nm-neon-sm) !important; }
 /* 자주 누르는 버튼 · 고른 것 = 먹색 글자, 빛만 메뉴 색 */
 html:not([data-theme="dark"]) :is(.btn-blue, .btn-yellow, .send-btn):not(:disabled) { color: var(--v9-ink); }
@@ -358,9 +358,9 @@ html:not([data-theme="dark"]) .ast-fab { box-shadow: var(--nm-up-sm), var(--nm-n
 html:not([data-theme="dark"]) :is(.badge, .tag, .pill):not(.red):not(.late):not(.bad) { background: #e1e4ea; color: var(--v9-ink); border-color: transparent; }
 html:not([data-theme="dark"]) :is(.badge.red, .badge.late, .tag.red) { background: var(--nm-face); color: #c8442f; box-shadow: var(--nm-in-sm); border-color: transparent; }
 /* 홈 그래프: 끝낸 일 = 먹색, 마감 예정 = 회색, 지연 = 산호색 하나 — 빛만 메뉴 색 */
-html:not([data-theme="dark"]) :is(.dash-flow-col i.f-done, .dash-legend i.f-done, .dash-vbar-track i.s-active) { background: linear-gradient(160deg, #5d616b, var(--v9-ink)); box-shadow: 1px 2px 5px -1px color-mix(in srgb, var(--v9-accent) 75%, transparent); }
+html:not([data-theme="dark"]) :is(.dash-flow-col i.f-done, .dash-legend i.f-done, .dash-vbar-track i.s-active) { background: linear-gradient(160deg, #737882, var(--v9-ink)); box-shadow: 1px 2px 5px -1px color-mix(in srgb, var(--v9-accent) 75%, transparent); }
 html:not([data-theme="dark"]) :is(.dash-flow-col i.f-due, .dash-legend i.f-due) { background: #b9bec9; box-shadow: none; }
-html:not([data-theme="dark"]) .dash-flow-col.is-today i.f-due { background: linear-gradient(160deg, #5d616b, var(--v9-ink)); box-shadow: 0 0 0 2px color-mix(in srgb, var(--v9-accent) 30%, transparent), 2px 4px 12px color-mix(in srgb, var(--v9-accent) 80%, transparent); }
+html:not([data-theme="dark"]) .dash-flow-col.is-today i.f-due { background: linear-gradient(160deg, #737882, var(--v9-ink)); box-shadow: 0 0 0 2px color-mix(in srgb, var(--v9-accent) 30%, transparent), 2px 4px 12px color-mix(in srgb, var(--v9-accent) 80%, transparent); }
 html:not([data-theme="dark"]) .dash-flow-col.is-today span { color: var(--v9-ink); }
 
 /* 휴대폰 (2026-11-28 대표 '휴대폰 화면도 볼록 오목 디자인으로'): 아래 메뉴 = 떠 있는 판, 고른 칸 = 눌린 홈 + 메뉴 색 빛 */
@@ -442,7 +442,7 @@ html:not([data-theme="dark"]) button.item:is(.active, .on) { box-shadow: none; b
 [data-fold-head]::after { content: ''; position: absolute; left: 4px; top: 50%; width: 7px; height: 7px; margin-top: -5px; border-right: 2px solid var(--tx-sub, #6b6d72); border-bottom: 2px solid var(--tx-sub, #6b6d72); transform: rotate(45deg); transition: transform .2s ease; }
 [data-fold-head="1"]::after { transform: rotate(-45deg); margin-top: -4px; }
 [data-fold-head]::before { display: none !important; }
-[data-fold-head]:hover::after { border-color: var(--v9-ink, #43474f); }
+[data-fold-head]:hover::after { border-color: var(--v9-ink, #5a5f69); }
 [data-card-fold="1"] > :not(:first-child), [data-card-hidden="1"] { display: none !important; }
 [data-fold-head="1"] { margin-bottom: 0 !important; border-bottom-color: transparent !important; }
 @media print { [data-card-fold="1"] > :not(:first-child), [data-card-hidden="1"] { display: revert !important; } }
@@ -450,7 +450,7 @@ html:not([data-theme="dark"]) button.item:is(.active, .on) { box-shadow: none; b
 /* 제목 줄 없는 묶음 접기(숫자 카드 줄 · 오른쪽 일정 칸): 이름 띠를 눌러 접고 폄 */
 [data-fold-group]::before { content: '▾  ' attr(data-fold-label); display: block; grid-column: 1 / -1; flex: 0 0 100%; width: 100%; padding: 6px 4px; color: var(--tx-sub, #6b6d72); font-size: var(--fs-body); font-weight: 600; cursor: pointer; user-select: none; }
 [data-fold-group="1"]::before { content: '▸  ' attr(data-fold-label); }
-[data-fold-group]:hover::before { color: var(--v9-ink, #43474f); }
+[data-fold-group]:hover::before { color: var(--v9-ink, #5a5f69); }
 [data-fold-group="1"] > * { display: none !important; }
 [data-fold-group="1"] { min-height: 0 !important; height: auto !important; }
 
@@ -499,7 +499,7 @@ html:not([data-theme="dark"]) svg.lucide, html:not([data-theme="dark"]) .app-pag
 html:not([data-theme="dark"]) .app-page .body > .chat-dock.closed { width: 44px; margin-left: -2px; }
 html:not([data-theme="dark"]) .chat-dock.closed .chat-dock-open { background: var(--v9-ink) !important; color: #fff !important; border: 0; box-shadow: 4px 5px 12px var(--nm-lo), var(--nm-neon-sm); transition: width .2s ease, padding .2s ease, box-shadow .2s ease; }
 html:not([data-theme="dark"]) .chat-dock.closed .chat-dock-open :is(svg, span, .chat-dock-vert) { color: #fff !important; }
-html:not([data-theme="dark"]) .chat-dock.closed .chat-dock-open:hover { background: #565a64 !important; width: calc(100% + 8px); box-shadow: 4px 5px 12px var(--nm-lo), var(--nm-neon); }
+html:not([data-theme="dark"]) .chat-dock.closed .chat-dock-open:hover { background: #6b707a !important; width: calc(100% + 8px); box-shadow: 4px 5px 12px var(--nm-lo), var(--nm-neon); }
 /* 펼칠 때: 왼쪽에서 늘어남 */
 @keyframes dock-grow { from { clip-path: inset(0 100% 0 0); opacity: .4; } to { clip-path: inset(0 0 0 0); opacity: 1; } }
 html:not([data-theme="dark"]) .app-page .body > .chat-dock:not(.closed) { animation: dock-grow .28s ease-out both; transform-origin: left center; border-left: 3px solid var(--v9-ink) !important; }
@@ -507,7 +507,7 @@ html:not([data-theme="dark"]) .app-page .body > .chat-dock:not(.closed) { animat
 
 /* 검정은 더 연한 오프 블랙으로 (2026-11-28 대표 '검정색은 좀더 오프색으로 변경해') */
 html:not([data-theme="dark"]) {
-  --v9-ink: #43474f; --v8-green: #43474f; --v8-green-hover: #565a64; --v8-ink: #32353c; --v8-text: #3d4047;
-  --tx-title: #32353c; --tx-body: #3d4047; --tx-key: #43474f; --green: #43474f; --blue: #43474f; --pink: #43474f; --div-ar: #43474f;
+  --v9-ink: #5a5f69; --v8-green: #5a5f69; --v8-green-hover: #6b707a; --v8-ink: #3f434a; --v8-text: #4a4e56;
+  --tx-title: #3f434a; --tx-body: #4a4e56; --tx-key: #5a5f69; --green: #5a5f69; --blue: #5a5f69; --pink: #5a5f69; --div-ar: #5a5f69;
 }
-html:not([data-theme="dark"]) .top-logo .logo-ink, html:not([data-theme="dark"]) .profile-logo img { opacity: .72; }
+html:not([data-theme="dark"]) .top-logo .logo-ink, html:not([data-theme="dark"]) .profile-logo img { opacity: .62; }
