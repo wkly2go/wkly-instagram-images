@@ -354,6 +354,7 @@ function ProjectBoard({ list, data, loading, onOpen }: { list: Project[]; data: 
       key: 'group',
       label: '그룹',
       width: 104,
+      hideTight: true,
       cell: p => (
         <select
           className="div-select"
@@ -377,6 +378,7 @@ function ProjectBoard({ list, data, loading, onOpen }: { list: Project[]; data: 
       key: 'drive',
       label: '드라이브',
       width: 64,
+      hideTight: true,
       cell: p => {
         const d = projectDriveUrl(p)
         return (
@@ -410,12 +412,13 @@ function ProjectBoard({ list, data, loading, onOpen }: { list: Project[]; data: 
     },
     { key: 'client', label: '거래처', width: 140, hideNarrow: true, cell: p => data.clients.find(c => c.id === p.client_id)?.name ?? '자체' },
     { key: 'cat', label: '구분', width: 70, hideNarrow: true, cell: p => p.category },
-    { key: 'owner', label: '담당', width: 80, cell: p => (p.owner_id ? profileName(p.owner_id) : '-') },
+    { key: 'owner', label: '담당', width: 80, hideTight: true, cell: p => (p.owner_id ? profileName(p.owner_id) : '-') },
     { key: 'period', label: '기간', width: 150, hideNarrow: true, cell: p => periodLabel(p.start_date, p.end_date) },
     {
       key: 'tasks',
       label: '할 일',
       width: 90,
+      hideTight: true,
       kind: 'num',
       cell: p => {
         const tasks = data.tasks.filter(t => t.project_id === p.id)

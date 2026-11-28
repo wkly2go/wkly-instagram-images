@@ -110,7 +110,7 @@ export default function Quick({ onClose }: { onClose?: () => void }) {
     <div className="quick q2" style={{ ['--fs-m' as string]: fs }}>
       {/* 2026-11-06 "빠른 창 디자인 세련되게": 얇은 흰 머리줄(로고 · 오늘 상태 · 글자 크기 · 고정) + 밑줄 탭 */}
       <header className="q2-top">
-        <img className="q2-logo" src={`${window.location.origin}/wkly-logo-green.svg`} alt="WKLY" width={64} height={20} />
+        <img className="q2-logo" src={`${window.location.origin}/wkly-logo-black.svg`} alt="WKLY" width={64} height={20} />
         <label className={`q2-status s-${me.today_status}`} title="오늘 상태">
           <span className="q2-dot" aria-hidden="true" />
           <select value={me.today_status} onChange={e => setStatus(e.target.value as TodayStatus)} aria-label="오늘 상태">
