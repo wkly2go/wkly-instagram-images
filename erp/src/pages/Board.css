@@ -98,5 +98,5 @@ button.pboards-item { padding-right: 120px; }
 .board-pages { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; }
 .board-pages > * { flex: none; }
 .board-pages-gap { flex: 1 1 12px !important; min-width: 12px; }
-.board-toolsbtn.on { background: var(--v9-ink, #2b2d33) !important; color: #fff !important; border-color: var(--v9-ink, #2b2d33) !important; }
+.board-toolsbtn.on { background: var(--v9-ink, #43474f) !important; color: #fff !important; border-color: var(--v9-ink, #43474f) !important; }
 .board-bar { flex-wrap: nowrap; } .board-bar .board-title { flex: 1 1 160px; }
