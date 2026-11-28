@@ -315,3 +315,65 @@ html:not([data-theme="dark"]) .app-page .profile .side-item.on > svg { backgroun
 html:not([data-theme="dark"]) .app-page .profile :is(.side-n, .side-item .count) { background: #e1e4ea !important; color: var(--v9-ink) !important; box-shadow: var(--nm-in-sm); }
 html:not([data-theme="dark"]) .app-page .profile :is(.new-btn, .btn-primary) { background: var(--v9-ink) !important; box-shadow: var(--nm-up-sm) !important; }
 html:not([data-theme="dark"]) .app-page .profile button.day.today { background: var(--v9-ink) !important; box-shadow: none; }
+
+/* ================================================================================
+   모노톤 + 네온 그림자 (2026-11-28 대표 '너무 많은 색을 사용하지마 · 전체적으로 모노톤에 그림자를 네온 번지는 효과로 · 각 메뉴마다 다른 색')
+   - 면 · 글자 · 아이콘 · 버튼은 먹색과 회색만. 메뉴 색(--v9-accent)은 **그림자가 번지는 빛**으로만 쓴다(--nm-neon / --nm-neon-sm)
+   - 색 글자 · 색 바탕 버튼 · 색 숫자 동그라미를 쓰지 않는다. 빨강은 지연 · 경고 글자에만
+   ================================================================================ */
+html:not([data-theme="dark"]) {
+  --nm-neon-sm: 4px 6px 14px -5px color-mix(in srgb, var(--v9-accent) 70%, transparent);
+  --nm-neon: 8px 12px 28px -10px color-mix(in srgb, var(--v9-accent) 75%, transparent), 0 0 36px -16px color-mix(in srgb, var(--v9-accent) 80%, transparent);
+  --v9-accent-tint: #e1e4ea; --cal-mine: var(--v9-ink); --cal-mine-tint: #e1e4ea;
+}
+/* 주 버튼 = 먹색 + 메뉴 색 네온 그림자 */
+html:not([data-theme="dark"]) :is(.btn-primary, .new-btn, .today-ok, .btn.primary):not(:disabled) { background: var(--v9-ink) !important; color: #fff !important; box-shadow: var(--nm-up-sm), var(--nm-neon-sm) !important; }
+html:not([data-theme="dark"]) :is(.btn-primary, .new-btn, .today-ok, .btn.primary):not(:disabled):hover { background: #3a3d45 !important; box-shadow: var(--nm-up-sm), var(--nm-neon) !important; }
+html:not([data-theme="dark"]) .app-page .profile :is(.new-btn, .btn-primary) { box-shadow: var(--nm-up-sm), var(--nm-neon-sm) !important; }
+/* 자주 누르는 버튼 · 고른 것 = 먹색 글자, 빛만 메뉴 색 */
+html:not([data-theme="dark"]) :is(.btn-blue, .btn-yellow, .send-btn):not(:disabled) { color: var(--v9-ink); }
+html:not([data-theme="dark"]) :is(.btn-blue, .btn-yellow, .send-btn):not(:disabled):hover { background: var(--nm-face); color: var(--v9-ink); box-shadow: var(--nm-up-sm), var(--nm-neon-sm); }
+html:not([data-theme="dark"]) :is(.btn-outline, .btn-ghost):hover:not(:disabled) { color: var(--v9-ink); box-shadow: var(--nm-up-sm), var(--nm-neon-sm); }
+html:not([data-theme="dark"]) :is(.chip.active, .chip.on, .seg button.on, .right-tabs button.on, .ads-subnav button.active, .ads-nav button.active) { color: var(--v9-ink) !important; font-weight: 600; }
+html:not([data-theme="dark"]) :is(.chip.active, .chip.on, .ads-subnav button.active) { box-shadow: var(--nm-in-sm), var(--nm-neon-sm) !important; }
+html:not([data-theme="dark"]) .ads-nav button.active { box-shadow: var(--nm-up-sm), var(--nm-neon-sm); } html:not([data-theme="dark"]) .ads-nav button.active svg { color: var(--v9-ink); }
+html:not([data-theme="dark"]) :is(.tab.on, .tab.active, .view-tab.on) { border-bottom-color: var(--v9-ink); box-shadow: 0 6px 12px -6px color-mix(in srgb, var(--v9-accent) 80%, transparent); }
+html:not([data-theme="dark"]) :is(.ads-segment, .seg, .right-tabs) button:is(.active, .on) { box-shadow: 1px 2px 5px rgba(120, 128, 148, .45), var(--nm-neon-sm) !important; }
+/* 숫자 동그라미 · 아이콘 칸 = 먹색 */
+html:not([data-theme="dark"]) :is(.bell .count, .m-dot, .q2-badge, .count, .view-tab-n) { background: var(--v9-ink) !important; color: #fff !important; box-shadow: var(--nm-neon-sm) !important; }
+html:not([data-theme="dark"]) .section-head .count, html:not([data-theme="dark"]) .side-n { background: #e1e4ea !important; color: var(--v9-ink) !important; box-shadow: var(--nm-in-sm) !important; }
+html:not([data-theme="dark"]) :is(.ins-icon, .home-kpi-tile) { background: var(--nm-face) !important; color: var(--v9-ink) !important; box-shadow: var(--nm-up-sm); }
+html:not([data-theme="dark"]) :is(.ins-icon, .home-kpi-tile) svg { color: var(--v9-ink) !important; }
+html:not([data-theme="dark"]) .dash-kpi.is-key .dash-kpi-ic { background: var(--v9-ink); color: #fff; box-shadow: var(--nm-neon-sm); }
+html:not([data-theme="dark"]) :is(.section-head, .sec-head)::before { background: var(--v9-ink); box-shadow: 3px 0 10px color-mix(in srgb, var(--v9-accent) 80%, transparent); }
+html:not([data-theme="dark"]) :is(button.day.today, .week-day.today .week-day-h .dd) { background: var(--v9-ink) !important; box-shadow: var(--nm-neon-sm) !important; }
+/* 떠 있는 것의 그림자에 메뉴 색이 번짐: 고른 메뉴 줄 · 오늘 · 가장 중요한 카드 · 올린 카드 · 본문 판 */
+html:not([data-theme="dark"]) .app-page .profile .side-item.on { box-shadow: var(--nm-up-sm), 4px 6px 14px -5px color-mix(in srgb, var(--mc, var(--v9-accent)) 70%, transparent); }
+html:not([data-theme="dark"]) :is(.dash-kpi.is-key, .week-day.today, .dash-day.is-today) { box-shadow: var(--nm-up-sm), var(--nm-neon); }
+html:not([data-theme="dark"]) :is(a.home-kpi, a.dash-kpi, .pc-card, .pboards-item, .proj-card, .sales-pipe-step, .gov-tile, .ai-card):hover { box-shadow: var(--nm-up), var(--nm-neon); }
+html:not([data-theme="dark"]) .app-page .main { box-shadow: var(--nm-up), 0 24px 60px -36px color-mix(in srgb, var(--v9-accent) 85%, transparent); }
+html:not([data-theme="dark"]) :is(.input, .select, .textarea, input, select, textarea):focus { box-shadow: var(--nm-in-sm), 0 0 0 2px color-mix(in srgb, var(--v9-accent) 30%, transparent), var(--nm-neon-sm) !important; }
+html:not([data-theme="dark"]) .ast-fab { box-shadow: var(--nm-up-sm), var(--nm-neon) !important; }
+/* 색 글자 · 색 배지 줄이기: 노랑 · 주황 · 분홍 배지는 회색, 빨강은 글자만 */
+html:not([data-theme="dark"]) :is(.badge, .tag, .pill):not(.red):not(.late):not(.bad) { background: #e1e4ea; color: var(--v9-ink); border-color: transparent; }
+html:not([data-theme="dark"]) :is(.badge.red, .badge.late, .tag.red) { background: var(--nm-face); color: #c8442f; box-shadow: var(--nm-in-sm); border-color: transparent; }
+/* 홈 그래프: 끝낸 일 = 먹색, 마감 예정 = 회색, 지연 = 산호색 하나 — 빛만 메뉴 색 */
+html:not([data-theme="dark"]) :is(.dash-flow-col i.f-done, .dash-legend i.f-done, .dash-vbar-track i.s-active) { background: linear-gradient(160deg, #4a4d57, var(--v9-ink)); box-shadow: 1px 2px 5px -1px color-mix(in srgb, var(--v9-accent) 75%, transparent); }
+html:not([data-theme="dark"]) :is(.dash-flow-col i.f-due, .dash-legend i.f-due) { background: #b9bec9; box-shadow: none; }
+html:not([data-theme="dark"]) .dash-flow-col.is-today i.f-due { background: linear-gradient(160deg, #4a4d57, var(--v9-ink)); box-shadow: 0 0 0 2px color-mix(in srgb, var(--v9-accent) 30%, transparent), 2px 4px 12px color-mix(in srgb, var(--v9-accent) 80%, transparent); }
+html:not([data-theme="dark"]) .dash-flow-col.is-today span { color: var(--v9-ink); }
+
+/* 휴대폰 (2026-11-28 대표 '휴대폰 화면도 볼록 오목 디자인으로'): 아래 메뉴 = 떠 있는 판, 고른 칸 = 눌린 홈 + 메뉴 색 빛 */
+@media (max-width: 760px) {
+  html:not([data-theme="dark"]) .m-nav { background: var(--nm-face) !important; border-top: 1px solid rgba(255, 255, 255, .8) !important; box-shadow: 0 -8px 20px -8px var(--nm-lo) !important; padding-top: 6px; }
+  html:not([data-theme="dark"]) .m-nav > a, html:not([data-theme="dark"]) .m-nav > button { color: #6b6d72 !important; border-radius: 9px; background: transparent !important; }
+  html:not([data-theme="dark"]) .m-nav > .on { background: var(--nm-face) !important; color: var(--v9-ink) !important; font-weight: 600; box-shadow: var(--nm-in-sm), var(--nm-neon-sm); }
+  html:not([data-theme="dark"]) .m-nav svg { stroke-width: 2.1; }
+  html:not([data-theme="dark"]) :is(.m-more, .m-more-grid > a) { background: var(--nm-face); border-color: rgba(255, 255, 255, .7); }
+  html:not([data-theme="dark"]) .m-more { box-shadow: 0 -12px 30px -10px var(--nm-lo); border-radius: 14px 14px 0 0; }
+  html:not([data-theme="dark"]) .m-more-grid > a { box-shadow: var(--nm-up-sm); border-radius: 10px; color: var(--v9-ink); }
+  html:not([data-theme="dark"]) .m-more-grid > a.on { box-shadow: var(--nm-in-sm), var(--nm-neon-sm); }
+  html:not([data-theme="dark"]) .app-page :is(.main, .web-panel) { border-radius: 0 !important; box-shadow: none; border: 0; background: var(--nm-bg); }
+  html:not([data-theme="dark"]) .app-page .topbar { background: var(--nm-face); box-shadow: 0 6px 14px -8px var(--nm-lo); }
+  html:not([data-theme="dark"]) :is(.box, .stat, .kpi, .card, .home-kpi, .today-card, .checkin-card, .brief, .rd-box, .pc-card, .proj-card, .dash-kpi, .dash-card) { box-shadow: 4px 4px 10px var(--nm-lo), -4px -4px 10px var(--nm-hi); }
+}
