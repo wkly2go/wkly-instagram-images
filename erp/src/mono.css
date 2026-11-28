@@ -436,3 +436,13 @@ html:not([data-theme="dark"]) .bubble { box-shadow: none; border: 1px solid var(
 html:not([data-theme="dark"]) :is(.bubble.mine, .msg.mine .bubble) { box-shadow: none; border-color: transparent; }
 html:not([data-theme="dark"]) button.item:is(.active, .on) { box-shadow: none; background: var(--nm-flat); }
 @media (max-width: 760px) { html:not([data-theme="dark"]) .m-nav > .on { box-shadow: none; background: var(--nm-flat) !important; } html:not([data-theme="dark"]) .m-more-grid > a { box-shadow: none; border: 1px solid var(--v8-line); } }
+
+/* 모든 카드 접기 (2026-11-28 · lib/foldCards.ts): 제목 줄을 누르면 펼치고 접음 · 기본 접힘 */
+[data-fold-head] { cursor: pointer; user-select: none; position: relative; padding-left: 22px !important; }
+[data-fold-head]::after { content: ''; position: absolute; left: 4px; top: 50%; width: 7px; height: 7px; margin-top: -5px; border-right: 2px solid var(--tx-sub, #6b6d72); border-bottom: 2px solid var(--tx-sub, #6b6d72); transform: rotate(45deg); transition: transform .2s ease; }
+[data-fold-head="1"]::after { transform: rotate(-45deg); margin-top: -4px; }
+[data-fold-head]::before { display: none !important; }
+[data-fold-head]:hover::after { border-color: var(--v9-ink, #2b2d33); }
+[data-card-fold="1"] > :not(:first-child), [data-card-hidden="1"] { display: none !important; }
+[data-fold-head="1"] { margin-bottom: 0 !important; border-bottom-color: transparent !important; }
+@media print { [data-card-fold="1"] > :not(:first-child), [data-card-hidden="1"] { display: revert !important; } }
