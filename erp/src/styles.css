@@ -1298,6 +1298,8 @@ html.detail-open .web-panel { max-width: 28vw; }
 .work-main .work-drawer { max-height: 46%; padding: 8px 12px; }
 .work-main .chips .chip { padding: 0 9px; font-size: var(--fs-cap); }
 @container (max-width: 640px) { .board .hide-narrow { display: none; } }
+/* 아주 좁은 칸: 번호 · 그룹 · 드라이브 · 담당 · 할 일도 숨겨 오른쪽이 잘리지 않게 (이름 · 연번 · 상태만) */
+@container (max-width: 440px) { .board .hide-tight { display: none; } .board { table-layout: fixed; width: 100%; } .board th.title, .board td.title { min-width: 0; width: auto; max-width: none; overflow: hidden; } .board td .div-select { max-width: 100%; } }
 /* 근태: 사람 목록은 넓은 화면에서 카드 격자로 (세로로 길게 늘어지지 않게) */
 .split.team-one > .pane-list .pane-head { padding: 8px 12px 4px; }
 .split.team-one > .pane-list .pane-body { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; padding: 4px 12px 10px; }

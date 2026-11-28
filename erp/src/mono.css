@@ -674,3 +674,11 @@ html:not([data-theme="dark"]) .app-page :is(.main, .web-panel, .chat-dock, .prof
 html:not([data-theme="dark"]) .chat-dock-resize::before { background: transparent !important; box-shadow: none !important; }
 html:not([data-theme="dark"]) .chat-dock-resize:hover::before, html:not([data-theme="dark"]) .chat-dock-resize:focus-visible::before, html:not([data-theme="dark"]) body.dock-resizing .chat-dock-resize::before { background: var(--v9-ink) !important; }
 html:not([data-theme="dark"]) .app-page .body > .chat-dock:not(.closed) { padding-right: 0 !important; }
+
+/* 2026-11-28 대표 '카드나 메뉴들의 박스는 경계를 확실하게': 선을 한 단계 짙게 — 카드 · 메뉴 묶음 · 버튼 · 칩 · 입력 칸 공통 */
+html:not([data-theme="dark"]) { --fx-stroke: #b3b8c2; --fx-stroke-strong: #8f95a1; }
+html:not([data-theme="dark"]) .app-page :is(.box, .stat, .kpi, .card, .div-card, .dash-card, .dash-kpi, .home-kpi, .section, .panel, .proj-group, details.box, .board-wrap, .mini-cal, .side-group, .right-kpi, .org-dept, .ad-pcard, .pc-card, .proj-card) { border: 1px solid var(--fx-stroke) !important; }
+html:not([data-theme="dark"]) .app-page :is(.div-card, .proj-group) > .board-wrap { border: 1px solid var(--fx-stroke) !important; }
+html:not([data-theme="dark"]) { --v8-line: #c4c8d0; --v8-line-2: #b3b8c2; }
+html:not([data-theme="dark"]) .app-page :is(.btn, .btn-sm, .btn-blue, .btn-ghost, .quick-btn, .icon-btn, .chip, .dock-fold, .tab, .view-tab, .web-tab) { border-color: var(--fx-stroke) !important; }
+html:not([data-theme="dark"]) .app-page :is(.ins-card, .ins-cash, .today-is, .side-brief, .mini-cal, .side-tools) { border: 1px solid var(--fx-stroke) !important; }
