@@ -682,3 +682,8 @@ html:not([data-theme="dark"]) .app-page :is(.div-card, .proj-group) > .board-wra
 html:not([data-theme="dark"]) { --v8-line: #c4c8d0; --v8-line-2: #b3b8c2; }
 html:not([data-theme="dark"]) .app-page :is(.btn, .btn-sm, .btn-blue, .btn-ghost, .quick-btn, .icon-btn, .chip, .dock-fold, .tab, .view-tab, .web-tab) { border-color: var(--fx-stroke) !important; }
 html:not([data-theme="dark"]) .app-page :is(.ins-card, .ins-cash, .today-is, .side-brief, .mini-cal, .side-tools) { border: 1px solid var(--fx-stroke) !important; }
+
+/* 2026-11-28 대표 지시 '말풍선 스트로크 넣어': every chat bubble (dock, chat page, quick window) gets a 1px stroke.
+   .quick.q2 .bubble set border:0 !important, so this rule needs higher specificity. Card bubbles stay frameless. */
+html:not([data-theme="dark"]) .bubble.bubble.bubble:not(.has-card) { border: 1px solid var(--fx-stroke) !important; }
+html:not([data-theme="dark"]) :is(.bubble.bubble.bubble.mine, .msg.mine .bubble.bubble.bubble):not(.has-card) { border-color: var(--v9-ink) !important; }
