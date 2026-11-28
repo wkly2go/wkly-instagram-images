@@ -6,7 +6,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { ExternalLink, RotateCw, Wifi } from 'lucide-react'
 import './MediaDeck.css'
 import { useApp } from '../lib/app'
-import { DEVICES, mediaInText, parseMedia, PLATFORM_LABEL, type Device, type Media } from '../lib/mediaEmbed'
+import { DEVICES, fitScale, mediaInText, parseMedia, PLATFORM_LABEL, type Device, type Media } from '../lib/mediaEmbed'
 
 const RECENT_KEY = 'wkly-media-recent'
 const DEVICE_KEY = 'wkly-media-device'
@@ -106,17 +106,18 @@ export default function MediaDeck() {
   }
 
   const spec = DEVICES[device]
-  // 2026-11-28 대표 '여백을 최대한 줄여서 꽉 찬 화면으로': the screen fills the whole space; the page inside keeps the
-  // device's width (scaled to fit) and gets as much height as the space allows
-  const scale = Math.min(1, box.w > 0 ? box.w / spec.w : 1)
-  const sw = Math.round(box.w)
-  const sh = Math.round(box.h)
+  // 2026-11-28 대표 '각 기기의 사이즈에 맞게 화면이 반응하도록': the screen keeps the chosen device's shape, as large as the
+  // space allows, and everything inside is laid out at that device's real size, then scaled down to fit
+  const scale = fitScale(device, box.w, box.h)
+  const sw = Math.round(spec.w * scale)
+  const sh = Math.round(spec.h * scale)
 
   return (
     <div className="md-deck" data-device={device}>
       <div className="md-body">
         <div className="md-area" ref={area}>
           <div className="md-screen" style={{ width: sw, height: sh }}>
+            <div className="md-inner" style={{ width: spec.w, height: spec.h, transform: `scale(${scale})` }}>
             <div className="md-status">
               <span>{time}</span>
               <span className="md-live">
@@ -128,7 +129,7 @@ export default function MediaDeck() {
               <Wifi size={12} aria-hidden="true" />
             </div>
             {now ? (
-              <div className="md-frame" style={{ width: spec.w, height: Math.max(200, (sh - 24) / scale), transform: `scale(${scale})` }}>
+              <div className="md-frame">
                 <iframe
                   key={`${now.platform}:${now.id}:${reload}`}
                   src={now.embed}
@@ -154,6 +155,7 @@ export default function MediaDeck() {
                 <MediaList title="지금 뜨는 영상" items={trend ?? []} onPlay={play} empty={trend === null ? '불러오는 중…' : '트렌드 · 밈 리서치에 영상 주소가 아직 없습니다.'} />
               </div>
             )}
+            </div>
           </div>
         </div>
         <div className="md-mid">

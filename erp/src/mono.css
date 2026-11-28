@@ -767,3 +767,9 @@ html:not([data-theme="dark"]) .ast-icon:active, html:not([data-theme="dark"]) .a
 @media (max-width: 1024px) {
   html:not([data-theme="dark"]) .ast-fab, html:not([data-theme="dark"]) .ast-fab:hover { border-radius: 50% !important; border: 1px solid var(--neon-line) !important; background: var(--neo-face) !important; box-shadow: var(--neo-raise), var(--neon-leak) !important; animation: none; }
 }
+/* 2026-11-28 대표 '아이콘의 엣지 라운드는 최소 사이즈로 만들고 백색으로 해': icons are white squares with a 4px corner */
+html:not([data-theme="dark"]) .ast-icon:is(#_, .ast-icon) { border-radius: 4px !important; background: #fff !important; }
+html:not([data-theme="dark"]) .profile .new-btn:is(#_, .new-btn) svg { border-radius: 4px; background: #fff; }
+@media (max-width: 1024px) {
+  html:not([data-theme="dark"]) .ast-fab:is(#_, .ast-fab) { border-radius: 4px !important; background: #fff !important; }
+}
