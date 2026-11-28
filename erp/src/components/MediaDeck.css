@@ -56,3 +56,31 @@
   .md-grid { grid-template-columns: 1fr 1fr; }
 }
 .md-screen { container: mdscreen / inline-size; }
+/* 꽉 찬 화면 (2026-11-28 대표 '여백을 최대한 줄여서 꽉 찬 화면으로') */
+.md-host { padding: 0; }
+.md-body { gap: 4px; padding: 4px; border-radius: 14px; }
+.md-area { display: block; min-height: 160px; }
+.md-screen { border-width: 2px; border-radius: 10px; }
+.md-status { height: 24px; padding: 0 8px; }
+.md-home { padding: 4px 6px 8px; gap: 8px; }
+.md-grid { gap: 4px; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); }
+.md-item { border-radius: 6px; }
+.md-tag { left: auto; right: 3px; bottom: 3px; padding: 1px 4px; font-size: 9px; background: rgba(0, 0, 0, .55); }
+.md-mid { gap: 6px; }
+.md-switch button { height: 22px; padding: 0 7px; }
+.md-grille { height: 16px; }
+.md-keys { height: clamp(78px, 13vh, 110px); gap: 2px; padding: 2px; border-radius: 10px; }
+.md-key { border-radius: 8px; gap: 2px; }
+.md-key.big { flex-direction: row; gap: 8px; }
+.md-cap { width: 40px; height: 40px; }
+.md-cap.sm { width: 26px; height: 26px; }
+.md-rec { width: 13px; height: 13px; }
+.md-stop { width: 11px; height: 11px; }
+/* 대표 '아래 아이콘은 크기 줄여' */
+.md-keys { height: clamp(54px, 8vh, 70px); }
+.md-cap { width: 28px; height: 28px; box-shadow: -3px -3px 6px #fff, 3px 3px 7px rgba(0, 0, 0, .14), 0 6px 14px -8px color-mix(in srgb, var(--v9-accent, #1f4dff) 55%, transparent); }
+.md-cap.sm { width: 20px; height: 20px; }
+.md-cap.sm svg { width: 11px; height: 11px; }
+.md-rec { width: 9px; height: 9px; }
+.md-stop { width: 8px; height: 8px; }
+.md-key small { font-size: 11px; }
