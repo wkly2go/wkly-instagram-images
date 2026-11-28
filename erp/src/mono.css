@@ -511,3 +511,41 @@ html:not([data-theme="dark"]) {
   --tx-title: #3f434a; --tx-body: #4a4e56; --tx-key: #5a5f69; --green: #5a5f69; --blue: #5a5f69; --pink: #5a5f69; --div-ar: #5a5f69;
 }
 html:not([data-theme="dark"]) .top-logo .logo-ink, html:not([data-theme="dark"]) .profile-logo img { opacity: .62; }
+
+/* ================================================================================
+   효과 최소화 (2026-11-28 대표 '너무 많은 효과를 제외해줘 전체 공통이야') — 앞의 볼록 · 오목 · 네온 규칙보다 우선
+   - 그림자 · 볼록 · 오목 · 번지는 빛 · 떠오름을 없앤다. 카드와 판은 평평한 면 + 옅은 선 한 줄
+   - 남기는 효과는 둘뿐: 주 버튼('새로 만들기' 등) 아래 옅은 메뉴 색 빛, 초점(키보드 · 입력 중) 테
+   ================================================================================ */
+html:not([data-theme="dark"]) {
+  --nm-up: none; --nm-up-sm: none; --nm-in: none; --nm-in-sm: none; --nm-neon: none;
+  --nm-neon-sm: 0 3px 10px -4px color-mix(in srgb, var(--v9-accent) 45%, transparent);
+  --glow-1: none; --glow-2: none; --glow-3: none; --neon-glow: none; --neon-soft: none;
+  --v8-shadow: none; --v8-shadow-pop: 0 8px 24px -12px rgba(60, 66, 80, .28);
+  --nm-face: #f6f7f9; --nm-bg: #eceef2;
+}
+html:not([data-theme="dark"]) .app-page *, html:not([data-theme="dark"]) .app-page *::before, html:not([data-theme="dark"]) .app-page *::after { text-shadow: none; }
+html:not([data-theme="dark"]) .app-page :is(.main, .web-panel, .chat-dock, .profile) { box-shadow: none !important; border: 1px solid var(--v8-line) !important; }
+html:not([data-theme="dark"]) .app-page .topbar { box-shadow: none !important; border-bottom: 1px solid var(--v8-line) !important; }
+html:not([data-theme="dark"]) :is(.box, .stat, .kpi, .card, .home-kpi, .today-card, .checkin-card, .brief, .rd-box, .pc-card, .proj-card, .pboards-item, .week-day, .div-card, .ad-pcard, .dash-kpi, .dash-card, .dash-day, .mini-cal, .home-hero, .board-wrap, .guide-card, .sales-pipe-step, .gov-tile, .ledger-kpi, .weekly-box, .form-grid, .bigcal, .explorer, .web-setting, .myproj-card, .weekly-kpis, .office-net, .site-tabs, .survey-empty, .sales-development, .sales-iv, .sales-strategy-desk, .sales-settings, .sales-bid-qualifications, .growth-empty, .growth-ai, .auto-camp, .md-library, .ai-ins, .design-add, .design-block, .sales-pipe, .section, .panel, .tile, .list-card, .rd-kpi, .ai-card, .note, details.box, .bubble) { box-shadow: none !important; border: 1px solid var(--v8-line) !important; transform: none !important; }
+html:not([data-theme="dark"]) :is(a.home-kpi, a.dash-kpi, .pc-card, .pboards-item, .proj-card, .sales-pipe-step, .gov-tile, .ai-card):hover { box-shadow: none !important; border-color: var(--v9-ink) !important; transform: none !important; }
+html:not([data-theme="dark"]) :is(.dash-kpi.is-key, .week-day.today, .dash-day.is-today) { box-shadow: none !important; border-color: var(--v9-ink) !important; }
+html:not([data-theme="dark"]) :is(.chip.active, .chip.on, .ads-subnav button.active, .ads-nav button.active, .tab.on, .tab.active, .view-tab.on, .count, .q2-badge, .m-dot, .view-tab-n, .bell .count, button.day.today, .week-day-h .dd, .dash-kpi-ic, .side-item.on, .ast-panel) { box-shadow: none !important; }
+html:not([data-theme="dark"]) :is(.ads-segment, .seg, .right-tabs) button:is(.active, .on) { box-shadow: none !important; border: 1px solid var(--v8-line-2) !important; }
+html:not([data-theme="dark"]) .app-page .profile .side-item.on { background: var(--nm-flat); border-color: transparent; }
+html:not([data-theme="dark"]) :is(.section-head, .sec-head)::before { box-shadow: none; }
+html:not([data-theme="dark"]) .dash-flow-col i, html:not([data-theme="dark"]) .dash-legend i, html:not([data-theme="dark"]) .dash-vbar-track i { box-shadow: none !important; background-image: none !important; }
+html:not([data-theme="dark"]) :is(.dash-flow-col i.f-done, .dash-legend i.f-done, .dash-vbar-track i.s-active, .dash-flow-col.is-today i.f-due) { background: var(--v9-ink) !important; }
+html:not([data-theme="dark"]) :is(.dash-flow-col i.f-late, .dash-legend i.f-late, .dash-vbar-track i.s-late) { background: #f09a86 !important; }
+html:not([data-theme="dark"]) .dash-flow-col.is-today span { font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+/* 채팅 손잡이 · 비서 단추: 그림자 없이 선으로 */
+html:not([data-theme="dark"]) .chat-dock.closed .chat-dock-open, html:not([data-theme="dark"]) .chat-dock.closed .chat-dock-open:hover { box-shadow: none !important; }
+html:not([data-theme="dark"]) .ast-fab, html:not([data-theme="dark"]) .ast-fab:hover, html:not([data-theme="dark"]) .ast-fab.on { background: var(--nm-face) !important; -webkit-backdrop-filter: none; backdrop-filter: none; border: 1px solid var(--v8-line-2) !important; box-shadow: 0 2px 8px -4px rgba(60, 66, 80, .35) !important; }
+html:not([data-theme="dark"]) .ast-panel { background: var(--nm-face); -webkit-backdrop-filter: none; backdrop-filter: none; border: 1px solid var(--v8-line-2); box-shadow: var(--v8-shadow-pop) !important; }
+html:not([data-theme="dark"]) :is(.dialog, .modal, .top-menu-pop) { box-shadow: var(--v8-shadow-pop) !important; border: 1px solid var(--v8-line-2); }
+html:not([data-theme="dark"]) .scrim { -webkit-backdrop-filter: none; backdrop-filter: none; background: rgba(60, 66, 80, .28); }
+html:not([data-theme="dark"]) .app-page .body > .chat-dock:not(.closed) { animation-duration: .18s; }
+/* 주 버튼만 옅은 빛 */
+html:not([data-theme="dark"]) :is(.btn-primary, .new-btn, .today-ok, .btn.primary):not(:disabled), html:not([data-theme="dark"]) .app-page .profile :is(.new-btn, .btn-primary) { box-shadow: var(--nm-neon-sm) !important; }
+html:not([data-theme="dark"]) :is(.btn-primary, .new-btn, .today-ok, .btn.primary):not(:disabled):hover { box-shadow: var(--nm-neon-sm) !important; }
+@media (max-width: 760px) { html:not([data-theme="dark"]) .m-nav { box-shadow: none !important; border-top: 1px solid var(--v8-line) !important; } html:not([data-theme="dark"]) .m-more { box-shadow: none; border-top: 1px solid var(--v8-line-2); } }
