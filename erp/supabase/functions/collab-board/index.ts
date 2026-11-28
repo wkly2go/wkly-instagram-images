@@ -1,6 +1,6 @@
 // 외부 협업방 › 화이트보드 서버 함수 (2026-11-27 대표 지시 '외부 협업가능하게 만들어' · 로드맵 3-4)
 //  - 외부인만 부름: 기기 열쇠(헤더 x-collab-key · 함수 collab 이 초대 링크를 바꿔 준 것) → 외부인 → 그 방 → 그 방에 공유한 보드(collab_room_boards)만
-//  - boards(목록) · board_get(그림 + 사진 받을 15분 서명 주소) · board_ver(버전) · board_save(버전이 맞을 때만) · board_upload(사진 올릴 주소)
+//  - boards(목록) · board_get(그림 + 사진 받을 15분 서명 주소 + 실시간 커서 열쇠) · board_ver(버전) · board_save(버전이 맞을 때만) · board_upload(사진 올릴 주소)
 //  - 외부인이 보낸 그림은 board.ts 규칙으로 걸러 저장 · 저장하면 같은 보드를 연 팀원 화면에 방송(board:<id>)
 //  - 팀원 쪽 공유 설정은 표 collab_room_boards 를 DB 권한(RLS)으로 바로. 외부로 아무것도 보내지 않음
 import { createClient } from 'npm:@supabase/supabase-js@2.117.3'
@@ -73,14 +73,15 @@ async function run(action: string, b: Record<string, unknown>, key: string) {
   if (!board) throw new Fail(404, '이 방에 공유되지 않은 보드입니다.', 'unshared')
   if (action === 'board_ver') return { version: board.version }
   if (action === 'board_get') {
-    const { data: row } = await sb.from('project_boards').select('scene').eq('id', board.id).single()
+    const { data: row } = await sb.from('project_boards').select('scene,live_key').eq('id', board.id).single()
     const paths = [...scenePaths(row?.scene)].slice(0, 600)
     const urls: Record<string, string> = {}
     for (let i = 0; i < paths.length; i += 100) {
       const { data: signed } = await sb.storage.from('project-boards').createSignedUrls(paths.slice(i, i + 100), 900)
       for (const s of signed ?? []) if (s.path && s.signedUrl) urls[s.path] = s.signedUrl
     }
-    return { board, scene: row?.scene ?? {}, urls }
+    // live_key: 실시간 커서 방송 주제 열쇠 (공유된 보드에 한해 · 공유를 끄면 DB 가 새로 만듦)
+    return { board, scene: row?.scene ?? {}, urls, live_key: (row?.live_key as string | undefined) ?? null }
   }
   if (!board.can_edit) throw new Fail(403, '이 보드는 보기만 할 수 있습니다.', 'readonly')
   if (action === 'board_upload') {

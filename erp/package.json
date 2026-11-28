@@ -16,7 +16,7 @@
     "test:tasks": "node --experimental-strip-types --test tests/task-worklog.test.ts tests/guides.test.ts tests/home-team-tasks.test.ts tests/drive-folder-import.test.ts tests/screen-text.test.ts",
     "test:covers": "node --experimental-strip-types --test tests/project-cover.test.ts",
     "test:kakao": "node --experimental-strip-types --test tests/kakao.test.ts",
-    "test:collab": "node --experimental-strip-types --test tests/collab-page.test.ts tests/collab-board.test.ts",
+    "test:collab": "node --experimental-strip-types --test tests/collab-page.test.ts tests/collab-board.test.ts tests/board-cursors.test.ts",
     "test:desktop": "node --experimental-strip-types --test tests/desktop-update-feed.test.ts",
     "test:sales": "node --experimental-strip-types --test tests/sales.test.ts tests/sales-inquiries.test.ts tests/sales-interviews.test.ts tests/sales-interview-forms.test.ts tests/project-timeline.test.ts tests/prospecting.test.ts tests/sales-navigation.test.ts tests/sales-db.test.mjs",
     "test:growth": "node --experimental-strip-types --test tests/growth.test.ts tests/navigation-guard.test.ts tests/contact-import.test.ts tests/growth-db.test.mjs tests/growth-ai-handler.test.ts tests/growth-ai-dashboard.test.mjs",

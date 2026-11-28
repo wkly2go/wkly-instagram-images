@@ -147,7 +147,7 @@ export const guestApi = {
     return (await call<{ file: CollabFileRef }>('uploaded', { file_id: id }, key)).file
   },
   boards: async (key: string) => (await call<{ boards: GuestBoard[] }>('boards', {}, key, 'collab-board')).boards,
-  boardGet: (key: string, boardId: string) => call<{ board: GuestBoard; scene: unknown; urls: Record<string, string> }>('board_get', { board_id: boardId }, key, 'collab-board'),
+  boardGet: (key: string, boardId: string) => call<{ board: GuestBoard; scene: unknown; urls: Record<string, string>; live_key?: string }>('board_get', { board_id: boardId }, key, 'collab-board'),
   boardVersion: async (key: string, boardId: string) => (await call<{ version: number }>('board_ver', { board_id: boardId }, key, 'collab-board')).version,
   boardSave: (key: string, boardId: string, scene: unknown, version: number) => call<{ ok: boolean; version: number; scene?: unknown; updated_by_name?: string }>('board_save', { board_id: boardId, scene, version }, key, 'collab-board'),
   /** 사진 올릴 주소 (이미 있으면 exists) */

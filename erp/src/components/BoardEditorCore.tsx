@@ -12,6 +12,7 @@ import { ArrowLeft, Copy, Download, FileDown, Figma, Map as MapIcon, Maximize2, 
 import { Link } from '../lib/router'
 import { boardFilePath, boardTitle, mergeElements, pool, saveDelay, sceneForSave, sceneSignature, type BoardElement, type BoardFileRef, type BoardScene } from '../lib/board'
 import type { BoardApi, BoardLive, BoardPeer, ProjectBoard } from '../lib/boardApi'
+import { collaboratorsOf, type CursorPeer, type CursorRoom } from '../lib/boardCursors'
 import { imagesToPdf } from '../lib/imagePdf'
 import { figmaToSkeleton, placeTexts, type FigmaContent } from '../lib/figmaToBoard'
 import { BoardMinimap, type MinimapSource } from './BoardMinimap'
@@ -40,7 +41,7 @@ const blobToDataURL = (b: Blob) => new Promise<string>((ok, no) => { const r = n
 
 export interface FigmaPicked { fileId: string; name: string; w: number; h: number; mime: string; dataURL: string }
 /** 편집기가 쓰는 것만 (팀원 = 인트라넷 API · 외부인 = 협업방 서버 함수) */
-export type BoardSource = Pick<BoardApi, 'getBoard' | 'saveBoard' | 'uploadBoardFile' | 'downloadBoardFile' | 'watchBoard' | 'renameBoard'>
+export type BoardSource = Pick<BoardApi, 'getBoard' | 'saveBoard' | 'uploadBoardFile' | 'downloadBoardFile' | 'watchBoard' | 'watchCursors' | 'renameBoard'>
 export interface BoardEditorCoreProps {
   id: string
   embedded?: boolean
@@ -78,6 +79,8 @@ export default function BoardEditorCore({ id, embedded = false, onClose, api, me
   const timer = useRef<number | null>(null)
   const saving = useRef(false)
   const live = useRef<BoardLive | null>(null)
+  const room = useRef<CursorRoom | null>(null)
+  const [cursors, setCursors] = useState<CursorPeer[]>([])
 
   // 전체 화면 (브라우저 전체 화면 · Esc 로 나옴)
   useEffect(() => {
@@ -171,6 +174,7 @@ export default function BoardEditorCore({ id, embedded = false, onClose, api, me
           version.current = r.version
           savedSig.current = sig
           live.current?.saved(r.version)
+          room.current?.saved(r.version)
           const now = sceneSignature(x.getSceneElementsIncludingDeleted() as unknown as BoardElement[])
           setState(now === sig ? '저장됨' : '고치는 중')
           return
@@ -208,6 +212,30 @@ export default function BoardEditorCore({ id, embedded = false, onClose, api, me
     live.current = l
     return () => { l.close(); live.current = null }
   }, [api, board, me.id, me.name, mergeRemote])
+
+  // 실시간 커서: 같은 보드를 연 팀원 · 외부인의 마우스 위치 (방송만 · 저장 없음) + 상대가 저장하면 바로 합침
+  const liveKey = board?.live_key
+  useEffect(() => {
+    if (!board || !liveKey || !api.watchCursors) return
+    let asked = 0
+    const r = api.watchCursors(liveKey, { id: me.id, name: me.name }, {
+      cursors: setCursors,
+      saved: p => {
+        // 남이 보낸 숫자는 믿지 않고 서버에서 다시 읽음 (2초에 한 번까지)
+        if (p.version <= version.current || Date.now() - asked < 2_000) return
+        asked = Date.now()
+        void (async () => {
+          const got = await api.getBoard(board.id).catch(() => null)
+          if (got && got.board.version > version.current) await mergeRemote(got.scene, got.board.version)
+        })()
+      },
+    })
+    room.current = r
+    return () => { r.close(); room.current = null; setCursors([]) }
+  }, [api, board, liveKey, me.id, me.name, mergeRemote])
+  useEffect(() => {
+    ex.current?.updateScene({ collaborators: collaboratorsOf(cursors) as never })
+  }, [cursors, initial])
 
   // 닫기 전 저장 안 한 것 경고 · 화면을 떠날 때 마지막 저장
   useEffect(() => {
@@ -362,14 +390,15 @@ export default function BoardEditorCore({ id, embedded = false, onClose, api, me
       {embedded ? <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>닫기</button> : <Link to="/projects">프로젝트로 돌아가기</Link>}
     </div>
   )
-  const others = peers.filter(p => p.id !== me.id)
+  // 접속 표시(팀원끼리) + 커서가 보이는 사람(팀원 · 외부인)
+  const others = [...new Map([...peers, ...cursors].filter(p => p.id !== me.id).map(p => [p.id, p.name])).entries()].map(([id, name]) => ({ id, name }))
   return (
     <div className={`board-page${embedded ? ' embedded' : ''}${full ? ' is-full' : ''}`} ref={wrap}>
       <div className="board-bar">
         {!embedded && (board?.project_id ? <Link to={`/projects?id=${board.project_id}`} className="board-back" title="프로젝트로"><ArrowLeft size={14} /> 프로젝트</Link> : <Link to="/boards" className="board-back" title="화이트보드 목록으로"><ArrowLeft size={14} /> 화이트보드</Link>)}
         <input className="board-title" value={title} maxLength={60} aria-label="보드 이름" onChange={e => setTitle(e.target.value)} onBlur={() => void rename()} onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }} disabled={!board || guest} />
         <span className={`board-state s-${state.replace(/\s/g, '')}`} role="status">{state}</span>
-        {!guest && <span className="board-peers" title={peers.map(p => p.name).join(', ')}><Users size={13} /> {others.length ? `${others.map(p => p.name).join(' · ')} 함께 보는 중` : '혼자 보는 중'}</span>}
+        {(!guest || others.length > 0) && <span className="board-peers" title={others.map(p => p.name).join(', ')}><Users size={13} /> {others.length ? `${others.map(p => p.name).join(' · ')} 함께 보는 중` : '혼자 보는 중'}</span>}
         {figma && !readOnly && <button type="button" className="btn btn-outline btn-sm" onClick={() => setFigmaOpen(true)} disabled={!board} title="피그마 주소나 연결한 파일의 프레임을 수정 가능한 요소로 불러오기"><Figma size={13} /> 피그마 불러오기</button>}
         {!guest && <span className="board-tofigma">
           <button type="button" className="btn btn-outline btn-sm" onClick={() => setToFigma(v => !v)} disabled={!board} aria-expanded={toFigma} title="보드(또는 고른 요소)를 피그마로"><Upload size={13} /> 피그마로 내보내기</button>
@@ -394,6 +423,7 @@ export default function BoardEditorCore({ id, embedded = false, onClose, api, me
             excalidrawAPI={a => { ex.current = a; void installBoardFonts() }}
             initialData={{ elements: initial.elements as never, files: Object.fromEntries(initial.files.map(f => [f.id, f])) as never, appState: { viewBackgroundColor: '#ffffff', currentItemFontFamily: BOARD_FONT.regular }, scrollToContent: true }}
             onChange={els => onChange(els)}
+            onPointerUpdate={p => room.current?.move(p.pointer.x, p.pointer.y)}
             langCode="ko-KR"
             theme="light"
             isCollaborating={others.length > 0}
