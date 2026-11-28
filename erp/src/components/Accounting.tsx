@@ -392,7 +392,7 @@ function SettingsForm({ s, onSaved }: { s: AcctSettings; onSaved: () => Promise<
           <input type="checkbox" checked={v.has_daily_workers} onChange={e => set({ has_daily_workers: e.target.checked })} /> 일용 근로자 지급
         </label>
         <label className="acct-check">
-          <input type="checkbox" checked={v.alerts} onChange={e => set({ alerts: e.target.checked })} /> 대표에게 기한 알림
+          <input type="checkbox" className="nm-switch" checked={v.alerts} onChange={e => set({ alerts: e.target.checked })} /> 대표에게 기한 알림
         </label>
       </div>
       {s.note && <p className="acct-sub">메모: {s.note}</p>}

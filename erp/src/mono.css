@@ -215,3 +215,68 @@ html:not([data-theme="dark"]) .ads-subnav button.active { background: var(--v9-a
 html:not([data-theme="dark"]) .ads-segment { gap: 2px; padding: 3px; border: 1px solid var(--v8-line-2); border-radius: 12px; background: var(--v8-bg); }
 html:not([data-theme="dark"]) .ads-segment button { border: 0 !important; border-radius: 9px; background: transparent; color: var(--tx-sub); min-height: 30px; }
 html:not([data-theme="dark"]) .ads-segment button:is(.active, .on, [aria-pressed="true"], [aria-selected="true"]) { background: var(--v9-accent) !important; color: #fff !important; box-shadow: var(--glow-1); }
+
+/* ================================================================================
+   볼록 · 오목 (뉴모피즘 · 대표가 2026-11-28 참고 그림으로 고름: 같은 회색 면 위에 밝은 빛(왼쪽 위) + 그림자(오른쪽 아래)로 떠 있거나 눌린 모양)
+   - 떠 있는 것(--nm-up): 카드 · 버튼 · 고른 탭.  눌린 것(--nm-in): 입력 칸 · 구간 고르기 홈 · 고른 칩 · 누르는 순간
+   - 면 색은 바탕과 거의 같게(--nm-face), 구분은 선 대신 빛과 그림자. 색은 메뉴 색(--v9-accent)을 작은 곳에만
+   ================================================================================ */
+html:not([data-theme="dark"]) {
+  --nm-bg: #eceef2; --nm-face: #f3f4f7; --nm-hi: rgba(255, 255, 255, .95); --nm-lo: rgba(158, 166, 184, .5);
+  --nm-up: 6px 6px 14px var(--nm-lo), -6px -6px 14px var(--nm-hi);
+  --nm-up-sm: 3px 3px 7px var(--nm-lo), -3px -3px 7px var(--nm-hi);
+  --nm-in: inset 3px 3px 6px var(--nm-lo), inset -3px -3px 6px var(--nm-hi);
+  --nm-in-sm: inset 2px 2px 4px var(--nm-lo), inset -2px -2px 4px var(--nm-hi);
+  --v8-bg: var(--nm-bg); --paper: #e4e6eb; --v8-line: #d5d8df; --v8-line-2: #c3c7d0; --v8-tint: #e1e4ea; --v8-hover: #e1e4ea;
+  --v8-shadow: var(--nm-up-sm); --yellow: #e1e4ea; --blue-tint: #e1e4ea;
+}
+html:not([data-theme="dark"]) body, html:not([data-theme="dark"]) .app-page { background: var(--nm-bg); }
+html:not([data-theme="dark"]) .app-page .topbar { background: var(--nm-bg); box-shadow: 0 6px 14px -8px var(--nm-lo); }
+html:not([data-theme="dark"]) .app-page :is(.main, .web-panel, .chat-dock) { background: var(--nm-face); border: 1px solid rgba(255, 255, 255, .7); box-shadow: var(--nm-up); }
+html:not([data-theme="dark"]) :is(.chat-dock-h, .right-sched, .right-tabs) { background: transparent; }
+/* 떠 있는 카드 */
+html:not([data-theme="dark"]) :is(.box, .stat, .kpi, .card, .home-kpi, .today-card, .checkin-card, .brief, .rd-box, .pc-card, .proj-card, .pboards-item, .week-day, .div-card, .ad-pcard, .dash-kpi, .dash-card, .mini-cal, .home-hero) { background: var(--nm-face) !important; border: 1px solid rgba(255, 255, 255, .7) !important; box-shadow: var(--nm-up-sm); }
+html:not([data-theme="dark"]) :is(.dash-kpi-l, .dash-kpi b, .dash-spark) { background: transparent; }
+html:not([data-theme="dark"]) .dash-body { background: var(--nm-face); border: 0; box-shadow: var(--nm-in-sm); }
+html:not([data-theme="dark"]) :is(a.home-kpi, a.dash-kpi, .pc-card, .pboards-item, .proj-card):hover { box-shadow: var(--nm-up); border-color: rgba(255, 255, 255, .7) !important; }
+html:not([data-theme="dark"]) :is(.dash-kpi.is-key, .week-day.today) { border-color: rgba(255, 255, 255, .7) !important; box-shadow: var(--nm-up-sm), 8px 10px 26px -10px color-mix(in srgb, var(--v9-accent) 55%, transparent); }
+/* 버튼: 떠 있다가 누르면 들어감 */
+html:not([data-theme="dark"]) :is(.btn, .icon-btn, .quick-btn, .chip, .ads-nav button.active, .dock-fold) { box-shadow: var(--nm-up-sm); border-color: rgba(255, 255, 255, .7) !important; }
+html:not([data-theme="dark"]) :is(.btn-outline, .btn-ghost, .icon-btn, .quick-btn, .chip):not(.active):not(.on) { background: var(--nm-face); color: var(--v9-ink); }
+html:not([data-theme="dark"]) :is(.btn, .icon-btn, .quick-btn, .chip):active { box-shadow: var(--nm-in-sm); transform: none; }
+html:not([data-theme="dark"]) :is(.btn-outline, .btn-ghost):hover:not(:disabled) { background: var(--nm-face); color: var(--v9-accent); }
+html:not([data-theme="dark"]) :is(.btn-primary, .new-btn, .today-ok, .btn.primary):not(:disabled) { box-shadow: var(--nm-up-sm), 4px 6px 16px -6px color-mix(in srgb, var(--v9-accent) 60%, transparent); }
+html:not([data-theme="dark"]) :is(.btn-blue, .btn-yellow, .send-btn):not(:disabled) { background: var(--nm-face); color: var(--v9-accent); }
+html:not([data-theme="dark"]) :is(.btn-blue, .btn-yellow, .send-btn):not(:disabled):hover { box-shadow: var(--nm-up-sm), 4px 6px 16px -6px color-mix(in srgb, var(--v9-accent) 60%, transparent); }
+/* 고른 것 · 입력 = 눌린 모양 */
+html:not([data-theme="dark"]) :is(.chip.active, .chip.on, .seg button.on, .right-tabs button.on, .ads-subnav button.active) { background: var(--nm-face) !important; box-shadow: var(--nm-in-sm) !important; color: var(--v9-accent) !important; border-color: transparent !important; }
+html:not([data-theme="dark"]) :is(.input, .select, .textarea, input[type="text"], input[type="search"], input[type="date"], input[type="number"], input[type="password"], input[type="email"], select, textarea) { background: var(--nm-face); border-color: transparent !important; box-shadow: var(--nm-in-sm); }
+html:not([data-theme="dark"]) :is(.ads-nav, .ads-segment) { background: var(--nm-face); border-color: transparent; box-shadow: var(--nm-in-sm); }
+html:not([data-theme="dark"]) .ads-nav button.active { background: var(--nm-face); }
+html:not([data-theme="dark"]) .ads-segment button:is(.active, .on) { box-shadow: var(--nm-up-sm), 3px 4px 10px -4px color-mix(in srgb, var(--v9-accent) 60%, transparent); }
+/* 왼쪽 메뉴 */
+html:not([data-theme="dark"]) .app-page .profile .side-item > svg { background: var(--nm-face); box-shadow: var(--nm-up-sm); }
+html:not([data-theme="dark"]) .app-page .profile .side-item.on { background: var(--nm-face); border-color: transparent; box-shadow: var(--nm-in-sm); }
+html:not([data-theme="dark"]) .app-page .profile .side-item.on > svg { background: var(--mc); box-shadow: 3px 4px 10px -3px color-mix(in srgb, var(--mc) 60%, transparent); }
+/* 표 · 줄 · 막대 */
+html:not([data-theme="dark"]) :is(.table, .board, .pay-grid) thead th { background: transparent; }
+html:not([data-theme="dark"]) :is(.table, .board) tbody tr:hover { background: #e4e7ed; }
+html:not([data-theme="dark"]) :is(.week-item, .dash-ev, .dash-d) { background: var(--nm-face); box-shadow: var(--nm-in-sm); }
+html:not([data-theme="dark"]) :is(.meter, .pc-bar, .dash-prog) { background: var(--nm-face); box-shadow: var(--nm-in-sm); }
+html:not([data-theme="dark"]) :is(.dialog, .modal, .top-menu-pop) { background: var(--nm-face); border: 1px solid rgba(255, 255, 255, .7); box-shadow: 14px 14px 34px var(--nm-lo), -10px -10px 28px var(--nm-hi); }
+html:not([data-theme="dark"]) .scrim { background: rgba(232, 234, 239, .6); }
+
+/* 흰 패널 참고 그림(2026-11-28 '이것도 넣어'): 구간 고르기 = 회색 홈 + 흰 알약 · 스위치 · 둥근 손잡이 */
+html:not([data-theme="dark"]) :is(.ads-segment, .seg, .right-tabs) { display: inline-flex; gap: 2px; padding: 3px; border: 0; border-radius: 999px; background: #dfe2e8; box-shadow: var(--nm-in-sm); }
+html:not([data-theme="dark"]) .right-tabs { display: flex; }
+html:not([data-theme="dark"]) :is(.ads-segment, .seg, .right-tabs) button { border: 0 !important; border-radius: 999px; background: transparent !important; color: var(--tx-sub) !important; box-shadow: none !important; }
+html:not([data-theme="dark"]) :is(.ads-segment, .seg, .right-tabs) button:is(.active, .on) { background: #fff !important; color: var(--v9-ink) !important; font-weight: 600; box-shadow: 1px 2px 5px rgba(120, 128, 148, .45) !important; }
+html:not([data-theme="dark"]) .dash-day { background: var(--nm-face); border-color: rgba(255, 255, 255, .7); box-shadow: var(--nm-up-sm); }
+/* 스위치: <input type="checkbox" class="nm-switch"> — 켜면 먹색 홈 + 흰 손잡이 */
+input[type="checkbox"].nm-switch { appearance: none; -webkit-appearance: none; position: relative; width: 44px; height: 24px; margin: 0; border: 0; border-radius: 999px; background: #dfe2e8; box-shadow: var(--nm-in-sm, inset 0 1px 3px rgba(0, 0, 0, .2)); cursor: pointer; vertical-align: middle; transition: background-color .2s ease; flex: none; }
+input[type="checkbox"].nm-switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 1px 2px 5px rgba(120, 128, 148, .55); transition: transform .2s ease; }
+input[type="checkbox"].nm-switch:checked { background: var(--v9-ink, #2b2d33); }
+input[type="checkbox"].nm-switch:checked::after { transform: translateX(20px); }
+input[type="checkbox"].nm-switch:focus-visible { outline: 2px solid var(--v9-accent); outline-offset: 2px; }
+/* 둥근 단추(아이콘) = 손잡이처럼 */
+html:not([data-theme="dark"]) .icon-btn { border-radius: 50%; }

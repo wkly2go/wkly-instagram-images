@@ -359,7 +359,7 @@ function AgentEditor({ agent, conf, onClose, onSaved }: { agent?: Profile; conf?
       </Field>
       {agent && (
         <label className="row gap-6 t-small">
-          <input type="checkbox" checked={f.active} onChange={e => setF({ ...f, active: e.target.checked })} /> 사용 (끄면 채팅 · 지시 · 예약이 멈춤)
+          <input type="checkbox" className="nm-switch" checked={f.active} onChange={e => setF({ ...f, active: e.target.checked })} /> 사용 (끄면 채팅 · 지시 · 예약이 멈춤)
         </label>
       )}
       <span className="t-cap">AI 는 메일을 보내지 않고, 결제 · 금액 · 개인정보 규칙은 지침으로 바꿀 수 없습니다.</span>
