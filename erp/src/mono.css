@@ -377,3 +377,24 @@ html:not([data-theme="dark"]) .dash-flow-col.is-today span { color: var(--v9-ink
   html:not([data-theme="dark"]) .app-page .topbar { background: var(--nm-face); box-shadow: 0 6px 14px -8px var(--nm-lo); }
   html:not([data-theme="dark"]) :is(.box, .stat, .kpi, .card, .home-kpi, .today-card, .checkin-card, .brief, .rd-box, .pc-card, .proj-card, .dash-kpi, .dash-card) { box-shadow: 4px 4px 10px var(--nm-lo), -4px -4px 10px var(--nm-hi); }
 }
+
+/* 2026-11-28 대표 '아이콘 오목으로 · 채팅 접힌 칸은 높이를 내려 왼쪽에서 돌출 · 비서는 양각 유리' */
+/* 왼쪽 메뉴 아이콘 = 오목(눌린 홈) */
+html:not([data-theme="dark"]) .app-page .profile .side-item > svg { background: var(--nm-face); box-shadow: var(--nm-in-sm); }
+html:not([data-theme="dark"]) .app-page .profile .side-item.on > svg { background: var(--nm-face); color: var(--v9-ink); box-shadow: var(--nm-in-sm), 0 0 0 1.5px color-mix(in srgb, var(--mc, var(--v9-accent)) 45%, transparent); }
+/* 접힌 채팅 칸 = 왼쪽 판에서 튀어나온 짧은 손잡이 */
+html:not([data-theme="dark"]) .app-page .body > .chat-dock.closed { align-self: flex-start; width: 46px; margin: 64px 0 0 -4px; padding: 0; background: transparent; border: 0 !important; box-shadow: none; border-radius: 0 !important; overflow: visible; }
+html:not([data-theme="dark"]) .chat-dock.closed .chat-dock-open { flex: none; width: 100%; gap: 6px; padding: 12px 0 14px; background: var(--nm-face); color: var(--v9-ink); border: 1px solid rgba(255, 255, 255, .8); border-left: 0; border-radius: 0 12px 12px 0; box-shadow: 5px 5px 12px var(--nm-lo), 2px -4px 10px var(--nm-hi); }
+html:not([data-theme="dark"]) .chat-dock.closed .chat-dock-open:hover { background: var(--nm-face); box-shadow: 5px 5px 12px var(--nm-lo), 2px -4px 10px var(--nm-hi), var(--nm-neon-sm); }
+html:not([data-theme="dark"]) .chat-dock.closed .chat-dock-open svg { width: 18px; height: 18px; color: var(--v9-ink); }
+/* 비서 단추 = 양각 유리 */
+html:not([data-theme="dark"]) .ast-fab, html:not([data-theme="dark"]) .ast-fab:hover, html:not([data-theme="dark"]) .ast-fab.on { background: linear-gradient(145deg, rgba(255, 255, 255, .72), rgba(255, 255, 255, .28)) !important; color: var(--v9-ink) !important; border: 1px solid rgba(255, 255, 255, .9) !important; border-radius: 14px !important; -webkit-backdrop-filter: blur(14px) saturate(170%); backdrop-filter: blur(14px) saturate(170%); box-shadow: 6px 8px 18px rgba(120, 128, 148, .45), -4px -4px 12px rgba(255, 255, 255, .9), inset 1px 1px 0 rgba(255, 255, 255, .9), inset -1px -1px 0 rgba(160, 168, 186, .25), var(--nm-neon-sm) !important; font-weight: 600; }
+html:not([data-theme="dark"]) .ast-fab svg { color: var(--v9-ink); }
+html:not([data-theme="dark"]) .ast-panel { background: linear-gradient(145deg, rgba(255, 255, 255, .82), rgba(243, 244, 247, .7)); -webkit-backdrop-filter: blur(18px) saturate(170%); backdrop-filter: blur(18px) saturate(170%); border: 1px solid rgba(255, 255, 255, .9); box-shadow: 14px 16px 36px var(--nm-lo), -8px -8px 22px var(--nm-hi); border-radius: 14px; }
+/* 채팅: 방 목록은 눌린 홈, 고른 방은 떠 있는 줄, 입력 칸은 눌린 홈, 말풍선은 떠 있음 */
+html:not([data-theme="dark"]) .pane-list.chat-list { background: var(--nm-face); box-shadow: inset -3px 0 6px -3px var(--nm-lo); border-right: 0; }
+html:not([data-theme="dark"]) :is(.pane-list.chat-list, .chat-dock-in) :is(a.item, button.item, .q2-room) { background: transparent; border-color: transparent; border-radius: 9px; }
+html:not([data-theme="dark"]) :is(.pane-list.chat-list, .chat-dock-in) :is(a.item, button.item, .q2-room):is(.active, .on) { background: var(--nm-face); box-shadow: var(--nm-up-sm), var(--nm-neon-sm); border-left-color: transparent; }
+html:not([data-theme="dark"]) :is(.quick-composer, .chat-composer, .composer) { background: var(--nm-face); border: 0; border-radius: 12px; box-shadow: var(--nm-in-sm); }
+html:not([data-theme="dark"]) :is(.quick-composer, .chat-composer, .composer) :is(textarea, input[type="text"]) { background: transparent; box-shadow: none !important; }
+html:not([data-theme="dark"]) .chat-day { background: var(--nm-face); box-shadow: var(--nm-in-sm); border-radius: 7px; }
